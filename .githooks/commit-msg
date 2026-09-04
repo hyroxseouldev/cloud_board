@@ -1,0 +1,7 @@
+#!/bin/sh
+
+TRAILER='Co-authored-by: Codex <noreply@openai.com>'
+
+if ! grep -Fqx "$TRAILER" "$1"; then
+  printf '\n%s\n' "$TRAILER" >> "$1"
+fi
