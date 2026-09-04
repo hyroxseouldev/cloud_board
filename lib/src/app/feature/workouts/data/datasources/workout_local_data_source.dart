@@ -17,17 +17,37 @@ class WorkoutLocalDataSource {
     if (raw == null || raw.isEmpty) return const [];
     final value = jsonDecode(raw) as Map<String, dynamic>;
     return (value['workouts'] as List<dynamic>? ?? const [])
-        .map(
-          (item) =>
-              WorkoutModel.fromJson(Map<String, dynamic>.from(item as Map)),
-        )
+        .map((item) => WorkoutModel.fromJson(_upgradeLegacyWorkout(item)))
         .toList();
+  }
+
+  Map<String, dynamic> _upgradeLegacyWorkout(dynamic item) {
+    final workout = Map<String, dynamic>.from(item as Map);
+    final updatedAt = workout['updatedAt'] ?? 0;
+    workout
+      ..putIfAbsent('ownerId', () => '')
+      ..putIfAbsent(
+        'author',
+        () => <String, dynamic>{'id': '', 'displayName': '', 'photoUrl': null},
+      )
+      ..putIfAbsent('createdAt', () => updatedAt);
+    workout['modules'] = (workout['modules'] as List<dynamic>? ?? const []).map(
+      (module) {
+        final value = Map<String, dynamic>.from(module as Map);
+        value.putIfAbsent('imageUrl', () => value['imageBase64'] ?? '');
+        value.remove('imageBase64');
+        return value;
+      },
+    ).toList();
+    return workout;
   }
 
   Future<void> save(List<WorkoutModel> workouts) => _preferences.setString(
     _storageKey,
     jsonEncode({'workouts': workouts.map((item) => item.toJson()).toList()}),
   );
+
+  Future<void> clear() => _preferences.remove(_storageKey);
 }
 
 @riverpod

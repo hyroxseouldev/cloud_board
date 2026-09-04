@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -61,16 +62,25 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
             backgroundColor: Colors.black,
             body: Stack(
               children: [
-                if (module.imageBase64.isNotEmpty)
+                if (module.imageSource.isNotEmpty)
                   Positioned.fill(
-                    child: Image.memory(
-                      base64Decode(module.imageBase64),
-                      fit: module.coverImage ? BoxFit.cover : BoxFit.contain,
-                    ),
+                    child: module.imageSource.startsWith('http')
+                        ? CachedNetworkImage(
+                            imageUrl: module.imageSource,
+                            fit: module.coverImage
+                                ? BoxFit.cover
+                                : BoxFit.contain,
+                          )
+                        : Image.memory(
+                            base64Decode(module.imageSource),
+                            fit: module.coverImage
+                                ? BoxFit.cover
+                                : BoxFit.contain,
+                          ),
                   ),
                 Positioned.fill(
                   child: ColoredBox(
-                    color: module.imageBase64.isEmpty
+                    color: module.imageSource.isEmpty
                         ? Colors.black
                         : Colors.black.withValues(alpha: .28),
                   ),

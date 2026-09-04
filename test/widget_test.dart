@@ -4,12 +4,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('workout duration expands work and rest sets', () {
-    final workout = Workout.empty('workout').copyWith(
-      modules: [
-        WorkoutModule.empty('module')
-            .copyWith(workSeconds: 60, sets: 3, restSeconds: 20),
-      ],
-    );
+    final workout =
+        Workout.empty(
+          'workout',
+          const WorkoutAuthor(
+            id: 'user',
+            displayName: 'Tester',
+            photoUrl: null,
+          ),
+        ).copyWith(
+          modules: [
+            WorkoutModule.empty('module')
+                .copyWith(workSeconds: 60, sets: 3, restSeconds: 20),
+          ],
+        );
     expect(workoutDuration(workout), 220);
   });
 }

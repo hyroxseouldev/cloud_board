@@ -48,4 +48,4 @@ final class WorkoutRepositoryProvider
   }
 }
 
-String _$workoutRepositoryHash() => r'0ff5200861e29c731f6ef0d54ffb30a2ab05bc37';
+String _$workoutRepositoryHash() => r'cc16d01e64c8a7a36dfd4e5cabbe2963e5fc3b57';

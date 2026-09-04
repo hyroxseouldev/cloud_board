@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/workout.dart';
 import '../../domain/usecases/workout_actions.dart';
 
@@ -10,8 +11,11 @@ part 'workout_controller.g.dart';
 @Riverpod(keepAlive: true)
 class WorkoutController extends _$WorkoutController {
   @override
-  Future<List<Workout>> build() async =>
-      (await ref.watch(loadWorkoutsProvider.future))();
+  Future<List<Workout>> build() async {
+    final user = await ref.watch(authStateProvider.future);
+    if (user == null) return const [];
+    return (await ref.watch(loadWorkoutsProvider.future))();
+  }
 
   Future<void> save(Workout workout) async {
     state = const AsyncLoading();
@@ -34,6 +38,8 @@ class WorkoutController extends _$WorkoutController {
     workout.copyWith(
       id: newId,
       name: '${workout.name} 복사',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
       modules: workout.modules
           .map((item) => item.copyWith(id: '${item.id}c'))
           .toList(),

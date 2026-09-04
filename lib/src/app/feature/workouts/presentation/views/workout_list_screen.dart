@@ -161,7 +161,9 @@ class _WorkoutCard extends ConsumerWidget {
         ),
         const SizedBox(height: 3),
         Text(
-          '${workout.modules.length}개 슬라이드 · ${durationLabel(workoutDuration(workout))}',
+          '${workout.modules.length}개 슬라이드 · '
+          '${durationLabel(workoutDuration(workout))} · '
+          '작성자 ${workout.author.displayName}',
           style: const TextStyle(color: XonColors.muted),
         ),
         const SizedBox(height: 14),

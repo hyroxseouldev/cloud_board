@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/workout.dart';
 import '../controllers/workout_controller.dart';
 import 'workout_list_screen.dart';
@@ -17,10 +18,18 @@ class WorkoutEditorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final values = ref.watch(workoutControllerProvider);
+    final user = ref.watch(authStateProvider).value;
     return values.when(
       data: (items) {
-        final workout = workoutId == 'new'
-            ? Workout.empty(newId())
+        final workout = workoutId == 'new' && user != null
+            ? Workout.empty(
+                newId(),
+                WorkoutAuthor(
+                  id: user.id,
+                  displayName: user.displayName,
+                  photoUrl: user.photoUrl,
+                ),
+              )
             : items.where((item) => item.id == workoutId).firstOrNull;
         return workout == null
             ? const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')))
@@ -352,7 +361,7 @@ class _ModuleEditor extends HookWidget {
                           if (file != null) {
                             onChange(
                               module.copyWith(
-                                imageBase64: base64Encode(
+                                imageSource: base64Encode(
                                   await file.readAsBytes(),
                                 ),
                               ),
@@ -361,13 +370,13 @@ class _ModuleEditor extends HookWidget {
                         },
                         icon: const Icon(Icons.image_outlined),
                         label: Text(
-                          module.imageBase64.isEmpty ? '배경 이미지' : '이미지 변경',
+                          module.imageSource.isEmpty ? '배경 이미지' : '이미지 변경',
                         ),
                       ),
-                      if (module.imageBase64.isNotEmpty)
+                      if (module.imageSource.isNotEmpty)
                         IconButton(
                           onPressed: () =>
-                              onChange(module.copyWith(imageBase64: '')),
+                              onChange(module.copyWith(imageSource: '')),
                           icon: const Icon(Icons.delete_outline),
                         ),
                     ],
