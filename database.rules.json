@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        "activeSession": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['id', 'ownerId', 'workoutSnapshot', 'status', 'stepIndex', 'remainingMs', 'anchorServerMs', 'revision', 'updatedByDeviceId']) && newData.child('ownerId').val() === auth.uid && newData.child('status').isString() && (newData.child('status').val() === 'playing' || newData.child('status').val() === 'paused' || newData.child('status').val() === 'completed') && newData.child('stepIndex').isNumber() && newData.child('stepIndex').val() >= 0 && newData.child('remainingMs').isNumber() && newData.child('remainingMs').val() >= 0 && newData.child('anchorServerMs').isNumber() && newData.child('revision').isNumber()"
+        }
+      }
+    },
+    ".read": false,
+    ".write": false
+  }
+}

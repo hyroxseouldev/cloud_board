@@ -16,7 +16,8 @@ final class PlayerControllerProvider
     extends $NotifierProvider<PlayerController, PlayerState> {
   PlayerControllerProvider._({
     required PlayerControllerFamily super.from,
-    required (Workout, {int startModule}) super.argument,
+    required (Workout, {int startModule, String? sessionId, bool canControl})
+    super.argument,
   }) : super(
          retry: null,
          name: r'playerControllerProvider',
@@ -58,7 +59,7 @@ final class PlayerControllerProvider
   }
 }
 
-String _$playerControllerHash() => r'd78f43c0cfcd521bb6dd66bfad303befbc7bda49';
+String _$playerControllerHash() => r'f16d33cc6bf64e1c2324db9943a7d22d65c5be51';
 
 final class PlayerControllerFamily extends $Family
     with
@@ -67,7 +68,7 @@ final class PlayerControllerFamily extends $Family
           PlayerState,
           PlayerState,
           PlayerState,
-          (Workout, {int startModule})
+          (Workout, {int startModule, String? sessionId, bool canControl})
         > {
   PlayerControllerFamily._()
     : super(
@@ -78,22 +79,40 @@ final class PlayerControllerFamily extends $Family
         isAutoDispose: true,
       );
 
-  PlayerControllerProvider call(Workout workout, {int startModule = 0}) =>
-      PlayerControllerProvider._(
-        argument: (workout, startModule: startModule),
-        from: this,
-      );
+  PlayerControllerProvider call(
+    Workout workout, {
+    int startModule = 0,
+    String? sessionId,
+    bool canControl = true,
+  }) => PlayerControllerProvider._(
+    argument: (
+      workout,
+      startModule: startModule,
+      sessionId: sessionId,
+      canControl: canControl,
+    ),
+    from: this,
+  );
 
   @override
   String toString() => r'playerControllerProvider';
 }
 
 abstract class _$PlayerController extends $Notifier<PlayerState> {
-  late final _$args = ref.$arg as (Workout, {int startModule});
+  late final _$args =
+      ref.$arg
+          as (Workout, {int startModule, String? sessionId, bool canControl});
   Workout get workout => _$args.$1;
   int get startModule => _$args.startModule;
+  String? get sessionId => _$args.sessionId;
+  bool get canControl => _$args.canControl;
 
-  PlayerState build(Workout workout, {int startModule = 0});
+  PlayerState build(
+    Workout workout, {
+    int startModule = 0,
+    String? sessionId,
+    bool canControl = true,
+  });
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
@@ -108,7 +127,12 @@ abstract class _$PlayerController extends $Notifier<PlayerState> {
             >;
     return element.handleCreate(
       ref,
-      () => build(_$args.$1, startModule: _$args.startModule),
+      () => build(
+        _$args.$1,
+        startModule: _$args.startModule,
+        sessionId: _$args.sessionId,
+        canControl: _$args.canControl,
+      ),
     );
   }
 }

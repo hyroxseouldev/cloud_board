@@ -23,7 +23,7 @@ abstract class Workout with _$Workout {
     author: author,
     name: '',
     folder: '',
-    brandL: 'XON TRAINING',
+    brandL: 'CloudBoard',
     brandR: '',
     modules: const [],
     createdAt: DateTime.now(),

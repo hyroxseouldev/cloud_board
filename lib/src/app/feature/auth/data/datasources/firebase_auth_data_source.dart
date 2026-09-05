@@ -8,7 +8,20 @@ class FirebaseAuthDataSource {
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
 
-  Stream<User?> authStateChanges() => _auth.authStateChanges();
+  Stream<User?> authStateChanges() => _auth.userChanges();
+
+  User? get currentUser => _auth.currentUser;
+
+  Future<void> updateProfile({
+    required String displayName,
+    required String? photoUrl,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요합니다.');
+    await user.updateDisplayName(displayName);
+    await user.updatePhotoURL(photoUrl);
+    await user.reload();
+  }
 
   Future<UserCredential> signInWithGoogle() async {
     if (kIsWeb) {

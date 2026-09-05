@@ -13,17 +13,21 @@ Stream<AuthUser?> authState(Ref ref) =>
 @Riverpod(keepAlive: true)
 class AuthController extends _$AuthController {
   @override
-  AsyncValue<void> build() => const AsyncData(null);
+  AsyncValue<String?> build() => const AsyncData(null);
 
   Future<void> signInWithGoogle() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(signInWithGoogleProvider).call(),
-    );
+    state = await AsyncValue.guard(() async {
+      await ref.read(signInWithGoogleProvider).call();
+      return '로그인되었습니다.';
+    });
   }
 
   Future<void> signOut() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() => ref.read(signOutProvider).call());
+    state = await AsyncValue.guard(() async {
+      await ref.read(signOutProvider).call();
+      return '로그아웃되었습니다.';
+    });
   }
 }

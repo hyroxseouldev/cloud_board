@@ -47,7 +47,7 @@ String _$authStateHash() => r'77a1bfaaf734442d65c4e40dc4ac34ec55b85f7f';
 final authControllerProvider = AuthControllerProvider._();
 
 final class AuthControllerProvider
-    extends $NotifierProvider<AuthController, AsyncValue<void>> {
+    extends $NotifierProvider<AuthController, AsyncValue<String?>> {
   AuthControllerProvider._()
     : super(
         from: null,
@@ -67,27 +67,27 @@ final class AuthControllerProvider
   AuthController create() => AuthController();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(AsyncValue<void> value) {
+  Override overrideWithValue(AsyncValue<String?> value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<AsyncValue<void>>(value),
+      providerOverride: $SyncValueProvider<AsyncValue<String?>>(value),
     );
   }
 }
 
-String _$authControllerHash() => r'ca38044267b999ac2e20d828e5ae437d6d589a4b';
+String _$authControllerHash() => r'90e936995d9cf76265efb4d905fd8a5d2bca1ec4';
 
-abstract class _$AuthController extends $Notifier<AsyncValue<void>> {
-  AsyncValue<void> build();
+abstract class _$AuthController extends $Notifier<AsyncValue<String?>> {
+  AsyncValue<String?> build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref = this.ref as $Ref<AsyncValue<void>, AsyncValue<void>>;
+    final ref = this.ref as $Ref<AsyncValue<String?>, AsyncValue<String?>>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<AsyncValue<void>, AsyncValue<void>>,
-              AsyncValue<void>,
+              AnyNotifier<AsyncValue<String?>, AsyncValue<String?>>,
+              AsyncValue<String?>,
               Object?,
               Object?
             >;
