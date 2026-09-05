@@ -7,8 +7,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/async_action_overlay.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../playback/presentation/controllers/playback_session_controller.dart';
 import '../../domain/entities/workout.dart';
+import '../controllers/player_controller.dart';
 import '../controllers/workout_controller.dart';
 import 'workout_list_screen.dart';
 
@@ -53,136 +56,192 @@ class _EditorBody extends HookConsumerWidget {
     final folder = useTextEditingController(text: initial.folder);
     final brandL = useTextEditingController(text: initial.brandL);
     final brandR = useTextEditingController(text: initial.brandR);
-    Future<void> save() async {
+    final action = ref.watch(workoutActionControllerProvider);
+    final playbackAction = ref.watch(playbackActionControllerProvider);
+    final isBusy = action.isLoading || playbackAction.isLoading;
+
+    Future<Workout?> persist() async {
       final value = draft.value.copyWith(
         name: name.text.trim(),
         folder: folder.text.trim(),
         brandL: brandL.text.trim(),
         brandR: brandR.text.trim(),
       );
-      await ref.read(workoutControllerProvider.notifier).save(value);
-      if (context.mounted) context.pop();
+      final saved = await ref
+          .read(workoutActionControllerProvider.notifier)
+          .save(value);
+      if (saved != null) draft.value = saved;
+      return saved;
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: BackButton(onPressed: () => context.pop()),
-        title: Text(
-          isNew
-              ? '새 워크아웃'
-              : initial.name.isEmpty
-              ? '워크아웃'
-              : initial.name,
+    Future<void> saveAndClose() async {
+      final saved = await persist();
+      if (saved == null || !context.mounted) return;
+      if (isNew) {
+        context.go('/');
+      } else {
+        context.pop();
+      }
+    }
+
+    Future<void> saveAndPlay({int? start}) async {
+      final saved = await persist();
+      if (saved == null || !context.mounted) return;
+      final stepIndex = playerStepIndexForModule(saved, start ?? 0);
+      final steps = buildPlayerSteps(saved);
+      if (steps.isEmpty) return;
+      final sessionId = await ref
+          .read(playbackActionControllerProvider.notifier)
+          .start(
+            workout: saved,
+            stepIndex: stepIndex,
+            durationMs: steps[stepIndex].duration * 1000,
+          );
+      if (sessionId == null || !context.mounted) return;
+      final query = start == null ? '' : '?start=$start';
+      final separator = query.isEmpty ? '?' : '&';
+      context.go('/player/${saved.id}$query${separator}session=$sessionId');
+    }
+
+    return AsyncActionOverlay(
+      isLoading: isBusy,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: BackButton(onPressed: isBusy ? null : () => context.pop()),
+          title: Text(
+            isNew
+                ? '새 워크아웃'
+                : initial.name.isEmpty
+                ? '워크아웃'
+                : initial.name,
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: FilledButton.icon(
+                onPressed: draft.value.modules.isEmpty || isBusy
+                    ? null
+                    : saveAndPlay,
+                icon: isBusy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.play_arrow),
+                label: const Text('재생'),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton.icon(
-              onPressed: draft.value.modules.isEmpty
-                  ? null
-                  : () async {
-                      await save();
-                      if (context.mounted) {
-                        context.push('/player/${draft.value.id}');
-                      }
-                    },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('재생'),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
-        children: [
-          _TextField(label: '워크아웃 이름', controller: name, hint: '예: 9/4 금 하이록스'),
-          _TextField(label: '폴더', controller: folder, hint: '예: 잠실'),
-          _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
-          _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Text(
-                '슬라이드',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: XonColors.muted,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 90),
+              children: [
+                _TextField(
+                  label: '워크아웃 이름',
+                  controller: name,
+                  hint: '예: 9/4 금 하이록스',
                 ),
-              ),
-              const Spacer(),
-              Text(
-                durationLabel(workoutDuration(draft.value)),
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...List.generate(
-            draft.value.modules.length,
-            (index) => _ModuleEditor(
-              module: draft.value.modules[index],
-              index: index,
-              onChange: (module) {
-                final list = [...draft.value.modules];
-                list[index] = module;
-                draft.value = draft.value.copyWith(modules: list);
-              },
-              onRemove: () {
-                final list = [...draft.value.modules]..removeAt(index);
-                draft.value = draft.value.copyWith(modules: list);
-              },
-              onMove: (amount) {
-                final target = index + amount;
-                if (target < 0 || target >= draft.value.modules.length) return;
-                final list = [...draft.value.modules];
-                final item = list.removeAt(index);
-                list.insert(target, item);
-                draft.value = draft.value.copyWith(modules: list);
-              },
-              onPlay: () async {
-                await save();
-                if (context.mounted) {
-                  context.push('/player/${draft.value.id}?start=$index');
-                }
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => draft.value = draft.value.copyWith(
-                  modules: [
-                    ...draft.value.modules,
-                    WorkoutModule.empty(newId()),
-                  ],
-                ),
-                icon: const Icon(Icons.add),
-                label: const Text('슬라이드 추가'),
-              ),
-              OutlinedButton(
-                onPressed: () => draft.value = draft.value.copyWith(
-                  modules: [
-                    ...draft.value.modules,
-                    WorkoutModule.empty(newId()).copyWith(
-                      name: '휴식',
-                      workSeconds: 60,
-                      text: '물 마시고 다음 스테이션으로',
+                _TextField(label: '폴더', controller: folder, hint: '예: 잠실'),
+                _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
+                _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Text(
+                      '슬라이드',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: XonColors.muted,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      durationLabel(workoutDuration(draft.value)),
+                      style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ],
                 ),
-                child: const Text('휴식 60초'),
-              ),
-            ],
+                const SizedBox(height: 10),
+                ...List.generate(
+                  draft.value.modules.length,
+                  (index) => _ModuleEditor(
+                    module: draft.value.modules[index],
+                    index: index,
+                    onChange: (module) {
+                      final list = [...draft.value.modules];
+                      list[index] = module;
+                      draft.value = draft.value.copyWith(modules: list);
+                    },
+                    onRemove: () {
+                      final list = [...draft.value.modules]..removeAt(index);
+                      draft.value = draft.value.copyWith(modules: list);
+                    },
+                    onMove: (amount) {
+                      final target = index + amount;
+                      if (target < 0 || target >= draft.value.modules.length) {
+                        return;
+                      }
+                      final list = [...draft.value.modules];
+                      final item = list.removeAt(index);
+                      list.insert(target, item);
+                      draft.value = draft.value.copyWith(modules: list);
+                    },
+                    onPlay: () async {
+                      await saveAndPlay(start: index);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => draft.value = draft.value.copyWith(
+                        modules: [
+                          ...draft.value.modules,
+                          WorkoutModule.empty(newId()),
+                        ],
+                      ),
+                      icon: const Icon(Icons.add),
+                      label: const Text('슬라이드 추가'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => draft.value = draft.value.copyWith(
+                        modules: [
+                          ...draft.value.modules,
+                          WorkoutModule.empty(newId()).copyWith(
+                            name: '휴식',
+                            workSeconds: 60,
+                            text: '물 마시고 다음 스테이션으로',
+                          ),
+                        ],
+                      ),
+                      child: const Text('휴식 60초'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: isBusy ? null : saveAndClose,
+                    icon: isBusy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(isBusy ? '처리 중...' : '저장'),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 50,
-            child: FilledButton(onPressed: save, child: const Text('저장')),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -239,6 +298,7 @@ class _ModuleEditor extends HookWidget {
     final open = useState(index == 0);
     final name = useTextEditingController(text: module.name);
     final text = useTextEditingController(text: module.text);
+    final isPickingImage = useState(false);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -352,25 +412,61 @@ class _ModuleEditor extends HookWidget {
                   Row(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () async {
-                          final file = await ImagePicker().pickImage(
-                            source: ImageSource.gallery,
-                            maxWidth: 1920,
-                            imageQuality: 85,
-                          );
-                          if (file != null) {
-                            onChange(
-                              module.copyWith(
-                                imageSource: base64Encode(
-                                  await file.readAsBytes(),
+                        onPressed: isPickingImage.value
+                            ? null
+                            : () async {
+                                isPickingImage.value = true;
+                                try {
+                                  final file = await ImagePicker().pickImage(
+                                    source: ImageSource.gallery,
+                                    maxWidth: 1920,
+                                    imageQuality: 85,
+                                  );
+                                  if (file == null) return;
+                                  onChange(
+                                    module.copyWith(
+                                      imageSource: base64Encode(
+                                        await file.readAsBytes(),
+                                      ),
+                                    ),
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('배경 이미지를 선택했습니다.'),
+                                      ),
+                                    );
+                                  }
+                                } catch (error) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '이미지를 불러오지 못했습니다: $error',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    isPickingImage.value = false;
+                                  }
+                                }
+                              },
+                        icon: isPickingImage.value
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
                                 ),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.image_outlined),
+                              )
+                            : const Icon(Icons.image_outlined),
                         label: Text(
-                          module.imageSource.isEmpty ? '배경 이미지' : '이미지 변경',
+                          isPickingImage.value
+                              ? '불러오는 중...'
+                              : module.imageSource.isEmpty
+                              ? '배경 이미지'
+                              : '이미지 변경',
                         ),
                       ),
                       if (module.imageSource.isNotEmpty)

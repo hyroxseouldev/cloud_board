@@ -41,11 +41,10 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   }
 
   @override
-  Future<void> save(Workout workout) async {
-    await _saveForUser(workout, _requireUser());
-  }
+  Future<Workout> save(Workout workout) =>
+      _saveForUser(workout, _requireUser());
 
-  Future<void> _saveForUser(Workout workout, User user) async {
+  Future<Workout> _saveForUser(Workout workout, User user) async {
     final author = WorkoutAuthor(
       id: user.uid,
       displayName: user.displayName ?? '사용자',
@@ -58,6 +57,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     );
     final uploaded = await _storage.syncImages(user.uid, ownedWorkout);
     await _firestore.save(user.uid, WorkoutModel.fromEntity(uploaded));
+    return uploaded;
   }
 
   @override

@@ -312,7 +312,7 @@ $WorkoutModuleCopyWith<$Res> get module {
 /// @nodoc
 mixin _$PlayerState {
 
- List<PlayerStep> get steps; int get index; int get secondsLeft; bool get isPaused;
+ List<PlayerStep> get steps; int get index; int get remainingMs; bool get isPaused;
 /// Create a copy of PlayerState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -324,20 +324,20 @@ $PlayerStateCopyWith<PlayerState> get copyWith => _$PlayerStateCopyWithImpl<Play
 @override
 bool operator ==(Object other) {
   final _this = this as PlayerState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerState&&const DeepCollectionEquality().equals(other.steps, _this.steps)&&(identical(other.index, _this.index) || other.index == _this.index)&&(identical(other.secondsLeft, _this.secondsLeft) || other.secondsLeft == _this.secondsLeft)&&(identical(other.isPaused, _this.isPaused) || other.isPaused == _this.isPaused));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerState&&const DeepCollectionEquality().equals(other.steps, _this.steps)&&(identical(other.index, _this.index) || other.index == _this.index)&&(identical(other.remainingMs, _this.remainingMs) || other.remainingMs == _this.remainingMs)&&(identical(other.isPaused, _this.isPaused) || other.isPaused == _this.isPaused));
 }
 
 
 @override
 int get hashCode {
   final _this = this as PlayerState;
-  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.steps),_this.index,_this.secondsLeft,_this.isPaused);
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.steps),_this.index,_this.remainingMs,_this.isPaused);
 }
 
 @override
 String toString() {
   final _this = this as PlayerState;
-  return 'PlayerState(steps: ${_this.steps}, index: ${_this.index}, secondsLeft: ${_this.secondsLeft}, isPaused: ${_this.isPaused})';
+  return 'PlayerState(steps: ${_this.steps}, index: ${_this.index}, remainingMs: ${_this.remainingMs}, isPaused: ${_this.isPaused})';
 }
 
 
@@ -348,7 +348,7 @@ abstract mixin class $PlayerStateCopyWith<$Res>  {
   factory $PlayerStateCopyWith(PlayerState value, $Res Function(PlayerState) _then) = _$PlayerStateCopyWithImpl;
 @useResult
 $Res call({
- List<PlayerStep> steps, int index, int secondsLeft, bool isPaused
+ List<PlayerStep> steps, int index, int remainingMs, bool isPaused
 });
 
 
@@ -365,11 +365,11 @@ class _$PlayerStateCopyWithImpl<$Res>
 
 /// Create a copy of PlayerState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? steps = null,Object? index = null,Object? secondsLeft = null,Object? isPaused = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? steps = null,Object? index = null,Object? remainingMs = null,Object? isPaused = null,}) {
   return _then(PlayerState(
 steps: null == steps ? _self.steps : steps // ignore: cast_nullable_to_non_nullable
 as List<PlayerStep>,index: null == index ? _self.index : index // ignore: cast_nullable_to_non_nullable
-as int,secondsLeft: null == secondsLeft ? _self.secondsLeft : secondsLeft // ignore: cast_nullable_to_non_nullable
+as int,remainingMs: null == remainingMs ? _self.remainingMs : remainingMs // ignore: cast_nullable_to_non_nullable
 as int,isPaused: null == isPaused ? _self.isPaused : isPaused // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -456,10 +456,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int secondsLeft,  bool isPaused)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlayerState() when $default != null:
-return $default(_that.steps,_that.index,_that.secondsLeft,_that.isPaused);case _:
+return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused);case _:
   return orElse();
 
 }
@@ -477,10 +477,10 @@ return $default(_that.steps,_that.index,_that.secondsLeft,_that.isPaused);case _
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int secondsLeft,  bool isPaused)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused)  $default,) {final _that = this;
 switch (_that) {
 case _PlayerState():
-return $default(_that.steps,_that.index,_that.secondsLeft,_that.isPaused);case _:
+return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -497,10 +497,10 @@ return $default(_that.steps,_that.index,_that.secondsLeft,_that.isPaused);case _
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PlayerStep> steps,  int index,  int secondsLeft,  bool isPaused)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused)?  $default,) {final _that = this;
 switch (_that) {
 case _PlayerState() when $default != null:
-return $default(_that.steps,_that.index,_that.secondsLeft,_that.isPaused);case _:
+return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused);case _:
   return null;
 
 }
@@ -512,7 +512,7 @@ return $default(_that.steps,_that.index,_that.secondsLeft,_that.isPaused);case _
 
 
 class _PlayerState implements PlayerState {
-  const _PlayerState({required  List<PlayerStep> steps, required this.index, required this.secondsLeft, required this.isPaused}): _steps = steps;
+  const _PlayerState({required  List<PlayerStep> steps, required this.index, required this.remainingMs, required this.isPaused}): _steps = steps;
   
 
  final  List<PlayerStep> _steps;
@@ -523,7 +523,7 @@ class _PlayerState implements PlayerState {
 }
 
 @override final  int index;
-@override final  int secondsLeft;
+@override final  int remainingMs;
 @override final  bool isPaused;
 
 /// Create a copy of PlayerState
@@ -536,18 +536,18 @@ _$PlayerStateCopyWith<_PlayerState> get copyWith => __$PlayerStateCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerState&&const DeepCollectionEquality().equals(other.steps, _steps)&&(identical(other.index, index) || other.index == index)&&(identical(other.secondsLeft, secondsLeft) || other.secondsLeft == secondsLeft)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerState&&const DeepCollectionEquality().equals(other.steps, _steps)&&(identical(other.index, index) || other.index == index)&&(identical(other.remainingMs, remainingMs) || other.remainingMs == remainingMs)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_steps),index,secondsLeft,isPaused);
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_steps),index,remainingMs,isPaused);
 }
 
 @override
 String toString() {
-    return 'PlayerState(steps: $steps, index: $index, secondsLeft: $secondsLeft, isPaused: $isPaused)';
+    return 'PlayerState(steps: $steps, index: $index, remainingMs: $remainingMs, isPaused: $isPaused)';
 }
 
 
@@ -558,7 +558,7 @@ abstract mixin class _$PlayerStateCopyWith<$Res> implements $PlayerStateCopyWith
   factory _$PlayerStateCopyWith(_PlayerState value, $Res Function(_PlayerState) _then) = __$PlayerStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<PlayerStep> steps, int index, int secondsLeft, bool isPaused
+ List<PlayerStep> steps, int index, int remainingMs, bool isPaused
 });
 
 
@@ -575,11 +575,11 @@ class __$PlayerStateCopyWithImpl<$Res>
 
 /// Create a copy of PlayerState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? steps = null,Object? index = null,Object? secondsLeft = null,Object? isPaused = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? steps = null,Object? index = null,Object? remainingMs = null,Object? isPaused = null,}) {
   return _then(_PlayerState(
 steps: null == steps ? _self._steps : steps // ignore: cast_nullable_to_non_nullable
 as List<PlayerStep>,index: null == index ? _self.index : index // ignore: cast_nullable_to_non_nullable
-as int,secondsLeft: null == secondsLeft ? _self.secondsLeft : secondsLeft // ignore: cast_nullable_to_non_nullable
+as int,remainingMs: null == remainingMs ? _self.remainingMs : remainingMs // ignore: cast_nullable_to_non_nullable
 as int,isPaused: null == isPaused ? _self.isPaused : isPaused // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
