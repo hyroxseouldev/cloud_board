@@ -1,5 +1,5 @@
-import '../../../workouts/domain/entities/workout.dart';
-import '../entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 
 abstract interface class PlaybackRepository {
   Stream<PlaybackSession?> watchActive();

@@ -1,7 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../domain/entities/device_mode.dart';
-import '../../domain/usecases/device_mode_actions.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
+import 'package:cloud_board/src/app/feature/device/domain/usecases/device_mode_actions.dart';
 
 part 'device_mode_controller.g.dart';
 

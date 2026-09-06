@@ -600,7 +600,7 @@ as String?,
 /// @nodoc
 mixin _$WorkoutModule {
 
- String get id; String get name; int get workSeconds; int get sets; int get restSeconds; String get text; String get imageSource; bool get showTimer; bool get beep; bool get coverImage;
+ String get id; String get name; int get workSeconds; int get sets; int get restSeconds; String get text; String get imageSource; bool get showTimer; bool get beep; bool get coverImage; int? get timerColorValue;
 /// Create a copy of WorkoutModule
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -612,20 +612,20 @@ $WorkoutModuleCopyWith<WorkoutModule> get copyWith => _$WorkoutModuleCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as WorkoutModule;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutModule&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.workSeconds, _this.workSeconds) || other.workSeconds == _this.workSeconds)&&(identical(other.sets, _this.sets) || other.sets == _this.sets)&&(identical(other.restSeconds, _this.restSeconds) || other.restSeconds == _this.restSeconds)&&(identical(other.text, _this.text) || other.text == _this.text)&&(identical(other.imageSource, _this.imageSource) || other.imageSource == _this.imageSource)&&(identical(other.showTimer, _this.showTimer) || other.showTimer == _this.showTimer)&&(identical(other.beep, _this.beep) || other.beep == _this.beep)&&(identical(other.coverImage, _this.coverImage) || other.coverImage == _this.coverImage));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutModule&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.workSeconds, _this.workSeconds) || other.workSeconds == _this.workSeconds)&&(identical(other.sets, _this.sets) || other.sets == _this.sets)&&(identical(other.restSeconds, _this.restSeconds) || other.restSeconds == _this.restSeconds)&&(identical(other.text, _this.text) || other.text == _this.text)&&(identical(other.imageSource, _this.imageSource) || other.imageSource == _this.imageSource)&&(identical(other.showTimer, _this.showTimer) || other.showTimer == _this.showTimer)&&(identical(other.beep, _this.beep) || other.beep == _this.beep)&&(identical(other.coverImage, _this.coverImage) || other.coverImage == _this.coverImage)&&(identical(other.timerColorValue, _this.timerColorValue) || other.timerColorValue == _this.timerColorValue));
 }
 
 
 @override
 int get hashCode {
   final _this = this as WorkoutModule;
-  return Object.hash(runtimeType,_this.id,_this.name,_this.workSeconds,_this.sets,_this.restSeconds,_this.text,_this.imageSource,_this.showTimer,_this.beep,_this.coverImage);
+  return Object.hash(runtimeType,_this.id,_this.name,_this.workSeconds,_this.sets,_this.restSeconds,_this.text,_this.imageSource,_this.showTimer,_this.beep,_this.coverImage,_this.timerColorValue);
 }
 
 @override
 String toString() {
   final _this = this as WorkoutModule;
-  return 'WorkoutModule(id: ${_this.id}, name: ${_this.name}, workSeconds: ${_this.workSeconds}, sets: ${_this.sets}, restSeconds: ${_this.restSeconds}, text: ${_this.text}, imageSource: ${_this.imageSource}, showTimer: ${_this.showTimer}, beep: ${_this.beep}, coverImage: ${_this.coverImage})';
+  return 'WorkoutModule(id: ${_this.id}, name: ${_this.name}, workSeconds: ${_this.workSeconds}, sets: ${_this.sets}, restSeconds: ${_this.restSeconds}, text: ${_this.text}, imageSource: ${_this.imageSource}, showTimer: ${_this.showTimer}, beep: ${_this.beep}, coverImage: ${_this.coverImage}, timerColorValue: ${_this.timerColorValue})';
 }
 
 
@@ -636,7 +636,7 @@ abstract mixin class $WorkoutModuleCopyWith<$Res>  {
   factory $WorkoutModuleCopyWith(WorkoutModule value, $Res Function(WorkoutModule) _then) = _$WorkoutModuleCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, int workSeconds, int sets, int restSeconds, String text, String imageSource, bool showTimer, bool beep, bool coverImage
+ String id, String name, int workSeconds, int sets, int restSeconds, String text, String imageSource, bool showTimer, bool beep, bool coverImage, int? timerColorValue
 });
 
 
@@ -653,7 +653,7 @@ class _$WorkoutModuleCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutModule
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? workSeconds = null,Object? sets = null,Object? restSeconds = null,Object? text = null,Object? imageSource = null,Object? showTimer = null,Object? beep = null,Object? coverImage = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? workSeconds = null,Object? sets = null,Object? restSeconds = null,Object? text = null,Object? imageSource = null,Object? showTimer = null,Object? beep = null,Object? coverImage = null,Object? timerColorValue = freezed,}) {
   return _then(WorkoutModule(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -665,7 +665,8 @@ as String,imageSource: null == imageSource ? _self.imageSource : imageSource // 
 as String,showTimer: null == showTimer ? _self.showTimer : showTimer // ignore: cast_nullable_to_non_nullable
 as bool,beep: null == beep ? _self.beep : beep // ignore: cast_nullable_to_non_nullable
 as bool,coverImage: null == coverImage ? _self.coverImage : coverImage // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,timerColorValue: freezed == timerColorValue ? _self.timerColorValue : timerColorValue // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
@@ -750,10 +751,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  int workSeconds,  int sets,  int restSeconds,  String text,  String imageSource,  bool showTimer,  bool beep,  bool coverImage)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  int workSeconds,  int sets,  int restSeconds,  String text,  String imageSource,  bool showTimer,  bool beep,  bool coverImage,  int? timerColorValue)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkoutModule() when $default != null:
-return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSeconds,_that.text,_that.imageSource,_that.showTimer,_that.beep,_that.coverImage);case _:
+return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSeconds,_that.text,_that.imageSource,_that.showTimer,_that.beep,_that.coverImage,_that.timerColorValue);case _:
   return orElse();
 
 }
@@ -771,10 +772,10 @@ return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSecon
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  int workSeconds,  int sets,  int restSeconds,  String text,  String imageSource,  bool showTimer,  bool beep,  bool coverImage)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  int workSeconds,  int sets,  int restSeconds,  String text,  String imageSource,  bool showTimer,  bool beep,  bool coverImage,  int? timerColorValue)  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutModule():
-return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSeconds,_that.text,_that.imageSource,_that.showTimer,_that.beep,_that.coverImage);case _:
+return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSeconds,_that.text,_that.imageSource,_that.showTimer,_that.beep,_that.coverImage,_that.timerColorValue);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -791,10 +792,10 @@ return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSecon
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  int workSeconds,  int sets,  int restSeconds,  String text,  String imageSource,  bool showTimer,  bool beep,  bool coverImage)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  int workSeconds,  int sets,  int restSeconds,  String text,  String imageSource,  bool showTimer,  bool beep,  bool coverImage,  int? timerColorValue)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutModule() when $default != null:
-return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSeconds,_that.text,_that.imageSource,_that.showTimer,_that.beep,_that.coverImage);case _:
+return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSeconds,_that.text,_that.imageSource,_that.showTimer,_that.beep,_that.coverImage,_that.timerColorValue);case _:
   return null;
 
 }
@@ -806,7 +807,7 @@ return $default(_that.id,_that.name,_that.workSeconds,_that.sets,_that.restSecon
 
 
 class _WorkoutModule implements WorkoutModule {
-  const _WorkoutModule({required this.id, required this.name, required this.workSeconds, required this.sets, required this.restSeconds, required this.text, required this.imageSource, required this.showTimer, required this.beep, required this.coverImage});
+  const _WorkoutModule({required this.id, required this.name, required this.workSeconds, required this.sets, required this.restSeconds, required this.text, required this.imageSource, required this.showTimer, required this.beep, required this.coverImage, this.timerColorValue});
   
 
 @override final  String id;
@@ -819,6 +820,7 @@ class _WorkoutModule implements WorkoutModule {
 @override final  bool showTimer;
 @override final  bool beep;
 @override final  bool coverImage;
+@override final  int? timerColorValue;
 
 /// Create a copy of WorkoutModule
 /// with the given fields replaced by the non-null parameter values.
@@ -830,18 +832,18 @@ _$WorkoutModuleCopyWith<_WorkoutModule> get copyWith => __$WorkoutModuleCopyWith
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutModule&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.workSeconds, workSeconds) || other.workSeconds == workSeconds)&&(identical(other.sets, sets) || other.sets == sets)&&(identical(other.restSeconds, restSeconds) || other.restSeconds == restSeconds)&&(identical(other.text, text) || other.text == text)&&(identical(other.imageSource, imageSource) || other.imageSource == imageSource)&&(identical(other.showTimer, showTimer) || other.showTimer == showTimer)&&(identical(other.beep, beep) || other.beep == beep)&&(identical(other.coverImage, coverImage) || other.coverImage == coverImage));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutModule&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.workSeconds, workSeconds) || other.workSeconds == workSeconds)&&(identical(other.sets, sets) || other.sets == sets)&&(identical(other.restSeconds, restSeconds) || other.restSeconds == restSeconds)&&(identical(other.text, text) || other.text == text)&&(identical(other.imageSource, imageSource) || other.imageSource == imageSource)&&(identical(other.showTimer, showTimer) || other.showTimer == showTimer)&&(identical(other.beep, beep) || other.beep == beep)&&(identical(other.coverImage, coverImage) || other.coverImage == coverImage)&&(identical(other.timerColorValue, timerColorValue) || other.timerColorValue == timerColorValue));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,name,workSeconds,sets,restSeconds,text,imageSource,showTimer,beep,coverImage);
+    return Object.hash(runtimeType,id,name,workSeconds,sets,restSeconds,text,imageSource,showTimer,beep,coverImage,timerColorValue);
 }
 
 @override
 String toString() {
-    return 'WorkoutModule(id: $id, name: $name, workSeconds: $workSeconds, sets: $sets, restSeconds: $restSeconds, text: $text, imageSource: $imageSource, showTimer: $showTimer, beep: $beep, coverImage: $coverImage)';
+    return 'WorkoutModule(id: $id, name: $name, workSeconds: $workSeconds, sets: $sets, restSeconds: $restSeconds, text: $text, imageSource: $imageSource, showTimer: $showTimer, beep: $beep, coverImage: $coverImage, timerColorValue: $timerColorValue)';
 }
 
 
@@ -852,7 +854,7 @@ abstract mixin class _$WorkoutModuleCopyWith<$Res> implements $WorkoutModuleCopy
   factory _$WorkoutModuleCopyWith(_WorkoutModule value, $Res Function(_WorkoutModule) _then) = __$WorkoutModuleCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, int workSeconds, int sets, int restSeconds, String text, String imageSource, bool showTimer, bool beep, bool coverImage
+ String id, String name, int workSeconds, int sets, int restSeconds, String text, String imageSource, bool showTimer, bool beep, bool coverImage, int? timerColorValue
 });
 
 
@@ -869,7 +871,7 @@ class __$WorkoutModuleCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutModule
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? workSeconds = null,Object? sets = null,Object? restSeconds = null,Object? text = null,Object? imageSource = null,Object? showTimer = null,Object? beep = null,Object? coverImage = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? workSeconds = null,Object? sets = null,Object? restSeconds = null,Object? text = null,Object? imageSource = null,Object? showTimer = null,Object? beep = null,Object? coverImage = null,Object? timerColorValue = freezed,}) {
   return _then(_WorkoutModule(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -881,7 +883,8 @@ as String,imageSource: null == imageSource ? _self.imageSource : imageSource // 
 as String,showTimer: null == showTimer ? _self.showTimer : showTimer // ignore: cast_nullable_to_non_nullable
 as bool,beep: null == beep ? _self.beep : beep // ignore: cast_nullable_to_non_nullable
 as bool,coverImage: null == coverImage ? _self.coverImage : coverImage // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,timerColorValue: freezed == timerColorValue ? _self.timerColorValue : timerColorValue // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

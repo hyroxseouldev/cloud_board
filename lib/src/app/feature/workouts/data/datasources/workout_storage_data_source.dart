@@ -1,9 +1,7 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:firebase_storage/firebase_storage.dart';
 
-import '../../domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 
 class WorkoutStorageDataSource {
   WorkoutStorageDataSource(this._storage);
@@ -27,10 +25,17 @@ class WorkoutStorageDataSource {
       } else if (_isRemoteUrl(source)) {
         modules.add(module);
       } else {
-        final bytes = base64Decode(source);
+        final image = WorkoutImageSource.decode(source);
+        if (!WorkoutImageSource.supportedContentTypes.contains(
+          image.contentType,
+        )) {
+          throw const FormatException(
+            '지원하지 않는 이미지 형식입니다. JPG, PNG, WebP 또는 GIF 파일을 선택해 주세요.',
+          );
+        }
         await reference.putData(
-          bytes,
-          SettableMetadata(contentType: _contentType(bytes)),
+          image.bytes,
+          SettableMetadata(contentType: image.contentType),
         );
         modules.add(
           module.copyWith(imageSource: await reference.getDownloadURL()),
@@ -94,21 +99,4 @@ class WorkoutStorageDataSource {
 
   bool _isRemoteUrl(String value) =>
       value.startsWith('https://') || value.startsWith('http://');
-
-  String _contentType(Uint8List bytes) {
-    if (bytes.length >= 4 &&
-        bytes[0] == 0x89 &&
-        bytes[1] == 0x50 &&
-        bytes[2] == 0x4e &&
-        bytes[3] == 0x47) {
-      return 'image/png';
-    }
-    if (bytes.length >= 3 &&
-        bytes[0] == 0xff &&
-        bytes[1] == 0xd8 &&
-        bytes[2] == 0xff) {
-      return 'image/jpeg';
-    }
-    return 'image/webp';
-  }
 }

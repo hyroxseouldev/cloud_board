@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../domain/entities/user_profile.dart';
-import '../../domain/usecases/user_profile_actions.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/usecases/user_profile_actions.dart';
 
 part 'user_profile_controller.g.dart';
 

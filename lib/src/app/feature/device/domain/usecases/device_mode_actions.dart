@@ -1,8 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../data/repositories/device_mode_repository_impl.dart';
-import '../entities/device_mode.dart';
-import '../repositories/device_mode_repository.dart';
+import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
+import 'package:cloud_board/src/app/feature/device/domain/repositories/device_mode_repository.dart';
 
 part 'device_mode_actions.g.dart';
 

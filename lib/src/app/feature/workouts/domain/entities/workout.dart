@@ -53,6 +53,7 @@ abstract class WorkoutModule with _$WorkoutModule {
     required bool showTimer,
     required bool beep,
     required bool coverImage,
+    int? timerColorValue,
   }) = _WorkoutModule;
 
   factory WorkoutModule.empty(String id) => WorkoutModule(
@@ -66,5 +67,6 @@ abstract class WorkoutModule with _$WorkoutModule {
     showTimer: true,
     beep: true,
     coverImage: false,
+    timerColorValue: null,
   );
 }

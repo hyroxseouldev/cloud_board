@@ -1,19 +1,17 @@
-import 'dart:convert';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/async_action_overlay.dart';
-import '../../../playback/presentation/controllers/playback_session_controller.dart';
-import '../../domain/entities/workout.dart';
-import '../controllers/player_controller.dart';
-import '../controllers/workout_controller.dart';
-import 'workout_list_screen.dart';
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
 
 class WorkoutPlayerScreen extends HookConsumerWidget {
   const WorkoutPlayerScreen({
@@ -114,53 +112,18 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
                           children: [
                             if (module.imageSource.isNotEmpty)
                               Positioned.fill(
-                                child: module.imageSource.startsWith('http')
-                                    ? CachedNetworkImage(
-                                        imageUrl: module.imageSource,
-                                        fit: module.coverImage
-                                            ? BoxFit.cover
-                                            : BoxFit.contain,
-                                        progressIndicatorBuilder:
-                                            (context, url, progress) => Center(
-                                              child: CircularProgressIndicator(
-                                                value: progress.progress,
-                                              ),
-                                            ),
-                                        errorWidget: (context, url, error) =>
-                                            const Center(
-                                              child: Icon(
-                                                Icons.broken_image_outlined,
-                                                color: Colors.white70,
-                                                size: 48,
-                                              ),
-                                            ),
-                                      )
-                                    : Image.memory(
-                                        base64Decode(module.imageSource),
-                                        fit: module.coverImage
-                                            ? BoxFit.cover
-                                            : BoxFit.contain,
-                                      ),
+                                child: WorkoutImage(
+                                  source: module.imageSource,
+                                  fit: module.coverImage
+                                      ? BoxFit.cover
+                                      : BoxFit.contain,
+                                  showLoadingIndicator: true,
+                                ),
                               ),
-                            Positioned.fill(
-                              child: ColoredBox(
-                                color: module.imageSource.isEmpty
-                                    ? Colors.black
-                                    : Colors.black.withValues(alpha: .34),
+                            if (module.imageSource.isEmpty)
+                              const Positioned.fill(
+                                child: ColoredBox(color: Colors.black),
                               ),
-                            ),
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              child: LinearProgressIndicator(
-                                value: (1 - state.secondsLeft / step.duration)
-                                    .clamp(0, 1),
-                                minHeight: 8 * scale,
-                                backgroundColor: Colors.white24,
-                                color: XonColors.cobalt,
-                              ),
-                            ),
                             SafeArea(
                               minimum: EdgeInsets.all(20 * scale),
                               child: _PlayerContent(
@@ -286,8 +249,11 @@ class _PlayerContent extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: _CircularTimer(
                       secondsLeft: state.secondsLeft,
-                      duration: step.duration,
+                      remainingMs: state.remainingMs,
+                      durationMs: step.duration * 1000,
                       isRest: isRest,
+                      isPaused: state.isPaused,
+                      timerColorValue: step.module.timerColorValue,
                       scale: scale,
                     ),
                   ),
@@ -325,26 +291,32 @@ class _PlayerContent extends StatelessWidget {
 class _CircularTimer extends StatelessWidget {
   const _CircularTimer({
     required this.secondsLeft,
-    required this.duration,
+    required this.remainingMs,
+    required this.durationMs,
     required this.isRest,
+    required this.isPaused,
+    required this.timerColorValue,
     required this.scale,
   });
 
   final int secondsLeft;
-  final int duration;
-  final bool isRest;
+  final int remainingMs;
+  final int durationMs;
+  final bool isRest, isPaused;
+  final int? timerColorValue;
   final double scale;
 
   @override
   Widget build(BuildContext context) {
+    final selectedColor = timerColorValue == null
+        ? null
+        : Color(timerColorValue!);
     final color = secondsLeft <= 3
         ? const Color(0xFFFF3B30)
-        : isRest
-        ? XonColors.cobalt
-        : Colors.white;
-    final progress = duration <= 0
+        : selectedColor ?? (isRest ? XonColors.cobalt : Colors.white);
+    final progress = durationMs <= 0
         ? 0.0
-        : (secondsLeft / duration).clamp(0.0, 1.0);
+        : (remainingMs / durationMs).clamp(0.0, 1.0);
     final diameter = 260 * scale;
     return Semantics(
       label: '남은 시간 ${durationLabel(secondsLeft)}',
@@ -353,12 +325,20 @@ class _CircularTimer extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CircularProgressIndicator(
-              value: progress,
-              strokeWidth: 14 * scale,
-              strokeCap: StrokeCap.round,
-              backgroundColor: Colors.white24,
-              color: color,
+            TweenAnimationBuilder<double>(
+              tween: Tween(end: progress),
+              duration: isPaused
+                  ? Duration.zero
+                  : const Duration(milliseconds: 120),
+              curve: Curves.linear,
+              builder: (context, animatedProgress, child) =>
+                  CircularProgressIndicator(
+                    value: animatedProgress,
+                    strokeWidth: 18 * scale,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: Colors.white24,
+                    color: color,
+                  ),
             ),
             Center(
               child: FittedBox(
@@ -369,7 +349,7 @@ class _CircularTimer extends StatelessWidget {
                     durationLabel(secondsLeft),
                     style: TextStyle(
                       color: color,
-                      fontSize: 72 * scale,
+                      fontSize: 64 * scale,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -3 * scale,
                       shadows: const [Shadow(blurRadius: 20)],

@@ -1,7 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../repositories/auth_repository.dart';
-import '../../data/repositories/firebase_auth_repository.dart';
+import 'package:cloud_board/src/app/feature/auth/domain/repositories/auth_repository.dart';
+import 'package:cloud_board/src/app/feature/auth/data/repositories/firebase_auth_repository.dart';
 
 part 'auth_use_cases.g.dart';
 

@@ -1,6 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
-import '../../domain/entities/user_profile.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 
 part 'user_profile_model.g.dart';
 

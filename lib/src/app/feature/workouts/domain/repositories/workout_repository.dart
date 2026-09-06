@@ -1,4 +1,4 @@
-import '../entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
 abstract interface class WorkoutRepository {
   Future<List<Workout>> load();

@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/async_action_overlay.dart';
-import '../../../../core/widgets/async_value_widget.dart';
-import '../../../auth/presentation/controllers/auth_controller.dart';
-import '../../../auth/domain/entities/auth_user.dart';
-import '../../../device/presentation/widgets/device_mode_menu.dart';
-import '../../../playback/presentation/controllers/playback_session_controller.dart';
-import '../../domain/entities/workout.dart';
-import '../controllers/player_controller.dart';
-import '../controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
+import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_menu.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
 String durationLabel(int seconds) =>
     '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
@@ -43,6 +43,7 @@ class WorkoutListScreen extends ConsumerWidget {
       isLoading: isBusy,
       child: Scaffold(
         appBar: AppBar(
+          centerTitle: true,
           title: const _Logo(),
           actions: [
             const DeviceModeMenu(),
@@ -54,45 +55,35 @@ class WorkoutListScreen extends ConsumerWidget {
           value: workouts,
           data: (items) => items.isEmpty
               ? const _EmptyWorkouts()
-              : _WorkoutGrid(items: items, isBusy: isBusy),
+              : _WorkoutList(items: items, isBusy: isBusy),
         ),
-        floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: FloatingActionButton(
           onPressed: isBusy ? null : () => context.push('/editor/new'),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('새 워크아웃'),
+          child: const Icon(Icons.add_rounded),
         ),
       ),
     );
   }
 }
 
-class _WorkoutGrid extends StatelessWidget {
-  const _WorkoutGrid({required this.items, required this.isBusy});
+class _WorkoutList extends StatelessWidget {
+  const _WorkoutList({required this.items, required this.isBusy});
 
   final List<Workout> items;
   final bool isBusy;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 1500
-          ? 3
-          : constraints.maxWidth >= 900
-          ? 2
-          : 1;
-      return GridView.builder(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: columns,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          mainAxisExtent: columns == 1 ? 230 : 210,
-        ),
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 1000),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
         itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) =>
-            _WorkoutCard(workout: items[index], isBusy: isBusy),
-      );
-    },
+            _WorkoutTile(workout: items[index], isBusy: isBusy),
+      ),
+    ),
   );
 }
 
@@ -216,120 +207,151 @@ class _EmptyWorkouts extends StatelessWidget {
   );
 }
 
-class _WorkoutCard extends ConsumerWidget {
-  const _WorkoutCard({required this.workout, required this.isBusy});
+enum _WorkoutAction { edit, duplicate, delete }
+
+class _WorkoutTile extends ConsumerWidget {
+  const _WorkoutTile({required this.workout, required this.isBusy});
+
   final Workout workout;
   final bool isBusy;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      border: Border.all(color: XonColors.black, width: 2),
-      borderRadius: BorderRadius.circular(9),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final folderPrefix = workout.folder.isEmpty ? '' : '${workout.folder} · ';
+    final author = workout.author.displayName.isEmpty
+        ? '작성자 정보 없음'
+        : '작성자 ${workout.author.displayName}';
+
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: XonColors.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        enabled: !isBusy,
+        onTap: isBusy ? null : () => context.push('/editor/${workout.id}'),
+        contentPadding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        leading: CircleAvatar(
+          backgroundColor: XonColors.cobalt.withValues(alpha: .1),
+          foregroundColor: XonColors.cobalt,
+          child: const Icon(Icons.view_carousel_outlined),
+        ),
+        title: Text(
+          workout.name.isEmpty ? '이름 없음' : workout.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '$folderPrefix${workout.modules.length}개 슬라이드 · '
+            '${durationLabel(workoutDuration(workout))}\n$author',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: XonColors.muted, height: 1.35),
+          ),
+        ),
+        isThreeLine: true,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Text(
-                workout.name.isEmpty ? '이름 없음' : workout.name,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
+            IconButton(
+              tooltip: '재생',
+              onPressed: workout.modules.isEmpty || isBusy
+                  ? null
+                  : () => _play(context, ref),
+              icon: const Icon(Icons.play_arrow_rounded),
+            ),
+            PopupMenuButton<_WorkoutAction>(
+              tooltip: '워크아웃 메뉴',
+              enabled: !isBusy,
+              onSelected: (action) => _handleAction(context, ref, action),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: _WorkoutAction.edit,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('편집'),
+                  ),
                 ),
+                PopupMenuItem(
+                  value: _WorkoutAction.duplicate,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.copy_outlined),
+                    title: Text('복사'),
+                  ),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _WorkoutAction.delete,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.delete_outline, color: Colors.red),
+                    title: Text('삭제', style: TextStyle(color: Colors.red)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _play(BuildContext context, WidgetRef ref) async {
+    final steps = buildPlayerSteps(workout);
+    final sessionId = await ref
+        .read(playbackActionControllerProvider.notifier)
+        .start(
+          workout: workout,
+          stepIndex: 0,
+          durationMs: steps.first.duration * 1000,
+        );
+    if (sessionId != null && context.mounted) {
+      context.push('/player/${workout.id}?session=$sessionId');
+    }
+  }
+
+  Future<void> _handleAction(
+    BuildContext context,
+    WidgetRef ref,
+    _WorkoutAction action,
+  ) async {
+    switch (action) {
+      case _WorkoutAction.edit:
+        context.push('/editor/${workout.id}');
+      case _WorkoutAction.duplicate:
+        await ref
+            .read(workoutActionControllerProvider.notifier)
+            .duplicate(workout, newId());
+      case _WorkoutAction.delete:
+        final delete = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('워크아웃 삭제'),
+            content: Text('"${workout.name}"을 삭제할까요?'),
+            actions: [
+              TextButton(
+                onPressed: () => context.pop(false),
+                child: const Text('취소'),
               ),
-            ),
-            if (workout.folder.isNotEmpty) Chip(label: Text(workout.folder)),
-          ],
-        ),
-        const SizedBox(height: 3),
-        Text(
-          '${workout.modules.length}개 슬라이드 · '
-          '${durationLabel(workoutDuration(workout))} · '
-          '작성자 ${workout.author.displayName}',
-          style: const TextStyle(color: XonColors.muted),
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: [
-            OutlinedButton(
-              onPressed: isBusy
-                  ? null
-                  : () => context.push('/editor/${workout.id}'),
-              child: const Text('편집'),
-            ),
-            OutlinedButton(
-              onPressed: isBusy
-                  ? null
-                  : () async {
-                      final success = await ref
-                          .read(workoutActionControllerProvider.notifier)
-                          .duplicate(workout, newId());
-                      if (!success) return;
-                    },
-              child: const Text('복사'),
-            ),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-              onPressed: isBusy
-                  ? null
-                  : () async {
-                      final delete = await showDialog<bool>(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('워크아웃 삭제'),
-                          content: Text('"${workout.name}"을 삭제할까요?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => context.pop(false),
-                              child: const Text('취소'),
-                            ),
-                            FilledButton(
-                              onPressed: () => context.pop(true),
-                              child: const Text('삭제'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (delete == true) {
-                        final success = await ref
-                            .read(workoutActionControllerProvider.notifier)
-                            .delete(workout.id);
-                        if (!success) return;
-                      }
-                    },
-              child: const Text('삭제'),
-            ),
-            FilledButton.icon(
-              onPressed: workout.modules.isEmpty
-                  ? null
-                  : isBusy
-                  ? null
-                  : () async {
-                      final steps = buildPlayerSteps(workout);
-                      final sessionId = await ref
-                          .read(playbackActionControllerProvider.notifier)
-                          .start(
-                            workout: workout,
-                            stepIndex: 0,
-                            durationMs: steps.first.duration * 1000,
-                          );
-                      if (sessionId != null && context.mounted) {
-                        context.push(
-                          '/player/${workout.id}?session=$sessionId',
-                        );
-                      }
-                    },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('재생'),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
+              FilledButton(
+                onPressed: () => context.pop(true),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
+        );
+        if (delete == true) {
+          await ref
+              .read(workoutActionControllerProvider.notifier)
+              .delete(workout.id);
+        }
+    }
+  }
 }

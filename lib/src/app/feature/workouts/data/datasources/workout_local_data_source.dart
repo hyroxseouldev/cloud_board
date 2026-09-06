@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/workout_model.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 
 part 'workout_local_data_source.g.dart';
 

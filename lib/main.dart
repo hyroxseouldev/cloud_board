@@ -4,8 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'firebase_options.dart';
-import 'src/app/app.dart';
+import 'package:cloud_board/firebase_options.dart';
+import 'package:cloud_board/src/app/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

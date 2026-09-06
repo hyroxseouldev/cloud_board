@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../auth/presentation/controllers/auth_controller.dart';
-import '../../domain/entities/workout.dart';
-import '../../domain/usecases/workout_actions.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_actions.dart';
 
 part 'workout_controller.g.dart';
 

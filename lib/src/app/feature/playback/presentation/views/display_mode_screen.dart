@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../../../core/services/beep_player.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../device/presentation/widgets/device_mode_menu.dart';
-import '../../../workouts/presentation/views/workout_player_screen.dart';
-import '../../domain/entities/playback_session.dart';
-import '../controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/core/services/beep_player.dart';
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_menu.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_player_screen.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 
 class DisplayModeScreen extends ConsumerWidget {
   const DisplayModeScreen({super.key});
@@ -38,18 +38,7 @@ class DisplayModeScreen extends ConsumerWidget {
             onTestSound: () async {
               try {
                 await ref.read(beepPlayerProvider).play();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('디스플레이 소리가 활성화되었습니다.')),
-                  );
-                }
-              } catch (error) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('소리를 재생하지 못했습니다: $error')),
-                  );
-                }
-              }
+              } catch (_) {}
             },
           ),
         const Positioned(

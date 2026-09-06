@@ -1,19 +1,38 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/async_action_overlay.dart';
-import '../../../auth/presentation/controllers/auth_controller.dart';
-import '../../../playback/presentation/controllers/playback_session_controller.dart';
-import '../../domain/entities/workout.dart';
-import '../controllers/player_controller.dart';
-import '../controllers/workout_controller.dart';
-import 'workout_list_screen.dart';
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
+
+const _timerColors = <_TimerColorOption>[
+  _TimerColorOption('기본', null),
+  _TimerColorOption('흰색', 0xFFFFFFFF),
+  _TimerColorOption('파랑', 0xFF0B4DFF),
+  _TimerColorOption('초록', 0xFF34C759),
+  _TimerColorOption('노랑', 0xFFFFCC00),
+  _TimerColorOption('주황', 0xFFFF9500),
+  _TimerColorOption('빨강', 0xFFFF3B30),
+  _TimerColorOption('보라', 0xFFAF52DE),
+];
+
+class _TimerColorOption {
+  const _TimerColorOption(this.label, this.value);
+
+  final String label;
+  final int? value;
+}
 
 class WorkoutEditorScreen extends ConsumerWidget {
   const WorkoutEditorScreen({super.key, required this.workoutId});
@@ -165,34 +184,53 @@ class _EditorBody extends HookConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                ...List.generate(
-                  draft.value.modules.length,
-                  (index) => _ModuleEditor(
-                    module: draft.value.modules[index],
-                    index: index,
-                    onChange: (module) {
-                      final list = [...draft.value.modules];
-                      list[index] = module;
-                      draft.value = draft.value.copyWith(modules: list);
-                    },
-                    onRemove: () {
-                      final list = [...draft.value.modules]..removeAt(index);
-                      draft.value = draft.value.copyWith(modules: list);
-                    },
-                    onMove: (amount) {
-                      final target = index + amount;
-                      if (target < 0 || target >= draft.value.modules.length) {
-                        return;
-                      }
-                      final list = [...draft.value.modules];
-                      final item = list.removeAt(index);
-                      list.insert(target, item);
-                      draft.value = draft.value.copyWith(modules: list);
-                    },
-                    onPlay: () async {
-                      await saveAndPlay(start: index);
-                    },
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: draft.value.modules.length,
+                  onReorderItem: (oldIndex, newIndex) {
+                    final list = [...draft.value.modules];
+                    final item = list.removeAt(oldIndex);
+                    list.insert(newIndex, item);
+                    draft.value = draft.value.copyWith(modules: list);
+                  },
+                  proxyDecorator: (child, index, animation) => Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(9),
+                    child: child,
                   ),
+                  itemBuilder: (context, index) {
+                    final module = draft.value.modules[index];
+                    return _ModuleEditor(
+                      key: ValueKey(module.id),
+                      module: module,
+                      index: index,
+                      onChange: (module) {
+                        final list = [...draft.value.modules];
+                        list[index] = module;
+                        draft.value = draft.value.copyWith(modules: list);
+                      },
+                      onRemove: () {
+                        final list = [...draft.value.modules]..removeAt(index);
+                        draft.value = draft.value.copyWith(modules: list);
+                      },
+                      onMove: (amount) {
+                        final target = index + amount;
+                        if (target < 0 ||
+                            target >= draft.value.modules.length) {
+                          return;
+                        }
+                        final list = [...draft.value.modules];
+                        final item = list.removeAt(index);
+                        list.insert(target, item);
+                        draft.value = draft.value.copyWith(modules: list);
+                      },
+                      onPlay: () async {
+                        await saveAndPlay(start: index);
+                      },
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -281,6 +319,7 @@ class _TextField extends StatelessWidget {
 
 class _ModuleEditor extends HookWidget {
   const _ModuleEditor({
+    super.key,
     required this.module,
     required this.index,
     required this.onChange,
@@ -329,7 +368,23 @@ class _ModuleEditor extends HookWidget {
             subtitle: Text(
               '${module.sets}세트 · ${durationLabel(module.workSeconds)}',
             ),
-            trailing: Icon(open.value ? Icons.expand_less : Icons.expand_more),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(open.value ? Icons.expand_less : Icons.expand_more),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: '드래그해서 순서 변경',
+                  child: ReorderableDragStartListener(
+                    index: index,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.drag_handle),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           if (open.value)
             Padding(
@@ -342,9 +397,10 @@ class _ModuleEditor extends HookWidget {
                   Row(
                     children: [
                       _NumberField(
-                        label: '시간(초)',
+                        label: '시간(초) · ±30',
                         value: module.workSeconds,
                         min: 1,
+                        step: 30,
                         onChanged: (value) =>
                             onChange(module.copyWith(workSeconds: value)),
                       ),
@@ -358,9 +414,10 @@ class _ModuleEditor extends HookWidget {
                       ),
                       const SizedBox(width: 8),
                       _NumberField(
-                        label: '휴식(초)',
+                        label: '휴식(초) · ±30',
                         value: module.restSeconds,
                         min: 0,
+                        step: 30,
                         onChanged: (value) =>
                             onChange(module.copyWith(restSeconds: value)),
                       ),
@@ -408,6 +465,42 @@ class _ModuleEditor extends HookWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '타이머 색상',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: XonColors.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: _timerColors
+                        .map(
+                          (option) => ChoiceChip(
+                            avatar: option.value == null
+                                ? const Icon(Icons.auto_awesome, size: 16)
+                                : Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: Color(option.value!),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: XonColors.line),
+                                    ),
+                                  ),
+                            label: Text(option.label),
+                            selected: module.timerColorValue == option.value,
+                            onSelected: (_) => onChange(
+                              module.copyWith(timerColorValue: option.value),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -423,10 +516,12 @@ class _ModuleEditor extends HookWidget {
                                     imageQuality: 85,
                                   );
                                   if (file == null) return;
+                                  final bytes = await file.readAsBytes();
                                   onChange(
                                     module.copyWith(
-                                      imageSource: base64Encode(
-                                        await file.readAsBytes(),
+                                      imageSource: WorkoutImageSource.fromBytes(
+                                        bytes,
+                                        contentType: file.mimeType,
                                       ),
                                     ),
                                   );
@@ -477,6 +572,30 @@ class _ModuleEditor extends HookWidget {
                         ),
                     ],
                   ),
+                  if (module.imageSource.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: ColoredBox(
+                          color: Colors.black,
+                          child: WorkoutImage(
+                            source: module.imageSource,
+                            fit: module.coverImage
+                                ? BoxFit.cover
+                                : BoxFit.contain,
+                            showLoadingIndicator: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '슬라이드 이미지 미리보기',
+                      style: TextStyle(fontSize: 12, color: XonColors.muted),
+                    ),
+                  ],
                   Wrap(
                     spacing: 4,
                     children: [
@@ -521,46 +640,80 @@ class _ModuleEditor extends HookWidget {
   }
 }
 
-class _NumberField extends StatelessWidget {
+class _NumberField extends HookWidget {
   const _NumberField({
     required this.label,
     required this.value,
     required this.min,
     required this.onChanged,
+    this.step = 1,
   });
   final String label;
-  final int value, min;
+  final int value, min, step;
   final ValueChanged<int> onChanged;
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: XonColors.muted,
+  Widget build(BuildContext context) {
+    final controller = useTextEditingController(text: '$value');
+    useEffect(() {
+      if (controller.text != '$value') {
+        controller.value = TextEditingValue(
+          text: '$value',
+          selection: TextSelection.collapsed(offset: '$value'.length),
+        );
+      }
+      return null;
+    }, [value]);
+
+    void commit(String input) {
+      final parsed = int.tryParse(input);
+      if (parsed != null) onChanged(parsed.clamp(min, 9999));
+    }
+
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: XonColors.muted,
+            ),
           ),
-        ),
-        const SizedBox(height: 5),
-        Row(
-          children: [
-            IconButton(
-              onPressed: () => onChanged((value - 1).clamp(min, 9999)),
-              icon: const Icon(Icons.remove),
-              visualDensity: VisualDensity.compact,
-            ),
-            Expanded(child: Text('$value', textAlign: TextAlign.center)),
-            IconButton(
-              onPressed: () => onChanged(value + 1),
-              icon: const Icon(Icons.add),
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              IconButton(
+                tooltip: '$step 감소',
+                onPressed: () => onChanged((value - step).clamp(min, 9999)),
+                icon: const Icon(Icons.remove),
+                visualDensity: VisualDensity.compact,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  textAlign: TextAlign.center,
+                  onChanged: commit,
+                  onSubmitted: commit,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: '$step 증가',
+                onPressed: () => onChanged((value + step).clamp(min, 9999)),
+                icon: const Icon(Icons.add),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

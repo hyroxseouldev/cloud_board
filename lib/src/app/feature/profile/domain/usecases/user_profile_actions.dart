@@ -2,9 +2,9 @@ import 'dart:typed_data';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../data/repositories/user_profile_repository_impl.dart';
-import '../entities/user_profile.dart';
-import '../repositories/user_profile_repository.dart';
+import 'package:cloud_board/src/app/feature/profile/data/repositories/user_profile_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/repositories/user_profile_repository.dart';
 
 part 'user_profile_actions.g.dart';
 

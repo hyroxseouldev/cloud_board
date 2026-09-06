@@ -4,13 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../auth/data/datasources/firebase_auth_data_source.dart';
-import '../../../auth/data/datasources/user_profile_firestore_data_source.dart';
-import '../../../auth/data/repositories/firebase_auth_repository.dart';
-import '../../domain/entities/user_profile.dart';
-import '../../domain/repositories/user_profile_repository.dart';
-import '../datasources/profile_storage_data_source.dart';
-import '../models/user_profile_model.dart';
+import 'package:cloud_board/src/app/feature/auth/data/datasources/firebase_auth_data_source.dart';
+import 'package:cloud_board/src/app/feature/auth/data/datasources/user_profile_firestore_data_source.dart';
+import 'package:cloud_board/src/app/feature/auth/data/repositories/firebase_auth_repository.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/repositories/user_profile_repository.dart';
+import 'package:cloud_board/src/app/feature/profile/data/datasources/profile_storage_data_source.dart';
+import 'package:cloud_board/src/app/feature/profile/data/models/user_profile_model.dart';
 
 part 'user_profile_repository_impl.g.dart';
 

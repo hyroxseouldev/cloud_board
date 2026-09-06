@@ -4,10 +4,10 @@ import 'dart:math';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../../core/services/beep_player.dart';
-import '../../../playback/domain/entities/playback_session.dart';
-import '../../../playback/presentation/controllers/playback_session_controller.dart';
-import '../../domain/entities/workout.dart';
+import 'package:cloud_board/src/app/core/services/beep_player.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
 part 'player_controller.freezed.dart';
 part 'player_controller.g.dart';
@@ -175,6 +175,12 @@ class PlayerController extends _$PlayerController {
       }
     }
     if (left <= 0 && !_transitioning) {
+      final isFinalStep = state.index + 1 >= state.steps.length;
+      if (isFinalStep) {
+        _endsAt = null;
+        state = state.copyWith(remainingMs: 0, isPaused: true);
+        return;
+      }
       if (canControl && sessionId != null) {
         unawaited(_seekRemote(state.index + 1, silent: true));
       } else {

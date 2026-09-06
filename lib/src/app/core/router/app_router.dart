@@ -1,12 +1,12 @@
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../feature/auth/presentation/controllers/auth_controller.dart';
-import '../../feature/auth/presentation/views/login_screen.dart';
-import '../../feature/device/presentation/views/device_mode_home_screen.dart';
-import '../../feature/profile/presentation/views/user_profile_screen.dart';
-import '../../feature/workouts/presentation/views/workout_editor_screen.dart';
-import '../../feature/workouts/presentation/views/workout_player_screen.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/views/login_screen.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/device_mode_home_screen.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/views/user_profile_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_editor_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_player_screen.dart';
 
 part 'app_router.g.dart';
 

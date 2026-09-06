@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/widgets/async_value_widget.dart';
-import '../../domain/entities/user_profile.dart';
-import '../controllers/user_profile_controller.dart';
+import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
 
 class UserProfileScreen extends HookConsumerWidget {
   const UserProfileScreen({super.key});

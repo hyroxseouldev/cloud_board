@@ -1,8 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../entities/workout.dart';
-import '../repositories/workout_repository.dart';
-import '../../data/repositories/workout_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_repository.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_repository_impl.dart';
 
 part 'workout_actions.g.dart';
 

@@ -1,10 +1,10 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../device/data/repositories/device_mode_repository_impl.dart';
-import '../../../workouts/domain/entities/workout.dart';
-import '../../data/repositories/playback_repository_impl.dart';
-import '../../domain/entities/playback_session.dart';
-import '../../domain/usecases/playback_actions.dart';
+import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/playback/data/repositories/playback_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/usecases/playback_actions.dart';
 
 part 'playback_session_controller.g.dart';
 

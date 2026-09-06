@@ -2,11 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../workouts/domain/entities/workout.dart';
-import '../../domain/entities/playback_session.dart';
-import '../../domain/repositories/playback_repository.dart';
-import '../datasources/playback_realtime_data_source.dart';
-import '../models/playback_session_model.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/repositories/playback_repository.dart';
+import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_realtime_data_source.dart';
+import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 
 part 'playback_repository_impl.g.dart';
 

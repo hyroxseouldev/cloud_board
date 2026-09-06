@@ -62,6 +62,7 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
       showTimer: json['showTimer'] as bool,
       beep: json['beep'] as bool,
       coverImage: json['coverImage'] as bool,
+      timerColorValue: (json['timerColorValue'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
@@ -76,4 +77,5 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'showTimer': instance.showTimer,
       'beep': instance.beep,
       'coverImage': instance.coverImage,
+      'timerColorValue': instance.timerColorValue,
     };

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../models/workout_model.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 
 class WorkoutFirestoreDataSource {
   WorkoutFirestoreDataSource(this._firestore);

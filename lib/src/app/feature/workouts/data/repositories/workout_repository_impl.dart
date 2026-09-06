@@ -3,12 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../domain/entities/workout.dart';
-import '../../domain/repositories/workout_repository.dart';
-import '../datasources/workout_firestore_data_source.dart';
-import '../datasources/workout_local_data_source.dart';
-import '../datasources/workout_storage_data_source.dart';
-import '../models/workout_model.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_repository.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_firestore_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_local_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_storage_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 
 part 'workout_repository_impl.g.dart';
 

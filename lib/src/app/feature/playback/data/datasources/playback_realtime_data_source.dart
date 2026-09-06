@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-import '../models/playback_session_model.dart';
+import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 
 class PlaybackRealtimeDataSource {
   const PlaybackRealtimeDataSource(this._database, this._auth);

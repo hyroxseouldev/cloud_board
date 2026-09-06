@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:json_annotation/json_annotation.dart';
 
-import '../../domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
 part 'workout_model.g.dart';
 
@@ -95,10 +95,12 @@ class WorkoutModuleModel {
     required this.showTimer,
     required this.beep,
     required this.coverImage,
+    required this.timerColorValue,
   });
   final String id, name, text, imageUrl;
   final int workSeconds, sets, restSeconds;
   final bool showTimer, beep, coverImage;
+  final int? timerColorValue;
   factory WorkoutModuleModel.fromJson(Map<String, dynamic> json) =>
       _$WorkoutModuleModelFromJson(json);
   Map<String, dynamic> toJson() => _$WorkoutModuleModelToJson(this);
@@ -113,6 +115,7 @@ class WorkoutModuleModel {
     showTimer: showTimer,
     beep: beep,
     coverImage: coverImage,
+    timerColorValue: timerColorValue,
   );
   factory WorkoutModuleModel.fromEntity(WorkoutModule value) =>
       WorkoutModuleModel(
@@ -126,6 +129,7 @@ class WorkoutModuleModel {
         showTimer: value.showTimer,
         beep: value.beep,
         coverImage: value.coverImage,
+        timerColorValue: value.timerColorValue,
       );
 }
 

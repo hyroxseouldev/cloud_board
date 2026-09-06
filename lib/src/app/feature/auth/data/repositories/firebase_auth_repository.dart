@@ -3,10 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../domain/entities/auth_user.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../datasources/firebase_auth_data_source.dart';
-import '../datasources/user_profile_firestore_data_source.dart';
+import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
+import 'package:cloud_board/src/app/feature/auth/domain/repositories/auth_repository.dart';
+import 'package:cloud_board/src/app/feature/auth/data/datasources/firebase_auth_data_source.dart';
+import 'package:cloud_board/src/app/feature/auth/data/datasources/user_profile_firestore_data_source.dart';
 
 part 'firebase_auth_repository.g.dart';
 

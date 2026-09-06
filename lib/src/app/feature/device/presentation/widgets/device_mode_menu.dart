@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../domain/entities/device_mode.dart';
-import '../controllers/device_mode_controller.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 
 class DeviceModeMenu extends ConsumerWidget {
   const DeviceModeMenu({super.key, this.iconColor});

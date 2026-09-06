@@ -1,8 +1,8 @@
 import 'package:json_annotation/json_annotation.dart';
 
-import '../../../workouts/data/models/workout_model.dart';
-import '../../../workouts/domain/entities/workout.dart';
-import '../../domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 
 part 'playback_session_model.g.dart';
 
