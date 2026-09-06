@@ -182,13 +182,45 @@ jobs:
           plutil -lint "$export_options_path"
           echo "IOS_EXPORT_OPTIONS_PATH=$export_options_path" >> "$GITHUB_ENV"
 
-      - name: Build signed IPA
+      - name: Configure iOS release
         run: |
           set -euo pipefail
-          flutter build ipa \
+          flutter build ios \
             --release \
             --build-number "$TESTFLIGHT_BUILD_NUMBER" \
-            --export-options-plist "$IOS_EXPORT_OPTIONS_PATH"
+            --config-only
+          pod install --project-directory=ios
+
+      - name: Build signed archive
+        run: |
+          set -euo pipefail
+
+          archive_path="$RUNNER_TEMP/Runner.xcarchive"
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$archive_path" \
+            archive \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY='Apple Distribution' \
+            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_NAME" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $IOS_KEYCHAIN_PATH"
+
+          echo "IOS_ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
+
+      - name: Export signed IPA
+        run: |
+          set -euo pipefail
+
+          mkdir -p build/ios/ipa
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$IOS_ARCHIVE_PATH" \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist "$IOS_EXPORT_OPTIONS_PATH"
 
       - name: Upload to TestFlight
         env:
