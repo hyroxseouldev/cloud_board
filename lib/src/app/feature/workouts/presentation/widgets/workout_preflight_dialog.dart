@@ -43,14 +43,27 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     final readiness = evaluateWorkoutReadiness(workout);
 
     useEffect(() {
-      unawaited(
-        _precacheImages(context, workout).then(
-          (count) => imageCheck.value = AsyncData(count),
-          onError: (Object error, StackTrace stack) =>
-              imageCheck.value = AsyncError(error, stack),
-        ),
-      );
-      return null;
+      var cancelled = false;
+
+      Future<void> precacheAfterBuild() async {
+        if (cancelled || !context.mounted) return;
+        try {
+          final count = await _precacheImages(context, workout);
+          if (!cancelled && context.mounted) {
+            imageCheck.value = AsyncData(count);
+          }
+        } catch (error, stack) {
+          if (!cancelled && context.mounted) {
+            imageCheck.value = AsyncError(error, stack);
+          }
+        }
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(precacheAfterBuild());
+      });
+
+      return () => cancelled = true;
     }, [workout.id, workout.updatedAt]);
 
     final selected = onlineDevices
