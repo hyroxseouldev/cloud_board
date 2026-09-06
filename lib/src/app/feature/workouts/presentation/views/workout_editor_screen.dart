@@ -226,22 +226,7 @@ class _EditorBody extends HookConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: FilledButton.icon(
-                  onPressed: draft.value.modules.isEmpty || isBusy
-                      ? null
-                      : saveAndPlay,
-                  icon: isBusy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.play_arrow),
-                  label: const Text('재생'),
-                ),
-              ),
+              const SizedBox(width: 16),
             ],
           ),
           body: Center(
