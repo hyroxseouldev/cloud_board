@@ -488,34 +488,60 @@ class _ModuleEditor extends HookWidget {
                 children: [
                   const Divider(),
                   _TextField(label: '슬라이드 이름', controller: name),
-                  Row(
-                    children: [
-                      _NumberField(
-                        label: '시간(초) · ±30',
-                        value: module.workSeconds,
-                        min: 1,
-                        step: 30,
-                        onChanged: (value) =>
-                            onChange(module.copyWith(workSeconds: value)),
-                      ),
-                      const SizedBox(width: 8),
-                      _NumberField(
-                        label: '세트',
-                        value: module.sets,
-                        min: 1,
-                        onChanged: (value) =>
-                            onChange(module.copyWith(sets: value)),
-                      ),
-                      const SizedBox(width: 8),
-                      _NumberField(
-                        label: '휴식(초) · ±30',
-                        value: module.restSeconds,
-                        min: 0,
-                        step: 30,
-                        onChanged: (value) =>
-                            onChange(module.copyWith(restSeconds: value)),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final fields = [
+                        _NumberField(
+                          label: '운동 시간',
+                          helper: '30초 단위',
+                          value: module.workSeconds,
+                          min: 1,
+                          step: 30,
+                          onChanged: (value) =>
+                              onChange(module.copyWith(workSeconds: value)),
+                        ),
+                        _NumberField(
+                          label: '세트 수',
+                          helper: '1세트 단위',
+                          value: module.sets,
+                          min: 1,
+                          onChanged: (value) =>
+                              onChange(module.copyWith(sets: value)),
+                        ),
+                        _NumberField(
+                          label: '휴식 시간',
+                          helper: '30초 단위',
+                          value: module.restSeconds,
+                          min: 0,
+                          step: 30,
+                          onChanged: (value) =>
+                              onChange(module.copyWith(restSeconds: value)),
+                        ),
+                      ];
+
+                      if (constraints.maxWidth < 620) {
+                        return Column(
+                          children: [
+                            fields[0],
+                            const SizedBox(height: 8),
+                            fields[1],
+                            const SizedBox(height: 8),
+                            fields[2],
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: fields[0]),
+                          const SizedBox(width: 8),
+                          Expanded(child: fields[1]),
+                          const SizedBox(width: 8),
+                          Expanded(child: fields[2]),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   const Text(
@@ -737,12 +763,14 @@ class _ModuleEditor extends HookWidget {
 class _NumberField extends HookWidget {
   const _NumberField({
     required this.label,
+    required this.helper,
     required this.value,
     required this.min,
     required this.onChanged,
     this.step = 1,
   });
   final String label;
+  final String helper;
   final int value, min, step;
   final ValueChanged<int> onChanged;
   @override
@@ -763,51 +791,96 @@ class _NumberField extends HookWidget {
       if (parsed != null) onChanged(parsed.clamp(min, 9999));
     }
 
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: XonColors.muted,
+    final labelBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          helper,
+          style: const TextStyle(fontSize: 11, color: XonColors.muted),
+        ),
+      ],
+    );
+    final controls = Row(
+      children: [
+        _StepButton(
+          tooltip: '$step 감소',
+          icon: Icons.remove,
+          onPressed: () => onChanged((value - step).clamp(min, 9999)),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            textAlign: TextAlign.center,
+            onChanged: commit,
+            onSubmitted: commit,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 10),
             ),
           ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              IconButton(
-                tooltip: '$step 감소',
-                onPressed: () => onChanged((value - step).clamp(min, 9999)),
-                icon: const Icon(Icons.remove),
-                visualDensity: VisualDensity.compact,
-              ),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textAlign: TextAlign.center,
-                  onChanged: commit,
-                  onSubmitted: commit,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: '$step 증가',
-                onPressed: () => onChanged((value + step).clamp(min, 9999)),
-                icon: const Icon(Icons.add),
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-        ],
+        ),
+        const SizedBox(width: 6),
+        _StepButton(
+          tooltip: '$step 증가',
+          icon: Icons.add,
+          onPressed: () => onChanged((value + step).clamp(min, 9999)),
+        ),
+      ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: XonColors.pale,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 360) {
+            return Row(
+              children: [
+                Expanded(child: labelBlock),
+                SizedBox(width: 190, child: controls),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [labelBlock, const SizedBox(height: 8), controls],
+          );
+        },
       ),
     );
   }
+}
+
+class _StepButton extends StatelessWidget {
+  const _StepButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton.outlined(
+    tooltip: tooltip,
+    onPressed: onPressed,
+    icon: Icon(icon, size: 20),
+    constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+    padding: EdgeInsets.zero,
+  );
 }
