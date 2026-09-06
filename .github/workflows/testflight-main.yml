@@ -1,0 +1,232 @@
+name: Upload iOS to TestFlight
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight-main
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  upload:
+    name: Build and upload
+    needs: verify
+    runs-on: macos-26
+    timeout-minutes: 45
+    environment: testflight
+    env:
+      IOS_BUNDLE_ID: com.sunmkim.cloudboard
+      IOS_TEAM_ID: NL7AM62SB9
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check release credentials
+        env:
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          required=(
+            APP_STORE_CONNECT_API_KEY_BASE64
+            APP_STORE_CONNECT_ISSUER_ID
+            APP_STORE_CONNECT_KEY_ID
+            IOS_DISTRIBUTION_CERTIFICATE_BASE64
+            IOS_DISTRIBUTION_CERTIFICATE_PASSWORD
+            IOS_PROVISIONING_PROFILE_BASE64
+          )
+
+          missing=()
+          for variable in "${required[@]}"; do
+            if [[ -z "${!variable:-}" ]]; then
+              missing+=("$variable")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing TestFlight environment secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify Xcode
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+
+      - name: Install iOS signing identity
+        env:
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          certificate_path="$RUNNER_TEMP/distribution.p12"
+          profile_path="$RUNNER_TEMP/distribution.mobileprovision"
+          profile_plist_path="$RUNNER_TEMP/distribution-profile.plist"
+          keychain_path="$RUNNER_TEMP/testflight-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+
+          echo "IOS_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
+
+          printf '%s' "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$profile_path"
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -P "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$keychain_path"
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$keychain_password" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          security cms -D -i "$profile_path" > "$profile_plist_path"
+          profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$profile_plist_path")"
+          profile_name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$profile_plist_path")"
+          profile_app_id="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$profile_plist_path")"
+          expected_app_id="$IOS_TEAM_ID.$IOS_BUNDLE_ID"
+
+          if [[ "$profile_app_id" != "$expected_app_id" ]]; then
+            echo "Provisioning profile targets '$profile_app_id', expected '$expected_app_id'." >&2
+            exit 1
+          fi
+
+          profiles_directory="$HOME/Library/MobileDevice/Provisioning Profiles"
+          installed_profile_path="$profiles_directory/$profile_uuid.mobileprovision"
+          mkdir -p "$profiles_directory"
+          cp "$profile_path" "$installed_profile_path"
+
+          echo "IOS_PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
+          echo "IOS_PROFILE_PATH=$installed_profile_path" >> "$GITHUB_ENV"
+
+      - name: Set build number
+        run: |
+          set -euo pipefail
+          build_number=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
+          echo "TESTFLIGHT_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+          echo "TestFlight build number: $build_number"
+
+      - name: Create export options
+        run: |
+          set -euo pipefail
+
+          export_options_path="$RUNNER_TEMP/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c 'Clear dict' "$export_options_path"
+          /usr/libexec/PlistBuddy -c 'Add :method string app-store-connect' "$export_options_path"
+          /usr/libexec/PlistBuddy -c 'Add :destination string export' "$export_options_path"
+          /usr/libexec/PlistBuddy -c 'Add :signingStyle string manual' "$export_options_path"
+          /usr/libexec/PlistBuddy -c "Add :teamID string $IOS_TEAM_ID" "$export_options_path"
+          /usr/libexec/PlistBuddy -c 'Add :manageAppVersionAndBuildNumber bool false' "$export_options_path"
+          /usr/libexec/PlistBuddy -c 'Add :uploadSymbols bool true' "$export_options_path"
+          /usr/libexec/PlistBuddy -c 'Add :provisioningProfiles dict' "$export_options_path"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$IOS_BUNDLE_ID string $IOS_PROFILE_NAME" "$export_options_path"
+
+          plutil -lint "$export_options_path"
+          echo "IOS_EXPORT_OPTIONS_PATH=$export_options_path" >> "$GITHUB_ENV"
+
+      - name: Build signed IPA
+        run: |
+          set -euo pipefail
+          flutter build ipa \
+            --release \
+            --build-number "$TESTFLIGHT_BUILD_NUMBER" \
+            --export-options-plist "$IOS_EXPORT_OPTIONS_PATH"
+
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          set -euo pipefail
+
+          private_keys_directory="$HOME/.appstoreconnect/private_keys"
+          api_key_path="$private_keys_directory/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8"
+          echo "APP_STORE_CONNECT_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+          mkdir -p "$private_keys_directory"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > "$api_key_path"
+          chmod 600 "$api_key_path"
+
+          ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
+          if [[ -z "$ipa_path" ]]; then
+            echo 'The signed IPA was not created.' >&2
+            exit 1
+          fi
+
+          xcrun altool \
+            --upload-app \
+            --type ios \
+            --file "$ipa_path" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Clean up signing files
+        if: always()
+        run: |
+          if [[ -n "${IOS_KEYCHAIN_PATH:-}" ]]; then
+            security delete-keychain "$IOS_KEYCHAIN_PATH" || true
+          fi
+          if [[ -n "${IOS_PROFILE_PATH:-}" ]]; then
+            rm -f "$IOS_PROFILE_PATH"
+          fi
+          if [[ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" ]]; then
+            rm -f "$APP_STORE_CONNECT_API_KEY_PATH"
+          fi
