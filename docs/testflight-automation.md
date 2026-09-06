@@ -15,12 +15,11 @@
 
 - `IOS_DISTRIBUTION_CERTIFICATE_BASE64`: Apple Distribution 인증서가 포함된 `.p12` 파일의 Base64 값
 - `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`: `.p12` 내보내기 암호
-- `IOS_PROVISIONING_PROFILE_BASE64`: `com.sunmkim.cloudboard`의 App Store 배포 프로필 Base64 값
 - `APP_STORE_CONNECT_API_KEY_BASE64`: App Store Connect의 `AuthKey_*.p8` 파일 Base64 값
 - `APP_STORE_CONNECT_KEY_ID`: App Store Connect API Key ID
 - `APP_STORE_CONNECT_ISSUER_ID`: App Store Connect Issuer ID
 
-비밀 파일은 Git에 추가하지 않는다. 워크플로 실행 중 임시 키체인에 설치되며 작업 종료 시 제거된다.
+프로비저닝 프로필은 App Store Connect API 키를 사용해 Xcode가 자동으로 준비한다. 비밀 파일은 Git에 추가하지 않는다. 워크플로 실행 중 임시 키체인에 설치되며 작업 종료 시 제거된다.
 
 ## 배포 기준
 
