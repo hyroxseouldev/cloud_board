@@ -189,7 +189,6 @@ jobs:
             --release \
             --build-number "$TESTFLIGHT_BUILD_NUMBER" \
             --config-only
-          pod install --project-directory=ios
 
       - name: Build signed archive
         run: |
