@@ -57,19 +57,19 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB5vGu1AnNvpiaKuTpbT9Q-rOMooNiBEFE',
-    appId: '1:428540903054:android:5144c80ba521a99b3d93df',
+    appId: '1:428540903054:android:372a37e13694a69b3d93df',
     messagingSenderId: '428540903054',
     projectId: 'cloud-board-stationd',
     storageBucket: 'cloud-board-stationd.firebasestorage.app',
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCjjr5iUtIyuhE_DPUHFM6_nQP6Qq0Q2Ho',
-    appId: '1:428540903054:ios:9da945d8fc57d6c73d93df',
+    appId: '1:428540903054:ios:2483df8a16e997ba3d93df',
     messagingSenderId: '428540903054',
     projectId: 'cloud-board-stationd',
     storageBucket: 'cloud-board-stationd.firebasestorage.app',
-    androidClientId: '428540903054-q104cfti7i02l7cosrl9lca41ck5bgm0.apps.googleusercontent.com',
-    iosClientId: '428540903054-88icsj2l8hsrjjo64kd55315kqlqnqgu.apps.googleusercontent.com',
-    iosBundleId: 'com.example.cloudBoard',
+    androidClientId: '428540903054-lvnk9aog697de6gd54rf8uqb1m7s8b2e.apps.googleusercontent.com',
+    iosClientId: '428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg.apps.googleusercontent.com',
+    iosBundleId: 'com.sunmkim.cloudboard',
   );
 }

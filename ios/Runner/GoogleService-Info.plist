@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>428540903054-88icsj2l8hsrjjo64kd55315kqlqnqgu.apps.googleusercontent.com</string>
+	<string>428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.428540903054-88icsj2l8hsrjjo64kd55315kqlqnqgu</string>
+	<string>com.googleusercontent.apps.428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>428540903054-q104cfti7i02l7cosrl9lca41ck5bgm0.apps.googleusercontent.com</string>
+	<string>428540903054-lvnk9aog697de6gd54rf8uqb1m7s8b2e.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCjjr5iUtIyuhE_DPUHFM6_nQP6Qq0Q2Ho</string>
 	<key>GCM_SENDER_ID</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.cloudBoard</string>
+	<string>com.sunmkim.cloudboard</string>
 	<key>PROJECT_ID</key>
 	<string>cloud-board-stationd</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,8 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:428540903054:ios:9da945d8fc57d6c73d93df</string>
+	<string>1:428540903054:ios:2483df8a16e997ba3d93df</string>
+	<key>DATABASE_URL</key>
+	<string>https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app</string>
 </dict>
 </plist>
