@@ -11,6 +11,7 @@ PlaybackSessionModel _$PlaybackSessionModelFromJson(
 ) => PlaybackSessionModel(
   id: json['id'] as String,
   ownerId: json['ownerId'] as String,
+  zoneId: json['zoneId'] as String? ?? 'main',
   workoutSnapshot: json['workoutSnapshot'] as Map<String, dynamic>,
   status: json['status'] as String,
   stepIndex: (json['stepIndex'] as num).toInt(),
@@ -25,6 +26,7 @@ Map<String, dynamic> _$PlaybackSessionModelToJson(
 ) => <String, dynamic>{
   'id': instance.id,
   'ownerId': instance.ownerId,
+  'zoneId': instance.zoneId,
   'workoutSnapshot': instance.workoutSnapshot,
   'status': instance.status,
   'stepIndex': instance.stepIndex,

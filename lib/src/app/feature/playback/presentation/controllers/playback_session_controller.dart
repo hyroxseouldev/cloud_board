@@ -17,6 +17,10 @@ Stream<int> serverTimeOffset(Ref ref) =>
     ref.watch(playbackRepositoryProvider).watchServerTimeOffset();
 
 @Riverpod(keepAlive: true)
+Stream<bool> playbackConnection(Ref ref) =>
+    ref.watch(playbackRepositoryProvider).watchConnected();
+
+@Riverpod(keepAlive: true)
 class PlaybackActionController extends _$PlaybackActionController {
   @override
   AsyncValue<String?> build() => const AsyncData(null);
@@ -25,6 +29,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     required Workout workout,
     required int stepIndex,
     required int durationMs,
+    String zoneId = 'main',
   }) async {
     state = const AsyncLoading();
     PlaybackSession? session;
@@ -33,6 +38,7 @@ class PlaybackActionController extends _$PlaybackActionController {
           .read(playbackActionsProvider)
           .start(
             workout: workout,
+            zoneId: zoneId,
             stepIndex: stepIndex,
             durationMs: durationMs,
             deviceId: await ref.read(deviceIdProvider.future),

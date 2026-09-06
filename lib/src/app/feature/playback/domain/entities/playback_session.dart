@@ -11,6 +11,7 @@ abstract class PlaybackSession with _$PlaybackSession {
   const factory PlaybackSession({
     required String id,
     required String ownerId,
+    required String zoneId,
     required Workout workout,
     required PlaybackStatus status,
     required int stepIndex,

@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$PlaybackSession {
 
- String get id; String get ownerId; Workout get workout; PlaybackStatus get status; int get stepIndex; int get remainingMs; int get anchorServerMs; int get revision; String get updatedByDeviceId;
+ String get id; String get ownerId; String get zoneId; Workout get workout; PlaybackStatus get status; int get stepIndex; int get remainingMs; int get anchorServerMs; int get revision; String get updatedByDeviceId;
 /// Create a copy of PlaybackSession
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $PlaybackSessionCopyWith<PlaybackSession> get copyWith => _$PlaybackSessionCopyW
 @override
 bool operator ==(Object other) {
   final _this = this as PlaybackSession;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlaybackSession&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.ownerId, _this.ownerId) || other.ownerId == _this.ownerId)&&(identical(other.workout, _this.workout) || other.workout == _this.workout)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.stepIndex, _this.stepIndex) || other.stepIndex == _this.stepIndex)&&(identical(other.remainingMs, _this.remainingMs) || other.remainingMs == _this.remainingMs)&&(identical(other.anchorServerMs, _this.anchorServerMs) || other.anchorServerMs == _this.anchorServerMs)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.updatedByDeviceId, _this.updatedByDeviceId) || other.updatedByDeviceId == _this.updatedByDeviceId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlaybackSession&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.ownerId, _this.ownerId) || other.ownerId == _this.ownerId)&&(identical(other.zoneId, _this.zoneId) || other.zoneId == _this.zoneId)&&(identical(other.workout, _this.workout) || other.workout == _this.workout)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.stepIndex, _this.stepIndex) || other.stepIndex == _this.stepIndex)&&(identical(other.remainingMs, _this.remainingMs) || other.remainingMs == _this.remainingMs)&&(identical(other.anchorServerMs, _this.anchorServerMs) || other.anchorServerMs == _this.anchorServerMs)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.updatedByDeviceId, _this.updatedByDeviceId) || other.updatedByDeviceId == _this.updatedByDeviceId));
 }
 
 
 @override
 int get hashCode {
   final _this = this as PlaybackSession;
-  return Object.hash(runtimeType,_this.id,_this.ownerId,_this.workout,_this.status,_this.stepIndex,_this.remainingMs,_this.anchorServerMs,_this.revision,_this.updatedByDeviceId);
+  return Object.hash(runtimeType,_this.id,_this.ownerId,_this.zoneId,_this.workout,_this.status,_this.stepIndex,_this.remainingMs,_this.anchorServerMs,_this.revision,_this.updatedByDeviceId);
 }
 
 @override
 String toString() {
   final _this = this as PlaybackSession;
-  return 'PlaybackSession(id: ${_this.id}, ownerId: ${_this.ownerId}, workout: ${_this.workout}, status: ${_this.status}, stepIndex: ${_this.stepIndex}, remainingMs: ${_this.remainingMs}, anchorServerMs: ${_this.anchorServerMs}, revision: ${_this.revision}, updatedByDeviceId: ${_this.updatedByDeviceId})';
+  return 'PlaybackSession(id: ${_this.id}, ownerId: ${_this.ownerId}, zoneId: ${_this.zoneId}, workout: ${_this.workout}, status: ${_this.status}, stepIndex: ${_this.stepIndex}, remainingMs: ${_this.remainingMs}, anchorServerMs: ${_this.anchorServerMs}, revision: ${_this.revision}, updatedByDeviceId: ${_this.updatedByDeviceId})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $PlaybackSessionCopyWith<$Res>  {
   factory $PlaybackSessionCopyWith(PlaybackSession value, $Res Function(PlaybackSession) _then) = _$PlaybackSessionCopyWithImpl;
 @useResult
 $Res call({
- String id, String ownerId, Workout workout, PlaybackStatus status, int stepIndex, int remainingMs, int anchorServerMs, int revision, String updatedByDeviceId
+ String id, String ownerId, String zoneId, Workout workout, PlaybackStatus status, int stepIndex, int remainingMs, int anchorServerMs, int revision, String updatedByDeviceId
 });
 
 
@@ -68,10 +68,11 @@ class _$PlaybackSessionCopyWithImpl<$Res>
 
 /// Create a copy of PlaybackSession
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? ownerId = null,Object? workout = null,Object? status = null,Object? stepIndex = null,Object? remainingMs = null,Object? anchorServerMs = null,Object? revision = null,Object? updatedByDeviceId = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? ownerId = null,Object? zoneId = null,Object? workout = null,Object? status = null,Object? stepIndex = null,Object? remainingMs = null,Object? anchorServerMs = null,Object? revision = null,Object? updatedByDeviceId = null,}) {
   return _then(PlaybackSession(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,ownerId: null == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
+as String,zoneId: null == zoneId ? _self.zoneId : zoneId // ignore: cast_nullable_to_non_nullable
 as String,workout: null == workout ? _self.workout : workout // ignore: cast_nullable_to_non_nullable
 as Workout,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as PlaybackStatus,stepIndex: null == stepIndex ? _self.stepIndex : stepIndex // ignore: cast_nullable_to_non_nullable
@@ -173,10 +174,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String ownerId,  Workout workout,  PlaybackStatus status,  int stepIndex,  int remainingMs,  int anchorServerMs,  int revision,  String updatedByDeviceId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String ownerId,  String zoneId,  Workout workout,  PlaybackStatus status,  int stepIndex,  int remainingMs,  int anchorServerMs,  int revision,  String updatedByDeviceId)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlaybackSession() when $default != null:
-return $default(_that.id,_that.ownerId,_that.workout,_that.status,_that.stepIndex,_that.remainingMs,_that.anchorServerMs,_that.revision,_that.updatedByDeviceId);case _:
+return $default(_that.id,_that.ownerId,_that.zoneId,_that.workout,_that.status,_that.stepIndex,_that.remainingMs,_that.anchorServerMs,_that.revision,_that.updatedByDeviceId);case _:
   return orElse();
 
 }
@@ -194,10 +195,10 @@ return $default(_that.id,_that.ownerId,_that.workout,_that.status,_that.stepInde
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String ownerId,  Workout workout,  PlaybackStatus status,  int stepIndex,  int remainingMs,  int anchorServerMs,  int revision,  String updatedByDeviceId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String ownerId,  String zoneId,  Workout workout,  PlaybackStatus status,  int stepIndex,  int remainingMs,  int anchorServerMs,  int revision,  String updatedByDeviceId)  $default,) {final _that = this;
 switch (_that) {
 case _PlaybackSession():
-return $default(_that.id,_that.ownerId,_that.workout,_that.status,_that.stepIndex,_that.remainingMs,_that.anchorServerMs,_that.revision,_that.updatedByDeviceId);case _:
+return $default(_that.id,_that.ownerId,_that.zoneId,_that.workout,_that.status,_that.stepIndex,_that.remainingMs,_that.anchorServerMs,_that.revision,_that.updatedByDeviceId);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -214,10 +215,10 @@ return $default(_that.id,_that.ownerId,_that.workout,_that.status,_that.stepInde
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String ownerId,  Workout workout,  PlaybackStatus status,  int stepIndex,  int remainingMs,  int anchorServerMs,  int revision,  String updatedByDeviceId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String ownerId,  String zoneId,  Workout workout,  PlaybackStatus status,  int stepIndex,  int remainingMs,  int anchorServerMs,  int revision,  String updatedByDeviceId)?  $default,) {final _that = this;
 switch (_that) {
 case _PlaybackSession() when $default != null:
-return $default(_that.id,_that.ownerId,_that.workout,_that.status,_that.stepIndex,_that.remainingMs,_that.anchorServerMs,_that.revision,_that.updatedByDeviceId);case _:
+return $default(_that.id,_that.ownerId,_that.zoneId,_that.workout,_that.status,_that.stepIndex,_that.remainingMs,_that.anchorServerMs,_that.revision,_that.updatedByDeviceId);case _:
   return null;
 
 }
@@ -229,11 +230,12 @@ return $default(_that.id,_that.ownerId,_that.workout,_that.status,_that.stepInde
 
 
 class _PlaybackSession implements PlaybackSession {
-  const _PlaybackSession({required this.id, required this.ownerId, required this.workout, required this.status, required this.stepIndex, required this.remainingMs, required this.anchorServerMs, required this.revision, required this.updatedByDeviceId});
+  const _PlaybackSession({required this.id, required this.ownerId, required this.zoneId, required this.workout, required this.status, required this.stepIndex, required this.remainingMs, required this.anchorServerMs, required this.revision, required this.updatedByDeviceId});
   
 
 @override final  String id;
 @override final  String ownerId;
+@override final  String zoneId;
 @override final  Workout workout;
 @override final  PlaybackStatus status;
 @override final  int stepIndex;
@@ -252,18 +254,18 @@ _$PlaybackSessionCopyWith<_PlaybackSession> get copyWith => __$PlaybackSessionCo
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlaybackSession&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId)&&(identical(other.workout, workout) || other.workout == workout)&&(identical(other.status, status) || other.status == status)&&(identical(other.stepIndex, stepIndex) || other.stepIndex == stepIndex)&&(identical(other.remainingMs, remainingMs) || other.remainingMs == remainingMs)&&(identical(other.anchorServerMs, anchorServerMs) || other.anchorServerMs == anchorServerMs)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.updatedByDeviceId, updatedByDeviceId) || other.updatedByDeviceId == updatedByDeviceId));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlaybackSession&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId)&&(identical(other.zoneId, zoneId) || other.zoneId == zoneId)&&(identical(other.workout, workout) || other.workout == workout)&&(identical(other.status, status) || other.status == status)&&(identical(other.stepIndex, stepIndex) || other.stepIndex == stepIndex)&&(identical(other.remainingMs, remainingMs) || other.remainingMs == remainingMs)&&(identical(other.anchorServerMs, anchorServerMs) || other.anchorServerMs == anchorServerMs)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.updatedByDeviceId, updatedByDeviceId) || other.updatedByDeviceId == updatedByDeviceId));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,ownerId,workout,status,stepIndex,remainingMs,anchorServerMs,revision,updatedByDeviceId);
+    return Object.hash(runtimeType,id,ownerId,zoneId,workout,status,stepIndex,remainingMs,anchorServerMs,revision,updatedByDeviceId);
 }
 
 @override
 String toString() {
-    return 'PlaybackSession(id: $id, ownerId: $ownerId, workout: $workout, status: $status, stepIndex: $stepIndex, remainingMs: $remainingMs, anchorServerMs: $anchorServerMs, revision: $revision, updatedByDeviceId: $updatedByDeviceId)';
+    return 'PlaybackSession(id: $id, ownerId: $ownerId, zoneId: $zoneId, workout: $workout, status: $status, stepIndex: $stepIndex, remainingMs: $remainingMs, anchorServerMs: $anchorServerMs, revision: $revision, updatedByDeviceId: $updatedByDeviceId)';
 }
 
 
@@ -274,7 +276,7 @@ abstract mixin class _$PlaybackSessionCopyWith<$Res> implements $PlaybackSession
   factory _$PlaybackSessionCopyWith(_PlaybackSession value, $Res Function(_PlaybackSession) _then) = __$PlaybackSessionCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String ownerId, Workout workout, PlaybackStatus status, int stepIndex, int remainingMs, int anchorServerMs, int revision, String updatedByDeviceId
+ String id, String ownerId, String zoneId, Workout workout, PlaybackStatus status, int stepIndex, int remainingMs, int anchorServerMs, int revision, String updatedByDeviceId
 });
 
 
@@ -291,10 +293,11 @@ class __$PlaybackSessionCopyWithImpl<$Res>
 
 /// Create a copy of PlaybackSession
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? ownerId = null,Object? workout = null,Object? status = null,Object? stepIndex = null,Object? remainingMs = null,Object? anchorServerMs = null,Object? revision = null,Object? updatedByDeviceId = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? ownerId = null,Object? zoneId = null,Object? workout = null,Object? status = null,Object? stepIndex = null,Object? remainingMs = null,Object? anchorServerMs = null,Object? revision = null,Object? updatedByDeviceId = null,}) {
   return _then(_PlaybackSession(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,ownerId: null == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
+as String,zoneId: null == zoneId ? _self.zoneId : zoneId // ignore: cast_nullable_to_non_nullable
 as String,workout: null == workout ? _self.workout : workout // ignore: cast_nullable_to_non_nullable
 as Workout,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as PlaybackStatus,stepIndex: null == stepIndex ? _self.stepIndex : stepIndex // ignore: cast_nullable_to_non_nullable

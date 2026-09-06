@@ -13,11 +13,13 @@ class PlaybackActions {
 
   Future<PlaybackSession> start({
     required Workout workout,
+    required String zoneId,
     required int stepIndex,
     required int durationMs,
     required String deviceId,
   }) => _repository.start(
     workout: workout,
+    zoneId: zoneId,
     stepIndex: stepIndex,
     durationMs: durationMs,
     deviceId: deviceId,

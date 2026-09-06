@@ -1,17 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
 
 class WorkoutPlayerScreen extends HookConsumerWidget {
   const WorkoutPlayerScreen({
@@ -56,6 +59,7 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
       ).notifier,
     );
     final playbackAction = ref.watch(playbackActionControllerProvider);
+    final isConnected = ref.watch(playbackConnectionProvider).value ?? false;
     final showControls = useState(!displayMode);
 
     Future<void> exitPlayer() async {
@@ -68,9 +72,35 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
       if (context.mounted) context.go('/');
     }
 
+    Future<void> requestExit() async {
+      if (displayMode) return;
+      final shouldExit = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('수업을 종료할까요?'),
+          content: const Text('연결된 디스플레이의 재생도 함께 종료됩니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('계속 진행'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('수업 종료'),
+            ),
+          ],
+        ),
+      );
+      if (shouldExit == true && context.mounted) await exitPlayer();
+    }
+
     useEffect(() {
+      unawaited(WakelockPlus.enable());
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      return () => SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      return () {
+        unawaited(WakelockPlus.disable());
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      };
     }, const []);
     if (state.steps.isEmpty || state.index >= state.steps.length) {
       return _DoneScreen(workout: workout, displayMode: displayMode);
@@ -78,91 +108,107 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
 
     final step = state.steps[state.index];
     final module = step.module;
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.space): () => actions.toggle(),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-            actions.next(),
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-            actions.previous(),
-        const SingleActivator(LogicalKeyboardKey.escape): () => exitPlayer(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(requestExit());
       },
-      child: Focus(
-        autofocus: true,
-        child: GestureDetector(
-          onTap: displayMode
-              ? null
-              : () => showControls.value = !showControls.value,
-          child: AsyncActionOverlay(
-            isLoading: playbackAction.isLoading,
-            child: Scaffold(
-              backgroundColor: Colors.black,
-              body: ColoredBox(
-                color: Colors.black,
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final scale = (constraints.maxWidth / 1280).clamp(
-                          .65,
-                          1.5,
-                        );
-                        return Stack(
-                          children: [
-                            if (module.imageSource.isNotEmpty)
-                              Positioned.fill(
-                                child: WorkoutImage(
-                                  source: module.imageSource,
-                                  fit: module.coverImage
-                                      ? BoxFit.cover
-                                      : BoxFit.contain,
-                                  showLoadingIndicator: true,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.space): () =>
+              actions.toggle(),
+          const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+              actions.next(),
+          const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+              actions.previous(),
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              unawaited(requestExit()),
+        },
+        child: Focus(
+          autofocus: true,
+          child: GestureDetector(
+            onTap: displayMode
+                ? null
+                : () => showControls.value = !showControls.value,
+            child: AsyncActionOverlay(
+              isLoading: playbackAction.isLoading,
+              child: Scaffold(
+                backgroundColor: Colors.black,
+                body: ColoredBox(
+                  color: Colors.black,
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final scale = (constraints.maxWidth / 1280).clamp(
+                            .65,
+                            1.5,
+                          );
+                          return Stack(
+                            children: [
+                              if (module.imageSource.isNotEmpty)
+                                Positioned.fill(
+                                  child: WorkoutImage(
+                                    source: module.imageSource,
+                                    fit: module.coverImage
+                                        ? BoxFit.cover
+                                        : BoxFit.contain,
+                                    showLoadingIndicator: true,
+                                  ),
+                                ),
+                              if (module.imageSource.isEmpty)
+                                const Positioned.fill(
+                                  child: ColoredBox(color: Colors.black),
+                                ),
+                              SafeArea(
+                                minimum: EdgeInsets.all(20 * scale),
+                                child: _PlayerContent(
+                                  workout: workout,
+                                  step: step,
+                                  state: state,
+                                  scale: scale,
                                 ),
                               ),
-                            if (module.imageSource.isEmpty)
-                              const Positioned.fill(
-                                child: ColoredBox(color: Colors.black),
-                              ),
-                            SafeArea(
-                              minimum: EdgeInsets.all(20 * scale),
-                              child: _PlayerContent(
-                                workout: workout,
-                                step: step,
-                                state: state,
-                                scale: scale,
-                              ),
-                            ),
-                            if (state.isPaused)
+                              if (state.isPaused)
+                                Positioned(
+                                  top: 42 * scale,
+                                  right: 34 * scale,
+                                  child: Chip(
+                                    label: Text(
+                                      '일시정지',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16 * scale,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    backgroundColor: Colors.black87,
+                                  ),
+                                ),
                               Positioned(
                                 top: 42 * scale,
-                                right: 34 * scale,
-                                child: Chip(
-                                  label: Text(
-                                    '일시정지',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16 * scale,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  backgroundColor: Colors.black87,
+                                left: 34 * scale,
+                                child: _ConnectionChip(
+                                  connected: isConnected,
+                                  scale: scale,
                                 ),
                               ),
-                            if (showControls.value && !displayMode)
-                              _Controls(
-                                onPrevious: () => actions.previous(),
-                                onToggle: () => actions.toggle(),
-                                onNext: () => actions.next(),
-                                paused: state.isPaused,
-                                indexLabel:
-                                    '${step.moduleIndex + 1} / ${workout.modules.length}',
-                                onExit: () => exitPlayer(),
-                                scale: scale,
-                              ),
-                          ],
-                        );
-                      },
+                              if (showControls.value && !displayMode)
+                                _Controls(
+                                  onPrevious: () => actions.previous(),
+                                  onToggle: () => actions.toggle(),
+                                  onNext: () => actions.next(),
+                                  paused: state.isPaused,
+                                  indexLabel:
+                                      '${step.moduleIndex + 1} / ${workout.modules.length}',
+                                  onExit: () => unawaited(requestExit()),
+                                  scale: scale,
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -173,6 +219,31 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _ConnectionChip extends StatelessWidget {
+  const _ConnectionChip({required this.connected, required this.scale});
+
+  final bool connected;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => Chip(
+    avatar: Icon(
+      Icons.circle,
+      size: 10 * scale,
+      color: connected ? Colors.greenAccent : Colors.orangeAccent,
+    ),
+    label: Text(
+      connected ? '동기화됨' : '오프라인 · 로컬 재생',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 13 * scale,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    backgroundColor: Colors.black87,
+  );
 }
 
 class _PlayerContent extends StatelessWidget {

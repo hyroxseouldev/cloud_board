@@ -2,8 +2,8 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.d
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -44,6 +44,7 @@ void main() {
     final session = PlaybackSession(
       id: 'session',
       ownerId: 'user',
+      zoneId: 'main',
       workout: _workout(),
       status: PlaybackStatus.playing,
       stepIndex: 0,
@@ -81,6 +82,7 @@ void main() {
     final model = PlaybackSessionModel.fromWorkout(
       id: 'session',
       ownerId: 'user',
+      zoneId: 'main',
       workout: workout,
       stepIndex: 0,
       durationMs: 60000,

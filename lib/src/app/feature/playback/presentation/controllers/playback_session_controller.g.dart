@@ -82,6 +82,40 @@ final class ServerTimeOffsetProvider
 
 String _$serverTimeOffsetHash() => r'1d0fdef9a8a0c3bfb484ff15e416c10d07adf176';
 
+@ProviderFor(playbackConnection)
+final playbackConnectionProvider = PlaybackConnectionProvider._();
+
+final class PlaybackConnectionProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, Stream<bool>>
+    with $FutureModifier<bool>, $StreamProvider<bool> {
+  PlaybackConnectionProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playbackConnectionProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playbackConnectionHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<bool> create(Ref ref) {
+    return playbackConnection(ref);
+  }
+}
+
+String _$playbackConnectionHash() =>
+    r'bdf2d25f2758e140bb88121bee9e7809a08eb874';
+
 @ProviderFor(PlaybackActionController)
 final playbackActionControllerProvider = PlaybackActionControllerProvider._();
 
@@ -115,7 +149,7 @@ final class PlaybackActionControllerProvider
 }
 
 String _$playbackActionControllerHash() =>
-    r'c9041dad46e2ade0d99bd8f255e741728ab95c3e';
+    r'93530afb1e8108f7808f4492e5b08a31104271d9';
 
 abstract class _$PlaybackActionController
     extends $Notifier<AsyncValue<String?>> {

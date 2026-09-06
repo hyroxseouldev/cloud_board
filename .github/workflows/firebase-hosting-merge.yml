@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+      - develop
 
 jobs:
   build_and_deploy:
@@ -20,12 +24,27 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Validate database rules JSON
+        run: python3 -m json.tool database.rules.json > /dev/null
+
       - name: Build Flutter web app
         run: |
-          flutter pub get
           flutter build web --release
 
       - name: Deploy to Firebase Hosting
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'

@@ -59,7 +59,7 @@ final class PlayerControllerProvider
   }
 }
 
-String _$playerControllerHash() => r'f16d33cc6bf64e1c2324db9943a7d22d65c5be51';
+String _$playerControllerHash() => r'892612e144958a727f9d1f85f2d3d97eb53ac52d';
 
 final class PlayerControllerFamily extends $Family
     with

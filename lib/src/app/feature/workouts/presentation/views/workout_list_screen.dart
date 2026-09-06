@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -8,27 +9,22 @@ import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_menu.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/paired_devices_button.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 
-String durationLabel(int seconds) =>
-    '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-int workoutDuration(Workout workout) => workout.modules.fold(
-  0,
-  (sum, module) =>
-      sum +
-      (module.workSeconds * module.sets) +
-      (module.restSeconds * (module.sets - 1)),
-);
-String newId() => DateTime.now().microsecondsSinceEpoch.toRadixString(36);
-
-class WorkoutListScreen extends ConsumerWidget {
+class WorkoutListScreen extends HookConsumerWidget {
   const WorkoutListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final search = useTextEditingController();
+    useListenable(search);
+    final selectedFolder = useState<String?>(null);
     final workouts = ref.watch(workoutControllerProvider);
     final user = ref.watch(authStateProvider).value;
     final authAction = ref.watch(authControllerProvider);
@@ -46,6 +42,7 @@ class WorkoutListScreen extends ConsumerWidget {
           centerTitle: true,
           title: const _Logo(),
           actions: [
+            const PairedDevicesButton(),
             const DeviceModeMenu(),
             if (user != null) _UserMenu(user: user, isBusy: isBusy),
             const SizedBox(width: 8),
@@ -53,9 +50,75 @@ class WorkoutListScreen extends ConsumerWidget {
         ),
         body: AsyncValueWidget<List<Workout>>(
           value: workouts,
-          data: (items) => items.isEmpty
-              ? const _EmptyWorkouts()
-              : _WorkoutList(items: items, isBusy: isBusy),
+          data: (items) {
+            if (items.isEmpty) return const _EmptyWorkouts();
+            final folders =
+                items
+                    .map((item) => item.folder)
+                    .where((folder) => folder.isNotEmpty)
+                    .toSet()
+                    .toList()
+                  ..sort();
+            final query = search.text.trim().toLowerCase();
+            final filtered = items.where((item) {
+              final matchesQuery =
+                  query.isEmpty ||
+                  item.name.toLowerCase().contains(query) ||
+                  item.folder.toLowerCase().contains(query);
+              final matchesFolder =
+                  selectedFolder.value == null ||
+                  item.folder == selectedFolder.value;
+              return matchesQuery && matchesFolder;
+            }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1000),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: search,
+                              decoration: const InputDecoration(
+                                hintText: '워크아웃 또는 폴더 검색',
+                                prefixIcon: Icon(Icons.search_rounded),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          DropdownButton<String?>(
+                            value: selectedFolder.value,
+                            hint: const Text('모든 폴더'),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('모든 폴더'),
+                              ),
+                              ...folders.map(
+                                (folder) => DropdownMenuItem<String?>(
+                                  value: folder,
+                                  child: Text(folder),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) => selectedFolder.value = value,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? const Center(child: Text('검색 결과가 없습니다.'))
+                      : _WorkoutList(items: filtered, isBusy: isBusy),
+                ),
+              ],
+            );
+          },
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: isBusy ? null : () => context.push('/editor/new'),
@@ -304,11 +367,14 @@ class _WorkoutTile extends ConsumerWidget {
   }
 
   Future<void> _play(BuildContext context, WidgetRef ref) async {
+    final selection = await showWorkoutPreflight(context, workout);
+    if (selection == null || !context.mounted) return;
     final steps = buildPlayerSteps(workout);
     final sessionId = await ref
         .read(playbackActionControllerProvider.notifier)
         .start(
           workout: workout,
+          zoneId: selection.zoneId,
           stepIndex: 0,
           durationMs: steps.first.duration * 1000,
         );

@@ -11,6 +11,7 @@ class PlaybackSessionModel {
   const PlaybackSessionModel({
     required this.id,
     required this.ownerId,
+    required this.zoneId,
     required this.workoutSnapshot,
     required this.status,
     required this.stepIndex,
@@ -22,6 +23,8 @@ class PlaybackSessionModel {
 
   final String id;
   final String ownerId;
+  @JsonKey(defaultValue: 'main')
+  final String zoneId;
   final Map<String, dynamic> workoutSnapshot;
   final String status;
   final int stepIndex;
@@ -38,6 +41,7 @@ class PlaybackSessionModel {
   PlaybackSession toEntity() => PlaybackSession(
     id: id,
     ownerId: ownerId,
+    zoneId: zoneId,
     workout: WorkoutModel.fromJson(workoutSnapshot).toEntity(),
     status: PlaybackStatus.values.firstWhere(
       (value) => value.name == status,
@@ -53,6 +57,7 @@ class PlaybackSessionModel {
   factory PlaybackSessionModel.fromWorkout({
     required String id,
     required String ownerId,
+    required String zoneId,
     required Workout workout,
     required int stepIndex,
     required int durationMs,
@@ -64,6 +69,7 @@ class PlaybackSessionModel {
     return PlaybackSessionModel(
       id: id,
       ownerId: ownerId,
+      zoneId: zoneId,
       workoutSnapshot: snapshot,
       status: PlaybackStatus.playing.name,
       stepIndex: stepIndex,

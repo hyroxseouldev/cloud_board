@@ -23,6 +23,11 @@ class PlaybackRealtimeDataSource {
       .onValue
       .map((event) => (event.snapshot.value as num?)?.round() ?? 0);
 
+  Stream<bool> watchConnected() => _database
+      .ref('.info/connected')
+      .onValue
+      .map((event) => event.snapshot.value == true);
+
   Future<PlaybackSessionModel> start(PlaybackSessionModel model) async {
     final json = model.toJson()..['anchorServerMs'] = ServerValue.timestamp;
     await _active.set(json);
@@ -30,15 +35,16 @@ class PlaybackRealtimeDataSource {
     return PlaybackSessionModel.fromJson(_stringMap(snapshot.value));
   }
 
-  Future<void> update({
+  Future<PlaybackSessionModel> update({
     required String status,
     required String deviceId,
     int? stepIndex,
     int? remainingMs,
   }) async {
-    await _active.runTransaction((current) {
+    final result = await _active.runTransaction((current) {
       if (current == null) return Transaction.abort();
       final json = _stringMap(current);
+      json.putIfAbsent('zoneId', () => 'main');
       json['status'] = status;
       json['updatedByDeviceId'] = deviceId;
       json['revision'] = ((json['revision'] as num?)?.round() ?? 0) + 1;
@@ -47,6 +53,10 @@ class PlaybackRealtimeDataSource {
       if (remainingMs != null) json['remainingMs'] = remainingMs;
       return Transaction.success(json);
     });
+    if (!result.committed || result.snapshot.value == null) {
+      throw StateError('재생 세션을 업데이트하지 못했습니다.');
+    }
+    return PlaybackSessionModel.fromJson(_stringMap(result.snapshot.value));
   }
 
   String _requireUserId() {

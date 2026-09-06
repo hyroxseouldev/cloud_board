@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -10,11 +12,12 @@ import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 
 const _timerColors = <_TimerColorOption>[
   _TimerColorOption('기본', null),
@@ -71,15 +74,42 @@ class _EditorBody extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = useState(initial);
+    final savedBaseline = useState(initial);
     final name = useTextEditingController(text: initial.name);
     final folder = useTextEditingController(text: initial.folder);
     final brandL = useTextEditingController(text: initial.brandL);
     final brandR = useTextEditingController(text: initial.brandR);
+    useListenable(name);
+    useListenable(folder);
+    useListenable(brandL);
+    useListenable(brandR);
     final action = ref.watch(workoutActionControllerProvider);
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isBusy = action.isLoading || playbackAction.isLoading;
+    final hasUnsavedChanges =
+        draft.value != savedBaseline.value ||
+        name.text.trim() != savedBaseline.value.name ||
+        folder.text.trim() != savedBaseline.value.folder ||
+        brandL.text.trim() != savedBaseline.value.brandL ||
+        brandR.text.trim() != savedBaseline.value.brandR;
 
     Future<Workout?> persist() async {
+      if (name.text.trim().isEmpty) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('워크아웃 이름이 필요합니다'),
+            content: const Text('매장에서 구분할 수 있는 이름을 입력해 주세요.'),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+        return null;
+      }
       final value = draft.value.copyWith(
         name: name.text.trim(),
         folder: folder.text.trim(),
@@ -89,8 +119,48 @@ class _EditorBody extends HookConsumerWidget {
       final saved = await ref
           .read(workoutActionControllerProvider.notifier)
           .save(value);
-      if (saved != null) draft.value = saved;
+      if (saved != null) {
+        draft.value = saved;
+        savedBaseline.value = saved;
+      }
       return saved;
+    }
+
+    useEffect(() {
+      if (isNew || !hasUnsavedChanges || isBusy) return null;
+      final timer = Timer(const Duration(milliseconds: 1200), persist);
+      return timer.cancel;
+    }, [draft.value, name.text, folder.text, brandL.text, brandR.text, isBusy]);
+
+    Future<bool> confirmExit() async {
+      if (!hasUnsavedChanges) return true;
+      return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('변경사항을 저장할까요?'),
+              content: const Text('저장하지 않고 나가면 방금 수정한 내용이 사라집니다.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('저장 안 함'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final saved = await persist();
+                    if (context.mounted) {
+                      Navigator.of(context).pop(saved != null);
+                    }
+                  },
+                  child: const Text('저장 후 나가기'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    }
+
+    Future<void> requestBack() async {
+      if (await confirmExit() && context.mounted) context.pop();
     }
 
     Future<void> saveAndClose() async {
@@ -106,6 +176,8 @@ class _EditorBody extends HookConsumerWidget {
     Future<void> saveAndPlay({int? start}) async {
       final saved = await persist();
       if (saved == null || !context.mounted) return;
+      final selection = await showWorkoutPreflight(context, saved);
+      if (selection == null || !context.mounted) return;
       final stepIndex = playerStepIndexForModule(saved, start ?? 0);
       final steps = buildPlayerSteps(saved);
       if (steps.isEmpty) return;
@@ -113,6 +185,7 @@ class _EditorBody extends HookConsumerWidget {
           .read(playbackActionControllerProvider.notifier)
           .start(
             workout: saved,
+            zoneId: selection.zoneId,
             stepIndex: stepIndex,
             durationMs: steps[stepIndex].duration * 1000,
           );
@@ -122,161 +195,182 @@ class _EditorBody extends HookConsumerWidget {
       context.go('/player/${saved.id}$query${separator}session=$sessionId');
     }
 
-    return AsyncActionOverlay(
-      isLoading: isBusy,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: BackButton(onPressed: isBusy ? null : () => context.pop()),
-          title: Text(
-            isNew
-                ? '새 워크아웃'
-                : initial.name.isEmpty
-                ? '워크아웃'
-                : initial.name,
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: FilledButton.icon(
-                onPressed: draft.value.modules.isEmpty || isBusy
-                    ? null
-                    : saveAndPlay,
-                icon: isBusy
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.play_arrow),
-                label: const Text('재생'),
-              ),
+    return PopScope(
+      canPop: !hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(requestBack());
+      },
+      child: AsyncActionOverlay(
+        isLoading: isBusy,
+        child: Scaffold(
+          appBar: AppBar(
+            leading: BackButton(onPressed: isBusy ? null : requestBack),
+            title: Text(
+              isNew
+                  ? '새 워크아웃'
+                  : initial.name.isEmpty
+                  ? '워크아웃'
+                  : initial.name,
             ),
-          ],
-        ),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 90),
-              children: [
-                _TextField(
-                  label: '워크아웃 이름',
-                  controller: name,
-                  hint: '예: 9/4 금 하이록스',
-                ),
-                _TextField(label: '폴더', controller: folder, hint: '예: 잠실'),
-                _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
-                _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Text(
-                      '슬라이드',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: XonColors.muted,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      durationLabel(workoutDuration(draft.value)),
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  buildDefaultDragHandles: false,
-                  itemCount: draft.value.modules.length,
-                  onReorderItem: (oldIndex, newIndex) {
-                    final list = [...draft.value.modules];
-                    final item = list.removeAt(oldIndex);
-                    list.insert(newIndex, item);
-                    draft.value = draft.value.copyWith(modules: list);
-                  },
-                  proxyDecorator: (child, index, animation) => Material(
-                    elevation: 8,
-                    borderRadius: BorderRadius.circular(9),
-                    child: child,
-                  ),
-                  itemBuilder: (context, index) {
-                    final module = draft.value.modules[index];
-                    return _ModuleEditor(
-                      key: ValueKey(module.id),
-                      module: module,
-                      index: index,
-                      onChange: (module) {
-                        final list = [...draft.value.modules];
-                        list[index] = module;
-                        draft.value = draft.value.copyWith(modules: list);
-                      },
-                      onRemove: () {
-                        final list = [...draft.value.modules]..removeAt(index);
-                        draft.value = draft.value.copyWith(modules: list);
-                      },
-                      onMove: (amount) {
-                        final target = index + amount;
-                        if (target < 0 ||
-                            target >= draft.value.modules.length) {
-                          return;
-                        }
-                        final list = [...draft.value.modules];
-                        final item = list.removeAt(index);
-                        list.insert(target, item);
-                        draft.value = draft.value.copyWith(modules: list);
-                      },
-                      onPlay: () async {
-                        await saveAndPlay(start: index);
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => draft.value = draft.value.copyWith(
-                        modules: [
-                          ...draft.value.modules,
-                          WorkoutModule.empty(newId()),
-                        ],
-                      ),
-                      icon: const Icon(Icons.add),
-                      label: const Text('슬라이드 추가'),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => draft.value = draft.value.copyWith(
-                        modules: [
-                          ...draft.value.modules,
-                          WorkoutModule.empty(newId()).copyWith(
-                            name: '휴식',
-                            workSeconds: 60,
-                            text: '물 마시고 다음 스테이션으로',
-                          ),
-                        ],
-                      ),
-                      child: const Text('휴식 60초'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 50,
-                  child: FilledButton.icon(
-                    onPressed: isBusy ? null : saveAndClose,
-                    icon: isBusy
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_outlined),
-                    label: Text(isBusy ? '처리 중...' : '저장'),
+            actions: [
+              Center(
+                child: Text(
+                  action.isLoading
+                      ? '저장 중…'
+                      : hasUnsavedChanges
+                      ? '저장 필요'
+                      : '저장됨',
+                  style: TextStyle(
+                    color: hasUnsavedChanges ? Colors.orange : XonColors.muted,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ],
+              ),
+              const SizedBox(width: 12),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: FilledButton.icon(
+                  onPressed: draft.value.modules.isEmpty || isBusy
+                      ? null
+                      : saveAndPlay,
+                  icon: isBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.play_arrow),
+                  label: const Text('재생'),
+                ),
+              ),
+            ],
+          ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 90),
+                children: [
+                  _TextField(
+                    label: '워크아웃 이름',
+                    controller: name,
+                    hint: '예: 9/4 금 하이록스',
+                  ),
+                  _TextField(label: '폴더', controller: folder, hint: '예: 잠실'),
+                  _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
+                  _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Text(
+                        '슬라이드',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: XonColors.muted,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        durationLabel(workoutDuration(draft.value)),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    itemCount: draft.value.modules.length,
+                    onReorderItem: (oldIndex, newIndex) {
+                      final list = [...draft.value.modules];
+                      final item = list.removeAt(oldIndex);
+                      list.insert(newIndex, item);
+                      draft.value = draft.value.copyWith(modules: list);
+                    },
+                    proxyDecorator: (child, index, animation) => Material(
+                      elevation: 8,
+                      borderRadius: BorderRadius.circular(9),
+                      child: child,
+                    ),
+                    itemBuilder: (context, index) {
+                      final module = draft.value.modules[index];
+                      return _ModuleEditor(
+                        key: ValueKey(module.id),
+                        module: module,
+                        index: index,
+                        onChange: (module) {
+                          final list = [...draft.value.modules];
+                          list[index] = module;
+                          draft.value = draft.value.copyWith(modules: list);
+                        },
+                        onRemove: () {
+                          final list = [...draft.value.modules]
+                            ..removeAt(index);
+                          draft.value = draft.value.copyWith(modules: list);
+                        },
+                        onMove: (amount) {
+                          final target = index + amount;
+                          if (target < 0 ||
+                              target >= draft.value.modules.length) {
+                            return;
+                          }
+                          final list = [...draft.value.modules];
+                          final item = list.removeAt(index);
+                          list.insert(target, item);
+                          draft.value = draft.value.copyWith(modules: list);
+                        },
+                        onPlay: () async {
+                          await saveAndPlay(start: index);
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => draft.value = draft.value.copyWith(
+                          modules: [
+                            ...draft.value.modules,
+                            WorkoutModule.empty(newId()),
+                          ],
+                        ),
+                        icon: const Icon(Icons.add),
+                        label: const Text('슬라이드 추가'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () => draft.value = draft.value.copyWith(
+                          modules: [
+                            ...draft.value.modules,
+                            WorkoutModule.empty(newId()).copyWith(
+                              name: '휴식',
+                              workSeconds: 60,
+                              text: '물 마시고 다음 스테이션으로',
+                            ),
+                          ],
+                        ),
+                        child: const Text('휴식 60초'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 50,
+                    child: FilledButton.icon(
+                      onPressed: isBusy ? null : saveAndClose,
+                      icon: isBusy
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(isBusy ? '처리 중...' : '저장'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
