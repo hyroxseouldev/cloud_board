@@ -12,6 +12,7 @@ class PlaybackSessionModel {
     required this.id,
     required this.ownerId,
     required this.zoneId,
+    required this.targetDeviceIds,
     required this.workoutSnapshot,
     required this.status,
     required this.stepIndex,
@@ -25,6 +26,8 @@ class PlaybackSessionModel {
   final String ownerId;
   @JsonKey(defaultValue: 'main')
   final String zoneId;
+  @JsonKey(defaultValue: <String>[])
+  final List<String> targetDeviceIds;
   final Map<String, dynamic> workoutSnapshot;
   final String status;
   final int stepIndex;
@@ -42,6 +45,7 @@ class PlaybackSessionModel {
     id: id,
     ownerId: ownerId,
     zoneId: zoneId,
+    targetDeviceIds: targetDeviceIds,
     workout: WorkoutModel.fromJson(workoutSnapshot).toEntity(),
     status: PlaybackStatus.values.firstWhere(
       (value) => value.name == status,
@@ -58,6 +62,7 @@ class PlaybackSessionModel {
     required String id,
     required String ownerId,
     required String zoneId,
+    required List<String> targetDeviceIds,
     required Workout workout,
     required int stepIndex,
     required int durationMs,
@@ -70,6 +75,7 @@ class PlaybackSessionModel {
       id: id,
       ownerId: ownerId,
       zoneId: zoneId,
+      targetDeviceIds: List.unmodifiable(targetDeviceIds),
       workoutSnapshot: snapshot,
       status: PlaybackStatus.playing.name,
       stepIndex: stepIndex,

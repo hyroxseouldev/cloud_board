@@ -8,8 +8,8 @@
           ".validate": "newData.hasChildren(['id', 'ownerId', 'zoneId', 'workoutSnapshot', 'status', 'stepIndex', 'remainingMs', 'anchorServerMs', 'revision', 'updatedByDeviceId']) && newData.child('ownerId').val() === auth.uid && newData.child('zoneId').isString() && newData.child('status').isString() && (newData.child('status').val() === 'playing' || newData.child('status').val() === 'paused' || newData.child('status').val() === 'completed') && newData.child('stepIndex').isNumber() && newData.child('stepIndex').val() >= 0 && newData.child('remainingMs').isNumber() && newData.child('remainingMs').val() >= 0 && newData.child('anchorServerMs').isNumber() && newData.child('revision').isNumber()"
         },
         "devices": {
+          ".read": "auth != null && auth.uid === $uid",
           "$deviceId": {
-            ".read": "auth != null && auth.uid === $uid",
             ".write": "auth != null && auth.uid === $uid",
             ".validate": "newData.hasChildren(['id', 'mode', 'online', 'lastSeenAtMs']) && newData.child('id').val() === $deviceId && newData.child('mode').val() === 'display' && newData.child('online').isBoolean() && newData.child('lastSeenAtMs').isNumber()"
           }
@@ -17,7 +17,7 @@
         "pairingCodes": {
           "$code": {
             ".read": "auth != null && auth.uid === $uid",
-            ".write": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.uid === $uid && (!data.exists() || !newData.exists() || (data.child('claimed').val() === false && data.child('expiresAtMs').val() > now && newData.child('claimed').val() === true))",
             ".validate": "$code.matches(/^\\d{6}$/) && newData.hasChildren(['code', 'deviceId', 'expiresAtMs', 'claimed']) && newData.child('code').val() === $code && newData.child('deviceId').isString() && newData.child('expiresAtMs').isNumber() && newData.child('claimed').isBoolean()"
           }
         }

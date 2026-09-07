@@ -17,6 +17,12 @@ class DevicePairingRealtimeDataSource {
 
   Future<DevicePairing> issue({required String deviceId}) async {
     final userRef = _userRef;
+    final deviceRef = userRef.child('devices/$deviceId');
+    final previousDevice = await deviceRef.get();
+    final previousPairingCode = switch (previousDevice.value) {
+      final Map value => value['pairingCode'] as String?,
+      _ => null,
+    };
     final expiresAtMs = DateTime.now()
         .add(const Duration(minutes: 10))
         .millisecondsSinceEpoch;
@@ -35,7 +41,6 @@ class DevicePairingRealtimeDataSource {
       });
       if (!result.committed) continue;
 
-      final deviceRef = userRef.child('devices/$deviceId');
       await deviceRef.update({
         'id': deviceId,
         'mode': 'display',
@@ -44,6 +49,9 @@ class DevicePairingRealtimeDataSource {
         'online': true,
         'lastSeenAtMs': ServerValue.timestamp,
       });
+      if (previousPairingCode != null && previousPairingCode != code) {
+        await userRef.child('pairingCodes/$previousPairingCode').remove();
+      }
       await deviceRef.onDisconnect().update({
         'online': false,
         'lastSeenAtMs': ServerValue.timestamp,
@@ -89,31 +97,34 @@ class DevicePairingRealtimeDataSource {
       throw const FormatException('6자리 연결 코드를 입력해 주세요.');
     }
     final pairingRef = _userRef.child('pairingCodes/$normalizedCode');
-    String? deviceId;
-    final result = await pairingRef.runTransaction((current) {
-      if (current is! Map) return Transaction.abort();
-      final value = Map<String, dynamic>.from(current);
-      final expiresAtMs = (value['expiresAtMs'] as num?)?.round() ?? 0;
-      if (value['claimed'] == true ||
-          expiresAtMs <= DateTime.now().millisecondsSinceEpoch) {
-        return Transaction.abort();
-      }
-      deviceId = value['deviceId'] as String?;
-      value['claimed'] = true;
-      value['claimedAtMs'] = ServerValue.timestamp;
-      return Transaction.success(value);
-    });
-    if (!result.committed || deviceId == null) {
-      throw StateError('코드가 만료되었거나 이미 사용되었습니다.');
+    final initialSnapshot = await pairingRef.get();
+    _requireAvailablePairing(initialSnapshot.value);
+
+    final pairing = Map<String, dynamic>.from(initialSnapshot.value! as Map);
+    final deviceId = pairing['deviceId'] as String?;
+    if (deviceId == null) {
+      throw StateError('연결 코드에 기기 정보가 없습니다. 디스플레이에서 새 코드를 만들어 주세요.');
     }
-    final zoneId = 'zone-${_stableHash(zoneName.trim()).toRadixString(36)}';
-    await _userRef.child('devices/$deviceId').update({
-      'name': name.trim().isEmpty ? '매장 디스플레이' : name.trim(),
-      'zoneId': zoneId,
-      'zoneName': zoneName.trim().isEmpty ? '메인 구역' : zoneName.trim(),
-      'paired': true,
-      'pairedAtMs': ServerValue.timestamp,
-    });
+    try {
+      await _userRef.update({
+        'pairingCodes/$normalizedCode/claimed': true,
+        'pairingCodes/$normalizedCode/claimedAtMs': ServerValue.timestamp,
+        'devices/$deviceId/name': name.trim().isEmpty
+            ? '매장 디스플레이'
+            : name.trim(),
+        'devices/$deviceId/zoneId': 'main',
+        'devices/$deviceId/zoneName': zoneName.trim().isEmpty
+            ? '메인 구역'
+            : zoneName.trim(),
+        'devices/$deviceId/paired': true,
+        'devices/$deviceId/pairedAtMs': ServerValue.timestamp,
+      });
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        throw StateError('코드가 만료되었거나 이미 사용되었습니다. 새 코드를 입력해 주세요.');
+      }
+      rethrow;
+    }
   }
 
   Future<void> unpair(String deviceId) async {
@@ -139,10 +150,16 @@ class DevicePairingRealtimeDataSource {
   });
 }
 
-int _stableHash(String value) {
-  var hash = 5381;
-  for (final codeUnit in value.codeUnits) {
-    hash = ((hash << 5) + hash) ^ codeUnit;
+void _requireAvailablePairing(Object? current) {
+  if (current is! Map) {
+    throw StateError('연결 코드를 찾을 수 없습니다. 디스플레이의 최신 코드를 확인해 주세요.');
   }
-  return hash & 0x7fffffff;
+  final value = Map<String, dynamic>.from(current);
+  final expiresAtMs = (value['expiresAtMs'] as num?)?.round() ?? 0;
+  if (value['claimed'] == true) {
+    throw StateError('이미 사용된 연결 코드입니다. 디스플레이에서 새 코드를 만들어 주세요.');
+  }
+  if (expiresAtMs <= DateTime.now().millisecondsSinceEpoch) {
+    throw StateError('만료된 연결 코드입니다. 디스플레이에서 새 코드를 만들어 주세요.');
+  }
 }

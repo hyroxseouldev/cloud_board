@@ -30,10 +30,15 @@ class DisplayModeScreen extends HookConsumerWidget {
         .firstOrNull;
 
     final session = active.value;
+    final targetsThisDevice =
+        session == null ||
+        (session.targetDeviceIds.isEmpty
+            ? currentDevice == null || session.zoneId == currentDevice.zoneId
+            : deviceId != null && session.targetDeviceIds.contains(deviceId));
     final isActive =
         session != null &&
         session.status != PlaybackStatus.completed &&
-        (currentDevice == null || session.zoneId == currentDevice.zoneId) &&
+        targetsThisDevice &&
         session.workout.modules.isNotEmpty;
 
     useEffect(() {

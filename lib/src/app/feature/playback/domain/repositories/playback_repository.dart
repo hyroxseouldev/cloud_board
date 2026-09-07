@@ -7,7 +7,7 @@ abstract interface class PlaybackRepository {
   Stream<bool> watchConnected();
   Future<PlaybackSession> start({
     required Workout workout,
-    required String zoneId,
+    required List<String> targetDeviceIds,
     required int stepIndex,
     required int durationMs,
     required String deviceId,

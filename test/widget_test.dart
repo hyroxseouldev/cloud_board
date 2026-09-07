@@ -45,6 +45,7 @@ void main() {
       id: 'session',
       ownerId: 'user',
       zoneId: 'main',
+      targetDeviceIds: const ['display-a', 'display-b'],
       workout: _workout(),
       status: PlaybackStatus.playing,
       stepIndex: 0,
@@ -83,6 +84,7 @@ void main() {
       id: 'session',
       ownerId: 'user',
       zoneId: 'main',
+      targetDeviceIds: const ['display-a', 'display-b'],
       workout: workout,
       stepIndex: 0,
       durationMs: 60000,
@@ -94,6 +96,7 @@ void main() {
     expect(restored.workout, workout);
     expect(restored.remainingMs, 60000);
     expect(restored.status, PlaybackStatus.playing);
+    expect(restored.targetDeviceIds, ['display-a', 'display-b']);
   });
 }
 

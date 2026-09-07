@@ -54,7 +54,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   @override
   Future<PlaybackSession> start({
     required Workout workout,
-    required String zoneId,
+    required List<String> targetDeviceIds,
     required int stepIndex,
     required int durationMs,
     required String deviceId,
@@ -66,7 +66,8 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     final model = PlaybackSessionModel.fromWorkout(
       id: sessionId,
       ownerId: user.uid,
-      zoneId: zoneId,
+      zoneId: 'main',
+      targetDeviceIds: targetDeviceIds,
       workout: workout,
       stepIndex: stepIndex,
       durationMs: durationMs,

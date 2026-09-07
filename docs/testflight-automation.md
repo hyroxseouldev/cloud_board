@@ -27,6 +27,6 @@
 - Apple Team ID: `NL7AM62SB9`
 - 실행 조건: `main` push 또는 수동 실행
 - GitHub Environment: `testflight`
-- 빌드 번호: `GitHub 실행 번호 × 100 + 재실행 번호`
+- 빌드 번호: App Store Connect에 업로드된 최신 빌드 번호 `+1`
 
 매장 배포 전에 GitHub의 `testflight` Environment에 승인 규칙을 추가하면, `main` 병합 뒤에도 승인 버튼을 누른 경우에만 실제 업로드되도록 운영할 수 있다.
