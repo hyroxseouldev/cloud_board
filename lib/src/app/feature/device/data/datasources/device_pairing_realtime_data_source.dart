@@ -100,33 +100,32 @@ class DevicePairingRealtimeDataSource {
     final initialSnapshot = await pairingRef.get();
     _requireAvailablePairing(initialSnapshot.value);
 
-    final result = await pairingRef.runTransaction((current) {
-      if (current is! Map) return Transaction.abort();
-      final value = Map<String, dynamic>.from(current);
-      final expiresAtMs = (value['expiresAtMs'] as num?)?.round() ?? 0;
-      if (value['claimed'] == true ||
-          expiresAtMs <= DateTime.now().millisecondsSinceEpoch) {
-        return Transaction.abort();
-      }
-      value['claimed'] = true;
-      value['claimedAtMs'] = ServerValue.timestamp;
-      return Transaction.success(value);
-    }, applyLocally: false);
-    final claimedValue = result.snapshot.value;
-    final deviceId = claimedValue is Map
-        ? claimedValue['deviceId'] as String?
-        : null;
-    if (!result.committed || deviceId == null) {
-      throw StateError('코드가 만료되었거나 이미 사용되었습니다.');
+    final pairing = Map<String, dynamic>.from(initialSnapshot.value! as Map);
+    final deviceId = pairing['deviceId'] as String?;
+    if (deviceId == null) {
+      throw StateError('연결 코드에 기기 정보가 없습니다. 디스플레이에서 새 코드를 만들어 주세요.');
     }
     final zoneId = 'zone-${_stableHash(zoneName.trim()).toRadixString(36)}';
-    await _userRef.child('devices/$deviceId').update({
-      'name': name.trim().isEmpty ? '매장 디스플레이' : name.trim(),
-      'zoneId': zoneId,
-      'zoneName': zoneName.trim().isEmpty ? '메인 구역' : zoneName.trim(),
-      'paired': true,
-      'pairedAtMs': ServerValue.timestamp,
-    });
+    try {
+      await _userRef.update({
+        'pairingCodes/$normalizedCode/claimed': true,
+        'pairingCodes/$normalizedCode/claimedAtMs': ServerValue.timestamp,
+        'devices/$deviceId/name': name.trim().isEmpty
+            ? '매장 디스플레이'
+            : name.trim(),
+        'devices/$deviceId/zoneId': zoneId,
+        'devices/$deviceId/zoneName': zoneName.trim().isEmpty
+            ? '메인 구역'
+            : zoneName.trim(),
+        'devices/$deviceId/paired': true,
+        'devices/$deviceId/pairedAtMs': ServerValue.timestamp,
+      });
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        throw StateError('코드가 만료되었거나 이미 사용되었습니다. 새 코드를 입력해 주세요.');
+      }
+      rethrow;
+    }
   }
 
   Future<void> unpair(String deviceId) async {
