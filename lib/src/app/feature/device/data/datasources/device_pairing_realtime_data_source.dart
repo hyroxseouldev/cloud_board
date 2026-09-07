@@ -17,6 +17,12 @@ class DevicePairingRealtimeDataSource {
 
   Future<DevicePairing> issue({required String deviceId}) async {
     final userRef = _userRef;
+    final deviceRef = userRef.child('devices/$deviceId');
+    final previousDevice = await deviceRef.get();
+    final previousPairingCode = switch (previousDevice.value) {
+      final Map value => value['pairingCode'] as String?,
+      _ => null,
+    };
     final expiresAtMs = DateTime.now()
         .add(const Duration(minutes: 10))
         .millisecondsSinceEpoch;
@@ -35,7 +41,6 @@ class DevicePairingRealtimeDataSource {
       });
       if (!result.committed) continue;
 
-      final deviceRef = userRef.child('devices/$deviceId');
       await deviceRef.update({
         'id': deviceId,
         'mode': 'display',
@@ -44,6 +49,9 @@ class DevicePairingRealtimeDataSource {
         'online': true,
         'lastSeenAtMs': ServerValue.timestamp,
       });
+      if (previousPairingCode != null && previousPairingCode != code) {
+        await userRef.child('pairingCodes/$previousPairingCode').remove();
+      }
       await deviceRef.onDisconnect().update({
         'online': false,
         'lastSeenAtMs': ServerValue.timestamp,
@@ -89,7 +97,9 @@ class DevicePairingRealtimeDataSource {
       throw const FormatException('6자리 연결 코드를 입력해 주세요.');
     }
     final pairingRef = _userRef.child('pairingCodes/$normalizedCode');
-    String? deviceId;
+    final initialSnapshot = await pairingRef.get();
+    _requireAvailablePairing(initialSnapshot.value);
+
     final result = await pairingRef.runTransaction((current) {
       if (current is! Map) return Transaction.abort();
       final value = Map<String, dynamic>.from(current);
@@ -98,11 +108,14 @@ class DevicePairingRealtimeDataSource {
           expiresAtMs <= DateTime.now().millisecondsSinceEpoch) {
         return Transaction.abort();
       }
-      deviceId = value['deviceId'] as String?;
       value['claimed'] = true;
       value['claimedAtMs'] = ServerValue.timestamp;
       return Transaction.success(value);
-    });
+    }, applyLocally: false);
+    final claimedValue = result.snapshot.value;
+    final deviceId = claimedValue is Map
+        ? claimedValue['deviceId'] as String?
+        : null;
     if (!result.committed || deviceId == null) {
       throw StateError('코드가 만료되었거나 이미 사용되었습니다.');
     }
@@ -137,6 +150,20 @@ class DevicePairingRealtimeDataSource {
     'lastSeenAtMs': ServerValue.timestamp,
     'online': true,
   });
+}
+
+void _requireAvailablePairing(Object? current) {
+  if (current is! Map) {
+    throw StateError('연결 코드를 찾을 수 없습니다. 디스플레이의 최신 코드를 확인해 주세요.');
+  }
+  final value = Map<String, dynamic>.from(current);
+  final expiresAtMs = (value['expiresAtMs'] as num?)?.round() ?? 0;
+  if (value['claimed'] == true) {
+    throw StateError('이미 사용된 연결 코드입니다. 디스플레이에서 새 코드를 만들어 주세요.');
+  }
+  if (expiresAtMs <= DateTime.now().millisecondsSinceEpoch) {
+    throw StateError('만료된 연결 코드입니다. 디스플레이에서 새 코드를 만들어 주세요.');
+  }
 }
 
 int _stableHash(String value) {
