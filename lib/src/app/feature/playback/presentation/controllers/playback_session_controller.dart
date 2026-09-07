@@ -29,7 +29,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     required Workout workout,
     required int stepIndex,
     required int durationMs,
-    String zoneId = 'main',
+    required List<String> targetDeviceIds,
   }) async {
     state = const AsyncLoading();
     PlaybackSession? session;
@@ -38,7 +38,7 @@ class PlaybackActionController extends _$PlaybackActionController {
           .read(playbackActionsProvider)
           .start(
             workout: workout,
-            zoneId: zoneId,
+            targetDeviceIds: targetDeviceIds,
             stepIndex: stepIndex,
             durationMs: durationMs,
             deviceId: await ref.read(deviceIdProvider.future),

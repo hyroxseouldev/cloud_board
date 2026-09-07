@@ -185,7 +185,7 @@ class _EditorBody extends HookConsumerWidget {
           .read(playbackActionControllerProvider.notifier)
           .start(
             workout: saved,
-            zoneId: selection.zoneId,
+            targetDeviceIds: selection.targetDeviceIds,
             stepIndex: stepIndex,
             durationMs: steps[stepIndex].duration * 1000,
           );

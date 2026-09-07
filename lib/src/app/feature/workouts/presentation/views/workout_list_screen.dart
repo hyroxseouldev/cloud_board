@@ -374,7 +374,7 @@ class _WorkoutTile extends ConsumerWidget {
         .read(playbackActionControllerProvider.notifier)
         .start(
           workout: workout,
-          zoneId: selection.zoneId,
+          targetDeviceIds: selection.targetDeviceIds,
           stepIndex: 0,
           durationMs: steps.first.duration * 1000,
         );

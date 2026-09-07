@@ -12,6 +12,7 @@ abstract class PlaybackSession with _$PlaybackSession {
     required String id,
     required String ownerId,
     required String zoneId,
+    @Default(<String>[]) List<String> targetDeviceIds,
     required Workout workout,
     required PlaybackStatus status,
     required int stepIndex,
