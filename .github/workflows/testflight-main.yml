@@ -174,38 +174,20 @@ jobs:
           plutil -lint "$export_options_path"
           echo "IOS_EXPORT_OPTIONS_PATH=$export_options_path" >> "$GITHUB_ENV"
 
-      - name: Configure iOS release
+      - name: Build unsigned archive
         run: |
           set -euo pipefail
-          flutter build ios \
+
+          flutter build ipa \
             --release \
-            --build-number "$TESTFLIGHT_BUILD_NUMBER" \
-            --config-only
+            --no-codesign \
+            --build-number "$TESTFLIGHT_BUILD_NUMBER"
 
-      - name: Build signed archive
-        env:
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-        run: |
-          set -euo pipefail
-
-          archive_path="$RUNNER_TEMP/Runner.xcarchive"
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$archive_path" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$APP_STORE_CONNECT_API_KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
-            archive \
-            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY='Apple Distribution' \
-            OTHER_CODE_SIGN_FLAGS="--keychain $IOS_KEYCHAIN_PATH"
-
+          archive_path="$GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive"
+          if [[ ! -d "$archive_path" ]]; then
+            echo 'The unsigned iOS archive was not created.' >&2
+            exit 1
+          fi
           echo "IOS_ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
 
       - name: Export signed IPA
