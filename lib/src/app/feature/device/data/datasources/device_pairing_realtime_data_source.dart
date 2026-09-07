@@ -105,7 +105,6 @@ class DevicePairingRealtimeDataSource {
     if (deviceId == null) {
       throw StateError('연결 코드에 기기 정보가 없습니다. 디스플레이에서 새 코드를 만들어 주세요.');
     }
-    final zoneId = 'zone-${_stableHash(zoneName.trim()).toRadixString(36)}';
     try {
       await _userRef.update({
         'pairingCodes/$normalizedCode/claimed': true,
@@ -113,7 +112,7 @@ class DevicePairingRealtimeDataSource {
         'devices/$deviceId/name': name.trim().isEmpty
             ? '매장 디스플레이'
             : name.trim(),
-        'devices/$deviceId/zoneId': zoneId,
+        'devices/$deviceId/zoneId': 'main',
         'devices/$deviceId/zoneName': zoneName.trim().isEmpty
             ? '메인 구역'
             : zoneName.trim(),
@@ -163,12 +162,4 @@ void _requireAvailablePairing(Object? current) {
   if (expiresAtMs <= DateTime.now().millisecondsSinceEpoch) {
     throw StateError('만료된 연결 코드입니다. 디스플레이에서 새 코드를 만들어 주세요.');
   }
-}
-
-int _stableHash(String value) {
-  var hash = 5381;
-  for (final codeUnit in value.codeUnits) {
-    hash = ((hash << 5) + hash) ^ codeUnit;
-  }
-  return hash & 0x7fffffff;
 }
