@@ -152,9 +152,61 @@ jobs:
           fi
 
       - name: Set build number
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
           set -euo pipefail
-          build_number=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
+
+          token="$({ ruby -ropenssl -rbase64 -rjson <<'RUBY'
+          def base64url(data)
+            Base64.urlsafe_encode64(data, padding: false)
+          end
+
+          key = OpenSSL::PKey::EC.new(File.read(ENV.fetch('APP_STORE_CONNECT_API_KEY_PATH')))
+          header = {
+            alg: 'ES256',
+            kid: ENV.fetch('APP_STORE_CONNECT_KEY_ID'),
+            typ: 'JWT',
+          }
+          payload = {
+            iss: ENV.fetch('APP_STORE_CONNECT_ISSUER_ID'),
+            exp: Time.now.to_i + (20 * 60),
+            aud: 'appstoreconnect-v1',
+          }
+          signing_input = "#{base64url(header.to_json)}.#{base64url(payload.to_json)}"
+          sequence = OpenSSL::ASN1.decode(
+            key.dsa_sign_asn1(OpenSSL::Digest::SHA256.digest(signing_input)),
+          )
+          r = sequence.value[0].value.to_s(2).rjust(32, "\0")[-32, 32]
+          s = sequence.value[1].value.to_s(2).rjust(32, "\0")[-32, 32]
+          print "#{signing_input}.#{base64url(r + s)}"
+          RUBY
+          } 2>/dev/null)"
+
+          app_id="$(
+            curl --fail --silent --show-error --retry 3 \
+              -H "Authorization: Bearer $token" \
+              "https://api.appstoreconnect.apple.com/v1/apps?filter%5BbundleId%5D=$IOS_BUNDLE_ID&limit=1" |
+              ruby -rjson -e 'print JSON.parse(STDIN.read).dig("data", 0, "id")'
+          )"
+          if [[ -z "$app_id" ]]; then
+            echo "App Store Connect app not found: $IOS_BUNDLE_ID" >&2
+            exit 1
+          fi
+
+          latest_build="$(
+            curl --fail --silent --show-error --retry 3 \
+              -H "Authorization: Bearer $token" \
+              "https://api.appstoreconnect.apple.com/v1/builds?filter%5Bapp%5D=$app_id&sort=-uploadedDate&limit=1" |
+              ruby -rjson -e 'print JSON.parse(STDIN.read).dig("data", 0, "attributes", "version")'
+          )"
+          if [[ ! "$latest_build" =~ ^[0-9]+$ ]]; then
+            echo "Invalid latest TestFlight build number: $latest_build" >&2
+            exit 1
+          fi
+
+          build_number=$((latest_build + 1))
           echo "TESTFLIGHT_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
           echo "TestFlight build number: $build_number"
 
