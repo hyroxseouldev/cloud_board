@@ -22,6 +22,14 @@ class DevicePairingActions {
 
   Future<void> unpair(String deviceId) => _repository.unpair(deviceId);
 
+  Future<void> setDisplayState({
+    required String deviceId,
+    required String displayState,
+  }) => _repository.setDisplayState(
+    deviceId: deviceId,
+    displayState: displayState,
+  );
+
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,

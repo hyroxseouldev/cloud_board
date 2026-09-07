@@ -108,6 +108,8 @@ class UserProfileScreen extends HookConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 32),
+                      _PartnerCard(profile: data),
+                      const SizedBox(height: 24),
                       TextField(
                         controller: nameController,
                         enabled: !profileState.isLoading,
@@ -170,6 +172,92 @@ class UserProfileScreen extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _PartnerCard extends StatelessWidget {
+  const _PartnerCard({required this.profile});
+
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final endLabel = profile.pilotEndsAt == null
+        ? '파일럿 기간 협의 중'
+        : '${profile.pilotEndsAt!.year}.${profile.pilotEndsAt!.month.toString().padLeft(2, '0')}.${profile.pilotEndsAt!.day.toString().padLeft(2, '0')}까지';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [colors.primary, colors.primaryContainer],
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  profile.partnerTier.label.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'CloudBoard 초기 제품 개발에 참여하는 공식 파트너입니다.',
+              style: TextStyle(color: Colors.white, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _PartnerChip(label: profile.subscriptionStatus.label),
+                _PartnerChip(label: '디스플레이 ${profile.displayLimit}대'),
+                _PartnerChip(label: endLabel),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PartnerChip extends StatelessWidget {
+  const _PartnerChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .18),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ),
+  );
 }
 
 class _ProfileAvatar extends StatelessWidget {

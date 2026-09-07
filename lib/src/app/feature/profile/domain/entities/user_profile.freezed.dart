@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$UserProfile {
 
- String get id; String get email; String get displayName; String? get photoUrl;
+ String get id; String get email; String get displayName; String? get photoUrl; PartnerTier get partnerTier; String get subscriptionPlan; SubscriptionStatus get subscriptionStatus; DateTime? get pilotEndsAt; int get displayLimit;
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $UserProfileCopyWith<UserProfile> get copyWith => _$UserProfileCopyWithImpl<User
 @override
 bool operator ==(Object other) {
   final _this = this as UserProfile;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserProfile&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.email, _this.email) || other.email == _this.email)&&(identical(other.displayName, _this.displayName) || other.displayName == _this.displayName)&&(identical(other.photoUrl, _this.photoUrl) || other.photoUrl == _this.photoUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserProfile&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.email, _this.email) || other.email == _this.email)&&(identical(other.displayName, _this.displayName) || other.displayName == _this.displayName)&&(identical(other.photoUrl, _this.photoUrl) || other.photoUrl == _this.photoUrl)&&(identical(other.partnerTier, _this.partnerTier) || other.partnerTier == _this.partnerTier)&&(identical(other.subscriptionPlan, _this.subscriptionPlan) || other.subscriptionPlan == _this.subscriptionPlan)&&(identical(other.subscriptionStatus, _this.subscriptionStatus) || other.subscriptionStatus == _this.subscriptionStatus)&&(identical(other.pilotEndsAt, _this.pilotEndsAt) || other.pilotEndsAt == _this.pilotEndsAt)&&(identical(other.displayLimit, _this.displayLimit) || other.displayLimit == _this.displayLimit));
 }
 
 
 @override
 int get hashCode {
   final _this = this as UserProfile;
-  return Object.hash(runtimeType,_this.id,_this.email,_this.displayName,_this.photoUrl);
+  return Object.hash(runtimeType,_this.id,_this.email,_this.displayName,_this.photoUrl,_this.partnerTier,_this.subscriptionPlan,_this.subscriptionStatus,_this.pilotEndsAt,_this.displayLimit);
 }
 
 @override
 String toString() {
   final _this = this as UserProfile;
-  return 'UserProfile(id: ${_this.id}, email: ${_this.email}, displayName: ${_this.displayName}, photoUrl: ${_this.photoUrl})';
+  return 'UserProfile(id: ${_this.id}, email: ${_this.email}, displayName: ${_this.displayName}, photoUrl: ${_this.photoUrl}, partnerTier: ${_this.partnerTier}, subscriptionPlan: ${_this.subscriptionPlan}, subscriptionStatus: ${_this.subscriptionStatus}, pilotEndsAt: ${_this.pilotEndsAt}, displayLimit: ${_this.displayLimit})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $UserProfileCopyWith<$Res>  {
   factory $UserProfileCopyWith(UserProfile value, $Res Function(UserProfile) _then) = _$UserProfileCopyWithImpl;
 @useResult
 $Res call({
- String id, String email, String displayName, String? photoUrl
+ String id, String email, String displayName, String? photoUrl, PartnerTier partnerTier, String subscriptionPlan, SubscriptionStatus subscriptionStatus, DateTime? pilotEndsAt, int displayLimit
 });
 
 
@@ -68,13 +68,18 @@ class _$UserProfileCopyWithImpl<$Res>
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,Object? partnerTier = null,Object? subscriptionPlan = null,Object? subscriptionStatus = null,Object? pilotEndsAt = freezed,Object? displayLimit = null,}) {
   return _then(UserProfile(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,partnerTier: null == partnerTier ? _self.partnerTier : partnerTier // ignore: cast_nullable_to_non_nullable
+as PartnerTier,subscriptionPlan: null == subscriptionPlan ? _self.subscriptionPlan : subscriptionPlan // ignore: cast_nullable_to_non_nullable
+as String,subscriptionStatus: null == subscriptionStatus ? _self.subscriptionStatus : subscriptionStatus // ignore: cast_nullable_to_non_nullable
+as SubscriptionStatus,pilotEndsAt: freezed == pilotEndsAt ? _self.pilotEndsAt : pilotEndsAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,displayLimit: null == displayLimit ? _self.displayLimit : displayLimit // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -159,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl,  PartnerTier partnerTier,  String subscriptionPlan,  SubscriptionStatus subscriptionStatus,  DateTime? pilotEndsAt,  int displayLimit)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserProfile() when $default != null:
-return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
+return $default(_that.id,_that.email,_that.displayName,_that.photoUrl,_that.partnerTier,_that.subscriptionPlan,_that.subscriptionStatus,_that.pilotEndsAt,_that.displayLimit);case _:
   return orElse();
 
 }
@@ -180,10 +185,10 @@ return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl,  PartnerTier partnerTier,  String subscriptionPlan,  SubscriptionStatus subscriptionStatus,  DateTime? pilotEndsAt,  int displayLimit)  $default,) {final _that = this;
 switch (_that) {
 case _UserProfile():
-return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
+return $default(_that.id,_that.email,_that.displayName,_that.photoUrl,_that.partnerTier,_that.subscriptionPlan,_that.subscriptionStatus,_that.pilotEndsAt,_that.displayLimit);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +205,10 @@ return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String email,  String displayName,  String? photoUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String email,  String displayName,  String? photoUrl,  PartnerTier partnerTier,  String subscriptionPlan,  SubscriptionStatus subscriptionStatus,  DateTime? pilotEndsAt,  int displayLimit)?  $default,) {final _that = this;
 switch (_that) {
 case _UserProfile() when $default != null:
-return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
+return $default(_that.id,_that.email,_that.displayName,_that.photoUrl,_that.partnerTier,_that.subscriptionPlan,_that.subscriptionStatus,_that.pilotEndsAt,_that.displayLimit);case _:
   return null;
 
 }
@@ -215,13 +220,18 @@ return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
 
 
 class _UserProfile implements UserProfile {
-  const _UserProfile({required this.id, required this.email, required this.displayName, required this.photoUrl});
+  const _UserProfile({required this.id, required this.email, required this.displayName, required this.photoUrl, this.partnerTier = PartnerTier.pilot, this.subscriptionPlan = 'cloudboard_pro', this.subscriptionStatus = SubscriptionStatus.free, this.pilotEndsAt, this.displayLimit = 3});
   
 
 @override final  String id;
 @override final  String email;
 @override final  String displayName;
 @override final  String? photoUrl;
+@override@JsonKey() final  PartnerTier partnerTier;
+@override@JsonKey() final  String subscriptionPlan;
+@override@JsonKey() final  SubscriptionStatus subscriptionStatus;
+@override final  DateTime? pilotEndsAt;
+@override@JsonKey() final  int displayLimit;
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
@@ -233,18 +243,18 @@ _$UserProfileCopyWith<_UserProfile> get copyWith => __$UserProfileCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserProfile&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserProfile&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.partnerTier, partnerTier) || other.partnerTier == partnerTier)&&(identical(other.subscriptionPlan, subscriptionPlan) || other.subscriptionPlan == subscriptionPlan)&&(identical(other.subscriptionStatus, subscriptionStatus) || other.subscriptionStatus == subscriptionStatus)&&(identical(other.pilotEndsAt, pilotEndsAt) || other.pilotEndsAt == pilotEndsAt)&&(identical(other.displayLimit, displayLimit) || other.displayLimit == displayLimit));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,email,displayName,photoUrl);
+    return Object.hash(runtimeType,id,email,displayName,photoUrl,partnerTier,subscriptionPlan,subscriptionStatus,pilotEndsAt,displayLimit);
 }
 
 @override
 String toString() {
-    return 'UserProfile(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl)';
+    return 'UserProfile(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl, partnerTier: $partnerTier, subscriptionPlan: $subscriptionPlan, subscriptionStatus: $subscriptionStatus, pilotEndsAt: $pilotEndsAt, displayLimit: $displayLimit)';
 }
 
 
@@ -255,7 +265,7 @@ abstract mixin class _$UserProfileCopyWith<$Res> implements $UserProfileCopyWith
   factory _$UserProfileCopyWith(_UserProfile value, $Res Function(_UserProfile) _then) = __$UserProfileCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String email, String displayName, String? photoUrl
+ String id, String email, String displayName, String? photoUrl, PartnerTier partnerTier, String subscriptionPlan, SubscriptionStatus subscriptionStatus, DateTime? pilotEndsAt, int displayLimit
 });
 
 
@@ -272,13 +282,18 @@ class __$UserProfileCopyWithImpl<$Res>
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,Object? partnerTier = null,Object? subscriptionPlan = null,Object? subscriptionStatus = null,Object? pilotEndsAt = freezed,Object? displayLimit = null,}) {
   return _then(_UserProfile(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,partnerTier: null == partnerTier ? _self.partnerTier : partnerTier // ignore: cast_nullable_to_non_nullable
+as PartnerTier,subscriptionPlan: null == subscriptionPlan ? _self.subscriptionPlan : subscriptionPlan // ignore: cast_nullable_to_non_nullable
+as String,subscriptionStatus: null == subscriptionStatus ? _self.subscriptionStatus : subscriptionStatus // ignore: cast_nullable_to_non_nullable
+as SubscriptionStatus,pilotEndsAt: freezed == pilotEndsAt ? _self.pilotEndsAt : pilotEndsAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,displayLimit: null == displayLimit ? _self.displayLimit : displayLimit // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

@@ -5,6 +5,7 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 import 'package:cloud_board/src/app/feature/auth/presentation/views/login_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/views/device_mode_home_screen.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/views/user_profile_screen.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/views/store_operations_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_player_screen.dart';
 
@@ -34,6 +35,10 @@ GoRouter appRouter(Ref ref) {
             WorkoutEditorScreen(workoutId: state.pathParameters['id']!),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const UserProfileScreen()),
+      GoRoute(
+        path: '/operations',
+        builder: (_, _) => const StoreOperationsScreen(),
+      ),
       GoRoute(
         path: '/player/:id',
         builder: (_, state) => WorkoutPlayerScreen(

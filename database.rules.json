@@ -20,6 +20,13 @@
             ".write": "auth != null && auth.uid === $uid && (!data.exists() || !newData.exists() || (data.child('claimed').val() === false && data.child('expiresAtMs').val() > now && newData.child('claimed').val() === true))",
             ".validate": "$code.matches(/^\\d{6}$/) && newData.hasChildren(['code', 'deviceId', 'expiresAtMs', 'claimed']) && newData.child('code').val() === $code && newData.child('deviceId').isString() && newData.child('expiresAtMs').isNumber() && newData.child('claimed').isBoolean()"
           }
+        },
+        "operations": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "events": {
+            ".indexOn": ["occurredAtMs"]
+          }
         }
       }
     },

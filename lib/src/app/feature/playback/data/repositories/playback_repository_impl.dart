@@ -52,12 +52,17 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   Stream<bool> watchConnected() => _dataSource.watchConnected();
 
   @override
+  Future<bool> hasRunningSession() => _dataSource.hasRunningSession();
+
+  @override
   Future<PlaybackSession> start({
     required Workout workout,
     required List<String> targetDeviceIds,
     required int stepIndex,
     required int durationMs,
     required String deviceId,
+    bool scheduled = false,
+    int? scheduledAtMs,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw StateError('로그인이 필요합니다.');
@@ -73,7 +78,11 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       durationMs: durationMs,
       deviceId: deviceId,
     );
-    final started = await _dataSource.start(model);
+    final started = await _dataSource.start(
+      model,
+      scheduled: scheduled,
+      scheduledAtMs: scheduledAtMs,
+    );
     await _local.save(started);
     return started.toEntity();
   }

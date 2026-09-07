@@ -26,11 +26,23 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
     final user = _auth.currentUser;
     if (user == null) throw StateError('로그인이 필요합니다.');
     final data = await _firestore.fetch(user.uid);
+    final pilotEndsAtValue = data?['pilotEndsAt'];
+    final pilotEndsAt = switch (pilotEndsAtValue) {
+      final Timestamp value => value.toDate().toIso8601String(),
+      final String value => value,
+      _ => null,
+    };
     return UserProfileModel(
       uid: user.uid,
       email: data?['email'] as String? ?? user.email ?? '',
       displayName: data?['displayName'] as String? ?? user.displayName ?? '사용자',
       photoUrl: data?['photoUrl'] as String? ?? user.photoURL,
+      partnerTier: data?['partnerTier'] as String? ?? 'pilot',
+      subscriptionPlan:
+          data?['subscriptionPlan'] as String? ?? 'cloudboard_pro',
+      subscriptionStatus: data?['subscriptionStatus'] as String? ?? 'free',
+      pilotEndsAt: pilotEndsAt,
+      displayLimit: (data?['displayLimit'] as num?)?.round() ?? 3,
     ).toEntity();
   }
 
@@ -56,12 +68,7 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
       displayName: displayName,
       photoUrl: photoUrl,
     );
-    return UserProfile(
-      id: user.uid,
-      email: user.email ?? '',
-      displayName: displayName,
-      photoUrl: photoUrl,
-    );
+    return getProfile();
   }
 }
 

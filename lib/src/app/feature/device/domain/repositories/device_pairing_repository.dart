@@ -9,6 +9,10 @@ abstract interface class DevicePairingRepository {
     required String zoneName,
   });
   Future<void> unpair(String deviceId);
+  Future<void> setDisplayState({
+    required String deviceId,
+    required String displayState,
+  });
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,

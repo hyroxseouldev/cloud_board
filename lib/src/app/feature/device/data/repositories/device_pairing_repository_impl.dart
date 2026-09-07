@@ -32,6 +32,15 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
   Future<void> unpair(String deviceId) => _dataSource.unpair(deviceId);
 
   @override
+  Future<void> setDisplayState({
+    required String deviceId,
+    required String displayState,
+  }) => _dataSource.setDisplayState(
+    deviceId: deviceId,
+    displayState: displayState,
+  );
+
+  @override
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,

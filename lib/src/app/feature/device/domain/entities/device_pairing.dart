@@ -25,6 +25,9 @@ class DisplayDevice {
     required this.currentSessionId,
     required this.acknowledgedRevision,
     required this.paired,
+    this.displayState = 'auto',
+    this.lastCommandAtMs = 0,
+    this.onlineSinceMs = 0,
   });
 
   final String id;
@@ -36,6 +39,9 @@ class DisplayDevice {
   final String? currentSessionId;
   final int acknowledgedRevision;
   final bool paired;
+  final String displayState;
+  final int lastCommandAtMs;
+  final int onlineSinceMs;
 }
 
 String generatePairingCode([Random? random]) {

@@ -11,14 +11,33 @@ class UserProfileFirestoreDataSource {
     return snapshot.data();
   }
 
-  Future<void> upsert(User user) =>
-      _firestore.collection('users').doc(user.uid).set({
-        'uid': user.uid,
-        'email': user.email,
-        'displayName': user.displayName ?? '사용자',
-        'photoUrl': user.photoURL,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+  Future<void> upsert(User user) async {
+    final reference = _firestore.collection('users').doc(user.uid);
+    await reference.set({
+      'uid': user.uid,
+      'email': user.email,
+      'displayName': user.displayName ?? '사용자',
+      'photoUrl': user.photoURL,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    final snapshot = await reference.get();
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final defaults = <String, Object?>{};
+    if (!data.containsKey('partnerTier')) defaults['partnerTier'] = 'pilot';
+    if (!data.containsKey('subscriptionPlan')) {
+      defaults['subscriptionPlan'] = 'cloudboard_pro';
+    }
+    if (!data.containsKey('subscriptionStatus')) {
+      defaults['subscriptionStatus'] = 'free';
+    }
+    if (!data.containsKey('displayLimit')) defaults['displayLimit'] = 3;
+    if (!data.containsKey('pilotStartedAt')) {
+      defaults['pilotStartedAt'] = FieldValue.serverTimestamp();
+    }
+    if (defaults.isNotEmpty) {
+      await reference.set(defaults, SetOptions(merge: true));
+    }
+  }
 
   Future<void> update({
     required String userId,

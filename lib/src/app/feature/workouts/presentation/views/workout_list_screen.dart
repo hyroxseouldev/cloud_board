@@ -159,7 +159,7 @@ class _Logo extends StatelessWidget {
   );
 }
 
-enum _UserAction { profile, logout }
+enum _UserAction { operations, profile, logout }
 
 class _UserMenu extends ConsumerWidget {
   const _UserMenu({required this.user, required this.isBusy});
@@ -173,7 +173,9 @@ class _UserMenu extends ConsumerWidget {
         tooltip: '사용자 메뉴',
         enabled: !isBusy,
         onSelected: (action) {
-          if (action == _UserAction.profile) {
+          if (action == _UserAction.operations) {
+            context.push('/operations');
+          } else if (action == _UserAction.profile) {
             context.push('/profile');
           } else {
             ref.read(authControllerProvider.notifier).signOut();
@@ -190,6 +192,15 @@ class _UserMenu extends ConsumerWidget {
             ),
           ),
           const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: _UserAction.operations,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.storefront_rounded),
+              title: Text('매장 운영'),
+              subtitle: Text('예약 · 브랜드 · 리포트'),
+            ),
+          ),
           const PopupMenuItem(
             value: _UserAction.profile,
             child: ListTile(
