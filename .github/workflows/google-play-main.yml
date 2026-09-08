@@ -1,0 +1,124 @@
+name: Upload Android and TV to Google Play
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: google-play-main
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Build and upload to internal testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: google-play
+    env:
+      ANDROID_PACKAGE_NAME: com.sunmkim.cloudboard
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Check Play credentials
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+
+          required=(
+            ANDROID_UPLOAD_KEYSTORE_BASE64
+            ANDROID_KEY_ALIAS
+            ANDROID_KEY_PASSWORD
+            ANDROID_KEYSTORE_PASSWORD
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+          )
+
+          missing=()
+          for variable in "${required[@]}"; do
+            if [[ -z "${!variable:-}" ]]; then
+              missing+=("$variable")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing Google Play environment secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Install Android upload key
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          keystore_path="$RUNNER_TEMP/cloudboard-upload.jks"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Set Play build number
+        run: |
+          set -euo pipefail
+
+          build_number=$((GITHUB_RUN_NUMBER + 2))
+          echo "PLAY_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+          echo "Google Play build number: $build_number"
+
+      - name: Build signed Android App Bundle
+        run: |
+          set -euo pipefail
+
+          flutter build appbundle \
+            --release \
+            --build-number "$PLAY_BUILD_NUMBER"
+
+          bundle_path="build/app/outputs/bundle/release/app-release.aab"
+          if [[ ! -f "$bundle_path" ]]; then
+            echo 'The signed Android App Bundle was not created.' >&2
+            exit 1
+          fi
+
+      - name: Upload mobile and TV bundle to internal testing
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.ANDROID_PACKAGE_NAME }}
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          tracks: internal
+          status: completed
