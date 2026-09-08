@@ -11,18 +11,24 @@ class PlaybackActions {
   const PlaybackActions(this._repository);
   final PlaybackRepository _repository;
 
+  Future<bool> hasRunningSession() => _repository.hasRunningSession();
+
   Future<PlaybackSession> start({
     required Workout workout,
     required List<String> targetDeviceIds,
     required int stepIndex,
     required int durationMs,
     required String deviceId,
+    bool scheduled = false,
+    int? scheduledAtMs,
   }) => _repository.start(
     workout: workout,
     targetDeviceIds: targetDeviceIds,
     stepIndex: stepIndex,
     durationMs: durationMs,
     deviceId: deviceId,
+    scheduled: scheduled,
+    scheduledAtMs: scheduledAtMs,
   );
 
   Future<void> pause({required int remainingMs, required String deviceId}) =>

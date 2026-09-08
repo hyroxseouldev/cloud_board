@@ -5,12 +5,15 @@ abstract interface class PlaybackRepository {
   Stream<PlaybackSession?> watchActive();
   Stream<int> watchServerTimeOffset();
   Stream<bool> watchConnected();
+  Future<bool> hasRunningSession();
   Future<PlaybackSession> start({
     required Workout workout,
     required List<String> targetDeviceIds,
     required int stepIndex,
     required int durationMs,
     required String deviceId,
+    bool scheduled = false,
+    int? scheduledAtMs,
   });
   Future<void> pause({required int remainingMs, required String deviceId});
   Future<void> resume({required String deviceId});

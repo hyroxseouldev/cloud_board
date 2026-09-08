@@ -19,10 +19,13 @@ class DevicePairingRealtimeDataSource {
     final userRef = _userRef;
     final deviceRef = userRef.child('devices/$deviceId');
     final previousDevice = await deviceRef.get();
-    final previousPairingCode = switch (previousDevice.value) {
-      final Map value => value['pairingCode'] as String?,
-      _ => null,
-    };
+    final previousData = previousDevice.value is Map
+        ? Map<String, dynamic>.from(previousDevice.value! as Map)
+        : const <String, dynamic>{};
+    final previousPairingCode = previousData['pairingCode'] as String?;
+    final previousOfflineEventKey =
+        previousData['pendingOfflineEventKey'] as String?;
+    final wasOnline = previousData['online'] == true;
     final expiresAtMs = DateTime.now()
         .add(const Duration(minutes: 10))
         .millisecondsSinceEpoch;
@@ -41,20 +44,52 @@ class DevicePairingRealtimeDataSource {
       });
       if (!result.committed) continue;
 
-      await deviceRef.update({
-        'id': deviceId,
-        'mode': 'display',
-        'pairingCode': code,
-        'pairingExpiresAtMs': expiresAtMs,
-        'online': true,
-        'lastSeenAtMs': ServerValue.timestamp,
-      });
+      final onlineEvent = userRef.child('operations/events').push();
+      final offlineEvent = userRef.child('operations/events').push();
+
+      final onlineUpdates = <String, Object?>{
+        'devices/$deviceId/id': deviceId,
+        'devices/$deviceId/mode': 'display',
+        'devices/$deviceId/pairingCode': code,
+        'devices/$deviceId/pairingExpiresAtMs': expiresAtMs,
+        'devices/$deviceId/online': true,
+        'devices/$deviceId/lastSeenAtMs': ServerValue.timestamp,
+        'devices/$deviceId/pendingOfflineEventKey': offlineEvent.key,
+      };
+      if (!wasOnline) {
+        onlineUpdates['devices/$deviceId/onlineSinceMs'] =
+            ServerValue.timestamp;
+        onlineUpdates['operations/events/${onlineEvent.key}'] = {
+          'id': onlineEvent.key,
+          'type': 'device_online',
+          'occurredAtMs': ServerValue.timestamp,
+          'deviceId': deviceId,
+          'scheduled': false,
+        };
+      }
+      if (!previousDevice.exists) {
+        onlineUpdates['devices/$deviceId/displayState'] = 'auto';
+      }
+      await userRef.update(onlineUpdates);
       if (previousPairingCode != null && previousPairingCode != code) {
         await userRef.child('pairingCodes/$previousPairingCode').remove();
+      }
+      if (previousOfflineEventKey != null) {
+        await userRef
+            .child('operations/events/$previousOfflineEventKey')
+            .onDisconnect()
+            .cancel();
       }
       await deviceRef.onDisconnect().update({
         'online': false,
         'lastSeenAtMs': ServerValue.timestamp,
+      });
+      await offlineEvent.onDisconnect().set({
+        'id': offlineEvent.key,
+        'type': 'device_offline',
+        'occurredAtMs': ServerValue.timestamp,
+        'deviceId': deviceId,
+        'scheduled': false,
       });
       return DevicePairing(
         code: code,
@@ -82,6 +117,9 @@ class DevicePairingRealtimeDataSource {
             acknowledgedRevision:
                 (item['acknowledgedRevision'] as num?)?.round() ?? 0,
             paired: item['paired'] == true,
+            displayState: (item['displayState'] as String?) ?? 'auto',
+            lastCommandAtMs: (item['lastCommandAtMs'] as num?)?.round() ?? 0,
+            onlineSinceMs: (item['onlineSinceMs'] as num?)?.round() ?? 0,
           );
         }).toList()..sort((a, b) => a.name.compareTo(b.name));
         return devices;
@@ -136,6 +174,19 @@ class DevicePairingRealtimeDataSource {
       if (code is String) await _userRef.child('pairingCodes/$code').remove();
     }
     await deviceRef.remove();
+  }
+
+  Future<void> setDisplayState({
+    required String deviceId,
+    required String displayState,
+  }) {
+    if (!const {'auto', 'standby', 'black'}.contains(displayState)) {
+      throw ArgumentError.value(displayState, 'displayState');
+    }
+    return _userRef.child('devices/$deviceId').update({
+      'displayState': displayState,
+      'lastCommandAtMs': ServerValue.timestamp,
+    });
   }
 
   Future<void> acknowledge({

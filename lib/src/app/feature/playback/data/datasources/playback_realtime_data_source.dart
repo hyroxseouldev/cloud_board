@@ -12,6 +12,8 @@ class PlaybackRealtimeDataSource {
   DatabaseReference get _active =>
       _database.ref('users/${_requireUserId()}/activeSession');
 
+  DatabaseReference get _user => _database.ref('users/${_requireUserId()}');
+
   Stream<PlaybackSessionModel?> watchActive() => _active.onValue.map((event) {
     final value = event.snapshot.value;
     if (value == null) return null;
@@ -28,9 +30,38 @@ class PlaybackRealtimeDataSource {
       .onValue
       .map((event) => event.snapshot.value == true);
 
-  Future<PlaybackSessionModel> start(PlaybackSessionModel model) async {
+  Future<bool> hasRunningSession() async {
+    final snapshot = await _active.get();
+    final value = snapshot.value;
+    if (value is! Map) return false;
+    return value['status'] != 'completed';
+  }
+
+  Future<PlaybackSessionModel> start(
+    PlaybackSessionModel model, {
+    bool scheduled = false,
+    int? scheduledAtMs,
+  }) async {
     final json = model.toJson()..['anchorServerMs'] = ServerValue.timestamp;
-    await _active.set(json);
+    final event = _user.child('operations/events').push();
+    final updates = <String, Object?>{
+      'activeSession': json,
+      'operations/events/${event.key}': {
+        'id': event.key,
+        'type': 'playback_started',
+        'occurredAtMs': ServerValue.timestamp,
+        'deviceId': model.updatedByDeviceId,
+        'workoutId': model.workoutSnapshot['id'],
+        'workoutName': model.workoutSnapshot['name'],
+        'scheduled': scheduled,
+        'scheduledAtMs': scheduledAtMs,
+      },
+    };
+    for (final deviceId in model.targetDeviceIds) {
+      updates['devices/$deviceId/displayState'] = 'auto';
+      updates['devices/$deviceId/lastCommandAtMs'] = ServerValue.timestamp;
+    }
+    await _user.update(updates);
     final snapshot = await _active.get();
     return PlaybackSessionModel.fromJson(_stringMap(snapshot.value));
   }
@@ -41,9 +72,19 @@ class PlaybackRealtimeDataSource {
     int? stepIndex,
     int? remainingMs,
   }) async {
+    var workoutId = '';
+    var workoutName = '';
+    var shouldRecordCompletion = false;
     final result = await _active.runTransaction((current) {
       if (current == null) return Transaction.abort();
       final json = _stringMap(current);
+      shouldRecordCompletion =
+          status == 'completed' && json['status'] != 'completed';
+      final workout = json['workoutSnapshot'];
+      if (workout is Map) {
+        workoutId = workout['id']?.toString() ?? '';
+        workoutName = workout['name']?.toString() ?? '';
+      }
       json.putIfAbsent('zoneId', () => 'main');
       json['status'] = status;
       json['updatedByDeviceId'] = deviceId;
@@ -55,6 +96,18 @@ class PlaybackRealtimeDataSource {
     });
     if (!result.committed || result.snapshot.value == null) {
       throw StateError('재생 세션을 업데이트하지 못했습니다.');
+    }
+    if (shouldRecordCompletion) {
+      final event = _user.child('operations/events').push();
+      await event.set({
+        'id': event.key,
+        'type': 'playback_completed',
+        'occurredAtMs': ServerValue.timestamp,
+        'deviceId': deviceId,
+        'workoutId': workoutId,
+        'workoutName': workoutName,
+        'scheduled': false,
+      });
     }
     return PlaybackSessionModel.fromJson(_stringMap(result.snapshot.value));
   }

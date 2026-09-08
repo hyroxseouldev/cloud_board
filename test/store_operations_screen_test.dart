@@ -1,0 +1,51 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/views/store_operations_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+
+void main() {
+  testWidgets('작은 화면에서 매장 운영의 모든 탭이 넘치지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          brandTemplateProvider.overrideWith(
+            (ref) => Stream.value(BrandTemplate.initial()),
+          ),
+          workoutSchedulesProvider.overrideWith(
+            (ref) => Stream.value(const <WorkoutSchedule>[]),
+          ),
+          operationEventsProvider.overrideWith(
+            (ref) => Stream.value(const <OperationEvent>[]),
+          ),
+          displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
+          workoutControllerProvider.overrideWith(_FakeWorkoutController.new),
+        ],
+        child: const MaterialApp(home: StoreOperationsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    for (final label in ['예약 재생', '원격 관리', '운영 리포트']) {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+  });
+}
+
+class _FakeWorkoutController extends WorkoutController {
+  @override
+  Future<List<Workout>> build() async => const [];
+}
