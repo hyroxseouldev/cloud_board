@@ -25,6 +25,7 @@ class DevicePairingRealtimeDataSource {
   Future<DevicePairing> issue({required String deviceId}) async {
     final user = _auth.currentUser;
     if (user == null) throw StateError('디스플레이 연결을 준비하지 못했습니다.');
+    if (!user.isAnonymous) return _issueLegacy(deviceId: deviceId);
     final accessRef = _database.ref('displayAccess/${user.uid}');
     final accessSnapshot = await accessRef.get();
     final access = accessSnapshot.value is Map
@@ -126,6 +127,10 @@ class DevicePairingRealtimeDataSource {
     }
     final pairingRef = _database.ref('pairingCodes/$normalizedCode');
     final initialSnapshot = await pairingRef.get();
+    if (!initialSnapshot.exists) {
+      await _claimLegacy(code: normalizedCode, name: name, zoneName: zoneName);
+      return;
+    }
     _requireAvailablePairing(initialSnapshot.value);
 
     final pairing = Map<String, dynamic>.from(initialSnapshot.value! as Map);
@@ -177,7 +182,12 @@ class DevicePairingRealtimeDataSource {
     if (value is Map) {
       final code = value['pairingCode'];
       final displayUid = value['displayUid'];
-      if (code is String) updates['pairingCodes/$code'] = null;
+      if (code is String) {
+        updates[displayUid is String
+                ? 'pairingCodes/$code'
+                : 'users/$_ownerId/pairingCodes/$code'] =
+            null;
+      }
       if (displayUid is String) updates['displayAccess/$displayUid'] = null;
     }
     await _root.update(updates);
@@ -256,6 +266,115 @@ class DevicePairingRealtimeDataSource {
       'occurredAtMs': ServerValue.timestamp,
       'deviceId': deviceId,
       'scheduled': false,
+    });
+  }
+
+  Future<DevicePairing> _issueLegacy({required String deviceId}) async {
+    final userRef = _ownerRef;
+    final deviceRef = userRef.child('devices/$deviceId');
+    final previousDevice = await deviceRef.get();
+    final previousData = previousDevice.value is Map
+        ? Map<String, dynamic>.from(previousDevice.value! as Map)
+        : const <String, dynamic>{};
+    final previousPairingCode = previousData['pairingCode'] as String?;
+    final previousOfflineEventKey =
+        previousData['pendingOfflineEventKey'] as String?;
+    final wasOnline = previousData['online'] == true;
+    final expiresAtMs = DateTime.now()
+        .add(const Duration(minutes: 10))
+        .millisecondsSinceEpoch;
+
+    for (var attempt = 0; attempt < 5; attempt++) {
+      final code = generatePairingCode();
+      final pairingRef = userRef.child('pairingCodes/$code');
+      final result = await pairingRef.runTransaction((current) {
+        if (current != null) return Transaction.abort();
+        return Transaction.success({
+          'code': code,
+          'deviceId': deviceId,
+          'expiresAtMs': expiresAtMs,
+          'claimed': false,
+        });
+      });
+      if (!result.committed) continue;
+
+      final onlineEvent = userRef.child('operations/events').push();
+      final offlineEvent = userRef.child('operations/events').push();
+      final updates = <String, Object?>{
+        'devices/$deviceId/id': deviceId,
+        'devices/$deviceId/mode': 'display',
+        'devices/$deviceId/pairingCode': code,
+        'devices/$deviceId/pairingExpiresAtMs': expiresAtMs,
+        'devices/$deviceId/online': true,
+        'devices/$deviceId/lastSeenAtMs': ServerValue.timestamp,
+        'devices/$deviceId/pendingOfflineEventKey': offlineEvent.key,
+      };
+      if (!wasOnline) {
+        updates['devices/$deviceId/onlineSinceMs'] = ServerValue.timestamp;
+        updates['operations/events/${onlineEvent.key}'] = {
+          'id': onlineEvent.key,
+          'type': 'device_online',
+          'occurredAtMs': ServerValue.timestamp,
+          'deviceId': deviceId,
+          'scheduled': false,
+        };
+      }
+      if (!previousDevice.exists) {
+        updates['devices/$deviceId/displayState'] = 'auto';
+      }
+      await userRef.update(updates);
+      if (previousPairingCode != null && previousPairingCode != code) {
+        await userRef.child('pairingCodes/$previousPairingCode').remove();
+      }
+      if (previousOfflineEventKey != null) {
+        await userRef
+            .child('operations/events/$previousOfflineEventKey')
+            .onDisconnect()
+            .cancel();
+      }
+      await deviceRef.onDisconnect().update({
+        'online': false,
+        'lastSeenAtMs': ServerValue.timestamp,
+      });
+      await offlineEvent.onDisconnect().set({
+        'id': offlineEvent.key,
+        'type': 'device_offline',
+        'occurredAtMs': ServerValue.timestamp,
+        'deviceId': deviceId,
+        'scheduled': false,
+      });
+      return DevicePairing(
+        code: code,
+        deviceId: deviceId,
+        expiresAtMs: expiresAtMs,
+      );
+    }
+    throw StateError('연결 코드를 만들지 못했습니다. 다시 시도해 주세요.');
+  }
+
+  Future<void> _claimLegacy({
+    required String code,
+    required String name,
+    required String zoneName,
+  }) async {
+    final pairingRef = _ownerRef.child('pairingCodes/$code');
+    final snapshot = await pairingRef.get();
+    _requireAvailablePairing(snapshot.value);
+    final pairing = Map<String, dynamic>.from(snapshot.value! as Map);
+    final deviceId = pairing['deviceId'] as String?;
+    if (deviceId == null) {
+      throw StateError('연결 코드에 기기 정보가 없습니다. 디스플레이에서 새 코드를 만들어 주세요.');
+    }
+    await _ownerRef.update({
+      'pairingCodes/$code/claimed': true,
+      'pairingCodes/$code/claimedAtMs': ServerValue.timestamp,
+      'devices/$deviceId/name': name.trim().isEmpty ? '매장 디스플레이' : name.trim(),
+      'devices/$deviceId/zoneId': 'main',
+      'devices/$deviceId/zoneName': zoneName.trim().isEmpty
+          ? '메인 구역'
+          : zoneName.trim(),
+      'devices/$deviceId/paired': true,
+      'devices/$deviceId/pairedAtMs': ServerValue.timestamp,
     });
   }
 }
