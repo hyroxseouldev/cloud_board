@@ -4,16 +4,20 @@ import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
+
 part 'beep_player.g.dart';
 
 class BeepPlayer {
-  BeepPlayer() : _source = BytesSource(_createWave(), mimeType: 'audio/wav');
-
   final AudioPlayer _player = AudioPlayer();
-  final BytesSource _source;
+  final Map<WorkoutSound, BytesSource> _sources = {};
   bool _configured = false;
 
-  Future<void> play() async {
+  Future<void> play([
+    WorkoutSound sound = WorkoutSound.classicBeep,
+    double volume = 1,
+  ]) async {
+    if (sound == WorkoutSound.silent || volume <= 0) return;
     if (!_configured) {
       await _player.setAudioContext(
         AudioContext(
@@ -32,8 +36,16 @@ class BeepPlayer {
       await _player.setReleaseMode(ReleaseMode.stop);
       _configured = true;
     }
+    final source = _sources.putIfAbsent(
+      sound,
+      () => BytesSource(_createWave(sound), mimeType: 'audio/wav'),
+    );
     await _player.stop();
-    await _player.play(_source, volume: 1, mode: PlayerMode.mediaPlayer);
+    await _player.play(
+      source,
+      volume: volume.clamp(0, 1),
+      mode: PlayerMode.mediaPlayer,
+    );
   }
 
   Future<void> dispose() => _player.dispose();
@@ -46,10 +58,15 @@ BeepPlayer beepPlayer(Ref ref) {
   return player;
 }
 
-Uint8List _createWave() {
+Uint8List _createWave(WorkoutSound sound) {
   const sampleRate = 44100;
-  const durationMs = 280;
-  const frequency = 1046.5;
+  final durationMs = switch (sound) {
+    WorkoutSound.doubleBeep => 520,
+    WorkoutSound.boxingBell => 720,
+    WorkoutSound.longFinish => 1050,
+    WorkoutSound.softBell => 620,
+    _ => 280,
+  };
   final sampleCount = sampleRate * durationMs ~/ 1000;
   final dataLength = sampleCount * 2;
   final bytes = ByteData(44 + dataLength);
@@ -75,12 +92,50 @@ Uint8List _createWave() {
   bytes.setUint32(40, dataLength, Endian.little);
 
   for (var index = 0; index < sampleCount; index++) {
+    final seconds = index / sampleRate;
     final progress = index / sampleCount;
-    final envelope = sin(pi * progress);
-    final sample =
-        (sin(2 * pi * frequency * index / sampleRate) * envelope * 28000)
-            .round();
-    bytes.setInt16(44 + index * 2, sample, Endian.little);
+    final value = _sample(sound, seconds, progress);
+    bytes.setInt16(
+      44 + index * 2,
+      (value.clamp(-1.0, 1.0) * 28000).round(),
+      Endian.little,
+    );
   }
   return bytes.buffer.asUint8List();
+}
+
+double _sample(WorkoutSound sound, double seconds, double progress) {
+  double tone(double frequency) => sin(2 * pi * frequency * seconds);
+  final fade = sin(pi * progress).clamp(0.0, 1.0);
+  switch (sound) {
+    case WorkoutSound.silent:
+      return 0;
+    case WorkoutSound.classicBeep:
+      return tone(1046.5) * fade;
+    case WorkoutSound.sharpBeep:
+      return (tone(1396.9) * .8 + tone(2093) * .2) * fade;
+    case WorkoutSound.lowPulse:
+      return tone(440) * pow(1 - progress, 1.4);
+    case WorkoutSound.softBell:
+      final decay = exp(-4.2 * progress);
+      return (tone(659.3) * .72 + tone(1318.5) * .2 + tone(1975.5) * .08) *
+          decay;
+    case WorkoutSound.boxingBell:
+      final attack = min(1.0, seconds * 35);
+      final decay = exp(-3.5 * progress);
+      return (tone(880) * .55 + tone(1320) * .3 + tone(1760) * .15) *
+          attack *
+          decay;
+    case WorkoutSound.doubleBeep:
+      final local = seconds < .2
+          ? seconds / .2
+          : seconds > .3 && seconds < .5
+          ? (seconds - .3) / .2
+          : -1.0;
+      if (local < 0) return 0;
+      return tone(987.8) * sin(pi * local.clamp(0, 1));
+    case WorkoutSound.longFinish:
+      final frequency = progress < .52 ? 784.0 : 1046.5;
+      return tone(frequency) * sin(pi * progress);
+  }
 }

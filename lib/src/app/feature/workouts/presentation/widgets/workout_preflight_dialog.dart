@@ -94,6 +94,14 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     Future<void> start() async {
       for (var value = 3; value > 0; value--) {
         countdown.value = value;
+        if (workout.modules.firstOrNull?.beep == true) {
+          unawaited(
+            ref
+                .read(beepPlayerProvider)
+                .play(workout.countdownSound, workout.soundVolume)
+                .catchError((_) {}),
+          );
+        }
         await Future<void>.delayed(const Duration(seconds: 1));
         if (!context.mounted) return;
       }
@@ -213,7 +221,9 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                     ],
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: () => ref.read(beepPlayerProvider).play(),
+                      onPressed: () => ref
+                          .read(beepPlayerProvider)
+                          .play(workout.workStartSound, workout.soundVolume),
                       icon: const Icon(Icons.volume_up_rounded),
                       label: const Text('소리 테스트'),
                     ),

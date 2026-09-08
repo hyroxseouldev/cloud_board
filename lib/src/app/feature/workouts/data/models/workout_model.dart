@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 
 part 'workout_model.g.dart';
 
@@ -15,11 +16,29 @@ class WorkoutModel {
     required this.folder,
     required this.brandL,
     required this.brandR,
+    required this.soundTheme,
+    required this.countdownSound,
+    required this.workStartSound,
+    required this.restStartSound,
+    required this.workoutEndSound,
+    required this.soundVolume,
     required this.modules,
     required this.createdAt,
     required this.updatedAt,
   });
   final String id, ownerId, name, folder, brandL, brandR;
+  @JsonKey(defaultValue: 'classic')
+  final String soundTheme;
+  @JsonKey(defaultValue: 'classicBeep')
+  final String countdownSound;
+  @JsonKey(defaultValue: 'sharpBeep')
+  final String workStartSound;
+  @JsonKey(defaultValue: 'lowPulse')
+  final String restStartSound;
+  @JsonKey(defaultValue: 'longFinish')
+  final String workoutEndSound;
+  @JsonKey(defaultValue: 1.0)
+  final double soundVolume;
   final WorkoutAuthorModel author;
   final List<WorkoutModuleModel> modules;
   @FirestoreTimestampConverter()
@@ -37,6 +56,21 @@ class WorkoutModel {
     folder: folder,
     brandL: brandL,
     brandR: brandR,
+    soundTheme: WorkoutSoundTheme.fromName(soundTheme),
+    countdownSound: WorkoutSound.fromName(countdownSound),
+    workStartSound: WorkoutSound.fromName(
+      workStartSound,
+      fallback: WorkoutSound.sharpBeep,
+    ),
+    restStartSound: WorkoutSound.fromName(
+      restStartSound,
+      fallback: WorkoutSound.lowPulse,
+    ),
+    workoutEndSound: WorkoutSound.fromName(
+      workoutEndSound,
+      fallback: WorkoutSound.longFinish,
+    ),
+    soundVolume: soundVolume.clamp(0, 1),
     modules: modules.map((item) => item.toEntity()).toList(),
     createdAt: createdAt,
     updatedAt: updatedAt,
@@ -49,6 +83,12 @@ class WorkoutModel {
     folder: value.folder,
     brandL: value.brandL,
     brandR: value.brandR,
+    soundTheme: value.soundTheme.name,
+    countdownSound: value.countdownSound.name,
+    workStartSound: value.workStartSound.name,
+    restStartSound: value.restStartSound.name,
+    workoutEndSound: value.workoutEndSound.name,
+    soundVolume: value.soundVolume,
     modules: value.modules.map(WorkoutModuleModel.fromEntity).toList(),
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,

@@ -8,6 +8,7 @@ import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 
 part 'player_controller.freezed.dart';
 part 'player_controller.g.dart';
@@ -92,6 +93,9 @@ class PlayerController extends _$PlayerController {
   Timer? _ticker;
   DateTime? _endsAt;
   bool _transitioning = false;
+  String? _announcedSessionId;
+  int? _announcedStepIndex;
+  bool _announcedCompletion = false;
 
   @override
   PlayerState build(
@@ -135,6 +139,13 @@ class PlayerController extends _$PlayerController {
     );
     _setDeadline(initial);
     _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) => _tick());
+    Future.microtask(() {
+      if (matchesSession && remote.status == PlaybackStatus.completed) {
+        _announceCompletion();
+      } else if (index < steps.length) {
+        _announceStep(index);
+      }
+    });
     ref.onDispose(() {
       _ticker?.cancel();
     });
@@ -171,7 +182,7 @@ class PlayerController extends _$PlayerController {
           second > 0 &&
           second <= 3 &&
           second != previousSecond) {
-        unawaited(ref.read(beepPlayerProvider).play());
+        _play(workout.countdownSound);
       }
     }
     if (left <= 0 && !_transitioning) {
@@ -179,6 +190,7 @@ class PlayerController extends _$PlayerController {
       if (isFinalStep) {
         _endsAt = null;
         state = state.copyWith(remainingMs: 0, isPaused: true);
+        _announceCompletion();
         return;
       }
       if (canControl && sessionId != null) {
@@ -297,8 +309,38 @@ class PlayerController extends _$PlayerController {
     );
     state = next;
     _setDeadline(next);
-    if (currentStep?.module.beep == true) {
-      unawaited(ref.read(beepPlayerProvider).play());
+    _announcedStepIndex = null;
+    _announceStep(safeIndex);
+  }
+
+  void _announceStep(int index) {
+    if (index < 0 || index >= state.steps.length) return;
+    if (_announcedSessionId == sessionId && _announcedStepIndex == index) {
+      return;
     }
+    _announcedSessionId = sessionId;
+    _announcedStepIndex = index;
+    _announcedCompletion = false;
+    final step = state.steps[index];
+    if (!step.module.beep) return;
+    _play(step.isRest ? workout.restStartSound : workout.workStartSound);
+  }
+
+  void _announceCompletion() {
+    if (_announcedCompletion) return;
+    _announcedCompletion = true;
+    _announcedStepIndex = state.steps.length;
+    if (state.steps.isNotEmpty && state.steps.last.module.beep) {
+      _play(workout.workoutEndSound);
+    }
+  }
+
+  void _play(WorkoutSound sound) {
+    unawaited(
+      ref
+          .read(beepPlayerProvider)
+          .play(sound, workout.soundVolume)
+          .catchError((_) {}),
+    );
   }
 }

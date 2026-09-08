@@ -8,10 +8,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
@@ -243,6 +245,10 @@ class _EditorBody extends HookConsumerWidget {
                   _TextField(label: '폴더', controller: folder, hint: '예: 잠실'),
                   _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
                   _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
+                  _SoundSettingsCard(
+                    workout: draft.value,
+                    onChanged: (value) => draft.value = value,
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -390,6 +396,200 @@ class _TextField extends StatelessWidget {
         TextField(
           controller: controller,
           decoration: InputDecoration(hintText: hint),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SoundSettingsCard extends ConsumerWidget {
+  const _SoundSettingsCard({required this.workout, required this.onChanged});
+
+  final Workout workout;
+  final ValueChanged<Workout> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void preview(WorkoutSound sound) {
+      unawaited(
+        ref
+            .read(beepPlayerProvider)
+            .play(sound, workout.soundVolume)
+            .catchError((_) {}),
+      );
+    }
+
+    void applyTheme(WorkoutSoundTheme theme) {
+      final sounds = soundsForTheme(theme);
+      onChanged(
+        workout.copyWith(
+          soundTheme: theme,
+          countdownSound: sounds.countdown,
+          workStartSound: sounds.workStart,
+          restStartSound: sounds.restStart,
+          workoutEndSound: sounds.workoutEnd,
+        ),
+      );
+      preview(sounds.workStart);
+    }
+
+    Workout custom({
+      WorkoutSound? countdown,
+      WorkoutSound? workStart,
+      WorkoutSound? restStart,
+      WorkoutSound? workoutEnd,
+    }) => workout.copyWith(
+      soundTheme: WorkoutSoundTheme.custom,
+      countdownSound: countdown ?? workout.countdownSound,
+      workStartSound: workStart ?? workout.workStartSound,
+      restStartSound: restStart ?? workout.restStartSound,
+      workoutEndSound: workoutEnd ?? workout.workoutEndSound,
+    );
+
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.graphic_eq_rounded),
+                const SizedBox(width: 8),
+                Text('수업 사운드', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                IconButton(
+                  tooltip: '현재 운동 시작음 미리 듣기',
+                  onPressed: () => preview(workout.workStartSound),
+                  icon: const Icon(Icons.volume_up_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '카운트다운과 운동·휴식 전환을 서로 다른 소리로 알려줍니다.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: XonColors.muted,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...WorkoutSoundTheme.values
+                    .where((value) => value != WorkoutSoundTheme.custom)
+                    .map(
+                      (option) => ChoiceChip(
+                        label: Text(option.label),
+                        tooltip: option.description,
+                        selected: workout.soundTheme == option,
+                        onSelected: (_) => applyTheme(option),
+                      ),
+                    ),
+                if (workout.soundTheme == WorkoutSoundTheme.custom)
+                  const ChoiceChip(label: Text('직접 설정'), selected: true),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.volume_down_rounded, size: 20),
+                Expanded(
+                  child: Slider(
+                    value: workout.soundVolume.clamp(0, 1),
+                    divisions: 10,
+                    label: '${(workout.soundVolume * 100).round()}%',
+                    onChanged: (value) =>
+                        onChanged(workout.copyWith(soundVolume: value)),
+                  ),
+                ),
+                SizedBox(
+                  width: 44,
+                  child: Text('${(workout.soundVolume * 100).round()}%'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              children: [
+                _SoundEventSelector(
+                  label: '카운트다운',
+                  value: workout.countdownSound,
+                  onChanged: (sound) => onChanged(custom(countdown: sound)),
+                  onPreview: preview,
+                ),
+                _SoundEventSelector(
+                  label: '운동 시작',
+                  value: workout.workStartSound,
+                  onChanged: (sound) => onChanged(custom(workStart: sound)),
+                  onPreview: preview,
+                ),
+                _SoundEventSelector(
+                  label: '휴식 시작',
+                  value: workout.restStartSound,
+                  onChanged: (sound) => onChanged(custom(restStart: sound)),
+                  onPreview: preview,
+                ),
+                _SoundEventSelector(
+                  label: '수업 종료',
+                  value: workout.workoutEndSound,
+                  onChanged: (sound) => onChanged(custom(workoutEnd: sound)),
+                  onPreview: preview,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoundEventSelector extends StatelessWidget {
+  const _SoundEventSelector({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    required this.onPreview,
+  });
+
+  final String label;
+  final WorkoutSound value;
+  final ValueChanged<WorkoutSound> onChanged;
+  final ValueChanged<WorkoutSound> onPreview;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 230,
+    child: Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<WorkoutSound>(
+            key: ValueKey('$label-${value.name}'),
+            initialValue: value,
+            decoration: InputDecoration(labelText: label, isDense: true),
+            items: WorkoutSound.values
+                .map(
+                  (sound) =>
+                      DropdownMenuItem(value: sound, child: Text(sound.label)),
+                )
+                .toList(),
+            onChanged: (sound) {
+              if (sound == null) return;
+              onChanged(sound);
+              onPreview(sound);
+            },
+          ),
+        ),
+        IconButton(
+          tooltip: '$label 미리 듣기',
+          onPressed: () => onPreview(value),
+          icon: const Icon(Icons.play_circle_outline_rounded),
         ),
       ],
     ),
@@ -557,7 +757,7 @@ class _ModuleEditor extends HookWidget {
                             onChange(module.copyWith(showTimer: value)),
                       ),
                       FilterChip(
-                        label: const Text('비프음'),
+                        label: const Text('전환음'),
                         selected: module.beep,
                         onSelected: (value) =>
                             onChange(module.copyWith(beep: value)),
