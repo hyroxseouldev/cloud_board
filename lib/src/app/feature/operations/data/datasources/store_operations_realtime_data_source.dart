@@ -1,72 +1,80 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 
 class StoreOperationsRealtimeDataSource {
-  const StoreOperationsRealtimeDataSource(this._database, this._auth);
+  const StoreOperationsRealtimeDataSource(this._database, this._ownerId);
 
   final FirebaseDatabase _database;
-  final FirebaseAuth _auth;
+  final String? _ownerId;
 
   DatabaseReference get _operations =>
-      _database.ref('users/${_requireUserId()}/operations');
+      _database.ref('users/${_requireOwnerId()}/operations');
 
-  Stream<BrandTemplateModel> watchBrandTemplate() =>
-      _operations.child('brand').onValue.map((event) {
-        final value = event.snapshot.value;
-        if (value is! Map) {
-          return BrandTemplateModel.fromJson(const <String, dynamic>{});
-        }
-        return BrandTemplateModel.fromJson(_stringMap(value));
-      });
+  Stream<BrandTemplateModel> watchBrandTemplate() {
+    if (_ownerId == null) {
+      return Stream.value(
+        BrandTemplateModel.fromJson(const <String, dynamic>{}),
+      );
+    }
+    return _operations.child('brand').onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) {
+        return BrandTemplateModel.fromJson(const <String, dynamic>{});
+      }
+      return BrandTemplateModel.fromJson(_stringMap(value));
+    });
+  }
 
-  Stream<List<WorkoutScheduleModel>> watchSchedules() =>
-      _operations.child('schedules').onValue.map((event) {
-        final value = event.snapshot.value;
-        if (value is! Map) return const <WorkoutScheduleModel>[];
-        final schedules =
-            value.entries
-                .where((entry) => entry.value is Map)
-                .map(
-                  (entry) => WorkoutScheduleModel.fromJson(
-                    _stringMap(entry.value)
-                      ..putIfAbsent('id', () => entry.key.toString()),
-                  ),
-                )
-                .toList()
-              ..sort((a, b) {
-                final time = (a.hour * 60 + a.minute).compareTo(
-                  b.hour * 60 + b.minute,
-                );
-                return time != 0
-                    ? time
-                    : a.workoutName.compareTo(b.workoutName);
-              });
-        return schedules;
-      });
+  Stream<List<WorkoutScheduleModel>> watchSchedules() {
+    if (_ownerId == null) return Stream.value(const []);
+    return _operations.child('schedules').onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return const <WorkoutScheduleModel>[];
+      final schedules =
+          value.entries
+              .where((entry) => entry.value is Map)
+              .map(
+                (entry) => WorkoutScheduleModel.fromJson(
+                  _stringMap(entry.value)
+                    ..putIfAbsent('id', () => entry.key.toString()),
+                ),
+              )
+              .toList()
+            ..sort((a, b) {
+              final time = (a.hour * 60 + a.minute).compareTo(
+                b.hour * 60 + b.minute,
+              );
+              return time != 0 ? time : a.workoutName.compareTo(b.workoutName);
+            });
+      return schedules;
+    });
+  }
 
-  Stream<List<OperationEventModel>> watchEvents() => _operations
-      .child('events')
-      .orderByChild('occurredAtMs')
-      .limitToLast(1000)
-      .onValue
-      .map((event) {
-        final value = event.snapshot.value;
-        if (value is! Map) return const <OperationEventModel>[];
-        final events =
-            value.entries
-                .where((entry) => entry.value is Map)
-                .map(
-                  (entry) => OperationEventModel.fromJson(
-                    _stringMap(entry.value)
-                      ..putIfAbsent('id', () => entry.key.toString()),
-                  ),
-                )
-                .toList()
-              ..sort((a, b) => b.occurredAtMs.compareTo(a.occurredAtMs));
-        return events;
-      });
+  Stream<List<OperationEventModel>> watchEvents() {
+    if (_ownerId == null) return Stream.value(const []);
+    return _operations
+        .child('events')
+        .orderByChild('occurredAtMs')
+        .limitToLast(1000)
+        .onValue
+        .map((event) {
+          final value = event.snapshot.value;
+          if (value is! Map) return const <OperationEventModel>[];
+          final events =
+              value.entries
+                  .where((entry) => entry.value is Map)
+                  .map(
+                    (entry) => OperationEventModel.fromJson(
+                      _stringMap(entry.value)
+                        ..putIfAbsent('id', () => entry.key.toString()),
+                    ),
+                  )
+                  .toList()
+                ..sort((a, b) => b.occurredAtMs.compareTo(a.occurredAtMs));
+          return events;
+        });
+  }
 
   Future<void> saveBrandTemplate(BrandTemplateModel model) =>
       _operations.child('brand').set(model.toJson());
@@ -109,10 +117,10 @@ class StoreOperationsRealtimeDataSource {
     });
   }
 
-  String _requireUserId() {
-    final user = _auth.currentUser;
-    if (user == null) throw StateError('로그인이 필요합니다.');
-    return user.uid;
+  String _requireOwnerId() {
+    final ownerId = _ownerId;
+    if (ownerId == null) throw StateError('연결된 매장을 찾을 수 없습니다.');
+    return ownerId;
   }
 }
 

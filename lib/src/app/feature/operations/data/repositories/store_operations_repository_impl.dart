@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/operations/data/datasources/store_brand_storage_data_source.dart';
 import 'package:cloud_board/src/app/feature/operations/data/datasources/store_operations_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/operations/data/datasources/store_operations_local_data_source.dart';
@@ -98,12 +99,13 @@ class StoreOperationsRepositoryImpl implements StoreOperationsRepository {
 @Riverpod(keepAlive: true)
 StoreOperationsRepository storeOperationsRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
+  final ownerId = ref.watch(accountOwnerIdProvider).value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
   return StoreOperationsRepositoryImpl(
-    StoreOperationsRealtimeDataSource(database, auth),
+    StoreOperationsRealtimeDataSource(database, ownerId),
     StoreBrandStorageDataSource(FirebaseStorage.instance, auth),
     StoreOperationsLocalDataSource(SharedPreferencesAsync()),
   );

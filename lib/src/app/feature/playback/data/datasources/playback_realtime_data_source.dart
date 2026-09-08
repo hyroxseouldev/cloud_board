@@ -1,24 +1,26 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 
 class PlaybackRealtimeDataSource {
-  const PlaybackRealtimeDataSource(this._database, this._auth);
+  const PlaybackRealtimeDataSource(this._database, this._ownerId);
 
   final FirebaseDatabase _database;
-  final FirebaseAuth _auth;
+  final String? _ownerId;
 
   DatabaseReference get _active =>
-      _database.ref('users/${_requireUserId()}/activeSession');
+      _database.ref('users/${_requireOwnerId()}/activeSession');
 
-  DatabaseReference get _user => _database.ref('users/${_requireUserId()}');
+  DatabaseReference get _user => _database.ref('users/${_requireOwnerId()}');
 
-  Stream<PlaybackSessionModel?> watchActive() => _active.onValue.map((event) {
-    final value = event.snapshot.value;
-    if (value == null) return null;
-    return PlaybackSessionModel.fromJson(_stringMap(value));
-  });
+  Stream<PlaybackSessionModel?> watchActive() {
+    if (_ownerId == null) return Stream.value(null);
+    return _active.onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value == null) return null;
+      return PlaybackSessionModel.fromJson(_stringMap(value));
+    });
+  }
 
   Stream<int> watchServerTimeOffset() => _database
       .ref('.info/serverTimeOffset')
@@ -112,10 +114,10 @@ class PlaybackRealtimeDataSource {
     return PlaybackSessionModel.fromJson(_stringMap(result.snapshot.value));
   }
 
-  String _requireUserId() {
-    final user = _auth.currentUser;
-    if (user == null) throw StateError('로그인이 필요합니다.');
-    return user.uid;
+  String _requireOwnerId() {
+    final ownerId = _ownerId;
+    if (ownerId == null) throw StateError('연결된 매장을 찾을 수 없습니다.');
+    return ownerId;
   }
 }
 

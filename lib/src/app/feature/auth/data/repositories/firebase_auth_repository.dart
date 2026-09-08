@@ -29,7 +29,9 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Stream<AuthUser?> authStateChanges() =>
       _dataSource.authStateChanges().asyncMap((user) async {
-        if (user != null) await _profileDataSource.upsert(user);
+        if (user != null && !user.isAnonymous) {
+          await _profileDataSource.upsert(user);
+        }
         return _mapUser(user);
       });
 
@@ -52,7 +54,9 @@ class FirebaseAuthRepository implements AuthRepository {
       : AuthUser(
           id: user.uid,
           email: user.email ?? '',
-          displayName: user.displayName ?? '사용자',
+          displayName: user.isAnonymous
+              ? '매장 디스플레이'
+              : user.displayName ?? '사용자',
           photoUrl: user.photoURL,
         );
 }

@@ -9,6 +9,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
@@ -30,6 +31,12 @@ class DisplayModeScreen extends HookConsumerWidget {
     final isTv = ref.watch(androidTvProvider).value ?? false;
     final active = ref.watch(activePlaybackSessionProvider);
     final pairing = ref.watch(devicePairingControllerProvider);
+    ref.listen(accountOwnerIdProvider, (previous, next) {
+      if (previous == null || previous.value == next.value || next.isLoading) {
+        return;
+      }
+      unawaited(ref.read(devicePairingControllerProvider.notifier).refresh());
+    });
     final connected = ref.watch(playbackConnectionProvider).value ?? false;
     final deviceId = ref.watch(deviceIdProvider).value;
     final devices = ref.watch(displayDevicesProvider).value ?? const [];
