@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/firebase_options.dart';
 import 'package:cloud_board/src/app/app.dart';
+import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,7 @@ Future<void> main() async {
   }
   if (!kIsWeb) {
     await GoogleSignIn.instance.initialize();
+    await initializeWorkoutMediaController();
   }
   runApp(const ProviderScope(child: XonBoardApp()));
 }

@@ -227,6 +227,14 @@ class PlayerController extends _$PlayerController {
     }
   }
 
+  Future<void> play() async {
+    if (state.isPaused && currentStep != null) await toggle();
+  }
+
+  Future<void> pause() async {
+    if (!state.isPaused && currentStep != null) await toggle();
+  }
+
   Future<void> next() async {
     if (sessionId == null || !canControl) {
       _goLocal(state.index + 1);

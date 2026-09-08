@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -60,6 +61,7 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     );
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isConnected = ref.watch(playbackConnectionProvider).value ?? false;
+    final mediaController = ref.watch(workoutMediaControllerProvider);
     final showControls = useState(!displayMode);
 
     Future<void> exitPlayer() async {
@@ -102,6 +104,78 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       };
     }, const []);
+
+    useEffect(() {
+      if (displayMode) return null;
+      final subscription = mediaController.commands.listen((command) {
+        switch (command) {
+          case WorkoutMediaCommand.play:
+            unawaited(actions.play());
+            break;
+          case WorkoutMediaCommand.pause:
+            unawaited(actions.pause());
+            break;
+          case WorkoutMediaCommand.next:
+            unawaited(actions.next());
+            break;
+          case WorkoutMediaCommand.previous:
+            unawaited(actions.previous());
+            break;
+          case WorkoutMediaCommand.stop:
+            unawaited(exitPlayer());
+            break;
+        }
+      });
+      return () {
+        unawaited(subscription.cancel());
+        unawaited(mediaController.hide());
+      };
+    }, [displayMode, mediaController, actions]);
+
+    final hasCurrentStep =
+        state.steps.isNotEmpty && state.index < state.steps.length;
+    final currentMediaStep = hasCurrentStep ? state.steps[state.index] : null;
+    final isAtStepStart =
+        currentMediaStep != null &&
+        state.remainingMs >= currentMediaStep.duration * 1000 - 150;
+    useEffect(
+      () {
+        if (displayMode) return null;
+        if (currentMediaStep == null) {
+          unawaited(mediaController.hide());
+          return null;
+        }
+        unawaited(
+          mediaController.show(
+            WorkoutMediaSnapshot(
+              sessionId: sessionId ?? 'local-${workout.id}',
+              workoutName: workout.name,
+              slideName: currentMediaStep.module.name.isEmpty
+                  ? '슬라이드 ${currentMediaStep.moduleIndex + 1}'
+                  : currentMediaStep.module.name,
+              statusLabel: currentMediaStep.isRest
+                  ? '휴식 · ${currentMediaStep.set}/${currentMediaStep.totalSets}세트'
+                  : '운동 · ${currentMediaStep.set}/${currentMediaStep.totalSets}세트',
+              durationMs: currentMediaStep.duration * 1000,
+              remainingMs: state.remainingMs,
+              stepIndex: state.index,
+              isPaused: state.isPaused,
+            ),
+          ),
+        );
+        return null;
+      },
+      [
+        displayMode,
+        mediaController,
+        sessionId,
+        workout.id,
+        workout.name,
+        state.index,
+        state.isPaused,
+        isAtStepStart,
+      ],
+    );
     if (state.steps.isEmpty || state.index >= state.steps.length) {
       return _DoneScreen(workout: workout, displayMode: displayMode);
     }
