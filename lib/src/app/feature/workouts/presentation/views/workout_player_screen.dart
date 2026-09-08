@@ -33,11 +33,12 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final workouts =
-        ref.watch(workoutControllerProvider).value ?? const <Workout>[];
     final remoteSession = sessionId == null
         ? null
         : ref.watch(activePlaybackSessionProvider).value;
+    final workouts = remoteSession?.id == sessionId
+        ? const <Workout>[]
+        : ref.watch(workoutControllerProvider).value ?? const <Workout>[];
     final workout = remoteSession?.id == sessionId
         ? remoteSession!.workout
         : workouts.where((item) => item.id == workoutId).firstOrNull;

@@ -55,4 +55,4 @@ final class DevicePairingRepositoryProvider
 }
 
 String _$devicePairingRepositoryHash() =>
-    r'560d3df50fa93232941a3b00b06af212e8f91bc5';
+    r'82e5f147261c7d44eb6dab18ce63afecf417c336';

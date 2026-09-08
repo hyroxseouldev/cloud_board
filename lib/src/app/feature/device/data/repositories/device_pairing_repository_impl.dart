@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/domain/repositories/device_pairing_repository.dart';
@@ -55,11 +56,12 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
 @Riverpod(keepAlive: true)
 DevicePairingRepository devicePairingRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
+  final ownerId = ref.watch(accountOwnerIdProvider).value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
   return DevicePairingRepositoryImpl(
-    DevicePairingRealtimeDataSource(database, auth),
+    DevicePairingRealtimeDataSource(database, auth, ownerId),
   );
 }

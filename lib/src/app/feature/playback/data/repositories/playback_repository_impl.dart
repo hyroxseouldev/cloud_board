@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_session_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -14,21 +15,19 @@ import 'package:cloud_board/src/app/feature/playback/data/models/playback_sessio
 
 part 'playback_repository_impl.g.dart';
 
-const realtimeDatabaseUrl =
-    'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app';
+const realtimeDatabaseUrl = cloudBoardRealtimeDatabaseUrl;
 
 class PlaybackRepositoryImpl implements PlaybackRepository {
-  const PlaybackRepositoryImpl(this._dataSource, this._local, this._auth);
+  const PlaybackRepositoryImpl(this._dataSource, this._local, this._ownerId);
 
   final PlaybackRealtimeDataSource _dataSource;
   final PlaybackSessionLocalDataSource _local;
-  final FirebaseAuth _auth;
+  final String? _ownerId;
 
   @override
   Stream<PlaybackSession?> watchActive() async* {
-    final userId = _auth.currentUser?.uid;
     var cached = await _local.load();
-    if (cached?.ownerId != userId) {
+    if (cached?.ownerId != _ownerId) {
       cached = null;
       await _local.clear();
     }
@@ -64,13 +63,13 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     bool scheduled = false,
     int? scheduledAtMs,
   }) async {
-    final user = _auth.currentUser;
-    if (user == null) throw StateError('로그인이 필요합니다.');
+    final ownerId = _ownerId;
+    if (ownerId == null) throw StateError('로그인이 필요합니다.');
     final sessionId =
         'session-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
     final model = PlaybackSessionModel.fromWorkout(
       id: sessionId,
-      ownerId: user.uid,
+      ownerId: ownerId,
       zoneId: 'main',
       targetDeviceIds: targetDeviceIds,
       workout: workout,
@@ -149,13 +148,14 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 @Riverpod(keepAlive: true)
 PlaybackRepository playbackRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
+  final ownerId = ref.watch(accountOwnerIdProvider).value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
   return PlaybackRepositoryImpl(
-    PlaybackRealtimeDataSource(database, auth),
+    PlaybackRealtimeDataSource(database, ownerId),
     PlaybackSessionLocalDataSource(SharedPreferencesAsync()),
-    auth,
+    ownerId,
   );
 }

@@ -18,7 +18,12 @@ class DeviceModeHomeScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(deviceModeControllerProvider);
+    final mode =
+        state.value ??
+        ref.read(deviceModeControllerProvider.notifier).currentMode;
     useEffect(() {
+      if (mode != DeviceMode.controller) return null;
       void checkSchedules() {
         unawaited(ref.read(scheduleRunnerControllerProvider.notifier).runDue());
       }
@@ -29,14 +34,10 @@ class DeviceModeHomeScreen extends HookConsumerWidget {
         (_) => checkSchedules(),
       );
       return timer.cancel;
-    }, const []);
-    final state = ref.watch(deviceModeControllerProvider);
+    }, [mode]);
     if (state.isLoading && !state.hasValue) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final mode =
-        state.value ??
-        ref.read(deviceModeControllerProvider.notifier).currentMode;
     final activeSession = ref.watch(activePlaybackSessionProvider).value;
     final shouldRestoreController =
         mode == DeviceMode.controller &&
