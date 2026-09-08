@@ -16,7 +16,10 @@ concurrency:
 jobs:
   upload:
     name: Build and upload to internal testing
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip google-play]')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
+      !contains(github.event.head_commit.message, '[skip google-play]'))
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: google-play
