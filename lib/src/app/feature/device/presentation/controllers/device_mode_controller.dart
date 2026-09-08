@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_mode_actions.dart';
 
@@ -14,6 +15,10 @@ class DeviceModeController extends _$DeviceModeController {
   @override
   Future<DeviceMode> build() async {
     _currentMode = await (await ref.watch(loadDeviceModeProvider.future))();
+    if (await ref.watch(androidTvProvider.future)) {
+      _currentMode = DeviceMode.display;
+      await (await ref.read(saveDeviceModeProvider.future))(_currentMode);
+    }
     return _currentMode;
   }
 

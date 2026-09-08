@@ -34,7 +34,7 @@ final class DeviceModeControllerProvider
 }
 
 String _$deviceModeControllerHash() =>
-    r'aceed83cbbd977395d10059903e02e6edbbabfc8';
+    r'9852270919772f2b26aff59195ab41e914ab729e';
 
 abstract class _$DeviceModeController extends $AsyncNotifier<DeviceMode> {
   FutureOr<DeviceMode> build();

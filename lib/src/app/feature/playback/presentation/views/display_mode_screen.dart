@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
@@ -24,6 +27,7 @@ class DisplayModeScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isTv = ref.watch(androidTvProvider).value ?? false;
     final active = ref.watch(activePlaybackSessionProvider);
     final pairing = ref.watch(devicePairingControllerProvider);
     final connected = ref.watch(playbackConnectionProvider).value ?? false;
@@ -41,6 +45,26 @@ class DisplayModeScreen extends HookConsumerWidget {
       );
       return timer.cancel;
     }, const []);
+    useEffect(() {
+      if (!isTv) return null;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      unawaited(WakelockPlus.enable());
+      unawaited(
+        SystemChrome.setPreferredOrientations(const [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]),
+      );
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      return () {
+        unawaited(WakelockPlus.disable());
+        unawaited(SystemChrome.setPreferredOrientations(const []));
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.automatic;
+      };
+    }, [isTv]);
     final currentDevice = devices
         .where((item) => item.id == deviceId)
         .firstOrNull;
@@ -77,49 +101,56 @@ class DisplayModeScreen extends HookConsumerWidget {
       return null;
     }, [deviceId, session?.id, session?.revision, isActive]);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (showBlack)
-          const ColoredBox(color: Colors.black)
-        else if (isActive && allowPlayback)
-          WorkoutPlayerScreen(
-            workoutId: session.workout.id,
-            startModule: 0,
-            sessionId: session.id,
-            displayMode: true,
-          )
-        else
-          _DisplayStandby(
-            isLoading: active.isLoading,
-            error: active.error,
-            pairing: pairing,
-            currentDevice: currentDevice,
-            onRefreshPairing: () =>
-                ref.read(devicePairingControllerProvider.notifier).refresh(),
-            connected: connected,
-            brand: brand,
-            schedules: schedules,
-            now: now.value,
-            onTestSound: () async {
-              try {
-                await ref.read(beepPlayerProvider).play();
-              } catch (_) {}
-            },
-          ),
-        if (!showBlack)
-          const Positioned(
-            top: 18,
-            right: 18,
-            child: SafeArea(
-              child: Material(
-                color: Colors.black54,
-                shape: CircleBorder(),
-                child: DeviceModeMenu(iconColor: Colors.white),
+    return PopScope(
+      canPop: !isTv,
+      child: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (showBlack)
+              const ColoredBox(color: Colors.black)
+            else if (isActive && allowPlayback)
+              WorkoutPlayerScreen(
+                workoutId: session.workout.id,
+                startModule: 0,
+                sessionId: session.id,
+                displayMode: true,
+              )
+            else
+              _DisplayStandby(
+                isLoading: active.isLoading,
+                error: active.error,
+                pairing: pairing,
+                currentDevice: currentDevice,
+                onRefreshPairing: () => ref
+                    .read(devicePairingControllerProvider.notifier)
+                    .refresh(),
+                connected: connected,
+                brand: brand,
+                schedules: schedules,
+                now: now.value,
+                onTestSound: () async {
+                  try {
+                    await ref.read(beepPlayerProvider).play();
+                  } catch (_) {}
+                },
               ),
-            ),
-          ),
-      ],
+            if (!showBlack && !isTv)
+              const Positioned(
+                top: 18,
+                right: 18,
+                child: SafeArea(
+                  child: Material(
+                    color: Colors.black54,
+                    shape: CircleBorder(),
+                    child: DeviceModeMenu(iconColor: Colors.white),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -368,6 +399,7 @@ class _PairingCode extends StatelessWidget {
             ),
             IconButton(
               tooltip: '새 연결 코드',
+              autofocus: true,
               onPressed: onRefresh,
               color: Colors.white70,
               icon: const Icon(Icons.refresh_rounded),

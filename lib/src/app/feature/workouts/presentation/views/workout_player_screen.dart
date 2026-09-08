@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
@@ -61,6 +62,7 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     );
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isConnected = ref.watch(playbackConnectionProvider).value ?? false;
+    final isTv = ref.watch(androidTvProvider).value ?? false;
     final mediaController = ref.watch(workoutMediaControllerProvider);
     final showControls = useState(!displayMode);
 
@@ -97,13 +99,14 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     }
 
     useEffect(() {
+      if (displayMode && isTv) return null;
       unawaited(WakelockPlus.enable());
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       return () {
         unawaited(WakelockPlus.disable());
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       };
-    }, const []);
+    }, [displayMode, isTv]);
 
     useEffect(() {
       if (displayMode) return null;
