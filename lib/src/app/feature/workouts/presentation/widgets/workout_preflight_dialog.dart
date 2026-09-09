@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -285,7 +286,12 @@ Future<int> _precacheImages(BuildContext context, Workout workout) async {
     if (source.isEmpty) continue;
     final ImageProvider provider;
     if (source.startsWith('http://') || source.startsWith('https://')) {
-      provider = CachedNetworkImageProvider(source);
+      provider = kIsWeb
+          ? NetworkImage(
+              source,
+              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+            )
+          : CachedNetworkImageProvider(source);
     } else {
       provider = MemoryImage(WorkoutImageSource.decode(source).bytes);
     }

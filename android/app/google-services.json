@@ -15,11 +15,35 @@
       },
       "oauth_client": [
         {
+          "client_id": "428540903054-97fm2qj8hto4qu0nnhmnjhgnlels8cf4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sunmkim.cloudboard",
+            "certificate_hash": "04426d53c29d88f495e4251e02558e891d772da2"
+          }
+        },
+        {
+          "client_id": "428540903054-aepdo4ifu6em7r8sqlkd6c47s47lqkde.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sunmkim.cloudboard",
+            "certificate_hash": "6101b46bd3bc183bf740c27f6c45225986472413"
+          }
+        },
+        {
           "client_id": "428540903054-lvnk9aog697de6gd54rf8uqb1m7s8b2e.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.sunmkim.cloudboard",
             "certificate_hash": "408a7bde815f4b2d477c14eebaaeff2bf8273084"
+          }
+        },
+        {
+          "client_id": "428540903054-vk585auhlrv29orlh8sl0una718hcqvr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sunmkim.cloudboard",
+            "certificate_hash": "d612c15d54d8b62ea1b59ac2ac9e40d5ab40ebad"
           }
         },
         {
