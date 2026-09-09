@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/standby_slideshow.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -130,7 +131,9 @@ class DisplayModeScreen extends HookConsumerWidget {
           children: [
             if (showBlack)
               const ColoredBox(color: Colors.black)
-            else if ((isActive || showCompletion) && allowPlayback)
+            else if ((isActive || showCompletion) &&
+                allowPlayback &&
+                session.briefing != true)
               WorkoutPlayerScreen(
                 key: ValueKey(session.id),
                 workoutId: session.workout.id,
@@ -204,10 +207,6 @@ class _DisplayStandby extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final images = brand.promotionImageUrls;
-    final imageIndex = images.isEmpty
-        ? 0
-        : (now.millisecondsSinceEpoch ~/ 12000) % images.length;
     final next = nextSchedule(schedules, now);
     final nextDate = next == null ? null : _nextScheduleDate(next, now);
     if (currentDevice?.paired == true) {
@@ -233,25 +232,19 @@ class _DisplayStandby extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 900),
-            child: images.isEmpty
-                ? DecoratedBox(
-                    key: const ValueKey('brand-gradient'),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [color, XonColors.black],
-                      ),
-                    ),
-                  )
-                : CachedNetworkImage(
-                    key: ValueKey(images[imageIndex]),
-                    imageUrl: images[imageIndex],
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => ColoredBox(color: color),
-                  ),
+          StandbySlideshow(
+            brand: brand,
+            now: now,
+            fit: BoxFit.cover,
+            fallback: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [color, XonColors.black],
+                ),
+              ),
+            ),
           ),
           const ColoredBox(color: Colors.black38),
           AnimatedContainer(

@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 import 'package:cloud_board/src/app/feature/operations/data/datasources/store_brand_storage_data_source.dart';
 import 'package:cloud_board/src/app/feature/operations/data/datasources/store_operations_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/operations/data/datasources/store_operations_local_data_source.dart';
@@ -56,8 +57,33 @@ class StoreOperationsRepositoryImpl implements StoreOperationsRepository {
   );
 
   @override
-  Future<void> saveBrandTemplate(BrandTemplate template) =>
-      _realtime.saveBrandTemplate(BrandTemplateModel.fromEntity(template));
+  Future<void> saveBrandTemplate(BrandTemplate template) async {
+    final urls = <String>[];
+    for (final source in template.promotionImageUrls) {
+      if (source.startsWith('https://') || source.startsWith('http://')) {
+        urls.add(source);
+      } else {
+        final image = WorkoutImageSource.decode(source);
+        if (!WorkoutImageSource.supportedContentTypes.contains(
+          image.contentType,
+        )) {
+          throw const FormatException('지원하지 않는 이미지 형식입니다.');
+        }
+        urls.add(
+          await _storage.upload(
+            bytes: image.bytes,
+            extension: image.contentType.split('/').last,
+            purpose: 'promotion',
+          ),
+        );
+      }
+    }
+    final model = BrandTemplateModel.fromEntity(
+      template.copyWith(promotionImageUrls: urls),
+    );
+    await _realtime.saveBrandTemplate(model);
+    await _local.saveBrandTemplate(model);
+  }
 
   @override
   Future<String> uploadBrandImage({

@@ -197,7 +197,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 icon: const Icon(Icons.preview_outlined),
-                label: const Text('TV 브리핑 미리보기'),
+                label: const Text('브리핑 미리보기'),
                 onPressed: () => showDialog<void>(
                   context: context,
                   builder: (previewContext) => Dialog.fullscreen(

@@ -21,18 +21,39 @@ BrandTemplateModel _$BrandTemplateModelFromJson(
   blackScreenStartMinutes:
       (json['blackScreenStartMinutes'] as num?)?.toInt() ?? 0,
   blackScreenEndMinutes: (json['blackScreenEndMinutes'] as num?)?.toInt() ?? 0,
+  promotionDurationMinutes:
+      (json['promotionDurationMinutes'] as List<dynamic>?)
+          ?.map((e) => (e as num).toInt())
+          .toList() ??
+      [],
+  standbyTransition:
+      $enumDecodeNullable(
+        _$StandbyTransitionEnumMap,
+        json['standbyTransition'],
+        unknownValue: StandbyTransition.fade,
+      ) ??
+      StandbyTransition.fade,
 );
 
-Map<String, dynamic> _$BrandTemplateModelToJson(BrandTemplateModel instance) =>
-    <String, dynamic>{
-      'storeName': instance.storeName,
-      'standbyMessage': instance.standbyMessage,
-      'logoUrl': instance.logoUrl,
-      'promotionImageUrls': instance.promotionImageUrls,
-      'primaryColorValue': instance.primaryColorValue,
-      'blackScreenStartMinutes': instance.blackScreenStartMinutes,
-      'blackScreenEndMinutes': instance.blackScreenEndMinutes,
-    };
+Map<String, dynamic> _$BrandTemplateModelToJson(
+  BrandTemplateModel instance,
+) => <String, dynamic>{
+  'storeName': instance.storeName,
+  'standbyMessage': instance.standbyMessage,
+  'logoUrl': instance.logoUrl,
+  'promotionImageUrls': instance.promotionImageUrls,
+  'promotionDurationMinutes': instance.promotionDurationMinutes,
+  'standbyTransition': _$StandbyTransitionEnumMap[instance.standbyTransition]!,
+  'primaryColorValue': instance.primaryColorValue,
+  'blackScreenStartMinutes': instance.blackScreenStartMinutes,
+  'blackScreenEndMinutes': instance.blackScreenEndMinutes,
+};
+
+const _$StandbyTransitionEnumMap = {
+  StandbyTransition.none: 'none',
+  StandbyTransition.fade: 'fade',
+  StandbyTransition.slide: 'slide',
+};
 
 WorkoutScheduleModel _$WorkoutScheduleModelFromJson(
   Map<String, dynamic> json,

@@ -63,7 +63,8 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   @override
   Future<void> delete(String workoutId) async {
     final user = _requireUser();
-    await _storage.deleteWorkout(user.uid, workoutId);
+    // Images may also belong to copied workouts or active playback snapshots.
+    // Delete only the document; assets require reference-aware garbage collection.
     await _firestore.delete(user.uid, workoutId);
   }
 

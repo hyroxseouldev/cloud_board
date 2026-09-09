@@ -4,6 +4,8 @@ part 'store_operations.freezed.dart';
 
 enum RemoteDisplayState { auto, standby, black }
 
+enum StandbyTransition { none, fade, slide }
+
 @freezed
 abstract class BrandTemplate with _$BrandTemplate {
   const factory BrandTemplate({
@@ -14,6 +16,8 @@ abstract class BrandTemplate with _$BrandTemplate {
     required int primaryColorValue,
     required int blackScreenStartMinutes,
     required int blackScreenEndMinutes,
+    @Default(<int>[]) List<int> promotionDurationMinutes,
+    @Default(StandbyTransition.fade) StandbyTransition standbyTransition,
   }) = _BrandTemplate;
 
   factory BrandTemplate.initial() => const BrandTemplate(
