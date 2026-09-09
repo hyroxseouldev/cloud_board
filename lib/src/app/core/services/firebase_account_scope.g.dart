@@ -9,6 +9,40 @@ part of 'firebase_account_scope.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(firebaseAccountUser)
+final firebaseAccountUserProvider = FirebaseAccountUserProvider._();
+
+final class FirebaseAccountUserProvider
+    extends $FunctionalProvider<AsyncValue<User?>, User?, Stream<User?>>
+    with $FutureModifier<User?>, $StreamProvider<User?> {
+  FirebaseAccountUserProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'firebaseAccountUserProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$firebaseAccountUserHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<User?> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<User?> create(Ref ref) {
+    return firebaseAccountUser(ref);
+  }
+}
+
+String _$firebaseAccountUserHash() =>
+    r'5702fc480324d6724f3ad6f47c05a663316c3838';
+
 @ProviderFor(accountOwnerId)
 final accountOwnerIdProvider = AccountOwnerIdProvider._();
 
@@ -40,4 +74,4 @@ final class AccountOwnerIdProvider
   }
 }
 
-String _$accountOwnerIdHash() => r'37d6425e843ab46dd59b2525bb6f1d853a61a460';
+String _$accountOwnerIdHash() => r'9b53889b4c511b6d70023c45c8715ac967bbeada';
