@@ -16,6 +16,9 @@ concurrency:
 jobs:
   verify:
     name: Verify release
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      !contains(github.event.head_commit.message, '[skip testflight]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
