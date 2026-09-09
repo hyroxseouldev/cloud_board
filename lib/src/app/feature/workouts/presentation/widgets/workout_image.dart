@@ -44,7 +44,7 @@ class WorkoutImage extends StatelessWidget {
                   );
                 }
               : null,
-          errorBuilder: (context, error, stackTrace) => const _BrokenImage(),
+          errorBuilder: (context, error, stackTrace) => _error(),
         );
       }
       return CachedNetworkImage(
