@@ -10,11 +10,18 @@ class WorkoutImage extends StatelessWidget {
     required this.source,
     required this.fit,
     this.showLoadingIndicator = false,
+    this.onError,
   });
 
   final String source;
   final BoxFit fit;
   final bool showLoadingIndicator;
+  final VoidCallback? onError;
+
+  Widget _error() {
+    onError?.call();
+    return const _BrokenImage();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +44,7 @@ class WorkoutImage extends StatelessWidget {
                   );
                 }
               : null,
-          errorBuilder: (context, error, stackTrace) => const _BrokenImage(),
+          errorBuilder: (context, error, stackTrace) => _error(),
         );
       }
       return CachedNetworkImage(
@@ -48,7 +55,7 @@ class WorkoutImage extends StatelessWidget {
                 child: CircularProgressIndicator(value: progress.progress),
               )
             : null,
-        errorWidget: (context, url, error) => const _BrokenImage(),
+        errorWidget: (context, url, error) => _error(),
       );
     }
 
@@ -56,10 +63,10 @@ class WorkoutImage extends StatelessWidget {
       return Image.memory(
         WorkoutImageSource.decode(source).bytes,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) => const _BrokenImage(),
+        errorBuilder: (context, error, stackTrace) => _error(),
       );
     } on FormatException {
-      return const _BrokenImage();
+      return _error();
     }
   }
 }

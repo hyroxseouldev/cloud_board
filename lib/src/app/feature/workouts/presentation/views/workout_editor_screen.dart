@@ -1,11 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
@@ -15,33 +13,16 @@ import 'package:cloud_board/src/app/feature/playback/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
+import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder_selector.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
-
-const _timerColors = <_TimerColorOption>[
-  _TimerColorOption('기본', null),
-  _TimerColorOption('흰색', 0xFFFFFFFF),
-  _TimerColorOption('파랑', 0xFF0B4DFF),
-  _TimerColorOption('초록', 0xFF34C759),
-  _TimerColorOption('노랑', 0xFFFFCC00),
-  _TimerColorOption('주황', 0xFFFF9500),
-  _TimerColorOption('빨강', 0xFFFF3B30),
-  _TimerColorOption('보라', 0xFFAF52DE),
-];
-
-class _TimerColorOption {
-  const _TimerColorOption(this.label, this.value);
-
-  final String label;
-  final int? value;
-}
 
 class WorkoutEditorScreen extends ConsumerWidget {
-  const WorkoutEditorScreen({super.key, required this.workoutId});
+  const WorkoutEditorScreen({super.key, required this.workoutId, this.guard});
   final String workoutId;
+  final ExitGuard? guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final values = ref.watch(workoutControllerProvider);
@@ -60,7 +41,11 @@ class WorkoutEditorScreen extends ConsumerWidget {
             : items.where((item) => item.id == workoutId).firstOrNull;
         return workout == null
             ? const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')))
-            : _EditorBody(initial: workout, isNew: workoutId == 'new');
+            : _EditorBody(
+                initial: workout,
+                isNew: workoutId == 'new',
+                guard: guard,
+              );
       },
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -69,10 +54,47 @@ class WorkoutEditorScreen extends ConsumerWidget {
   }
 }
 
+class _WorkoutNameDialog extends HookWidget {
+  const _WorkoutNameDialog();
+  @override
+  Widget build(BuildContext context) {
+    final name = useTextEditingController();
+    final form = useMemoized(() => GlobalKey<FormState>());
+    return AlertDialog(
+      title: const Text('워크아웃 이름이 필요합니다'),
+      content: Form(
+        key: form,
+        child: TextFormField(
+          controller: name,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: '저장할 워크아웃 이름'),
+          validator: (v) =>
+              v == null || v.trim().isEmpty ? '이름을 입력해 주세요.' : null,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (form.currentState!.validate()) {
+              Navigator.pop(context, name.text.trim());
+            }
+          },
+          child: const Text('계속 저장'),
+        ),
+      ],
+    );
+  }
+}
+
 class _EditorBody extends HookConsumerWidget {
-  const _EditorBody({required this.initial, required this.isNew});
+  const _EditorBody({required this.initial, required this.isNew, this.guard});
   final Workout initial;
   final bool isNew;
+  final ExitGuard? guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = useState(initial);
@@ -95,24 +117,16 @@ class _EditorBody extends HookConsumerWidget {
         brandL.text.trim() != savedBaseline.value.brandL ||
         brandR.text.trim() != savedBaseline.value.brandR;
 
-    Future<Workout?> persist() async {
+    Future<Workout?> persist({Workout? edited}) async {
       if (name.text.trim().isEmpty) {
-        await showDialog<void>(
+        final enteredName = await showDialog<String>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('워크아웃 이름이 필요합니다'),
-            content: const Text('매장에서 구분할 수 있는 이름을 입력해 주세요.'),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('확인'),
-              ),
-            ],
-          ),
+          builder: (_) => const _WorkoutNameDialog(),
         );
-        return null;
+        if (enteredName == null || !context.mounted) return null;
+        name.text = enteredName;
       }
-      final value = draft.value.copyWith(
+      final value = (edited ?? draft.value).copyWith(
         name: name.text.trim(),
         folder: folder.text.trim(),
         brandL: brandL.text.trim(),
@@ -128,85 +142,38 @@ class _EditorBody extends HookConsumerWidget {
       return saved;
     }
 
-    useEffect(() {
-      if (isNew || !hasUnsavedChanges || isBusy) return null;
-      final timer = Timer(const Duration(milliseconds: 1200), persist);
-      return timer.cancel;
-    }, [draft.value, name.text, folder.text, brandL.text, brandR.text, isBusy]);
-
-    Future<bool> confirmExit() async {
-      if (!hasUnsavedChanges) return true;
-      return await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('변경사항을 저장할까요?'),
-              content: const Text('저장하지 않고 나가면 방금 수정한 내용이 사라집니다.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('저장 안 함'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final saved = await persist();
-                    if (context.mounted) {
-                      Navigator.of(context).pop(saved != null);
-                    }
-                  },
-                  child: const Text('저장 후 나가기'),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-    }
-
-    Future<void> requestBack() async {
-      if (await confirmExit() && context.mounted) context.pop();
-    }
-
     Future<void> saveAndClose() async {
       final saved = await persist();
       if (saved == null || !context.mounted) return;
-      if (isNew) {
-        context.go('/');
-      } else {
-        context.pop();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        if (isNew || !context.canPop()) {
+          context.go('/');
+        } else {
+          context.pop();
+        }
+      });
     }
 
-    Future<void> saveAndPlay({int? start}) async {
-      final saved = await persist();
-      if (saved == null || !context.mounted) return;
-      final selection = await showWorkoutPreflight(context, saved);
-      if (selection == null || !context.mounted) return;
-      final stepIndex = playerStepIndexForModule(saved, start ?? 0);
-      final steps = buildPlayerSteps(saved);
-      if (steps.isEmpty) return;
-      final sessionId = await ref
-          .read(playbackActionControllerProvider.notifier)
-          .start(
-            workout: saved,
-            targetDeviceIds: selection.targetDeviceIds,
-            stepIndex: stepIndex,
-            durationMs: steps[stepIndex].duration * 1000,
-          );
-      if (sessionId == null || !context.mounted) return;
-      final query = start == null ? '' : '?start=$start';
-      final separator = query.isEmpty ? '?' : '&';
-      context.go('/player/${saved.id}$query${separator}session=$sessionId');
-    }
-
-    return PopScope(
-      canPop: !hasUnsavedChanges,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(requestBack());
-      },
+    return UnsavedChangesGuard(
+      guard: guard,
+      dirty: hasUnsavedChanges,
+      blocked: isBusy,
       child: AsyncActionOverlay(
         isLoading: isBusy,
         child: Scaffold(
           appBar: AppBar(
-            leading: BackButton(onPressed: isBusy ? null : requestBack),
+            leading: BackButton(
+              onPressed: isBusy
+                  ? null
+                  : () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
+            ),
             title: Text(
               isNew
                   ? '새 워크아웃'
@@ -237,12 +204,33 @@ class _EditorBody extends HookConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 90),
                 children: [
+                  if (action.hasError)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        '저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
                   _TextField(
                     label: '워크아웃 이름',
                     controller: name,
                     hint: '예: 9/4 금 하이록스',
                   ),
-                  _TextField(label: '폴더', controller: folder, hint: '예: 잠실'),
+                  FolderSelector(
+                    value: folder.text,
+                    folders: {
+                      ...?ref
+                          .watch(workoutControllerProvider)
+                          .value
+                          ?.map((w) => w.folder)
+                          .where((f) => f.isNotEmpty),
+                      if (folder.text.isNotEmpty) folder.text,
+                    },
+                    onChanged: (value) => folder.text = value,
+                  ),
                   _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
                   _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
                   _SoundSettingsCard(
@@ -285,34 +273,101 @@ class _EditorBody extends HookConsumerWidget {
                     ),
                     itemBuilder: (context, index) {
                       final module = draft.value.modules[index];
-                      return _ModuleEditor(
+                      Future<void> edit() async {
+                        await context.push(
+                          '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
+                          extra: SlideEditRequest(
+                            module: module,
+                            onSave: (updated) async {
+                              final candidate = draft.value.copyWith(
+                                modules: draft.value.modules
+                                    .map(
+                                      (m) => m.id == updated.id ? updated : m,
+                                    )
+                                    .toList(),
+                              );
+                              return await persist(edited: candidate) != null;
+                            },
+                          ),
+                        );
+                      }
+
+                      return Card(
                         key: ValueKey(module.id),
-                        module: module,
-                        index: index,
-                        onChange: (module) {
-                          final list = [...draft.value.modules];
-                          list[index] = module;
-                          draft.value = draft.value.copyWith(modules: list);
-                        },
-                        onRemove: () {
-                          final list = [...draft.value.modules]
-                            ..removeAt(index);
-                          draft.value = draft.value.copyWith(modules: list);
-                        },
-                        onMove: (amount) {
-                          final target = index + amount;
-                          if (target < 0 ||
-                              target >= draft.value.modules.length) {
-                            return;
-                          }
-                          final list = [...draft.value.modules];
-                          final item = list.removeAt(index);
-                          list.insert(target, item);
-                          draft.value = draft.value.copyWith(modules: list);
-                        },
-                        onPlay: () async {
-                          await saveAndPlay(start: index);
-                        },
+                        child: ListTile(
+                          onTap: edit,
+                          leading: ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(Icons.drag_handle),
+                            ),
+                          ),
+                          title: Text(
+                            module.name.isEmpty
+                                ? '슬라이드 ${index + 1}'
+                                : module.name,
+                          ),
+                          subtitle: Text(
+                            '${module.sets}세트 · ${formatSlideTime(module.workSeconds)} / 휴식 ${formatSlideTime(module.restSeconds)}',
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            tooltip: '슬라이드 메뉴',
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 'edit', child: Text('수정')),
+                              PopupMenuItem(
+                                value: 'duplicate',
+                                child: Text('복제'),
+                              ),
+                              PopupMenuItem(value: 'delete', child: Text('삭제')),
+                            ],
+                            onSelected: (action) async {
+                              if (action == 'edit') {
+                                await edit();
+                                return;
+                              }
+                              final modules = [...draft.value.modules];
+                              if (action == 'duplicate') {
+                                modules.insert(
+                                  index + 1,
+                                  module.copyWith(
+                                    id: newId(),
+                                    name: nextSlideName(modules),
+                                  ),
+                                );
+                              } else {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dialogContext) => AlertDialog(
+                                    title: const Text('슬라이드를 삭제할까요?'),
+                                    content: Text(
+                                      '“${module.name}” 슬라이드를 목록에서 제거합니다.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dialogContext, false),
+                                        child: const Text('취소'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dialogContext, true),
+                                        child: const Text('삭제'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed != true || !context.mounted) {
+                                  return;
+                                }
+                                modules.removeAt(index);
+                              }
+                              draft.value = draft.value.copyWith(
+                                modules: modules,
+                              );
+                            },
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -325,7 +380,9 @@ class _EditorBody extends HookConsumerWidget {
                         onPressed: () => draft.value = draft.value.copyWith(
                           modules: [
                             ...draft.value.modules,
-                            WorkoutModule.empty(newId()),
+                            WorkoutModule.empty(newId()).copyWith(
+                              name: nextSlideName(draft.value.modules),
+                            ),
                           ],
                         ),
                         icon: const Icon(Icons.add),
@@ -593,479 +650,5 @@ class _SoundEventSelector extends StatelessWidget {
         ),
       ],
     ),
-  );
-}
-
-class _ModuleEditor extends HookWidget {
-  const _ModuleEditor({
-    super.key,
-    required this.module,
-    required this.index,
-    required this.onChange,
-    required this.onRemove,
-    required this.onMove,
-    required this.onPlay,
-  });
-  final WorkoutModule module;
-  final int index;
-  final ValueChanged<WorkoutModule> onChange;
-  final VoidCallback onRemove, onPlay;
-  final ValueChanged<int> onMove;
-  @override
-  Widget build(BuildContext context) {
-    final open = useState(index == 0);
-    final name = useTextEditingController(text: module.name);
-    final text = useTextEditingController(text: module.text);
-    final isPickingImage = useState(false);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: open.value ? XonColors.black : XonColors.line,
-          width: 2,
-        ),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            onTap: () => open.value = !open.value,
-            leading: CircleAvatar(
-              backgroundColor: XonColors.black,
-              child: Text(
-                '${index + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            title: Text(
-              module.name.isEmpty ? '이름 없음' : module.name,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            subtitle: Text(
-              '${module.sets}세트 · ${durationLabel(module.workSeconds)}',
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(open.value ? Icons.expand_less : Icons.expand_more),
-                const SizedBox(width: 6),
-                Tooltip(
-                  message: '드래그해서 순서 변경',
-                  child: ReorderableDragStartListener(
-                    index: index,
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(Icons.drag_handle),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (open.value)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 2, 14, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(),
-                  _TextField(label: '슬라이드 이름', controller: name),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final fields = [
-                        _NumberField(
-                          label: '운동 시간',
-                          helper: '30초 단위',
-                          value: module.workSeconds,
-                          min: 1,
-                          step: 30,
-                          onChanged: (value) =>
-                              onChange(module.copyWith(workSeconds: value)),
-                        ),
-                        _NumberField(
-                          label: '세트 수',
-                          helper: '1세트 단위',
-                          value: module.sets,
-                          min: 1,
-                          onChanged: (value) =>
-                              onChange(module.copyWith(sets: value)),
-                        ),
-                        _NumberField(
-                          label: '휴식 시간',
-                          helper: '30초 단위',
-                          value: module.restSeconds,
-                          min: 0,
-                          step: 30,
-                          onChanged: (value) =>
-                              onChange(module.copyWith(restSeconds: value)),
-                        ),
-                      ];
-
-                      if (constraints.maxWidth < 620) {
-                        return Column(
-                          children: [
-                            fields[0],
-                            const SizedBox(height: 8),
-                            fields[1],
-                            const SizedBox(height: 8),
-                            fields[2],
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: fields[0]),
-                          const SizedBox(width: 8),
-                          Expanded(child: fields[1]),
-                          const SizedBox(width: 8),
-                          Expanded(child: fields[2]),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '화면 텍스트',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: XonColors.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: text,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: '운동 설명을 줄바꿈으로 입력하세요',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      FilterChip(
-                        label: const Text('타이머 표시'),
-                        selected: module.showTimer,
-                        onSelected: (value) =>
-                            onChange(module.copyWith(showTimer: value)),
-                      ),
-                      FilterChip(
-                        label: const Text('전환음'),
-                        selected: module.beep,
-                        onSelected: (value) =>
-                            onChange(module.copyWith(beep: value)),
-                      ),
-                      FilterChip(
-                        label: const Text('이미지 꽉 채우기'),
-                        selected: module.coverImage,
-                        onSelected: (value) =>
-                            onChange(module.copyWith(coverImage: value)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '타이머 색상',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: XonColors.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
-                    children: _timerColors
-                        .map(
-                          (option) => ChoiceChip(
-                            avatar: option.value == null
-                                ? const Icon(Icons.auto_awesome, size: 16)
-                                : Container(
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      color: Color(option.value!),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: XonColors.line),
-                                    ),
-                                  ),
-                            label: Text(option.label),
-                            selected: module.timerColorValue == option.value,
-                            onSelected: (_) => onChange(
-                              module.copyWith(timerColorValue: option.value),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: isPickingImage.value
-                            ? null
-                            : () async {
-                                isPickingImage.value = true;
-                                try {
-                                  final file = await ImagePicker().pickImage(
-                                    source: ImageSource.gallery,
-                                    maxWidth: 1920,
-                                    imageQuality: 85,
-                                  );
-                                  if (file == null) return;
-                                  final bytes = await file.readAsBytes();
-                                  onChange(
-                                    module.copyWith(
-                                      imageSource: WorkoutImageSource.fromBytes(
-                                        bytes,
-                                        contentType: file.mimeType,
-                                      ),
-                                    ),
-                                  );
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('배경 이미지를 선택했습니다.'),
-                                      ),
-                                    );
-                                  }
-                                } catch (error) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '이미지를 불러오지 못했습니다: $error',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                } finally {
-                                  if (context.mounted) {
-                                    isPickingImage.value = false;
-                                  }
-                                }
-                              },
-                        icon: isPickingImage.value
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.image_outlined),
-                        label: Text(
-                          isPickingImage.value
-                              ? '불러오는 중...'
-                              : module.imageSource.isEmpty
-                              ? '배경 이미지'
-                              : '이미지 변경',
-                        ),
-                      ),
-                      if (module.imageSource.isNotEmpty)
-                        IconButton(
-                          onPressed: () =>
-                              onChange(module.copyWith(imageSource: '')),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                    ],
-                  ),
-                  if (module.imageSource.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: ColoredBox(
-                          color: Colors.black,
-                          child: WorkoutImage(
-                            source: module.imageSource,
-                            fit: module.coverImage
-                                ? BoxFit.cover
-                                : BoxFit.contain,
-                            showLoadingIndicator: true,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '슬라이드 이미지 미리보기',
-                      style: TextStyle(fontSize: 12, color: XonColors.muted),
-                    ),
-                  ],
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      TextButton(
-                        onPressed: () => onMove(-1),
-                        child: const Text('↑ 위로'),
-                      ),
-                      TextButton(
-                        onPressed: () => onMove(1),
-                        child: const Text('↓ 아래로'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          onChange(
-                            module.copyWith(name: name.text, text: text.text),
-                          );
-                          onPlay();
-                        },
-                        child: const Text('이 슬라이드부터 재생'),
-                      ),
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        onPressed: onRemove,
-                        child: const Text('삭제'),
-                      ),
-                    ],
-                  ),
-                  TextButton(
-                    onPressed: () => onChange(
-                      module.copyWith(name: name.text, text: text.text),
-                    ),
-                    child: const Text('슬라이드 변경 적용'),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NumberField extends HookWidget {
-  const _NumberField({
-    required this.label,
-    required this.helper,
-    required this.value,
-    required this.min,
-    required this.onChanged,
-    this.step = 1,
-  });
-  final String label;
-  final String helper;
-  final int value, min, step;
-  final ValueChanged<int> onChanged;
-  @override
-  Widget build(BuildContext context) {
-    final controller = useTextEditingController(text: '$value');
-    useEffect(() {
-      if (controller.text != '$value') {
-        controller.value = TextEditingValue(
-          text: '$value',
-          selection: TextSelection.collapsed(offset: '$value'.length),
-        );
-      }
-      return null;
-    }, [value]);
-
-    void commit(String input) {
-      final parsed = int.tryParse(input);
-      if (parsed != null) onChanged(parsed.clamp(min, 9999));
-    }
-
-    final labelBlock = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          helper,
-          style: const TextStyle(fontSize: 11, color: XonColors.muted),
-        ),
-      ],
-    );
-    final controls = Row(
-      children: [
-        _StepButton(
-          tooltip: '$step 감소',
-          icon: Icons.remove,
-          onPressed: () => onChanged((value - step).clamp(min, 9999)),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            textAlign: TextAlign.center,
-            onChanged: commit,
-            onSubmitted: commit,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 10),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        _StepButton(
-          tooltip: '$step 증가',
-          icon: Icons.add,
-          onPressed: () => onChanged((value + step).clamp(min, 9999)),
-        ),
-      ],
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: XonColors.pale,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= 360) {
-            return Row(
-              children: [
-                Expanded(child: labelBlock),
-                SizedBox(width: 190, child: controls),
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [labelBlock, const SizedBox(height: 8), controls],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _StepButton extends StatelessWidget {
-  const _StepButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => IconButton.outlined(
-    tooltip: tooltip,
-    onPressed: onPressed,
-    icon: Icon(icon, size: 20),
-    constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-    padding: EdgeInsets.zero,
   );
 }

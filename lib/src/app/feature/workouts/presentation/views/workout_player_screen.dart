@@ -8,12 +8,15 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
-import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_board.dart';
@@ -103,6 +106,15 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     final mediaController = ref.watch(workoutMediaControllerProvider);
     final serverOffset = ref.watch(serverTimeOffsetProvider).value ?? 0;
     final showControls = useState(!displayMode);
+    final standbyNow = useState(DateTime.now());
+    useEffect(() {
+      if (!displayMode || !state.briefing) return null;
+      final timer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => standbyNow.value = DateTime.now(),
+      );
+      return timer.cancel;
+    }, [displayMode, state.briefing]);
 
     Future<void> exitPlayer() async {
       if (sessionId != null && !displayMode) {
@@ -225,6 +237,14 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       ],
     );
     if (state.briefing) {
+      if (displayMode) {
+        return StoreWelcomeBoard(
+          brand:
+              ref.watch(brandTemplateProvider).value ?? BrandTemplate.initial(),
+          now: standbyNow.value,
+          connected: isConnected,
+        );
+      }
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
@@ -320,10 +340,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                       aspectRatio: 16 / 9,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final scale = (constraints.maxWidth / 1280).clamp(
-                            .65,
-                            1.5,
-                          );
+                          final scale = constraints.maxWidth / 1280;
                           return Stack(
                             children: [
                               if (module.imageSource.isNotEmpty)
@@ -407,22 +424,24 @@ class _ConnectionChip extends StatelessWidget {
   final double scale;
 
   @override
-  Widget build(BuildContext context) => Chip(
-    avatar: Icon(
-      Icons.circle,
-      size: 10 * scale,
-      color: connected ? Colors.greenAccent : Colors.orangeAccent,
-    ),
-    label: Text(
-      connected ? '동기화됨' : '오프라인 · 로컬 재생',
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 13 * scale,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-    backgroundColor: Colors.black87,
-  );
+  Widget build(BuildContext context) => connected
+      ? const SizedBox.shrink()
+      : Chip(
+          avatar: Icon(
+            Icons.circle,
+            size: 10 * scale,
+            color: connected ? Colors.greenAccent : Colors.orangeAccent,
+          ),
+          label: Text(
+            '오프라인 · 로컬 재생',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13 * scale,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: Colors.black87,
+        );
 }
 
 class _PlayerContent extends StatelessWidget {
@@ -454,6 +473,8 @@ class _PlayerContent extends StatelessWidget {
               Expanded(
                 child: Text(
                   isRest ? '휴식' : step.module.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 36 * scale,
@@ -462,15 +483,6 @@ class _PlayerContent extends StatelessWidget {
                   ),
                 ),
               ),
-              if (step.totalSets > 1)
-                Text(
-                  '${step.set} / ${step.totalSets} 세트',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 22 * scale,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
             ],
           ),
           const Spacer(),
@@ -480,7 +492,11 @@ class _PlayerContent extends StatelessWidget {
               Expanded(
                 flex: 3,
                 child: Text(
-                  isRest ? '다음: ${step.set + 1}세트' : step.module.text,
+                  isRest
+                      ? (step.module.showTimer
+                            ? '다음: ${step.set + 1}세트'
+                            : '다음 운동을 준비하세요')
+                      : step.module.text,
                   maxLines: 8,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -492,19 +508,44 @@ class _PlayerContent extends StatelessWidget {
                   ),
                 ),
               ),
-              if (isRest || step.module.showTimer)
+              if (step.module.showTimer)
                 Expanded(
                   flex: 2,
                   child: Align(
                     alignment: Alignment.centerRight,
-                    child: _CircularTimer(
-                      secondsLeft: state.secondsLeft,
-                      remainingMs: state.remainingMs,
-                      durationMs: step.duration * 1000,
-                      isRest: isRest,
-                      isPaused: state.isPaused,
-                      timerColorValue: step.module.timerColorValue,
-                      scale: scale,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _CircularTimer(
+                          secondsLeft: state.secondsLeft,
+                          remainingMs: state.remainingMs,
+                          durationMs: step.duration * 1000,
+                          isRest: isRest,
+                          isPaused: state.isPaused,
+                          gaugeColor: slideColor(
+                            step.module,
+                            rest: isRest,
+                            text: false,
+                            secondsLeft: state.secondsLeft,
+                          ),
+                          textColor: slideColor(
+                            step.module,
+                            rest: isRest,
+                            text: true,
+                            secondsLeft: state.secondsLeft,
+                          ),
+                          scale: scale,
+                        ),
+                        SizedBox(height: 16 * scale),
+                        Text(
+                          '${remainingSets(set: step.set, total: step.totalSets, isRest: step.isRest)}/${step.totalSets}세트',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 22 * scale,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -513,21 +554,30 @@ class _PlayerContent extends StatelessWidget {
           const Spacer(),
           Row(
             children: [
-              Text(
-                workout.brandL,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20 * scale,
-                  fontWeight: FontWeight.w900,
+              Expanded(
+                child: Text(
+                  workout.brandL,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20 * scale,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
-              const Spacer(),
-              Text(
-                workout.brandR,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 20 * scale,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  workout.brandR,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 20 * scale,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -545,7 +595,8 @@ class _CircularTimer extends StatelessWidget {
     required this.durationMs,
     required this.isRest,
     required this.isPaused,
-    required this.timerColorValue,
+    required this.gaugeColor,
+    required this.textColor,
     required this.scale,
   });
 
@@ -553,17 +604,11 @@ class _CircularTimer extends StatelessWidget {
   final int remainingMs;
   final int durationMs;
   final bool isRest, isPaused;
-  final int? timerColorValue;
+  final int gaugeColor, textColor;
   final double scale;
 
   @override
   Widget build(BuildContext context) {
-    final selectedColor = timerColorValue == null
-        ? null
-        : Color(timerColorValue!);
-    final color = secondsLeft <= 3
-        ? const Color(0xFFFF3B30)
-        : selectedColor ?? (isRest ? XonColors.cobalt : Colors.white);
     final progress = durationMs <= 0
         ? 0.0
         : (remainingMs / durationMs).clamp(0.0, 1.0);
@@ -587,7 +632,7 @@ class _CircularTimer extends StatelessWidget {
                     strokeWidth: 18 * scale,
                     strokeCap: StrokeCap.round,
                     backgroundColor: Colors.white24,
-                    color: color,
+                    color: Color(gaugeColor),
                   ),
             ),
             Center(
@@ -598,7 +643,7 @@ class _CircularTimer extends StatelessWidget {
                   child: Text(
                     durationLabel(secondsLeft),
                     style: TextStyle(
-                      color: color,
+                      color: Color(textColor),
                       fontSize: 64 * scale,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -3 * scale,

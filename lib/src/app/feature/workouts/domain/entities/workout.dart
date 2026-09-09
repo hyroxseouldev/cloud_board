@@ -68,6 +68,10 @@ abstract class WorkoutModule with _$WorkoutModule {
     required bool beep,
     required bool coverImage,
     int? timerColorValue,
+    String? workGaugeColor,
+    String? restGaugeColor,
+    String? workTextColor,
+    String? restTextColor,
   }) = _WorkoutModule;
 
   factory WorkoutModule.empty(String id) => WorkoutModule(

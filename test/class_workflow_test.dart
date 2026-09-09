@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -59,6 +60,120 @@ PlaybackSession session() => PlaybackSessionModel.fromWorkout(
 ).toEntity().copyWith(anchorServerMs: 100000);
 
 void main() {
+  for (final size in [
+    const Size(390, 844),
+    const Size(800, 1280),
+    const Size(1280, 720),
+    const Size(1920, 1080),
+  ]) {
+    testWidgets(
+      'shared timer styles, remaining sets and hidden rest fit $size',
+      (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final source = StreamController<PlaybackSession?>();
+        final styled = workout.copyWith(
+          modules: [
+            workout.modules.first.copyWith(
+              workSeconds: 90,
+              restSeconds: 45,
+              sets: 5,
+              workGaugeColor: '#112233',
+              workTextColor: '#445566',
+              restGaugeColor: '#778899',
+              restTextColor: '#AABBCC',
+            ),
+          ],
+        );
+        final container = ProviderContainer(
+          overrides: [
+            activePlaybackSessionProvider.overrideWith((ref) => source.stream),
+            serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+            playbackConnectionProvider.overrideWith(
+              (ref) => Stream.value(true),
+            ),
+            androidTvProvider.overrideWith((ref) async => true),
+          ],
+        );
+        container.listen(activePlaybackSessionProvider, (_, _) {});
+        final current = session().copyWith(
+          workout: styled,
+          briefing: false,
+          remainingMs: 90000,
+        );
+        source.add(current);
+        await tester.pump();
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: WorkoutPlayerScreen(
+                workoutId: workout.id,
+                startModule: 0,
+                sessionId: 'session',
+                displayMode: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('5/5세트'), findsOneWidget);
+        expect(
+          tester
+              .widget<CircularProgressIndicator>(
+                find.byType(CircularProgressIndicator),
+              )
+              .color,
+          const Color(0xFF112233),
+        );
+        expect(
+          tester.widget<Text>(find.text('1:30')).style!.color,
+          const Color(0xFF445566),
+        );
+        expect(find.text('동기화됨'), findsNothing);
+        source.add(
+          current.copyWith(stepIndex: 1, remainingMs: 45000, revision: 2),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.text('4/5세트'), findsOneWidget);
+        expect(
+          tester
+              .widget<CircularProgressIndicator>(
+                find.byType(CircularProgressIndicator),
+              )
+              .color,
+          const Color(0xFF778899),
+        );
+        expect(
+          tester.widget<Text>(find.text('0:45')).style!.color,
+          const Color(0xFFAABBCC),
+        );
+        source.add(
+          current.copyWith(
+            stepIndex: 1,
+            remainingMs: 45000,
+            revision: 3,
+            workout: styled.copyWith(
+              modules: [styled.modules.single.copyWith(showTimer: false)],
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.text('4/5세트'), findsNothing);
+        expect(find.text('휴식'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+        unawaited(source.close());
+        await tester.pump();
+      },
+    );
+  }
   testWidgets(
     'TV follows briefing, countdown, workout, completion and standby',
     (tester) async {
@@ -73,6 +188,9 @@ void main() {
           serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
           playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),
           androidTvProvider.overrideWith((ref) async => true),
+          brandTemplateProvider.overrideWith(
+            (ref) => Stream.value(BrandTemplate.initial()),
+          ),
         ],
       );
       container.listen(serverTimeOffsetProvider, (_, _) {});
@@ -97,7 +215,8 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.byType(WorkoutBriefingBoard), findsOneWidget);
+      expect(find.byType(WorkoutBriefingBoard), findsNothing);
+      expect(find.byType(StoreWelcomeBoard), findsOneWidget);
 
       final running = session().copyWith(
         briefing: false,

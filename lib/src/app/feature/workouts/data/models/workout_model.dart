@@ -136,11 +136,18 @@ class WorkoutModuleModel {
     required this.beep,
     required this.coverImage,
     required this.timerColorValue,
+    this.workGaugeColor,
+    this.restGaugeColor,
+    this.workTextColor,
+    this.restTextColor,
   });
   final String id, name, text, imageUrl;
   final int workSeconds, sets, restSeconds;
-  final bool showTimer, beep, coverImage;
+  @JsonKey(defaultValue: true)
+  final bool showTimer;
+  final bool beep, coverImage;
   final int? timerColorValue;
+  final String? workGaugeColor, restGaugeColor, workTextColor, restTextColor;
   factory WorkoutModuleModel.fromJson(Map<String, dynamic> json) =>
       _$WorkoutModuleModelFromJson(json);
   Map<String, dynamic> toJson() => _$WorkoutModuleModelToJson(this);
@@ -156,6 +163,10 @@ class WorkoutModuleModel {
     beep: beep,
     coverImage: coverImage,
     timerColorValue: timerColorValue,
+    workGaugeColor: workGaugeColor,
+    restGaugeColor: restGaugeColor,
+    workTextColor: workTextColor,
+    restTextColor: restTextColor,
   );
   factory WorkoutModuleModel.fromEntity(WorkoutModule value) =>
       WorkoutModuleModel(
@@ -170,6 +181,10 @@ class WorkoutModuleModel {
         beep: value.beep,
         coverImage: value.coverImage,
         timerColorValue: value.timerColorValue,
+        workGaugeColor: value.workGaugeColor,
+        restGaugeColor: value.restGaugeColor,
+        workTextColor: value.workTextColor,
+        restTextColor: value.restTextColor,
       );
 }
 

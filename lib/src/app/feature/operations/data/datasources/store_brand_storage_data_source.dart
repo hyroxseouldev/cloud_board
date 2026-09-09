@@ -17,14 +17,18 @@ class StoreBrandStorageDataSource {
     final user = _auth.currentUser;
     if (user == null) throw StateError('로그인이 필요합니다.');
     final normalized = extension.toLowerCase().replaceAll('.', '');
-    final safeExtension = normalized == 'png' ? 'png' : 'jpg';
+    final safeExtension = {'png', 'webp', 'gif'}.contains(normalized)
+        ? normalized
+        : 'jpg';
     final reference = _storage.ref(
-      'users/${user.uid}/brand/$purpose-${DateTime.now().millisecondsSinceEpoch}.$safeExtension',
+      'users/${user.uid}/brand/$purpose-${DateTime.now().microsecondsSinceEpoch}.$safeExtension',
     );
     await reference.putData(
       bytes,
       SettableMetadata(
-        contentType: safeExtension == 'png' ? 'image/png' : 'image/jpeg',
+        contentType: safeExtension == 'jpg'
+            ? 'image/jpeg'
+            : 'image/$safeExtension',
       ),
     );
     return reference.getDownloadURL();

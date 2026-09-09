@@ -71,10 +71,14 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
       restSeconds: (json['restSeconds'] as num).toInt(),
       text: json['text'] as String,
       imageUrl: json['imageUrl'] as String,
-      showTimer: json['showTimer'] as bool,
+      showTimer: json['showTimer'] as bool? ?? true,
       beep: json['beep'] as bool,
       coverImage: json['coverImage'] as bool,
       timerColorValue: (json['timerColorValue'] as num?)?.toInt(),
+      workGaugeColor: json['workGaugeColor'] as String?,
+      restGaugeColor: json['restGaugeColor'] as String?,
+      workTextColor: json['workTextColor'] as String?,
+      restTextColor: json['restTextColor'] as String?,
     );
 
 Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
@@ -90,4 +94,8 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'beep': instance.beep,
       'coverImage': instance.coverImage,
       'timerColorValue': instance.timerColorValue,
+      'workGaugeColor': instance.workGaugeColor,
+      'restGaugeColor': instance.restGaugeColor,
+      'workTextColor': instance.workTextColor,
+      'restTextColor': instance.restTextColor,
     };

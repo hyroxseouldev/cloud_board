@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/standby_slideshow.dart';
+
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 
 class StoreWelcomeBoard extends StatelessWidget {
@@ -19,10 +21,6 @@ class StoreWelcomeBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final promotions = brand.promotionImageUrls;
-    final promotion = promotions.isEmpty
-        ? null
-        : promotions[(now.millisecondsSinceEpoch ~/ 12000) % promotions.length];
     final clock =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     final shift = now.minute % 4;
@@ -112,37 +110,20 @@ class StoreWelcomeBoard extends StatelessWidget {
                                   ),
                                 const SizedBox(height: 24),
                                 Expanded(
-                                  child: promotion == null
-                                      ? Center(
-                                          child: Text(
-                                            clock,
-                                            style: TextStyle(
-                                              fontSize: 100,
-                                              fontWeight: FontWeight.w300,
-                                              color: Color(
-                                                brand.primaryColorValue,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                      : AnimatedSwitcher(
-                                          duration: const Duration(
-                                            milliseconds: 600,
-                                          ),
-                                          child: CachedNetworkImage(
-                                            key: ValueKey(promotion),
-                                            imageUrl: promotion,
-                                            fit: BoxFit.contain,
-                                            errorWidget: (_, _, _) => Center(
-                                              child: Text(
-                                                clock,
-                                                style: const TextStyle(
-                                                  fontSize: 90,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
+                                  child: StandbySlideshow(
+                                    brand: brand,
+                                    now: now,
+                                    fallback: Center(
+                                      child: Text(
+                                        clock,
+                                        style: TextStyle(
+                                          fontSize: 100,
+                                          fontWeight: FontWeight.w300,
+                                          color: Color(brand.primaryColorValue),
                                         ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

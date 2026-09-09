@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -103,23 +104,6 @@ class _BrandSettingsTab extends HookConsumerWidget {
       if (url != null) draft.value = draft.value!.copyWith(logoUrl: url);
     }
 
-    Future<void> addPromotion() async {
-      final picked = await pickImage();
-      if (picked == null || draft.value == null) return;
-      final url = await ref
-          .read(storeOperationsActionControllerProvider.notifier)
-          .uploadBrandImage(
-            bytes: picked.bytes,
-            extension: picked.extension,
-            purpose: 'promotion',
-          );
-      if (url != null) {
-        draft.value = draft.value!.copyWith(
-          promotionImageUrls: [...draft.value!.promotionImageUrls, url],
-        );
-      }
-    }
-
     return AsyncValueWidget<BrandTemplate>(
       value: settings,
       data: (_) {
@@ -138,7 +122,14 @@ class _BrandSettingsTab extends HookConsumerWidget {
                       title: '대기 화면 미리보기',
                       subtitle: '수업 전후와 쉬는 시간에 TV에 표시됩니다.',
                     ),
-                    _StandbyPreview(template: value),
+                    _StandbyPreview(
+                      template: value.copyWith(
+                        promotionImageUrls: settings.value!.promotionImageUrls,
+                        promotionDurationMinutes:
+                            settings.value!.promotionDurationMinutes,
+                        standbyTransition: settings.value!.standbyTransition,
+                      ),
+                    ),
                     const SizedBox(height: 28),
                     TextField(
                       controller: storeName,
@@ -203,14 +194,12 @@ class _BrandSettingsTab extends HookConsumerWidget {
                           : () => draft.value = value.copyWith(logoUrl: null),
                     ),
                     const SizedBox(height: 14),
-                    _PromotionImages(
-                      urls: value.promotionImageUrls,
-                      onAdd: action.isLoading ? null : addPromotion,
-                      onRemove: (url) => draft.value = value.copyWith(
-                        promotionImageUrls: value.promotionImageUrls
-                            .where((item) => item != url)
-                            .toList(),
-                      ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('대기 화면 이미지 · 전환 설정'),
+                      subtitle: const Text('이미지 순서, 표시 시간, 전환 효과를 설정합니다.'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/operations/standby'),
                     ),
                     const SizedBox(height: 24),
                     SwitchListTile(
@@ -284,7 +273,14 @@ class _BrandSettingsTab extends HookConsumerWidget {
                       onPressed: action.isLoading
                           ? null
                           : () async {
+                              final latest =
+                                  ref.read(brandTemplateProvider).value ??
+                                  value;
                               final updated = value.copyWith(
+                                promotionImageUrls: latest.promotionImageUrls,
+                                promotionDurationMinutes:
+                                    latest.promotionDurationMinutes,
+                                standbyTransition: latest.standbyTransition,
                                 storeName: storeName.text.trim(),
                                 standbyMessage: message.text.trim(),
                               );
@@ -724,18 +720,28 @@ class _EventTile extends StatelessWidget {
   }
 }
 
-class _StandbyPreview extends StatelessWidget {
+class _StandbyPreview extends HookWidget {
   const _StandbyPreview({required this.template});
   final BrandTemplate template;
 
   @override
-  Widget build(BuildContext context) => AspectRatio(
-    aspectRatio: 16 / 9,
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: StoreWelcomeBoard(brand: template, now: DateTime.now()),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final now = useState(DateTime.now());
+    useEffect(() {
+      final timer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => now.value = DateTime.now(),
+      );
+      return timer.cancel;
+    }, const []);
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: StoreWelcomeBoard(brand: template, now: now.value),
+      ),
+    );
+  }
 }
 
 class _ImageSettingTile extends StatelessWidget {
@@ -772,72 +778,6 @@ class _ImageSettingTile extends StatelessWidget {
         TextButton(onPressed: onPressed, child: Text(actionLabel)),
       ],
     ),
-  );
-}
-
-class _PromotionImages extends StatelessWidget {
-  const _PromotionImages({
-    required this.urls,
-    required this.onAdd,
-    required this.onRemove,
-  });
-  final List<String> urls;
-  final VoidCallback? onAdd;
-  final ValueChanged<String> onRemove;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Row(
-        children: [
-          const Expanded(
-            child: Text(
-              '홍보 이미지',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            label: const Text('추가'),
-          ),
-        ],
-      ),
-      if (urls.isEmpty)
-        const Text('등록된 이미지가 없습니다. 매장 공지나 이벤트 이미지를 추가해 보세요.')
-      else
-        SizedBox(
-          height: 112,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: urls.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) => Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    urls[index],
-                    width: 170,
-                    height: 108,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: IconButton.filledTonal(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => onRemove(urls[index]),
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-    ],
   );
 }
 
