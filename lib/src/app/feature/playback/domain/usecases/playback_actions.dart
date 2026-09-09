@@ -20,6 +20,7 @@ class PlaybackActions {
     required int durationMs,
     required String deviceId,
     bool scheduled = false,
+    bool briefing = false,
     int? scheduledAtMs,
   }) => _repository.start(
     workout: workout,
@@ -28,6 +29,7 @@ class PlaybackActions {
     durationMs: durationMs,
     deviceId: deviceId,
     scheduled: scheduled,
+    briefing: briefing,
     scheduledAtMs: scheduledAtMs,
   );
 
@@ -36,6 +38,9 @@ class PlaybackActions {
 
   Future<void> resume({required String deviceId}) =>
       _repository.resume(deviceId: deviceId);
+
+  Future<void> begin({required String deviceId}) =>
+      _repository.begin(deviceId: deviceId);
 
   Future<void> seek({
     required int stepIndex,

@@ -42,6 +42,7 @@ class PlaybackActionController extends _$PlaybackActionController {
             stepIndex: stepIndex,
             durationMs: durationMs,
             deviceId: await ref.read(deviceIdProvider.future),
+            briefing: true,
           );
       return '재생을 시작했습니다.';
     });
@@ -57,6 +58,11 @@ class PlaybackActionController extends _$PlaybackActionController {
   Future<bool> resume() => _run(
     '재생을 계속합니다.',
     (actions, deviceId) => actions.resume(deviceId: deviceId),
+  );
+
+  Future<bool> begin() => _run(
+    '수업을 시작합니다.',
+    (actions, deviceId) => actions.begin(deviceId: deviceId),
   );
 
   Future<bool> seek({required int stepIndex, required int durationMs}) => _run(

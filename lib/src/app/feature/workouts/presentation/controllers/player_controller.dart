@@ -32,6 +32,8 @@ abstract class PlayerState with _$PlayerState {
     required int index,
     required int remainingMs,
     required bool isPaused,
+    @Default(false) bool briefing,
+    @Default(0) int countdownMs,
   }) = _PlayerState;
 }
 
@@ -85,13 +87,43 @@ int synchronizedRemainingMs({
 }) {
   if (session.status != PlaybackStatus.playing) return session.remainingMs;
   final serverNow = localNowMs + serverTimeOffsetMs;
-  return max(0, session.remainingMs - (serverNow - session.anchorServerMs));
+  return (session.remainingMs -
+          max<int>(
+            0,
+            serverNow - session.anchorServerMs - session.startDelayMs,
+          ))
+      .clamp(0, session.remainingMs);
+}
+
+/// Resolve elapsed steps too, so a reconnect does not restart an old slide.
+({int index, int remainingMs, int countdownMs}) resolvePlaybackPosition(
+  PlaybackSession session,
+  List<PlayerStep> steps,
+  int serverNowMs,
+) {
+  var index = session.stepIndex.clamp(0, steps.length);
+  if (session.status == PlaybackStatus.completed) {
+    return (index: steps.length, remainingMs: 0, countdownMs: 0);
+  }
+  if (session.status != PlaybackStatus.playing || session.briefing) {
+    return (index: index, remainingMs: session.remainingMs, countdownMs: 0);
+  }
+  final elapsed = max<int>(0, serverNowMs - session.anchorServerMs);
+  final countdown = max<int>(0, session.startDelayMs - elapsed);
+  var remaining =
+      session.remainingMs - max<int>(0, elapsed - session.startDelayMs);
+  while (remaining <= 0 && index < steps.length) {
+    index++;
+    if (index < steps.length) remaining += steps[index].duration * 1000;
+  }
+  return (index: index, remainingMs: max(0, remaining), countdownMs: countdown);
 }
 
 @riverpod
 class PlayerController extends _$PlayerController {
   Timer? _ticker;
   DateTime? _endsAt;
+  DateTime? _startsAt;
   bool _transitioning = false;
   String? _announcedSessionId;
   int? _announcedStepIndex;
@@ -115,15 +147,22 @@ class PlayerController extends _$PlayerController {
     late final int index;
     late final int remainingMs;
     late final bool isPaused;
+    var countdownMs = 0;
     if (matchesSession) {
       if (remote.status == PlaybackStatus.completed) {
         index = steps.length;
         isPaused = true;
         remainingMs = 0;
       } else {
-        index = remote.stepIndex.clamp(0, steps.length);
+        final position = resolvePlaybackPosition(
+          remote,
+          steps,
+          DateTime.now().millisecondsSinceEpoch + offset,
+        );
+        index = position.index;
         isPaused = remote.status != PlaybackStatus.playing;
-        remainingMs = _remainingFromRemote(remote, offset);
+        remainingMs = position.remainingMs;
+        countdownMs = position.countdownMs;
       }
     } else {
       index = playerStepIndexForModule(workout, startModule);
@@ -136,13 +175,20 @@ class PlayerController extends _$PlayerController {
       index: index,
       remainingMs: remainingMs,
       isPaused: isPaused,
+      briefing: matchesSession && remote.briefing,
+      countdownMs: countdownMs,
     );
     _setDeadline(initial);
     _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) => _tick());
     Future.microtask(() {
-      if (matchesSession && remote.status == PlaybackStatus.completed) {
+      if (!ref.mounted) return;
+      if (index >= steps.length) {
         _announceCompletion();
-      } else if (index < steps.length) {
+      } else if (initial.countdownMs > 0 && steps[index].module.beep) {
+        _play(workout.countdownSound);
+      } else if (!initial.briefing &&
+          initial.countdownMs == 0 &&
+          !initial.isPaused) {
         _announceStep(index);
       }
     });
@@ -157,22 +203,36 @@ class PlayerController extends _$PlayerController {
       ? null
       : state.steps[state.index];
 
-  int _remainingFromRemote(PlaybackSession session, int offset) {
-    return synchronizedRemainingMs(
-      session: session,
-      localNowMs: DateTime.now().millisecondsSinceEpoch,
-      serverTimeOffsetMs: offset,
-    );
-  }
-
   void _setDeadline(PlayerState value) {
+    _startsAt = value.countdownMs > 0
+        ? DateTime.now().add(Duration(milliseconds: value.countdownMs))
+        : null;
     _endsAt = value.isPaused
         ? null
-        : DateTime.now().add(Duration(milliseconds: value.remainingMs));
+        : DateTime.now().add(
+            Duration(milliseconds: value.remainingMs + value.countdownMs),
+          );
   }
 
   void _tick() {
     if (state.isPaused || _endsAt == null || currentStep == null) return;
+    if (_startsAt != null) {
+      final countdown = max(
+        0,
+        _startsAt!.difference(DateTime.now()).inMilliseconds,
+      );
+      final previousSecond = (state.countdownMs / 1000).ceil();
+      state = state.copyWith(countdownMs: countdown);
+      if (countdown > 0) {
+        if ((countdown / 1000).ceil() != previousSecond &&
+            currentStep!.module.beep) {
+          _play(workout.countdownSound);
+        }
+        return;
+      }
+      _startsAt = null;
+      _announceStep(state.index);
+    }
     final left = max(0, _endsAt!.difference(DateTime.now()).inMilliseconds);
     final previousSecond = state.secondsLeft;
     if (left != state.remainingMs) {
@@ -186,22 +246,41 @@ class PlayerController extends _$PlayerController {
       }
     }
     if (left <= 0 && !_transitioning) {
-      final isFinalStep = state.index + 1 >= state.steps.length;
+      var nextIndex = state.index + 1;
+      var nextRemaining = _endsAt!.difference(DateTime.now()).inMilliseconds;
+      while (nextIndex < state.steps.length) {
+        nextRemaining += state.steps[nextIndex].duration * 1000;
+        if (nextRemaining > 0) break;
+        nextIndex++;
+      }
+      final isFinalStep = nextIndex >= state.steps.length;
       if (isFinalStep) {
         _endsAt = null;
-        state = state.copyWith(remainingMs: 0, isPaused: true);
+        state = state.copyWith(
+          index: state.steps.length,
+          remainingMs: 0,
+          isPaused: true,
+        );
         _announceCompletion();
+        if (canControl && sessionId != null) {
+          unawaited(
+            ref.read(playbackActionControllerProvider.notifier).syncComplete(),
+          );
+        }
         return;
       }
       if (canControl && sessionId != null) {
-        unawaited(_seekRemote(state.index + 1, silent: true));
+        unawaited(
+          _seekRemote(nextIndex, silent: true, remainingMs: nextRemaining),
+        );
       } else {
-        _goLocal(state.index + 1);
+        _goLocal(nextIndex, remainingMs: nextRemaining);
       }
     }
   }
 
   Future<void> toggle() async {
+    if (!canControl || state.briefing || state.countdownMs > 0) return;
     if (sessionId == null) {
       _toggleLocal();
       return;
@@ -213,7 +292,10 @@ class PlayerController extends _$PlayerController {
       final success = await ref
           .read(playbackActionControllerProvider.notifier)
           .resume();
-      if (!success) state = previous;
+      if (!success) {
+        state = previous;
+        _setDeadline(previous);
+      }
     } else {
       state = state.copyWith(isPaused: true);
       _endsAt = null;
@@ -236,6 +318,7 @@ class PlayerController extends _$PlayerController {
   }
 
   Future<void> next() async {
+    if (!canControl || state.briefing || state.countdownMs > 0) return;
     if (sessionId == null || !canControl) {
       _goLocal(state.index + 1);
       return;
@@ -244,6 +327,7 @@ class PlayerController extends _$PlayerController {
   }
 
   Future<void> previous() async {
+    if (!canControl || state.briefing || state.countdownMs > 0) return;
     final target =
         state.remainingMs < (currentStep?.duration ?? 0) * 1000 - 3000
         ? state.index
@@ -265,7 +349,11 @@ class PlayerController extends _$PlayerController {
     }
   }
 
-  Future<void> _seekRemote(int index, {bool silent = false}) async {
+  Future<void> _seekRemote(
+    int index, {
+    bool silent = false,
+    int? remainingMs,
+  }) async {
     if (_transitioning) return;
     _transitioning = true;
     try {
@@ -283,12 +371,12 @@ class PlayerController extends _$PlayerController {
       }
       final safeIndex = max(0, index);
       final previous = state;
-      _goLocal(safeIndex);
+      _goLocal(safeIndex, remainingMs: remainingMs);
       final notifier = ref.read(playbackActionControllerProvider.notifier);
       final success = silent
           ? await notifier.syncStep(
               stepIndex: safeIndex,
-              durationMs: state.steps[safeIndex].duration * 1000,
+              durationMs: state.remainingMs,
             )
           : await notifier.seek(
               stepIndex: safeIndex,
@@ -303,7 +391,7 @@ class PlayerController extends _$PlayerController {
     }
   }
 
-  void _goLocal(int index) {
+  void _goLocal(int index, {int? remainingMs}) {
     if (index >= state.steps.length) {
       _ticker?.cancel();
       state = state.copyWith(index: state.steps.length, remainingMs: 0);
@@ -312,7 +400,7 @@ class PlayerController extends _$PlayerController {
     final safeIndex = max(0, index);
     final next = state.copyWith(
       index: safeIndex,
-      remainingMs: state.steps[safeIndex].duration * 1000,
+      remainingMs: remainingMs ?? state.steps[safeIndex].duration * 1000,
       isPaused: false,
     );
     state = next;

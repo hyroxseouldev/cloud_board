@@ -16,35 +16,71 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_board.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
-class WorkoutPlayerScreen extends HookConsumerWidget {
+class WorkoutPlayerScreen extends ConsumerWidget {
   const WorkoutPlayerScreen({
     super.key,
     required this.workoutId,
     required this.startModule,
     this.sessionId,
     this.displayMode = false,
+    this.onStandby,
   });
   final String workoutId;
   final int startModule;
   final String? sessionId;
   final bool displayMode;
+  final VoidCallback? onStandby;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final remoteSession = sessionId == null
         ? null
         : ref.watch(activePlaybackSessionProvider).value;
-    final workouts = remoteSession?.id == sessionId
+    if (sessionId != null && remoteSession?.id != sessionId) {
+      return const Scaffold(body: Center(child: Text('수업 화면을 준비하고 있습니다…')));
+    }
+    final matchesSession = sessionId != null && remoteSession?.id == sessionId;
+    final workouts = matchesSession
         ? const <Workout>[]
         : ref.watch(workoutControllerProvider).value ?? const <Workout>[];
-    final workout = remoteSession?.id == sessionId
+    final workout = matchesSession
         ? remoteSession!.workout
         : workouts.where((item) => item.id == workoutId).firstOrNull;
     if (workout == null) {
       return const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')));
     }
+    return _WorkoutPlayerBody(
+      key: ValueKey(sessionId ?? workout.id),
+      workout: workout,
+      startModule: startModule,
+      sessionId: sessionId,
+      displayMode: displayMode,
+      onStandby: onStandby,
+    );
+  }
+}
+
+class _WorkoutPlayerBody extends HookConsumerWidget {
+  const _WorkoutPlayerBody({
+    super.key,
+    required this.workout,
+    required this.startModule,
+    required this.sessionId,
+    required this.displayMode,
+    required this.onStandby,
+  });
+
+  final Workout workout;
+  final int startModule;
+  final String? sessionId;
+  final bool displayMode;
+  final VoidCallback? onStandby;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(
       playerControllerProvider(
         workout,
@@ -65,6 +101,7 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     final isConnected = ref.watch(playbackConnectionProvider).value ?? false;
     final isTv = ref.watch(androidTvProvider).value ?? false;
     final mediaController = ref.watch(workoutMediaControllerProvider);
+    final serverOffset = ref.watch(serverTimeOffsetProvider).value ?? 0;
     final showControls = useState(!displayMode);
 
     Future<void> exitPlayer() async {
@@ -139,13 +176,19 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     final hasCurrentStep =
         state.steps.isNotEmpty && state.index < state.steps.length;
     final currentMediaStep = hasCurrentStep ? state.steps[state.index] : null;
+    final isPreparing = state.briefing || state.countdownMs > 0;
+    useEffect(() {
+      if (hasCurrentStep || !displayMode || onStandby == null) return null;
+      final timer = Timer(const Duration(seconds: 5), onStandby!);
+      return timer.cancel;
+    }, [hasCurrentStep, displayMode]);
     final isAtStepStart =
         currentMediaStep != null &&
         state.remainingMs >= currentMediaStep.duration * 1000 - 150;
     useEffect(
       () {
         if (displayMode) return null;
-        if (currentMediaStep == null) {
+        if (currentMediaStep == null || isPreparing) {
           unawaited(mediaController.hide());
           return null;
         }
@@ -178,8 +221,66 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
         state.index,
         state.isPaused,
         isAtStepStart,
+        isPreparing,
       ],
     );
+    if (state.briefing) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) unawaited(requestExit());
+        },
+        child: WorkoutBriefingBoard(
+          workout: workout,
+          displayMode: displayMode,
+          startModule: currentMediaStep?.moduleIndex ?? 0,
+          serverTimeOffsetMs: serverOffset,
+          busy: playbackAction.isLoading,
+          error: playbackAction.hasError
+              ? '시작하지 못했습니다. 연결을 확인하고 다시 눌러 주세요.'
+              : null,
+          onStart: () => unawaited(
+            ref.read(playbackActionControllerProvider.notifier).begin(),
+          ),
+          onExit: () => unawaited(requestExit()),
+        ),
+      );
+    }
+    if (state.countdownMs > 0) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) unawaited(requestExit());
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '준비하세요',
+                  style: TextStyle(color: Colors.white70, fontSize: 28),
+                ),
+                Text(
+                  '${(state.countdownMs / 1000).ceil()}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 160,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  currentMediaStep?.module.name ?? workout.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 24),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     if (state.steps.isEmpty || state.index >= state.steps.length) {
       return _DoneScreen(workout: workout, displayMode: displayMode);
     }
@@ -620,6 +721,11 @@ class _DoneScreen extends StatelessWidget {
             style: const TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 22),
+          if (displayMode)
+            const Text(
+              '잠시 후 대기 화면으로 돌아갑니다',
+              style: TextStyle(color: Colors.white70),
+            ),
           if (!displayMode)
             OutlinedButton(
               onPressed: () => context.go('/'),

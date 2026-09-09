@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_board.dart';
 
 class WorkoutPreflightSelection {
   WorkoutPreflightSelection({required Iterable<String> targetDeviceIds})
@@ -42,7 +43,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     );
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
     final imageCheck = useState<AsyncValue<int>>(const AsyncLoading());
-    final countdown = useState<int?>(null);
     final readiness = evaluateWorkoutReadiness(workout);
 
     useEffect(() {
@@ -88,23 +88,9 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     final canStart =
         readiness.isReady &&
         imageCheck.value.hasValue &&
-        (onlineDevices.isEmpty || selectedDeviceIds.value.isNotEmpty) &&
-        countdown.value == null;
+        (onlineDevices.isEmpty || selectedDeviceIds.value.isNotEmpty);
 
     Future<void> start() async {
-      for (var value = 3; value > 0; value--) {
-        countdown.value = value;
-        if (workout.modules.firstOrNull?.beep == true) {
-          unawaited(
-            ref
-                .read(beepPlayerProvider)
-                .play(workout.countdownSound, workout.soundVolume)
-                .catchError((_) {}),
-          );
-        }
-        await Future<void>.delayed(const Duration(seconds: 1));
-        if (!context.mounted) return;
-      }
       if (context.mounted) {
         Navigator.of(context).pop(
           WorkoutPreflightSelection(targetDeviceIds: selectedDeviceIds.value),
@@ -113,137 +99,153 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     }
 
     return AlertDialog(
-      title: Text(
-        countdown.value == null ? '수업 시작 전 점검' : '${countdown.value}',
-      ),
+      title: const Text('수업 준비'),
       content: SizedBox(
         width: 520,
-        child: countdown.value != null
-            ? const Text(
-                '디스플레이를 확인해 주세요',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              )
-            : SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _CheckTile(
+                ok: readiness.isReady,
+                title: '${workout.modules.length}개 슬라이드',
+                subtitle: readiness.isReady
+                    ? '총 수업 시간 ${durationLabel(workoutDuration(workout))}'
+                    : readiness.issues.join('\n'),
+              ),
+              imageCheck.value.when(
+                loading: () => const _CheckTile(
+                  ok: null,
+                  title: '이미지 준비 중',
+                  subtitle: '수업 이미지를 미리 불러오고 있습니다.',
+                ),
+                error: (error, _) => _CheckTile(
+                  ok: false,
+                  title: '이미지 준비 실패',
+                  subtitle: '$error',
+                ),
+                data: (count) => _CheckTile(
+                  ok: true,
+                  title: '이미지 준비 완료',
+                  subtitle: '$count개 이미지를 확인했습니다.',
+                ),
+              ),
+              _CheckTile(
+                ok: onlineDevices.isNotEmpty,
+                title: onlineDevices.isEmpty
+                    ? '온라인 디스플레이 없음'
+                    : '${onlineDevices.length}대 온라인',
+                subtitle: onlineDevices.isEmpty
+                    ? '이 기기에서만 재생할 수 있습니다.'
+                    : '${selectedDeviceIds.value.length}대를 선택했습니다.',
+              ),
+              if (onlineDevices.isNotEmpty) ...[
+                Row(
                   children: [
-                    _CheckTile(
-                      ok: readiness.isReady,
-                      title: '${workout.modules.length}개 슬라이드',
-                      subtitle: readiness.isReady
-                          ? '총 수업 시간 ${durationLabel(workoutDuration(workout))}'
-                          : readiness.issues.join('\n'),
-                    ),
-                    imageCheck.value.when(
-                      loading: () => const _CheckTile(
-                        ok: null,
-                        title: '이미지 준비 중',
-                        subtitle: '수업 이미지를 미리 불러오고 있습니다.',
-                      ),
-                      error: (error, _) => _CheckTile(
-                        ok: false,
-                        title: '이미지 준비 실패',
-                        subtitle: '$error',
-                      ),
-                      data: (count) => _CheckTile(
-                        ok: true,
-                        title: '이미지 준비 완료',
-                        subtitle: '$count개 이미지를 확인했습니다.',
+                    Expanded(
+                      child: Text(
+                        '재생 디스플레이',
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
                     ),
-                    _CheckTile(
-                      ok: onlineDevices.isNotEmpty,
-                      title: onlineDevices.isEmpty
-                          ? '온라인 디스플레이 없음'
-                          : '${onlineDevices.length}대 온라인',
-                      subtitle: onlineDevices.isEmpty
-                          ? '이 기기에서만 재생할 수 있습니다.'
-                          : '${selectedDeviceIds.value.length}대를 선택했습니다.',
-                    ),
-                    if (onlineDevices.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '재생 디스플레이',
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              selectedDeviceIds.value =
-                                  selectedDeviceIds.value.length ==
-                                      onlineDevices.length
-                                  ? <String>{}
-                                  : onlineDeviceIds;
-                            },
-                            child: Text(
-                              selectedDeviceIds.value.length ==
-                                      onlineDevices.length
-                                  ? '전체 해제'
-                                  : '전체 선택',
-                            ),
-                          ),
-                        ],
+                    TextButton(
+                      onPressed: () {
+                        selectedDeviceIds.value =
+                            selectedDeviceIds.value.length ==
+                                onlineDevices.length
+                            ? <String>{}
+                            : onlineDeviceIds;
+                      },
+                      child: Text(
+                        selectedDeviceIds.value.length == onlineDevices.length
+                            ? '전체 해제'
+                            : '전체 선택',
                       ),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 190),
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: onlineDevices
-                              .map(
-                                (device) => CheckboxListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  value: selectedDeviceIds.value.contains(
-                                    device.id,
-                                  ),
-                                  title: Text(device.name),
-                                  subtitle: Text(device.zoneName),
-                                  onChanged: (checked) {
-                                    final next = Set<String>.from(
-                                      selectedDeviceIds.value,
-                                    );
-                                    if (checked == true) {
-                                      next.add(device.id);
-                                    } else {
-                                      next.remove(device.id);
-                                    }
-                                    selectedDeviceIds.value = next;
-                                  },
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => ref
-                          .read(beepPlayerProvider)
-                          .play(workout.workStartSound, workout.soundVolume),
-                      icon: const Icon(Icons.volume_up_rounded),
-                      label: const Text('소리 테스트'),
                     ),
                   ],
                 ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 190),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: onlineDevices
+                        .map(
+                          (device) => CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            value: selectedDeviceIds.value.contains(device.id),
+                            title: Text(device.name),
+                            subtitle: Text(device.zoneName),
+                            onChanged: (checked) {
+                              final next = Set<String>.from(
+                                selectedDeviceIds.value,
+                              );
+                              if (checked == true) {
+                                next.add(device.id);
+                              } else {
+                                next.remove(device.id);
+                              }
+                              selectedDeviceIds.value = next;
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.preview_outlined),
+                label: const Text('TV 브리핑 미리보기'),
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (previewContext) => Dialog.fullscreen(
+                    child: Stack(
+                      children: [
+                        WorkoutBriefingBoard(
+                          workout: workout,
+                          displayMode: true,
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: SafeArea(
+                            child: IconButton(
+                              tooltip: '미리보기 닫기',
+                              onPressed: () =>
+                                  Navigator.of(previewContext).pop(),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
+              OutlinedButton.icon(
+                onPressed: () => ref
+                    .read(beepPlayerProvider)
+                    .play(workout.workStartSound, workout.soundVolume),
+                icon: const Icon(Icons.volume_up_rounded),
+                label: const Text('소리 테스트'),
+              ),
+            ],
+          ),
+        ),
       ),
-      actions: countdown.value == null
-          ? [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('취소'),
-              ),
-              FilledButton.icon(
-                onPressed: canStart ? start : null,
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('3초 후 시작'),
-              ),
-            ]
-          : null,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton.icon(
+          onPressed: canStart ? start : null,
+          icon: const Icon(Icons.play_arrow_rounded),
+          label: const Text('브리핑 화면 열기'),
+        ),
+      ],
     );
   }
 }

@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairin
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
@@ -730,48 +731,9 @@ class _StandbyPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AspectRatio(
     aspectRatio: 16 / 9,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: Color(template.primaryColorValue),
-        borderRadius: BorderRadius.circular(18),
-        image: template.promotionImageUrls.isEmpty
-            ? null
-            : DecorationImage(
-                image: NetworkImage(template.promotionImageUrls.first),
-                fit: BoxFit.cover,
-                colorFilter: const ColorFilter.mode(
-                  Colors.black38,
-                  BlendMode.darken,
-                ),
-              ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (template.logoUrl != null)
-              Image.network(
-                template.logoUrl!,
-                height: 50,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-            Text(
-              template.storeName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              template.standbyMessage,
-              style: const TextStyle(color: Colors.white70),
-            ),
-          ],
-        ),
-      ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: StoreWelcomeBoard(brand: template, now: DateTime.now()),
     ),
   );
 }

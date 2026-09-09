@@ -61,6 +61,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     required int durationMs,
     required String deviceId,
     bool scheduled = false,
+    bool briefing = false,
     int? scheduledAtMs,
   }) async {
     final ownerId = _ownerId;
@@ -76,6 +77,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       stepIndex: stepIndex,
       durationMs: durationMs,
       deviceId: deviceId,
+      briefing: briefing,
     );
     final started = await _dataSource.start(
       model,
@@ -97,6 +99,14 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   @override
   Future<void> resume({required String deviceId}) =>
       _update(status: PlaybackStatus.playing.name, deviceId: deviceId);
+
+  @override
+  Future<void> begin({required String deviceId}) => _update(
+    status: PlaybackStatus.playing.name,
+    deviceId: deviceId,
+    startDelayMs: 3000,
+    requireBriefing: true,
+  );
 
   @override
   Future<void> seek({
@@ -122,12 +132,15 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     required String deviceId,
     int? stepIndex,
     int? remainingMs,
+    int startDelayMs = 0,
+    bool requireBriefing = false,
   }) async {
     await _local.update(
       status: status,
       deviceId: deviceId,
       stepIndex: stepIndex,
       remainingMs: remainingMs,
+      startDelayMs: startDelayMs,
     );
     try {
       final updated = await _dataSource
@@ -136,6 +149,8 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
             deviceId: deviceId,
             stepIndex: stepIndex,
             remainingMs: remainingMs,
+            startDelayMs: startDelayMs,
+            requireBriefing: requireBriefing,
           )
           .timeout(const Duration(seconds: 2));
       await _local.save(updated);

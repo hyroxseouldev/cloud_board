@@ -15,6 +15,8 @@ class PlaybackSessionModel {
     required this.targetDeviceIds,
     required this.workoutSnapshot,
     required this.status,
+    this.briefing = false,
+    this.startDelayMs = 0,
     required this.stepIndex,
     required this.remainingMs,
     required this.anchorServerMs,
@@ -30,6 +32,10 @@ class PlaybackSessionModel {
   final List<String> targetDeviceIds;
   final Map<String, dynamic> workoutSnapshot;
   final String status;
+  @JsonKey(defaultValue: false)
+  final bool briefing;
+  @JsonKey(defaultValue: 0)
+  final int startDelayMs;
   final int stepIndex;
   final int remainingMs;
   final int anchorServerMs;
@@ -52,6 +58,8 @@ class PlaybackSessionModel {
       orElse: () => PlaybackStatus.completed,
     ),
     stepIndex: stepIndex,
+    briefing: briefing,
+    startDelayMs: startDelayMs,
     remainingMs: remainingMs,
     anchorServerMs: anchorServerMs,
     revision: revision,
@@ -67,6 +75,7 @@ class PlaybackSessionModel {
     required int stepIndex,
     required int durationMs,
     required String deviceId,
+    bool briefing = false,
   }) {
     final snapshot = WorkoutModel.fromEntity(workout).toJson()
       ..['createdAt'] = workout.createdAt.toIso8601String()
@@ -77,7 +86,10 @@ class PlaybackSessionModel {
       zoneId: zoneId,
       targetDeviceIds: List.unmodifiable(targetDeviceIds),
       workoutSnapshot: snapshot,
-      status: PlaybackStatus.playing.name,
+      status: briefing
+          ? PlaybackStatus.paused.name
+          : PlaybackStatus.playing.name,
+      briefing: briefing,
       stepIndex: stepIndex,
       remainingMs: durationMs,
       anchorServerMs: 0,

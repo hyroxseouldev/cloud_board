@@ -22,6 +22,7 @@ import 'package:cloud_board/src/app/feature/playback/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 
 class DisplayModeScreen extends HookConsumerWidget {
   const DisplayModeScreen({super.key});
@@ -45,6 +46,8 @@ class DisplayModeScreen extends HookConsumerWidget {
     final schedules =
         ref.watch(workoutSchedulesProvider).value ?? const <WorkoutSchedule>[];
     final now = useState(DateTime.now());
+    final finishedSessionId = useState<String?>(null);
+    final serverOffset = ref.watch(serverTimeOffsetProvider).value ?? 0;
     useEffect(() {
       final timer = Timer.periodic(
         const Duration(seconds: 1),
@@ -86,7 +89,17 @@ class DisplayModeScreen extends HookConsumerWidget {
         session != null &&
         session.status != PlaybackStatus.completed &&
         targetsThisDevice &&
+        finishedSessionId.value != session.id &&
         session.workout.modules.isNotEmpty;
+    final showCompletion =
+        session != null &&
+        session.status == PlaybackStatus.completed &&
+        targetsThisDevice &&
+        finishedSessionId.value != session.id &&
+        now.value.millisecondsSinceEpoch +
+                serverOffset -
+                session.anchorServerMs <
+            5000;
     final remoteState = currentDevice?.displayState ?? 'auto';
     final showBlack =
         remoteState == RemoteDisplayState.black.name ||
@@ -117,12 +130,14 @@ class DisplayModeScreen extends HookConsumerWidget {
           children: [
             if (showBlack)
               const ColoredBox(color: Colors.black)
-            else if (isActive && allowPlayback)
+            else if ((isActive || showCompletion) && allowPlayback)
               WorkoutPlayerScreen(
+                key: ValueKey(session.id),
                 workoutId: session.workout.id,
                 startModule: 0,
                 sessionId: session.id,
                 displayMode: true,
+                onStandby: () => finishedSessionId.value = session.id,
               )
             else
               _DisplayStandby(
@@ -195,6 +210,16 @@ class _DisplayStandby extends StatelessWidget {
         : (now.millisecondsSinceEpoch ~/ 12000) % images.length;
     final next = nextSchedule(schedules, now);
     final nextDate = next == null ? null : _nextScheduleDate(next, now);
+    if (currentDevice?.paired == true) {
+      return StoreWelcomeBoard(
+        brand: brand,
+        now: now,
+        connected: connected,
+        nextClass: next == null || nextDate == null
+            ? null
+            : '${nextDate.month}/${nextDate.day} ${nextDate.hour.toString().padLeft(2, '0')}:${nextDate.minute.toString().padLeft(2, '0')} · ${next.workoutName}',
+      );
+    }
     final shiftIndex = now.minute % 4;
     final shift = [
       const Offset(-14, -8),

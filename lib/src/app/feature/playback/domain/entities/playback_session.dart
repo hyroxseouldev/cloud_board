@@ -15,6 +15,8 @@ abstract class PlaybackSession with _$PlaybackSession {
     @Default(<String>[]) List<String> targetDeviceIds,
     required Workout workout,
     required PlaybackStatus status,
+    @Default(false) bool briefing,
+    @Default(0) int startDelayMs,
     required int stepIndex,
     required int remainingMs,
     required int anchorServerMs,

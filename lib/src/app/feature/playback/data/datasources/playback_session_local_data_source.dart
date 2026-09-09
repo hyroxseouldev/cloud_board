@@ -31,11 +31,14 @@ class PlaybackSessionLocalDataSource {
     required String deviceId,
     int? stepIndex,
     int? remainingMs,
+    int startDelayMs = 0,
   }) async {
     final current = await load();
     if (current == null) return null;
     final json = current.toJson()
       ..['status'] = status
+      ..['briefing'] = false
+      ..['startDelayMs'] = startDelayMs
       ..['updatedByDeviceId'] = deviceId
       ..['revision'] = current.revision + 1
       ..['anchorServerMs'] = DateTime.now().millisecondsSinceEpoch;

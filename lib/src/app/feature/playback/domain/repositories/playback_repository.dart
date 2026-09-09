@@ -13,10 +13,12 @@ abstract interface class PlaybackRepository {
     required int durationMs,
     required String deviceId,
     bool scheduled = false,
+    bool briefing = false,
     int? scheduledAtMs,
   });
   Future<void> pause({required int remainingMs, required String deviceId});
   Future<void> resume({required String deviceId});
+  Future<void> begin({required String deviceId});
   Future<void> seek({
     required int stepIndex,
     required int durationMs,

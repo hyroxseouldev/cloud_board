@@ -50,7 +50,7 @@ class PlaybackRealtimeDataSource {
       'activeSession': json,
       'operations/events/${event.key}': {
         'id': event.key,
-        'type': 'playback_started',
+        'type': model.briefing ? 'briefing_opened' : 'playback_started',
         'occurredAtMs': ServerValue.timestamp,
         'deviceId': model.updatedByDeviceId,
         'workoutId': model.workoutSnapshot['id'],
@@ -73,15 +73,24 @@ class PlaybackRealtimeDataSource {
     required String deviceId,
     int? stepIndex,
     int? remainingMs,
+    int startDelayMs = 0,
+    bool requireBriefing = false,
   }) async {
     var workoutId = '';
     var workoutName = '';
     var shouldRecordCompletion = false;
+    var shouldRecordStart = false;
     final result = await _active.runTransaction((current) {
       if (current == null) return Transaction.abort();
       final json = _stringMap(current);
+      if (requireBriefing && json['briefing'] != true) {
+        return Transaction.abort();
+      }
+      shouldRecordStart = requireBriefing;
       shouldRecordCompletion =
-          status == 'completed' && json['status'] != 'completed';
+          status == 'completed' &&
+          json['status'] != 'completed' &&
+          json['briefing'] != true;
       final workout = json['workoutSnapshot'];
       if (workout is Map) {
         workoutId = workout['id']?.toString() ?? '';
@@ -89,6 +98,8 @@ class PlaybackRealtimeDataSource {
       }
       json.putIfAbsent('zoneId', () => 'main');
       json['status'] = status;
+      json['briefing'] = false;
+      json['startDelayMs'] = startDelayMs;
       json['updatedByDeviceId'] = deviceId;
       json['revision'] = ((json['revision'] as num?)?.round() ?? 0) + 1;
       json['anchorServerMs'] = ServerValue.timestamp;
@@ -99,11 +110,11 @@ class PlaybackRealtimeDataSource {
     if (!result.committed || result.snapshot.value == null) {
       throw StateError('재생 세션을 업데이트하지 못했습니다.');
     }
-    if (shouldRecordCompletion) {
+    if (shouldRecordCompletion || shouldRecordStart) {
       final event = _user.child('operations/events').push();
       await event.set({
         'id': event.key,
-        'type': 'playback_completed',
+        'type': shouldRecordStart ? 'playback_started' : 'playback_completed',
         'occurredAtMs': ServerValue.timestamp,
         'deviceId': deviceId,
         'workoutId': workoutId,
