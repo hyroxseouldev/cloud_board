@@ -31,3 +31,7 @@ Android TV and upload it to the Google Play internal testing track. The
 The Play Console app must use the package name `com.sunmkim.cloudboard`, have
 Play App Signing enabled, and opt in to the Android TV form factor. Google Play
 uses the same AAB to generate device-specific mobile and TV packages.
+
+This workflow targets only the private `internal` testing track; it never
+promotes a release to the public production track. See
+`docs/android-tv-internal-test.md` for the one-time setup and tester flow.
