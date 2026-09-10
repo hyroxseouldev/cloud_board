@@ -33,6 +33,13 @@ BrandTemplateModel _$BrandTemplateModelFromJson(
         unknownValue: StandbyTransition.fade,
       ) ??
       StandbyTransition.fade,
+  standbyImageFit:
+      $enumDecodeNullable(
+        _$StandbyImageFitEnumMap,
+        json['standbyImageFit'],
+        unknownValue: StandbyImageFit.contain,
+      ) ??
+      StandbyImageFit.contain,
 );
 
 Map<String, dynamic> _$BrandTemplateModelToJson(
@@ -44,6 +51,7 @@ Map<String, dynamic> _$BrandTemplateModelToJson(
   'promotionImageUrls': instance.promotionImageUrls,
   'promotionDurationMinutes': instance.promotionDurationMinutes,
   'standbyTransition': _$StandbyTransitionEnumMap[instance.standbyTransition]!,
+  'standbyImageFit': _$StandbyImageFitEnumMap[instance.standbyImageFit]!,
   'primaryColorValue': instance.primaryColorValue,
   'blackScreenStartMinutes': instance.blackScreenStartMinutes,
   'blackScreenEndMinutes': instance.blackScreenEndMinutes,
@@ -53,6 +61,11 @@ const _$StandbyTransitionEnumMap = {
   StandbyTransition.none: 'none',
   StandbyTransition.fade: 'fade',
   StandbyTransition.slide: 'slide',
+};
+
+const _$StandbyImageFitEnumMap = {
+  StandbyImageFit.contain: 'contain',
+  StandbyImageFit.cover: 'cover',
 };
 
 WorkoutScheduleModel _$WorkoutScheduleModelFromJson(

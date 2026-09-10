@@ -235,7 +235,6 @@ class _DisplayStandby extends StatelessWidget {
           StandbySlideshow(
             brand: brand,
             now: now,
-            fit: BoxFit.cover,
             fallback: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(

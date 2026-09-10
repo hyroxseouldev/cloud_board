@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 
 class WorkoutReadiness {
   const WorkoutReadiness(this.issues);
@@ -15,7 +16,8 @@ WorkoutReadiness evaluateWorkoutReadiness(Workout workout) {
     final module = workout.modules[index];
     final label = '${index + 1}번 슬라이드';
     if (module.name.trim().isEmpty) issues.add('$label 이름이 없습니다.');
-    if (module.workSeconds < 1 || module.sets < 1) {
+    if (effectiveIntervalBlocks(module)
+        .any((block) => block.workSeconds < 1 || block.sets < 1)) {
       issues.add('$label 운동 시간이 올바르지 않습니다.');
     }
     final source = module.imageSource;

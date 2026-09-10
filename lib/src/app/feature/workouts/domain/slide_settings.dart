@@ -35,6 +35,31 @@ int remainingSets({
   required bool isRest,
 }) => (total - set + (isRest ? 0 : 1)).clamp(0, total);
 
+List<WorkoutIntervalBlock> effectiveIntervalBlocks(WorkoutModule module) =>
+    module.intervalBlocks.isNotEmpty
+    ? module.intervalBlocks
+    : [
+        WorkoutIntervalBlock(
+          id: '${module.id}-interval-1',
+          workSeconds: module.workSeconds,
+          restSeconds: module.restSeconds,
+          sets: module.sets,
+        ),
+      ];
+
+WorkoutModule withIntervalBlocks(
+  WorkoutModule module,
+  List<WorkoutIntervalBlock> blocks,
+) {
+  final first = blocks.first;
+  return module.copyWith(
+    workSeconds: first.workSeconds,
+    restSeconds: first.restSeconds,
+    sets: first.sets,
+    intervalBlocks: blocks,
+  );
+}
+
 int slideColor(
   WorkoutModule module, {
   required bool rest,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -10,11 +11,15 @@ import 'package:cloud_board/src/app/core/utils/hex_color.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/views/standby_settings_screen.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder_selector.dart';
@@ -26,6 +31,9 @@ import 'package:cloud_board/src/app/feature/operations/domain/standby_rotation.d
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/standby_slideshow.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_duration_field.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 final module = WorkoutModule.empty('m')
     .copyWith(name: '새 운동 1', workSeconds: 90, restSeconds: 45, sets: 5);
@@ -145,6 +153,182 @@ void main() {
       expect(parseSlideTime(invalid), isNull, reason: invalid);
     }
   });
+  testWidgets('duration field opens wheel sheet and returns mm:ss', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: '01:30');
+    addTearDown(controller.dispose);
+    int? changed;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SlideDurationField(
+            controller: controller,
+            label: '운동 시간',
+            minimumSeconds: 1,
+            onChanged: (value) => changed = value,
+            validator: (_) => null,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(SlideDurationField));
+    await tester.pumpAndSettle();
+    expect(find.text('운동 시간 설정'), findsOneWidget);
+    expect(find.byKey(const ValueKey('minutes-picker')), findsOneWidget);
+    expect(find.byKey(const ValueKey('seconds-picker')), findsOneWidget);
+
+    tester
+        .widget<CupertinoPicker>(find.byKey(const ValueKey('minutes-picker')))
+        .onSelectedItemChanged!(2);
+    tester
+        .widget<CupertinoPicker>(find.byKey(const ValueKey('seconds-picker')))
+        .onSelectedItemChanged!(5);
+    await tester.pump();
+    expect(find.text('02:05'), findsOneWidget);
+    await tester.tap(find.text('완료'));
+    await tester.pumpAndSettle();
+
+    expect(controller.text, '02:05');
+    expect(changed, 125);
+    expect(find.text('운동 시간 설정'), findsNothing);
+  });
+  testWidgets('timing and sets use one slide-style summary block', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final work = TextEditingController(text: '01:30');
+    final rest = TextEditingController(text: '00:45');
+    final sets = TextEditingController(text: '5');
+    addTearDown(work.dispose);
+    addTearDown(rest.dispose);
+    addTearDown(sets.dispose);
+    var changes = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SlideTimingBlocks(
+              workController: work,
+              restController: rest,
+              setsController: sets,
+              onChanged: () => changes++,
+              workValidator: (_) => null,
+              restValidator: (_) => null,
+              setsValidator: (_) => null,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('시간 및 세트'), findsOneWidget);
+    expect(find.text('5세트 · 01:30 / 휴식 00:45'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('timing-summary-block')));
+    await tester.pumpAndSettle();
+    expect(find.text('시간 및 세트 설정'), findsOneWidget);
+    await tester.tap(find.text('세트'));
+    await tester.pumpAndSettle();
+    tester
+        .widget<CupertinoPicker>(
+          find.byKey(const ValueKey('combined-set-count-picker')),
+        )
+        .onSelectedItemChanged!(6);
+    await tester.pump();
+    expect(find.text('7세트'), findsOneWidget);
+    await tester.tap(find.text('완료'));
+    await tester.pumpAndSettle();
+    expect(sets.text, '7');
+    expect(find.text('7세트 · 01:30 / 휴식 00:45'), findsOneWidget);
+    expect(changes, 1);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('slide preview reflects timer, set and phase colors', (
+    tester,
+  ) async {
+    final previewModule = module.copyWith(
+      showTimer: true,
+      showTimerGauge: true,
+      showSets: true,
+      workGaugeColor: '#123456',
+      workTextColor: '#ABCDEF',
+      restGaugeColor: '#654321',
+      restTextColor: '#FEDCBA',
+    );
+    Future<void> show(WorkoutModule value, {bool rest = false}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 640,
+                child: WorkoutSlidePreview(module: value, isRest: rest),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await show(previewModule);
+    expect(
+      tester
+          .widget<CircularProgressIndicator>(
+            find.byKey(const ValueKey('slide-gauge')),
+          )
+          .color,
+      const Color(0xFF123456),
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('slide-time-text')))
+          .style
+          ?.color,
+      const Color(0xFFABCDEF),
+    );
+    expect(find.byKey(const ValueKey('slide-sets')), findsOneWidget);
+    final setsWithTimer = tester.getTopRight(
+      find.byKey(const ValueKey('slide-sets')),
+    );
+
+    await show(previewModule.copyWith(showTimerGauge: false));
+    expect(find.byKey(const ValueKey('slide-timer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('slide-gauge')), findsNothing);
+
+    await show(previewModule.copyWith(showTimer: false));
+    expect(find.byKey(const ValueKey('slide-timer')), findsNothing);
+    expect(find.byKey(const ValueKey('slide-sets')), findsOneWidget);
+    final setsWithoutTimer = tester.getTopRight(
+      find.byKey(const ValueKey('slide-sets')),
+    );
+    expect(setsWithoutTimer.dx, moreOrLessEquals(setsWithTimer.dx));
+    expect(setsWithoutTimer.dy, moreOrLessEquals(setsWithTimer.dy));
+
+    await show(previewModule, rest: true);
+    expect(find.text('휴식'), findsOneWidget);
+    expect(
+      tester
+          .widget<CircularProgressIndicator>(
+            find.byKey(const ValueKey('slide-gauge')),
+          )
+          .color,
+      const Color(0xFF654321),
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('slide-time-text')))
+          .style
+          ?.color,
+      const Color(0xFFFEDCBA),
+    );
+    expect(tester.takeException(), isNull);
+  });
   test('legacy slides default to visible timer and existing colors', () {
     final json = WorkoutModuleModel.fromEntity(module).toJson()
       ..remove('workGaugeColor')
@@ -212,6 +396,30 @@ void main() {
       expect(isHexColor(bad), isFalse);
     }
   });
+  test('multiple time blocks serialize and play in their saved order', () {
+    const blocks = [
+      WorkoutIntervalBlock(id: 'b1', workSeconds: 30, restSeconds: 10, sets: 2),
+      WorkoutIntervalBlock(id: 'b2', workSeconds: 45, restSeconds: 0, sets: 1),
+    ];
+    final multiBlockModule = withIntervalBlocks(module, blocks);
+    final restored = WorkoutModuleModel.fromJson(
+      jsonDecode(
+        jsonEncode(WorkoutModuleModel.fromEntity(multiBlockModule).toJson()),
+      ) as Map<String, dynamic>,
+    ).toEntity();
+
+    expect(restored.intervalBlocks, blocks);
+    expect(restored.workSeconds, blocks.first.workSeconds);
+    expect(restored.restSeconds, blocks.first.restSeconds);
+    expect(restored.sets, blocks.first.sets);
+
+    final multiBlockWorkout = workout.copyWith(modules: [restored]);
+    final steps = buildPlayerSteps(multiBlockWorkout);
+    expect(steps.map((step) => step.duration), [30, 10, 30, 45]);
+    expect(steps.map((step) => step.isRest), [false, true, false, false]);
+    expect(steps.map((step) => step.totalSets), [2, 2, 2, 1]);
+    expect(workoutDuration(multiBlockWorkout), 115);
+  });
   test('hidden timer progresses on server time and remaining sets recover', () {
     final hidden = workout.copyWith(
       modules: [module.copyWith(showTimer: false)],
@@ -250,6 +458,48 @@ void main() {
     expect(nextSlideName([]), '새 운동 1');
     expect(nextSlideName([module, module.copyWith(name: '새 운동 2')]), '새 운동 3');
   });
+  testWidgets('home switches between list and responsive grid layouts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authStateProvider.overrideWith(
+            (ref) => Stream.value(
+              const AuthUser(
+                id: 'u',
+                email: 'coach@example.com',
+                displayName: 'Coach',
+                photoUrl: null,
+              ),
+            ),
+          ),
+          workoutControllerProvider.overrideWith(_TestWorkouts.new),
+          displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
+          deviceModeControllerProvider.overrideWith(_TestDeviceMode.new),
+        ],
+        child: const MaterialApp(home: WorkoutListScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workout-grid')), findsNothing);
+
+    await tester.tap(find.byTooltip('그리드 보기'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workout-list')), findsNothing);
+    expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
+    expect(find.text('수업'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('리스트 보기'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   test(
     'standby timings loop, skip broken images and preserve legacy defaults',
     () {
@@ -257,6 +507,7 @@ void main() {
         promotionImageUrls: ['a', 'b', 'c'],
         promotionDurationMinutes: [1, 2, 3],
         standbyTransition: StandbyTransition.slide,
+        standbyImageFit: StandbyImageFit.cover,
       );
       int? at(int minute, {Set<int> failed = const {}}) => standbyImageIndex(
         brand,
@@ -274,10 +525,12 @@ void main() {
       expect(BrandTemplateModel.fromJson(model.toJson()).toEntity(), brand);
       final legacy = model.toJson()
         ..remove('promotionDurationMinutes')
-        ..remove('standbyTransition');
+        ..remove('standbyTransition')
+        ..remove('standbyImageFit');
       final restored = BrandTemplateModel.fromJson(legacy).toEntity();
       expect(standbyMinutes(restored, 0), 1);
       expect(restored.standbyTransition, StandbyTransition.fade);
+      expect(restored.standbyImageFit, StandbyImageFit.contain);
       expect(
         standbyImageIndex(BrandTemplate.initial(), DateTime.now()),
         isNull,
@@ -291,6 +544,28 @@ void main() {
       );
     },
   );
+
+  for (final fit in StandbyImageFit.values) {
+    testWidgets('standby uses persisted $fit image fit', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StandbySlideshow(
+            brand: BrandTemplate.initial().copyWith(
+              promotionImageUrls: [pixel],
+              standbyImageFit: fit,
+            ),
+            now: DateTime.fromMillisecondsSinceEpoch(0),
+            fallback: const Text('기본 화면'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<WorkoutImage>(find.byType(WorkoutImage)).fit,
+        fit == StandbyImageFit.cover ? BoxFit.cover : BoxFit.contain,
+      );
+    });
+  }
 
   for (final effect in StandbyTransition.values) {
     testWidgets('standby $effect renders, advances and skips image failure', (
@@ -379,9 +654,15 @@ void main() {
     await tester.tap(find.byTooltip('색상 컬러 피커'));
     await tester.pumpAndSettle();
     expect(find.text('#AABBCC'), findsWidgets);
+    final wheel = find.byKey(const ValueKey('color-wheel'));
+    expect(wheel, findsOneWidget);
+    final wheelBox = tester.getRect(wheel);
+    await tester.tapAt(wheelBox.centerRight - const Offset(12, 0));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('선택'));
     await tester.pumpAndSettle();
-    expect(changed, '#AABBCC');
+    expect(changed, isNot('#AABBCC'));
+    expect(isHexColor(changed!), isTrue);
     await tester.enterText(find.byType(TextFormField), '#xyz');
     expect(key.currentState!.validate(), isFalse);
   });
@@ -428,6 +709,11 @@ void main() {
     final title = find.widgetWithText(TextFormField, '슬라이드 제목');
     await tester.enterText(title, '수정 제목');
     await tester.pump();
+    final addBlock = find.byKey(const ValueKey('add-interval-block'));
+    await tester.ensureVisible(addBlock);
+    await tester.tap(addBlock);
+    await tester.pumpAndSettle();
+    expect(find.text('블록 2'), findsOneWidget);
     expect(saved, isEmpty);
     router.go('/');
     await tester.pumpAndSettle();
@@ -460,6 +746,10 @@ void main() {
     expect(saved.single.name, '수정 제목');
     expect(saved.single.workSeconds, 90);
     expect(saved.single.restSeconds, 45);
+    expect(saved.single.intervalBlocks, hasLength(2));
+    expect(saved.single.intervalBlocks.last.workSeconds, 60);
+    expect(saved.single.intervalBlocks.last.restSeconds, 0);
+    expect(saved.single.intervalBlocks.last.sets, 1);
     expect(saved.single.showTimer, isTrue);
     expect(saved.single.showTimerGauge, isFalse);
     expect(saved.single.showSets, isFalse);
@@ -688,6 +978,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<StandbyImageFit>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('화면 꽉 채우기 (일부 잘릴 수 있음)').last);
+      await tester.pumpAndSettle();
       tester
           .widget<ReorderableListView>(find.byType(ReorderableListView))
           .onReorderItem!(0, 1);
@@ -709,6 +1003,7 @@ void main() {
       await tester.tap(save);
       await tester.pumpAndSettle();
       expect(saved.single.promotionDurationMinutes, [3, 1]);
+      expect(saved.single.standbyImageFit, StandbyImageFit.cover);
       expect(find.textContaining('변경사항은 유지됩니다'), findsOneWidget);
       final retry = find.widgetWithText(FilledButton, '다시 저장');
       await tester.ensureVisible(retry);
@@ -740,6 +1035,11 @@ Future<void> scrollTo(WidgetTester tester, Finder finder) async {
 class _TestWorkouts extends WorkoutController {
   @override
   Future<List<Workout>> build() async => [workout];
+}
+
+class _TestDeviceMode extends DeviceModeController {
+  @override
+  Future<DeviceMode> build() async => DeviceMode.controller;
 }
 
 class _SaveWorkouts extends WorkoutActionController {

@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$BrandTemplate {
 
- String get storeName; String get standbyMessage; String? get logoUrl; List<String> get promotionImageUrls; int get primaryColorValue; int get blackScreenStartMinutes; int get blackScreenEndMinutes; List<int> get promotionDurationMinutes; StandbyTransition get standbyTransition;
+ String get storeName; String get standbyMessage; String? get logoUrl; List<String> get promotionImageUrls; int get primaryColorValue; int get blackScreenStartMinutes; int get blackScreenEndMinutes; List<int> get promotionDurationMinutes; StandbyTransition get standbyTransition; StandbyImageFit get standbyImageFit;
 /// Create a copy of BrandTemplate
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $BrandTemplateCopyWith<BrandTemplate> get copyWith => _$BrandTemplateCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as BrandTemplate;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BrandTemplate&&(identical(other.storeName, _this.storeName) || other.storeName == _this.storeName)&&(identical(other.standbyMessage, _this.standbyMessage) || other.standbyMessage == _this.standbyMessage)&&(identical(other.logoUrl, _this.logoUrl) || other.logoUrl == _this.logoUrl)&&const DeepCollectionEquality().equals(other.promotionImageUrls, _this.promotionImageUrls)&&(identical(other.primaryColorValue, _this.primaryColorValue) || other.primaryColorValue == _this.primaryColorValue)&&(identical(other.blackScreenStartMinutes, _this.blackScreenStartMinutes) || other.blackScreenStartMinutes == _this.blackScreenStartMinutes)&&(identical(other.blackScreenEndMinutes, _this.blackScreenEndMinutes) || other.blackScreenEndMinutes == _this.blackScreenEndMinutes)&&const DeepCollectionEquality().equals(other.promotionDurationMinutes, _this.promotionDurationMinutes)&&(identical(other.standbyTransition, _this.standbyTransition) || other.standbyTransition == _this.standbyTransition));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BrandTemplate&&(identical(other.storeName, _this.storeName) || other.storeName == _this.storeName)&&(identical(other.standbyMessage, _this.standbyMessage) || other.standbyMessage == _this.standbyMessage)&&(identical(other.logoUrl, _this.logoUrl) || other.logoUrl == _this.logoUrl)&&const DeepCollectionEquality().equals(other.promotionImageUrls, _this.promotionImageUrls)&&(identical(other.primaryColorValue, _this.primaryColorValue) || other.primaryColorValue == _this.primaryColorValue)&&(identical(other.blackScreenStartMinutes, _this.blackScreenStartMinutes) || other.blackScreenStartMinutes == _this.blackScreenStartMinutes)&&(identical(other.blackScreenEndMinutes, _this.blackScreenEndMinutes) || other.blackScreenEndMinutes == _this.blackScreenEndMinutes)&&const DeepCollectionEquality().equals(other.promotionDurationMinutes, _this.promotionDurationMinutes)&&(identical(other.standbyTransition, _this.standbyTransition) || other.standbyTransition == _this.standbyTransition)&&(identical(other.standbyImageFit, _this.standbyImageFit) || other.standbyImageFit == _this.standbyImageFit));
 }
 
 
 @override
 int get hashCode {
   final _this = this as BrandTemplate;
-  return Object.hash(runtimeType,_this.storeName,_this.standbyMessage,_this.logoUrl,const DeepCollectionEquality().hash(_this.promotionImageUrls),_this.primaryColorValue,_this.blackScreenStartMinutes,_this.blackScreenEndMinutes,const DeepCollectionEquality().hash(_this.promotionDurationMinutes),_this.standbyTransition);
+  return Object.hash(runtimeType,_this.storeName,_this.standbyMessage,_this.logoUrl,const DeepCollectionEquality().hash(_this.promotionImageUrls),_this.primaryColorValue,_this.blackScreenStartMinutes,_this.blackScreenEndMinutes,const DeepCollectionEquality().hash(_this.promotionDurationMinutes),_this.standbyTransition,_this.standbyImageFit);
 }
 
 @override
 String toString() {
   final _this = this as BrandTemplate;
-  return 'BrandTemplate(storeName: ${_this.storeName}, standbyMessage: ${_this.standbyMessage}, logoUrl: ${_this.logoUrl}, promotionImageUrls: ${_this.promotionImageUrls}, primaryColorValue: ${_this.primaryColorValue}, blackScreenStartMinutes: ${_this.blackScreenStartMinutes}, blackScreenEndMinutes: ${_this.blackScreenEndMinutes}, promotionDurationMinutes: ${_this.promotionDurationMinutes}, standbyTransition: ${_this.standbyTransition})';
+  return 'BrandTemplate(storeName: ${_this.storeName}, standbyMessage: ${_this.standbyMessage}, logoUrl: ${_this.logoUrl}, promotionImageUrls: ${_this.promotionImageUrls}, primaryColorValue: ${_this.primaryColorValue}, blackScreenStartMinutes: ${_this.blackScreenStartMinutes}, blackScreenEndMinutes: ${_this.blackScreenEndMinutes}, promotionDurationMinutes: ${_this.promotionDurationMinutes}, standbyTransition: ${_this.standbyTransition}, standbyImageFit: ${_this.standbyImageFit})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $BrandTemplateCopyWith<$Res>  {
   factory $BrandTemplateCopyWith(BrandTemplate value, $Res Function(BrandTemplate) _then) = _$BrandTemplateCopyWithImpl;
 @useResult
 $Res call({
- String storeName, String standbyMessage, String? logoUrl, List<String> promotionImageUrls, int primaryColorValue, int blackScreenStartMinutes, int blackScreenEndMinutes, List<int> promotionDurationMinutes, StandbyTransition standbyTransition
+ String storeName, String standbyMessage, String? logoUrl, List<String> promotionImageUrls, int primaryColorValue, int blackScreenStartMinutes, int blackScreenEndMinutes, List<int> promotionDurationMinutes, StandbyTransition standbyTransition, StandbyImageFit standbyImageFit
 });
 
 
@@ -68,7 +68,7 @@ class _$BrandTemplateCopyWithImpl<$Res>
 
 /// Create a copy of BrandTemplate
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? storeName = null,Object? standbyMessage = null,Object? logoUrl = freezed,Object? promotionImageUrls = null,Object? primaryColorValue = null,Object? blackScreenStartMinutes = null,Object? blackScreenEndMinutes = null,Object? promotionDurationMinutes = null,Object? standbyTransition = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? storeName = null,Object? standbyMessage = null,Object? logoUrl = freezed,Object? promotionImageUrls = null,Object? primaryColorValue = null,Object? blackScreenStartMinutes = null,Object? blackScreenEndMinutes = null,Object? promotionDurationMinutes = null,Object? standbyTransition = null,Object? standbyImageFit = null,}) {
   return _then(BrandTemplate(
 storeName: null == storeName ? _self.storeName : storeName // ignore: cast_nullable_to_non_nullable
 as String,standbyMessage: null == standbyMessage ? _self.standbyMessage : standbyMessage // ignore: cast_nullable_to_non_nullable
@@ -79,7 +79,8 @@ as int,blackScreenStartMinutes: null == blackScreenStartMinutes ? _self.blackScr
 as int,blackScreenEndMinutes: null == blackScreenEndMinutes ? _self.blackScreenEndMinutes : blackScreenEndMinutes // ignore: cast_nullable_to_non_nullable
 as int,promotionDurationMinutes: null == promotionDurationMinutes ? _self.promotionDurationMinutes : promotionDurationMinutes // ignore: cast_nullable_to_non_nullable
 as List<int>,standbyTransition: null == standbyTransition ? _self.standbyTransition : standbyTransition // ignore: cast_nullable_to_non_nullable
-as StandbyTransition,
+as StandbyTransition,standbyImageFit: null == standbyImageFit ? _self.standbyImageFit : standbyImageFit // ignore: cast_nullable_to_non_nullable
+as StandbyImageFit,
   ));
 }
 
@@ -164,10 +165,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String storeName,  String standbyMessage,  String? logoUrl,  List<String> promotionImageUrls,  int primaryColorValue,  int blackScreenStartMinutes,  int blackScreenEndMinutes,  List<int> promotionDurationMinutes,  StandbyTransition standbyTransition)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String storeName,  String standbyMessage,  String? logoUrl,  List<String> promotionImageUrls,  int primaryColorValue,  int blackScreenStartMinutes,  int blackScreenEndMinutes,  List<int> promotionDurationMinutes,  StandbyTransition standbyTransition,  StandbyImageFit standbyImageFit)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _BrandTemplate() when $default != null:
-return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promotionImageUrls,_that.primaryColorValue,_that.blackScreenStartMinutes,_that.blackScreenEndMinutes,_that.promotionDurationMinutes,_that.standbyTransition);case _:
+return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promotionImageUrls,_that.primaryColorValue,_that.blackScreenStartMinutes,_that.blackScreenEndMinutes,_that.promotionDurationMinutes,_that.standbyTransition,_that.standbyImageFit);case _:
   return orElse();
 
 }
@@ -185,10 +186,10 @@ return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promoti
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String storeName,  String standbyMessage,  String? logoUrl,  List<String> promotionImageUrls,  int primaryColorValue,  int blackScreenStartMinutes,  int blackScreenEndMinutes,  List<int> promotionDurationMinutes,  StandbyTransition standbyTransition)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String storeName,  String standbyMessage,  String? logoUrl,  List<String> promotionImageUrls,  int primaryColorValue,  int blackScreenStartMinutes,  int blackScreenEndMinutes,  List<int> promotionDurationMinutes,  StandbyTransition standbyTransition,  StandbyImageFit standbyImageFit)  $default,) {final _that = this;
 switch (_that) {
 case _BrandTemplate():
-return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promotionImageUrls,_that.primaryColorValue,_that.blackScreenStartMinutes,_that.blackScreenEndMinutes,_that.promotionDurationMinutes,_that.standbyTransition);case _:
+return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promotionImageUrls,_that.primaryColorValue,_that.blackScreenStartMinutes,_that.blackScreenEndMinutes,_that.promotionDurationMinutes,_that.standbyTransition,_that.standbyImageFit);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +206,10 @@ return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promoti
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String storeName,  String standbyMessage,  String? logoUrl,  List<String> promotionImageUrls,  int primaryColorValue,  int blackScreenStartMinutes,  int blackScreenEndMinutes,  List<int> promotionDurationMinutes,  StandbyTransition standbyTransition)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String storeName,  String standbyMessage,  String? logoUrl,  List<String> promotionImageUrls,  int primaryColorValue,  int blackScreenStartMinutes,  int blackScreenEndMinutes,  List<int> promotionDurationMinutes,  StandbyTransition standbyTransition,  StandbyImageFit standbyImageFit)?  $default,) {final _that = this;
 switch (_that) {
 case _BrandTemplate() when $default != null:
-return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promotionImageUrls,_that.primaryColorValue,_that.blackScreenStartMinutes,_that.blackScreenEndMinutes,_that.promotionDurationMinutes,_that.standbyTransition);case _:
+return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promotionImageUrls,_that.primaryColorValue,_that.blackScreenStartMinutes,_that.blackScreenEndMinutes,_that.promotionDurationMinutes,_that.standbyTransition,_that.standbyImageFit);case _:
   return null;
 
 }
@@ -220,7 +221,7 @@ return $default(_that.storeName,_that.standbyMessage,_that.logoUrl,_that.promoti
 
 
 class _BrandTemplate implements BrandTemplate {
-  const _BrandTemplate({required this.storeName, required this.standbyMessage, required this.logoUrl, required  List<String> promotionImageUrls, required this.primaryColorValue, required this.blackScreenStartMinutes, required this.blackScreenEndMinutes,  List<int> promotionDurationMinutes = const <int>[], this.standbyTransition = StandbyTransition.fade}): _promotionImageUrls = promotionImageUrls,_promotionDurationMinutes = promotionDurationMinutes;
+  const _BrandTemplate({required this.storeName, required this.standbyMessage, required this.logoUrl, required  List<String> promotionImageUrls, required this.primaryColorValue, required this.blackScreenStartMinutes, required this.blackScreenEndMinutes,  List<int> promotionDurationMinutes = const <int>[], this.standbyTransition = StandbyTransition.fade, this.standbyImageFit = StandbyImageFit.contain}): _promotionImageUrls = promotionImageUrls,_promotionDurationMinutes = promotionDurationMinutes;
   
 
 @override final  String storeName;
@@ -244,6 +245,7 @@ class _BrandTemplate implements BrandTemplate {
 }
 
 @override@JsonKey() final  StandbyTransition standbyTransition;
+@override@JsonKey() final  StandbyImageFit standbyImageFit;
 
 /// Create a copy of BrandTemplate
 /// with the given fields replaced by the non-null parameter values.
@@ -255,18 +257,18 @@ _$BrandTemplateCopyWith<_BrandTemplate> get copyWith => __$BrandTemplateCopyWith
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BrandTemplate&&(identical(other.storeName, storeName) || other.storeName == storeName)&&(identical(other.standbyMessage, standbyMessage) || other.standbyMessage == standbyMessage)&&(identical(other.logoUrl, logoUrl) || other.logoUrl == logoUrl)&&const DeepCollectionEquality().equals(other.promotionImageUrls, _promotionImageUrls)&&(identical(other.primaryColorValue, primaryColorValue) || other.primaryColorValue == primaryColorValue)&&(identical(other.blackScreenStartMinutes, blackScreenStartMinutes) || other.blackScreenStartMinutes == blackScreenStartMinutes)&&(identical(other.blackScreenEndMinutes, blackScreenEndMinutes) || other.blackScreenEndMinutes == blackScreenEndMinutes)&&const DeepCollectionEquality().equals(other.promotionDurationMinutes, _promotionDurationMinutes)&&(identical(other.standbyTransition, standbyTransition) || other.standbyTransition == standbyTransition));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BrandTemplate&&(identical(other.storeName, storeName) || other.storeName == storeName)&&(identical(other.standbyMessage, standbyMessage) || other.standbyMessage == standbyMessage)&&(identical(other.logoUrl, logoUrl) || other.logoUrl == logoUrl)&&const DeepCollectionEquality().equals(other.promotionImageUrls, _promotionImageUrls)&&(identical(other.primaryColorValue, primaryColorValue) || other.primaryColorValue == primaryColorValue)&&(identical(other.blackScreenStartMinutes, blackScreenStartMinutes) || other.blackScreenStartMinutes == blackScreenStartMinutes)&&(identical(other.blackScreenEndMinutes, blackScreenEndMinutes) || other.blackScreenEndMinutes == blackScreenEndMinutes)&&const DeepCollectionEquality().equals(other.promotionDurationMinutes, _promotionDurationMinutes)&&(identical(other.standbyTransition, standbyTransition) || other.standbyTransition == standbyTransition)&&(identical(other.standbyImageFit, standbyImageFit) || other.standbyImageFit == standbyImageFit));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,storeName,standbyMessage,logoUrl,const DeepCollectionEquality().hash(_promotionImageUrls),primaryColorValue,blackScreenStartMinutes,blackScreenEndMinutes,const DeepCollectionEquality().hash(_promotionDurationMinutes),standbyTransition);
+    return Object.hash(runtimeType,storeName,standbyMessage,logoUrl,const DeepCollectionEquality().hash(_promotionImageUrls),primaryColorValue,blackScreenStartMinutes,blackScreenEndMinutes,const DeepCollectionEquality().hash(_promotionDurationMinutes),standbyTransition,standbyImageFit);
 }
 
 @override
 String toString() {
-    return 'BrandTemplate(storeName: $storeName, standbyMessage: $standbyMessage, logoUrl: $logoUrl, promotionImageUrls: $promotionImageUrls, primaryColorValue: $primaryColorValue, blackScreenStartMinutes: $blackScreenStartMinutes, blackScreenEndMinutes: $blackScreenEndMinutes, promotionDurationMinutes: $promotionDurationMinutes, standbyTransition: $standbyTransition)';
+    return 'BrandTemplate(storeName: $storeName, standbyMessage: $standbyMessage, logoUrl: $logoUrl, promotionImageUrls: $promotionImageUrls, primaryColorValue: $primaryColorValue, blackScreenStartMinutes: $blackScreenStartMinutes, blackScreenEndMinutes: $blackScreenEndMinutes, promotionDurationMinutes: $promotionDurationMinutes, standbyTransition: $standbyTransition, standbyImageFit: $standbyImageFit)';
 }
 
 
@@ -277,7 +279,7 @@ abstract mixin class _$BrandTemplateCopyWith<$Res> implements $BrandTemplateCopy
   factory _$BrandTemplateCopyWith(_BrandTemplate value, $Res Function(_BrandTemplate) _then) = __$BrandTemplateCopyWithImpl;
 @override @useResult
 $Res call({
- String storeName, String standbyMessage, String? logoUrl, List<String> promotionImageUrls, int primaryColorValue, int blackScreenStartMinutes, int blackScreenEndMinutes, List<int> promotionDurationMinutes, StandbyTransition standbyTransition
+ String storeName, String standbyMessage, String? logoUrl, List<String> promotionImageUrls, int primaryColorValue, int blackScreenStartMinutes, int blackScreenEndMinutes, List<int> promotionDurationMinutes, StandbyTransition standbyTransition, StandbyImageFit standbyImageFit
 });
 
 
@@ -294,7 +296,7 @@ class __$BrandTemplateCopyWithImpl<$Res>
 
 /// Create a copy of BrandTemplate
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? storeName = null,Object? standbyMessage = null,Object? logoUrl = freezed,Object? promotionImageUrls = null,Object? primaryColorValue = null,Object? blackScreenStartMinutes = null,Object? blackScreenEndMinutes = null,Object? promotionDurationMinutes = null,Object? standbyTransition = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? storeName = null,Object? standbyMessage = null,Object? logoUrl = freezed,Object? promotionImageUrls = null,Object? primaryColorValue = null,Object? blackScreenStartMinutes = null,Object? blackScreenEndMinutes = null,Object? promotionDurationMinutes = null,Object? standbyTransition = null,Object? standbyImageFit = null,}) {
   return _then(_BrandTemplate(
 storeName: null == storeName ? _self.storeName : storeName // ignore: cast_nullable_to_non_nullable
 as String,standbyMessage: null == standbyMessage ? _self.standbyMessage : standbyMessage // ignore: cast_nullable_to_non_nullable
@@ -305,7 +307,8 @@ as int,blackScreenStartMinutes: null == blackScreenStartMinutes ? _self.blackScr
 as int,blackScreenEndMinutes: null == blackScreenEndMinutes ? _self.blackScreenEndMinutes : blackScreenEndMinutes // ignore: cast_nullable_to_non_nullable
 as int,promotionDurationMinutes: null == promotionDurationMinutes ? _self._promotionDurationMinutes : promotionDurationMinutes // ignore: cast_nullable_to_non_nullable
 as List<int>,standbyTransition: null == standbyTransition ? _self.standbyTransition : standbyTransition // ignore: cast_nullable_to_non_nullable
-as StandbyTransition,
+as StandbyTransition,standbyImageFit: null == standbyImageFit ? _self.standbyImageFit : standbyImageFit // ignore: cast_nullable_to_non_nullable
+as StandbyImageFit,
   ));
 }
 

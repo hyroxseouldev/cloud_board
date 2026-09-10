@@ -142,6 +142,7 @@ class WorkoutModuleModel {
     this.restGaugeColor,
     this.workTextColor,
     this.restTextColor,
+    this.intervalBlocks = const [],
   });
   final String id, name, text, imageUrl;
   final int workSeconds, sets, restSeconds;
@@ -153,6 +154,8 @@ class WorkoutModuleModel {
   final bool beep, coverImage;
   final int? timerColorValue;
   final String? workGaugeColor, restGaugeColor, workTextColor, restTextColor;
+  @JsonKey(defaultValue: <WorkoutIntervalBlockModel>[])
+  final List<WorkoutIntervalBlockModel> intervalBlocks;
   factory WorkoutModuleModel.fromJson(Map<String, dynamic> json) =>
       _$WorkoutModuleModelFromJson(json);
   Map<String, dynamic> toJson() => _$WorkoutModuleModelToJson(this);
@@ -174,6 +177,7 @@ class WorkoutModuleModel {
     restGaugeColor: restGaugeColor,
     workTextColor: workTextColor,
     restTextColor: restTextColor,
+    intervalBlocks: intervalBlocks.map((value) => value.toEntity()).toList(),
   );
   factory WorkoutModuleModel.fromEntity(WorkoutModule value) =>
       WorkoutModuleModel(
@@ -194,7 +198,44 @@ class WorkoutModuleModel {
         restGaugeColor: value.restGaugeColor,
         workTextColor: value.workTextColor,
         restTextColor: value.restTextColor,
+        intervalBlocks: value.intervalBlocks
+            .map(WorkoutIntervalBlockModel.fromEntity)
+            .toList(),
       );
+}
+
+@JsonSerializable()
+class WorkoutIntervalBlockModel {
+  const WorkoutIntervalBlockModel({
+    required this.id,
+    required this.workSeconds,
+    required this.restSeconds,
+    required this.sets,
+  });
+
+  final String id;
+  final int workSeconds;
+  final int restSeconds;
+  final int sets;
+
+  factory WorkoutIntervalBlockModel.fromJson(Map<String, dynamic> json) =>
+      _$WorkoutIntervalBlockModelFromJson(json);
+  Map<String, dynamic> toJson() => _$WorkoutIntervalBlockModelToJson(this);
+
+  factory WorkoutIntervalBlockModel.fromEntity(WorkoutIntervalBlock value) =>
+      WorkoutIntervalBlockModel(
+        id: value.id,
+        workSeconds: value.workSeconds,
+        restSeconds: value.restSeconds,
+        sets: value.sets,
+      );
+
+  WorkoutIntervalBlock toEntity() => WorkoutIntervalBlock(
+    id: id,
+    workSeconds: workSeconds,
+    restSeconds: restSeconds,
+    sets: sets,
+  );
 }
 
 class FirestoreTimestampConverter implements JsonConverter<DateTime, Object?> {

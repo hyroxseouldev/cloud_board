@@ -74,6 +74,8 @@ abstract class WorkoutModule with _$WorkoutModule {
     String? restGaugeColor,
     String? workTextColor,
     String? restTextColor,
+    @Default(<WorkoutIntervalBlock>[])
+    List<WorkoutIntervalBlock> intervalBlocks,
   }) = _WorkoutModule;
 
   factory WorkoutModule.empty(String id) => WorkoutModule(
@@ -89,4 +91,14 @@ abstract class WorkoutModule with _$WorkoutModule {
     coverImage: false,
     timerColorValue: null,
   );
+}
+
+@freezed
+abstract class WorkoutIntervalBlock with _$WorkoutIntervalBlock {
+  const factory WorkoutIntervalBlock({
+    required String id,
+    required int workSeconds,
+    required int restSeconds,
+    required int sets,
+  }) = _WorkoutIntervalBlock;
 }

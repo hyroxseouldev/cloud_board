@@ -6,6 +6,8 @@ enum RemoteDisplayState { auto, standby, black }
 
 enum StandbyTransition { none, fade, slide }
 
+enum StandbyImageFit { contain, cover }
+
 @freezed
 abstract class BrandTemplate with _$BrandTemplate {
   const factory BrandTemplate({
@@ -18,6 +20,7 @@ abstract class BrandTemplate with _$BrandTemplate {
     required int blackScreenEndMinutes,
     @Default(<int>[]) List<int> promotionDurationMinutes,
     @Default(StandbyTransition.fade) StandbyTransition standbyTransition,
+    @Default(StandbyImageFit.contain) StandbyImageFit standbyImageFit,
   }) = _BrandTemplate;
 
   factory BrandTemplate.initial() => const BrandTemplate(

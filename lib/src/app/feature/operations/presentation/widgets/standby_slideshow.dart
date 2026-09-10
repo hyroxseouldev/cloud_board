@@ -11,12 +11,10 @@ class StandbySlideshow extends HookWidget {
     required this.brand,
     required this.now,
     required this.fallback,
-    this.fit = BoxFit.contain,
   });
   final BrandTemplate brand;
   final DateTime now;
   final Widget fallback;
-  final BoxFit fit;
   @override
   Widget build(BuildContext context) {
     final failed = useState<Set<int>>({});
@@ -37,7 +35,9 @@ class StandbySlideshow extends HookWidget {
             key: ValueKey(index),
             child: WorkoutImage(
               source: brand.promotionImageUrls[index],
-              fit: fit,
+              fit: brand.standbyImageFit == StandbyImageFit.cover
+                  ? BoxFit.cover
+                  : BoxFit.contain,
               onError: () {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (context.mounted && !failed.value.contains(index)) {

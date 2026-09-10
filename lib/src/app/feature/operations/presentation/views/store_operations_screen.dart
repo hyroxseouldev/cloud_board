@@ -128,6 +128,7 @@ class _BrandSettingsTab extends HookConsumerWidget {
                         promotionDurationMinutes:
                             settings.value!.promotionDurationMinutes,
                         standbyTransition: settings.value!.standbyTransition,
+                        standbyImageFit: settings.value!.standbyImageFit,
                       ),
                     ),
                     const SizedBox(height: 28),
@@ -281,6 +282,7 @@ class _BrandSettingsTab extends HookConsumerWidget {
                                 promotionDurationMinutes:
                                     latest.promotionDurationMinutes,
                                 standbyTransition: latest.standbyTransition,
+                                standbyImageFit: latest.standbyImageFit,
                                 storeName: storeName.text.trim(),
                                 standbyMessage: message.text.trim(),
                               );

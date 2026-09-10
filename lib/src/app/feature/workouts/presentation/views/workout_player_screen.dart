@@ -13,13 +13,12 @@ import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_board.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
 class WorkoutPlayerScreen extends ConsumerWidget {
@@ -343,27 +342,20 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                           final scale = constraints.maxWidth / 1280;
                           return Stack(
                             children: [
-                              if (module.imageSource.isNotEmpty)
-                                Positioned.fill(
-                                  child: WorkoutImage(
-                                    source: module.imageSource,
-                                    fit: module.coverImage
-                                        ? BoxFit.cover
-                                        : BoxFit.contain,
-                                    showLoadingIndicator: true,
-                                  ),
-                                ),
-                              if (module.imageSource.isEmpty)
-                                const Positioned.fill(
-                                  child: ColoredBox(color: Colors.black),
-                                ),
-                              SafeArea(
-                                minimum: EdgeInsets.all(20 * scale),
-                                child: _PlayerContent(
-                                  workout: workout,
-                                  step: step,
-                                  state: state,
+                              Positioned.fill(
+                                child: WorkoutSlideCanvas(
+                                  module: module,
+                                  isRest: step.isRest,
+                                  secondsLeft: state.secondsLeft,
+                                  remainingMs: state.remainingMs,
+                                  durationMs: step.duration * 1000,
+                                  set: step.set,
+                                  totalSets: step.totalSets,
+                                  isPaused: state.isPaused,
+                                  brandL: workout.brandL,
+                                  brandR: workout.brandR,
                                   scale: scale,
+                                  showLoadingIndicator: true,
                                 ),
                               ),
                               if (state.isPaused)
@@ -442,229 +434,6 @@ class _ConnectionChip extends StatelessWidget {
           ),
           backgroundColor: Colors.black87,
         );
-}
-
-class _PlayerContent extends StatelessWidget {
-  const _PlayerContent({
-    required this.workout,
-    required this.step,
-    required this.state,
-    required this.scale,
-  });
-  final Workout workout;
-  final PlayerStep step;
-  final PlayerState state;
-  final double scale;
-  @override
-  Widget build(BuildContext context) {
-    final isRest = step.isRest;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        28 * scale,
-        28 * scale,
-        28 * scale,
-        20 * scale,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  isRest ? '휴식' : step.module.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 36 * scale,
-                    fontWeight: FontWeight.w900,
-                    shadows: [Shadow(blurRadius: 12)],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  isRest
-                      ? (step.module.showSets
-                            ? '다음: ${step.set + 1}세트'
-                            : '다음 운동을 준비하세요')
-                      : step.module.text,
-                  maxLines: 8,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 40 * scale,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                    shadows: [Shadow(blurRadius: 12)],
-                  ),
-                ),
-              ),
-              if (step.module.showTimer || step.module.showSets)
-                Expanded(
-                  flex: 2,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (step.module.showTimer)
-                          _CircularTimer(
-                            showGauge: step.module.showTimerGauge,
-                            secondsLeft: state.secondsLeft,
-                            remainingMs: state.remainingMs,
-                            durationMs: step.duration * 1000,
-                            isRest: isRest,
-                            isPaused: state.isPaused,
-                            gaugeColor: slideColor(
-                              step.module,
-                              rest: isRest,
-                              text: false,
-                              secondsLeft: state.secondsLeft,
-                            ),
-                            textColor: slideColor(
-                              step.module,
-                              rest: isRest,
-                              text: true,
-                              secondsLeft: state.secondsLeft,
-                            ),
-                            scale: scale,
-                          ),
-                        if (step.module.showTimer && step.module.showSets)
-                          SizedBox(height: 16 * scale),
-                        if (step.module.showSets)
-                          Text(
-                            '${remainingSets(set: step.set, total: step.totalSets, isRest: step.isRest)}/${step.totalSets}세트',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 22 * scale,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  workout.brandL,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20 * scale,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  workout.brandR,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 20 * scale,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CircularTimer extends StatelessWidget {
-  const _CircularTimer({
-    required this.showGauge,
-    required this.secondsLeft,
-    required this.remainingMs,
-    required this.durationMs,
-    required this.isRest,
-    required this.isPaused,
-    required this.gaugeColor,
-    required this.textColor,
-    required this.scale,
-  });
-
-  final int secondsLeft;
-  final bool showGauge;
-  final int remainingMs;
-  final int durationMs;
-  final bool isRest, isPaused;
-  final int gaugeColor, textColor;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = durationMs <= 0
-        ? 0.0
-        : (remainingMs / durationMs).clamp(0.0, 1.0);
-    final diameter = 260 * scale;
-    return Semantics(
-      label: '남은 시간 ${durationLabel(secondsLeft)}',
-      child: SizedBox.square(
-        dimension: diameter,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (showGauge)
-              TweenAnimationBuilder<double>(
-                tween: Tween(end: progress),
-                duration: isPaused
-                    ? Duration.zero
-                    : const Duration(milliseconds: 120),
-                curve: Curves.linear,
-                builder: (context, animatedProgress, child) =>
-                    CircularProgressIndicator(
-                      value: animatedProgress,
-                      strokeWidth: 18 * scale,
-                      strokeCap: StrokeCap.round,
-                      backgroundColor: Colors.white24,
-                      color: Color(gaugeColor),
-                    ),
-              ),
-            Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Padding(
-                  padding: EdgeInsets.all(28 * scale),
-                  child: Text(
-                    durationLabel(secondsLeft),
-                    style: TextStyle(
-                      color: Color(textColor),
-                      fontSize: 64 * scale,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -3 * scale,
-                      shadows: const [Shadow(blurRadius: 20)],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _Controls extends StatelessWidget {

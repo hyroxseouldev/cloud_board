@@ -16,6 +16,7 @@ class BrandTemplateModel {
     required this.blackScreenEndMinutes,
     this.promotionDurationMinutes = const [],
     this.standbyTransition = StandbyTransition.fade,
+    this.standbyImageFit = StandbyImageFit.contain,
   });
 
   @JsonKey(defaultValue: 'CloudBoard Studio')
@@ -32,6 +33,11 @@ class BrandTemplateModel {
     unknownEnumValue: StandbyTransition.fade,
   )
   final StandbyTransition standbyTransition;
+  @JsonKey(
+    defaultValue: StandbyImageFit.contain,
+    unknownEnumValue: StandbyImageFit.contain,
+  )
+  final StandbyImageFit standbyImageFit;
   @JsonKey(defaultValue: 0xFF0B50FF)
   final int primaryColorValue;
   @JsonKey(defaultValue: 0)
@@ -50,6 +56,7 @@ class BrandTemplateModel {
         promotionImageUrls: entity.promotionImageUrls,
         promotionDurationMinutes: entity.promotionDurationMinutes,
         standbyTransition: entity.standbyTransition,
+        standbyImageFit: entity.standbyImageFit,
         primaryColorValue: entity.primaryColorValue,
         blackScreenStartMinutes: entity.blackScreenStartMinutes,
         blackScreenEndMinutes: entity.blackScreenEndMinutes,
@@ -64,6 +71,7 @@ class BrandTemplateModel {
     promotionImageUrls: promotionImageUrls,
     promotionDurationMinutes: promotionDurationMinutes,
     standbyTransition: standbyTransition,
+    standbyImageFit: standbyImageFit,
     primaryColorValue: primaryColorValue,
     blackScreenStartMinutes: blackScreenStartMinutes,
     blackScreenEndMinutes: blackScreenEndMinutes,

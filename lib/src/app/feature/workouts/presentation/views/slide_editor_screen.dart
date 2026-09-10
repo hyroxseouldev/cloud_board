@@ -9,13 +9,22 @@ import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_duration_field.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 class SlideEditRequest {
-  SlideEditRequest({required this.module, required this.onSave});
+  SlideEditRequest({
+    required this.module,
+    required this.onSave,
+    this.brandL = '',
+    this.brandR = '',
+  });
   final WorkoutModule module;
   final Future<bool> Function(WorkoutModule) onSave;
+  final String brandL;
+  final String brandR;
 }
 
 class SlideEditorScreen extends ConsumerWidget {
@@ -57,6 +66,8 @@ class SlideEditorScreen extends ConsumerWidget {
           workoutId: workoutId,
           request: SlideEditRequest(
             module: module,
+            brandL: workout.brandL,
+            brandR: workout.brandR,
             onSave: (updated) async {
               final latest =
                   ref
@@ -102,13 +113,11 @@ class _SlideEditor extends HookWidget {
     final form = useMemoized(() => GlobalKey<FormState>());
     final name = useTextEditingController(text: original.name);
     final description = useTextEditingController(text: original.text);
-    final work = useTextEditingController(
-      text: formatSlideTime(original.workSeconds),
-    );
-    final rest = useTextEditingController(
-      text: formatSlideTime(original.restSeconds),
-    );
-    final sets = useTextEditingController(text: '${original.sets}');
+    final blocks = useState(effectiveIntervalBlocks(original));
+    final selectedBlockId = useState(blocks.value.first.id);
+    useListenable(name);
+    useListenable(description);
+    final previewRest = useState(false);
     final colors = useState([
       colorHex(slideColor(original, rest: false, text: false)),
       colorHex(slideColor(original, rest: true, text: false)),
@@ -122,24 +131,24 @@ class _SlideEditor extends HookWidget {
       error.value = null;
       try {
         final saved = await request.onSave(
-          draft.value.copyWith(
-            name: name.text.trim(),
-            text: description.text,
-            workSeconds: parseSlideTime(work.text)!,
-            restSeconds: parseSlideTime(rest.text)!,
-            sets: int.parse(sets.text),
-            workGaugeColor: touchedColors.value[0]
-                ? colors.value[0].toUpperCase()
-                : original.workGaugeColor,
-            restGaugeColor: touchedColors.value[1]
-                ? colors.value[1].toUpperCase()
-                : original.restGaugeColor,
-            workTextColor: touchedColors.value[2]
-                ? colors.value[2].toUpperCase()
-                : original.workTextColor,
-            restTextColor: touchedColors.value[3]
-                ? colors.value[3].toUpperCase()
-                : original.restTextColor,
+          withIntervalBlocks(
+            draft.value.copyWith(
+              name: name.text.trim(),
+              text: description.text,
+              workGaugeColor: touchedColors.value[0]
+                  ? colors.value[0].toUpperCase()
+                  : original.workGaugeColor,
+              restGaugeColor: touchedColors.value[1]
+                  ? colors.value[1].toUpperCase()
+                  : original.restGaugeColor,
+              workTextColor: touchedColors.value[2]
+                  ? colors.value[2].toUpperCase()
+                  : original.workTextColor,
+              restTextColor: touchedColors.value[3]
+                  ? colors.value[3].toUpperCase()
+                  : original.restTextColor,
+            ),
+            blocks.value,
           ),
         );
         if (!context.mounted) return;
@@ -188,40 +197,83 @@ class _SlideEditor extends HookWidget {
                           v == null || v.trim().isEmpty ? '제목을 입력해 주세요.' : null,
                     ),
                     const SizedBox(height: 20),
-                    TextFormField(
-                      controller: work,
-                      decoration: const InputDecoration(
-                        labelText: '운동 시간 (mm:ss)',
-                        hintText: '01:30',
-                      ),
-                      keyboardType: TextInputType.datetime,
-                      validator: (v) => (parseSlideTime(v ?? '') ?? 0) > 0
-                          ? null
-                          : '00:01 이상, mm:ss 형식으로 입력해 주세요. 초는 00~59입니다.',
+                    Row(
+                      children: [
+                        Text(
+                          '시간 블록',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const Spacer(),
+                        Text('${blocks.value.length}개'),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: rest,
-                      decoration: const InputDecoration(
-                        labelText: '휴식 시간 (mm:ss)',
-                        hintText: '00:45',
-                      ),
-                      keyboardType: TextInputType.datetime,
-                      validator: (v) => parseSlideTime(v ?? '') != null
-                          ? null
-                          : 'mm:ss 형식으로 입력해 주세요. 초는 00~59입니다.',
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: sets,
-                      decoration: const InputDecoration(labelText: '전체 세트 수'),
-                      keyboardType: TextInputType.number,
-                      validator: (v) {
-                        final n = int.tryParse(v ?? '');
-                        return n != null && n >= 1 && n <= 999
-                            ? null
-                            : '1~999 사이의 세트 수를 입력해 주세요.';
+                    const SizedBox(height: 10),
+                    ReorderableListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      buildDefaultDragHandles: false,
+                      itemCount: blocks.value.length,
+                      onReorderItem: (oldIndex, newIndex) {
+                        final next = [...blocks.value];
+                        next.insert(newIndex, next.removeAt(oldIndex));
+                        blocks.value = next;
+                        dirty.value = true;
                       },
+                      itemBuilder: (context, index) {
+                        final block = blocks.value[index];
+                        return Padding(
+                          key: ValueKey(block.id),
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _IntervalBlockTile(
+                            index: index,
+                            block: block,
+                            canDelete: blocks.value.length > 1,
+                            onEditing: () => selectedBlockId.value = block.id,
+                            onChanged: (updated) {
+                              blocks.value = [
+                                for (final value in blocks.value)
+                                  if (value.id == updated.id)
+                                    updated
+                                  else
+                                    value,
+                              ];
+                              selectedBlockId.value = updated.id;
+                              dirty.value = true;
+                            },
+                            onDuplicate: () {
+                              final next = [
+                                ...blocks.value,
+                              ]..insert(index + 1, block.copyWith(id: newId()));
+                              blocks.value = next;
+                              dirty.value = true;
+                            },
+                            onDelete: () {
+                              blocks.value = [...blocks.value]..removeAt(index);
+                              if (selectedBlockId.value == block.id) {
+                                selectedBlockId.value = blocks.value.first.id;
+                              }
+                              dirty.value = true;
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                    OutlinedButton.icon(
+                      key: const ValueKey('add-interval-block'),
+                      onPressed: () {
+                        final block = WorkoutIntervalBlock(
+                          id: newId(),
+                          workSeconds: 60,
+                          restSeconds: 0,
+                          sets: 1,
+                        );
+                        blocks.value = [...blocks.value, block];
+                        selectedBlockId.value = block.id;
+                        dirty.value = true;
+                      },
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('블록 추가'),
                     ),
                     const SizedBox(height: 20),
                     TextFormField(
@@ -229,6 +281,7 @@ class _SlideEditor extends HookWidget {
                       maxLines: 4,
                       decoration: const InputDecoration(labelText: '화면 텍스트'),
                     ),
+                    const SizedBox(height: 20),
                     DropdownButtonFormField<TimerDisplayMode>(
                       initialValue: timerDisplayMode(draft.value),
                       isExpanded: true,
@@ -272,6 +325,7 @@ class _SlideEditor extends HookWidget {
                         dirty.value = true;
                       },
                     ),
+                    const SizedBox(height: 20),
                     for (var i = 0; i < 4; i++)
                       HexColorField(
                         label: const [
@@ -290,6 +344,7 @@ class _SlideEditor extends HookWidget {
                           dirty.value = true;
                         },
                       ),
+                    const SizedBox(height: 4),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('전환음'),
@@ -299,6 +354,7 @@ class _SlideEditor extends HookWidget {
                         dirty.value = true;
                       },
                     ),
+                    const SizedBox(height: 8),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('이미지 꽉 채우기'),
@@ -308,6 +364,52 @@ class _SlideEditor extends HookWidget {
                         dirty.value = true;
                       },
                     ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '슬라이드 미리보기',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(value: false, label: Text('운동')),
+                            ButtonSegment(value: true, label: Text('휴식')),
+                          ],
+                          selected: {previewRest.value},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (values) {
+                            previewRest.value = values.first;
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    WorkoutSlidePreview(
+                      module: withIntervalBlocks(
+                        draft.value.copyWith(
+                          name: name.text.trim(),
+                          text: description.text,
+                          workGaugeColor: colors.value[0],
+                          restGaugeColor: colors.value[1],
+                          workTextColor: colors.value[2],
+                          restTextColor: colors.value[3],
+                        ),
+                        [
+                          blocks.value.firstWhere(
+                            (value) => value.id == selectedBlockId.value,
+                            orElse: () => blocks.value.first,
+                          ),
+                        ],
+                      ),
+                      isRest: previewRest.value,
+                      brandL: request.brandL,
+                      brandR: request.brandR,
+                    ),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.image_outlined),
                       label: const Text('배경 이미지 선택'),
@@ -336,15 +438,6 @@ class _SlideEditor extends HookWidget {
                       },
                     ),
                     if (draft.value.imageSource.isNotEmpty) ...[
-                      AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: WorkoutImage(
-                          source: draft.value.imageSource,
-                          fit: draft.value.coverImage
-                              ? BoxFit.cover
-                              : BoxFit.contain,
-                        ),
-                      ),
                       TextButton(
                         onPressed: () {
                           draft.value = draft.value.copyWith(imageSource: '');
@@ -386,6 +479,99 @@ class _SlideEditor extends HookWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+enum _IntervalBlockAction { duplicate, delete }
+
+class _IntervalBlockTile extends HookWidget {
+  const _IntervalBlockTile({
+    required this.index,
+    required this.block,
+    required this.canDelete,
+    required this.onEditing,
+    required this.onChanged,
+    required this.onDuplicate,
+    required this.onDelete,
+  });
+
+  final int index;
+  final WorkoutIntervalBlock block;
+  final bool canDelete;
+  final VoidCallback onEditing;
+  final ValueChanged<WorkoutIntervalBlock> onChanged;
+  final VoidCallback onDuplicate;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final work = useTextEditingController(
+      text: formatSlideTime(block.workSeconds),
+    );
+    final rest = useTextEditingController(
+      text: formatSlideTime(block.restSeconds),
+    );
+    final sets = useTextEditingController(text: '${block.sets}');
+    return SlideTimingBlocks(
+      title: '블록 ${index + 1}',
+      workController: work,
+      restController: rest,
+      setsController: sets,
+      onEditing: onEditing,
+      onChanged: () => onChanged(
+        block.copyWith(
+          workSeconds: parseSlideTime(work.text)!,
+          restSeconds: parseSlideTime(rest.text)!,
+          sets: int.parse(sets.text),
+        ),
+      ),
+      workValidator: (value) =>
+          (parseSlideTime(value ?? '') ?? 0) > 0 ? null : '00:01 이상',
+      restValidator: (value) =>
+          parseSlideTime(value ?? '') != null ? null : '올바른 시간 필요',
+      setsValidator: (value) {
+        final count = int.tryParse(value ?? '');
+        return count != null && count >= 1 && count <= 999 ? null : '1~999 필요';
+      },
+      leading: ReorderableDragStartListener(
+        index: index,
+        child: const Padding(
+          padding: EdgeInsets.all(8),
+          child: Icon(Icons.drag_handle_rounded),
+        ),
+      ),
+      trailing: PopupMenuButton<_IntervalBlockAction>(
+        tooltip: '블록 메뉴',
+        onSelected: (action) {
+          switch (action) {
+            case _IntervalBlockAction.duplicate:
+              onDuplicate();
+            case _IntervalBlockAction.delete:
+              onDelete();
+          }
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(
+            value: _IntervalBlockAction.duplicate,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.copy_outlined),
+              title: Text('복제'),
+            ),
+          ),
+          PopupMenuItem(
+            value: _IntervalBlockAction.delete,
+            enabled: canDelete,
+            child: ListTile(
+              enabled: canDelete,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.delete_outline),
+              title: Text(canDelete ? '삭제' : '블록은 하나 이상 필요합니다'),
+            ),
+          ),
+        ],
       ),
     );
   }

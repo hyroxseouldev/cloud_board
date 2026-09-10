@@ -231,9 +231,9 @@ class _EditorBody extends HookConsumerWidget {
                     },
                     onChanged: (value) => folder.text = value,
                   ),
-                  _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
-                  _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
-                  _SoundSettingsCard(
+                  _WorkoutSettingsCard(
+                    brandL: brandL,
+                    brandR: brandR,
                     workout: draft.value,
                     onChanged: (value) => draft.value = value,
                   ),
@@ -273,11 +273,14 @@ class _EditorBody extends HookConsumerWidget {
                     ),
                     itemBuilder: (context, index) {
                       final module = draft.value.modules[index];
+                      final intervalBlocks = effectiveIntervalBlocks(module);
                       Future<void> edit() async {
                         await context.push(
                           '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
                           extra: SlideEditRequest(
                             module: module,
+                            brandL: draft.value.brandL,
+                            brandR: draft.value.brandR,
                             onSave: (updated) async {
                               final candidate = draft.value.copyWith(
                                 modules: draft.value.modules
@@ -309,7 +312,9 @@ class _EditorBody extends HookConsumerWidget {
                                 : module.name,
                           ),
                           subtitle: Text(
-                            '${module.sets}세트 · ${formatSlideTime(module.workSeconds)} / 휴식 ${formatSlideTime(module.restSeconds)}',
+                            intervalBlocks.length == 1
+                                ? '${intervalBlocks.first.sets}세트 · ${formatSlideTime(intervalBlocks.first.workSeconds)} / 휴식 ${formatSlideTime(intervalBlocks.first.restSeconds)}'
+                                : '${intervalBlocks.length}블록 · 총 ${durationLabel(workoutModuleDuration(module))}',
                           ),
                           trailing: PopupMenuButton<String>(
                             tooltip: '슬라이드 메뉴',
@@ -459,8 +464,100 @@ class _TextField extends StatelessWidget {
   );
 }
 
-class _SoundSettingsCard extends ConsumerWidget {
-  const _SoundSettingsCard({required this.workout, required this.onChanged});
+class _WorkoutSettingsCard extends StatelessWidget {
+  const _WorkoutSettingsCard({
+    required this.brandL,
+    required this.brandR,
+    required this.workout,
+    required this.onChanged,
+  });
+
+  final TextEditingController brandL;
+  final TextEditingController brandR;
+  final Workout workout;
+  final ValueChanged<Workout> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = _settingsTextSummary(brandL.text);
+    final right = _settingsTextSummary(brandR.text);
+    final volume = (workout.soundVolume * 100).round();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: const ValueKey('workout-display-sound-settings'),
+        leading: const Icon(Icons.tune_rounded),
+        title: const Text('화면·사운드 설정'),
+        subtitle: Text(
+          '왼쪽 $left · 오른쪽 $right · ${workout.soundTheme.label} $volume%',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        children: [
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.tv_rounded, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      '화면 문구',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '수업 화면 하단에 표시할 문구입니다.',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: XonColors.muted),
+                ),
+                const SizedBox(height: 16),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final fields = [
+                      _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
+                      _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
+                    ];
+                    if (constraints.maxWidth < 720) {
+                      return Column(children: fields);
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: fields.first),
+                        const SizedBox(width: 20),
+                        Expanded(child: fields.last),
+                      ],
+                    );
+                  },
+                ),
+                const Divider(height: 32),
+                _SoundSettingsSection(workout: workout, onChanged: onChanged),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _settingsTextSummary(String value) {
+  final text = value.trim();
+  if (text.isEmpty) return '없음';
+  if (text.length <= 10) return '“$text”';
+  return '“${text.substring(0, 10)}…”';
+}
+
+class _SoundSettingsSection extends ConsumerWidget {
+  const _SoundSettingsSection({required this.workout, required this.onChanged});
 
   final Workout workout;
   final ValueChanged<Workout> onChanged;
@@ -504,105 +601,97 @@ class _SoundSettingsCard extends ConsumerWidget {
     );
 
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.graphic_eq_rounded),
-                const SizedBox(width: 8),
-                Text('수업 사운드', style: theme.textTheme.titleMedium),
-                const Spacer(),
-                IconButton(
-                  tooltip: '현재 운동 시작음 미리 듣기',
-                  onPressed: () => preview(workout.workStartSound),
-                  icon: const Icon(Icons.volume_up_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '카운트다운과 운동·휴식 전환을 서로 다른 소리로 알려줍니다.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: XonColors.muted,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ...WorkoutSoundTheme.values
-                    .where((value) => value != WorkoutSoundTheme.custom)
-                    .map(
-                      (option) => ChoiceChip(
-                        label: Text(option.label),
-                        tooltip: option.description,
-                        selected: workout.soundTheme == option,
-                        onSelected: (_) => applyTheme(option),
-                      ),
-                    ),
-                if (workout.soundTheme == WorkoutSoundTheme.custom)
-                  const ChoiceChip(label: Text('직접 설정'), selected: true),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.volume_down_rounded, size: 20),
-                Expanded(
-                  child: Slider(
-                    value: workout.soundVolume.clamp(0, 1),
-                    divisions: 10,
-                    label: '${(workout.soundVolume * 100).round()}%',
-                    onChanged: (value) =>
-                        onChanged(workout.copyWith(soundVolume: value)),
-                  ),
-                ),
-                SizedBox(
-                  width: 44,
-                  child: Text('${(workout.soundVolume * 100).round()}%'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
-                _SoundEventSelector(
-                  label: '카운트다운',
-                  value: workout.countdownSound,
-                  onChanged: (sound) => onChanged(custom(countdown: sound)),
-                  onPreview: preview,
-                ),
-                _SoundEventSelector(
-                  label: '운동 시작',
-                  value: workout.workStartSound,
-                  onChanged: (sound) => onChanged(custom(workStart: sound)),
-                  onPreview: preview,
-                ),
-                _SoundEventSelector(
-                  label: '휴식 시작',
-                  value: workout.restStartSound,
-                  onChanged: (sound) => onChanged(custom(restStart: sound)),
-                  onPreview: preview,
-                ),
-                _SoundEventSelector(
-                  label: '수업 종료',
-                  value: workout.workoutEndSound,
-                  onChanged: (sound) => onChanged(custom(workoutEnd: sound)),
-                  onPreview: preview,
-                ),
-              ],
+            const Icon(Icons.graphic_eq_rounded),
+            const SizedBox(width: 8),
+            Text('수업 사운드', style: theme.textTheme.titleMedium),
+            const Spacer(),
+            IconButton(
+              tooltip: '현재 운동 시작음 미리 듣기',
+              onPressed: () => preview(workout.workStartSound),
+              icon: const Icon(Icons.volume_up_rounded),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 4),
+        Text(
+          '카운트다운과 운동·휴식 전환을 서로 다른 소리로 알려줍니다.',
+          style: theme.textTheme.bodySmall?.copyWith(color: XonColors.muted),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ...WorkoutSoundTheme.values
+                .where((value) => value != WorkoutSoundTheme.custom)
+                .map(
+                  (option) => ChoiceChip(
+                    label: Text(option.label),
+                    tooltip: option.description,
+                    selected: workout.soundTheme == option,
+                    onSelected: (_) => applyTheme(option),
+                  ),
+                ),
+            if (workout.soundTheme == WorkoutSoundTheme.custom)
+              const ChoiceChip(label: Text('직접 설정'), selected: true),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Icon(Icons.volume_down_rounded, size: 20),
+            Expanded(
+              child: Slider(
+                value: workout.soundVolume.clamp(0, 1),
+                divisions: 10,
+                label: '${(workout.soundVolume * 100).round()}%',
+                onChanged: (value) =>
+                    onChanged(workout.copyWith(soundVolume: value)),
+              ),
+            ),
+            SizedBox(
+              width: 44,
+              child: Text('${(workout.soundVolume * 100).round()}%'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            _SoundEventSelector(
+              label: '카운트다운',
+              value: workout.countdownSound,
+              onChanged: (sound) => onChanged(custom(countdown: sound)),
+              onPreview: preview,
+            ),
+            _SoundEventSelector(
+              label: '운동 시작',
+              value: workout.workStartSound,
+              onChanged: (sound) => onChanged(custom(workStart: sound)),
+              onPreview: preview,
+            ),
+            _SoundEventSelector(
+              label: '휴식 시작',
+              value: workout.restStartSound,
+              onChanged: (sound) => onChanged(custom(restStart: sound)),
+              onPreview: preview,
+            ),
+            _SoundEventSelector(
+              label: '수업 종료',
+              value: workout.workoutEndSound,
+              onChanged: (sound) => onChanged(custom(workoutEnd: sound)),
+              onPreview: preview,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

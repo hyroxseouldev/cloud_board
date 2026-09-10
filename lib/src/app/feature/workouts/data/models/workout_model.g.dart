@@ -81,6 +81,15 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
       restGaugeColor: json['restGaugeColor'] as String?,
       workTextColor: json['workTextColor'] as String?,
       restTextColor: json['restTextColor'] as String?,
+      intervalBlocks:
+          (json['intervalBlocks'] as List<dynamic>?)
+              ?.map(
+                (e) => WorkoutIntervalBlockModel.fromJson(
+                  e as Map<String, dynamic>,
+                ),
+              )
+              .toList() ??
+          [],
     );
 
 Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
@@ -102,4 +111,23 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'restGaugeColor': instance.restGaugeColor,
       'workTextColor': instance.workTextColor,
       'restTextColor': instance.restTextColor,
+      'intervalBlocks': instance.intervalBlocks,
     };
+
+WorkoutIntervalBlockModel _$WorkoutIntervalBlockModelFromJson(
+  Map<String, dynamic> json,
+) => WorkoutIntervalBlockModel(
+  id: json['id'] as String,
+  workSeconds: (json['workSeconds'] as num).toInt(),
+  restSeconds: (json['restSeconds'] as num).toInt(),
+  sets: (json['sets'] as num).toInt(),
+);
+
+Map<String, dynamic> _$WorkoutIntervalBlockModelToJson(
+  WorkoutIntervalBlockModel instance,
+) => <String, dynamic>{
+  'id': instance.id,
+  'workSeconds': instance.workSeconds,
+  'restSeconds': instance.restSeconds,
+  'sets': instance.sets,
+};

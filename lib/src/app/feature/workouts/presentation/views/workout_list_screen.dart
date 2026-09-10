@@ -17,6 +17,8 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 
+enum _WorkoutLayout { list, grid }
+
 class WorkoutListScreen extends HookConsumerWidget {
   const WorkoutListScreen({super.key});
 
@@ -25,6 +27,7 @@ class WorkoutListScreen extends HookConsumerWidget {
     final search = useTextEditingController();
     useListenable(search);
     final selectedFolder = useState<String?>(null);
+    final layout = useState(_WorkoutLayout.list);
     final workouts = ref.watch(workoutControllerProvider);
     final user = ref.watch(authStateProvider).value;
     final authAction = ref.watch(authControllerProvider);
@@ -41,22 +44,6 @@ class WorkoutListScreen extends HookConsumerWidget {
         appBar: AppBar(
           centerTitle: true,
           title: const _Logo(),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(52),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: isBusy
-                      ? null
-                      : () => context.push('/operations/standby'),
-                  icon: const Icon(Icons.slideshow_outlined),
-                  label: const Text('스탠바이 설정'),
-                ),
-              ),
-            ),
-          ),
           actions: [
             const PairedDevicesButton(),
             const DeviceModeMenu(),
@@ -88,49 +75,20 @@ class WorkoutListScreen extends HookConsumerWidget {
             }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
             return Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1000),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: search,
-                              decoration: const InputDecoration(
-                                hintText: '워크아웃 또는 폴더 검색',
-                                prefixIcon: Icon(Icons.search_rounded),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          DropdownButton<String?>(
-                            value: selectedFolder.value,
-                            hint: const Text('모든 폴더'),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text('모든 폴더'),
-                              ),
-                              ...folders.map(
-                                (folder) => DropdownMenuItem<String?>(
-                                  value: folder,
-                                  child: Text(folder),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) => selectedFolder.value = value,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _WorkoutToolbar(
+                  search: search,
+                  folders: folders,
+                  selectedFolder: selectedFolder.value,
+                  layout: layout.value,
+                  onFolderChanged: (value) => selectedFolder.value = value,
+                  onLayoutChanged: (value) => layout.value = value,
                 ),
                 Expanded(
                   child: filtered.isEmpty
                       ? const Center(child: Text('검색 결과가 없습니다.'))
-                      : _WorkoutList(items: filtered, isBusy: isBusy),
+                      : layout.value == _WorkoutLayout.list
+                      ? _WorkoutList(items: filtered, isBusy: isBusy)
+                      : _WorkoutGrid(items: filtered, isBusy: isBusy),
                 ),
               ],
             );
@@ -145,6 +103,104 @@ class WorkoutListScreen extends HookConsumerWidget {
   }
 }
 
+class _WorkoutToolbar extends StatelessWidget {
+  const _WorkoutToolbar({
+    required this.search,
+    required this.folders,
+    required this.selectedFolder,
+    required this.layout,
+    required this.onFolderChanged,
+    required this.onLayoutChanged,
+  });
+
+  final TextEditingController search;
+  final List<String> folders;
+  final String? selectedFolder;
+  final _WorkoutLayout layout;
+  final ValueChanged<String?> onFolderChanged;
+  final ValueChanged<_WorkoutLayout> onLayoutChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+    child: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final searchField = TextField(
+              controller: search,
+              decoration: const InputDecoration(
+                hintText: '워크아웃 또는 폴더 검색',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            );
+            final controls = Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: DropdownButton<String?>(
+                    value: selectedFolder,
+                    hint: const Text('모든 폴더'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('모든 폴더'),
+                      ),
+                      ...folders.map(
+                        (folder) => DropdownMenuItem<String?>(
+                          value: folder,
+                          child: Text(folder, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ],
+                    onChanged: onFolderChanged,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SegmentedButton<_WorkoutLayout>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _WorkoutLayout.list,
+                      tooltip: '리스트 보기',
+                      icon: Icon(Icons.view_list_rounded),
+                    ),
+                    ButtonSegment(
+                      value: _WorkoutLayout.grid,
+                      tooltip: '그리드 보기',
+                      icon: Icon(Icons.grid_view_rounded),
+                    ),
+                  ],
+                  selected: {layout},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (values) => onLayoutChanged(values.first),
+                ),
+              ],
+            );
+            if (constraints.maxWidth < 640) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  searchField,
+                  const SizedBox(height: 12),
+                  Align(alignment: Alignment.centerRight, child: controls),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: searchField),
+                const SizedBox(width: 12),
+                controls,
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
+
 class _WorkoutList extends StatelessWidget {
   const _WorkoutList({required this.items, required this.isBusy});
 
@@ -156,11 +212,39 @@ class _WorkoutList extends StatelessWidget {
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 1000),
       child: ListView.separated(
+        key: const ValueKey('workout-list'),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
         itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) =>
             _WorkoutTile(workout: items[index], isBusy: isBusy),
+      ),
+    ),
+  );
+}
+
+class _WorkoutGrid extends StatelessWidget {
+  const _WorkoutGrid({required this.items, required this.isBusy});
+
+  final List<Workout> items;
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 1000),
+      child: GridView.builder(
+        key: const ValueKey('workout-grid'),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 320,
+          mainAxisExtent: 210,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) =>
+            _WorkoutCard(workout: items[index], isBusy: isBusy),
       ),
     ),
   );
@@ -299,14 +383,14 @@ class _EmptyWorkouts extends StatelessWidget {
 
 enum _WorkoutAction { edit, duplicate, delete }
 
-class _WorkoutTile extends ConsumerWidget {
+class _WorkoutTile extends StatelessWidget {
   const _WorkoutTile({required this.workout, required this.isBusy});
 
   final Workout workout;
   final bool isBusy;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final folderPrefix = workout.folder.isEmpty ? '' : '${workout.folder} · ';
     final author = workout.author.displayName.isEmpty
         ? '작성자 정보 없음'
@@ -345,53 +429,137 @@ class _WorkoutTile extends ConsumerWidget {
           ),
         ),
         isThreeLine: true,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: '재생',
-              onPressed: workout.modules.isEmpty || isBusy
-                  ? null
-                  : () => _play(context, ref),
-              icon: const Icon(Icons.play_arrow_rounded),
-            ),
-            PopupMenuButton<_WorkoutAction>(
-              tooltip: '워크아웃 메뉴',
-              enabled: !isBusy,
-              onSelected: (action) => _handleAction(context, ref, action),
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: _WorkoutAction.edit,
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.edit_outlined),
-                    title: Text('편집'),
+        trailing: _WorkoutActions(workout: workout, isBusy: isBusy),
+      ),
+    );
+  }
+}
+
+class _WorkoutCard extends StatelessWidget {
+  const _WorkoutCard({required this.workout, required this.isBusy});
+
+  final Workout workout;
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    final folder = workout.folder.isEmpty ? '폴더 없음' : workout.folder;
+    final author = workout.author.displayName.isEmpty
+        ? '작성자 정보 없음'
+        : '작성자 ${workout.author.displayName}';
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: XonColors.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: isBusy ? null : () => context.push('/editor/${workout.id}'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: XonColors.cobalt.withValues(alpha: .1),
+                    foregroundColor: XonColors.cobalt,
+                    child: const Icon(Icons.view_carousel_outlined),
                   ),
+                  const Spacer(),
+                  _WorkoutActions(workout: workout, isBusy: isBusy),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                workout.name.isEmpty ? '이름 없음' : workout.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
                 ),
-                PopupMenuItem(
-                  value: _WorkoutAction.duplicate,
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.copy_outlined),
-                    title: Text('복사'),
-                  ),
-                ),
-                PopupMenuDivider(),
-                PopupMenuItem(
-                  value: _WorkoutAction.delete,
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.delete_outline, color: Colors.red),
-                    title: Text('삭제', style: TextStyle(color: Colors.red)),
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '$folder · ${workout.modules.length}개 슬라이드',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: XonColors.muted),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                durationLabel(workoutDuration(workout)),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              Text(
+                author,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: XonColors.muted, fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _WorkoutActions extends ConsumerWidget {
+  const _WorkoutActions({required this.workout, required this.isBusy});
+
+  final Workout workout;
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        tooltip: '재생',
+        onPressed: workout.modules.isEmpty || isBusy
+            ? null
+            : () => _play(context, ref),
+        icon: const Icon(Icons.play_arrow_rounded),
+      ),
+      PopupMenuButton<_WorkoutAction>(
+        tooltip: '워크아웃 메뉴',
+        enabled: !isBusy,
+        onSelected: (action) => _handleAction(context, ref, action),
+        itemBuilder: (_) => const [
+          PopupMenuItem(
+            value: _WorkoutAction.edit,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.edit_outlined),
+              title: Text('편집'),
+            ),
+          ),
+          PopupMenuItem(
+            value: _WorkoutAction.duplicate,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.copy_outlined),
+              title: Text('복사'),
+            ),
+          ),
+          PopupMenuDivider(),
+          PopupMenuItem(
+            value: _WorkoutAction.delete,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.delete_outline, color: Colors.red),
+              title: Text('삭제', style: TextStyle(color: Colors.red)),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
 
   Future<void> _play(BuildContext context, WidgetRef ref) async {
     final selection = await showWorkoutPreflight(context, workout);

@@ -21,7 +21,7 @@ class StandbySettingsScreen extends ConsumerWidget {
         loading: () =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (e, _) => Scaffold(
-          appBar: AppBar(title: const Text('스탠바이 설정')),
+          appBar: AppBar(title: const Text('대기 화면 설정')),
           body: Center(child: Text('설정을 불러오지 못했습니다: $e')),
         ),
         data: (brand) => _StandbyEditor(initial: brand, guard: guard),
@@ -88,6 +88,7 @@ class _StandbyEditor extends HookConsumerWidget {
               promotionImageUrls: draft.value.promotionImageUrls,
               promotionDurationMinutes: minutes.value.map(int.parse).toList(),
               standbyTransition: draft.value.standbyTransition,
+              standbyImageFit: draft.value.standbyImageFit,
             ),
           );
       if (!context.mounted) return;
@@ -113,7 +114,7 @@ class _StandbyEditor extends HookConsumerWidget {
       dirty: dirty.value,
       blocked: busy.value,
       child: Scaffold(
-        appBar: AppBar(title: const Text('스탠바이 설정')),
+        appBar: AppBar(title: const Text('대기 화면 설정')),
         body: AbsorbPointer(
           absorbing: busy.value,
           child: Center(
@@ -126,6 +127,30 @@ class _StandbyEditor extends HookConsumerWidget {
                   children: [
                     const Text(
                       '등록 순서대로 반복 재생합니다. 이미지가 없거나 모두 불러올 수 없으면 기본 대기 화면을 표시합니다.',
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<StandbyImageFit>(
+                      initialValue: draft.value.standbyImageFit,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: '이미지 표시 방식'),
+                      items: const [
+                        DropdownMenuItem(
+                          value: StandbyImageFit.contain,
+                          child: Text('전체 보기 (이미지 전체 표시)'),
+                        ),
+                        DropdownMenuItem(
+                          value: StandbyImageFit.cover,
+                          child: Text('화면 꽉 채우기 (일부 잘릴 수 있음)'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          draft.value = draft.value.copyWith(
+                            standbyImageFit: v,
+                          );
+                          dirty.value = true;
+                        }
+                      },
                     ),
                     const SizedBox(height: 20),
                     DropdownButtonFormField<StandbyTransition>(
