@@ -72,6 +72,11 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
       text: json['text'] as String,
       imageUrl: json['imageUrl'] as String,
       showTimer: json['showTimer'] as bool? ?? true,
+      appearance: json['appearance'] == null
+          ? const SlideAppearanceModel()
+          : SlideAppearanceModel.fromJson(
+              json['appearance'] as Map<String, dynamic>,
+            ),
       showTimerGauge: json['showTimerGauge'] as bool? ?? true,
       showSets: json['showSets'] as bool?,
       beep: json['beep'] as bool,
@@ -102,6 +107,7 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'sets': instance.sets,
       'restSeconds': instance.restSeconds,
       'showTimer': instance.showTimer,
+      'appearance': instance.appearance.toJson(),
       'showTimerGauge': instance.showTimerGauge,
       'showSets': instance.showSets,
       'beep': instance.beep,
@@ -111,7 +117,7 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'restGaugeColor': instance.restGaugeColor,
       'workTextColor': instance.workTextColor,
       'restTextColor': instance.restTextColor,
-      'intervalBlocks': instance.intervalBlocks,
+      'intervalBlocks': instance.intervalBlocks.map((e) => e.toJson()).toList(),
     };
 
 WorkoutIntervalBlockModel _$WorkoutIntervalBlockModelFromJson(
@@ -130,4 +136,36 @@ Map<String, dynamic> _$WorkoutIntervalBlockModelToJson(
   'workSeconds': instance.workSeconds,
   'restSeconds': instance.restSeconds,
   'sets': instance.sets,
+};
+
+SlideAppearanceModel _$SlideAppearanceModelFromJson(
+  Map<String, dynamic> json,
+) => SlideAppearanceModel(
+  timerX: (json['timerX'] as num?)?.toDouble() ?? 0.84,
+  timerY: (json['timerY'] as num?)?.toDouble() ?? 0.5,
+  timerSize: (json['timerSize'] as num?)?.toDouble() ?? 1,
+  ringWidth: (json['ringWidth'] as num?)?.toDouble() ?? 30,
+  showTitle: json['showTitle'] as bool? ?? true,
+  showBody: json['showBody'] as bool? ?? true,
+  showBrand: json['showBrand'] as bool? ?? true,
+  titleColor: (json['titleColor'] as num?)?.toInt() ?? 0xFFFFFFFF,
+  bodyColor: (json['bodyColor'] as num?)?.toInt() ?? 0xFFFFFFFF,
+  setsColor: (json['setsColor'] as num?)?.toInt() ?? 0xB3FFFFFF,
+  brandColor: (json['brandColor'] as num?)?.toInt() ?? 0xFFFFFFFF,
+);
+
+Map<String, dynamic> _$SlideAppearanceModelToJson(
+  SlideAppearanceModel instance,
+) => <String, dynamic>{
+  'timerX': instance.timerX,
+  'timerY': instance.timerY,
+  'timerSize': instance.timerSize,
+  'ringWidth': instance.ringWidth,
+  'showTitle': instance.showTitle,
+  'showBody': instance.showBody,
+  'showBrand': instance.showBrand,
+  'titleColor': instance.titleColor,
+  'bodyColor': instance.bodyColor,
+  'setsColor': instance.setsColor,
+  'brandColor': instance.brandColor,
 };

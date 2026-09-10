@@ -65,6 +65,7 @@ abstract class WorkoutModule with _$WorkoutModule {
     required String text,
     required String imageSource,
     required bool showTimer,
+    @Default(SlideAppearance()) SlideAppearance appearance,
     @Default(true) bool showTimerGauge,
     @Default(true) bool showSets,
     required bool beep,
@@ -101,4 +102,21 @@ abstract class WorkoutIntervalBlock with _$WorkoutIntervalBlock {
     required int restSeconds,
     required int sets,
   }) = _WorkoutIntervalBlock;
+}
+
+@freezed
+abstract class SlideAppearance with _$SlideAppearance {
+  const factory SlideAppearance({
+    @Default(0.84) double timerX,
+    @Default(0.5) double timerY,
+    @Default(1) double timerSize,
+    @Default(30) double ringWidth,
+    @Default(true) bool showTitle,
+    @Default(true) bool showBody,
+    @Default(true) bool showBrand,
+    @Default(0xFFFFFFFF) int titleColor,
+    @Default(0xFFFFFFFF) int bodyColor,
+    @Default(0xB3FFFFFF) int setsColor,
+    @Default(0xFFFFFFFF) int brandColor,
+  }) = _SlideAppearance;
 }

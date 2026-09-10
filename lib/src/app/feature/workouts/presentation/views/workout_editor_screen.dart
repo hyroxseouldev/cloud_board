@@ -279,6 +279,7 @@ class _EditorBody extends HookConsumerWidget {
                           '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
                           extra: SlideEditRequest(
                             module: module,
+                            workout: draft.value,
                             brandL: draft.value.brandL,
                             brandR: draft.value.brandR,
                             onSave: (updated) async {

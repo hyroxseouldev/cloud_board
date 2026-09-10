@@ -91,7 +91,13 @@ void main() {
     expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
     await tester.tap(find.text('계속 편집'));
     await tester.pumpAndSettle();
-    expect(find.text('저장하지 않은 제목'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(find.widgetWithText(TextFormField, '슬라이드 제목'))
+          .controller!
+          .text,
+      '저장하지 않은 제목',
+    );
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('저장 안 하고 나가기'));
@@ -710,7 +716,7 @@ void main() {
     await tester.enterText(title, '수정 제목');
     await tester.pump();
     final addBlock = find.byKey(const ValueKey('add-interval-block'));
-    await tester.ensureVisible(addBlock);
+    await scrollTo(tester, addBlock);
     await tester.tap(addBlock);
     await tester.pumpAndSettle();
     expect(find.text('블록 2'), findsOneWidget);
@@ -720,7 +726,16 @@ void main() {
     expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
     await tester.tap(find.text('계속 편집'));
     await tester.pumpAndSettle();
-    expect(find.text('수정 제목'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(find.widgetWithText(TextFormField, '슬라이드 제목'))
+          .controller!
+          .text,
+      '수정 제목',
+    );
+    await scrollTo(tester, find.text('화면'));
+    await tester.tap(find.text('화면'));
+    await tester.pumpAndSettle();
     final displayMode = find.byType(DropdownButtonFormField<TimerDisplayMode>);
     await scrollTo(tester, displayMode);
     await tester.tap(displayMode);

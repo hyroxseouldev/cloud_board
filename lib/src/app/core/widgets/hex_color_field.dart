@@ -22,6 +22,16 @@ class HexColorField extends HookWidget {
   Widget build(BuildContext context) {
     final controller = useTextEditingController(text: initialValue);
     final color = useState(Color(parseHexColor(initialValue) ?? 0xFFFFFFFF));
+    useEffect(() {
+      if (controller.text != initialValue) {
+        controller.value = TextEditingValue(
+          text: initialValue,
+          selection: TextSelection.collapsed(offset: initialValue.length),
+        );
+        color.value = Color(parseHexColor(initialValue) ?? 0xFFFFFFFF);
+      }
+      return null;
+    }, [initialValue]);
     final store = useMemoized(
       () => recentColorStore ?? RecentColorStore.local(),
       [recentColorStore],
