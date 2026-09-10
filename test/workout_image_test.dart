@@ -25,7 +25,12 @@ void main() {
       final provider = image.image as NetworkImage;
       expect(provider.webHtmlElementStrategy, WebHtmlElementStrategy.prefer);
     } else {
-      expect(find.byType(CachedNetworkImage), findsOneWidget);
+      final image = tester.widget<Image>(find.byType(Image));
+      final provider = image.image as ResizeImage;
+      expect(provider.imageProvider, isA<CachedNetworkImageProvider>());
+      expect(provider.policy, ResizeImagePolicy.fit);
+      expect(provider.width, isNotNull);
+      expect(provider.height, isNotNull);
     }
   });
 }

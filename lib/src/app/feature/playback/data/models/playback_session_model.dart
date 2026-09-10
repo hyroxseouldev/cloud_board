@@ -6,6 +6,8 @@ import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_se
 
 part 'playback_session_model.g.dart';
 
+final _workoutEntities = Expando<Workout>();
+
 @JsonSerializable()
 class PlaybackSessionModel {
   const PlaybackSessionModel({
@@ -52,7 +54,9 @@ class PlaybackSessionModel {
     ownerId: ownerId,
     zoneId: zoneId,
     targetDeviceIds: targetDeviceIds,
-    workout: WorkoutModel.fromJson(workoutSnapshot).toEntity(),
+    workout: _workoutEntities[workoutSnapshot] ??= WorkoutModel.fromJson(
+      workoutSnapshot,
+    ).toEntity(),
     status: PlaybackStatus.values.firstWhere(
       (value) => value.name == status,
       orElse: () => PlaybackStatus.completed,

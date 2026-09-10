@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,7 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_board.dart';
@@ -52,7 +50,11 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
       Future<void> precacheAfterBuild() async {
         if (cancelled || !context.mounted) return;
         try {
-          final count = await _precacheImages(context, workout);
+          final count = await precacheWorkoutImages(
+            context,
+            workout.modules.map((module) => module.imageSource),
+            isCancelled: () => cancelled,
+          );
           if (!cancelled && context.mounted) {
             imageCheck.value = AsyncData(count);
           }
@@ -277,26 +279,4 @@ class _CheckTile extends StatelessWidget {
     title: Text(title),
     subtitle: Text(subtitle),
   );
-}
-
-Future<int> _precacheImages(BuildContext context, Workout workout) async {
-  var count = 0;
-  for (final module in workout.modules) {
-    final source = module.imageSource;
-    if (source.isEmpty) continue;
-    final ImageProvider provider;
-    if (source.startsWith('http://') || source.startsWith('https://')) {
-      provider = kIsWeb
-          ? NetworkImage(
-              source,
-              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-            )
-          : CachedNetworkImageProvider(source);
-    } else {
-      provider = MemoryImage(WorkoutImageSource.decode(source).bytes);
-    }
-    await precacheImage(provider, context);
-    count++;
-  }
-  return count;
 }

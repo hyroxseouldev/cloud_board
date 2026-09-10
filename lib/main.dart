@@ -3,35 +3,49 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/firebase_options.dart';
 import 'package:cloud_board/src/app/app.dart';
+import 'package:cloud_board/src/app/bootstrap.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
-import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(
+    AppBootstrap(
+      initialize: _initialize,
+      builder: (isTv) => ProviderScope(
+        overrides: [androidTvProvider.overrideWith((ref) async => isTv)],
+        child: const XonBoardApp(),
+      ),
+    ),
+  );
+}
+
+Future<bool> _initialize() async {
+  // Neither operation depends on the other. The bootstrap has already painted.
+  final results = await Future.wait<Object>([
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    const DeviceFormFactorDataSource().isAndroidTv(),
+  ]);
+  final isTv = results[1] as bool;
   if (!kIsWeb) {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
-    final isTv = await const DeviceFormFactorDataSource().isAndroidTv();
     if (isTv && FirebaseAuth.instance.currentUser == null) {
       try {
-        await FirebaseAuth.instance.signInAnonymously();
+        await FirebaseAuth.instance.signInAnonymously().timeout(
+          const Duration(seconds: 15),
+        );
       } catch (error, stack) {
-        await FirebaseCrashlytics.instance.recordError(error, stack);
+        // Keep the login screen available if automatic TV authentication fails.
+        FirebaseCrashlytics.instance.recordError(error, stack);
       }
     }
   }
-  if (!kIsWeb) {
-    await GoogleSignIn.instance.initialize();
-    await initializeWorkoutMediaController();
-  }
-  runApp(const ProviderScope(child: XonBoardApp()));
+  return isTv;
 }

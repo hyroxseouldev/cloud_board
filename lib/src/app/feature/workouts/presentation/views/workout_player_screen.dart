@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
@@ -83,22 +84,26 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(
-      playerControllerProvider(
-        workout,
-        startModule: startModule,
-        sessionId: sessionId,
-        canControl: !displayMode,
+    final provider = playerControllerProvider(
+      workout,
+      startModule: startModule,
+      sessionId: sessionId,
+      canControl: !displayMode,
+    );
+    // Milliseconds belong to the timer child, not the slide and controls.
+    ref.watch(
+      provider.select(
+        (state) => (
+          state.index,
+          state.isPaused,
+          state.briefing,
+          (state.countdownMs / 1000).ceil(),
+          state.timelineVersion,
+        ),
       ),
     );
-    final actions = ref.read(
-      playerControllerProvider(
-        workout,
-        startModule: startModule,
-        sessionId: sessionId,
-        canControl: !displayMode,
-      ).notifier,
-    );
+    final state = ref.read(provider);
+    final actions = ref.read(provider.notifier);
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isConnected = ref.watch(playbackConnectionProvider).value ?? false;
     final isTv = ref.watch(androidTvProvider).value ?? false;
@@ -188,14 +193,35 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         state.steps.isNotEmpty && state.index < state.steps.length;
     final currentMediaStep = hasCurrentStep ? state.steps[state.index] : null;
     final isPreparing = state.briefing || state.countdownMs > 0;
+    final imageSize = playbackImageSize(context);
+    useEffect(() {
+      var cancelled = false;
+      final moduleIndex = currentMediaStep?.moduleIndex;
+      if (moduleIndex == null) return null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (cancelled || !context.mounted) return;
+        // Keep a small rolling window decoded on both controller and TV.
+        unawaited(
+          precacheWorkoutImages(
+            context,
+            workout.modules
+                .skip(moduleIndex)
+                .take(3)
+                .map((module) => module.imageSource),
+            isCancelled: () => cancelled,
+          ).catchError((Object error) {
+            debugPrint('Playback image preparation failed: $error');
+            return 0;
+          }),
+        );
+      });
+      return () => cancelled = true;
+    }, [workout, currentMediaStep?.moduleIndex, imageSize]);
     useEffect(() {
       if (hasCurrentStep || !displayMode || onStandby == null) return null;
       final timer = Timer(const Duration(seconds: 5), onStandby!);
       return timer.cancel;
     }, [hasCurrentStep, displayMode]);
-    final isAtStepStart =
-        currentMediaStep != null &&
-        state.remainingMs >= currentMediaStep.duration * 1000 - 150;
     useEffect(
       () {
         if (displayMode) return null;
@@ -231,7 +257,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         workout.name,
         state.index,
         state.isPaused,
-        isAtStepStart,
+        state.timelineVersion,
         isPreparing,
       ],
     );
@@ -356,6 +382,13 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                                   brandR: workout.brandR,
                                   scale: scale,
                                   showLoadingIndicator: true,
+                                  timer: _PlayerTimer(
+                                    workout: workout,
+                                    startModule: startModule,
+                                    sessionId: sessionId,
+                                    displayMode: displayMode,
+                                    scale: scale,
+                                  ),
                                 ),
                               ),
                               if (state.isPaused)
@@ -405,6 +438,44 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PlayerTimer extends ConsumerWidget {
+  const _PlayerTimer({
+    required this.workout,
+    required this.startModule,
+    required this.sessionId,
+    required this.displayMode,
+    required this.scale,
+  });
+  final Workout workout;
+  final int startModule;
+  final String? sessionId;
+  final bool displayMode;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(
+      playerControllerProvider(
+        workout,
+        startModule: startModule,
+        sessionId: sessionId,
+        canControl: !displayMode,
+      ),
+    );
+    if (state.index >= state.steps.length) return const SizedBox.shrink();
+    final step = state.steps[state.index];
+    return WorkoutSlideTimer(
+      module: step.module,
+      isRest: step.isRest,
+      secondsLeft: state.secondsLeft,
+      remainingMs: state.remainingMs,
+      durationMs: step.duration * 1000,
+      isPaused: state.isPaused,
+      scale: scale,
     );
   }
 }

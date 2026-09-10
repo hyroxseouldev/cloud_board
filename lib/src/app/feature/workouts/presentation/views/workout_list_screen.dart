@@ -26,6 +26,30 @@ class WorkoutListScreen extends HookConsumerWidget {
     useListenable(search);
     final selectedFolder = useState<String?>(null);
     final workouts = ref.watch(workoutControllerProvider);
+    final items = workouts.value ?? const <Workout>[];
+    final folders = useMemoized(
+      () =>
+          items
+              .map((item) => item.folder)
+              .where((folder) => folder.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort(),
+      [items],
+    );
+    final query = search.text.trim().toLowerCase();
+    final filtered = useMemoized(
+      () => items.where((item) {
+        final matchesQuery =
+            query.isEmpty ||
+            item.name.toLowerCase().contains(query) ||
+            item.folder.toLowerCase().contains(query);
+        return matchesQuery &&
+            (selectedFolder.value == null ||
+                item.folder == selectedFolder.value);
+      }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
+      [items, query, selectedFolder.value],
+    );
     final user = ref.watch(authStateProvider).value;
     final authAction = ref.watch(authControllerProvider);
     final workoutAction = ref.watch(workoutActionControllerProvider);
@@ -51,24 +75,6 @@ class WorkoutListScreen extends HookConsumerWidget {
           value: workouts,
           data: (items) {
             if (items.isEmpty) return const _EmptyWorkouts();
-            final folders =
-                items
-                    .map((item) => item.folder)
-                    .where((folder) => folder.isNotEmpty)
-                    .toSet()
-                    .toList()
-                  ..sort();
-            final query = search.text.trim().toLowerCase();
-            final filtered = items.where((item) {
-              final matchesQuery =
-                  query.isEmpty ||
-                  item.name.toLowerCase().contains(query) ||
-                  item.folder.toLowerCase().contains(query);
-              final matchesFolder =
-                  selectedFolder.value == null ||
-                  item.folder == selectedFolder.value;
-              return matchesQuery && matchesFolder;
-            }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
             return Column(
               children: [
                 _WorkoutToolbar(

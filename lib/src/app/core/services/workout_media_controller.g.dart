@@ -55,4 +55,4 @@ final class WorkoutMediaControllerProvider
 }
 
 String _$workoutMediaControllerHash() =>
-    r'ca0bc0032d2f7dc27bf315d7b18883c031f8d2e4';
+    r'2a506446ac419962c30d818008c64e9c31ee728e';

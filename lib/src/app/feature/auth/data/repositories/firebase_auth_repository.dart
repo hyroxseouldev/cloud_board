@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -25,12 +28,30 @@ class FirebaseAuthRepository implements AuthRepository {
 
   final FirebaseAuthDataSource _dataSource;
   final UserProfileFirestoreDataSource _profileDataSource;
+  Future<void> _profileWrites = Future.value();
+  (String, String?, String?, String?)? _lastProfile;
+
+  void _syncProfile(User user) {
+    if (user.isAnonymous) return;
+    final signature = (user.uid, user.email, user.displayName, user.photoURL);
+    if (_lastProfile == signature) return;
+    _lastProfile = signature;
+    _profileWrites = _profileWrites
+        .then((_) => _profileDataSource.upsert(user))
+        .catchError((Object error, StackTrace stack) {
+          if (_lastProfile == signature) _lastProfile = null;
+          debugPrint('Profile synchronization failed: $error\n$stack');
+        });
+    unawaited(_profileWrites);
+  }
 
   @override
   Stream<AuthUser?> authStateChanges() =>
-      _dataSource.authStateChanges().asyncMap((user) async {
-        if (user != null && !user.isAnonymous) {
-          await _profileDataSource.upsert(user);
+      _dataSource.authStateChanges().map((user) {
+        if (user != null) {
+          _syncProfile(user);
+        } else {
+          _lastProfile = null;
         }
         return _mapUser(user);
       });
@@ -42,7 +63,7 @@ class FirebaseAuthRepository implements AuthRepository {
     if (user == null) {
       throw StateError('로그인한 사용자 정보를 불러오지 못했습니다.');
     }
-    await _profileDataSource.upsert(user);
+    _syncProfile(user);
     return _mapUser(user)!;
   }
 

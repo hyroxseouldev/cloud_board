@@ -47,5 +47,7 @@ void main() {
 
 class _FakeWorkoutController extends WorkoutController {
   @override
-  Future<List<Workout>> build() async => const [];
+  Stream<List<Workout>> build() async* {
+    yield const [];
+  }
 }

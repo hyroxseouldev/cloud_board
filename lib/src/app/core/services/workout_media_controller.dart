@@ -86,13 +86,52 @@ class _AudioServiceWorkoutMediaController implements WorkoutMediaController {
   Future<void> hide() => _handler.customAction('hideWorkout');
 }
 
-WorkoutMediaController _instance = const _NoopWorkoutMediaController();
+/// A stable command stream survives lazy initialization. Operations are ordered
+/// so leaving the player during initialization cannot leave a notification behind.
+class LazyWorkoutMediaController implements WorkoutMediaController {
+  LazyWorkoutMediaController(this._create);
 
-Future<void> initializeWorkoutMediaController() async {
+  final Future<WorkoutMediaController> Function() _create;
+  final _commands = StreamController<WorkoutMediaCommand>.broadcast();
+  WorkoutMediaController? _delegate;
+  Future<void> _pending = Future.value();
+  StreamSubscription<WorkoutMediaCommand>? _subscription;
+
+  @override
+  Stream<WorkoutMediaCommand> get commands => _commands.stream;
+
+  Future<void> _enqueue(Future<void> Function() action) {
+    final operation = _pending.then((_) => action());
+    _pending = operation.catchError((Object error, StackTrace stack) {
+      debugPrint('Workout media controls unavailable: $error\n$stack');
+    });
+    return _pending;
+  }
+
+  @override
+  Future<void> show(WorkoutMediaSnapshot snapshot) => _enqueue(() async {
+    if (_delegate == null) {
+      _delegate = await _create();
+      _subscription = _delegate!.commands.listen(_commands.add);
+    }
+    await _delegate!.show(snapshot);
+  });
+
+  @override
+  Future<void> hide() => _enqueue(() async => _delegate?.hide());
+
+  Future<void> dispose() => _enqueue(() async {
+    await _delegate?.hide();
+    await _subscription?.cancel();
+    await _commands.close();
+  });
+}
+
+Future<WorkoutMediaController> _createWorkoutMediaController() async {
   if (kIsWeb ||
       (defaultTargetPlatform != TargetPlatform.iOS &&
           defaultTargetPlatform != TargetPlatform.android)) {
-    return;
+    return const _NoopWorkoutMediaController();
   }
   try {
     final handler = await AudioService.init(
@@ -103,14 +142,19 @@ Future<void> initializeWorkoutMediaController() async {
         androidStopForegroundOnPause: false,
       ),
     );
-    _instance = _AudioServiceWorkoutMediaController(handler);
+    return _AudioServiceWorkoutMediaController(handler);
   } catch (error, stackTrace) {
     debugPrint('Workout media controls unavailable: $error\n$stackTrace');
+    rethrow;
   }
 }
 
 @Riverpod(keepAlive: true)
-WorkoutMediaController workoutMediaController(Ref ref) => _instance;
+WorkoutMediaController workoutMediaController(Ref ref) {
+  final controller = LazyWorkoutMediaController(_createWorkoutMediaController);
+  ref.onDispose(() => unawaited(controller.dispose()));
+  return controller;
+}
 
 class _WorkoutAudioHandler extends BaseAudioHandler {
   _WorkoutAudioHandler();

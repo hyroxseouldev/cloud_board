@@ -10,14 +10,50 @@ part 'workout_controller.g.dart';
 
 @Riverpod(keepAlive: true)
 class WorkoutController extends _$WorkoutController {
+  final _upserts = <String, Workout>{};
+  final _removed = <String>{};
+  Future<void>? _loading;
+
   @override
-  Future<List<Workout>> build() async {
-    final user = await ref.watch(authStateProvider.future);
-    if (user == null) return const [];
-    return (await ref.watch(loadWorkoutsProvider.future))();
+  Stream<List<Workout>> build() async* {
+    _upserts.clear();
+    _removed.clear();
+    final complete = Completer<void>();
+    _loading = complete.future;
+    try {
+      final user = await ref.watch(authStateProvider.future);
+      if (user == null) {
+        yield const [];
+        return;
+      }
+      final loader = await ref.watch(loadWorkoutsProvider.future);
+      await for (final items in loader.watch()) {
+        yield _merge(items);
+      }
+    } finally {
+      complete.complete();
+    }
+  }
+
+  // A scheduled start must not mistake the first page for the complete catalog.
+  Future<List<Workout>> loadComplete() async {
+    await future;
+    await _loading;
+    return state.requireValue;
+  }
+
+  List<Workout> _merge(List<Workout> items) {
+    final merged = {for (final item in items) item.id: item, ..._upserts};
+    for (final id in _removed) {
+      merged.remove(id);
+    }
+    return merged.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
   void upsert(Workout workout) {
+    _upserts[workout.id] = workout;
+    _removed.remove(workout.id);
     final items = state.value;
     if (items == null) return;
     final index = items.indexWhere((item) => item.id == workout.id);
@@ -31,6 +67,8 @@ class WorkoutController extends _$WorkoutController {
   }
 
   void remove(String workoutId) {
+    _upserts.remove(workoutId);
+    _removed.add(workoutId);
     final items = state.value;
     if (items == null) return;
     state = AsyncData(

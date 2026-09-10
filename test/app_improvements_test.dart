@@ -1097,7 +1097,9 @@ Future<void> scrollTo(WidgetTester tester, Finder finder) async {
 
 class _TestWorkouts extends WorkoutController {
   @override
-  Future<List<Workout>> build() async => [workout];
+  Stream<List<Workout>> build() async* {
+    yield [workout];
+  }
 }
 
 class _TestDeviceMode extends DeviceModeController {

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -26,19 +27,55 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   final WorkoutLocalDataSource _local;
 
   @override
-  Future<List<Workout>> load() async {
+  Future<List<Workout>> load() => watch().last;
+
+  @override
+  Stream<List<Workout>> watch() async* {
     final user = _requireUser();
-    var values = await _firestore.load(user.uid);
-    final legacy = _local.load();
-    if (values.isEmpty && legacy.isNotEmpty) {
-      for (final workout in legacy) {
-        await _saveForUser(workout.toEntity(), user);
+    final cached = await _firestore.loadCached(user.uid);
+    final visible = {for (final item in cached) item.id: item.toEntity()};
+    if (visible.isNotEmpty) yield _sorted(visible.values);
+    try {
+      await for (final page in _firestore.loadPages(user.uid)) {
+        if (page.complete && page.items.isEmpty) {
+          final legacy = _local.load();
+          if (legacy.isNotEmpty) {
+            for (final workout in legacy) {
+              await _saveForUser(workout.toEntity(), user);
+            }
+            await _local.clear();
+            yield (await _firestore.load(user.uid))
+                .map((item) => item.toEntity())
+                .toList();
+            return;
+          }
+        }
+        // Retain cached rows while later pages are still arriving. A complete
+        // server result removes rows deleted on other devices.
+        if (page.complete) {
+          final ids = page.items.map((item) => item.id).toSet();
+          visible.removeWhere((id, _) => !ids.contains(id));
+        }
+        for (final item in page.items) {
+          final previous = visible[item.id];
+          visible[item.id] =
+              previous != null && previous.updatedAt == item.updatedAt
+              ? previous
+              : item.toEntity();
+        }
+        yield _sorted(visible.values);
       }
-      await _local.clear();
-      values = await _firestore.load(user.uid);
+    } catch (error, stack) {
+      if (visible.isEmpty) rethrow;
+      // Cached workouts remain usable offline, including search and schedules.
+      debugPrint(
+        'Workout refresh failed; retaining available data: $error\n$stack',
+      );
     }
-    return values.map((item) => item.toEntity()).toList();
   }
+
+  List<Workout> _sorted(Iterable<Workout> values) =>
+      values.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
   @override
   Future<Workout> save(Workout workout) =>
