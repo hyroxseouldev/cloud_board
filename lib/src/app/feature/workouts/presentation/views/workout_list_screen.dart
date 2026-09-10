@@ -41,6 +41,22 @@ class WorkoutListScreen extends HookConsumerWidget {
         appBar: AppBar(
           centerTitle: true,
           title: const _Logo(),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: isBusy
+                      ? null
+                      : () => context.push('/operations/standby'),
+                  icon: const Icon(Icons.slideshow_outlined),
+                  label: const Text('스탠바이 설정'),
+                ),
+              ),
+            ),
+          ),
           actions: [
             const PairedDevicesButton(),
             const DeviceModeMenu(),

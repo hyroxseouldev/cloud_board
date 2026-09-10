@@ -133,6 +133,8 @@ class WorkoutModuleModel {
     required this.text,
     required this.imageUrl,
     required this.showTimer,
+    this.showTimerGauge = true,
+    this.showSets,
     required this.beep,
     required this.coverImage,
     required this.timerColorValue,
@@ -145,6 +147,9 @@ class WorkoutModuleModel {
   final int workSeconds, sets, restSeconds;
   @JsonKey(defaultValue: true)
   final bool showTimer;
+  final bool showTimerGauge;
+  // Missing on legacy slides: preserve their previous visibility.
+  final bool? showSets;
   final bool beep, coverImage;
   final int? timerColorValue;
   final String? workGaugeColor, restGaugeColor, workTextColor, restTextColor;
@@ -160,6 +165,8 @@ class WorkoutModuleModel {
     text: text,
     imageSource: imageUrl,
     showTimer: showTimer,
+    showTimerGauge: showTimerGauge,
+    showSets: showSets ?? showTimer,
     beep: beep,
     coverImage: coverImage,
     timerColorValue: timerColorValue,
@@ -178,6 +185,8 @@ class WorkoutModuleModel {
         text: value.text,
         imageUrl: value.imageSource,
         showTimer: value.showTimer,
+        showTimerGauge: value.showTimerGauge,
+        showSets: value.showSets,
         beep: value.beep,
         coverImage: value.coverImage,
         timerColorValue: value.timerColorValue,

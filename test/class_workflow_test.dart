@@ -157,7 +157,77 @@ void main() {
             remainingMs: 45000,
             revision: 3,
             workout: styled.copyWith(
+              modules: [styled.modules.single.copyWith(showTimerGauge: false)],
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.text('4/5세트'), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.text('0:45')).style!.color,
+          const Color(0xFFAABBCC),
+        );
+        source.add(
+          current.copyWith(
+            revision: 4,
+            workout: styled.copyWith(
+              modules: [styled.modules.single.copyWith(showTimerGauge: false)],
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.text('5/5세트'), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.text('1:30')).style!.color,
+          const Color(0xFF445566),
+        );
+        source.add(
+          current.copyWith(
+            stepIndex: 1,
+            remainingMs: 45000,
+            revision: 5,
+            workout: styled.copyWith(
               modules: [styled.modules.single.copyWith(showTimer: false)],
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.text('0:45'), findsNothing);
+        expect(find.text('4/5세트'), findsOneWidget);
+        source.add(
+          current.copyWith(
+            stepIndex: 1,
+            remainingMs: 45000,
+            revision: 6,
+            workout: styled.copyWith(
+              modules: [styled.modules.single.copyWith(showSets: false)],
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.text('0:45'), findsOneWidget);
+        expect(find.text('4/5세트'), findsNothing);
+        expect(find.text('다음: 2세트'), findsNothing);
+        source.add(
+          current.copyWith(
+            stepIndex: 1,
+            remainingMs: 45000,
+            revision: 7,
+            workout: styled.copyWith(
+              modules: [
+                styled.modules.single.copyWith(
+                  showTimer: false,
+                  showSets: false,
+                ),
+              ],
             ),
           ),
         );
