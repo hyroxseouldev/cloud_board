@@ -65,6 +65,8 @@ abstract class WorkoutModule with _$WorkoutModule {
     required String text,
     required String imageSource,
     required bool showTimer,
+    @Default(true) bool showTimerGauge,
+    @Default(true) bool showSets,
     required bool beep,
     required bool coverImage,
     int? timerColorValue,

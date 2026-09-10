@@ -493,7 +493,7 @@ class _PlayerContent extends StatelessWidget {
                 flex: 3,
                 child: Text(
                   isRest
-                      ? (step.module.showTimer
+                      ? (step.module.showSets
                             ? '다음: ${step.set + 1}세트'
                             : '다음 운동을 준비하세요')
                       : step.module.text,
@@ -508,7 +508,7 @@ class _PlayerContent extends StatelessWidget {
                   ),
                 ),
               ),
-              if (step.module.showTimer)
+              if (step.module.showTimer || step.module.showSets)
                 Expanded(
                   flex: 2,
                   child: Align(
@@ -516,35 +516,39 @@ class _PlayerContent extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _CircularTimer(
-                          secondsLeft: state.secondsLeft,
-                          remainingMs: state.remainingMs,
-                          durationMs: step.duration * 1000,
-                          isRest: isRest,
-                          isPaused: state.isPaused,
-                          gaugeColor: slideColor(
-                            step.module,
-                            rest: isRest,
-                            text: false,
+                        if (step.module.showTimer)
+                          _CircularTimer(
+                            showGauge: step.module.showTimerGauge,
                             secondsLeft: state.secondsLeft,
+                            remainingMs: state.remainingMs,
+                            durationMs: step.duration * 1000,
+                            isRest: isRest,
+                            isPaused: state.isPaused,
+                            gaugeColor: slideColor(
+                              step.module,
+                              rest: isRest,
+                              text: false,
+                              secondsLeft: state.secondsLeft,
+                            ),
+                            textColor: slideColor(
+                              step.module,
+                              rest: isRest,
+                              text: true,
+                              secondsLeft: state.secondsLeft,
+                            ),
+                            scale: scale,
                           ),
-                          textColor: slideColor(
-                            step.module,
-                            rest: isRest,
-                            text: true,
-                            secondsLeft: state.secondsLeft,
+                        if (step.module.showTimer && step.module.showSets)
+                          SizedBox(height: 16 * scale),
+                        if (step.module.showSets)
+                          Text(
+                            '${remainingSets(set: step.set, total: step.totalSets, isRest: step.isRest)}/${step.totalSets}세트',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 22 * scale,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          scale: scale,
-                        ),
-                        SizedBox(height: 16 * scale),
-                        Text(
-                          '${remainingSets(set: step.set, total: step.totalSets, isRest: step.isRest)}/${step.totalSets}세트',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 22 * scale,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -590,6 +594,7 @@ class _PlayerContent extends StatelessWidget {
 
 class _CircularTimer extends StatelessWidget {
   const _CircularTimer({
+    required this.showGauge,
     required this.secondsLeft,
     required this.remainingMs,
     required this.durationMs,
@@ -601,6 +606,7 @@ class _CircularTimer extends StatelessWidget {
   });
 
   final int secondsLeft;
+  final bool showGauge;
   final int remainingMs;
   final int durationMs;
   final bool isRest, isPaused;
@@ -620,21 +626,22 @@ class _CircularTimer extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(end: progress),
-              duration: isPaused
-                  ? Duration.zero
-                  : const Duration(milliseconds: 120),
-              curve: Curves.linear,
-              builder: (context, animatedProgress, child) =>
-                  CircularProgressIndicator(
-                    value: animatedProgress,
-                    strokeWidth: 18 * scale,
-                    strokeCap: StrokeCap.round,
-                    backgroundColor: Colors.white24,
-                    color: Color(gaugeColor),
-                  ),
-            ),
+            if (showGauge)
+              TweenAnimationBuilder<double>(
+                tween: Tween(end: progress),
+                duration: isPaused
+                    ? Duration.zero
+                    : const Duration(milliseconds: 120),
+                curve: Curves.linear,
+                builder: (context, animatedProgress, child) =>
+                    CircularProgressIndicator(
+                      value: animatedProgress,
+                      strokeWidth: 18 * scale,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: Colors.white24,
+                      color: Color(gaugeColor),
+                    ),
+              ),
             Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,

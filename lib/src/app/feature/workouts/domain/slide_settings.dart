@@ -1,6 +1,14 @@
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/core/utils/hex_color.dart';
 
+enum TimerDisplayMode { gaugeAndNumber, numberOnly, hidden }
+
+TimerDisplayMode timerDisplayMode(WorkoutModule module) => !module.showTimer
+    ? TimerDisplayMode.hidden
+    : module.showTimerGauge
+    ? TimerDisplayMode.gaugeAndNumber
+    : TimerDisplayMode.numberOnly;
+
 String formatSlideTime(int seconds) =>
     '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
 

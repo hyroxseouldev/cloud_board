@@ -21,7 +21,7 @@ class StandbySettingsScreen extends ConsumerWidget {
         loading: () =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (e, _) => Scaffold(
-          appBar: AppBar(title: const Text('대기 화면 설정')),
+          appBar: AppBar(title: const Text('스탠바이 설정')),
           body: Center(child: Text('설정을 불러오지 못했습니다: $e')),
         ),
         data: (brand) => _StandbyEditor(initial: brand, guard: guard),
@@ -113,7 +113,7 @@ class _StandbyEditor extends HookConsumerWidget {
       dirty: dirty.value,
       blocked: busy.value,
       child: Scaffold(
-        appBar: AppBar(title: const Text('대기 화면 설정')),
+        appBar: AppBar(title: const Text('스탠바이 설정')),
         body: AbsorbPointer(
           absorbing: busy.value,
           child: Center(

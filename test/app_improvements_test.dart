@@ -152,8 +152,18 @@ void main() {
       ..remove('workTextColor')
       ..remove('restTextColor')
       ..remove('showTimer');
+    json.remove('showTimerGauge');
+    json.remove('showSets');
     final restored = WorkoutModuleModel.fromJson(json).toEntity();
     expect(restored.showTimer, isTrue);
+    expect(restored.showTimerGauge, isTrue);
+    expect(restored.showSets, isTrue);
+    expect(
+      WorkoutModuleModel.fromJson({...json, 'showTimer': false})
+          .toEntity()
+          .showSets,
+      isFalse,
+    );
     expect(slideColor(restored, rest: false, text: false), 0xFFFFFFFF);
     expect(slideColor(restored, rest: true, text: true), 0xFF0047FF);
     expect(
@@ -175,7 +185,9 @@ void main() {
       restGaugeColor: '#445566',
       workTextColor: '#778899',
       restTextColor: '#AABBCC',
-      showTimer: false,
+      showTimer: true,
+      showTimerGauge: false,
+      showSets: false,
     );
     final model = PlaybackSessionModel.fromWorkout(
       id: 's',
@@ -423,6 +435,15 @@ void main() {
     await tester.tap(find.text('계속 편집'));
     await tester.pumpAndSettle();
     expect(find.text('수정 제목'), findsOneWidget);
+    final displayMode = find.byType(DropdownButtonFormField<TimerDisplayMode>);
+    await scrollTo(tester, displayMode);
+    await tester.tap(displayMode);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('숫자만').last);
+    await tester.pumpAndSettle();
+    await scrollTo(tester, find.widgetWithText(SwitchListTile, '세트 표시'));
+    await tester.tap(find.widgetWithText(SwitchListTile, '세트 표시'));
+    await tester.pumpAndSettle();
     final save = find.widgetWithText(FilledButton, '저장');
     await tester.scrollUntilVisible(
       save,
@@ -439,6 +460,9 @@ void main() {
     expect(saved.single.name, '수정 제목');
     expect(saved.single.workSeconds, 90);
     expect(saved.single.restSeconds, 45);
+    expect(saved.single.showTimer, isTrue);
+    expect(saved.single.showTimerGauge, isFalse);
+    expect(saved.single.showSets, isFalse);
     expect(find.textContaining('편집 내용은 유지됩니다'), findsOneWidget);
     final retry = find.widgetWithText(FilledButton, '다시 저장');
     await tester.ensureVisible(retry);

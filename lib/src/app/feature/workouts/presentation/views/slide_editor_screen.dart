@@ -229,13 +229,46 @@ class _SlideEditor extends HookWidget {
                       maxLines: 4,
                       decoration: const InputDecoration(labelText: '화면 텍스트'),
                     ),
+                    DropdownButtonFormField<TimerDisplayMode>(
+                      initialValue: timerDisplayMode(draft.value),
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: '타이머 표시',
+                        helperText: '타이머를 숨겨도 운동 진행은 유지됩니다.',
+                        helperMaxLines: 2,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: TimerDisplayMode.gaugeAndNumber,
+                          child: Text('숫자 + 게이지'),
+                        ),
+                        DropdownMenuItem(
+                          value: TimerDisplayMode.numberOnly,
+                          child: Text('숫자만'),
+                        ),
+                        DropdownMenuItem(
+                          value: TimerDisplayMode.hidden,
+                          child: Text('안 보임'),
+                        ),
+                      ],
+                      onChanged: (mode) {
+                        if (mode == null) return;
+                        draft.value = draft.value.copyWith(
+                          showTimer: mode != TimerDisplayMode.hidden,
+                          showTimerGauge:
+                              mode == TimerDisplayMode.gaugeAndNumber,
+                        );
+                        dirty.value = true;
+                      },
+                    ),
+                    const SizedBox(height: 20),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('타이머 표시'),
-                      subtitle: const Text('끄면 타이머와 세트를 숨깁니다. 운동 진행은 유지됩니다.'),
-                      value: draft.value.showTimer,
-                      onChanged: (v) {
-                        draft.value = draft.value.copyWith(showTimer: v);
+                      title: const Text('세트 표시'),
+                      subtitle: const Text('타이머와 별도로 남은 세트 수를 표시합니다.'),
+                      value: draft.value.showSets,
+                      onChanged: (value) {
+                        draft.value = draft.value.copyWith(showSets: value);
                         dirty.value = true;
                       },
                     ),
