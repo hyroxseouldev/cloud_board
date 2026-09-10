@@ -122,7 +122,7 @@ class WorkoutAuthorModel {
       );
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class WorkoutModuleModel {
   const WorkoutModuleModel({
     required this.id,
@@ -133,6 +133,7 @@ class WorkoutModuleModel {
     required this.text,
     required this.imageUrl,
     required this.showTimer,
+    this.appearance = const SlideAppearanceModel(),
     this.showTimerGauge = true,
     this.showSets,
     required this.beep,
@@ -148,6 +149,7 @@ class WorkoutModuleModel {
   final int workSeconds, sets, restSeconds;
   @JsonKey(defaultValue: true)
   final bool showTimer;
+  final SlideAppearanceModel appearance;
   final bool showTimerGauge;
   // Missing on legacy slides: preserve their previous visibility.
   final bool? showSets;
@@ -168,6 +170,7 @@ class WorkoutModuleModel {
     text: text,
     imageSource: imageUrl,
     showTimer: showTimer,
+    appearance: appearance.toEntity(),
     showTimerGauge: showTimerGauge,
     showSets: showSets ?? showTimer,
     beep: beep,
@@ -189,6 +192,7 @@ class WorkoutModuleModel {
         text: value.text,
         imageUrl: value.imageSource,
         showTimer: value.showTimer,
+        appearance: SlideAppearanceModel.fromEntity(value.appearance),
         showTimerGauge: value.showTimerGauge,
         showSets: value.showSets,
         beep: value.beep,
@@ -251,4 +255,62 @@ class FirestoreTimestampConverter implements JsonConverter<DateTime, Object?> {
 
   @override
   Object toJson(DateTime value) => Timestamp.fromDate(value);
+}
+
+@JsonSerializable()
+class SlideAppearanceModel {
+  const SlideAppearanceModel({
+    this.timerX = 0.84,
+    this.timerY = 0.5,
+    this.timerSize = 1,
+    this.ringWidth = 30,
+    this.showTitle = true,
+    this.showBody = true,
+    this.showBrand = true,
+    this.titleColor = 0xFFFFFFFF,
+    this.bodyColor = 0xFFFFFFFF,
+    this.setsColor = 0xB3FFFFFF,
+    this.brandColor = 0xFFFFFFFF,
+  });
+  final double timerX;
+  final double timerY;
+  final double timerSize;
+  final double ringWidth;
+  final bool showTitle;
+  final bool showBody;
+  final bool showBrand;
+  final int titleColor;
+  final int bodyColor;
+  final int setsColor;
+  final int brandColor;
+  factory SlideAppearanceModel.fromJson(Map<String, dynamic> json) =>
+      _$SlideAppearanceModelFromJson(json);
+  Map<String, dynamic> toJson() => _$SlideAppearanceModelToJson(this);
+  SlideAppearance toEntity() => SlideAppearance(
+    timerX: timerX.isFinite ? timerX.clamp(0, 1) : .84,
+    timerY: timerY.isFinite ? timerY.clamp(0, 1) : .5,
+    timerSize: timerSize.isFinite ? timerSize.clamp(.6, 1.6) : 1,
+    ringWidth: ringWidth.isFinite ? ringWidth.clamp(12, 40) : 30,
+    showTitle: showTitle,
+    showBody: showBody,
+    showBrand: showBrand,
+    titleColor: titleColor,
+    bodyColor: bodyColor,
+    setsColor: setsColor,
+    brandColor: brandColor,
+  );
+  factory SlideAppearanceModel.fromEntity(SlideAppearance value) =>
+      SlideAppearanceModel(
+        timerX: value.timerX,
+        timerY: value.timerY,
+        timerSize: value.timerSize,
+        ringWidth: value.ringWidth,
+        showTitle: value.showTitle,
+        showBody: value.showBody,
+        showBrand: value.showBrand,
+        titleColor: value.titleColor,
+        bodyColor: value.bodyColor,
+        setsColor: value.setsColor,
+        brandColor: value.brandColor,
+      );
 }

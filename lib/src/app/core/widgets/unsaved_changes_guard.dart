@@ -14,11 +14,13 @@ class UnsavedChangesGuard extends HookWidget {
     required this.child,
     this.guard,
     this.blocked = false,
+    this.onDiscard,
   });
   final bool dirty;
   final Widget child;
   final ExitGuard? guard;
   final bool blocked;
+  final Future<void> Function()? onDiscard;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +50,10 @@ class UnsavedChangesGuard extends HookWidget {
       pending.value = future;
       final result = await future;
       pending.value = null;
-      if (context.mounted && result) allowed.value = true;
+      if (context.mounted && result) {
+        await onDiscard?.call();
+        if (context.mounted) allowed.value = true;
+      }
       return result;
     }
 
