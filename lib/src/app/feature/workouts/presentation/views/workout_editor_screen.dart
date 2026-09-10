@@ -18,6 +18,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_ed
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder_selector.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 
 class WorkoutEditorScreen extends ConsumerWidget {
   const WorkoutEditorScreen({super.key, required this.workoutId, this.guard});
@@ -90,6 +91,53 @@ class _WorkoutNameDialog extends HookWidget {
   }
 }
 
+class _SlideTemplateNameDialog extends HookWidget {
+  const _SlideTemplateNameDialog({required this.initialName});
+  final String initialName;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = useTextEditingController(text: initialName);
+    final form = useMemoized(() => GlobalKey<FormState>());
+    void submit() {
+      if (form.currentState!.validate()) {
+        Navigator.pop(context, name.text.trim());
+      }
+    }
+
+    return AlertDialog(
+      title: const Text('자주 쓰는 슬라이드로 저장'),
+      content: Form(
+        key: form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('내용과 타이머·화면 설정을 이 기기에 저장해 다른 워크아웃에서도 사용할 수 있어요.'),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: name,
+              autofocus: true,
+              maxLength: 40,
+              decoration: const InputDecoration(labelText: '칩 이름'),
+              validator: (value) =>
+                  value == null || value.trim().isEmpty ? '이름을 입력해 주세요.' : null,
+              onFieldSubmitted: (_) => submit(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+        FilledButton(onPressed: submit, child: const Text('칩 만들기')),
+      ],
+    );
+  }
+}
+
 class _EditorBody extends HookConsumerWidget {
   const _EditorBody({required this.initial, required this.isNew, this.guard});
   final Workout initial;
@@ -103,10 +151,17 @@ class _EditorBody extends HookConsumerWidget {
     final folder = useTextEditingController(text: initial.folder);
     final brandL = useTextEditingController(text: initial.brandL);
     final brandR = useTextEditingController(text: initial.brandR);
+    final slideScroll = useScrollController();
+    final selectedSlide = useState<String?>(null);
+    final rowExtent = 96 * MediaQuery.textScalerOf(context).scale(1);
     useListenable(name);
     useListenable(folder);
     useListenable(brandL);
     useListenable(brandR);
+    final templatesProvider = slideTemplatesControllerProvider(
+      ref.watch(authStateProvider).value?.id ?? initial.ownerId,
+    );
+    final templates = ref.watch(templatesProvider);
     final action = ref.watch(workoutActionControllerProvider);
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isBusy = action.isLoading || playbackAction.isLoading;
@@ -155,6 +210,146 @@ class _EditorBody extends HookConsumerWidget {
       });
     }
 
+    void selectSlide(String id) {
+      selectedSlide.value = id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted || !slideScroll.hasClients) return;
+        final index = draft.value.modules.indexWhere((m) => m.id == id);
+        if (index < 0) return;
+        // Include the newly appended row before the lazy list updates its extent.
+        final maxOffset =
+            (draft.value.modules.length * rowExtent +
+                    36 -
+                    slideScroll.position.viewportDimension)
+                .clamp(0.0, double.infinity);
+        slideScroll.animateTo(
+          (index * rowExtent).clamp(0.0, maxOffset),
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+
+    void addSlide([WorkoutModule? template]) {
+      final module = template == null
+          ? WorkoutModule.empty(newId())
+                .copyWith(name: nextSlideName(draft.value.modules))
+          : template.copyWith(
+              id: newId(),
+              intervalBlocks: [
+                for (final (index, block) in template.intervalBlocks.indexed)
+                  block.copyWith(id: '${newId()}-$index'),
+              ],
+            );
+      draft.value = draft.value.copyWith(
+        modules: [...draft.value.modules, module],
+      );
+      selectSlide(module.id);
+    }
+
+    Future<void> saveTemplate(WorkoutModule module) async {
+      final templateName = await showDialog<String>(
+        context: context,
+        builder: (_) => _SlideTemplateNameDialog(initialName: module.name),
+      );
+      if (templateName == null || !context.mounted) return;
+      final saved = await ref
+          .read(templatesProvider.notifier)
+          .save(module, templateName);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved ? '자주 쓰는 슬라이드 칩을 만들었습니다.' : '칩을 저장하지 못했습니다. 다시 시도해 주세요.',
+          ),
+        ),
+      );
+    }
+
+    Future<void> removeTemplate(WorkoutModule template) async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('자주 쓰는 슬라이드를 삭제할까요?'),
+          content: Text('“${template.name}” 칩을 삭제합니다. 워크아웃에 추가한 슬라이드는 유지됩니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('삭제'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+      final removed = await ref
+          .read(templatesProvider.notifier)
+          .remove(template.id);
+      if (!removed && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('칩을 삭제하지 못했습니다. 다시 시도해 주세요.')),
+        );
+      }
+    }
+
+    Future<void> openSettings() => showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 800),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: FractionallySizedBox(
+          heightFactor: .9,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '워크아웃 설정',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '설정 닫기',
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([draft, brandL, brandR]),
+                    builder: (_, _) => _WorkoutSettingsCard(
+                      brandL: brandL,
+                      brandR: brandR,
+                      workout: draft.value,
+                      initiallyExpanded: true,
+                      onChanged: (value) => draft.value = value,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     return UnsavedChangesGuard(
       guard: guard,
       dirty: hasUnsavedChanges,
@@ -174,13 +369,6 @@ class _EditorBody extends HookConsumerWidget {
                       }
                     },
             ),
-            title: Text(
-              isNew
-                  ? '새 워크아웃'
-                  : initial.name.isEmpty
-                  ? '워크아웃'
-                  : initial.name,
-            ),
             actions: [
               Center(
                 child: Text(
@@ -198,232 +386,416 @@ class _EditorBody extends HookConsumerWidget {
               const SizedBox(width: 16),
             ],
           ),
-          body: Center(
+          body: Align(
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1100),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 90),
-                children: [
-                  if (action.hasError)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        '저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  _TextField(
-                    label: '워크아웃 이름',
-                    controller: name,
-                    hint: '예: 9/4 금 하이록스',
-                  ),
-                  FolderSelector(
-                    value: folder.text,
-                    folders: {
-                      ...?ref
-                          .watch(workoutControllerProvider)
-                          .value
-                          ?.map((w) => w.folder)
-                          .where((f) => f.isNotEmpty),
-                      if (folder.text.isNotEmpty) folder.text,
-                    },
-                    onChanged: (value) => folder.text = value,
-                  ),
-                  _WorkoutSettingsCard(
-                    brandL: brandL,
-                    brandR: brandR,
-                    workout: draft.value,
-                    onChanged: (value) => draft.value = value,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 480;
+                  return Column(
                     children: [
-                      const Text(
-                        '슬라이드',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: XonColors.muted,
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          compact ? 0 : 8,
+                          24,
+                          0,
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        durationLabel(workoutDuration(draft.value)),
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ReorderableListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    buildDefaultDragHandles: false,
-                    itemCount: draft.value.modules.length,
-                    onReorderItem: (oldIndex, newIndex) {
-                      final list = [...draft.value.modules];
-                      final item = list.removeAt(oldIndex);
-                      list.insert(newIndex, item);
-                      draft.value = draft.value.copyWith(modules: list);
-                    },
-                    proxyDecorator: (child, index, animation) => Material(
-                      elevation: 8,
-                      borderRadius: BorderRadius.circular(9),
-                      child: child,
-                    ),
-                    itemBuilder: (context, index) {
-                      final module = draft.value.modules[index];
-                      final intervalBlocks = effectiveIntervalBlocks(module);
-                      Future<void> edit() async {
-                        await context.push(
-                          '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
-                          extra: SlideEditRequest(
-                            module: module,
-                            workout: draft.value,
-                            brandL: draft.value.brandL,
-                            brandR: draft.value.brandR,
-                            onSave: (updated) async {
-                              final candidate = draft.value.copyWith(
-                                modules: draft.value.modules
-                                    .map(
-                                      (m) => m.id == updated.id ? updated : m,
-                                    )
-                                    .toList(),
-                              );
-                              return await persist(edited: candidate) != null;
-                            },
-                          ),
-                        );
-                      }
-
-                      return Card(
-                        key: ValueKey(module.id),
-                        child: ListTile(
-                          onTap: edit,
-                          leading: ReorderableDragStartListener(
-                            index: index,
-                            child: const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Icon(Icons.drag_handle),
-                            ),
-                          ),
-                          title: Text(
-                            module.name.isEmpty
-                                ? '슬라이드 ${index + 1}'
-                                : module.name,
-                          ),
-                          subtitle: Text(
-                            intervalBlocks.length == 1
-                                ? '${intervalBlocks.first.sets}세트 · ${formatSlideTime(intervalBlocks.first.workSeconds)} / 휴식 ${formatSlideTime(intervalBlocks.first.restSeconds)}'
-                                : '${intervalBlocks.length}블록 · 총 ${durationLabel(workoutModuleDuration(module))}',
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            tooltip: '슬라이드 메뉴',
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'edit', child: Text('수정')),
-                              PopupMenuItem(
-                                value: 'duplicate',
-                                child: Text('복제'),
-                              ),
-                              PopupMenuItem(value: 'delete', child: Text('삭제')),
-                            ],
-                            onSelected: (action) async {
-                              if (action == 'edit') {
-                                await edit();
-                                return;
-                              }
-                              final modules = [...draft.value.modules];
-                              if (action == 'duplicate') {
-                                modules.insert(
-                                  index + 1,
-                                  module.copyWith(
-                                    id: newId(),
-                                    name: nextSlideName(modules),
-                                  ),
-                                );
-                              } else {
-                                final confirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (dialogContext) => AlertDialog(
-                                    title: const Text('슬라이드를 삭제할까요?'),
-                                    content: Text(
-                                      '“${module.name}” 슬라이드를 목록에서 제거합니다.',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '워크아웃 편집',
+                                    style: TextStyle(
+                                      fontSize: compact ? 20 : 26,
+                                      fontWeight: FontWeight.w800,
                                     ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(dialogContext, false),
-                                        child: const Text('취소'),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pop(dialogContext, true),
-                                        child: const Text('삭제'),
-                                      ),
-                                    ],
                                   ),
-                                );
-                                if (confirmed != true || !context.mounted) {
-                                  return;
-                                }
-                                modules.removeAt(index);
-                              }
-                              draft.value = draft.value.copyWith(
-                                modules: modules,
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => draft.value = draft.value.copyWith(
-                          modules: [
-                            ...draft.value.modules,
-                            WorkoutModule.empty(newId()).copyWith(
-                              name: nextSlideName(draft.value.modules),
+                                ),
+                                IconButton(
+                                  tooltip: '화면·사운드 설정',
+                                  onPressed: isBusy ? null : openSettings,
+                                  icon: const Icon(Icons.tune_rounded),
+                                ),
+                              ],
                             ),
+                            SizedBox(height: compact ? 4 : 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller: name,
+                                    enabled: !isBusy,
+                                    decoration: const InputDecoration(
+                                      labelText: '워크아웃 이름',
+                                      hintText: 'Title',
+                                      filled: true,
+                                      fillColor: Color(0xFFF5F5F9),
+                                      isDense: true,
+                                      suffixIcon: Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderSide: BorderSide.none,
+                                        borderRadius: BorderRadius.all(
+                                          Radius.circular(4),
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide.none,
+                                        borderRadius: BorderRadius.all(
+                                          Radius.circular(4),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: FolderSelector(
+                                    compact: true,
+                                    enabled: !isBusy,
+                                    value: folder.text,
+                                    folders: {
+                                      ...?ref
+                                          .watch(workoutControllerProvider)
+                                          .value
+                                          ?.map((w) => w.folder)
+                                          .where((f) => f.isNotEmpty),
+                                      if (folder.text.isNotEmpty) folder.text,
+                                    },
+                                    onChanged: (value) => folder.text = value,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (!compact) ...[
+                              const SizedBox(height: 24),
+                              const Text(
+                                '슬라이드 설정',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            Row(
+                              children: [
+                                const Text(
+                                  '전체 워크아웃',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    durationLabel(workoutDuration(draft.value)),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: XonColors.muted,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: '저장',
+                                  onPressed: isBusy ? null : saveAndClose,
+                                  icon: const Icon(Icons.save_outlined),
+                                ),
+                              ],
+                            ),
+                            if (action.hasError)
+                              Text(
+                                '저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            SizedBox(
+                              height: 48,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child:
+                                        templates.isLoading &&
+                                            !templates.hasValue
+                                        ? const Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                          )
+                                        : templates.hasError
+                                        ? TextButton(
+                                            onPressed: () => ref.invalidate(
+                                              templatesProvider,
+                                            ),
+                                            child: const Text('칩 불러오기 다시 시도'),
+                                          )
+                                        : (templates.value ?? []).isEmpty
+                                        ? const Text(
+                                            '슬라이드 메뉴(⋮)에서 칩으로 저장',
+                                            style: TextStyle(
+                                              color: XonColors.muted,
+                                              fontSize: 12,
+                                            ),
+                                          )
+                                        : ListView.separated(
+                                            key: const ValueKey(
+                                              'workout-slide-templates',
+                                            ),
+                                            scrollDirection: Axis.horizontal,
+                                            itemCount: templates.value!.length,
+                                            separatorBuilder: (_, _) =>
+                                                const SizedBox(width: 8),
+                                            itemBuilder: (context, index) {
+                                              final template =
+                                                  templates.value![index];
+                                              return Center(
+                                                child: Tooltip(
+                                                  message:
+                                                      '${template.name} · ${durationLabel(workoutModuleDuration(template))} 추가',
+                                                  child: InputChip(
+                                                    label: Text(template.name),
+                                                    backgroundColor:
+                                                        const Color(0xFFEDEBFF),
+                                                    deleteButtonTooltipMessage:
+                                                        '${template.name} 칩 삭제',
+                                                    onPressed:
+                                                        isBusy ||
+                                                            templates.isLoading
+                                                        ? null
+                                                        : () => addSlide(
+                                                            template,
+                                                          ),
+                                                    onDeleted:
+                                                        isBusy ||
+                                                            templates.isLoading
+                                                        ? null
+                                                        : () => removeTemplate(
+                                                            template,
+                                                          ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                  IconButton(
+                                    tooltip: '슬라이드 추가',
+                                    onPressed: isBusy ? null : () => addSlide(),
+                                    icon: const Icon(Icons.add_rounded),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(height: 1, color: Color(0xFFAAA2FF)),
                           ],
                         ),
-                        icon: const Icon(Icons.add),
-                        label: const Text('슬라이드 추가'),
                       ),
-                      OutlinedButton(
-                        onPressed: () => draft.value = draft.value.copyWith(
-                          modules: [
-                            ...draft.value.modules,
-                            WorkoutModule.empty(newId()).copyWith(
-                              name: '휴식',
-                              workSeconds: 60,
-                              text: '물 마시고 다음 스테이션으로',
-                            ),
-                          ],
+                      Expanded(
+                        child: ReorderableListView.builder(
+                          key: const ValueKey('workout-slide-list'),
+                          scrollController: slideScroll,
+                          itemExtent: rowExtent,
+                          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                          buildDefaultDragHandles: false,
+                          itemCount: draft.value.modules.length,
+                          onReorderItem: (oldIndex, newIndex) {
+                            final list = [...draft.value.modules];
+                            final item = list.removeAt(oldIndex);
+                            list.insert(newIndex, item);
+                            draft.value = draft.value.copyWith(modules: list);
+                          },
+                          proxyDecorator: (child, index, animation) => Material(
+                            elevation: 8,
+                            borderRadius: BorderRadius.circular(9),
+                            child: child,
+                          ),
+                          itemBuilder: (context, index) {
+                            final module = draft.value.modules[index];
+                            final intervalBlocks = effectiveIntervalBlocks(
+                              module,
+                            );
+                            Future<void> edit() async {
+                              await context.push(
+                                '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
+                                extra: SlideEditRequest(
+                                  module: module,
+                                  workout: draft.value.copyWith(
+                                    name: name.text,
+                                    folder: folder.text,
+                                    brandL: brandL.text,
+                                    brandR: brandR.text,
+                                  ),
+                                  brandL: brandL.text,
+                                  brandR: brandR.text,
+                                  onSave: (updated) async {
+                                    final candidate = draft.value.copyWith(
+                                      modules: draft.value.modules
+                                          .map(
+                                            (m) => m.id == updated.id
+                                                ? updated
+                                                : m,
+                                          )
+                                          .toList(),
+                                    );
+                                    return await persist(edited: candidate) !=
+                                        null;
+                                  },
+                                ),
+                              );
+                            }
+
+                            return Card(
+                              key: ValueKey(module.id),
+                              elevation: 0,
+                              color: const Color(0xFFF5F5F9),
+                              margin: const EdgeInsets.only(bottom: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: ListTile(
+                                onTap: isBusy ? null : edit,
+                                selected: selectedSlide.value == module.id,
+                                selectedTileColor: const Color(0xFFEDEBFF),
+                                leading: ReorderableDragStartListener(
+                                  index: index,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(8),
+                                    child: Icon(Icons.drag_handle),
+                                  ),
+                                ),
+                                title: Text(
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  module.name.isEmpty
+                                      ? '슬라이드 ${index + 1}'
+                                      : module.name,
+                                ),
+                                subtitle: Text(
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  intervalBlocks.length == 1
+                                      ? '${intervalBlocks.first.sets}세트 · ${formatSlideTime(intervalBlocks.first.workSeconds)} / 휴식 ${formatSlideTime(intervalBlocks.first.restSeconds)}'
+                                      : '${intervalBlocks.length}블록 · 총 ${durationLabel(workoutModuleDuration(module))}',
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      durationLabel(
+                                        workoutModuleDuration(module),
+                                      ),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: XonColors.muted,
+                                      ),
+                                    ),
+                                    PopupMenuButton<String>(
+                                      enabled: !isBusy,
+                                      tooltip: '슬라이드 메뉴',
+                                      itemBuilder: (_) => [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('수정'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'duplicate',
+                                          child: Text('복제'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'template',
+                                          enabled:
+                                              templates.hasValue &&
+                                              !templates.isLoading,
+                                          child: const Text('자주 쓰는 슬라이드로 저장'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text('삭제'),
+                                        ),
+                                      ],
+                                      onSelected: (action) async {
+                                        if (action == 'edit') {
+                                          await edit();
+                                          return;
+                                        }
+                                        if (action == 'template') {
+                                          await saveTemplate(module);
+                                          return;
+                                        }
+                                        final modules = [
+                                          ...draft.value.modules,
+                                        ];
+                                        if (action == 'duplicate') {
+                                          modules.insert(
+                                            index + 1,
+                                            module.copyWith(
+                                              id: newId(),
+                                              name: nextSlideName(modules),
+                                            ),
+                                          );
+                                        } else {
+                                          final confirmed = await showDialog<bool>(
+                                            context: context,
+                                            builder: (dialogContext) => AlertDialog(
+                                              title: const Text('슬라이드를 삭제할까요?'),
+                                              content: Text(
+                                                '“${module.name}” 슬라이드를 목록에서 제거합니다.',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                        dialogContext,
+                                                        false,
+                                                      ),
+                                                  child: const Text('취소'),
+                                                ),
+                                                FilledButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                        dialogContext,
+                                                        true,
+                                                      ),
+                                                  child: const Text('삭제'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirmed != true ||
+                                              !context.mounted) {
+                                            return;
+                                          }
+                                          modules.removeAt(index);
+                                        }
+                                        draft.value = draft.value.copyWith(
+                                          modules: modules,
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        child: const Text('휴식 60초'),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 50,
-                    child: FilledButton.icon(
-                      onPressed: isBusy ? null : saveAndClose,
-                      icon: isBusy
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(isBusy ? '처리 중...' : '저장'),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -434,12 +806,8 @@ class _EditorBody extends HookConsumerWidget {
 }
 
 class _TextField extends StatelessWidget {
-  const _TextField({
-    required this.label,
-    required this.controller,
-    this.hint = '',
-  });
-  final String label, hint;
+  const _TextField({required this.label, required this.controller});
+  final String label;
   final TextEditingController controller;
   @override
   Widget build(BuildContext context) => Padding(
@@ -456,10 +824,7 @@ class _TextField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(hintText: hint),
-        ),
+        TextField(controller: controller),
       ],
     ),
   );
@@ -471,12 +836,14 @@ class _WorkoutSettingsCard extends StatelessWidget {
     required this.brandR,
     required this.workout,
     required this.onChanged,
+    this.initiallyExpanded = false,
   });
 
   final TextEditingController brandL;
   final TextEditingController brandR;
   final Workout workout;
   final ValueChanged<Workout> onChanged;
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -489,6 +856,7 @@ class _WorkoutSettingsCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         key: const ValueKey('workout-display-sound-settings'),
+        initiallyExpanded: initiallyExpanded,
         leading: const Icon(Icons.tune_rounded),
         title: const Text('화면·사운드 설정'),
         subtitle: Text(

@@ -7,7 +7,11 @@ class FolderSelector extends HookWidget {
     required this.value,
     required this.folders,
     required this.onChanged,
+    this.compact = false,
+    this.enabled = true,
   });
+  final bool compact;
+  final bool enabled;
   final String value;
   final Set<String> folders;
   final ValueChanged<String> onChanged;
@@ -21,35 +25,52 @@ class FolderSelector extends HookWidget {
       if (value.isNotEmpty) value,
     }.where((f) => f.isNotEmpty).toList()..sort();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: compact ? 0 : 16),
       child: DropdownButtonFormField<int>(
         key: ValueKey((value, revision.value)),
         initialValue: value.isEmpty ? -1 : options.indexOf(value),
         isExpanded: true,
-        decoration: const InputDecoration(labelText: '폴더'),
+        decoration: compact
+            ? const InputDecoration(
+                labelText: '폴더',
+                filled: true,
+                fillColor: Color(0xFFF5F5F9),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                ),
+              )
+            : const InputDecoration(labelText: '폴더'),
         items: [
           const DropdownMenuItem(value: -1, child: Text('폴더 없음')),
           for (var i = 0; i < options.length; i++)
             DropdownMenuItem(value: i, child: Text(options[i])),
           const DropdownMenuItem(value: -2, child: Text('+ 새 폴더 추가')),
         ],
-        onChanged: (index) async {
-          if (index == null) return;
-          if (index != -2) {
-            onChanged(index == -1 ? '' : options[index]);
-            return;
-          }
-          final name = await showDialog<String>(
-            context: context,
-            builder: (_) => _NewFolder(existing: options),
-          );
-          if (!context.mounted) return;
-          revision.value++;
-          if (name != null && context.mounted) {
-            created.value = {...created.value, name};
-            onChanged(name);
-          }
-        },
+        onChanged: !enabled
+            ? null
+            : (index) async {
+                if (index == null) return;
+                if (index != -2) {
+                  onChanged(index == -1 ? '' : options[index]);
+                  return;
+                }
+                final name = await showDialog<String>(
+                  context: context,
+                  builder: (_) => _NewFolder(existing: options),
+                );
+                if (!context.mounted) return;
+                revision.value++;
+                if (name != null && context.mounted) {
+                  created.value = {...created.value, name};
+                  onChanged(name);
+                }
+              },
       ),
     );
   }

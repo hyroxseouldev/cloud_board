@@ -11,6 +11,10 @@ class SlideEditorActions {
   Future<void> saveDraft(String key, WorkoutModule module) =>
       repository.saveDraft(key, module);
   Future<void> clearDraft(String key) => repository.clearDraft(key);
+  Future<List<WorkoutModule>> loadTemplates(String scope) =>
+      repository.loadTemplates(scope);
+  Future<void> saveTemplates(String scope, List<WorkoutModule> templates) =>
+      repository.saveTemplates(scope, templates);
   Future<List<WorkoutModule>> loadStyles(String scope) =>
       repository.loadStyles(scope);
   Future<void> saveStyles(String scope, List<WorkoutModule> styles) =>

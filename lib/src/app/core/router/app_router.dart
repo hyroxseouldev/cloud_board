@@ -12,6 +12,8 @@ import 'package:cloud_board/src/app/feature/operations/presentation/views/store_
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_player_screen.dart';
 
+import 'package:cloud_board/src/app/feature/device/presentation/views/display_settings_screen.dart';
+
 part 'app_router.g.dart';
 
 @Riverpod(keepAlive: true)
@@ -56,6 +58,10 @@ GoRouter appRouter(Ref ref) {
             onExit: (_, _) => slideGuard.confirm(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/displays',
+        builder: (_, _) => const DisplaySettingsScreen(),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const UserProfileScreen()),
       GoRoute(

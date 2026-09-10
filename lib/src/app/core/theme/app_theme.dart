@@ -10,7 +10,7 @@ abstract final class XonColors {
 
 abstract final class XonTheme {
   static ThemeData get light {
-    final base = ThemeData.light();
+    final base = ThemeData(fontFamily: 'Pretendard');
     return base.copyWith(
       colorScheme: ColorScheme.fromSeed(
         seedColor: XonColors.cobalt,
@@ -24,7 +24,6 @@ abstract final class XonTheme {
         surfaceTintColor: Colors.white,
       ),
       textTheme: base.textTheme.apply(
-        fontFamily: 'Pretendard',
         bodyColor: XonColors.black,
         displayColor: XonColors.black,
       ),

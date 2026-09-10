@@ -64,73 +64,120 @@ class UserProfileScreen extends HookConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('내 프로필'),
         leading: IconButton(
           tooltip: '뒤로',
-          onPressed: () => context.pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
         ),
       ),
-      body: AsyncValueWidget<UserProfile>(
-        value: profileState,
-        data: (data) => SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '프로필 설정',
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 28),
+                AsyncValueWidget<UserProfile>(
+                  value: profileState,
+                  data: (data) => Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Center(
-                        child: Stack(
-                          clipBehavior: Clip.none,
+                      _ProfileSection(
+                        child: Row(
                           children: [
                             _ProfileAvatar(
                               displayName: data.displayName,
                               photoUrl: data.photoUrl,
                               bytes: avatarBytes.value,
                             ),
-                            Positioned(
-                              right: -4,
-                              bottom: -4,
-                              child: IconButton.filled(
-                                tooltip: '프로필 사진 변경',
-                                onPressed: profileState.isLoading
-                                    ? null
-                                    : selectAvatar,
-                                icon: const Icon(Icons.photo_camera_rounded),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    data.displayName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    data.email,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF777777),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: '프로필 사진 변경',
+                              onPressed: profileState.isLoading
+                                  ? null
+                                  : selectAvatar,
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _ProfileSection(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              '계정 정보',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            TextField(
+                              controller: nameController,
+                              enabled: !profileState.isLoading,
+                              textInputAction: TextInputAction.done,
+                              decoration: const InputDecoration(
+                                labelText: '이름',
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              initialValue: data.email,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: '이메일',
+                                helperText: 'Google 계정 이메일은 여기서 변경할 수 없습니다.',
+                                helperMaxLines: 2,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 12),
                       _PartnerCard(profile: data),
                       const SizedBox(height: 24),
-                      TextField(
-                        controller: nameController,
-                        enabled: !profileState.isLoading,
-                        textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          labelText: '이름',
-                          prefixIcon: Icon(Icons.person_outline_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        initialValue: data.email,
-                        enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: '이메일',
-                          prefixIcon: Icon(Icons.email_outlined),
-                          helperText: 'Google 계정 이메일은 여기서 변경할 수 없습니다.',
-                        ),
-                      ),
-                      const SizedBox(height: 28),
                       FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
                         onPressed: profileState.isLoading
                             ? null
                             : () async {
@@ -144,7 +191,7 @@ class UserProfileScreen extends HookConsumerWidget {
                                       avatarBytes: avatarBytes.value,
                                       avatarExtension: avatarExtension.value,
                                     );
-                                if (success) {
+                                if (success && context.mounted) {
                                   avatarBytes.value = null;
                                   avatarExtension.value = null;
                                 }
@@ -165,7 +212,7 @@ class UserProfileScreen extends HookConsumerWidget {
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -174,88 +221,71 @@ class UserProfileScreen extends HookConsumerWidget {
   }
 }
 
+class _ProfileSection extends StatelessWidget {
+  const _ProfileSection({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: const Color(0xFFF5F5F9),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Padding(padding: const EdgeInsets.all(20), child: child),
+  );
+}
+
 class _PartnerCard extends StatelessWidget {
   const _PartnerCard({required this.profile});
-
   final UserProfile profile;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final endLabel = profile.pilotEndsAt == null
         ? '파일럿 기간 협의 중'
         : '${profile.pilotEndsAt!.year}.${profile.pilotEndsAt!.month.toString().padLeft(2, '0')}.${profile.pilotEndsAt!.day.toString().padLeft(2, '0')}까지';
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [colors.primary, colors.primaryContainer],
-        ),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.workspace_premium_rounded,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  profile.partnerTier.label.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'CloudBoard 초기 제품 개발에 참여하는 공식 파트너입니다.',
-              style: TextStyle(color: Colors.white, height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _PartnerChip(label: profile.subscriptionStatus.label),
-                _PartnerChip(label: '디스플레이 ${profile.displayLimit}대'),
-                _PartnerChip(label: endLabel),
-              ],
-            ),
-          ],
-        ),
+    return _ProfileSection(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            '이용 정보',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+          const SizedBox(height: 20),
+          _ProfileInfo(label: '등급', value: profile.partnerTier.label),
+          _ProfileInfo(label: '이용 상태', value: profile.subscriptionStatus.label),
+          _ProfileInfo(label: '연결 가능', value: '디스플레이 ${profile.displayLimit}대'),
+          _ProfileInfo(label: '이용 기간', value: endLabel),
+        ],
       ),
     );
   }
 }
 
-class _PartnerChip extends StatelessWidget {
-  const _PartnerChip({required this.label});
-
+class _ProfileInfo extends StatelessWidget {
+  const _ProfileInfo({required this.label, required this.value});
   final String label;
+  final String value;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .18),
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(label, style: const TextStyle(color: Color(0xFF777777))),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -279,14 +309,14 @@ class _ProfileAvatar extends StatelessWidget {
         ? NetworkImage(photoUrl!)
         : null;
     return CircleAvatar(
-      radius: 58,
+      radius: 32,
       foregroundImage: image,
       child: image == null
           ? Text(
               displayName.isEmpty
                   ? '?'
                   : displayName.characters.first.toUpperCase(),
-              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
             )
           : null,
     );

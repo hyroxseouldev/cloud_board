@@ -18,6 +18,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/display_settings_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/views/standby_settings_screen.dart';
@@ -464,48 +465,90 @@ void main() {
     expect(nextSlideName([]), '새 운동 1');
     expect(nextSlideName([module, module.copyWith(name: '새 운동 2')]), '새 운동 3');
   });
-  testWidgets('home switches between list and responsive grid layouts', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authStateProvider.overrideWith(
-            (ref) => Stream.value(
-              const AuthUser(
-                id: 'u',
-                email: 'coach@example.com',
-                displayName: 'Coach',
-                photoUrl: null,
+  testWidgets(
+    'home grid keeps search and add available without layout controls',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const WorkoutListScreen()),
+          GoRoute(
+            path: '/displays',
+            builder: (_, _) => const DisplaySettingsScreen(),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authStateProvider.overrideWith(
+              (ref) => Stream.value(
+                const AuthUser(
+                  id: 'u',
+                  email: 'coach@example.com',
+                  displayName: 'Coach',
+                  photoUrl: null,
+                ),
               ),
             ),
-          ),
-          workoutControllerProvider.overrideWith(_TestWorkouts.new),
-          displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
-          deviceModeControllerProvider.overrideWith(_TestDeviceMode.new),
-        ],
-        child: const MaterialApp(home: WorkoutListScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
-    expect(find.byKey(const ValueKey('workout-grid')), findsNothing);
+            workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            displayDevicesProvider.overrideWith(
+              (ref) => Stream.value(const []),
+            ),
+            deviceModeControllerProvider.overrideWith(_TestDeviceMode.new),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
+      expect(find.byKey(const ValueKey('workout-list')), findsNothing);
+      expect(
+        find.widgetWithIcon(FloatingActionButton, Icons.add_rounded),
+        findsOneWidget,
+      );
+      expect(find.text('수업'), findsOneWidget);
+      expect(find.text('워크아웃 추가'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('그리드 보기'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workout-list')), findsNothing);
-    expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
-    expect(find.text('수업'), findsOneWidget);
+      expect(find.byTooltip('리스트 보기'), findsNothing);
+      expect(find.byTooltip('그리드 보기'), findsNothing);
 
-    await tester.tap(find.byTooltip('리스트 보기'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.byTooltip('설정'), findsOneWidget);
+      expect(find.byTooltip('디스플레이 설정'), findsNothing);
+      expect(find.byTooltip('기기 모드'), findsNothing);
+      await tester.tap(find.byTooltip('설정'));
+      await tester.pumpAndSettle();
+      for (final label in ['디스플레이 설정', '매장 운영', '프로필 조회 및 변경', '로그아웃']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(find.text('기기 모드'), findsNothing);
+      await tester.tap(find.text('디스플레이 설정'));
+      await tester.pumpAndSettle();
+      expect(find.text('등록된 디스플레이'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.tap(find.text('추가'));
+      await tester.pumpAndSettle();
+      expect(find.text('디스플레이 추가'), findsOneWidget);
+      expect(find.widgetWithText(TextField, '디스플레이의 6자리 코드'), findsOneWidget);
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), '없는 수업');
+      await tester.pumpAndSettle();
+      expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
+      expect(
+        find.widgetWithIcon(FloatingActionButton, Icons.add_rounded),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
   test(
     'standby timings loop, skip broken images and preserve legacy defaults',
     () {
@@ -880,8 +923,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         if (id == 'new') {
-          await scrollTo(tester, find.text('슬라이드 추가'));
-          await tester.tap(find.text('슬라이드 추가'));
+          await tester.tap(find.byTooltip('슬라이드 추가'));
           await tester.pumpAndSettle();
         }
         await scrollTo(tester, find.text('새 운동 1'));
@@ -1038,7 +1080,13 @@ Future<void> scrollTo(WidgetTester tester, Finder finder) async {
     250,
     scrollable: find
         .descendant(
-          of: find.byType(ListView).first,
+          of:
+              find
+                  .byKey(const ValueKey('workout-slide-list'))
+                  .evaluate()
+                  .isNotEmpty
+              ? find.byKey(const ValueKey('workout-slide-list'))
+              : find.byType(ListView).first,
           matching: find.byType(Scrollable),
         )
         .first,
