@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_session_local_data_source.dart';
@@ -26,6 +26,12 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 
   @override
   Stream<PlaybackSession?> watchActive() async* {
+    // Owner resolution is asynchronous at startup. Do not erase an offline
+    // checkpoint while authentication / display pairing is still resolving.
+    if (_ownerId == null) {
+      yield null;
+      return;
+    }
     var cached = await _local.load();
     if (cached?.ownerId != _ownerId) {
       cached = null;
@@ -39,7 +45,13 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
         continue;
       }
       cached = remote;
-      await _local.save(remote);
+      // Persistence is ordered by the shared data source, but does not delay
+      // delivery of a remote pause/seek to the display.
+      unawaited(
+        _local.save(remote).catchError((Object error, StackTrace stack) {
+          debugPrint('Playback checkpoint failed: $error\n$stack');
+        }),
+      );
       yield remote.toEntity();
     }
   }
@@ -170,7 +182,7 @@ PlaybackRepository playbackRepository(Ref ref) {
   );
   return PlaybackRepositoryImpl(
     PlaybackRealtimeDataSource(database, ownerId),
-    PlaybackSessionLocalDataSource(SharedPreferencesAsync()),
+    ref.watch(playbackSessionLocalDataSourceProvider),
     ownerId,
   );
 }

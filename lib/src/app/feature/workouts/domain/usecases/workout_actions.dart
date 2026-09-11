@@ -10,6 +10,7 @@ class LoadWorkouts {
   const LoadWorkouts(this._repository);
   final WorkoutRepository _repository;
   Future<List<Workout>> call() => _repository.load();
+  Stream<List<Workout>> watch() => _repository.watch();
 }
 
 class SaveWorkout {

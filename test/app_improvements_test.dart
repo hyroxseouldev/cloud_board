@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
@@ -77,7 +79,9 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+      ProviderScope(
+        child: MaterialApp.router(theme: XonTheme.light, routerConfig: router),
+      ),
     );
     await tester.pumpAndSettle();
     router.push('/edit');
@@ -116,6 +120,7 @@ void main() {
       ]) {
         await tester.pumpWidget(
           MaterialApp(
+            theme: XonTheme.light,
             home: StandbySlideshow(
               brand: BrandTemplate.initial().copyWith(
                 promotionImageUrls: sources,
@@ -168,6 +173,7 @@ void main() {
     int? changed;
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: Scaffold(
           body: SlideDurationField(
             controller: controller,
@@ -217,6 +223,7 @@ void main() {
     var changes = 0;
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: Scaffold(
           body: Padding(
             padding: const EdgeInsets.all(24),
@@ -247,7 +254,7 @@ void main() {
         )
         .onSelectedItemChanged!(6);
     await tester.pump();
-    expect(find.text('7세트'), findsOneWidget);
+    expect(find.text('7세트 · 01:30 / 휴식 00:45'), findsOneWidget);
     await tester.tap(find.text('완료'));
     await tester.pumpAndSettle();
     expect(sets.text, '7');
@@ -270,6 +277,7 @@ void main() {
     Future<void> show(WorkoutModule value, {bool rest = false}) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: XonTheme.light,
           home: Scaffold(
             body: Center(
               child: SizedBox(
@@ -501,7 +509,10 @@ void main() {
             ),
             deviceModeControllerProvider.overrideWith(_TestDeviceMode.new),
           ],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -598,6 +609,7 @@ void main() {
     testWidgets('standby uses persisted $fit image fit', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: XonTheme.light,
           home: StandbySlideshow(
             brand: BrandTemplate.initial().copyWith(
               promotionImageUrls: [pixel],
@@ -628,6 +640,7 @@ void main() {
       Future<void> show(int minute) async {
         await tester.pumpWidget(
           MaterialApp(
+            theme: XonTheme.light,
             home: SizedBox(
               width: 400,
               height: 300,
@@ -670,6 +683,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         MaterialApp(
+          theme: XonTheme.light,
           home: StoreWelcomeBoard(
             brand: BrandTemplate.initial(),
             now: DateTime(2026),
@@ -687,6 +701,7 @@ void main() {
     final key = GlobalKey<FormState>();
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: Scaffold(
           body: Form(
             key: key,
@@ -752,23 +767,30 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+      ProviderScope(
+        child: MaterialApp.router(theme: XonTheme.light, routerConfig: router),
+      ),
     );
     await tester.pumpAndSettle();
     final title = find.widgetWithText(TextFormField, '슬라이드 제목');
     await tester.enterText(title, '수정 제목');
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
+    await tester.pumpAndSettle();
     final addBlock = find.byKey(const ValueKey('add-interval-block'));
     await scrollTo(tester, addBlock);
     await tester.tap(addBlock);
     await tester.pumpAndSettle();
     expect(find.text('블록 2'), findsOneWidget);
     expect(saved, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
+    await tester.pumpAndSettle();
     router.go('/');
     await tester.pumpAndSettle();
     expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
     await tester.tap(find.text('계속 편집'));
     await tester.pumpAndSettle();
+    expect(title.hitTestable(), findsOneWidget);
     expect(
       tester
           .widget<TextFormField>(find.widgetWithText(TextFormField, '슬라이드 제목'))
@@ -827,6 +849,7 @@ void main() {
     var value = '기존';
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: StatefulBuilder(
           builder: (context, setState) => Scaffold(
             body: FolderSelector(
@@ -918,7 +941,10 @@ void main() {
                 () => _SaveWorkouts(saved),
               ),
             ],
-            child: MaterialApp.router(routerConfig: router),
+            child: MaterialApp.router(
+              theme: XonTheme.light,
+              routerConfig: router,
+            ),
           ),
         );
         await tester.pumpAndSettle();
@@ -1031,7 +1057,10 @@ void main() {
               () => _SaveBrand(saved),
             ),
           ],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -1097,7 +1126,9 @@ Future<void> scrollTo(WidgetTester tester, Finder finder) async {
 
 class _TestWorkouts extends WorkoutController {
   @override
-  Future<List<Workout>> build() async => [workout];
+  Stream<List<Workout>> build() async* {
+    yield [workout];
+  }
 }
 
 class _TestDeviceMode extends DeviceModeController {

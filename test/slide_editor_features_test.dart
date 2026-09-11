@@ -195,7 +195,7 @@ void main() {
     const Size(1194, 834),
   ]) {
     testWidgets(
-      'editor pinned preview and save fit $size and title visibility can undo',
+      'editor full-width preview and save fit $size and title visibility can undo',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = size;
@@ -219,10 +219,23 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(WorkoutSlidePreview), findsOneWidget);
         expect(
+          tester.getSize(find.byType(WorkoutSlidePreview)).width,
+          closeTo(size.width - 80, 1),
+        );
+        expect(find.byTooltip('전체 화면 · 시험 재생'), findsOneWidget);
+        expect(find.text('시험 재생'), findsNothing);
+        expect(find.text('슬라이드 설정'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('slide-preview-toggle')));
+        await tester.pumpAndSettle();
+        expect(find.byType(WorkoutSlidePreview), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('slide-preview-toggle')));
+        await tester.pumpAndSettle();
+        expect(find.byType(WorkoutSlidePreview), findsOneWidget);
+        expect(
           find.widgetWithText(FilledButton, '저장').hitTestable(),
           findsOneWidget,
         );
-        await tester.ensureVisible(find.text('화면'));
+        await scrollSettingsTo(tester, find.text('화면'));
         await tester.tap(find.text('화면'));
         await tester.pumpAndSettle();
         final title = find.widgetWithText(SwitchListTile, '화면 제목 표시');
@@ -240,6 +253,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(title);
         await tester.pumpAndSettle();
+        await scrollSettingsToTop(tester);
         expect(
           tester
               .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
@@ -348,7 +362,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('화면'));
+      await scrollSettingsTo(tester, find.text('화면'));
       await tester.tap(find.text('화면'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('스타일 저장'));
@@ -367,6 +381,7 @@ void main() {
       expect(find.text('테스트 스타일'), findsOneWidget);
       await tester.tap(find.text('초록 링 · 검정 숫자'));
       await tester.pumpAndSettle();
+      await scrollSettingsToTop(tester);
       final applied = tester
           .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
           .module;
@@ -436,4 +451,26 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+Future<void> scrollSettingsTo(WidgetTester tester, Finder target) async {
+  await tester.scrollUntilVisible(
+    target,
+    250,
+    scrollable: find
+        .descendant(
+          of: find.byKey(const ValueKey('slide-editor-settings')),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> scrollSettingsToTop(WidgetTester tester) async {
+  tester
+      .widget<ListView>(find.byKey(const ValueKey('slide-editor-settings')))
+      .controller!
+      .jumpTo(0);
+  await tester.pumpAndSettle();
 }

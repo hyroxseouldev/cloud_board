@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
@@ -20,8 +21,10 @@ class WorkoutSlideCanvas extends StatelessWidget {
     required this.brandR,
     required this.scale,
     this.showLoadingIndicator = false,
+    this.timer,
   });
 
+  final Widget? timer;
   final WorkoutModule module;
   final bool isRest;
   final int secondsLeft;
@@ -41,10 +44,12 @@ class WorkoutSlideCanvas extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (module.imageSource.isNotEmpty)
-          WorkoutImage(
-            source: module.imageSource,
-            fit: module.coverImage ? BoxFit.cover : BoxFit.contain,
-            showLoadingIndicator: showLoadingIndicator,
+          RepaintBoundary(
+            child: WorkoutImage(
+              source: module.imageSource,
+              fit: module.coverImage ? BoxFit.cover : BoxFit.contain,
+              showLoadingIndicator: showLoadingIndicator,
+            ),
           )
         else
           const ColoredBox(color: Colors.black),
@@ -174,26 +179,18 @@ class WorkoutSlideCanvas extends StatelessWidget {
                       116 * scale * module.appearance.timerSize,
                 ) -
                 116 * scale * module.appearance.timerSize,
-            child: _CircularTimer(
-              showGauge: module.showTimerGauge,
-              secondsLeft: secondsLeft,
-              remainingMs: remainingMs,
-              durationMs: durationMs,
-              isPaused: isPaused,
-              gaugeColor: slideColor(
-                module,
-                rest: isRest,
-                text: false,
-                secondsLeft: secondsLeft,
-              ),
-              textColor: slideColor(
-                module,
-                rest: isRest,
-                text: true,
-                secondsLeft: secondsLeft,
-              ),
-              scale: scale * module.appearance.timerSize,
-              ringWidth: module.appearance.ringWidth,
+            child: RepaintBoundary(
+              child:
+                  timer ??
+                  WorkoutSlideTimer(
+                    module: module,
+                    isRest: isRest,
+                    secondsLeft: secondsLeft,
+                    remainingMs: remainingMs,
+                    durationMs: durationMs,
+                    isPaused: isPaused,
+                    scale: scale,
+                  ),
             ),
           ),
       ],
@@ -201,7 +198,48 @@ class WorkoutSlideCanvas extends StatelessWidget {
   );
 }
 
-class _CircularTimer extends StatelessWidget {
+class WorkoutSlideTimer extends StatelessWidget {
+  const WorkoutSlideTimer({
+    super.key,
+    required this.module,
+    required this.isRest,
+    required this.secondsLeft,
+    required this.remainingMs,
+    required this.durationMs,
+    required this.isPaused,
+    required this.scale,
+  });
+  final WorkoutModule module;
+  final bool isRest;
+  final int secondsLeft, remainingMs, durationMs;
+  final bool isPaused;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => _CircularTimer(
+    showGauge: module.showTimerGauge,
+    secondsLeft: secondsLeft,
+    remainingMs: remainingMs,
+    durationMs: durationMs,
+    isPaused: isPaused,
+    gaugeColor: slideColor(
+      module,
+      rest: isRest,
+      text: false,
+      secondsLeft: secondsLeft,
+    ),
+    textColor: slideColor(
+      module,
+      rest: isRest,
+      text: true,
+      secondsLeft: secondsLeft,
+    ),
+    scale: scale * module.appearance.timerSize,
+    ringWidth: module.appearance.ringWidth,
+  );
+}
+
+class _CircularTimer extends HookWidget {
   const _CircularTimer({
     required this.showGauge,
     required this.secondsLeft,
@@ -226,6 +264,28 @@ class _CircularTimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final timeLabel = useMemoized(
+      () => Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: EdgeInsets.all(40 * scale),
+            child: Text(
+              durationLabel(secondsLeft),
+              key: const ValueKey('slide-time-text'),
+              style: TextStyle(
+                color: Color(textColor),
+                fontSize: 56 * scale,
+                fontWeight: FontWeight.w700,
+                height: 1,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ),
+      ),
+      [secondsLeft, textColor, scale],
+    );
     final progress = durationMs <= 0
         ? 0.0
         : (remainingMs / durationMs).clamp(0.0, 1.0);
@@ -257,25 +317,7 @@ class _CircularTimer extends StatelessWidget {
                       color: Color(gaugeColor),
                     ),
               ),
-            Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Padding(
-                  padding: EdgeInsets.all(40 * scale),
-                  child: Text(
-                    durationLabel(secondsLeft),
-                    key: const ValueKey('slide-time-text'),
-                    style: TextStyle(
-                      color: Color(textColor),
-                      fontSize: 56 * scale,
-                      fontWeight: FontWeight.w700,
-                      height: 1,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            timeLabel,
           ],
         ),
       ),

@@ -13,7 +13,7 @@ part of 'workout_controller.dart';
 final workoutControllerProvider = WorkoutControllerProvider._();
 
 final class WorkoutControllerProvider
-    extends $AsyncNotifierProvider<WorkoutController, List<Workout>> {
+    extends $StreamNotifierProvider<WorkoutController, List<Workout>> {
   WorkoutControllerProvider._()
     : super(
         from: null,
@@ -33,10 +33,10 @@ final class WorkoutControllerProvider
   WorkoutController create() => WorkoutController();
 }
 
-String _$workoutControllerHash() => r'1f285148860ebb850bd19d3b81c978da1849995f';
+String _$workoutControllerHash() => r'a12f680091f51dd79cf27d1fa1dc122399ae06be';
 
-abstract class _$WorkoutController extends $AsyncNotifier<List<Workout>> {
-  FutureOr<List<Workout>> build();
+abstract class _$WorkoutController extends $StreamNotifier<List<Workout>> {
+  Stream<List<Workout>> build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {

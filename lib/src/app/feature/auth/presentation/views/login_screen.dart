@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
-import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 
@@ -47,7 +47,7 @@ class LoginScreen extends HookConsumerWidget {
                       const Icon(
                         Icons.category_rounded,
                         size: 152,
-                        color: Color(0xFFF0F0F6),
+                        color: AppColors.selected,
                       ),
                       const SizedBox(height: 24),
                       Text(
@@ -77,10 +77,8 @@ class LoginScreen extends HookConsumerWidget {
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
-                          backgroundColor: const Color(0xFFF0F0F6),
-                          foregroundColor: XonColors.black,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                         autofocus: isTv,

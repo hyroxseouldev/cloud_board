@@ -87,7 +87,9 @@ class ScheduleRunnerController extends _$ScheduleRunnerController {
     final schedules = await ref.read(workoutSchedulesProvider.future);
     final due = schedules.where((item) => isScheduleDue(item, now)).toList();
     if (due.isEmpty) return;
-    final workouts = await ref.read(workoutControllerProvider.future);
+    final workouts = await ref
+        .read(workoutControllerProvider.notifier)
+        .loadComplete();
     final devices = await ref.read(displayDevicesProvider.future);
     for (final schedule in due) {
       final workout = workouts

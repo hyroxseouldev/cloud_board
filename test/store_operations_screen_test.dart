@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -31,7 +32,10 @@ void main() {
           displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
           workoutControllerProvider.overrideWith(_FakeWorkoutController.new),
         ],
-        child: const MaterialApp(home: StoreOperationsScreen()),
+        child: MaterialApp(
+          theme: XonTheme.light,
+          home: StoreOperationsScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -47,5 +51,7 @@ void main() {
 
 class _FakeWorkoutController extends WorkoutController {
   @override
-  Future<List<Workout>> build() async => const [];
+  Stream<List<Workout>> build() async* {
+    yield const [];
+  }
 }

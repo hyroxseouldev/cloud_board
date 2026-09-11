@@ -312,7 +312,7 @@ $WorkoutModuleCopyWith<$Res> get module {
 /// @nodoc
 mixin _$PlayerState {
 
- List<PlayerStep> get steps; int get index; int get remainingMs; bool get isPaused; bool get briefing; int get countdownMs;
+ List<PlayerStep> get steps; int get index; int get remainingMs; bool get isPaused; bool get briefing; int get countdownMs; int get timelineVersion;
 /// Create a copy of PlayerState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -324,20 +324,20 @@ $PlayerStateCopyWith<PlayerState> get copyWith => _$PlayerStateCopyWithImpl<Play
 @override
 bool operator ==(Object other) {
   final _this = this as PlayerState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerState&&const DeepCollectionEquality().equals(other.steps, _this.steps)&&(identical(other.index, _this.index) || other.index == _this.index)&&(identical(other.remainingMs, _this.remainingMs) || other.remainingMs == _this.remainingMs)&&(identical(other.isPaused, _this.isPaused) || other.isPaused == _this.isPaused)&&(identical(other.briefing, _this.briefing) || other.briefing == _this.briefing)&&(identical(other.countdownMs, _this.countdownMs) || other.countdownMs == _this.countdownMs));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerState&&const DeepCollectionEquality().equals(other.steps, _this.steps)&&(identical(other.index, _this.index) || other.index == _this.index)&&(identical(other.remainingMs, _this.remainingMs) || other.remainingMs == _this.remainingMs)&&(identical(other.isPaused, _this.isPaused) || other.isPaused == _this.isPaused)&&(identical(other.briefing, _this.briefing) || other.briefing == _this.briefing)&&(identical(other.countdownMs, _this.countdownMs) || other.countdownMs == _this.countdownMs)&&(identical(other.timelineVersion, _this.timelineVersion) || other.timelineVersion == _this.timelineVersion));
 }
 
 
 @override
 int get hashCode {
   final _this = this as PlayerState;
-  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.steps),_this.index,_this.remainingMs,_this.isPaused,_this.briefing,_this.countdownMs);
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.steps),_this.index,_this.remainingMs,_this.isPaused,_this.briefing,_this.countdownMs,_this.timelineVersion);
 }
 
 @override
 String toString() {
   final _this = this as PlayerState;
-  return 'PlayerState(steps: ${_this.steps}, index: ${_this.index}, remainingMs: ${_this.remainingMs}, isPaused: ${_this.isPaused}, briefing: ${_this.briefing}, countdownMs: ${_this.countdownMs})';
+  return 'PlayerState(steps: ${_this.steps}, index: ${_this.index}, remainingMs: ${_this.remainingMs}, isPaused: ${_this.isPaused}, briefing: ${_this.briefing}, countdownMs: ${_this.countdownMs}, timelineVersion: ${_this.timelineVersion})';
 }
 
 
@@ -348,7 +348,7 @@ abstract mixin class $PlayerStateCopyWith<$Res>  {
   factory $PlayerStateCopyWith(PlayerState value, $Res Function(PlayerState) _then) = _$PlayerStateCopyWithImpl;
 @useResult
 $Res call({
- List<PlayerStep> steps, int index, int remainingMs, bool isPaused, bool briefing, int countdownMs
+ List<PlayerStep> steps, int index, int remainingMs, bool isPaused, bool briefing, int countdownMs, int timelineVersion
 });
 
 
@@ -365,7 +365,7 @@ class _$PlayerStateCopyWithImpl<$Res>
 
 /// Create a copy of PlayerState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? steps = null,Object? index = null,Object? remainingMs = null,Object? isPaused = null,Object? briefing = null,Object? countdownMs = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? steps = null,Object? index = null,Object? remainingMs = null,Object? isPaused = null,Object? briefing = null,Object? countdownMs = null,Object? timelineVersion = null,}) {
   return _then(PlayerState(
 steps: null == steps ? _self.steps : steps // ignore: cast_nullable_to_non_nullable
 as List<PlayerStep>,index: null == index ? _self.index : index // ignore: cast_nullable_to_non_nullable
@@ -373,6 +373,7 @@ as int,remainingMs: null == remainingMs ? _self.remainingMs : remainingMs // ign
 as int,isPaused: null == isPaused ? _self.isPaused : isPaused // ignore: cast_nullable_to_non_nullable
 as bool,briefing: null == briefing ? _self.briefing : briefing // ignore: cast_nullable_to_non_nullable
 as bool,countdownMs: null == countdownMs ? _self.countdownMs : countdownMs // ignore: cast_nullable_to_non_nullable
+as int,timelineVersion: null == timelineVersion ? _self.timelineVersion : timelineVersion // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }
@@ -458,10 +459,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused,  bool briefing,  int countdownMs)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused,  bool briefing,  int countdownMs,  int timelineVersion)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlayerState() when $default != null:
-return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.briefing,_that.countdownMs);case _:
+return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.briefing,_that.countdownMs,_that.timelineVersion);case _:
   return orElse();
 
 }
@@ -479,10 +480,10 @@ return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.b
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused,  bool briefing,  int countdownMs)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused,  bool briefing,  int countdownMs,  int timelineVersion)  $default,) {final _that = this;
 switch (_that) {
 case _PlayerState():
-return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.briefing,_that.countdownMs);case _:
+return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.briefing,_that.countdownMs,_that.timelineVersion);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -499,10 +500,10 @@ return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.b
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused,  bool briefing,  int countdownMs)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PlayerStep> steps,  int index,  int remainingMs,  bool isPaused,  bool briefing,  int countdownMs,  int timelineVersion)?  $default,) {final _that = this;
 switch (_that) {
 case _PlayerState() when $default != null:
-return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.briefing,_that.countdownMs);case _:
+return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.briefing,_that.countdownMs,_that.timelineVersion);case _:
   return null;
 
 }
@@ -514,7 +515,7 @@ return $default(_that.steps,_that.index,_that.remainingMs,_that.isPaused,_that.b
 
 
 class _PlayerState implements PlayerState {
-  const _PlayerState({required  List<PlayerStep> steps, required this.index, required this.remainingMs, required this.isPaused, this.briefing = false, this.countdownMs = 0}): _steps = steps;
+  const _PlayerState({required  List<PlayerStep> steps, required this.index, required this.remainingMs, required this.isPaused, this.briefing = false, this.countdownMs = 0, this.timelineVersion = 0}): _steps = steps;
   
 
  final  List<PlayerStep> _steps;
@@ -529,6 +530,7 @@ class _PlayerState implements PlayerState {
 @override final  bool isPaused;
 @override@JsonKey() final  bool briefing;
 @override@JsonKey() final  int countdownMs;
+@override@JsonKey() final  int timelineVersion;
 
 /// Create a copy of PlayerState
 /// with the given fields replaced by the non-null parameter values.
@@ -540,18 +542,18 @@ _$PlayerStateCopyWith<_PlayerState> get copyWith => __$PlayerStateCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerState&&const DeepCollectionEquality().equals(other.steps, _steps)&&(identical(other.index, index) || other.index == index)&&(identical(other.remainingMs, remainingMs) || other.remainingMs == remainingMs)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused)&&(identical(other.briefing, briefing) || other.briefing == briefing)&&(identical(other.countdownMs, countdownMs) || other.countdownMs == countdownMs));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerState&&const DeepCollectionEquality().equals(other.steps, _steps)&&(identical(other.index, index) || other.index == index)&&(identical(other.remainingMs, remainingMs) || other.remainingMs == remainingMs)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused)&&(identical(other.briefing, briefing) || other.briefing == briefing)&&(identical(other.countdownMs, countdownMs) || other.countdownMs == countdownMs)&&(identical(other.timelineVersion, timelineVersion) || other.timelineVersion == timelineVersion));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_steps),index,remainingMs,isPaused,briefing,countdownMs);
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_steps),index,remainingMs,isPaused,briefing,countdownMs,timelineVersion);
 }
 
 @override
 String toString() {
-    return 'PlayerState(steps: $steps, index: $index, remainingMs: $remainingMs, isPaused: $isPaused, briefing: $briefing, countdownMs: $countdownMs)';
+    return 'PlayerState(steps: $steps, index: $index, remainingMs: $remainingMs, isPaused: $isPaused, briefing: $briefing, countdownMs: $countdownMs, timelineVersion: $timelineVersion)';
 }
 
 
@@ -562,7 +564,7 @@ abstract mixin class _$PlayerStateCopyWith<$Res> implements $PlayerStateCopyWith
   factory _$PlayerStateCopyWith(_PlayerState value, $Res Function(_PlayerState) _then) = __$PlayerStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<PlayerStep> steps, int index, int remainingMs, bool isPaused, bool briefing, int countdownMs
+ List<PlayerStep> steps, int index, int remainingMs, bool isPaused, bool briefing, int countdownMs, int timelineVersion
 });
 
 
@@ -579,7 +581,7 @@ class __$PlayerStateCopyWithImpl<$Res>
 
 /// Create a copy of PlayerState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? steps = null,Object? index = null,Object? remainingMs = null,Object? isPaused = null,Object? briefing = null,Object? countdownMs = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? steps = null,Object? index = null,Object? remainingMs = null,Object? isPaused = null,Object? briefing = null,Object? countdownMs = null,Object? timelineVersion = null,}) {
   return _then(_PlayerState(
 steps: null == steps ? _self._steps : steps // ignore: cast_nullable_to_non_nullable
 as List<PlayerStep>,index: null == index ? _self.index : index // ignore: cast_nullable_to_non_nullable
@@ -587,6 +589,7 @@ as int,remainingMs: null == remainingMs ? _self.remainingMs : remainingMs // ign
 as int,isPaused: null == isPaused ? _self.isPaused : isPaused // ignore: cast_nullable_to_non_nullable
 as bool,briefing: null == briefing ? _self.briefing : briefing // ignore: cast_nullable_to_non_nullable
 as bool,countdownMs: null == countdownMs ? _self.countdownMs : countdownMs // ignore: cast_nullable_to_non_nullable
+as int,timelineVersion: null == timelineVersion ? _self.timelineVersion : timelineVersion // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }

@@ -35,6 +35,7 @@ abstract class PlayerState with _$PlayerState {
     required bool isPaused,
     @Default(false) bool briefing,
     @Default(0) int countdownMs,
+    @Default(0) int timelineVersion,
   }) = _PlayerState;
 }
 
@@ -125,6 +126,9 @@ int synchronizedRemainingMs({
 @riverpod
 class PlayerController extends _$PlayerController {
   Timer? _ticker;
+  Workout? _stepsWorkout;
+  List<PlayerStep> _cachedSteps = const [];
+  int _timelineVersion = 0;
   DateTime? _endsAt;
   DateTime? _startsAt;
   bool _transitioning = false;
@@ -140,7 +144,11 @@ class PlayerController extends _$PlayerController {
     bool canControl = true,
   }) {
     _ticker?.cancel();
-    final steps = buildPlayerSteps(workout);
+    if (_stepsWorkout != workout) {
+      _stepsWorkout = workout;
+      _cachedSteps = buildPlayerSteps(workout);
+    }
+    final steps = _cachedSteps;
     final remote = sessionId == null
         ? null
         : ref.watch(activePlaybackSessionProvider).value;
@@ -168,7 +176,9 @@ class PlayerController extends _$PlayerController {
         countdownMs = position.countdownMs;
       }
     } else {
-      index = playerStepIndexForModule(workout, startModule);
+      index = steps
+          .indexWhere((step) => step.moduleIndex == startModule)
+          .clamp(0, max(0, steps.length - 1));
       remainingMs = steps.isEmpty ? 0 : steps[index].duration * 1000;
       isPaused = false;
     }
@@ -180,6 +190,7 @@ class PlayerController extends _$PlayerController {
       isPaused: isPaused,
       briefing: matchesSession && remote.briefing,
       countdownMs: countdownMs,
+      timelineVersion: ++_timelineVersion,
     );
     _setDeadline(initial);
     _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) => _tick());
@@ -402,6 +413,7 @@ class PlayerController extends _$PlayerController {
     }
     final safeIndex = max(0, index);
     final next = state.copyWith(
+      timelineVersion: ++_timelineVersion,
       index: safeIndex,
       remainingMs: remainingMs ?? state.steps[safeIndex].duration * 1000,
       isPaused: false,

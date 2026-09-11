@@ -18,6 +18,7 @@ import 'package:cloud_board/src/app/feature/device/presentation/controllers/devi
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_menu.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_player_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
@@ -106,6 +107,34 @@ class DisplayModeScreen extends HookConsumerWidget {
         remoteState == RemoteDisplayState.black.name ||
         (!isActive && isBlackScreenTime(brand, now.value));
     final allowPlayback = remoteState == RemoteDisplayState.auto.name;
+    useEffect(
+      () {
+        var cancelled = false;
+        if (isActive && session.briefing && allowPlayback) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (cancelled || !context.mounted) return;
+            unawaited(
+              precacheWorkoutImages(
+                context,
+                session.workout.modules.map((module) => module.imageSource),
+                isCancelled: () => cancelled,
+              ).catchError((Object error) {
+                debugPrint('Display image preparation failed: $error');
+                return 0;
+              }),
+            );
+          });
+        }
+        return () => cancelled = true;
+      },
+      [
+        session?.id,
+        session?.workout,
+        session?.briefing,
+        isActive,
+        allowPlayback,
+      ],
+    );
 
     useEffect(() {
       if (!isActive || deviceId == null) return null;
@@ -122,6 +151,21 @@ class DisplayModeScreen extends HookConsumerWidget {
       return null;
     }, [deviceId, session?.id, session?.revision, isActive]);
 
+    // The standby clock continues to enforce scheduled black-screen periods,
+    // but must not rebuild a playing slide each second.
+    final player = useMemoized(
+      () => session == null
+          ? const SizedBox.shrink()
+          : WorkoutPlayerScreen(
+              key: ValueKey(session.id),
+              workoutId: session.workout.id,
+              startModule: 0,
+              sessionId: session.id,
+              displayMode: true,
+              onStandby: () => finishedSessionId.value = session.id,
+            ),
+      [session?.id],
+    );
     return PopScope(
       canPop: !isTv,
       child: FocusTraversalGroup(
@@ -134,14 +178,7 @@ class DisplayModeScreen extends HookConsumerWidget {
             else if ((isActive || showCompletion) &&
                 allowPlayback &&
                 session.briefing != true)
-              WorkoutPlayerScreen(
-                key: ValueKey(session.id),
-                workoutId: session.workout.id,
-                startModule: 0,
-                sessionId: session.id,
-                displayMode: true,
-                onStandby: () => finishedSessionId.value = session.id,
-              )
+              player
             else
               _DisplayStandby(
                 isLoading: active.isLoading,

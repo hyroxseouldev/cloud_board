@@ -136,19 +136,23 @@ void main() {
 
 class _TestWorkouts extends WorkoutController {
   @override
-  Future<List<Workout>> build() async => [_workout];
+  Stream<List<Workout>> build() async* {
+    yield [_workout];
+  }
 }
 
 class _LongWorkouts extends WorkoutController {
   @override
-  Future<List<Workout>> build() async => [
-    _workout.copyWith(
-      modules: List.generate(
-        12,
-        (i) =>
-            WorkoutModule.empty('module-$i')
-                .copyWith(name: '슬라이드 ${i + 1}', workSeconds: 60, sets: 1),
+  Stream<List<Workout>> build() async* {
+    yield [
+      _workout.copyWith(
+        modules: List.generate(
+          12,
+          (i) =>
+              WorkoutModule.empty('module-$i')
+                  .copyWith(name: '슬라이드 ${i + 1}', workSeconds: 60, sets: 1),
+        ),
       ),
-    ),
-  ];
+    ];
+  }
 }

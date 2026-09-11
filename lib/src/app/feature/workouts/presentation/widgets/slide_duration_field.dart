@@ -101,22 +101,19 @@ class SlideTimingBlocks extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: field.errorText == null
-                ? colors.outlineVariant
-                : colors.error,
-            width: 1.5,
+            color: field.errorText == null ? Colors.transparent : colors.error,
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () async {
             onEditing?.call();
-            final selection = await showModalBottomSheet<_TimingSelection>(
+            final selection = await showModalBottomSheet<SlideTimingSelection>(
               context: context,
               useSafeArea: true,
               isScrollControlled: true,
               constraints: const BoxConstraints(maxWidth: 520),
-              builder: (_) => _TimingPickerSheet(
+              builder: (_) => SlideTimingEditor(
                 initialWorkSeconds: parseSlideTime(workController.text) ?? 1,
                 initialRestSeconds: parseSlideTime(restController.text) ?? 0,
                 initialSets: (int.tryParse(setsController.text) ?? 1).clamp(
@@ -160,20 +157,27 @@ class SlideTimingBlocks extends StatelessWidget {
       '${setsController.text}세트 · ${workController.text} / 휴식 ${restController.text}';
 }
 
-typedef _TimingSelection = ({int workSeconds, int restSeconds, int sets});
+typedef SlideTimingSelection = ({int workSeconds, int restSeconds, int sets});
 
-enum _TimingPart { work, rest, sets }
+enum _TimingPart { work, rest }
 
-class _TimingPickerSheet extends HookWidget {
-  const _TimingPickerSheet({
+class SlideTimingEditor extends HookWidget {
+  const SlideTimingEditor({
+    super.key,
     required this.initialWorkSeconds,
     required this.initialRestSeconds,
     required this.initialSets,
+    this.embedded = false,
+    this.onApply,
+    this.onCancel,
   });
 
   final int initialWorkSeconds;
   final int initialRestSeconds;
   final int initialSets;
+  final bool embedded;
+  final ValueChanged<SlideTimingSelection>? onApply;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -221,7 +225,9 @@ class _TimingPickerSheet extends HookWidget {
     final valid = workTotal > 0;
 
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: embedded
+          ? Colors.transparent
+          : Theme.of(context).colorScheme.surface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -229,29 +235,31 @@ class _TimingPickerSheet extends HookWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(99),
+            if (!embedded)
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(99),
+                ),
               ),
-            ),
             const SizedBox(height: 14),
             Row(
               children: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: onCancel ?? () => Navigator.pop(context),
                   child: const Text('취소'),
                 ),
                 Expanded(
                   child: Column(
                     children: [
-                      Text(
-                        '시간 및 세트 설정',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
+                      if (!embedded)
+                        Text(
+                          '시간 및 세트 설정',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
                       Text(
                         '${sets.value}세트 · ${formatSlideTime(workTotal)} / 휴식 ${formatSlideTime(restTotal)}',
                         key: const ValueKey('selected-timing-summary'),
@@ -262,58 +270,119 @@ class _TimingPickerSheet extends HookWidget {
                 ),
                 TextButton(
                   onPressed: valid
-                      ? () => Navigator.pop(context, (
-                          workSeconds: workTotal,
-                          restSeconds: restTotal,
-                          sets: sets.value,
-                        ))
+                      ? () {
+                          final selection = (
+                            workSeconds: workTotal,
+                            restSeconds: restTotal,
+                            sets: sets.value,
+                          );
+                          if (onApply != null) {
+                            onApply!(selection);
+                          } else {
+                            Navigator.pop(context, selection);
+                          }
+                        }
                       : null,
                   child: const Text('완료'),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            SegmentedButton<_TimingPart>(
-              segments: const [
-                ButtonSegment(value: _TimingPart.work, label: Text('운동')),
-                ButtonSegment(value: _TimingPart.rest, label: Text('휴식')),
-                ButtonSegment(value: _TimingPart.sets, label: Text('세트')),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: SegmentedButton<_TimingPart>(
+                    segments: const [
+                      ButtonSegment(value: _TimingPart.work, label: Text('운동')),
+                      ButtonSegment(value: _TimingPart.rest, label: Text('휴식')),
+                    ],
+                    selected: {part.value},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (values) => part.value = values.first,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: Center(child: Text('세트'))),
               ],
-              selected: {part.value},
-              showSelectedIcon: false,
-              onSelectionChanged: (values) => part.value = values.first,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
             SizedBox(
-              height: 230,
-              child: switch (part.value) {
-                _TimingPart.work => _DurationWheels(
-                  key: const ValueKey('work-duration-wheels'),
-                  minuteController: workMinuteController,
-                  secondController: workSecondController,
-                  onMinutesChanged: (value) => workMinutes.value = value,
-                  onSecondsChanged: (value) => workSeconds.value = value,
-                ),
-                _TimingPart.rest => _DurationWheels(
-                  key: const ValueKey('rest-duration-wheels'),
-                  minuteController: restMinuteController,
-                  secondController: restSecondController,
-                  onMinutesChanged: (value) => restMinutes.value = value,
-                  onSecondsChanged: (value) => restSeconds.value = value,
-                ),
-                _TimingPart.sets => CupertinoPicker.builder(
-                  key: const ValueKey('combined-set-count-picker'),
-                  scrollController: setsController,
-                  itemExtent: 44,
-                  useMagnifier: true,
-                  magnification: 1.12,
-                  childCount: 999,
-                  onSelectedItemChanged: (value) => sets.value = value + 1,
-                  itemBuilder: (_, value) =>
-                      Center(child: Text('${value + 1}세트')),
-                ),
-              },
+              height: embedded && MediaQuery.sizeOf(context).width >= 700
+                  ? 184
+                  : 132,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.zero,
+                        child: part.value == _TimingPart.work
+                            ? _DurationWheels(
+                                key: const ValueKey('work-duration-wheels'),
+                                minuteController: workMinuteController,
+                                secondController: workSecondController,
+                                onMinutesChanged: (value) =>
+                                    workMinutes.value = value,
+                                onSecondsChanged: (value) =>
+                                    workSeconds.value = value,
+                              )
+                            : _DurationWheels(
+                                key: const ValueKey('rest-duration-wheels'),
+                                minuteController: restMinuteController,
+                                secondController: restSecondController,
+                                onMinutesChanged: (value) =>
+                                    restMinutes.value = value,
+                                onSecondsChanged: (value) =>
+                                    restSeconds.value = value,
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: CupertinoPicker.builder(
+                        key: const ValueKey('combined-set-count-picker'),
+                        scrollController: setsController,
+                        itemExtent: 42,
+                        diameterRatio: 2.5,
+                        selectionOverlay: const SizedBox.shrink(),
+                        childCount: 999,
+                        onSelectedItemChanged: (value) =>
+                            sets.value = value + 1,
+                        itemBuilder: (_, value) => Center(
+                          child: Text(
+                            '${value + 1}'.padLeft(2, '0'),
+                            style: TextStyle(
+                              fontSize: 27,
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: value + 1 == sets.value
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 16),
             if (!valid)
               Text(
                 '운동 시간은 00:01 이상이어야 합니다.',
@@ -341,46 +410,45 @@ class _DurationWheels extends StatelessWidget {
   final ValueChanged<int> onSecondsChanged;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Row(
     children: [
-      const Row(
-        children: [
-          Expanded(child: Center(child: Text('분'))),
-          Expanded(child: Center(child: Text('초'))),
-        ],
-      ),
-      Expanded(
-        child: Row(
-          children: [
-            Expanded(
-              child: CupertinoPicker.builder(
-                key: const ValueKey('combined-minutes-picker'),
-                scrollController: minuteController,
-                itemExtent: 44,
-                useMagnifier: true,
-                magnification: 1.12,
-                childCount: 1000,
-                onSelectedItemChanged: onMinutesChanged,
-                itemBuilder: (_, value) =>
-                    Center(child: Text(value.toString().padLeft(2, '0'))),
+      for (final minutes in [true, false]) ...[
+        if (!minutes)
+          Text(
+            ':',
+            style: TextStyle(
+              fontSize: 27,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        Expanded(
+          child: Semantics(
+            label: minutes ? '분' : '초',
+            child: CupertinoPicker.builder(
+              key: ValueKey(
+                minutes ? 'combined-minutes-picker' : 'combined-seconds-picker',
+              ),
+              scrollController: minutes ? minuteController : secondController,
+              itemExtent: 42,
+              diameterRatio: 2.5,
+              selectionOverlay: const SizedBox.shrink(),
+              childCount: minutes ? 1000 : 60,
+              onSelectedItemChanged: minutes
+                  ? onMinutesChanged
+                  : onSecondsChanged,
+              itemBuilder: (_, value) => Center(
+                child: Text(
+                  value.toString().padLeft(2, '0'),
+                  style: TextStyle(
+                    fontSize: 27,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ),
             ),
-            Expanded(
-              child: CupertinoPicker.builder(
-                key: const ValueKey('combined-seconds-picker'),
-                scrollController: secondController,
-                itemExtent: 44,
-                useMagnifier: true,
-                magnification: 1.12,
-                childCount: 60,
-                onSelectedItemChanged: onSecondsChanged,
-                itemBuilder: (_, value) =>
-                    Center(child: Text(value.toString().padLeft(2, '0'))),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     ],
   );
 }
@@ -659,7 +727,7 @@ class _DurationPickerSheet extends HookWidget {
             ),
             if (!valid)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: EdgeInsets.zero,
                 child: Text(
                   '운동 시간은 00:01 이상이어야 합니다.',
                   style: TextStyle(color: Theme.of(context).colorScheme.error),

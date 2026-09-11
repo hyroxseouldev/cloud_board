@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -42,6 +43,7 @@ class DisplaySettingsScreen extends ConsumerWidget {
             },
     );
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         leading: BackButton(
           onPressed: () => context.canPop() ? context.pop() : context.go('/'),
@@ -51,7 +53,7 @@ class DisplaySettingsScreen extends ConsumerWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
             children: [
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -88,11 +90,23 @@ class DisplaySettingsScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       '등록된 디스플레이',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
                     ),
                   ),
                   TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      padding: const EdgeInsets.only(left: 12),
+                      textStyle: const TextStyle(
+                        fontFamily: 'Pretendard',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     onPressed: busy
                         ? null
                         : () => showDialog<bool>(
@@ -104,8 +118,8 @@ class DisplaySettingsScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('추가'),
-                        SizedBox(width: 6),
-                        Icon(Icons.add_rounded),
+                        SizedBox(width: 8),
+                        Icon(Icons.add, size: 22),
                       ],
                     ),
                   ),
@@ -149,10 +163,31 @@ class DisplaySettingsScreen extends ConsumerWidget {
                         children: [
                           for (final device in items)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.only(bottom: 8),
                               child: _DisplayTile(
                                 device: device,
                                 busy: busy,
+                                onToggle: (enabled) async {
+                                  final success = await ref
+                                      .read(
+                                        deviceClaimControllerProvider.notifier,
+                                      )
+                                      .setDisplayState(
+                                        deviceId: device.id,
+                                        displayState: enabled
+                                            ? 'auto'
+                                            : 'black',
+                                      );
+                                  if (!success && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          '화면 표시를 변경하지 못했습니다. 다시 시도해 주세요.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
                                 onRemove: () async {
                                   await ref
                                       .read(
@@ -190,34 +225,89 @@ class _DisplayTile extends StatelessWidget {
     required this.device,
     required this.busy,
     required this.onRemove,
+    required this.onToggle,
   });
   final DisplayDevice device;
   final bool busy;
   final VoidCallback onRemove;
+  final ValueChanged<bool> onToggle;
 
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFFF5F5F9),
-    borderRadius: BorderRadius.circular(4),
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: Icon(
-        Icons.circle,
-        size: 12,
-        color: device.online ? Colors.green : Colors.grey,
-      ),
-      title: Text(device.name),
-      subtitle: Text(
-        '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}'
-        '${device.acknowledgedRevision > 0 ? ' · 명령 확인 #${device.acknowledgedRevision}' : ''}',
-      ),
-      trailing: PopupMenuButton<String>(
-        tooltip: '디스플레이 메뉴',
-        enabled: !busy,
-        onSelected: (_) => onRemove(),
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'remove', child: Text('연결 해제')),
-        ],
+    color: AppColors.surface,
+    borderRadius: BorderRadius.circular(8),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 66),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: Tooltip(
+                message: '화면 표시',
+                child: Semantics(
+                  label: '${device.name} 화면 표시',
+                  child: Transform.scale(
+                    scale: 0.85,
+                    child: Switch(
+                      value: device.displayState != 'black',
+                      onChanged: busy ? null : onToggle,
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    device.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}'
+                    '${device.acknowledgedRevision > 0 ? ' · 명령 확인 #${device.acknowledgedRevision}' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: '디스플레이 메뉴',
+              enabled: !busy,
+              icon: const Icon(
+                Icons.more_vert,
+                size: 16,
+                color: AppColors.muted,
+              ),
+              onSelected: (_) => onRemove(),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'remove', child: Text('연결 해제')),
+              ],
+            ),
+          ],
+        ),
       ),
     ),
   );

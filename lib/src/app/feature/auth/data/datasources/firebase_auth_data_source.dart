@@ -8,6 +8,20 @@ class FirebaseAuthDataSource {
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
 
+  Future<void>? _googleInitialization;
+
+  Future<void> _ensureGoogleInitialized() =>
+      _googleInitialization ??= _initializeGoogle();
+
+  Future<void> _initializeGoogle() async {
+    try {
+      await _googleSignIn.initialize();
+    } catch (_) {
+      _googleInitialization = null;
+      rethrow;
+    }
+  }
+
   Stream<User?> authStateChanges() => _auth.userChanges();
 
   User? get currentUser => _auth.currentUser;
@@ -28,6 +42,7 @@ class FirebaseAuthDataSource {
       return _auth.signInWithPopup(GoogleAuthProvider());
     }
 
+    await _ensureGoogleInitialized();
     final googleUser = await _googleSignIn.authenticate();
     final googleAuth = googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
@@ -39,6 +54,7 @@ class FirebaseAuthDataSource {
   Future<void> signOut() async {
     await _auth.signOut();
     if (!kIsWeb) {
+      await _ensureGoogleInitialized();
       await _googleSignIn.signOut();
     }
   }

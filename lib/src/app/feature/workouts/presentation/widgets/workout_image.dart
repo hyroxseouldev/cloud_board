@@ -1,8 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 
 class WorkoutImage extends StatelessWidget {
   const WorkoutImage({
@@ -18,64 +17,73 @@ class WorkoutImage extends StatelessWidget {
   final bool showLoadingIndicator;
   final VoidCallback? onError;
 
-  Widget _error() {
-    onError?.call();
-    return const _BrokenImage();
-  }
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => _SizedWorkoutImage(
+      source: source,
+      fit: fit,
+      size: workoutImageSize(
+        constraints.biggest,
+        MediaQuery.devicePixelRatioOf(context),
+      ),
+      showLoadingIndicator: showLoadingIndicator,
+      onError: onError,
+    ),
+  );
+}
+
+class _SizedWorkoutImage extends HookWidget {
+  const _SizedWorkoutImage({
+    required this.source,
+    required this.fit,
+    required this.size,
+    required this.showLoadingIndicator,
+    required this.onError,
+  });
+  final String source;
+  final BoxFit fit;
+  final WorkoutImageSize size;
+  final bool showLoadingIndicator;
+  final VoidCallback? onError;
 
   @override
   Widget build(BuildContext context) {
-    if (source.startsWith('https://') || source.startsWith('http://')) {
-      if (kIsWeb) {
-        return Image.network(
-          source,
-          fit: fit,
-          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-          loadingBuilder: showLoadingIndicator
-              ? (context, child, progress) {
-                  if (progress == null) return child;
-                  final expectedBytes = progress.expectedTotalBytes;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value: expectedBytes == null
-                          ? null
-                          : progress.cumulativeBytesLoaded / expectedBytes,
-                    ),
-                  );
-                }
-              : null,
-          errorBuilder: (context, error, stackTrace) => _error(),
-        );
+    final provider = useMemoized(() {
+      try {
+        return workoutImageProvider(source, size);
+      } on FormatException {
+        return null;
       }
-      return CachedNetworkImage(
-        imageUrl: source,
-        fit: fit,
-        progressIndicatorBuilder: showLoadingIndicator
-            ? (context, url, progress) => Center(
-                child: CircularProgressIndicator(value: progress.progress),
-              )
-            : null,
-        errorWidget: (context, url, error) => _error(),
+    }, [source, size]);
+    Widget error() {
+      onError?.call();
+      return const Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: Colors.white70,
+          size: 48,
+        ),
       );
     }
 
-    try {
-      return Image.memory(
-        WorkoutImageSource.decode(source).bytes,
-        fit: fit,
-        errorBuilder: (context, error, stackTrace) => _error(),
-      );
-    } on FormatException {
-      return _error();
-    }
+    if (provider == null) return error();
+    return Image(
+      image: provider,
+      fit: fit,
+      loadingBuilder: showLoadingIndicator
+          ? (context, child, progress) {
+              if (progress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: progress.expectedTotalBytes == null
+                      ? null
+                      : progress.cumulativeBytesLoaded /
+                            progress.expectedTotalBytes!,
+                ),
+              );
+            }
+          : null,
+      errorBuilder: (context, exception, stack) => error(),
+    );
   }
-}
-
-class _BrokenImage extends StatelessWidget {
-  const _BrokenImage();
-
-  @override
-  Widget build(BuildContext context) => const Center(
-    child: Icon(Icons.broken_image_outlined, color: Colors.white70, size: 48),
-  );
 }

@@ -1,12 +1,33 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:collection/collection.dart';
 
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 
 class PlaybackRealtimeDataSource {
-  const PlaybackRealtimeDataSource(this._database, this._ownerId);
+  PlaybackRealtimeDataSource(this._database, this._ownerId);
 
   final FirebaseDatabase _database;
   final String? _ownerId;
+  Object? _rawWorkout;
+  Map<String, dynamic>? _workout;
+
+  PlaybackSessionModel _decode(Object? value) {
+    if (value is! Map) throw const FormatException('재생 세션 형식이 올바르지 않습니다.');
+    final rawWorkout = value['workoutSnapshot'];
+    if (_workout == null ||
+        !const DeepCollectionEquality().equals(_rawWorkout, rawWorkout)) {
+      _rawWorkout = rawWorkout;
+      _workout = _stringMap(rawWorkout);
+    }
+    // Reuse the immutable workout across revisions; normalize only small state.
+    final json = <String, dynamic>{
+      for (final entry in value.entries)
+        if (entry.key != 'workoutSnapshot')
+          entry.key.toString(): _normalizeValue(entry.value),
+      'workoutSnapshot': _workout,
+    };
+    return PlaybackSessionModel.fromJson(json);
+  }
 
   DatabaseReference get _active =>
       _database.ref('users/${_requireOwnerId()}/activeSession');
@@ -18,7 +39,7 @@ class PlaybackRealtimeDataSource {
     return _active.onValue.map((event) {
       final value = event.snapshot.value;
       if (value == null) return null;
-      return PlaybackSessionModel.fromJson(_stringMap(value));
+      return _decode(value);
     });
   }
 
@@ -65,7 +86,7 @@ class PlaybackRealtimeDataSource {
     }
     await _user.update(updates);
     final snapshot = await _active.get();
-    return PlaybackSessionModel.fromJson(_stringMap(snapshot.value));
+    return _decode(snapshot.value);
   }
 
   Future<PlaybackSessionModel> update({
@@ -82,7 +103,7 @@ class PlaybackRealtimeDataSource {
     var shouldRecordStart = false;
     final result = await _active.runTransaction((current) {
       if (current == null) return Transaction.abort();
-      final json = _stringMap(current);
+      final json = Map<String, dynamic>.from(current as Map);
       if (requireBriefing && json['briefing'] != true) {
         return Transaction.abort();
       }
@@ -122,7 +143,7 @@ class PlaybackRealtimeDataSource {
         'scheduled': false,
       });
     }
-    return PlaybackSessionModel.fromJson(_stringMap(result.snapshot.value));
+    return _decode(result.snapshot.value);
   }
 
   String _requireOwnerId() {
