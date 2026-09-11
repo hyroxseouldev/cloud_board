@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -392,24 +393,10 @@ class _EditorBody extends HookConsumerWidget {
                                     decoration: const InputDecoration(
                                       labelText: '워크아웃 이름',
                                       hintText: 'Title',
-                                      filled: true,
-                                      fillColor: Color(0xFFF5F5F9),
                                       isDense: true,
                                       suffixIcon: Icon(
                                         Icons.edit_outlined,
                                         size: 18,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderSide: BorderSide.none,
-                                        borderRadius: BorderRadius.all(
-                                          Radius.circular(4),
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: BorderSide.none,
-                                        borderRadius: BorderRadius.all(
-                                          Radius.circular(4),
-                                        ),
                                       ),
                                     ),
                                   ),
@@ -526,7 +513,7 @@ class _EditorBody extends HookConsumerWidget {
                                                   child: InputChip(
                                                     label: Text(template.name),
                                                     backgroundColor:
-                                                        const Color(0xFFEDEBFF),
+                                                        AppColors.selected,
                                                     deleteButtonTooltipMessage:
                                                         '${template.name} 칩 삭제',
                                                     onPressed:
@@ -557,7 +544,7 @@ class _EditorBody extends HookConsumerWidget {
                                 ],
                               ),
                             ),
-                            const Divider(height: 1, color: Color(0xFFAAA2FF)),
+                            const Divider(height: 1, color: AppColors.line),
                           ],
                         ),
                       ),
@@ -618,15 +605,15 @@ class _EditorBody extends HookConsumerWidget {
                             return Card(
                               key: ValueKey(module.id),
                               elevation: 0,
-                              color: const Color(0xFFF5F5F9),
+                              color: AppColors.surface,
                               margin: const EdgeInsets.only(bottom: 10),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: ListTile(
                                 onTap: isBusy ? null : edit,
                                 selected: selectedSlide.value == module.id,
-                                selectedTileColor: const Color(0xFFEDEBFF),
+                                selectedTileColor: AppColors.selected,
                                 leading: ReorderableDragStartListener(
                                   index: index,
                                   child: const Padding(

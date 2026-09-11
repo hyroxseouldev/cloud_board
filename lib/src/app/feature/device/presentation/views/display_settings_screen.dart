@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -92,13 +93,13 @@ class DisplaySettingsScreen extends ConsumerWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF161616),
+                        color: AppColors.ink,
                       ),
                     ),
                   ),
                   TextButton(
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF78749D),
+                      foregroundColor: AppColors.accent,
                       padding: const EdgeInsets.only(left: 12),
                       textStyle: const TextStyle(
                         fontFamily: 'Pretendard',
@@ -233,8 +234,8 @@ class _DisplayTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFFF5F4F8),
-    borderRadius: BorderRadius.circular(4),
+    color: AppColors.surface,
+    borderRadius: BorderRadius.circular(8),
     child: ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 66),
       child: Padding(
@@ -250,20 +251,10 @@ class _DisplayTile extends StatelessWidget {
                   label: '${device.name} 화면 표시',
                   child: Transform.scale(
                     scale: 0.85,
-                    child: Theme(
-                      data: ThemeData(
-                        useMaterial3: false,
-                        colorScheme: Theme.of(context).colorScheme,
-                      ),
-                      child: Switch(
-                        value: device.displayState != 'black',
-                        onChanged: busy ? null : onToggle,
-                        activeTrackColor: const Color(0xFF78749D),
-                        activeThumbColor: const Color(0xFFDCD9E9),
-                        inactiveTrackColor: const Color(0xFFD8D5E2),
-                        inactiveThumbColor: const Color(0xFFEFEDF4),
-                        materialTapTargetSize: MaterialTapTargetSize.padded,
-                      ),
+                    child: Switch(
+                      value: device.displayState != 'black',
+                      onChanged: busy ? null : onToggle,
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
                     ),
                   ),
                 ),
@@ -280,7 +271,7 @@ class _DisplayTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF777484),
+                      color: AppColors.ink,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.3,
@@ -293,7 +284,7 @@ class _DisplayTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF817E8E),
+                      color: AppColors.muted,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       height: 1.3,
@@ -308,7 +299,7 @@ class _DisplayTile extends StatelessWidget {
               icon: const Icon(
                 Icons.more_vert,
                 size: 16,
-                color: Color(0xFFB9B5CE),
+                color: AppColors.muted,
               ),
               onSelected: (_) => onRemove(),
               itemBuilder: (_) => const [

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -69,7 +70,7 @@ class WorkoutBriefingBoard extends HookWidget {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5EF),
+      backgroundColor: displayMode ? const Color(0xFFF7F5EF) : Colors.white,
       appBar: displayMode
           ? null
           : AppBar(
@@ -79,10 +80,12 @@ class WorkoutBriefingBoard extends HookWidget {
                 onPressed: busy ? null : onExit,
                 icon: const Icon(Icons.close_rounded),
               ),
-              backgroundColor: const Color(0xFFF7F5EF),
+              backgroundColor: Colors.white,
             ),
       body: DefaultTextStyle(
-        style: const TextStyle(color: Color(0xFF171717)),
+        style: TextStyle(
+          color: displayMode ? const Color(0xFF171717) : AppColors.ink,
+        ),
         child: displayMode
             ? Center(
                 child: FittedBox(
@@ -257,14 +260,14 @@ class _ModuleSummary extends StatelessWidget {
       mainAxisSize: fit ? MainAxisSize.max : MainAxisSize.min,
       children: [
         Container(
-          color: const Color(0xFF171717),
+          color: fit ? const Color(0xFF171717) : AppColors.surface,
           padding: const EdgeInsets.all(10),
           child: Text(
             '${index + 1}. ${module.name.isEmpty ? '운동 ${index + 1}' : module.name}',
             maxLines: fit ? 2 : null,
             overflow: fit ? TextOverflow.ellipsis : TextOverflow.visible,
             style: TextStyle(
-              color: Colors.white,
+              color: fit ? Colors.white : AppColors.ink,
               fontSize: fit ? 25 : 20,
               fontWeight: FontWeight.w800,
             ),

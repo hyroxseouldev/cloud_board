@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -118,7 +119,7 @@ class UserProfileScreen extends HookConsumerWidget {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: Color(0xFF777777),
+                                      color: AppColors.muted,
                                     ),
                                   ),
                                 ],
@@ -153,6 +154,7 @@ class UserProfileScreen extends HookConsumerWidget {
                               textInputAction: TextInputAction.done,
                               decoration: const InputDecoration(
                                 labelText: '이름',
+                                fillColor: Colors.white,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -161,6 +163,7 @@ class UserProfileScreen extends HookConsumerWidget {
                               readOnly: true,
                               decoration: const InputDecoration(
                                 labelText: '이메일',
+                                fillColor: Colors.white,
                                 helperText: 'Google 계정 이메일은 여기서 변경할 수 없습니다.',
                                 helperMaxLines: 2,
                               ),
@@ -175,7 +178,7 @@ class UserProfileScreen extends HookConsumerWidget {
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                         onPressed: profileState.isLoading
@@ -228,8 +231,8 @@ class _ProfileSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: const Color(0xFFF5F5F9),
-      borderRadius: BorderRadius.circular(4),
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Padding(padding: const EdgeInsets.all(20), child: child),
   );
@@ -276,7 +279,7 @@ class _ProfileInfo extends StatelessWidget {
       children: [
         SizedBox(
           width: 88,
-          child: Text(label, style: const TextStyle(color: Color(0xFF777777))),
+          child: Text(label, style: const TextStyle(color: AppColors.muted)),
         ),
         const SizedBox(width: 12),
         Expanded(

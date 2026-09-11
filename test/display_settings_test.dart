@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -76,7 +77,7 @@ Future<void> _pumpDisplays(
         deviceClaimControllerProvider.overrideWith(() => controller),
         deviceModeControllerProvider.overrideWith(_ControllerMode.new),
       ],
-      child: const MaterialApp(home: DisplaySettingsScreen()),
+      child: MaterialApp(theme: XonTheme.light, home: DisplaySettingsScreen()),
     ),
   );
   await tester.pumpAndSettle();
@@ -167,6 +168,7 @@ void main() {
             deviceClaimControllerProvider.overrideWith(() => controller),
           ],
           child: MaterialApp(
+            theme: XonTheme.light,
             home: Builder(
               builder: (context) => Scaffold(
                 body: TextButton(

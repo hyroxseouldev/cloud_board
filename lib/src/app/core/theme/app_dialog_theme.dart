@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 
 /// Shared modal styling, matching the quiet lavender editing surfaces.
 abstract final class AppDialogTheme {
-  static const surface = Color(0xFFF7F6FA);
-  static const ink = Color(0xFF202028);
-  static const muted = Color(0xFF777683);
-  static const accent = Color(0xFF77729D);
-  static const line = Color(0xFFE6E3EF);
+  static const surface = AppColors.dialog;
+  static const ink = AppColors.ink;
+  static const muted = AppColors.muted;
+  static const accent = AppColors.accent;
+  static const line = AppColors.line;
   static const shape = RoundedRectangleBorder(
     borderRadius: BorderRadius.all(Radius.circular(12)),
   );

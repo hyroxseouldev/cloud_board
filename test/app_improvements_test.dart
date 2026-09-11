@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
@@ -77,7 +79,9 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+      ProviderScope(
+        child: MaterialApp.router(theme: XonTheme.light, routerConfig: router),
+      ),
     );
     await tester.pumpAndSettle();
     router.push('/edit');
@@ -116,6 +120,7 @@ void main() {
       ]) {
         await tester.pumpWidget(
           MaterialApp(
+            theme: XonTheme.light,
             home: StandbySlideshow(
               brand: BrandTemplate.initial().copyWith(
                 promotionImageUrls: sources,
@@ -168,6 +173,7 @@ void main() {
     int? changed;
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: Scaffold(
           body: SlideDurationField(
             controller: controller,
@@ -217,6 +223,7 @@ void main() {
     var changes = 0;
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: Scaffold(
           body: Padding(
             padding: const EdgeInsets.all(24),
@@ -270,6 +277,7 @@ void main() {
     Future<void> show(WorkoutModule value, {bool rest = false}) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: XonTheme.light,
           home: Scaffold(
             body: Center(
               child: SizedBox(
@@ -501,7 +509,10 @@ void main() {
             ),
             deviceModeControllerProvider.overrideWith(_TestDeviceMode.new),
           ],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -598,6 +609,7 @@ void main() {
     testWidgets('standby uses persisted $fit image fit', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: XonTheme.light,
           home: StandbySlideshow(
             brand: BrandTemplate.initial().copyWith(
               promotionImageUrls: [pixel],
@@ -628,6 +640,7 @@ void main() {
       Future<void> show(int minute) async {
         await tester.pumpWidget(
           MaterialApp(
+            theme: XonTheme.light,
             home: SizedBox(
               width: 400,
               height: 300,
@@ -670,6 +683,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         MaterialApp(
+          theme: XonTheme.light,
           home: StoreWelcomeBoard(
             brand: BrandTemplate.initial(),
             now: DateTime(2026),
@@ -687,6 +701,7 @@ void main() {
     final key = GlobalKey<FormState>();
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: Scaffold(
           body: Form(
             key: key,
@@ -752,7 +767,9 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+      ProviderScope(
+        child: MaterialApp.router(theme: XonTheme.light, routerConfig: router),
+      ),
     );
     await tester.pumpAndSettle();
     final title = find.widgetWithText(TextFormField, '슬라이드 제목');
@@ -832,6 +849,7 @@ void main() {
     var value = '기존';
     await tester.pumpWidget(
       MaterialApp(
+        theme: XonTheme.light,
         home: StatefulBuilder(
           builder: (context, setState) => Scaffold(
             body: FolderSelector(
@@ -923,7 +941,10 @@ void main() {
                 () => _SaveWorkouts(saved),
               ),
             ],
-            child: MaterialApp.router(routerConfig: router),
+            child: MaterialApp.router(
+              theme: XonTheme.light,
+              routerConfig: router,
+            ),
           ),
         );
         await tester.pumpAndSettle();
@@ -1036,7 +1057,10 @@ void main() {
               () => _SaveBrand(saved),
             ),
           ],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();

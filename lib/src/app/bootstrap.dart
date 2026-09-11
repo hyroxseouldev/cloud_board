@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 /// Paints before platform/network initialization, and keeps failures retryable.
@@ -32,6 +33,7 @@ class AppBootstrap extends HookWidget {
     }, [attempt.value]);
     if (result.value case final bool isTv) return builder(isTv);
     return MaterialApp(
+      theme: XonTheme.light,
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         body: Center(
