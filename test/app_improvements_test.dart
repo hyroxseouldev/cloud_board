@@ -247,7 +247,7 @@ void main() {
         )
         .onSelectedItemChanged!(6);
     await tester.pump();
-    expect(find.text('7세트'), findsOneWidget);
+    expect(find.text('7세트 · 01:30 / 휴식 00:45'), findsOneWidget);
     await tester.tap(find.text('완료'));
     await tester.pumpAndSettle();
     expect(sets.text, '7');
@@ -758,17 +758,22 @@ void main() {
     final title = find.widgetWithText(TextFormField, '슬라이드 제목');
     await tester.enterText(title, '수정 제목');
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
+    await tester.pumpAndSettle();
     final addBlock = find.byKey(const ValueKey('add-interval-block'));
     await scrollTo(tester, addBlock);
     await tester.tap(addBlock);
     await tester.pumpAndSettle();
     expect(find.text('블록 2'), findsOneWidget);
     expect(saved, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
+    await tester.pumpAndSettle();
     router.go('/');
     await tester.pumpAndSettle();
     expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
     await tester.tap(find.text('계속 편집'));
     await tester.pumpAndSettle();
+    expect(title.hitTestable(), findsOneWidget);
     expect(
       tester
           .widget<TextFormField>(find.widgetWithText(TextFormField, '슬라이드 제목'))

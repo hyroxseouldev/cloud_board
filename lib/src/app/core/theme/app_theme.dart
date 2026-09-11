@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:cloud_board/src/app/core/theme/app_dialog_theme.dart';
+
 abstract final class XonColors {
   static const black = Color(0xFF050505);
   static const cobalt = Color(0xFF0047FF);
@@ -12,6 +14,7 @@ abstract final class XonTheme {
   static ThemeData get light {
     final base = ThemeData(fontFamily: 'Pretendard');
     return base.copyWith(
+      dialogTheme: AppDialogTheme.data,
       colorScheme: ColorScheme.fromSeed(
         seedColor: XonColors.cobalt,
         primary: XonColors.cobalt,

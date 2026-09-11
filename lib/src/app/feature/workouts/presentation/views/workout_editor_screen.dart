@@ -1,22 +1,20 @@
-import 'dart:async';
-
+import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
-import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder_selector.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_settings_sheet.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 
@@ -61,7 +59,7 @@ class _WorkoutNameDialog extends HookWidget {
   Widget build(BuildContext context) {
     final name = useTextEditingController();
     final form = useMemoized(() => GlobalKey<FormState>());
-    return AlertDialog(
+    return AppAlertDialog(
       title: const Text('워크아웃 이름이 필요합니다'),
       content: Form(
         key: form,
@@ -105,7 +103,7 @@ class _SlideTemplateNameDialog extends HookWidget {
       }
     }
 
-    return AlertDialog(
+    return AppAlertDialog(
       title: const Text('자주 쓰는 슬라이드로 저장'),
       content: Form(
         key: form,
@@ -269,7 +267,7 @@ class _EditorBody extends HookConsumerWidget {
     Future<void> removeTemplate(WorkoutModule template) async {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
+        builder: (dialogContext) => AppAlertDialog(
           title: const Text('자주 쓰는 슬라이드를 삭제할까요?'),
           content: Text('“${template.name}” 칩을 삭제합니다. 워크아웃에 추가한 슬라이드는 유지됩니다.'),
           actions: [
@@ -300,54 +298,13 @@ class _EditorBody extends HookConsumerWidget {
       useSafeArea: true,
       isScrollControlled: true,
       constraints: const BoxConstraints(maxWidth: 800),
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-        ),
-        child: FractionallySizedBox(
-          heightFactor: .9,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '워크아웃 설정',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '설정 닫기',
-                      onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([draft, brandL, brandR]),
-                    builder: (_, _) => _WorkoutSettingsCard(
-                      brandL: brandL,
-                      brandR: brandR,
-                      workout: draft.value,
-                      initiallyExpanded: true,
-                      onChanged: (value) => draft.value = value,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (sheetContext) =>
+          WorkoutSettingsSheet(draft: draft, brandL: brandL, brandR: brandR),
     );
 
     return UnsavedChangesGuard(
@@ -750,30 +707,33 @@ class _EditorBody extends HookConsumerWidget {
                                         } else {
                                           final confirmed = await showDialog<bool>(
                                             context: context,
-                                            builder: (dialogContext) => AlertDialog(
-                                              title: const Text('슬라이드를 삭제할까요?'),
-                                              content: Text(
-                                                '“${module.name}” 슬라이드를 목록에서 제거합니다.',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(
-                                                        dialogContext,
-                                                        false,
-                                                      ),
-                                                  child: const Text('취소'),
+                                            builder: (dialogContext) =>
+                                                AppAlertDialog(
+                                                  title: const Text(
+                                                    '슬라이드를 삭제할까요?',
+                                                  ),
+                                                  content: Text(
+                                                    '“${module.name}” 슬라이드를 목록에서 제거합니다.',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                            dialogContext,
+                                                            false,
+                                                          ),
+                                                      child: const Text('취소'),
+                                                    ),
+                                                    FilledButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                            dialogContext,
+                                                            true,
+                                                          ),
+                                                      child: const Text('삭제'),
+                                                    ),
+                                                  ],
                                                 ),
-                                                FilledButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(
-                                                        dialogContext,
-                                                        true,
-                                                      ),
-                                                  child: const Text('삭제'),
-                                                ),
-                                              ],
-                                            ),
                                           );
                                           if (confirmed != true ||
                                               !context.mounted) {
@@ -803,310 +763,4 @@ class _EditorBody extends HookConsumerWidget {
       ),
     );
   }
-}
-
-class _TextField extends StatelessWidget {
-  const _TextField({required this.label, required this.controller});
-  final String label;
-  final TextEditingController controller;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 15),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: XonColors.muted,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(controller: controller),
-      ],
-    ),
-  );
-}
-
-class _WorkoutSettingsCard extends StatelessWidget {
-  const _WorkoutSettingsCard({
-    required this.brandL,
-    required this.brandR,
-    required this.workout,
-    required this.onChanged,
-    this.initiallyExpanded = false,
-  });
-
-  final TextEditingController brandL;
-  final TextEditingController brandR;
-  final Workout workout;
-  final ValueChanged<Workout> onChanged;
-  final bool initiallyExpanded;
-
-  @override
-  Widget build(BuildContext context) {
-    final left = _settingsTextSummary(brandL.text);
-    final right = _settingsTextSummary(brandR.text);
-    final volume = (workout.soundVolume * 100).round();
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        key: const ValueKey('workout-display-sound-settings'),
-        initiallyExpanded: initiallyExpanded,
-        leading: const Icon(Icons.tune_rounded),
-        title: const Text('화면·사운드 설정'),
-        subtitle: Text(
-          '왼쪽 $left · 오른쪽 $right · ${workout.soundTheme.label} $volume%',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        children: [
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.tv_rounded, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      '화면 문구',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '수업 화면 하단에 표시할 문구입니다.',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: XonColors.muted),
-                ),
-                const SizedBox(height: 16),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final fields = [
-                      _TextField(label: '화면 왼쪽 아래 문구', controller: brandL),
-                      _TextField(label: '화면 오른쪽 아래 문구', controller: brandR),
-                    ];
-                    if (constraints.maxWidth < 720) {
-                      return Column(children: fields);
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: fields.first),
-                        const SizedBox(width: 20),
-                        Expanded(child: fields.last),
-                      ],
-                    );
-                  },
-                ),
-                const Divider(height: 32),
-                _SoundSettingsSection(workout: workout, onChanged: onChanged),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _settingsTextSummary(String value) {
-  final text = value.trim();
-  if (text.isEmpty) return '없음';
-  if (text.length <= 10) return '“$text”';
-  return '“${text.substring(0, 10)}…”';
-}
-
-class _SoundSettingsSection extends ConsumerWidget {
-  const _SoundSettingsSection({required this.workout, required this.onChanged});
-
-  final Workout workout;
-  final ValueChanged<Workout> onChanged;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    void preview(WorkoutSound sound) {
-      unawaited(
-        ref
-            .read(beepPlayerProvider)
-            .play(sound, workout.soundVolume)
-            .catchError((_) {}),
-      );
-    }
-
-    void applyTheme(WorkoutSoundTheme theme) {
-      final sounds = soundsForTheme(theme);
-      onChanged(
-        workout.copyWith(
-          soundTheme: theme,
-          countdownSound: sounds.countdown,
-          workStartSound: sounds.workStart,
-          restStartSound: sounds.restStart,
-          workoutEndSound: sounds.workoutEnd,
-        ),
-      );
-      preview(sounds.workStart);
-    }
-
-    Workout custom({
-      WorkoutSound? countdown,
-      WorkoutSound? workStart,
-      WorkoutSound? restStart,
-      WorkoutSound? workoutEnd,
-    }) => workout.copyWith(
-      soundTheme: WorkoutSoundTheme.custom,
-      countdownSound: countdown ?? workout.countdownSound,
-      workStartSound: workStart ?? workout.workStartSound,
-      restStartSound: restStart ?? workout.restStartSound,
-      workoutEndSound: workoutEnd ?? workout.workoutEndSound,
-    );
-
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.graphic_eq_rounded),
-            const SizedBox(width: 8),
-            Text('수업 사운드', style: theme.textTheme.titleMedium),
-            const Spacer(),
-            IconButton(
-              tooltip: '현재 운동 시작음 미리 듣기',
-              onPressed: () => preview(workout.workStartSound),
-              icon: const Icon(Icons.volume_up_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '카운트다운과 운동·휴식 전환을 서로 다른 소리로 알려줍니다.',
-          style: theme.textTheme.bodySmall?.copyWith(color: XonColors.muted),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ...WorkoutSoundTheme.values
-                .where((value) => value != WorkoutSoundTheme.custom)
-                .map(
-                  (option) => ChoiceChip(
-                    label: Text(option.label),
-                    tooltip: option.description,
-                    selected: workout.soundTheme == option,
-                    onSelected: (_) => applyTheme(option),
-                  ),
-                ),
-            if (workout.soundTheme == WorkoutSoundTheme.custom)
-              const ChoiceChip(label: Text('직접 설정'), selected: true),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const Icon(Icons.volume_down_rounded, size: 20),
-            Expanded(
-              child: Slider(
-                value: workout.soundVolume.clamp(0, 1),
-                divisions: 10,
-                label: '${(workout.soundVolume * 100).round()}%',
-                onChanged: (value) =>
-                    onChanged(workout.copyWith(soundVolume: value)),
-              ),
-            ),
-            SizedBox(
-              width: 44,
-              child: Text('${(workout.soundVolume * 100).round()}%'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 12,
-          runSpacing: 10,
-          children: [
-            _SoundEventSelector(
-              label: '카운트다운',
-              value: workout.countdownSound,
-              onChanged: (sound) => onChanged(custom(countdown: sound)),
-              onPreview: preview,
-            ),
-            _SoundEventSelector(
-              label: '운동 시작',
-              value: workout.workStartSound,
-              onChanged: (sound) => onChanged(custom(workStart: sound)),
-              onPreview: preview,
-            ),
-            _SoundEventSelector(
-              label: '휴식 시작',
-              value: workout.restStartSound,
-              onChanged: (sound) => onChanged(custom(restStart: sound)),
-              onPreview: preview,
-            ),
-            _SoundEventSelector(
-              label: '수업 종료',
-              value: workout.workoutEndSound,
-              onChanged: (sound) => onChanged(custom(workoutEnd: sound)),
-              onPreview: preview,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SoundEventSelector extends StatelessWidget {
-  const _SoundEventSelector({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    required this.onPreview,
-  });
-
-  final String label;
-  final WorkoutSound value;
-  final ValueChanged<WorkoutSound> onChanged;
-  final ValueChanged<WorkoutSound> onPreview;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 230,
-    child: Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<WorkoutSound>(
-            key: ValueKey('$label-${value.name}'),
-            initialValue: value,
-            decoration: InputDecoration(labelText: label, isDense: true),
-            items: WorkoutSound.values
-                .map(
-                  (sound) =>
-                      DropdownMenuItem(value: sound, child: Text(sound.label)),
-                )
-                .toList(),
-            onChanged: (sound) {
-              if (sound == null) return;
-              onChanged(sound);
-              onPreview(sound);
-            },
-          ),
-        ),
-        IconButton(
-          tooltip: '$label 미리 듣기',
-          onPressed: () => onPreview(value),
-          icon: const Icon(Icons.play_circle_outline_rounded),
-        ),
-      ],
-    ),
-  );
 }

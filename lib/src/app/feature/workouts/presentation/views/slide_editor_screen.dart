@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +14,8 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_ima
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_duration_field.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/timer_editor_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/slide_editor_actions.dart';
@@ -103,8 +105,29 @@ class SlideEditorScreen extends ConsumerWidget {
   }
 }
 
-class _SlideEditor extends HookConsumerWidget {
+class _SlideEditor extends StatelessWidget {
   const _SlideEditor({
+    required this.request,
+    required this.guard,
+    required this.workoutId,
+  });
+  final SlideEditRequest request;
+  final ExitGuard guard;
+  final String workoutId;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: SlideEditorStyle.theme(Theme.of(context)),
+    child: _SlideEditorBody(
+      request: request,
+      guard: guard,
+      workoutId: workoutId,
+    ),
+  );
+}
+
+class _SlideEditorBody extends HookConsumerWidget {
+  const _SlideEditorBody({
     required this.request,
     required this.guard,
     required this.workoutId,
@@ -128,7 +151,8 @@ class _SlideEditor extends HookConsumerWidget {
     final form = useMemoized(() => GlobalKey<FormState>());
     final name = useTextEditingController(text: module.name);
     final description = useTextEditingController(text: module.text);
-    final section = useState(0);
+    final section = useState(1);
+    final settingsScroll = useScrollController();
     final revision = useState(0);
     final previewRest = useState(false);
     final previewExpanded = useState(true);
@@ -151,8 +175,6 @@ class _SlideEditor extends HookConsumerWidget {
 
     void update(WorkoutModule value, {String? group}) =>
         actions.update(value, group: group);
-    void changeBlocks(List<WorkoutIntervalBlock> next) =>
-        update(withIntervalBlocks(module, next));
     void resetFields(VoidCallback change) {
       FocusScope.of(context).unfocus();
       change();
@@ -162,7 +184,7 @@ class _SlideEditor extends HookConsumerWidget {
     Future<void> save() async {
       if (busy.value) return;
       if (name.text.trim().isEmpty) {
-        section.value = 0;
+        section.value = 1;
         error.value = '슬라이드 제목을 입력해 주세요.';
         return;
       }
@@ -339,90 +361,179 @@ class _SlideEditor extends HookConsumerWidget {
     final selectedBlock =
         blocks.where((v) => v.id == selectedBlockId.value).firstOrNull ??
         blocks.first;
-    final workTotal = blocks.fold<int>(
-      0,
-      (sum, block) => sum + block.workSeconds * block.sets,
-    );
     final total = workoutModuleDuration(module);
-    final preview = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '미리보기',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('운동')),
-                ButtonSegment(value: true, label: Text('휴식')),
-              ],
-              selected: {previewRest.value},
-              showSelectedIcon: false,
-              onSelectionChanged: (values) => previewRest.value = values.first,
-            ),
-            IconButton(
-              tooltip: '전체 화면 · 시험 재생',
-              onPressed: rehearse,
-              icon: const Icon(Icons.fullscreen),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        WorkoutSlidePreview(
-          module: withIntervalBlocks(module, [selectedBlock]),
-          isRest: previewRest.value,
-          brandL: request.brandL,
-          brandR: request.brandR,
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '블록 ${blocks.indexOf(selectedBlock) + 1} · ${durationLabel(total)}',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: rehearse,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('시험 재생'),
-            ),
-          ],
-        ),
+    final phaseSelector = SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(value: false, label: Text('운동')),
+        ButtonSegment(value: true, label: Text('휴식')),
       ],
+      selected: {previewRest.value},
+      showSelectedIcon: false,
+      onSelectionChanged: (values) => previewRest.value = values.first,
+    );
+    final preview = Material(
+      key: const ValueKey('slide-preview-card'),
+      color: SlideEditorStyle.surface,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 440;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '미리보기',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (previewExpanded.value && !compact) phaseSelector,
+                    IconButton(
+                      key: const ValueKey('slide-preview-rehearse'),
+                      tooltip: '전체 화면 · 시험 재생',
+                      onPressed: rehearse,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                    ),
+                    IconButton(
+                      key: const ValueKey('slide-preview-toggle'),
+                      tooltip: previewExpanded.value ? '미리보기 접기' : '미리보기 펼치기',
+                      onPressed: () =>
+                          previewExpanded.value = !previewExpanded.value,
+                      icon: Icon(
+                        previewExpanded.value
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                      ),
+                    ),
+                  ],
+                ),
+                if (previewExpanded.value) ...[
+                  if (compact)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: phaseSelector,
+                    ),
+                  const SizedBox(height: 12),
+                  WorkoutSlidePreview(
+                    module: withIntervalBlocks(module, [selectedBlock]),
+                    isRest: previewRest.value,
+                    brandL: request.brandL,
+                    brandR: request.brandR,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '블록 ${blocks.indexOf(selectedBlock) + 1} · ${durationLabel(total)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: SlideEditorStyle.muted,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+
+    final summary = LayoutBuilder(
+      builder: (context, constraints) {
+        final titleField = TextFormField(
+          controller: name,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          decoration: const InputDecoration(
+            labelText: '슬라이드 제목',
+            floatingLabelBehavior: FloatingLabelBehavior.never,
+            suffixIcon: Icon(Icons.edit_outlined, size: 22),
+            contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+          ),
+          validator: (v) =>
+              v == null || v.trim().isEmpty ? '제목을 입력해 주세요.' : null,
+          onChanged: (v) => update(module.copyWith(name: v), group: 'name'),
+        );
+        final timer = Material(
+          color: SlideEditorStyle.surface,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: const ValueKey('slide-timer-summary'),
+            onTap: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => TimerEditorScreen(
+                    workoutId: workoutId,
+                    original: original,
+                    scope: request.workout?.ownerId ?? 'local',
+                    onSelectBlock: (id) => selectedBlockId.value = id,
+                  ),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '타이머',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: SlideEditorStyle.muted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    durationLabel(total),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: SlideEditorStyle.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        if (constraints.maxWidth < 320 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [titleField, const SizedBox(height: 12), timer],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: titleField),
+            const SizedBox(width: 16),
+            Expanded(child: timer),
+          ],
+        );
+      },
     );
 
     final settings = Form(
       key: form,
       child: ListView(
+        controller: settingsScroll,
         key: const ValueKey('slide-editor-settings'),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
         children: [
-          TextFormField(
-            controller: name,
-            decoration: const InputDecoration(labelText: '슬라이드 제목'),
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? '제목을 입력해 주세요.' : null,
-            onChanged: (v) => update(module.copyWith(name: v), group: 'name'),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '총 ${durationLabel(total)}',
-            style: Theme.of(context).textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          Text(
-            '운동 ${durationLabel(workTotal)} + 휴식 ${durationLabel(total - workTotal)} · ${blocks.length}블록',
-          ),
-          const SizedBox(height: 16),
+          if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
+            preview,
+            const SizedBox(height: 24),
+          ],
           SegmentedButton<int>(
             segments: const [
-              ButtonSegment(value: 0, label: Text('시간')),
               ButtonSegment(value: 1, label: Text('화면')),
               ButtonSegment(value: 2, label: Text('소리')),
             ],
@@ -433,67 +544,6 @@ class _SlideEditor extends HookConsumerWidget {
             },
           ),
           const SizedBox(height: 20),
-          if (section.value == 0) ...[
-            const Text('시간 블록', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              buildDefaultDragHandles: false,
-              itemCount: blocks.length,
-              onReorderItem: (oldIndex, newIndex) {
-                final next = [...blocks];
-                next.insert(newIndex, next.removeAt(oldIndex));
-                changeBlocks(next);
-              },
-              itemBuilder: (context, index) {
-                final block = blocks[index];
-                return Padding(
-                  key: ValueKey('${block.id}-${revision.value}'),
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _IntervalBlockTile(
-                    index: index,
-                    block: block,
-                    canDelete: blocks.length > 1,
-                    onEditing: () => selectedBlockId.value = block.id,
-                    onChanged: (updated) {
-                      changeBlocks([
-                        for (final v in blocks)
-                          if (v.id == updated.id) updated else v,
-                      ]);
-                      selectedBlockId.value = updated.id;
-                    },
-                    onDuplicate: () {
-                      final next = [...blocks]
-                        ..insert(index + 1, block.copyWith(id: newId()));
-                      changeBlocks(next);
-                    },
-                    onDelete: () => changeBlocks([...blocks]..removeAt(index)),
-                  ),
-                );
-              },
-            ),
-            OutlinedButton.icon(
-              key: const ValueKey('add-interval-block'),
-              onPressed: () {
-                final block = WorkoutIntervalBlock(
-                  id: newId(),
-                  workSeconds: 60,
-                  restSeconds: 0,
-                  sets: 1,
-                );
-                changeBlocks([...blocks, block]);
-                selectedBlockId.value = block.id;
-              },
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('블록 추가'),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '각 블록의 마지막 세트 뒤에는 휴식이 없습니다. 배경 이미지에 적힌 시간은 설정과 자동으로 바뀌지 않습니다.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
           if (section.value == 1) ...[
             Wrap(
               spacing: 8,
@@ -513,7 +563,9 @@ class _SlideEditor extends HookConsumerWidget {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<TimerDisplayMode>(
-              key: ValueKey('timer-mode-${revision.value}'),
+              key: ValueKey(
+                'timer-mode-${revision.value}-${module.showTimer}-${module.showTimerGauge}',
+              ),
               initialValue: timerDisplayMode(module),
               isExpanded: true,
               decoration: const InputDecoration(
@@ -670,7 +722,6 @@ class _SlideEditor extends HookConsumerWidget {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('슬라이드 편집'),
           actions: [
             IconButton(
               tooltip: '실행 취소',
@@ -730,182 +781,54 @@ class _SlideEditor extends HookConsumerWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 4,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    state.storageError ??
-                        (state.dirty
-                            ? (state.localSaved
-                                  ? '저장 필요 · 이 기기에 임시저장됨'
-                                  : '저장 필요 · 임시저장 중…')
-                            : '저장됨'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: state.storageError == null
-                          ? Theme.of(context).colorScheme.onSurfaceVariant
-                          : Theme.of(context).colorScheme.error,
+                padding: const EdgeInsets.fromLTRB(24, 14, 24, 20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Expanded(
+                      flex: 3,
+                      child: Text(
+                        '슬라이드 편집',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          state.storageError ??
+                              (state.dirty
+                                  ? (state.localSaved
+                                        ? '저장 필요 · 이 기기에 임시저장됨'
+                                        : '저장 필요 · 임시저장 중…')
+                                  : '저장됨'),
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: state.storageError == null
+                                ? SlideEditorStyle.muted
+                                : Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth >= 1000) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(20),
-                              child: preview,
-                            ),
-                          ),
-                          const VerticalDivider(width: 1),
-                          Expanded(child: settings),
-                        ],
-                      );
-                    }
-                    final keyboardOpen =
-                        MediaQuery.viewInsetsOf(context).bottom > 0;
-                    return Column(
-                      children: [
-                        if (!keyboardOpen) ...[
-                          if (previewExpanded.value)
-                            ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    ((constraints.maxHeight * .46 - 104) *
-                                            16 /
-                                            9)
-                                        .clamp(300.0, 760.0),
-                                maxHeight: constraints.maxHeight * .46,
-                              ),
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: preview,
-                              ),
-                            ),
-                          SizedBox(
-                            height: 32,
-                            child: TextButton(
-                              onPressed: () => previewExpanded.value =
-                                  !previewExpanded.value,
-                              child: Text(
-                                previewExpanded.value ? '미리보기 접기' : '미리보기 펼치기',
-                              ),
-                            ),
-                          ),
-                          const Divider(height: 1),
-                        ],
-                        Expanded(child: settings),
-                      ],
-                    );
-                  },
-                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                child: summary,
               ),
+              Expanded(child: settings),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-enum _IntervalBlockAction { duplicate, delete }
-
-class _IntervalBlockTile extends HookWidget {
-  const _IntervalBlockTile({
-    required this.index,
-    required this.block,
-    required this.canDelete,
-    required this.onEditing,
-    required this.onChanged,
-    required this.onDuplicate,
-    required this.onDelete,
-  });
-
-  final int index;
-  final WorkoutIntervalBlock block;
-  final bool canDelete;
-  final VoidCallback onEditing;
-  final ValueChanged<WorkoutIntervalBlock> onChanged;
-  final VoidCallback onDuplicate;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final work = useTextEditingController(
-      text: formatSlideTime(block.workSeconds),
-    );
-    final rest = useTextEditingController(
-      text: formatSlideTime(block.restSeconds),
-    );
-    final sets = useTextEditingController(text: '${block.sets}');
-    return SlideTimingBlocks(
-      title: '블록 ${index + 1}',
-      workController: work,
-      restController: rest,
-      setsController: sets,
-      onEditing: onEditing,
-      onChanged: () => onChanged(
-        block.copyWith(
-          workSeconds: parseSlideTime(work.text)!,
-          restSeconds: parseSlideTime(rest.text)!,
-          sets: int.parse(sets.text),
-        ),
-      ),
-      workValidator: (value) =>
-          (parseSlideTime(value ?? '') ?? 0) > 0 ? null : '00:01 이상',
-      restValidator: (value) =>
-          parseSlideTime(value ?? '') != null ? null : '올바른 시간 필요',
-      setsValidator: (value) {
-        final count = int.tryParse(value ?? '');
-        return count != null && count >= 1 && count <= 999 ? null : '1~999 필요';
-      },
-      leading: ReorderableDragStartListener(
-        index: index,
-        child: const Padding(
-          padding: EdgeInsets.all(8),
-          child: Icon(Icons.drag_handle_rounded),
-        ),
-      ),
-      trailing: PopupMenuButton<_IntervalBlockAction>(
-        tooltip: '블록 메뉴',
-        onSelected: (action) {
-          switch (action) {
-            case _IntervalBlockAction.duplicate:
-              onDuplicate();
-            case _IntervalBlockAction.delete:
-              onDelete();
-          }
-        },
-        itemBuilder: (_) => [
-          const PopupMenuItem(
-            value: _IntervalBlockAction.duplicate,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.copy_outlined),
-              title: Text('복제'),
-            ),
-          ),
-          PopupMenuItem(
-            value: _IntervalBlockAction.delete,
-            enabled: canDelete,
-            child: ListTile(
-              enabled: canDelete,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.delete_outline),
-              title: Text(canDelete ? '삭제' : '블록은 하나 이상 필요합니다'),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -917,7 +840,7 @@ class _StyleNameDialog extends HookWidget {
   Widget build(BuildContext context) {
     final name = useTextEditingController();
     useListenable(name);
-    return AlertDialog(
+    return AppAlertDialog(
       title: const Text('스타일 저장'),
       content: TextField(
         controller: name,

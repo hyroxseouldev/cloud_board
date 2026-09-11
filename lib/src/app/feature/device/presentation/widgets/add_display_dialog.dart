@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -31,7 +32,7 @@ class AddDisplayDialog extends HookConsumerWidget {
 
     return PopScope(
       canPop: !action.isLoading,
-      child: AlertDialog(
+      child: AppAlertDialog(
         title: const Text('디스플레이 추가'),
         content: SizedBox(
           width: 360,
@@ -57,7 +58,9 @@ class AddDisplayDialog extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 ExpansionTile(
+                  initiallyExpanded: true,
                   tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(top: 8),
                   title: const Text('기기 이름 · 구역'),
                   children: [
                     TextField(
@@ -83,17 +86,6 @@ class AddDisplayDialog extends HookConsumerWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: action.isLoading ? null : connect,
-                  icon: action.isLoading
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.link_rounded),
-                  label: const Text('연결하기'),
-                ),
               ],
             ),
           ),
@@ -104,6 +96,16 @@ class AddDisplayDialog extends HookConsumerWidget {
                 ? null
                 : () => Navigator.of(context).pop(),
             child: const Text('취소'),
+          ),
+          FilledButton.icon(
+            onPressed: action.isLoading ? null : connect,
+            icon: action.isLoading
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.link_rounded),
+            label: const Text('연결하기'),
           ),
         ],
       ),

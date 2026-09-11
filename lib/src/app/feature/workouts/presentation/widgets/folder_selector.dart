@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -83,7 +84,7 @@ class _NewFolder extends HookWidget {
   Widget build(BuildContext context) {
     final controller = useTextEditingController();
     final form = useMemoized(() => GlobalKey<FormState>());
-    return AlertDialog(
+    return AppAlertDialog(
       title: const Text('새 폴더'),
       content: Form(
         key: form,

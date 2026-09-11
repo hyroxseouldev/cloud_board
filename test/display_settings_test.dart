@@ -49,6 +49,27 @@ void main() {
       );
       await tester.tap(find.text('추가'));
       await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(TextField, '기기 이름').hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(TextField, '구역 이름').hitTestable(),
+        findsOneWidget,
+      );
+      await tester.enterText(find.widgetWithText(TextField, '기기 이름'), '입구 TV');
+      await tester.enterText(find.widgetWithText(TextField, '구역 이름'), '입구 구역');
+      await tester.tap(find.text('기기 이름 · 구역'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('기기 이름 · 구역'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, '기기 이름'))
+            .controller!
+            .text,
+        '입구 TV',
+      );
       await tester.tap(find.text('연결하기'));
       await tester.pumpAndSettle();
       expect(find.text('6자리 코드를 입력해 주세요.'), findsOneWidget);
@@ -74,8 +95,8 @@ void main() {
       expect(controller.calls.length, 2);
       expect(controller.calls.last, (
         code: '123456',
-        name: '메인 디스플레이',
-        zone: '메인 구역',
+        name: '입구 TV',
+        zone: '입구 구역',
       ));
       expect(tester.takeException(), isNull);
     },

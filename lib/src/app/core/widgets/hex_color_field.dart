@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_dialog_theme.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -54,7 +56,17 @@ class HexColorField extends HookWidget {
           hintText: '#RRGGBB',
           prefixIcon: IconButton(
             tooltip: '$label 컬러 피커',
-            icon: Icon(Icons.palette, color: color.value),
+            icon: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: color.value,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+            ),
             onPressed: () async {
               final selected = await showDialog<Color>(
                 context: context,
@@ -92,10 +104,12 @@ class _ColorPicker extends HookWidget {
   Widget build(BuildContext context) {
     final hsv = useState(HSVColor.fromColor(initial));
     final recent = useState<List<String>>(const []);
-    final wheelSize = (MediaQuery.sizeOf(context).height - 420).clamp(
-      170.0,
-      230.0,
-    );
+    final wheelSize = math
+        .min(
+          MediaQuery.sizeOf(context).width - 140,
+          MediaQuery.sizeOf(context).height - 450,
+        )
+        .clamp(140.0, 246.0);
     useEffect(() {
       var active = true;
       recentColors
@@ -106,96 +120,170 @@ class _ColorPicker extends HookWidget {
           .catchError((_) {});
       return () => active = false;
     }, [recentColors]);
-    return AlertDialog(
-      title: const Text('색상 선택'),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: 320,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 56,
-                decoration: BoxDecoration(
-                  color: hsv.value.toColor(),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                colorHex(hsv.value.toColor().toARGB32()),
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              if (recent.value.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '최근 색상',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: recent.value
-                        .map(
-                          (value) => _RecentColorButton(
-                            value: value,
-                            selected:
-                                colorHex(hsv.value.toColor().toARGB32()) ==
-                                value,
-                            onPressed: () => hsv.value = HSVColor.fromColor(
-                              Color(parseHexColor(value)!),
+    final theme = Theme.of(context);
+    final selectedColor = hsv.value.toColor();
+    return Dialog(
+      backgroundColor: AppDialogTheme.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: AppDialogTheme.shape,
+      insetPadding: AppDialogTheme.insetPadding,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 410),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '색상 선택',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                        )
-                        .toList(),
+                        ),
+                        IconButton(
+                          tooltip: '취소',
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _HueSaturationWheel(
+                      size: wheelSize,
+                      value: hsv.value,
+                      onChanged: (value) => hsv.value = value,
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: selectedColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          colorHex(selectedColor.toARGB32()),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _ColorSlider(
+                      label: '명도',
+                      value: hsv.value.value,
+                      onChanged: (value) =>
+                          hsv.value = hsv.value.withValue(value),
+                    ),
+                    ExpansionTile(
+                      title: const Text(
+                        '세부 조정',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      shape: const Border(),
+                      collapsedShape: const Border(),
+                      children: [
+                        _ColorSlider(
+                          label: '색조',
+                          value: hsv.value.hue,
+                          max: 360,
+                          onChanged: (value) =>
+                              hsv.value = hsv.value.withHue(value),
+                        ),
+                        _ColorSlider(
+                          label: '채도',
+                          value: hsv.value.saturation,
+                          onChanged: (value) =>
+                              hsv.value = hsv.value.withSaturation(value),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '최근 색상',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (recent.value.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          '선택한 색상이 여기에 표시됩니다.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: [
+                          for (final value in recent.value)
+                            _RecentColorButton(
+                              value: value,
+                              selected:
+                                  colorHex(selectedColor.toARGB32()) == value,
+                              onPressed: () => hsv.value = HSVColor.fromColor(
+                                Color(parseHexColor(value)!),
+                              ),
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+              child: SizedBox(
+                height: 50,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppDialogTheme.accent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, hsv.value.toColor()),
+                  child: const Text(
+                    '선택',
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-              ],
-              const SizedBox(height: 16),
-              _HueSaturationWheel(
-                size: wheelSize,
-                value: hsv.value,
-                onChanged: (value) => hsv.value = value,
               ),
-              const SizedBox(height: 12),
-              _ColorSlider(
-                label: '색조',
-                value: hsv.value.hue,
-                max: 360,
-                onChanged: (value) => hsv.value = hsv.value.withHue(value),
-              ),
-              _ColorSlider(
-                label: '채도',
-                value: hsv.value.saturation,
-                onChanged: (value) =>
-                    hsv.value = hsv.value.withSaturation(value),
-              ),
-              _ColorSlider(
-                label: '명도',
-                value: hsv.value.value,
-                onChanged: (value) => hsv.value = hsv.value.withValue(value),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, hsv.value.toColor()),
-          child: const Text('선택'),
-        ),
-      ],
     );
   }
 }

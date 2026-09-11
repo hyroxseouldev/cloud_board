@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -134,7 +135,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       if (displayMode) return;
       final shouldExit = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
+        builder: (dialogContext) => AppAlertDialog(
           title: const Text('수업을 종료할까요?'),
           content: const Text('연결된 디스플레이의 재생도 함께 종료됩니다.'),
           actions: [
