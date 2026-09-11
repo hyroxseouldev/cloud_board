@@ -42,6 +42,15 @@ class WorkoutController extends _$WorkoutController {
     return state.requireValue;
   }
 
+  /// Reload cache and server pages, completing only after the full catalog arrives.
+  Future<void> refresh() async {
+    ref.invalidateSelf();
+    await loadComplete();
+    if (state.hasError) {
+      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+    }
+  }
+
   List<Workout> _merge(List<Workout> items) {
     final merged = {for (final item in items) item.id: item, ..._upserts};
     for (final id in _removed) {

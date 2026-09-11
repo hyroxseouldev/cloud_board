@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 class FolderSelector extends HookWidget {
@@ -25,53 +26,41 @@ class FolderSelector extends HookWidget {
       ...created.value,
       if (value.isNotEmpty) value,
     }.where((f) => f.isNotEmpty).toList()..sort();
-    return Padding(
-      padding: EdgeInsets.only(bottom: compact ? 0 : 16),
-      child: DropdownButtonFormField<int>(
-        key: ValueKey((value, revision.value)),
-        initialValue: value.isEmpty ? -1 : options.indexOf(value),
-        isExpanded: true,
-        decoration: compact
-            ? const InputDecoration(
-                labelText: '폴더',
-                filled: true,
-                fillColor: Color(0xFFF5F5F9),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderSide: BorderSide.none,
-                  borderRadius: BorderRadius.all(Radius.circular(4)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide.none,
-                  borderRadius: BorderRadius.all(Radius.circular(4)),
-                ),
-              )
-            : const InputDecoration(labelText: '폴더'),
-        items: [
-          const DropdownMenuItem(value: -1, child: Text('폴더 없음')),
-          for (var i = 0; i < options.length; i++)
-            DropdownMenuItem(value: i, child: Text(options[i])),
-          const DropdownMenuItem(value: -2, child: Text('+ 새 폴더 추가')),
-        ],
-        onChanged: !enabled
-            ? null
-            : (index) async {
-                if (index == null) return;
-                if (index != -2) {
-                  onChanged(index == -1 ? '' : options[index]);
-                  return;
-                }
-                final name = await showDialog<String>(
-                  context: context,
-                  builder: (_) => _NewFolder(existing: options),
-                );
-                if (!context.mounted) return;
-                revision.value++;
-                if (name != null && context.mounted) {
-                  created.value = {...created.value, name};
-                  onChanged(name);
-                }
-              },
+    return Theme(
+      data: SlideEditorStyle.theme(Theme.of(context)),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: compact ? 0 : 16),
+        child: DropdownButtonFormField<int>(
+          key: ValueKey((value, revision.value)),
+          initialValue: value.isEmpty ? -1 : options.indexOf(value),
+          isExpanded: true,
+          decoration: InputDecoration(labelText: '폴더', isDense: compact),
+          items: [
+            const DropdownMenuItem(value: -1, child: Text('폴더 없음')),
+            for (var i = 0; i < options.length; i++)
+              DropdownMenuItem(value: i, child: Text(options[i])),
+            const DropdownMenuItem(value: -2, child: Text('+ 새 폴더 추가')),
+          ],
+          onChanged: !enabled
+              ? null
+              : (index) async {
+                  if (index == null) return;
+                  if (index != -2) {
+                    onChanged(index == -1 ? '' : options[index]);
+                    return;
+                  }
+                  final name = await showDialog<String>(
+                    context: context,
+                    builder: (_) => _NewFolder(existing: options),
+                  );
+                  if (!context.mounted) return;
+                  revision.value++;
+                  if (name != null && context.mounted) {
+                    created.value = {...created.value, name};
+                    onChanged(name);
+                  }
+                },
+        ),
       ),
     );
   }
