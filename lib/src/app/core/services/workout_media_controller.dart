@@ -128,9 +128,7 @@ class LazyWorkoutMediaController implements WorkoutMediaController {
 }
 
 Future<WorkoutMediaController> _createWorkoutMediaController() async {
-  if (kIsWeb ||
-      (defaultTargetPlatform != TargetPlatform.iOS &&
-          defaultTargetPlatform != TargetPlatform.android)) {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
     return const _NoopWorkoutMediaController();
   }
   try {
@@ -198,6 +196,8 @@ class _WorkoutAudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _show(Map<String, dynamic> value) async {
+    // iOS remote controls still need an active audio session. Android uses
+    // ordinary class notifications and never initializes this handler.
     await _ensureBackgroundAudio();
     final durationMs = (value['durationMs'] as num?)?.toInt() ?? 0;
     final remainingMs = (value['remainingMs'] as num?)?.toInt() ?? 0;

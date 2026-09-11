@@ -19,7 +19,10 @@
         "activeSession": {
           ".read": "auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)",
           ".write": "auth != null && auth.uid === $uid",
-          ".validate": "newData.hasChildren(['id', 'ownerId', 'zoneId', 'workoutSnapshot', 'status', 'stepIndex', 'remainingMs', 'anchorServerMs', 'revision', 'updatedByDeviceId']) && newData.child('ownerId').val() === auth.uid && newData.child('zoneId').isString() && newData.child('status').isString() && (newData.child('status').val() === 'playing' || newData.child('status').val() === 'paused' || newData.child('status').val() === 'completed') && newData.child('stepIndex').isNumber() && newData.child('stepIndex').val() >= 0 && newData.child('remainingMs').isNumber() && newData.child('remainingMs').val() >= 0 && newData.child('anchorServerMs').isNumber() && newData.child('revision').isNumber()"
+          ".validate": "newData.hasChildren(['id', 'ownerId', 'zoneId', 'workoutSnapshot', 'status', 'stepIndex', 'remainingMs', 'anchorServerMs', 'revision', 'updatedByDeviceId']) && newData.child('ownerId').val() === auth.uid && newData.child('zoneId').isString() && newData.child('status').isString() && (newData.child('status').val() === 'playing' || newData.child('status').val() === 'paused' || newData.child('status').val() === 'completed') && newData.child('stepIndex').isNumber() && newData.child('stepIndex').val() >= 0 && newData.child('remainingMs').isNumber() && newData.child('remainingMs').val() >= 0 && newData.child('anchorServerMs').isNumber() && newData.child('revision').isNumber()",
+          "notificationCommand": {
+            ".validate": "newData.hasChildren(['id', 'expiresAtMs']) && newData.child('id').isString() && newData.child('expiresAtMs').isNumber() && (newData.child('id').val() === data.child('id').val() || (newData.child('expiresAtMs').val() >= now && newData.child('expiresAtMs').val() <= now + 10000))"
+          }
         },
         "devices": {
           ".read": "auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)",

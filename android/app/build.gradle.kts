@@ -30,6 +30,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sunmkim.cloudboard"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -74,4 +75,15 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// Native notification actions authenticate without starting a Flutter screen.
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("androidx.core:core-ktx:1.17.0")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

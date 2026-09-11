@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/services/android_class_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -33,6 +34,17 @@ class XonBoardApp extends ConsumerWidget {
         );
     }
 
+    ref.listen(androidClassNotificationsProvider, (previous, next) {
+      if (next.value == false && previous?.value != false) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text(
+              '알림을 허용하면 앱 밖에서도 수업을 제어할 수 있습니다. 앱 내 제어는 계속 사용할 수 있습니다.',
+            ),
+          ),
+        );
+      }
+    });
     ref.listen(authControllerProvider, (previous, next) {
       showActionResult(previous, next, '인증 작업에 실패했습니다');
     });

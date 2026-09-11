@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
@@ -122,7 +124,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     }, [displayMode, state.briefing]);
 
     Future<void> exitPlayer() async {
-      if (sessionId != null && !displayMode) {
+      final active = ref.read(activePlaybackSessionProvider).value;
+      if (sessionId != null &&
+          !displayMode &&
+          active?.id == sessionId &&
+          active?.status != PlaybackStatus.completed) {
         final success = await ref
             .read(playbackActionControllerProvider.notifier)
             .complete();

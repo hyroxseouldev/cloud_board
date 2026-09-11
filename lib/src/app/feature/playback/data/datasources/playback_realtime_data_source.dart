@@ -96,6 +96,7 @@ class PlaybackRealtimeDataSource {
     int? remainingMs,
     int startDelayMs = 0,
     bool requireBriefing = false,
+    String? expectedSessionId,
   }) async {
     var workoutId = '';
     var workoutName = '';
@@ -104,6 +105,10 @@ class PlaybackRealtimeDataSource {
     final result = await _active.runTransaction((current) {
       if (current == null) return Transaction.abort();
       final json = Map<String, dynamic>.from(current as Map);
+      if (json['status'] == 'completed' ||
+          (expectedSessionId != null && json['id'] != expectedSessionId)) {
+        return Transaction.abort();
+      }
       if (requireBriefing && json['briefing'] != true) {
         return Transaction.abort();
       }
