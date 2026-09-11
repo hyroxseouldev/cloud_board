@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/display_settings_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/add_display_dialog.dart';
 
 class _Claim extends DeviceClaimController {
@@ -22,7 +26,137 @@ class _Claim extends DeviceClaimController {
   }
 }
 
+class _DisplayActions extends DeviceClaimController {
+  _DisplayActions({this.fail = false});
+
+  final bool fail;
+  final calls = <({String deviceId, String displayState})>[];
+
+  @override
+  Future<bool> setDisplayState({
+    required String deviceId,
+    required String displayState,
+  }) async {
+    calls.add((deviceId: deviceId, displayState: displayState));
+    state = fail
+        ? AsyncError(StateError('디스플레이 상태 변경 실패'), StackTrace.current)
+        : const AsyncData(null);
+    return !fail;
+  }
+}
+
+class _ControllerMode extends DeviceModeController {
+  @override
+  Future<DeviceMode> build() async => DeviceMode.controller;
+}
+
+DisplayDevice _device({String displayState = 'auto', String name = '입구 TV'}) =>
+    DisplayDevice(
+      id: 'display-1',
+      name: name,
+      zoneId: 'zone-1',
+      zoneName: '첫 번째 운동 구역',
+      online: true,
+      lastSeenAtMs: 0,
+      currentSessionId: null,
+      acknowledgedRevision: 12,
+      paired: true,
+      displayState: displayState,
+    );
+
+Future<void> _pumpDisplays(
+  WidgetTester tester, {
+  required DisplayDevice device,
+  required _DisplayActions controller,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        displayDevicesProvider.overrideWith((ref) => Stream.value([device])),
+        deviceClaimControllerProvider.overrideWith(() => controller),
+        deviceModeControllerProvider.overrideWith(_ControllerMode.new),
+      ],
+      child: const MaterialApp(home: DisplaySettingsScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  for (final displayState in ['auto', 'standby']) {
+    testWidgets('$displayState display switches off using black state', (
+      tester,
+    ) async {
+      final controller = _DisplayActions();
+      await _pumpDisplays(
+        tester,
+        device: _device(displayState: displayState),
+        controller: controller,
+      );
+
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+
+      expect(controller.calls, [
+        (deviceId: 'display-1', displayState: 'black'),
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('black display switches on using auto state', (tester) async {
+    final controller = _DisplayActions();
+    await _pumpDisplays(
+      tester,
+      device: _device(displayState: 'black'),
+      controller: controller,
+    );
+
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(controller.calls, [(deviceId: 'display-1', displayState: 'auto')]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('failed display toggle shows feedback and retains device state', (
+    tester,
+  ) async {
+    final controller = _DisplayActions(fail: true);
+    await _pumpDisplays(tester, device: _device(), controller: controller);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(controller.calls, [(deviceId: 'display-1', displayState: 'black')]);
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNotNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'long display name fits a 390 pixel screen with usable controls',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final controller = _DisplayActions();
+      await _pumpDisplays(
+        tester,
+        device: _device(name: '아주 긴 이름이 있는 입구 디스플레이 ' * 8),
+        controller: controller,
+      );
+
+      expect(find.text('등록된 디스플레이'), findsOneWidget);
+      expect(find.text('추가').hitTestable(), findsOneWidget);
+      expect(find.byType(Switch).hitTestable(), findsOneWidget);
+      expect(find.byTooltip('디스플레이 메뉴').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'add display validates code, preserves failed input and closes after retry',
     (tester) async {
