@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -374,7 +375,7 @@ class _SlideEditorBody extends HookConsumerWidget {
     final preview = Material(
       key: const ValueKey('slide-preview-card'),
       color: SlideEditorStyle.surface,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppStyle.controlRadius),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
@@ -458,7 +459,7 @@ class _SlideEditorBody extends HookConsumerWidget {
         );
         final timer = Material(
           color: SlideEditorStyle.surface,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppStyle.controlRadius),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             key: const ValueKey('slide-timer-summary'),

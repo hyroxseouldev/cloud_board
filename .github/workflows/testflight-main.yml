@@ -245,6 +245,36 @@ jobs:
           fi
           echo "IOS_ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
 
+      - name: Keep dSYMs for crash report recovery
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudboard-ios-dsyms-${{ env.TESTFLIGHT_BUILD_NUMBER }}
+          path: build/ios/archive/Runner.xcarchive/dSYMs
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload dSYMs to Firebase Crashlytics
+        run: |
+          set -euo pipefail
+
+          # Flutter stores the resolved Swift packages under build/ios.
+          upload_symbols="$GITHUB_WORKSPACE/build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols"
+          dsym_directory="$IOS_ARCHIVE_PATH/dSYMs"
+          google_service_plist="$IOS_ARCHIVE_PATH/Products/Applications/Runner.app/GoogleService-Info.plist"
+
+          if [[ ! -x "$upload_symbols" || ! -f "$google_service_plist" ]]; then
+            echo 'Missing Crashlytics upload tool or archived Firebase configuration.' >&2
+            exit 1
+          fi
+          for required_dsym in Runner.app.dSYM App.framework.dSYM; do
+            if [[ ! -d "$dsym_directory/$required_dsym" ]]; then
+              echo "Missing release dSYM: $required_dsym" >&2
+              exit 1
+            fi
+          done
+
+          "$upload_symbols" -gsp "$google_service_plist" -p ios "$dsym_directory"
+
       - name: Export signed IPA
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}

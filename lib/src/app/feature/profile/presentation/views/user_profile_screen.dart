@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -74,17 +75,13 @@ class UserProfileScreen extends HookConsumerWidget {
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
+          constraints: const BoxConstraints(maxWidth: AppStyle.fullWidth + 48),
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  '프로필 설정',
-                  style: Theme.of(context).textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
+                Text('프로필 설정', style: AppStyle.of(context).mainText),
                 const SizedBox(height: 28),
                 AsyncValueWidget<UserProfile>(
                   value: profileState,
@@ -108,10 +105,7 @@ class UserProfileScreen extends HookConsumerWidget {
                                     data.displayName,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                    style: AppStyle.of(context).subText3,
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -140,13 +134,7 @@ class UserProfileScreen extends HookConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text(
-                              '계정 정보',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
-                            ),
+                            Text('계정 정보', style: AppStyle.of(context).subText2),
                             const SizedBox(height: 20),
                             TextField(
                               controller: nameController,
@@ -176,9 +164,13 @@ class UserProfileScreen extends HookConsumerWidget {
                       const SizedBox(height: 24),
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
+                          minimumSize: Size.fromHeight(
+                            AppStyle.of(context).primaryButtonHeight,
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(
+                              AppStyle.controlRadius,
+                            ),
                           ),
                         ),
                         onPressed: profileState.isLoading
@@ -232,7 +224,7 @@ class _ProfileSection extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppStyle.cardRadius),
     ),
     child: Padding(padding: const EdgeInsets.all(20), child: child),
   );
@@ -251,10 +243,7 @@ class _PartnerCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '이용 정보',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-          ),
+          Text('이용 정보', style: AppStyle.of(context).subText2),
           const SizedBox(height: 20),
           _ProfileInfo(label: '등급', value: profile.partnerTier.label),
           _ProfileInfo(label: '이용 상태', value: profile.subscriptionStatus.label),

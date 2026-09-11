@@ -80,7 +80,11 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp.router(theme: XonTheme.light, routerConfig: router),
+        child: MaterialApp.router(
+          theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
+          routerConfig: router,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -121,6 +125,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             home: StandbySlideshow(
               brand: BrandTemplate.initial().copyWith(
                 promotionImageUrls: sources,
@@ -174,6 +179,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: XonTheme.light,
+        builder: XonTheme.responsiveBuilder,
         home: Scaffold(
           body: SlideDurationField(
             controller: controller,
@@ -224,6 +230,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: XonTheme.light,
+        builder: XonTheme.responsiveBuilder,
         home: Scaffold(
           body: Padding(
             padding: const EdgeInsets.all(24),
@@ -278,6 +285,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
           home: Scaffold(
             body: Center(
               child: SizedBox(
@@ -511,6 +519,7 @@ void main() {
           ],
           child: MaterialApp.router(
             theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             routerConfig: router,
           ),
         ),
@@ -610,6 +619,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
           home: StandbySlideshow(
             brand: BrandTemplate.initial().copyWith(
               promotionImageUrls: [pixel],
@@ -641,6 +651,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             home: SizedBox(
               width: 400,
               height: 300,
@@ -684,6 +695,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
           home: StoreWelcomeBoard(
             brand: BrandTemplate.initial(),
             now: DateTime(2026),
@@ -702,6 +714,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: XonTheme.light,
+        builder: XonTheme.responsiveBuilder,
         home: Scaffold(
           body: Form(
             key: key,
@@ -768,7 +781,11 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp.router(theme: XonTheme.light, routerConfig: router),
+        child: MaterialApp.router(
+          theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
+          routerConfig: router,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -850,6 +867,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: XonTheme.light,
+        builder: XonTheme.responsiveBuilder,
         home: StatefulBuilder(
           builder: (context, setState) => Scaffold(
             body: FolderSelector(
@@ -943,6 +961,7 @@ void main() {
             ],
             child: MaterialApp.router(
               theme: XonTheme.light,
+              builder: XonTheme.responsiveBuilder,
               routerConfig: router,
             ),
           ),
@@ -1059,6 +1078,7 @@ void main() {
           ],
           child: MaterialApp.router(
             theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             routerConfig: router,
           ),
         ),

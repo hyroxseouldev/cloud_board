@@ -45,6 +45,7 @@ class XonBoardApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: XonTheme.light,
+      builder: XonTheme.responsiveBuilder,
       routerConfig: ref.watch(appRouterProvider),
     );
   }
