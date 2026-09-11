@@ -67,3 +67,27 @@ Per the latest screenshots, the preview now fills the editor content width insid
 Visual checks: tablet portrait 834×1194, phone 390×844, and tablet landscape 1194×834. Browser confirmed collapse/expand and the combined rehearsal button opens the existing rehearsal page and returns. Current evidence: `/tmp/cloud-board-design-qa/preview-wide-tablet.png`, `/tmp/cloud-board-design-qa/preview-wide-phone.png`.
 
 Validation: 13 slide-editor/timer tests and 28 app improvement tests passed. Existing responsive tests now assert full preview width, a single rehearsal control, collapse/expand, title visibility updates and undo after scrolling. Full analyzer reported no issues. Simulator hot reload succeeded (7 libraries, 516ms). A previously buffered Flutter system text-menu assertion appeared before the reload; no equivalent error was observed in the new browser interactions.
+
+## Display settings follow-up — 2026-09-11
+
+final result: passed
+
+Scope: apply the user-provided registered-display list design to the existing Flutter settings screen. Keep the existing page navigation and controller/display mode selector above this section.
+
+Source: `/var/folders/pd/ytsw9j8s3pv23k7p5tmngl6m0000gn/T/TemporaryItems/NSIRD_screencaptureui_ZaTKdB/스크린샷 2026-09-11 오전 9.50.32.png` (390 × 214 pixels, cropped list reference).
+Implementation: `/tmp/cloud-board-display-preview/phone.png` (390 × 844) and `/tmp/cloud-board-display-preview/tablet.png` (834 × 1194). Browser viewport dimensions match saved pixels. Source and full phone screenshot were emitted together for comparison; compare the registered-display section, excluding existing app header and the source's green artboard edges/cursor. A preliminary browser clip produced incorrect scaling and was discarded. The full capture exposes the small card details clearly, so no additional detail crop is needed.
+
+State: two enabled devices; preview uses a temporary provider-override harness rendering the real production screen at `http://localhost:8788`. Preview data is illustrative and does not access real devices.
+
+Fidelity review:
+- Typography: bundled Pretendard, 16px bold section heading, 14px semibold device name, 12px secondary status, one-line ellipsis for long device/zone labels.
+- Layout: flat 66px minimum-height cards, 4px corners, 8px row spacing, left toggle, right overflow menu, compact add label and plus. Width responds to the existing page constraints. Existing page header remains outside the supplied crop.
+- Colors: pale lavender cards and muted lavender switches/menu. Foreground text is intentionally darker than the faded source for readability.
+- Assets: source has only text, standard controls and icons; existing Material icons are used. No raster assets are needed.
+- Copy: actual device names, zones, online status and command acknowledgements replace dummy reference text.
+
+No actionable P0/P1/P2 differences found in the final comparison. Browser verified switch off/on with semantic values changing 1→0→1 and overflow menu opening/dismissing. Console warning/error capture was empty. Phone and tablet controls remain visible with no overflow. Browser checks used mock providers; physical display/network delivery was not exercised.
+
+Validation: `flutter analyze --no-pub` passed; `flutter test --no-pub test/display_settings_test.dart test/app_improvements_test.dart` passed 34 tests. New tests verify auto/standby→black, black→auto, failed-action feedback with prior state retained, and long labels at 390px. `git diff --check` passed.
+
+Implementation checklist: visual matching, real controller wiring, responsive checks, failure feedback and existing add/navigation tests completed. No remaining P3 follow-up identified.
