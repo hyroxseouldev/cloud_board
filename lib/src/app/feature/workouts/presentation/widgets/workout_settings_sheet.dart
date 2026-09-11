@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
@@ -41,14 +42,10 @@ class WorkoutSettingsSheet extends StatelessWidget {
                     padding: EdgeInsets.fromLTRB(gutter, 20, 12, 16),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             '워크아웃 설정',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1,
-                            ),
+                            style: AppStyle.of(context).subText1,
                           ),
                         ),
                         IconButton(
@@ -275,7 +272,9 @@ class _SoundSettingsSection extends ConsumerWidget {
                     backgroundColor: SlideEditorStyle.surface,
                     side: BorderSide.none,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(
+                        AppStyle.controlRadius,
+                      ),
                     ),
                     tooltip: option.description,
                     selected: workout.soundTheme == option,

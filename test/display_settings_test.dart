@@ -77,7 +77,11 @@ Future<void> _pumpDisplays(
         deviceClaimControllerProvider.overrideWith(() => controller),
         deviceModeControllerProvider.overrideWith(_ControllerMode.new),
       ],
-      child: MaterialApp(theme: XonTheme.light, home: DisplaySettingsScreen()),
+      child: MaterialApp(
+        theme: XonTheme.light,
+        builder: XonTheme.responsiveBuilder,
+        home: DisplaySettingsScreen(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -169,6 +173,7 @@ void main() {
           ],
           child: MaterialApp(
             theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             home: Builder(
               builder: (context) => Scaffold(
                 body: TextButton(

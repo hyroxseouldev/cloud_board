@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -59,8 +60,7 @@ class DisplaySettingsScreen extends ConsumerWidget {
                 builder: (context, constraints) {
                   final title = Text(
                     '디스플레이 설정',
-                    style: Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    style: AppStyle.of(context).mainText,
                   );
                   if (constraints.maxWidth < 480) {
                     return Column(
@@ -90,22 +90,13 @@ class DisplaySettingsScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       '등록된 디스플레이',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                      ),
+                      style: AppStyle.of(context).subText2,
                     ),
                   ),
                   TextButton(
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.accent,
                       padding: const EdgeInsets.only(left: 12),
-                      textStyle: const TextStyle(
-                        fontFamily: 'Pretendard',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
                     ),
                     onPressed: busy
                         ? null
@@ -235,7 +226,7 @@ class _DisplayTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: AppColors.surface,
-    borderRadius: BorderRadius.circular(8),
+    borderRadius: BorderRadius.circular(AppStyle.controlRadius),
     child: ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 66),
       child: Padding(
@@ -270,12 +261,7 @@ class _DisplayTile extends StatelessWidget {
                     device.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                    ),
+                    style: AppStyle.of(context).subText3,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -296,11 +282,7 @@ class _DisplayTile extends StatelessWidget {
             PopupMenuButton<String>(
               tooltip: '디스플레이 메뉴',
               enabled: !busy,
-              icon: const Icon(
-                Icons.more_vert,
-                size: 16,
-                color: AppColors.muted,
-              ),
+              icon: const Icon(Icons.more_vert, color: AppColors.muted),
               onSelected: (_) => onRemove(),
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'remove', child: Text('연결 해제')),

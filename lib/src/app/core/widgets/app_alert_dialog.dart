@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_dialog_theme.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
 /// Consistent form and confirmation dialogs with actions outside scrolling content.
 class AppAlertDialog extends StatelessWidget {
@@ -31,7 +32,11 @@ class AppAlertDialog extends StatelessWidget {
       contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       actionsAlignment: MainAxisAlignment.end,
       actionsOverflowButtonSpacing: 8,
-      constraints: const BoxConstraints(minWidth: 280, maxWidth: 560),
+      constraints: const BoxConstraints(
+        minWidth: AppStyle.popupWidth,
+        maxWidth: AppStyle.popupWidth,
+        minHeight: AppStyle.popupMinHeight,
+      ),
     ),
   );
 }

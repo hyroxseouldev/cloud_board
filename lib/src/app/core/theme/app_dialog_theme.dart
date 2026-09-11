@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
 /// Shared modal styling, matching the quiet lavender editing surfaces.
 abstract final class AppDialogTheme {
@@ -9,7 +10,7 @@ abstract final class AppDialogTheme {
   static const accent = AppColors.accent;
   static const line = AppColors.line;
   static const shape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(12)),
+    borderRadius: BorderRadius.all(Radius.circular(AppStyle.cardRadius)),
   );
   static const insetPadding = EdgeInsets.symmetric(
     horizontal: 20,
@@ -40,15 +41,20 @@ abstract final class AppDialogTheme {
 
   /// Scoped to dialogs so playback colors and page actions keep their meaning.
   static ThemeData of(ThemeData base) {
+    final guide = base.extension<AppStyle>() ?? const AppStyle();
     const buttonShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(8)),
+      borderRadius: BorderRadius.all(Radius.circular(AppStyle.controlRadius)),
     );
     const border = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(8)),
+      borderRadius: BorderRadius.all(Radius.circular(AppStyle.controlRadius)),
       borderSide: BorderSide(color: line),
     );
     return base.copyWith(
-      dialogTheme: data,
+      dialogTheme: data.copyWith(
+        titleTextStyle: base.textTheme.titleLarge
+            ?.merge(guide.subText2)
+            .copyWith(color: ink),
+      ),
       colorScheme: base.colorScheme.copyWith(
         primary: accent,
         onPrimary: Colors.white,
@@ -70,7 +76,9 @@ abstract final class AppDialogTheme {
         enabledBorder: border,
         disabledBorder: border,
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderRadius: BorderRadius.all(
+            Radius.circular(AppStyle.controlRadius),
+          ),
           borderSide: BorderSide(color: accent, width: 1.5),
         ),
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -81,21 +89,18 @@ abstract final class AppDialogTheme {
           foregroundColor: Colors.white,
           disabledBackgroundColor: line,
           disabledForegroundColor: muted,
-          minimumSize: const Size(88, 44),
+          minimumSize: Size(88, guide.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          textStyle: const TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
+          textStyle: base.textTheme.labelLarge?.merge(guide.buttonText),
           shape: buttonShape,
           elevation: 0,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          textStyle: base.textTheme.labelLarge?.merge(guide.buttonText),
           foregroundColor: accent,
-          minimumSize: const Size(88, 44),
+          minimumSize: Size(88, guide.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           side: const BorderSide(color: line),
           shape: buttonShape,
@@ -103,8 +108,9 @@ abstract final class AppDialogTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          textStyle: base.textTheme.labelLarge?.merge(guide.buttonText),
           foregroundColor: muted,
-          minimumSize: const Size(64, 44),
+          minimumSize: Size(64, guide.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: buttonShape,
         ),

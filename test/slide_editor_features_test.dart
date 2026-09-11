@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -204,6 +206,8 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             child: MaterialApp(
+              theme: XonTheme.light,
+              builder: XonTheme.responsiveBuilder,
               home: SlideEditorScreen(
                 workoutId: 'w',
                 moduleId: original.id,
@@ -288,6 +292,8 @@ void main() {
           ProviderScope(
             key: UniqueKey(),
             child: MaterialApp(
+              theme: XonTheme.light,
+              builder: XonTheme.responsiveBuilder,
               home: SlideEditorScreen(
                 workoutId: 'recovery-workout',
                 moduleId: original.id,
@@ -349,6 +355,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
+            theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             home: SlideEditorScreen(
               workoutId: 'styles-workout',
               moduleId: original.id,
@@ -409,6 +417,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
+            theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             home: SlideRehearsalScreen(
               module: original.copyWith(beep: false),
               brandL: '',

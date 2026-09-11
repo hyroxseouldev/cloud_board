@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -740,8 +741,10 @@ class _StandbyPreview extends HookWidget {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: StoreWelcomeBoard(brand: template, now: now.value),
+        borderRadius: BorderRadius.circular(AppStyle.cardRadius),
+        child: MediaQuery.withNoTextScaling(
+          child: StoreWelcomeBoard(brand: template, now: now.value),
+        ),
       ),
     );
   }
@@ -795,17 +798,21 @@ class _MetricCard extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 180,
-    height: 130,
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(
+      minWidth: 180,
+      maxWidth: 180,
+      minHeight: 130,
+    ),
     child: Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const Spacer(),
+            const SizedBox(height: 12),
             Text(
               value,
               maxLines: 2,

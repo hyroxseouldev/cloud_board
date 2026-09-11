@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -368,10 +369,9 @@ class _EditorBody extends HookConsumerWidget {
                                 Expanded(
                                   child: Text(
                                     '워크아웃 편집',
-                                    style: TextStyle(
-                                      fontSize: compact ? 20 : 26,
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                    style: compact
+                                        ? AppStyle.of(context).subText2
+                                        : AppStyle.of(context).mainText,
                                   ),
                                 ),
                                 IconButton(
@@ -423,12 +423,9 @@ class _EditorBody extends HookConsumerWidget {
                             ),
                             if (!compact) ...[
                               const SizedBox(height: 24),
-                              const Text(
+                              Text(
                                 '슬라이드 설정',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                                style: AppStyle.of(context).subText1,
                               ),
                               const SizedBox(height: 12),
                             ],
@@ -608,7 +605,9 @@ class _EditorBody extends HookConsumerWidget {
                               color: AppColors.surface,
                               margin: const EdgeInsets.only(bottom: 10),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(
+                                  AppStyle.controlRadius,
+                                ),
                               ),
                               child: ListTile(
                                 onTap: isBusy ? null : edit,

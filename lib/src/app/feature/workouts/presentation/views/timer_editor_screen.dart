@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -87,14 +88,7 @@ class TimerEditorScreen extends HookConsumerWidget {
                   40,
                 ),
                 children: [
-                  const Text(
-                    '타이머 편집',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1,
-                    ),
-                  ),
+                  Text('타이머 편집', style: AppStyle.of(context).mainText),
                   const SizedBox(height: 12),
                   Text(
                     module.name,
@@ -177,7 +171,9 @@ class TimerEditorScreen extends HookConsumerWidget {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Material(
                           color: SlideEditorStyle.surface,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(
+                            AppStyle.controlRadius,
+                          ),
                           clipBehavior: Clip.antiAlias,
                           child: Column(
                             children: [

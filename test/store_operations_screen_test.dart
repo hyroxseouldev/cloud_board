@@ -34,6 +34,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
           home: StoreOperationsScreen(),
         ),
       ),

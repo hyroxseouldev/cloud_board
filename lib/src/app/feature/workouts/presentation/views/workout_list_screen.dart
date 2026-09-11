@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -184,12 +185,6 @@ class _WorkoutListBody extends HookConsumerWidget {
         ),
         floatingActionButton: FloatingActionButton(
           tooltip: '워크아웃 추가',
-          backgroundColor: SlideEditorStyle.accent,
-          foregroundColor: Colors.white,
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
           onPressed: isBusy ? null : () => context.push('/editor/new'),
           child: const Icon(Icons.add_rounded),
         ),
@@ -274,9 +269,11 @@ class _WorkoutToolbar extends StatelessWidget {
                   style: IconButton.styleFrom(
                     backgroundColor: SlideEditorStyle.surface,
                     foregroundColor: SlideEditorStyle.accent,
-                    minimumSize: const Size(48, 48),
+                    minimumSize: Size.square(AppStyle.of(context).buttonHeight),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(
+                        AppStyle.controlRadius,
+                      ),
                     ),
                   ),
                   onPressed: onRefresh,
@@ -323,7 +320,7 @@ class _Pagination extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1000),
+      constraints: const BoxConstraints(maxWidth: AppStyle.cardWidth * 2 + 60),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 16, 8),
         child: Row(
@@ -382,10 +379,14 @@ class _WorkoutGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1000),
+      constraints: const BoxConstraints(maxWidth: AppStyle.cardWidth * 2 + 60),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final columns = constraints.maxWidth < 600 ? 2 : 3;
+          final columns = !AppStyle.of(context).compact
+              ? 3
+              : constraints.maxWidth < 360
+              ? 1
+              : 2;
           final cardWidth =
               (constraints.maxWidth - 48 - (columns - 1) * 12) / columns;
           final textScale = MediaQuery.textScalerOf(context).scale(1);
@@ -393,10 +394,17 @@ class _WorkoutGrid extends StatelessWidget {
             key: const ValueKey('workout-grid'),
             controller: controller,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 96),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              AppStyle.of(context).floatingSize + 40,
+            ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
-              mainAxisExtent: cardWidth * 9 / 16 + 138 * textScale,
+              mainAxisExtent: AppStyle.of(context).compact
+                  ? cardWidth * 9 / 16 + 138 * textScale
+                  : AppStyle.cardMinHeight + 138 * (textScale - 1),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -568,7 +576,7 @@ class _AddWorkoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: SlideEditorStyle.surface,
-    borderRadius: BorderRadius.circular(8),
+    borderRadius: BorderRadius.circular(AppStyle.cardRadius),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       onTap: isBusy ? null : () => context.push('/editor/new'),
@@ -596,15 +604,14 @@ class _WorkoutCard extends StatelessWidget {
     final imageSource = workout.modules.firstOrNull?.imageSource ?? '';
     return Material(
       color: SlideEditorStyle.surface,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppStyle.cardRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: isBusy ? null : () => context.push('/editor/${workout.id}'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
+            Expanded(
               child: ExcludeSemantics(
                 child: imageSource.isEmpty
                     ? const Center(
@@ -626,10 +633,7 @@ class _WorkoutCard extends StatelessWidget {
                     workout.name.isEmpty ? '이름 없음' : workout.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: AppStyle.of(context).subText3,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -644,7 +648,7 @@ class _WorkoutCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Spacer(),
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.only(left: 12, right: 4, bottom: 4),
               child: Row(

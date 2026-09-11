@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
@@ -227,18 +228,14 @@ class _RehearsalHeader extends StatelessWidget {
               name.isEmpty ? '미리보기' : name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -.6,
-              ),
+              style: AppStyle.of(context).subText1,
             ),
           ),
           const SizedBox(width: 12),
           DecoratedBox(
             decoration: BoxDecoration(
               color: SlideEditorStyle.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppStyle.controlRadius),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

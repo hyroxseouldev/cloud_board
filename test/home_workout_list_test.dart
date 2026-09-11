@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
@@ -12,7 +14,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  for (final size in [const Size(390, 844), const Size(834, 1194)]) {
+  for (final size in [
+    const Size(390, 844),
+    const Size(834, 1194),
+    const Size(1194, 834),
+  ]) {
     testWidgets('pagination and filters stay consistent at $size', (
       tester,
     ) async {
@@ -24,6 +30,14 @@ void main() {
           .estimatedChildCount!;
       expect(find.text('1 / 3'), findsOneWidget);
       expect(cardCount(), 13); // 12 workouts and the existing add card.
+      final grid = tester.widget<GridView>(
+        find.byKey(const ValueKey('workout-grid')),
+      );
+      expect(
+        (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+            .crossAxisCount,
+        size.shortestSide >= 600 ? 3 : 2,
+      );
       expect(
         tester
             .widget<IconButton>(
@@ -243,7 +257,11 @@ Future<ProviderContainer> _mount(
           (ref) async => LoadWorkouts(repository),
         ),
       ],
-      child: const MaterialApp(home: WorkoutListScreen()),
+      child: MaterialApp(
+        theme: XonTheme.light,
+        builder: XonTheme.responsiveBuilder,
+        home: const WorkoutListScreen(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

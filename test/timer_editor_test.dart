@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
@@ -20,6 +21,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
+            theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
             home: SlideEditorScreen(
               guard: ExitGuard(),
               workoutId: 'timer-workout',
