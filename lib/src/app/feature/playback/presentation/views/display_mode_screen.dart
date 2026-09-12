@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,7 +19,7 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairin
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_menu.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_toggle.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_player_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -204,9 +207,16 @@ class DisplayModeScreen extends HookConsumerWidget {
                 right: 18,
                 child: SafeArea(
                   child: Material(
-                    color: Colors.black54,
-                    shape: CircleBorder(),
-                    child: DeviceModeMenu(iconColor: Colors.white),
+                    color: AppColors.surface,
+                    elevation: 2,
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(AppStyle.controlRadius),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Padding(
+                      padding: EdgeInsets.all(4),
+                      child: DeviceModeToggle(),
+                    ),
                   ),
                 ),
               ),

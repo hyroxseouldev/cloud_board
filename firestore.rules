@@ -3,7 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId
+        && !exists(/databases/$(database)/documents/accountDeletions/$(userId));
     }
 
     match /users/{userId} {

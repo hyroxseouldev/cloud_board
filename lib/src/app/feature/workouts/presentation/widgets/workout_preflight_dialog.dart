@@ -11,7 +11,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_board.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_preview.dart';
 
 class WorkoutPreflightSelection {
   WorkoutPreflightSelection({required Iterable<String> targetDeviceIds})
@@ -206,26 +206,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                 onPressed: () => showDialog<void>(
                   context: context,
                   builder: (previewContext) => Dialog.fullscreen(
-                    child: Stack(
-                      children: [
-                        WorkoutBriefingBoard(
-                          workout: workout,
-                          displayMode: true,
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: SafeArea(
-                            child: IconButton(
-                              tooltip: '미리보기 닫기',
-                              onPressed: () =>
-                                  Navigator.of(previewContext).pop(),
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: WorkoutBriefingPreview(workout: workout),
                   ),
                 ),
               ),

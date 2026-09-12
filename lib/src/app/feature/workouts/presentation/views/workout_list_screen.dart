@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -243,7 +244,7 @@ class _WorkoutToolbar extends StatelessWidget {
             final controls = Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdownFormField<String>(
                     key: ValueKey(selectedFolder),
                     initialValue: selectedFolder ?? '',
                     isExpanded: true,
@@ -409,9 +410,9 @@ class _WorkoutGrid extends StatelessWidget {
               mainAxisSpacing: 12,
             ),
             itemCount: items.length + 1,
-            itemBuilder: (context, index) => index == items.length
+            itemBuilder: (context, index) => index == 0
                 ? _AddWorkoutCard(isBusy: isBusy)
-                : _WorkoutCard(workout: items[index], isBusy: isBusy),
+                : _WorkoutCard(workout: items[index - 1], isBusy: isBusy),
           );
         },
       ),

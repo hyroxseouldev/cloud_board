@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
@@ -30,7 +31,7 @@ class FolderSelector extends HookWidget {
       data: SlideEditorStyle.theme(Theme.of(context)),
       child: Padding(
         padding: EdgeInsets.only(bottom: compact ? 0 : 16),
-        child: DropdownButtonFormField<int>(
+        child: AppDropdownFormField<int>(
           key: ValueKey((value, revision.value)),
           initialValue: value.isEmpty ? -1 : options.indexOf(value),
           isExpanded: true,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -426,7 +427,11 @@ void main() {
     },
   );
 
-  for (final size in [const Size(390, 844), const Size(1280, 720)]) {
+  for (final size in [
+    const Size(390, 844),
+    const Size(834, 1194),
+    const Size(1280, 720),
+  ]) {
     testWidgets('briefing fits $size and coach explicitly starts the class', (
       tester,
     ) async {
@@ -437,9 +442,11 @@ void main() {
       var started = false;
       await tester.pumpWidget(
         MaterialApp(
+          theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
           home: WorkoutBriefingBoard(
             workout: workout,
-            displayMode: size.width > 800,
+            displayMode: size.width > size.height,
             onStart: () => started = true,
           ),
         ),
@@ -448,7 +455,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text(workout.name), findsOneWidget);
       expect(started, isFalse);
-      if (size.width < 800) {
+      if (size.width < size.height) {
         await tester.tap(find.text('수업 시작 · 3초 카운트다운'));
         expect(started, isTrue);
       }

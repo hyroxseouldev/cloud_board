@@ -197,16 +197,12 @@ class _EditorBody extends HookConsumerWidget {
       return saved;
     }
 
-    Future<void> saveAndClose() async {
+    Future<void> saveInPlace() async {
       final saved = await persist();
-      if (saved == null || !context.mounted) return;
+      if (saved == null || !context.mounted || !isNew) return;
+      // Give the dirty-state guard a frame to observe the saved baseline.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        if (isNew || !context.canPop()) {
-          context.go('/');
-        } else {
-          context.pop();
-        }
+        if (context.mounted) context.replace('/editor/${saved.id}');
       });
     }
 
@@ -374,6 +370,22 @@ class _EditorBody extends HookConsumerWidget {
                                         : AppStyle.of(context).mainText,
                                   ),
                                 ),
+                                if (constraints.maxWidth >= 600)
+                                  Tooltip(
+                                    message: '저장',
+                                    child: TextButton.icon(
+                                      onPressed: isBusy ? null : saveInPlace,
+                                      icon: const Icon(Icons.save_outlined),
+                                      iconAlignment: IconAlignment.end,
+                                      label: const Text('저장'),
+                                    ),
+                                  )
+                                else
+                                  IconButton(
+                                    tooltip: '저장',
+                                    onPressed: isBusy ? null : saveInPlace,
+                                    icon: const Icon(Icons.save_outlined),
+                                  ),
                                 IconButton(
                                   tooltip: '화면·사운드 설정',
                                   onPressed: isBusy ? null : openSettings,
@@ -444,11 +456,6 @@ class _EditorBody extends HookConsumerWidget {
                                       color: XonColors.muted,
                                     ),
                                   ),
-                                ),
-                                IconButton(
-                                  tooltip: '저장',
-                                  onPressed: isBusy ? null : saveAndClose,
-                                  icon: const Icon(Icons.save_outlined),
                                 ),
                               ],
                             ),
@@ -601,6 +608,7 @@ class _EditorBody extends HookConsumerWidget {
 
                             return Card(
                               key: ValueKey(module.id),
+                              clipBehavior: Clip.antiAlias,
                               elevation: 0,
                               color: AppColors.surface,
                               margin: const EdgeInsets.only(bottom: 10),

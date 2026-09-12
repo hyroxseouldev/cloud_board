@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/profile/presentation/widgets/account_management_section.dart';
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -207,6 +209,8 @@ class UserProfileScreen extends HookConsumerWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 24),
+                const AccountManagementSection(),
               ],
             ),
           ),

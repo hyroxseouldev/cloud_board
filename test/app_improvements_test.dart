@@ -533,6 +533,7 @@ void main() {
       );
       expect(find.text('수업'), findsOneWidget);
       expect(find.text('워크아웃 추가'), findsOneWidget);
+      expect(find.byType(FloatingActionButton).hitTestable(), findsOneWidget);
 
       expect(find.byTooltip('리스트 보기'), findsNothing);
       expect(find.byTooltip('그리드 보기'), findsNothing);
@@ -907,6 +908,104 @@ void main() {
 
   for (final id in ['w', 'new']) {
     testWidgets(
+      '$id workout save stays in editor through retry and later edits',
+      (tester) async {
+        tester.view.physicalSize = const Size(834, 1194);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final saved = <Workout>[];
+        final guard = ExitGuard();
+        final router = GoRouter(
+          initialLocation: '/editor/$id',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(body: Text('홈')),
+            ),
+            GoRoute(
+              path: '/editor/:id',
+              builder: (_, state) => WorkoutEditorScreen(
+                workoutId: state.pathParameters['id']!,
+                guard: guard,
+              ),
+              onExit: (_, _) => guard.confirm(),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authStateProvider.overrideWith(
+                (ref) => Stream.value(
+                  const AuthUser(
+                    id: 'u',
+                    email: 'coach@example.com',
+                    displayName: 'Coach',
+                    photoUrl: null,
+                  ),
+                ),
+              ),
+              workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              workoutActionControllerProvider.overrideWith(
+                () => _RetryWorkoutSave(saved),
+              ),
+            ],
+            child: MaterialApp.router(
+              theme: XonTheme.light,
+              builder: XonTheme.responsiveBuilder,
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextField, '워크아웃 이름'),
+          '첫 번째 저장',
+        );
+        await tester.pump();
+        final title = tester.getRect(find.text('워크아웃 편집'));
+        final save = tester.getRect(find.byTooltip('저장'));
+        expect(save.left, greaterThanOrEqualTo(title.right));
+        expect((save.center.dy - title.center.dy).abs(), lessThan(2));
+        await tester.tap(find.byTooltip('저장'));
+        await tester.pumpAndSettle();
+        expect(saved, isEmpty);
+        expect(find.text('저장 필요'), findsOneWidget);
+        expect(router.routeInformationProvider.value.uri.path, '/editor/$id');
+        await tester.tap(find.byTooltip('저장'));
+        await tester.pumpAndSettle();
+        expect(saved.length, 1);
+        expect(find.text('워크아웃 편집'), findsOneWidget);
+        expect(find.text('저장됨'), findsOneWidget);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          '/editor/${saved.first.id}',
+        );
+        expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+        await tester.enterText(
+          find.widgetWithText(TextField, '워크아웃 이름'),
+          '이어서 수정',
+        );
+        await tester.pump();
+        await tester.tap(find.byTooltip('저장'));
+        await tester.pumpAndSettle();
+        expect(saved.length, 2);
+        expect(saved.last.id, saved.first.id);
+        expect(saved.last.name, '이어서 수정');
+        expect(find.text('워크아웃 편집'), findsOneWidget);
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.text('홈'), findsOneWidget);
+        expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final id in ['w', 'new']) {
+    testWidgets(
       '$id workout child route saves once and refreshes parent draft',
       (tester) async {
         final saved = <Workout>[];
@@ -1174,5 +1273,22 @@ class _SaveBrand extends StoreOperationsActionController {
   Future<bool> saveBrandTemplate(BrandTemplate value) async {
     saved.add(value);
     return saved.length > 1;
+  }
+}
+
+class _RetryWorkoutSave extends WorkoutActionController {
+  _RetryWorkoutSave(this.saved);
+  final List<Workout> saved;
+  var attempts = 0;
+  @override
+  Future<Workout?> save(Workout value) async {
+    if (attempts++ == 0) {
+      state = AsyncError(StateError('저장 실패'), StackTrace.current);
+      return null;
+    }
+    saved.add(value);
+    ref.read(workoutControllerProvider.notifier).upsert(value);
+    state = const AsyncData('저장했습니다.');
+    return value;
   }
 }

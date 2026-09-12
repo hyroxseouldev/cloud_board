@@ -147,6 +147,8 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     int startDelayMs = 0,
     bool requireBriefing = false,
   }) async {
+    final expectedSessionId = (await _local.load())?.id;
+    if (expectedSessionId == null) throw StateError('진행 중인 수업이 없습니다.');
     await _local.update(
       status: status,
       deviceId: deviceId,
@@ -163,6 +165,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
             remainingMs: remainingMs,
             startDelayMs: startDelayMs,
             requireBriefing: requireBriefing,
+            expectedSessionId: expectedSessionId,
           )
           .timeout(const Duration(seconds: 2));
       await _local.save(updated);

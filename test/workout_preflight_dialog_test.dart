@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_preview.dart';
+
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -34,7 +37,11 @@ void main() {
         overrides: [
           displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
         ],
-        child: MaterialApp(home: WorkoutPreflightDialog(workout: workout)),
+        child: MaterialApp(
+          theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
+          home: WorkoutPreflightDialog(workout: workout),
+        ),
       ),
     );
 
@@ -88,7 +95,11 @@ void main() {
         overrides: [
           displayDevicesProvider.overrideWith((ref) => Stream.value(devices)),
         ],
-        child: MaterialApp(home: WorkoutPreflightDialog(workout: workout)),
+        child: MaterialApp(
+          theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
+          home: WorkoutPreflightDialog(workout: workout),
+        ),
       ),
     );
     await tester.pump();
@@ -100,6 +111,28 @@ void main() {
     expect(checkboxes.length, 2);
     expect(checkboxes.every((tile) => tile.value == true), isTrue);
     expect(find.text('2대를 선택했습니다.'), findsOneWidget);
+
+    await tester.ensureVisible(find.byType(CheckboxListTile).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(CheckboxListTile).last);
+    await tester.pump();
+    await tester.ensureVisible(find.text('브리핑 미리보기'));
+    await tester.tap(find.text('브리핑 미리보기'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkoutBriefingPreview), findsOneWidget);
+    expect(find.text('수업 시작 · 3초 카운트다운'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('미리보기 닫기'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkoutBriefingPreview), findsNothing);
+    expect(find.text('1대를 선택했습니다.'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+          .map((tile) => tile.value),
+      [true, false],
+    );
   });
 }
 

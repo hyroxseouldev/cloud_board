@@ -51,6 +51,25 @@ class FirebaseAuthDataSource {
     return _auth.signInWithCredential(credential);
   }
 
+  Future<void> reauthenticateWithGoogle() async {
+    final user = _auth.currentUser;
+    if (user == null || user.isAnonymous) {
+      throw StateError('Google 계정 로그인이 필요합니다.');
+    }
+    if (kIsWeb) {
+      await user.reauthenticateWithPopup(GoogleAuthProvider());
+    } else {
+      await _ensureGoogleInitialized();
+      final googleUser = await _googleSignIn.authenticate();
+      await user.reauthenticateWithCredential(
+        GoogleAuthProvider.credential(
+          idToken: googleUser.authentication.idToken,
+        ),
+      );
+    }
+    await user.getIdToken(true);
+  }
+
   Future<void> signOut() async {
     await _auth.signOut();
     if (!kIsWeb) {
