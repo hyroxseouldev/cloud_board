@@ -1,0 +1,91 @@
+{
+  "appName": "클라우드보드",
+  "locale": "ko-KR",
+  "generatedAt": "2026-09-11T08:24:02.323Z",
+  "assets": [
+    {
+      "file": "phone/01-workouts.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 190613
+    },
+    {
+      "file": "tablet/01-workouts.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 73652
+    },
+    {
+      "file": "phone/02-editor.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 226705
+    },
+    {
+      "file": "tablet/02-editor.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 68590
+    },
+    {
+      "file": "phone/03-briefing.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 156470
+    },
+    {
+      "file": "tablet/03-briefing.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 109088
+    },
+    {
+      "file": "phone/04-sounds.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 197859
+    },
+    {
+      "file": "tablet/04-sounds.png",
+      "width": 1080,
+      "height": 1920,
+      "alpha": false,
+      "bytes": 84752
+    },
+    {
+      "file": "tv/01-player.png",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false,
+      "bytes": 51676
+    },
+    {
+      "file": "branding/app-icon-draft-512.png",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "bytes": 9457
+    },
+    {
+      "file": "branding/feature-graphic-1024x500.png",
+      "width": 1024,
+      "height": 500,
+      "alpha": false,
+      "bytes": 90045
+    },
+    {
+      "file": "tv/banner-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "alpha": false,
+      "bytes": 81134
+    }
+  ]
+}

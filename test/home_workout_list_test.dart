@@ -29,7 +29,12 @@ void main() {
           .childrenDelegate
           .estimatedChildCount!;
       expect(find.text('1 / 3'), findsOneWidget);
-      expect(cardCount(), 13); // 12 workouts and the existing add card.
+      expect(cardCount(), 13);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('워크아웃 추가')).dx,
+        lessThan(tester.getTopLeft(find.text('수업 01')).dx),
+      );
       final grid = tester.widget<GridView>(
         find.byKey(const ValueKey('workout-grid')),
       );

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -18,30 +19,12 @@ class DisplaySettingsScreen extends ConsumerWidget {
     final devices = ref.watch(displayDevicesProvider);
     final action = ref.watch(deviceClaimControllerProvider);
     final modeState = ref.watch(deviceModeControllerProvider);
-    final mode =
-        modeState.value ??
-        ref.read(deviceModeControllerProvider.notifier).currentMode;
     final busy = action.isLoading || modeState.isLoading;
-    final modeControl = SegmentedButton<DeviceMode>(
-      segments: const [
-        ButtonSegment(value: DeviceMode.controller, label: Text('Control')),
-        ButtonSegment(value: DeviceMode.display, label: Text('Display')),
-      ],
-      showSelectedIcon: false,
-      selected: {mode},
-      onSelectionChanged: busy
-          ? null
-          : (selection) async {
-              final selected = selection.first;
-              final success = await ref
-                  .read(deviceModeControllerProvider.notifier)
-                  .setMode(selected);
-              if (success &&
-                  selected == DeviceMode.display &&
-                  context.mounted) {
-                context.go('/');
-              }
-            },
+    final modeControl = DeviceModeToggle(
+      enabled: !busy,
+      onChanged: (selected) {
+        if (selected == DeviceMode.display) context.go('/');
+      },
     );
     return Scaffold(
       backgroundColor: Colors.white,

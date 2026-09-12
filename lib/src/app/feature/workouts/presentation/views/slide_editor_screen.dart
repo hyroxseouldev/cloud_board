@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
@@ -563,7 +565,7 @@ class _SlideEditorBody extends HookConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<TimerDisplayMode>(
+            AppDropdownFormField<TimerDisplayMode>(
               key: ValueKey(
                 'timer-mode-${revision.value}-${module.showTimer}-${module.showTimerGauge}',
               ),

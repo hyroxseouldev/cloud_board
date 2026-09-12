@@ -2,54 +2,62 @@
   "rules": {
     "pairingCodes": {
       "$code": {
-        ".read": "auth != null",
-        ".write": "auth != null && ((!data.exists() && newData.child('displayUid').val() === auth.uid && newData.child('claimed').val() === false && newData.child('expiresAtMs').val() > now) || (data.exists() && data.child('claimed').val() === false && data.child('expiresAtMs').val() > now && auth.token.firebase.sign_in_provider !== 'anonymous' && newData.child('claimed').val() === true && newData.child('ownerId').val() === auth.uid && newData.child('displayUid').val() === data.child('displayUid').val() && newData.child('deviceId').val() === data.child('deviceId').val()) || (!newData.exists() && (data.child('displayUid').val() === auth.uid || data.child('ownerId').val() === auth.uid)))",
+        ".read": "(auth != null) && auth != null && !root.child('accountDeletions').child(auth.uid).exists() && (!data.child('ownerId').exists() || !root.child('accountDeletions').child(data.child('ownerId').val()).exists())",
+        ".write": "(auth != null && ((!data.exists() && newData.child('displayUid').val() === auth.uid && newData.child('claimed').val() === false && newData.child('expiresAtMs').val() > now) || (data.exists() && data.child('claimed').val() === false && data.child('expiresAtMs').val() > now && auth.token.firebase.sign_in_provider !== 'anonymous' && newData.child('claimed').val() === true && newData.child('ownerId').val() === auth.uid && newData.child('displayUid').val() === data.child('displayUid').val() && newData.child('deviceId').val() === data.child('deviceId').val()) || (!newData.exists() && (data.child('displayUid').val() === auth.uid || data.child('ownerId').val() === auth.uid)))) && auth != null && !root.child('accountDeletions').child(auth.uid).exists() && (!data.child('ownerId').exists() || !root.child('accountDeletions').child(data.child('ownerId').val()).exists()) && (!newData.child('ownerId').exists() || !root.child('accountDeletions').child(newData.child('ownerId').val()).exists())",
         ".validate": "$code.matches(/^\\d{6}$/) && newData.hasChildren(['code', 'deviceId', 'displayUid', 'expiresAtMs', 'claimed']) && newData.child('code').val() === $code && newData.child('deviceId').isString() && newData.child('displayUid').isString() && newData.child('expiresAtMs').isNumber() && newData.child('claimed').isBoolean()"
-      }
+      },
+      ".indexOn": [
+        "ownerId"
+      ]
     },
     "displayAccess": {
       "$displayUid": {
-        ".read": "auth != null && (auth.uid === $displayUid || data.child('ownerId').val() === auth.uid)",
-        ".write": "auth != null && ((auth.uid === $displayUid && !newData.child('ownerId').exists()) || (!data.child('ownerId').exists() && auth.token.firebase.sign_in_provider !== 'anonymous' && newData.child('ownerId').val() === auth.uid && newData.child('deviceId').val() === data.child('deviceId').val() && newData.child('pairingCode').val() === data.child('pairingCode').val()) || (!newData.exists() && (auth.uid === $displayUid || data.child('ownerId').val() === auth.uid)))",
+        ".read": "(auth != null && (auth.uid === $displayUid || data.child('ownerId').val() === auth.uid)) && auth != null && !root.child('accountDeletions').child(auth.uid).exists() && (!data.child('ownerId').exists() || !root.child('accountDeletions').child(data.child('ownerId').val()).exists())",
+        ".write": "(auth != null && ((auth.uid === $displayUid && !newData.child('ownerId').exists()) || (!data.child('ownerId').exists() && auth.token.firebase.sign_in_provider !== 'anonymous' && newData.child('ownerId').val() === auth.uid && newData.child('deviceId').val() === data.child('deviceId').val() && newData.child('pairingCode').val() === data.child('pairingCode').val()) || (!newData.exists() && (auth.uid === $displayUid || data.child('ownerId').val() === auth.uid)))) && auth != null && !root.child('accountDeletions').child(auth.uid).exists() && (!data.child('ownerId').exists() || !root.child('accountDeletions').child(data.child('ownerId').val()).exists()) && (!newData.child('ownerId').exists() || !root.child('accountDeletions').child(newData.child('ownerId').val()).exists())",
         ".validate": "newData.hasChildren(['deviceId', 'pairingCode']) && newData.child('deviceId').isString() && newData.child('pairingCode').isString() && (!newData.child('ownerId').exists() || newData.child('ownerId').isString())"
-      }
+      },
+      ".indexOn": [
+        "ownerId"
+      ]
     },
     "users": {
       "$uid": {
         "activeSession": {
-          ".read": "auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)",
-          ".write": "auth != null && auth.uid === $uid",
+          ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
+          ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()",
           ".validate": "newData.hasChildren(['id', 'ownerId', 'zoneId', 'workoutSnapshot', 'status', 'stepIndex', 'remainingMs', 'anchorServerMs', 'revision', 'updatedByDeviceId']) && newData.child('ownerId').val() === auth.uid && newData.child('zoneId').isString() && newData.child('status').isString() && (newData.child('status').val() === 'playing' || newData.child('status').val() === 'paused' || newData.child('status').val() === 'completed') && newData.child('stepIndex').isNumber() && newData.child('stepIndex').val() >= 0 && newData.child('remainingMs').isNumber() && newData.child('remainingMs').val() >= 0 && newData.child('anchorServerMs').isNumber() && newData.child('revision').isNumber()",
           "notificationCommand": {
             ".validate": "newData.hasChildren(['id', 'expiresAtMs']) && newData.child('id').isString() && newData.child('expiresAtMs').isNumber() && (newData.child('id').val() === data.child('id').val() || (newData.child('expiresAtMs').val() >= now && newData.child('expiresAtMs').val() <= now + 10000))"
           }
         },
         "devices": {
-          ".read": "auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)",
+          ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
           "$deviceId": {
-            ".write": "auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && root.child('displayAccess').child(auth.uid).child('deviceId').val() === $deviceId))",
+            ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && root.child('displayAccess').child(auth.uid).child('deviceId').val() === $deviceId))) && !root.child('accountDeletions').child($uid).exists()",
             ".validate": "newData.hasChildren(['id', 'mode', 'online', 'lastSeenAtMs']) && newData.child('id').val() === $deviceId && newData.child('mode').val() === 'display' && newData.child('online').isBoolean() && newData.child('lastSeenAtMs').isNumber()"
           }
         },
         "pairingCodes": {
           "$code": {
-            ".read": "auth != null && auth.uid === $uid",
-            ".write": "auth != null && auth.uid === $uid",
+            ".read": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()",
+            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()",
             ".validate": "$code.matches(/^\\d{6}$/) && newData.hasChildren(['code', 'deviceId', 'expiresAtMs', 'claimed'])"
           }
         },
         "operations": {
-          ".read": "auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)",
+          ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
           "brand": {
-            ".write": "auth != null && auth.uid === $uid"
+            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()"
           },
           "schedules": {
-            ".write": "auth != null && auth.uid === $uid"
+            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()"
           },
           "events": {
-            ".indexOn": ["occurredAtMs"],
+            ".indexOn": [
+              "occurredAtMs"
+            ],
             "$eventId": {
-              ".write": "auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && newData.child('deviceId').val() === root.child('displayAccess').child(auth.uid).child('deviceId').val() && (newData.child('type').val() === 'device_online' || newData.child('type').val() === 'device_offline')))"
+              ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && newData.child('deviceId').val() === root.child('displayAccess').child(auth.uid).child('deviceId').val() && (newData.child('type').val() === 'device_online' || newData.child('type').val() === 'device_offline')))) && !root.child('accountDeletions').child($uid).exists()"
             }
           }
         }

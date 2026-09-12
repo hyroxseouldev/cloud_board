@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -428,7 +430,7 @@ class _ScheduleDialog extends HookConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DropdownButtonFormField<String>(
+              AppDropdownFormField<String>(
                 initialValue: workoutId.value,
                 decoration: const InputDecoration(labelText: '워크아웃'),
                 items: workouts

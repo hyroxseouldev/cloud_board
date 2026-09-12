@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -129,7 +130,7 @@ class _StandbyEditor extends HookConsumerWidget {
                       '등록 순서대로 반복 재생합니다. 이미지가 없거나 모두 불러올 수 없으면 기본 대기 화면을 표시합니다.',
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<StandbyImageFit>(
+                    AppDropdownFormField<StandbyImageFit>(
                       initialValue: draft.value.standbyImageFit,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: '이미지 표시 방식'),
@@ -153,7 +154,7 @@ class _StandbyEditor extends HookConsumerWidget {
                       },
                     ),
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<StandbyTransition>(
+                    AppDropdownFormField<StandbyTransition>(
                       initialValue: draft.value.standbyTransition,
                       decoration: const InputDecoration(labelText: '전환 효과'),
                       items: const [

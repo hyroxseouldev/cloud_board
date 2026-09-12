@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/core/services/android_class_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -44,6 +46,18 @@ class XonBoardApp extends ConsumerWidget {
           ),
         );
       }
+    });
+    ref.listen(authStateProvider, (previous, next) {
+      if (next.value != null && previous?.value?.id != next.value?.id) {
+        ref.invalidate(accountDeletionControllerProvider);
+      }
+    });
+    ref.listen(accountDeletionControllerProvider, (previous, next) {
+      showActionResult(
+        previous?.whenData((value) => value?.message),
+        next.whenData((value) => value?.message),
+        '계정 삭제를 완료하지 못했습니다',
+      );
     });
     ref.listen(authControllerProvider, (previous, next) {
       showActionResult(previous, next, '인증 작업에 실패했습니다');

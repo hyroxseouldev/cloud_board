@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -365,7 +367,7 @@ class _SoundEventSelector extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Expanded(
-        child: DropdownButtonFormField<WorkoutSound>(
+        child: AppDropdownFormField<WorkoutSound>(
           key: ValueKey('$label-${value.name}'),
           initialValue: value,
           isExpanded: true,
