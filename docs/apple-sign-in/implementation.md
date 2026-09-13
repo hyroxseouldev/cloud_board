@@ -19,9 +19,9 @@
 
 GitHub Actions의 Firebase 서비스 계정은 함수 배포 및 서비스 계정 사용, 관련 규칙·인덱스 배포 권한이 필요하다. 로컬 사용자 계정의 배포 권한과 CI 서비스 계정 권한은 별개다. 실제 main 액션 실행 전 권한 확인이 필요하며, 이 작업에서는 IAM 권한을 확대하지 않았다.
 
-## 외부 설정: 아직 완료되지 않음
+## 외부 설정: 코드 구현 당시 확인 및 후속 검증
 
-Firebase 설정을 읽기 전용 API로 확인했을 때 `defaultSupportedIdpConfigs/apple.com`은 404였다. 따라서 코드만으로 실제 Apple 로그인이 동작한다고 간주하면 안 된다.
+코드 구현 당시 Firebase 설정을 읽기 전용 API로 확인했을 때 `defaultSupportedIdpConfigs/apple.com`은 404였다. 이후 아래 브라우저 설정에서 제공자 활성화와 OAuth 키 저장을 완료했다. 실제 로그인 검증은 별도로 남아 있다.
 
 1. Apple Developer의 App ID `com.sunmkim.cloudboard`에서 Sign in with Apple capability를 활성화한다. 서명 프로비저닝 프로파일에도 해당 entitlement가 포함되어야 한다.
 2. Firebase Authentication에서 Apple 제공자를 활성화한다. Apple token revoke를 포함한 OAuth 구성을 위해 공식 설정 절차에 맞는 Team ID, Key ID, Sign in with Apple private key 및 필요한 Service ID를 구성한다. App Store Connect 업로드용 API 키와 Sign in with Apple 키는 용도가 다르다. 비밀 키는 소스·문서·채팅에 넣지 않는다.
@@ -54,3 +54,18 @@ flutter build ios --simulator --no-codesign
 - https://firebase.google.com/docs/auth/flutter/federated-auth
 - https://firebase.google.com/docs/auth/ios/apple
 - https://developer.apple.com/app-store/review/guidelines/#login-services
+
+## 2026-09-14 브라우저 설정 진행 상황
+
+사용자의 요청으로 Apple Developer와 Firebase Console에서 설정을 진행했다.
+
+- App ID `com.sunmkim.cloudboard`에 Sign in with Apple을 primary App ID로 활성화하고 저장.
+- Firebase Apple 로그인 제공자 활성화 및 목록의 `사용 설정됨` 확인.
+- CloudBoard 전용 Apple 로그인 키 `DRBKDH3R9N` 발급. 권한은 Sign in with Apple, 대상은 CloudBoard App ID만 지정. Apple 화면에서 Downloaded 상태 확인.
+- Service ID `com.sunmkim.cloudboard.auth` 등록, CloudBoard App ID와 연결.
+- 인증 도메인 `cloud-board-stationd.firebaseapp.com`, callback `https://cloud-board-stationd.firebaseapp.com/__/auth/handler` 등록·저장.
+- 발급된 `AuthKey_DRBKDH3R9N.p8`를 Downloads에서 확인하고, 사용자 요청에 따라 Firebase의 비공개 키 필드에 입력·저장했다. 새 키는 발급하지 않았다.
+- 저장 후 Apple 설정을 다시 열어 Service ID, Team ID `NL7AM62SB9`, Key ID `DRBKDH3R9N`, 비공개 키의 저장 상태를 확인했다.
+- 실제 Apple 로그인·연결 해제는 아직 검증하지 않았다. 서명 프로비저닝 프로파일 반영과 main 배포 후 실제 계정으로 검증해야 한다.
+
+발급된 private key의 내용은 문서나 Git에 기록하지 않았다. 이번 브라우저 설정에서 main 병합·앱 배포·서버 배포는 하지 않았다.
