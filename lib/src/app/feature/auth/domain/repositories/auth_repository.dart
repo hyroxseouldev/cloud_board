@@ -5,5 +5,7 @@ abstract interface class AuthRepository {
 
   Future<AuthUser> signInWithGoogle();
 
+  Future<AuthUser> signInWithApple();
+
   Future<void> signOut();
 }

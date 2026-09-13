@@ -68,6 +68,17 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthUser> signInWithApple() async {
+    final credential = await _dataSource.signInWithApple();
+    final user = credential.user;
+    if (user == null) {
+      throw StateError('로그인한 사용자 정보를 불러오지 못했습니다.');
+    }
+    _syncProfile(user);
+    return _mapUser(user)!;
+  }
+
+  @override
   Future<void> signOut() => _dataSource.signOut();
 
   AuthUser? _mapUser(User? user) => user == null

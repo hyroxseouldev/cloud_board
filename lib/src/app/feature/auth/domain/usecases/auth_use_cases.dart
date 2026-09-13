@@ -29,3 +29,13 @@ SignInWithGoogle signInWithGoogle(Ref ref) =>
 
 @riverpod
 SignOut signOut(Ref ref) => SignOut(ref.watch(authRepositoryProvider));
+
+class SignInWithApple {
+  const SignInWithApple(this._repository);
+  final AuthRepository _repository;
+  Future<void> call() async => _repository.signInWithApple();
+}
+
+@riverpod
+SignInWithApple signInWithApple(Ref ref) =>
+    SignInWithApple(ref.watch(authRepositoryProvider));

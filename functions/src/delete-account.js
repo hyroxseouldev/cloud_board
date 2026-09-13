@@ -14,7 +14,7 @@ export async function eraseAccount(uid, services) {
 }
 
 export function requireDeletionIdentity(auth, nowSeconds) {
-  if (!auth || auth.token?.firebase?.sign_in_provider !== 'google.com') {
+  if (!auth || !['google.com', 'apple.com'].includes(auth.token?.firebase?.sign_in_provider)) {
     throw new Error('unauthenticated');
   }
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(auth.uid)) throw new Error('invalid-argument');
