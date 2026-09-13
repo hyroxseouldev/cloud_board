@@ -22,7 +22,7 @@ class FirebaseAccountDeletionRepository implements AccountDeletionRepository {
 
   @override
   Future<AccountDeletionResult> deleteAccount() async {
-    await auth.reauthenticateWithGoogle();
+    await auth.prepareAccountDeletion();
     try {
       final response = await functions
           .httpsCallable(

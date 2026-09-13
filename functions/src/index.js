@@ -81,7 +81,7 @@ async function processJob(uid) {
 export const deleteMyAccount=onCall({region,timeoutSeconds:540,memory:'512MiB',maxInstances:3},async request=>{
   let uid;
   try { uid=requireDeletionIdentity(request.auth,Date.now()/1000); }
-  catch(error) { throw new HttpsError(error.message==='reauthentication-required'?'failed-precondition':'unauthenticated','Google 계정으로 다시 본인 확인해 주세요.'); }
+  catch(error) { throw new HttpsError(error.message==='reauthentication-required'?'failed-precondition':'unauthenticated','로그인 계정으로 다시 본인 확인해 주세요.'); }
   if(request.data?.confirm!==true) throw new HttpsError('invalid-argument','삭제 확인이 필요합니다.');
   // Verify revocation/disabled status before creating a new destructive job.
   const existing=await jobs.doc(uid).get();

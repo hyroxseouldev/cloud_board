@@ -141,7 +141,10 @@ void main() {
       await mount(tester, (_) async => true, repository: repository);
       await tester.tap(find.text('계정 삭제'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Google 계정 자체는 삭제되지 않습니다'), findsOneWidget);
+      expect(
+        find.textContaining('Google 또는 Apple 계정 자체는 삭제되지 않습니다'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(repository.calls, 0);

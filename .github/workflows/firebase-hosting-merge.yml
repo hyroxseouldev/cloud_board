@@ -36,6 +36,18 @@ jobs:
       - name: Test
         run: flutter test
 
+      - name: Set up Node for account deletion functions
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Test account deletion functions
+        run: |
+          npm ci --prefix functions
+          npm test --prefix functions
+
       - name: Validate database rules JSON
         run: python3 -m json.tool database.rules.json > /dev/null
 
@@ -45,9 +57,9 @@ jobs:
         with:
           credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
 
-      - name: Deploy Realtime Database rules
+      - name: Deploy account deletion functions and data rules
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npx --yes firebase-tools deploy --only database --project cloud-board-stationd
+        run: npx --yes firebase-tools deploy --only functions:account-deletion,firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
 
       - name: Build Flutter web app
         run: |

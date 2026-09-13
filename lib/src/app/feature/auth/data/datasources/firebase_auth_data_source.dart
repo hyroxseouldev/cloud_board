@@ -51,6 +51,34 @@ class FirebaseAuthDataSource {
     return _auth.signInWithCredential(credential);
   }
 
+  Future<UserCredential> signInWithApple() =>
+      _auth.signInWithProvider(AppleAuthProvider());
+
+  /// Apple authorization codes stay in memory and are never persisted or logged.
+  Future<void> prepareAccountDeletion() async {
+    final user = _auth.currentUser;
+    if (user == null || user.isAnonymous) {
+      throw StateError('계정 로그인이 필요합니다.');
+    }
+    final providers = user.providerData.map((item) => item.providerId).toSet();
+    if (providers.contains('apple.com')) {
+      final result = await user.reauthenticateWithProvider(AppleAuthProvider());
+      final code = result.additionalUserInfo?.authorizationCode;
+      if (code == null || code.isEmpty) {
+        throw StateError(
+          'Apple 본인 확인 정보를 받지 못했습니다. iPhone 또는 iPad에서 다시 시도해 주세요.',
+        );
+      }
+      // Revoke before destructive cleanup; failure must not report deletion.
+      await _auth.revokeTokenWithAuthorizationCode(code);
+      await user.getIdToken(true);
+    } else if (providers.contains('google.com')) {
+      await reauthenticateWithGoogle();
+    } else {
+      throw StateError('지원하지 않는 로그인 방식입니다. 계정 삭제 안내에서 문의해 주세요.');
+    }
+  }
+
   Future<void> reauthenticateWithGoogle() async {
     final user = _auth.currentUser;
     if (user == null || user.isAnonymous) {
@@ -71,8 +99,9 @@ class FirebaseAuthDataSource {
   }
 
   Future<void> signOut() async {
+    final usedGoogle = _googleInitialization != null;
     await _auth.signOut();
-    if (!kIsWeb) {
+    if (!kIsWeb && usedGoogle) {
       await _ensureGoogleInitialized();
       await _googleSignIn.signOut();
     }

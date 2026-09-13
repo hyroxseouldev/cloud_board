@@ -154,7 +154,7 @@ class UserProfileScreen extends HookConsumerWidget {
                               decoration: const InputDecoration(
                                 labelText: '이메일',
                                 fillColor: Colors.white,
-                                helperText: 'Google 계정 이메일은 여기서 변경할 수 없습니다.',
+                                helperText: '로그인 계정 이메일은 여기서 변경할 수 없습니다.',
                                 helperMaxLines: 2,
                               ),
                             ),

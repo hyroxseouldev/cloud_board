@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -73,6 +74,31 @@ class LoginScreen extends HookConsumerWidget {
                         ),
                       ],
                       const SizedBox(height: 28),
+                      if (!kIsWeb &&
+                          defaultTargetPlatform == TargetPlatform.iOS) ...[
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size.fromHeight(
+                              AppStyle.of(context).primaryButtonHeight,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppStyle.controlRadius,
+                              ),
+                            ),
+                          ),
+                          onPressed: authState.isLoading
+                              ? null
+                              : () => ref
+                                    .read(authControllerProvider.notifier)
+                                    .signInWithApple(),
+                          icon: const Icon(Icons.apple),
+                          label: const Text('Apple로 계속하기'),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
                           minimumSize: Size.fromHeight(
@@ -103,6 +129,14 @@ class LoginScreen extends HookConsumerWidget {
                           authState.isLoading ? '로그인 중...' : 'Google로 계속하기',
                         ),
                       ),
+                      if (!kIsWeb &&
+                          defaultTargetPlatform == TargetPlatform.iOS) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          '기존 워크아웃을 이용하려면 가입할 때 사용한 로그인 방식을 선택해 주세요. Apple의 이메일 숨기기를 사용하면 별도 계정이 만들어질 수 있습니다.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ],
                   ),
                 ),

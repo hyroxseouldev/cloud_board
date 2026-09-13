@@ -26,3 +26,12 @@ test('retry starts with locks again and reaches completion only after all cleanu
  await eraseAccount('owner',services);
  assert.deepEqual(calls.slice(-steps.length),steps);
 });
+
+test('fresh Apple authentication is accepted while unsupported and stale identities are rejected',()=>{
+ const apple={uid:'apple-owner',token:{auth_time:1000,firebase:{sign_in_provider:'apple.com'}}};
+ assert.equal(requireDeletionIdentity(apple,1100),'apple-owner');
+ for(const provider of ['anonymous','password','custom','facebook.com',undefined]) {
+  assert.throws(()=>requireDeletionIdentity({...apple,token:{...apple.token,firebase:{sign_in_provider:provider}}},1100));
+ }
+ assert.throws(()=>requireDeletionIdentity({...apple,token:{...apple.token,auth_time:0}},1100));
+});

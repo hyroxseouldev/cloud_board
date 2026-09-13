@@ -95,3 +95,45 @@ final class SignOutProvider
 }
 
 String _$signOutHash() => r'bef58c5e48a93d3444f1f1815f4d5983b58dbaee';
+
+@ProviderFor(signInWithApple)
+final signInWithAppleProvider = SignInWithAppleProvider._();
+
+final class SignInWithAppleProvider
+    extends
+        $FunctionalProvider<SignInWithApple, SignInWithApple, SignInWithApple>
+    with $Provider<SignInWithApple> {
+  SignInWithAppleProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'signInWithAppleProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$signInWithAppleHash();
+
+  @$internal
+  @override
+  $ProviderElement<SignInWithApple> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  SignInWithApple create(Ref ref) {
+    return signInWithApple(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SignInWithApple value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SignInWithApple>(value),
+    );
+  }
+}
+
+String _$signInWithAppleHash() => r'e41111fa70765ad2cab884b2b2c956b13eb8272d';

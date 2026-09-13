@@ -93,7 +93,7 @@ class AccountManagementSection extends HookConsumerWidget {
           title: const Text('클라우드보드 계정을 삭제할까요?'),
           content: const Text(
             '프로필, 워크아웃, 업로드 파일, 매장 설정과 연결 기기 정보를 삭제하고 진행 중인 수업을 종료합니다. 삭제한 콘텐츠는 복구할 수 없습니다.\n\n'
-            'Google 계정 자체는 삭제되지 않습니다. 본인 확인 후 실제 삭제가 시작됩니다. 백업과 삭제 처리 기록의 보관 기간은 개인정보처리방침을 따릅니다.',
+            'Google 또는 Apple 계정 자체는 삭제되지 않습니다. 본인 확인 후 실제 삭제가 시작됩니다. 백업과 삭제 처리 기록의 보관 기간은 개인정보처리방침을 따릅니다.',
           ),
           actions: [
             TextButton(
