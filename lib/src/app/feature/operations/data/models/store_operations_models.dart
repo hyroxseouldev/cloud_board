@@ -14,6 +14,11 @@ class BrandTemplateModel {
     required this.primaryColorValue,
     required this.blackScreenStartMinutes,
     required this.blackScreenEndMinutes,
+    this.standbyFullscreen = true,
+    this.standbyShowText = true,
+    this.standbyTextColor = 0xFFFFFFFF,
+    this.standbyTextPosition = 'bottomLeft',
+    this.standbyBackgroundColor = 0xFF000000,
     this.promotionDurationMinutes = const [],
     this.standbyTransition = StandbyTransition.fade,
     this.standbyImageFit = StandbyImageFit.contain,
@@ -21,6 +26,12 @@ class BrandTemplateModel {
 
   @JsonKey(defaultValue: 'CloudBoard Studio')
   final String storeName;
+  final bool standbyFullscreen;
+  final bool standbyShowText;
+  final int standbyTextColor;
+  final String standbyTextPosition;
+  final int standbyBackgroundColor;
+
   @JsonKey(defaultValue: '다음 수업을 준비하고 있습니다')
   final String standbyMessage;
   final String? logoUrl;
@@ -51,6 +62,12 @@ class BrandTemplateModel {
   factory BrandTemplateModel.fromEntity(BrandTemplate entity) =>
       BrandTemplateModel(
         storeName: entity.storeName,
+        standbyFullscreen: entity.standbyFullscreen,
+        standbyShowText: entity.standbyShowText,
+        standbyTextColor: entity.standbyTextColor,
+        standbyTextPosition: entity.standbyTextPosition,
+        standbyBackgroundColor: entity.standbyBackgroundColor,
+
         standbyMessage: entity.standbyMessage,
         logoUrl: entity.logoUrl,
         promotionImageUrls: entity.promotionImageUrls,
@@ -66,6 +83,15 @@ class BrandTemplateModel {
 
   BrandTemplate toEntity() => BrandTemplate(
     storeName: storeName,
+    standbyFullscreen: standbyFullscreen,
+    standbyShowText: standbyShowText,
+    standbyTextColor: standbyTextColor,
+    standbyTextPosition:
+        const ['topLeft', 'center', 'bottomLeft'].contains(standbyTextPosition)
+        ? standbyTextPosition
+        : 'bottomLeft',
+    standbyBackgroundColor: standbyBackgroundColor,
+
     standbyMessage: standbyMessage,
     logoUrl: logoUrl,
     promotionImageUrls: promotionImageUrls,

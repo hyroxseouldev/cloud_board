@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -22,9 +23,14 @@ class WorkoutSlideCanvas extends StatelessWidget {
     required this.scale,
     this.showLoadingIndicator = false,
     this.timer,
+    this.displayPreferences = const DisplayPreferences(),
   });
 
   final Widget? timer;
+  final DisplayPreferences displayPreferences;
+  DisplayPreferences get preferences => displayPreferences.enabled
+      ? displayPreferences
+      : const DisplayPreferences();
   final WorkoutModule module;
   final bool isRest;
   final int secondsLeft;
@@ -45,16 +51,38 @@ class WorkoutSlideCanvas extends StatelessWidget {
       children: [
         if (module.imageSource.isNotEmpty)
           RepaintBoundary(
-            child: WorkoutImage(
-              source: module.imageSource,
-              fit: module.coverImage ? BoxFit.cover : BoxFit.contain,
-              showLoadingIndicator: showLoadingIndicator,
+            child: ClipRect(
+              child: Transform.translate(
+                offset: Offset(
+                  constraints.maxWidth * preferences.offsetX,
+                  constraints.maxHeight * preferences.offsetY,
+                ),
+                child: Transform.scale(
+                  scale: preferences.zoom,
+                  child: WorkoutImage(
+                    source: module.imageSource,
+                    fit:
+                        (preferences.enabled
+                            ? preferences.cover
+                            : module.coverImage)
+                        ? BoxFit.cover
+                        : BoxFit.contain,
+                    resolutionScale: preferences.zoom,
+                    showLoadingIndicator: showLoadingIndicator,
+                  ),
+                ),
+              ),
             ),
           )
         else
           const ColoredBox(color: Colors.black),
         SafeArea(
-          minimum: EdgeInsets.all(20 * scale),
+          minimum: EdgeInsets.symmetric(
+            horizontal:
+                20 * scale + constraints.maxWidth * preferences.safeInset,
+            vertical:
+                20 * scale + constraints.maxHeight * preferences.safeInset,
+          ),
           child: Padding(
             padding: EdgeInsets.fromLTRB(
               28 * scale,
@@ -166,18 +194,30 @@ class WorkoutSlideCanvas extends StatelessWidget {
           // Anchor to the slide, so title wrapping and set labels cannot move it.
           Positioned(
             left:
-                (constraints.maxWidth * module.appearance.timerX).clamp(
-                  116 * scale * module.appearance.timerSize,
-                  constraints.maxWidth -
-                      116 * scale * module.appearance.timerSize,
-                ) -
+                (constraints.maxWidth *
+                        (preferences.safeInset +
+                            module.appearance.timerX *
+                                (1 - 2 * preferences.safeInset)))
+                    .clamp(
+                      116 * scale * module.appearance.timerSize +
+                          constraints.maxWidth * preferences.safeInset,
+                      constraints.maxWidth -
+                          116 * scale * module.appearance.timerSize -
+                          constraints.maxWidth * preferences.safeInset,
+                    ) -
                 116 * scale * module.appearance.timerSize,
             top:
-                (constraints.maxHeight * module.appearance.timerY).clamp(
-                  116 * scale * module.appearance.timerSize,
-                  constraints.maxHeight -
-                      116 * scale * module.appearance.timerSize,
-                ) -
+                (constraints.maxHeight *
+                        (preferences.safeInset +
+                            module.appearance.timerY *
+                                (1 - 2 * preferences.safeInset)))
+                    .clamp(
+                      116 * scale * module.appearance.timerSize +
+                          constraints.maxHeight * preferences.safeInset,
+                      constraints.maxHeight -
+                          116 * scale * module.appearance.timerSize -
+                          constraints.maxHeight * preferences.safeInset,
+                    ) -
                 116 * scale * module.appearance.timerSize,
             child: RepaintBoundary(
               child:

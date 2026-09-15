@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
@@ -104,12 +105,39 @@ class DevicePairingRealtimeDataSource {
               (item['acknowledgedRevision'] as num?)?.round() ?? 0,
           paired: item['paired'] == true,
           displayState: (item['displayState'] as String?) ?? 'auto',
+          preferences: decodeDisplayPreferences(item['preferences']),
           lastCommandAtMs: (item['lastCommandAtMs'] as num?)?.round() ?? 0,
           onlineSinceMs: (item['onlineSinceMs'] as num?)?.round() ?? 0,
         );
       }).toList()..sort((a, b) => a.name.compareTo(b.name));
       return devices;
     });
+  }
+
+  Future<void> savePreferences(
+    String deviceId,
+    DisplayPreferences preferences,
+  ) async {
+    final result = await _ownerRef.child('devices/$deviceId').runTransaction((
+      value,
+    ) {
+      if (value == null) return Transaction.success(null);
+      if (value is! Map || value['id'] != deviceId) return Transaction.abort();
+      return Transaction.success({
+        ...value,
+        'preferences': {
+          'enabled': preferences.enabled,
+          'cover': preferences.cover,
+          'zoom': preferences.zoom.clamp(.8, 1.3),
+          'offsetX': preferences.offsetX.clamp(-.1, .1),
+          'offsetY': preferences.offsetY.clamp(-.1, .1),
+          'safeInset': preferences.safeInset.clamp(0, .15),
+        },
+      });
+    }, applyLocally: false);
+    if (!result.committed || !result.snapshot.exists) {
+      throw StateError('디스플레이 연결을 확인해 주세요.');
+    }
   }
 
   Future<void> claim({
@@ -191,6 +219,36 @@ class DevicePairingRealtimeDataSource {
       if (displayUid is String) updates['displayAccess/$displayUid'] = null;
     }
     await _root.update(updates);
+  }
+
+  Future<void> rename({
+    required String deviceId,
+    required String name,
+    required String zoneName,
+  }) async {
+    final cleanName = name.trim();
+    final cleanZone = zoneName.trim();
+    if (cleanName.isEmpty ||
+        cleanZone.isEmpty ||
+        cleanName.length > 60 ||
+        cleanZone.length > 60) {
+      throw ArgumentError('기기 이름과 구역 이름을 1~60자로 입력해 주세요.');
+    }
+    final result = await _ownerRef.child('devices/$deviceId').runTransaction((
+      value,
+    ) {
+      // A cold local cache may be null; let the server retry with current data.
+      if (value == null) return Transaction.success(null);
+      if (value is! Map || value['id'] != deviceId) return Transaction.abort();
+      return Transaction.success({
+        ...value,
+        'name': cleanName,
+        'zoneName': cleanZone,
+      });
+    }, applyLocally: false);
+    if (!result.committed || !result.snapshot.exists) {
+      throw StateError('연결된 디스플레이를 찾을 수 없습니다.');
+    }
   }
 
   Future<void> setDisplayState({
@@ -391,4 +449,23 @@ void _requireAvailablePairing(Object? current) {
   if (expiresAtMs <= DateTime.now().millisecondsSinceEpoch) {
     throw StateError('만료된 연결 코드입니다. 디스플레이에서 새 코드를 만들어 주세요.');
   }
+}
+
+DisplayPreferences decodeDisplayPreferences(Object? raw) {
+  final map = raw is Map ? raw : const {};
+  double number(String key, double fallback, double min, double max) {
+    final value = map[key];
+    return value is num && value.isFinite
+        ? value.toDouble().clamp(min, max)
+        : fallback;
+  }
+
+  return DisplayPreferences(
+    enabled: map['enabled'] == true,
+    cover: map['cover'] == true,
+    zoom: number('zoom', 1, .8, 1.3),
+    offsetX: number('offsetX', 0, -.1, .1),
+    offsetY: number('offsetY', 0, -.1, .1),
+    safeInset: number('safeInset', 0, 0, .15),
+  );
 }

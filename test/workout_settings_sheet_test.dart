@@ -58,10 +58,18 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'CloudBoard');
-      await tester.enterText(find.byType(TextField).last, '오늘도 함께');
+      await tester.enterText(
+        find.byKey(const ValueKey('brand-left')),
+        'CloudBoard',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('brand-right')),
+        '오늘도 함께',
+      );
 
       Future<void> tapVisible(Finder finder) async {
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
         await tester.ensureVisible(finder);
         await tester.pumpAndSettle();
         await tester.tap(finder);
@@ -80,7 +88,7 @@ void main() {
         expect(draft.value.workoutEndSound, sounds.workoutEnd);
         expect(audio.calls.last.$1, sounds.workStart);
       }
-      final slider = find.byType(Slider);
+      final slider = find.byKey(const ValueKey('sound-volume'));
       await tester.ensureVisible(slider);
       await tester.pumpAndSettle();
       await tester.tapAt(tester.getCenter(slider));

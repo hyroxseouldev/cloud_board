@@ -83,11 +83,7 @@ class _BrandSettingsTab extends HookConsumerWidget {
     }, [settings.value]);
 
     Future<({Uint8List bytes, String extension})?> pickImage() async {
-      final image = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        imageQuality: 88,
-      );
+      final image = await ImagePicker().pickImage(source: ImageSource.gallery);
       if (image == null) return null;
       return (
         bytes: await image.readAsBytes(),

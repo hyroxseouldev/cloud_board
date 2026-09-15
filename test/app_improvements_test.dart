@@ -1183,6 +1183,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await scrollTo(
+        tester,
+        find.byType(DropdownButtonFormField<StandbyImageFit>),
+      );
       await tester.tap(find.byType(DropdownButtonFormField<StandbyImageFit>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('화면 꽉 채우기 (일부 잘릴 수 있음)').last);
@@ -1225,7 +1229,7 @@ void main() {
 Future<void> scrollTo(WidgetTester tester, Finder finder) async {
   await tester.scrollUntilVisible(
     finder,
-    250,
+    80,
     scrollable: find
         .descendant(
           of:

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
@@ -58,6 +59,35 @@ class DeviceClaimController extends _$DeviceClaimController {
     state = await AsyncValue.guard(
       () => ref.read(devicePairingActionsProvider).unpair(deviceId),
     );
+  }
+
+  Future<bool> rename({
+    required String deviceId,
+    required String name,
+    required String zoneName,
+  }) async {
+    if (state.isLoading) return false;
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref
+          .read(devicePairingActionsProvider)
+          .rename(deviceId: deviceId, name: name, zoneName: zoneName),
+    );
+    return !state.hasError;
+  }
+
+  Future<bool> savePreferences(
+    String deviceId,
+    DisplayPreferences preferences,
+  ) async {
+    if (state.isLoading) return false;
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref
+          .read(devicePairingActionsProvider)
+          .savePreferences(deviceId, preferences),
+    );
+    return !state.hasError;
   }
 
   Future<bool> setDisplayState({

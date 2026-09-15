@@ -1,20 +1,20 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_refresh_button.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_pairing_card.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:cloud_board/src/app/feature/operations/presentation/widgets/standby_slideshow.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
-import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -165,9 +165,11 @@ class DisplayModeScreen extends HookConsumerWidget {
               startModule: 0,
               sessionId: session.id,
               displayMode: true,
+              displayPreferences:
+                  currentDevice?.preferences ?? const DisplayPreferences(),
               onStandby: () => finishedSessionId.value = session.id,
             ),
-      [session?.id],
+      [session?.id, currentDevice?.preferences],
     );
     return PopScope(
       canPop: !isTv,
@@ -200,6 +202,35 @@ class DisplayModeScreen extends HookConsumerWidget {
                     await ref.read(beepPlayerProvider).play();
                   } catch (_) {}
                 },
+              ),
+            if (!showBlack &&
+                (!isActive || session.briefing) &&
+                currentDevice?.paired == true)
+              Positioned(
+                top: isTv ? 24 : 100,
+                right: 24,
+                child: SafeArea(
+                  child: DisplayRefreshButton(
+                    autofocus: isTv,
+                    onRefresh: () async {
+                      ref.invalidate(activePlaybackSessionProvider);
+                      ref.invalidate(displayDevicesProvider);
+                      ref.invalidate(brandTemplateProvider);
+                      ref.invalidate(workoutSchedulesProvider);
+                      ref.invalidate(playbackConnectionProvider);
+                      await Future.wait([
+                        ref.read(activePlaybackSessionProvider.future),
+                        ref.read(displayDevicesProvider.future),
+                        ref.read(brandTemplateProvider.future),
+                        ref.read(workoutSchedulesProvider.future),
+                      ]).timeout(const Duration(seconds: 10));
+                      final online = await ref
+                          .read(playbackConnectionProvider.future)
+                          .timeout(const Duration(seconds: 5));
+                      if (!online) throw StateError('네트워크 연결을 확인해 주세요.');
+                    },
+                  ),
+                ),
               ),
             if (!showBlack && !isTv)
               const Positioned(
@@ -259,6 +290,8 @@ class _DisplayStandby extends StatelessWidget {
     if (currentDevice?.paired == true) {
       return StoreWelcomeBoard(
         brand: brand,
+        displayPreferences:
+            currentDevice?.preferences ?? const DisplayPreferences(),
         now: now,
         connected: connected,
         nextClass: next == null || nextDate == null
@@ -266,148 +299,50 @@ class _DisplayStandby extends StatelessWidget {
             : '${nextDate.month}/${nextDate.day} ${nextDate.hour.toString().padLeft(2, '0')}:${nextDate.minute.toString().padLeft(2, '0')} · ${next.workoutName}',
       );
     }
-    final shiftIndex = now.minute % 4;
-    final shift = [
-      const Offset(-14, -8),
-      const Offset(12, -4),
-      const Offset(8, 10),
-      const Offset(-10, 8),
-    ][shiftIndex];
-    final color = Color(brand.primaryColorValue);
     return Scaffold(
-      backgroundColor: XonColors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          StandbySlideshow(
-            brand: brand,
-            now: now,
-            fallback: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [color, XonColors.black],
+      backgroundColor: Colors.white,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              pairing.when(
+                loading: () => const CircularProgressIndicator(),
+                error: (_, _) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('연결 코드를 불러오지 못했습니다. 네트워크를 확인해 주세요.'),
+                    TextButton.icon(
+                      onPressed: onRefreshPairing,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('연결 코드 다시 만들기'),
+                    ),
+                  ],
+                ),
+                data: (ticket) => DisplayPairingCard(
+                  ticket: ticket,
+                  now: now,
+                  onRefresh: onRefreshPairing,
                 ),
               ),
-            ),
-          ),
-          const ColoredBox(color: Colors.black38),
-          AnimatedContainer(
-            duration: const Duration(seconds: 2),
-            transform: Matrix4.translationValues(shift.dx, shift.dy, 0),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(48),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SizedBox(
-                    width: 1000,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (brand.logoUrl != null) ...[
-                          CachedNetworkImage(
-                            imageUrl: brand.logoUrl!,
-                            height: 100,
-                            fit: BoxFit.contain,
-                            errorWidget: (_, _, _) => const SizedBox.shrink(),
-                          ),
-                          const SizedBox(height: 22),
-                        ],
-                        Text(
-                          brand.storeName,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 58,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 92,
-                            height: 1,
-                            fontWeight: FontWeight.w200,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          error == null
-                              ? brand.standbyMessage
-                              : '연결을 확인하고 있습니다',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 26,
-                          ),
-                        ),
-                        if (next != null && nextDate != null) ...[
-                          const SizedBox(height: 28),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: .14),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 28,
-                                vertical: 16,
-                              ),
-                              child: Text(
-                                '다음 수업  ${nextDate.month}/${nextDate.day} ${nextDate.hour.toString().padLeft(2, '0')}:${nextDate.minute.toString().padLeft(2, '0')}  ·  ${next.workoutName}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 28),
-                        if (currentDevice?.paired == true)
-                          Text(
-                            '${currentDevice!.name} · ${connected ? '온라인' : '재연결 중'}',
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 16,
-                            ),
-                          )
-                        else
-                          pairing.when(
-                            loading: () => const CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                            error: (_, _) => OutlinedButton.icon(
-                              onPressed: onRefreshPairing,
-                              icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('연결 코드 다시 만들기'),
-                            ),
-                            data: (ticket) => _PairingCode(
-                              ticket: ticket,
-                              onRefresh: onRefreshPairing,
-                            ),
-                          ),
-                        if (!isLoading && currentDevice?.paired == true)
-                          TextButton.icon(
-                            onPressed: onTestSound,
-                            icon: const Icon(Icons.volume_up_rounded),
-                            label: const Text('소리 테스트'),
-                          ),
-                      ],
-                    ),
+              if (!connected || error != null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Text(
+                    '네트워크 연결을 확인하고 있습니다.',
+                    style: TextStyle(color: AppColors.muted),
                   ),
                 ),
-              ),
-            ),
+              if (!isLoading)
+                TextButton.icon(
+                  onPressed: onTestSound,
+                  icon: const Icon(Icons.volume_up_rounded),
+                  label: const Text('소리 테스트'),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -425,59 +360,4 @@ DateTime _nextScheduleDate(WorkoutSchedule schedule, DateTime now) {
     if (date.isAfter(now)) return date;
   }
   return scheduledDateTime(schedule, now.add(const Duration(days: 7)));
-}
-
-class _PairingCode extends StatelessWidget {
-  const _PairingCode({required this.ticket, required this.onRefresh});
-
-  final DevicePairing ticket;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    final formatted =
-        '${ticket.code.substring(0, 3)} ${ticket.code.substring(3)}';
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 16, 12, 16),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '컨트롤러 연결 코드 · 10분간 유효',
-                  style: TextStyle(color: Colors.white60, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  formatted,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 42,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 8,
-                  ),
-                ),
-              ],
-            ),
-            IconButton(
-              tooltip: '새 연결 코드',
-              autofocus: true,
-              onPressed: onRefresh,
-              color: Colors.white70,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

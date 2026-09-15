@@ -10,8 +10,10 @@ class WorkoutImage extends StatelessWidget {
     required this.fit,
     this.showLoadingIndicator = false,
     this.onError,
+    this.resolutionScale = 1,
   });
 
+  final double resolutionScale;
   final String source;
   final BoxFit fit;
   final bool showLoadingIndicator;
@@ -24,7 +26,7 @@ class WorkoutImage extends StatelessWidget {
       fit: fit,
       size: workoutImageSize(
         constraints.biggest,
-        MediaQuery.devicePixelRatioOf(context),
+        MediaQuery.devicePixelRatioOf(context) * resolutionScale,
       ),
       showLoadingIndicator: showLoadingIndicator,
       onError: onError,

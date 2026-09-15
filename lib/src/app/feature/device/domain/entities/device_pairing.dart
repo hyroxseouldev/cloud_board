@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
+
 import 'dart:math';
 
 class DevicePairing {
@@ -26,6 +28,7 @@ class DisplayDevice {
     required this.acknowledgedRevision,
     required this.paired,
     this.displayState = 'auto',
+    this.preferences = const DisplayPreferences(),
     this.lastCommandAtMs = 0,
     this.onlineSinceMs = 0,
   });
@@ -40,6 +43,7 @@ class DisplayDevice {
   final int acknowledgedRevision;
   final bool paired;
   final String displayState;
+  final DisplayPreferences preferences;
   final int lastCommandAtMs;
   final int onlineSinceMs;
 }

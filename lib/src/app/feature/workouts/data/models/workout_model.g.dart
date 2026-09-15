@@ -20,6 +20,10 @@ WorkoutModel _$WorkoutModelFromJson(Map<String, dynamic> json) => WorkoutModel(
   restStartSound: json['restStartSound'] as String? ?? 'lowPulse',
   workoutEndSound: json['workoutEndSound'] as String? ?? 'longFinish',
   soundVolume: (json['soundVolume'] as num?)?.toDouble() ?? 1.0,
+  countdownSeconds: (json['countdownSeconds'] as num?)?.toInt() ?? 3,
+  countdownBackgroundColor:
+      (json['countdownBackgroundColor'] as num?)?.toInt() ?? 0xFF000000,
+  countdownImageSource: json['countdownImageSource'] as String? ?? '',
   modules: (json['modules'] as List<dynamic>)
       .map((e) => WorkoutModuleModel.fromJson(e as Map<String, dynamic>))
       .toList(),
@@ -42,6 +46,9 @@ Map<String, dynamic> _$WorkoutModelToJson(
   'restStartSound': instance.restStartSound,
   'workoutEndSound': instance.workoutEndSound,
   'soundVolume': instance.soundVolume,
+  'countdownSeconds': instance.countdownSeconds,
+  'countdownBackgroundColor': instance.countdownBackgroundColor,
+  'countdownImageSource': instance.countdownImageSource,
   'author': instance.author.toJson(),
   'modules': instance.modules.map((e) => e.toJson()).toList(),
   'createdAt': const FirestoreTimestampConverter().toJson(instance.createdAt),
@@ -81,6 +88,8 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
       showSets: json['showSets'] as bool?,
       beep: json['beep'] as bool,
       coverImage: json['coverImage'] as bool,
+      favorite: json['favorite'] as bool? ?? false,
+      category: json['category'] as String? ?? '',
       timerColorValue: (json['timerColorValue'] as num?)?.toInt(),
       workGaugeColor: json['workGaugeColor'] as String?,
       restGaugeColor: json['restGaugeColor'] as String?,
@@ -112,6 +121,8 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'showSets': instance.showSets,
       'beep': instance.beep,
       'coverImage': instance.coverImage,
+      'favorite': instance.favorite,
+      'category': instance.category,
       'timerColorValue': instance.timerColorValue,
       'workGaugeColor': instance.workGaugeColor,
       'restGaugeColor': instance.restGaugeColor,

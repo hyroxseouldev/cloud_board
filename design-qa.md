@@ -1,93 +1,68 @@
-# Slide editor redesign QA
+# 디스플레이 설정 디자인 QA — 2026-09-15
 
 final result: passed
 
-Scope: apply the visual feel of the three user-attached references to the existing Flutter slide editor. Preserve all production behavior. This is a style adaptation, not a pixel-identical recreation of the workout page or the timer wireframe.
+## 비교 대상과 범위
 
-## Visual references and evidence
+사용자가 제공한 디스플레이 설정 3개 상태 이미지와 흰색 연결 대기 화면을 기준으로 기존 Flutter 테마에 구현했다. 참고 이미지의 협업 커서/아바타·가이드는 앱 콘텐츠가 아니므로 구현하지 않았다. 기존 앱의 Pretendard, 라벤더 색상, 모서리·터치 영역 규칙을 재사용했다.
 
-Source truth: the three image attachments in the user request (workout editor, timer editor, color dialog). Their original TemporaryItems paths are no longer present on disk; reference assessment uses the images displayed in the conversation. No file-based pixel comparison or side-by-side source montage was possible, and none is claimed.
+실제 iPad Pro 11-inch (M5), iOS 26.2 시뮬레이터에서 목록, 추가 창, 이름 수정 창, QR 스캔 진입과 권한 거부 후 직접 입력 복귀를 확인했다. 비교용 캡처는 운영 데이터를 변경하지 않는 위젯 렌더링으로 목록 2개 상태를 맞췄다. 태블릿 설정 834×1210, 가로 연결 카드 1194×834 기준이며, 참고 이미지의 기기 프레임·축소 비율 차이를 감안해 앱 영역의 구조와 배치를 비교했다.
 
-Rendered evidence in `/tmp/cloud-board-design-qa/`:
+## 캡처
 
-- `editor-tablet.png`: 834 × 1210 tablet, preview collapsed, timing list.
-- `editor-phone.png`: 390 × 844 phone, preview collapsed, timing list.
-- `timing-phone.png`: 390 × 844 phone, timing sheet open.
-- `color-phone.png`: 390 × 844 phone, color dialog open with five recent colors.
-- `editor-landscape.png`: 1194 × 834 tablet, settings beside the unchanged playback preview.
-- `slide-editor-redesign.png`: combined implementation overview for handoff.
+- `output/display-qa/settings.png`: 목록, 토글, 추가, Control/Display 모드 선택
+- `output/display-qa/menu.png`: 이름 수정·연결 해제 메뉴
+- `output/display-qa/add.png`: 6자리 입력, QR 스캔, 접을 수 있는 이름·구역 설정
+- `output/display-qa/rename.png`: 기기 이름·구역 이름, 닫기, 수정 버튼
+- `output/display-qa/pairing-display.png`: 실제 생성 QR, 남은 시간, 새 코드, 직접 입력용 코드
 
-Browser viewports are CSS pixels; saved screenshots are 1:1 pixels. The first reference includes tablet/system chrome; the second includes a wireframe artboard. Those are not app-owned content. The third reference is a low-contrast color-dialog wireframe. Comparisons concern content hierarchy and control arrangement, not device chrome or a fabricated color-wheel asset.
+## 확인 및 보정
 
-## Findings and intentional differences
+첫 시뮬레이터 확인에서 코드 입력 칸과 팝업 배경의 대비가 약했다. 입력 칸에 공통 selected 색상을 적용하고 배경 오버레이를 라벤더로 변경한 후 다시 캡처하여 6칸 구분과 모달 경계를 확인했다. 최종 캡처에서 잘림·겹침·기능 누락에 해당하는 P0/P1/P2 문제는 발견되지 않았다.
 
-- Typography: retains the project's bundled Pretendard font, bold page/section titles, smaller muted labels and stable Korean copy.
-- Spacing/layout: white page, generous gutters, flat pale cards and inputs; settings move beside the preview on wide screens. Phone controls remain within the viewport.
-- Tokens: a scoped muted lavender editor theme; playback slide colors remain model-controlled. Foreground contrast is stronger than the faded reference wireframes.
-- Assets: uses existing Material icons and the existing functional hue/saturation wheel painter. No generated or replacement playback imagery.
-- Content: preserves labels and all options for timing, display, sound, images, style loading/saving, recovery, undo/redo and rehearsal.
-- Timing deliberately remains in a modal sheet to preserve the existing cancel/complete transaction. Minutes/seconds and sets are now side by side; work/rest selection, ranges and validators remain unchanged.
-- The color dialog retains HEX synchronization, hue, saturation, brightness and five recent colors. Hue/saturation sliders remain available under a details disclosure. Apply stays fixed while content scrolls on short screens.
+참고보다 추가 창이 높은 것은 요청된 QR 스캔 진입점과 기존 기기 이름·구역 지정 기능을 함께 유지하기 위한 의도된 차이다. 작은 화면에서는 제목과 모드 선택을 줄바꿈해 터치 영역을 유지한다.
 
-## Iteration history
+## 기능 검증과 한계
 
-1. Found that a scrolling color dialog could hide Apply on a 600px-high viewport. Pinned Apply outside scrolling content and verified existing recent-color/HEX tests plus phone portrait/landscape accessibility of the button.
-2. Corrected time-panel alignment: minute/second and set panels now share the same height and number baseline.
-3. Replaced an adaptive green switch with the scoped lavender Material switch for consistent reference styling.
-4. Discarded an early inline timing experiment to preserve the existing modal transaction semantics after the user's explicit functionality constraint.
+- 전체 Flutter 테스트 154개 통과: 이름 입력 검증·성공/실패, 기존 토글, 연결 실패 재시도, QR 입력 검증·만료 제거 포함.
+- iOS 시뮬레이터 빌드·실행 및 Android debug APK 빌드 성공.
+- 카메라 거부 시 안내와 직접 입력 복귀를 실제 시뮬레이터에서 확인.
+- QR의 실물 카메라 인식 및 서로 다른 실제 기기 사이 연결은 미검증. 실제 기기에서 확인해야 한다.
+- 운영 계정의 기기 이름을 테스트 목적으로 변경하거나 새 디스플레이를 연결하지 않았다.
+- 연결 완료 후 기존 수업 재생·매장 대기 화면은 유지한다.
 
-No remaining actionable layout or interaction regression was found in the tested states. Source file expiry limits reproducibility of an exact pixel comparison; the source images remain available in the conversation.
-
-## Functional verification
-
-- `dart format --output=none --set-exit-if-changed lib test`: passed.
-- `flutter analyze`: no issues.
-- `flutter test`: 107 passed.
-- Added focused coverage for zero-time validation, timing cancel, one atomic apply of work/rest/sets, zero rest, and color-dialog cancel/Apply visibility at 390×844 and 844×390.
-- Updated two existing test navigation/display assertions for the new layout, retaining their value, persistence and retry assertions.
-- Browser: scrolled the work-minute wheel, cancelled and confirmed 05:00/01:00/6 sets and total 47:00 unchanged; selected a recent color, applied it, then undid it successfully.
-- Console inspection found a Flutter debug hot-restart disposed-view error from reloading during development and Flutter modal route-label warnings. No application exception occurred during the final timing/color interactions. Native device runtime validation was not performed.
-
-No domain models, timing arithmetic, repositories, persistence controllers, generated code or deployment workflows were changed.
-
-
-## Timer page follow-up — 2026-09-11
-
-The latest user request supersedes the earlier modal-only timing layout above: the header Timer card now opens a dedicated timer editor and the slide settings retain only Display and Sound tabs. Expandable timer cards reuse the same validated timing controls and explicit Cancel/Complete transaction. Block add, reorder, duplicate, delete, last-block protection, timer visibility and shared undo/redo remain available. Applied changes stay in the parent slide draft until its existing save flow runs.
-
-Tablet layout is centered with a 960px maximum width, 40px gutters and 184px wheels; smaller screens use 24px gutters and 132px wheels. Current browser evidence: `/tmp/cloud-board-design-qa/timer-editor-tablet.png` (834×1194) and `timer-editor-phone.png` (390×844). Both were visually checked for overflow and control placement. The earlier screenshots document the earlier iteration only.
-
-Validation: full suite passed 111 tests before adding two focused timer-page tests; both new tests passed at tablet and phone sizes. They cover navigation, cancel/apply, shared undo/redo, visibility changes, returning to the parent and no premature save. Full analyzer passed; iPad simulator hot reload succeeded (14 libraries, 860ms). No playback or timing domain logic changed.
-
-
-## Preview simplification follow-up — 2026-09-11
-
-Per the latest screenshots, the preview now fills the editor content width inside a pale card. The previous height-derived width cap and landscape side-by-side layout are replaced by one scrolling preview/settings column. The header title, timer and save remain above the scrolling area. One play icon opens the existing fullscreen rehearsal; one chevron collapses/expands the preview. Work/rest switching and selected-block information are retained. The redundant slide-settings heading and work/rest/total summary were removed.
-
-Visual checks: tablet portrait 834×1194, phone 390×844, and tablet landscape 1194×834. Browser confirmed collapse/expand and the combined rehearsal button opens the existing rehearsal page and returns. Current evidence: `/tmp/cloud-board-design-qa/preview-wide-tablet.png`, `/tmp/cloud-board-design-qa/preview-wide-phone.png`.
-
-Validation: 13 slide-editor/timer tests and 28 app improvement tests passed. Existing responsive tests now assert full preview width, a single rehearsal control, collapse/expand, title visibility updates and undo after scrolling. Full analyzer reported no issues. Simulator hot reload succeeded (7 libraries, 516ms). A previously buffered Flutter system text-menu assertion appeared before the reload; no equivalent error was observed in the new browser interactions.
-
-## Display settings follow-up — 2026-09-11
+# 슬라이드 조작 화면 디자인 QA — 2026-09-15
 
 final result: passed
 
-Scope: apply the user-provided registered-display list design to the existing Flutter settings screen. Keep the existing page navigation and controller/display mode selector above this section.
+## 비교 자료
 
-Source: `/var/folders/pd/ytsw9j8s3pv23k7p5tmngl6m0000gn/T/TemporaryItems/NSIRD_screencaptureui_ZaTKdB/스크린샷 2026-09-11 오전 9.50.32.png` (390 × 214 pixels, cropped list reference).
-Implementation: `/tmp/cloud-board-display-preview/phone.png` (390 × 844) and `/tmp/cloud-board-display-preview/tablet.png` (834 × 1194). Browser viewport dimensions match saved pixels. Source and full phone screenshot were emitted together for comparison; compare the registered-display section, excluding existing app header and the source's green artboard edges/cursor. A preliminary browser clip produced incorrect scaling and was discarded. The full capture exposes the small card details clearly, so no additional detail crop is needed.
+- 원본: `/var/folders/pd/ytsw9j8s3pv23k7p5tmngl6m0000gn/T/TemporaryItems/NSIRD_screencaptureui_cPRifN/스크린샷 2026-09-15 오후 2.10.56.png` (772×1122px).
+- 원본 기기 안쪽 영역 약 668×1014px를 기준으로 `/Users/sunmkim/Dev2026/cloud_board/output/control-qa/reference.png` (668×1014px, DPR 1)와 함께 열어 비교했다. 기기 프레임·상태 표시줄·협업 아바타·초록 가이드는 앱 콘텐츠에서 제외했다.
+- 추가 캡처: 같은 폴더의 `ipad.png` (834×1194), `phone.png` (390×844), `landscape.png` (1194×834). 모두 실제 Flutter 위젯 렌더링, 논리 크기와 이미지 픽셀 크기 동일, DPR 1.
+- 비교 상태: 첫 슬라이드 재생 중, 동일 워크아웃 제목. 참고 이미지의 빈 이미지 영역 대신 실제 슬라이드 캔버스를 사용했다. 캡처용 테스트 데이터는 운영 데이터에 저장하지 않았다.
 
-State: two enabled devices; preview uses a temporary provider-override harness rendering the real production screen at `http://localhost:8788`. Preview data is illustrative and does not access real devices.
+## 시각 검증
 
-Fidelity review:
-- Typography: bundled Pretendard, 16px bold section heading, 14px semibold device name, 12px secondary status, one-line ellipsis for long device/zone labels.
-- Layout: flat 66px minimum-height cards, 4px corners, 8px row spacing, left toggle, right overflow menu, compact add label and plus. Width responds to the existing page constraints. Existing page header remains outside the supplied crop.
-- Colors: pale lavender cards and muted lavender switches/menu. Foreground text is intentionally darker than the faded source for readability.
-- Assets: source has only text, standard controls and icons; existing Material icons are used. No raster assets are needed.
-- Copy: actual device names, zones, online status and command acknowledgements replace dummy reference text.
+- **폰트:** 기존 Pretendard Bold와 앱 타이포그래피를 유지. 태블릿 제목 44, 휴대폰 28. 종료 버튼도 앱 폰트를 상속하도록 보정했다. 휴대폰 안내는 의미 단위로 두 줄로 나눠 마지막 한 글자만 남는 줄바꿈을 제거했다.
+- **배치:** 종료 버튼, 중앙 제목, 이전/재생/다음, 구간 진행 바, 다음 카드 일부가 보이는 캐러셀, 페이지 표시와 안내 순서 일치. 카드 폭을 viewport 75%, 태블릿 간격 40으로 보정했다. 낮은 가로 화면은 세로 스크롤로 안내까지 접근한다.
+- **색상:** 흰색 배경과 기존 라벤더 토큰을 적용. 목업의 연한 회색 버튼보다 진한 accent를 사용해 실제 조작 가능 여부를 구분한다. 짧은 슬라이드 구간도 보이도록 진행 바의 최소 비중을 보장한다.
+- **이미지:** 원본은 이미지 자리 표시자이므로 기존 WorkoutSlideCanvas를 그대로 사용한다. 운동 이미지·타이머·세트·휴식 표시와 사용자 지정 색을 보존한다. 새로운 래스터 에셋은 필요하지 않다.
+- **문구와 접근성:** 종료하기 및 스와이프 안내 의미 유지. 재생 버튼 툴팁·페이지 선택 상태 제공. 페이지 점의 간격은 목업보다 넓지만 44px 터치 영역 확보를 위한 차이다.
+- 전체 화면 비교 후 제목/종료 버튼, 카드 폭/간격, 휴대폰 안내 영역을 각각 확대 수준으로 확인했다. 남은 P0/P1/P2 시각 문제 없음.
 
-No actionable P0/P1/P2 differences found in the final comparison. Browser verified switch off/on with semantic values changing 1→0→1 and overflow menu opening/dismissing. Console warning/error capture was empty. Phone and tablet controls remain visible with no overflow. Browser checks used mock providers; physical display/network delivery was not exercised.
+## 수정 이력
 
-Validation: `flutter analyze --no-pub` passed; `flutter test --no-pub test/display_settings_test.dart test/app_improvements_test.dart` passed 34 tests. New tests verify auto/standby→black, black→auto, failed-action feedback with prior state retained, and long labels at 390px. `git diff --check` passed.
+1. 첫 구현에서 프리뷰가 목업보다 넓고 아주 짧은 운동 구간이 점처럼 보였다. 프리뷰 폭/간격 및 구간 최소 비중을 수정했다.
+2. 휴대폰 안내 문구의 고립된 마지막 글자, 버튼 스타일 변경 후 캡처에서 드러난 폰트 상속 누락을 수정했다.
+3. 최종 4개 크기로 재캡처하여 카드·문구·버튼을 확인했다. 상기 캡처 파일은 최종 상태다.
 
-Implementation checklist: visual matching, real controller wiring, responsive checks, failure feedback and existing add/navigation tests completed. No remaining P3 follow-up identified.
+## 동작 검증 및 범위
+
+- 스와이프/페이지 점: 해당 슬라이드의 첫 운동 단계로 이동, 전체 시작 시간으로 재생. 기존 이전/다음 버튼과 키보드·알림 명령의 운동/휴식 단계 이동 의미는 보존.
+- 자동 슬라이드 전환은 캐러셀만 동기화하고 새 명령을 만들지 않음. 전송 중 중복 스와이프 차단, 실패 시 실제 상태와 캐러셀 함께 복귀.
+- 전체 Flutter 테스트 159개 통과. 마지막 간격·문구 변경 후 관련 5개 테스트 재통과. Flutter analyze 오류 없음, git diff --check 통과.
+- iPad 시뮬레이터에서 수업 준비→시작→새 화면, 일시정지, 슬라이드 선택과 타이머 초기화를 확인. 온라인 디스플레이가 없는 상태에서 검증했다.
+- 네이티브 드래그 자동화는 noWindowsAvailable 오류로 실행되지 않아 스와이프 자체는 Flutter 위젯 테스트로 확인했다. 실제 디스플레이 동기화와 실제 기기 스와이프는 미검증.
+- 최종 iOS 시뮬레이터 빌드/실행 성공. 앱에 최종 코드 설치됨. 이번 변경에 대한 Android 별도 빌드는 수행하지 않았다.
+- develop에서 작업했고 커밋·푸시·배포는 수행하지 않았다.

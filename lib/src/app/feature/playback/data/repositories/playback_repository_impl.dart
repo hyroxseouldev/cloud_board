@@ -113,12 +113,17 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       _update(status: PlaybackStatus.playing.name, deviceId: deviceId);
 
   @override
-  Future<void> begin({required String deviceId}) => _update(
-    status: PlaybackStatus.playing.name,
-    deviceId: deviceId,
-    startDelayMs: 3000,
-    requireBriefing: true,
-  );
+  Future<void> begin({required String deviceId}) async {
+    final session = await _local.load();
+    if (session == null) throw StateError('진행 중인 수업이 없습니다.');
+    await _update(
+      status: PlaybackStatus.playing.name,
+      deviceId: deviceId,
+      startDelayMs:
+          session.toEntity().workout.countdownSeconds.clamp(0, 60) * 1000,
+      requireBriefing: true,
+    );
+  }
 
   @override
   Future<void> seek({

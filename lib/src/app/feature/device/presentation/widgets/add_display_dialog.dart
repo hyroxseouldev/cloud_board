@@ -1,3 +1,7 @@
+import 'package:flutter/foundation.dart';
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_qr_scanner_screen.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +15,11 @@ class AddDisplayDialog extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final code = useTextEditingController();
+    final canScan =
+        (kIsWeb ||
+            defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.android) &&
+        ref.watch(androidTvProvider).value == false;
     final name = useTextEditingController(text: '메인 디스플레이');
     final zone = useTextEditingController(text: '메인 구역');
     final action = ref.watch(deviceClaimControllerProvider);
@@ -41,24 +50,45 @@ class AddDisplayDialog extends HookConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
-                  controller: code,
-                  enabled: !action.isLoading,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                  decoration: InputDecoration(
-                    errorText: codeError.value,
-                    labelText: '디스플레이의 6자리 코드',
-                    hintText: '123456',
-                    prefixIcon: const Icon(Icons.pin_rounded),
+                const Text('연결할 디스플레이의 코드를 입력해 주세요.'),
+                const SizedBox(height: 16),
+                _PairingCodeInput(controller: code, enabled: !action.isLoading),
+                if (codeError.value != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      codeError.value!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   ),
-                ),
+                if (canScan) ...[
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: action.isLoading
+                        ? null
+                        : () async {
+                            FocusScope.of(context).unfocus();
+                            final scanned = await Navigator.of(context)
+                                .push<String>(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const DisplayQrScannerScreen(),
+                                  ),
+                                );
+                            if (scanned != null && context.mounted) {
+                              code.text = scanned;
+                              codeError.value = null;
+                            }
+                          },
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    label: const Text('QR 코드 스캔'),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 ExpansionTile(
-                  initiallyExpanded: true,
+                  initiallyExpanded: false,
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: const EdgeInsets.only(top: 8),
                   title: const Text('기기 이름 · 구역'),
@@ -106,6 +136,83 @@ class AddDisplayDialog extends HookConsumerWidget {
                   )
                 : const Icon(Icons.link_rounded),
             label: const Text('연결하기'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PairingCodeInput extends HookWidget {
+  const _PairingCodeInput({required this.controller, required this.enabled});
+  final TextEditingController controller;
+  final bool enabled;
+  @override
+  Widget build(BuildContext context) {
+    final focus = useFocusNode();
+    useListenable(focus);
+    useListenable(controller);
+    return SizedBox(
+      height: 64,
+      child: Stack(
+        children: [
+          ExcludeSemantics(
+            child: Row(
+              children: [
+                for (var i = 0; i < 6; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.selected,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color:
+                              focus.hasFocus &&
+                                  i == controller.text.length.clamp(0, 5)
+                              ? AppColors.accent
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          i < controller.text.length ? controller.text[i] : '',
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Positioned.fill(
+            child: TextField(
+              controller: controller,
+              focusNode: focus,
+              enabled: enabled,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              style: const TextStyle(color: Colors.transparent),
+              showCursor: false,
+              enableInteractiveSelection: true,
+              decoration: const InputDecoration(
+                labelText: '디스플레이의 6자리 코드',
+                floatingLabelBehavior: FloatingLabelBehavior.never,
+                labelStyle: TextStyle(color: Colors.transparent),
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+              ),
+            ),
           ),
         ],
       ),

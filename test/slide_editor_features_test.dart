@@ -197,7 +197,7 @@ void main() {
     const Size(1194, 834),
   ]) {
     testWidgets(
-      'editor full-width preview and save fit $size and title visibility can undo',
+      'editor pinned collapsible preview and save fit $size and title visibility can undo',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = size;
@@ -223,8 +223,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(WorkoutSlidePreview), findsOneWidget);
         expect(
-          tester.getSize(find.byType(WorkoutSlidePreview)).width,
-          closeTo(size.width - 80, 1),
+          tester
+              .getSize(find.byKey(const ValueKey('slide-preview-card')))
+              .width,
+          closeTo(size.width - 48, 1),
         );
         expect(find.byTooltip('전체 화면 · 시험 재생'), findsOneWidget);
         expect(find.text('시험 재생'), findsNothing);
@@ -249,12 +251,20 @@ void main() {
               matching: find.byType(Scrollable),
             )
             .first;
+        final previewPosition = tester.getTopLeft(
+          find.byType(WorkoutSlidePreview),
+        );
         await tester.scrollUntilVisible(
           title.hitTestable(),
           250,
           scrollable: scroll,
         );
         await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.byType(WorkoutSlidePreview)),
+          previewPosition,
+        );
+        expect(find.byType(WorkoutSlidePreview).hitTestable(), findsOneWidget);
         await tester.tap(title);
         await tester.pumpAndSettle();
         await scrollSettingsToTop(tester);

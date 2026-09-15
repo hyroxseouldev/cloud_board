@@ -25,6 +25,9 @@ class WorkoutImageSource {
   }
 
   static String fromBytes(Uint8List bytes, {String? contentType}) {
+    if (bytes.length >= 10 * 1024 * 1024) {
+      throw const FormatException('이미지는 10MB 미만으로 선택해 주세요. 원본 화질을 유지해 저장합니다.');
+    }
     final type = _detectedContentType(bytes) ?? contentType?.toLowerCase();
     if (type == null || !supportedContentTypes.contains(type)) {
       throw const FormatException(
