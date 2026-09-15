@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_pairing_error_message.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -110,7 +111,7 @@ class AddDisplayDialog extends HookConsumerWidget {
                 if (submitted.value && action.hasError) ...[
                   const SizedBox(height: 10),
                   Text(
-                    '${action.error}',
+                    devicePairingErrorMessage(action.error),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),

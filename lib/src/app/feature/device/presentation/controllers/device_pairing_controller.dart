@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_board/src/app/core/services/device_pairing_diagnostics.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -19,9 +22,16 @@ class DevicePairingController extends _$DevicePairingController {
     state = await AsyncValue.guard(_issue);
   }
 
-  Future<DevicePairing> _issue() async => ref
-      .read(devicePairingActionsProvider)
-      .issue(deviceId: await ref.read(deviceIdProvider.future));
+  Future<DevicePairing> _issue() async {
+    try {
+      return await ref
+          .read(devicePairingActionsProvider)
+          .issue(deviceId: await ref.read(deviceIdProvider.future));
+    } catch (error, stack) {
+      unawaited(recordPairingFailure(error, stack, phase: 'issue_code'));
+      rethrow;
+    }
+  }
 }
 
 @Riverpod(keepAlive: true)
@@ -38,19 +48,32 @@ class DeviceClaimController extends _$DeviceClaimController {
     required String name,
     required String zoneName,
   }) async {
+    if (state.isLoading) return false;
     state = const AsyncLoading();
+    var phase = 'load_profile';
     state = await AsyncValue.guard(() async {
       final profile = await ref.read(userProfileControllerProvider.future);
+      phase = 'load_devices';
       final devices = await ref.read(displayDevicesProvider.future);
       if (devices.where((item) => item.paired).length >= profile.displayLimit) {
         throw StateError(
           '현재 등급에서는 디스플레이를 ${profile.displayLimit}대까지 연결할 수 있습니다.',
         );
       }
+      phase = 'claim_code';
       await ref
           .read(devicePairingActionsProvider)
           .claim(code: code, name: name, zoneName: zoneName);
     });
+    if (state.hasError) {
+      unawaited(
+        recordPairingFailure(
+          state.error!,
+          state.stackTrace ?? StackTrace.current,
+          phase: phase,
+        ),
+      );
+    }
     return !state.hasError;
   }
 
