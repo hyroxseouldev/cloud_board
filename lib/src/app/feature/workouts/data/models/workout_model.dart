@@ -22,6 +22,9 @@ class WorkoutModel {
     required this.restStartSound,
     required this.workoutEndSound,
     required this.soundVolume,
+    this.countdownSeconds = 3,
+    this.countdownBackgroundColor = 0xFF000000,
+    this.countdownImageSource = '',
     required this.modules,
     required this.createdAt,
     required this.updatedAt,
@@ -39,6 +42,8 @@ class WorkoutModel {
   final String workoutEndSound;
   @JsonKey(defaultValue: 1.0)
   final double soundVolume;
+  final int countdownSeconds, countdownBackgroundColor;
+  final String countdownImageSource;
   final WorkoutAuthorModel author;
   final List<WorkoutModuleModel> modules;
   @FirestoreTimestampConverter()
@@ -71,6 +76,9 @@ class WorkoutModel {
       fallback: WorkoutSound.longFinish,
     ),
     soundVolume: soundVolume.clamp(0, 1),
+    countdownSeconds: countdownSeconds.clamp(0, 60),
+    countdownBackgroundColor: countdownBackgroundColor,
+    countdownImageSource: countdownImageSource,
     modules: modules.map((item) => item.toEntity()).toList(),
     createdAt: createdAt,
     updatedAt: updatedAt,
@@ -89,6 +97,9 @@ class WorkoutModel {
     restStartSound: value.restStartSound.name,
     workoutEndSound: value.workoutEndSound.name,
     soundVolume: value.soundVolume,
+    countdownSeconds: value.countdownSeconds,
+    countdownBackgroundColor: value.countdownBackgroundColor,
+    countdownImageSource: value.countdownImageSource,
     modules: value.modules.map(WorkoutModuleModel.fromEntity).toList(),
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
@@ -138,6 +149,8 @@ class WorkoutModuleModel {
     this.showSets,
     required this.beep,
     required this.coverImage,
+    this.favorite = false,
+    this.category = '',
     required this.timerColorValue,
     this.workGaugeColor,
     this.restGaugeColor,
@@ -154,6 +167,8 @@ class WorkoutModuleModel {
   // Missing on legacy slides: preserve their previous visibility.
   final bool? showSets;
   final bool beep, coverImage;
+  final bool favorite;
+  final String category;
   final int? timerColorValue;
   final String? workGaugeColor, restGaugeColor, workTextColor, restTextColor;
   @JsonKey(defaultValue: <WorkoutIntervalBlockModel>[])
@@ -175,6 +190,8 @@ class WorkoutModuleModel {
     showSets: showSets ?? showTimer,
     beep: beep,
     coverImage: coverImage,
+    favorite: favorite,
+    category: category,
     timerColorValue: timerColorValue,
     workGaugeColor: workGaugeColor,
     restGaugeColor: restGaugeColor,
@@ -197,6 +214,8 @@ class WorkoutModuleModel {
         showSets: value.showSets,
         beep: value.beep,
         coverImage: value.coverImage,
+        favorite: value.favorite,
+        category: value.category,
         timerColorValue: value.timerColorValue,
         workGaugeColor: value.workGaugeColor,
         restGaugeColor: value.restGaugeColor,

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_countdown.dart';
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 
 import 'dart:async';
@@ -78,6 +79,7 @@ class WorkoutSettingsSheet extends StatelessWidget {
                           _SettingsGrid(
                             children: [
                               TextField(
+                                key: const ValueKey('brand-left'),
                                 controller: brandL,
                                 decoration: const InputDecoration(
                                   labelText: '화면 왼쪽 아래 문구',
@@ -85,6 +87,7 @@ class WorkoutSettingsSheet extends StatelessWidget {
                                 ),
                               ),
                               TextField(
+                                key: const ValueKey('brand-right'),
                                 controller: brandR,
                                 decoration: const InputDecoration(
                                   labelText: '화면 오른쪽 아래 문구',
@@ -92,6 +95,14 @@ class WorkoutSettingsSheet extends StatelessWidget {
                                 ),
                               ),
                             ],
+                          ),
+                          const Divider(height: 56),
+                          ValueListenableBuilder<Workout>(
+                            valueListenable: draft,
+                            builder: (context, workout, _) => CountdownSettings(
+                              workout: workout,
+                              onChanged: (v) => draft.value = v,
+                            ),
                           ),
                           const Divider(height: 56),
                           ValueListenableBuilder<Workout>(
@@ -299,6 +310,7 @@ class _SoundSettingsSection extends ConsumerWidget {
             const Icon(Icons.volume_down_rounded, size: 20),
             Expanded(
               child: Slider(
+                key: const ValueKey('sound-volume'),
                 semanticFormatterCallback: (value) =>
                     '볼륨 ${(value * 100).round()}%',
                 value: workout.soundVolume.clamp(0, 1),

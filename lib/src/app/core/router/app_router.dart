@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
@@ -32,6 +33,7 @@ GoRouter appRouter(Ref ref) {
       return null;
     },
     routes: [
+      GoRoute(path: '/slides', builder: (_, _) => const SlideLibraryScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(
         path: '/',

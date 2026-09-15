@@ -31,6 +31,20 @@ class _DisplayActions extends DeviceClaimController {
   _DisplayActions({this.fail = false});
 
   final bool fail;
+  final renames = <({String id, String name, String zone})>[];
+  @override
+  Future<bool> rename({
+    required String deviceId,
+    required String name,
+    required String zoneName,
+  }) async {
+    renames.add((id: deviceId, name: name, zone: zoneName));
+    state = fail
+        ? AsyncError(StateError("offline"), StackTrace.current)
+        : const AsyncData(null);
+    return !fail;
+  }
+
   final calls = <({String deviceId, String displayState})>[];
 
   @override
@@ -88,6 +102,40 @@ Future<void> _pumpDisplays(
 }
 
 void main() {
+  for (final fail in [false, true]) {
+    testWidgets(
+      'rename validates, persists both names and handles failure=$fail',
+      (tester) async {
+        final controller = _DisplayActions(fail: fail);
+        await _pumpDisplays(tester, device: _device(), controller: controller);
+        await tester.tap(find.byTooltip('디스플레이 메뉴'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('이름 수정'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.widgetWithText(TextFormField, '기기 이름'), '');
+        await tester.tap(find.text('수정'));
+        await tester.pumpAndSettle();
+        expect(controller.renames, isEmpty);
+        expect(find.text('이름을 입력해 주세요.'), findsOneWidget);
+        await tester.enterText(
+          find.widgetWithText(TextFormField, '기기 이름'),
+          '새 TV',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, '구역 이름'),
+          '2층',
+        );
+        await tester.tap(find.text('수정'));
+        await tester.pumpAndSettle();
+        expect(controller.renames, [
+          (id: 'display-1', name: '새 TV', zone: '2층'),
+        ]);
+        expect(find.text('디스플레이 이름 수정'), fail ? findsOneWidget : findsNothing);
+        if (fail) expect(find.textContaining('이름을 수정하지 못했습니다'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final displayState in ['auto', 'standby']) {
     testWidgets('$displayState display switches off using black state', (
       tester,
@@ -189,6 +237,8 @@ void main() {
         ),
       );
       await tester.tap(find.text('추가'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('기기 이름 · 구역'));
       await tester.pumpAndSettle();
       expect(
         find.widgetWithText(TextField, '기기 이름').hitTestable(),

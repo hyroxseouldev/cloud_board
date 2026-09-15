@@ -1,3 +1,8 @@
+import 'dart:async';
+
+import 'package:cloud_board/src/app/core/widgets/hex_color_field.dart';
+import 'package:cloud_board/src/app/core/utils/hex_color.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -36,6 +41,14 @@ class _StandbyEditor extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = useState(initial);
+    final previewNow = useState(DateTime.now());
+    useEffect(() {
+      final timer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => previewNow.value = DateTime.now(),
+      );
+      return timer.cancel;
+    }, const []);
     final keys = useState(
       List.generate(initial.promotionImageUrls.length, (_) => UniqueKey()),
     );
@@ -51,10 +64,7 @@ class _StandbyEditor extends HookConsumerWidget {
     final form = useMemoized(() => GlobalKey<FormState>());
     Future<void> add() async {
       try {
-        final files = await ImagePicker().pickMultiImage(
-          maxWidth: 1920,
-          imageQuality: 85,
-        );
+        final files = await ImagePicker().pickMultiImage();
         final sources = <String>[];
         for (final file in files) {
           sources.add(
@@ -86,6 +96,13 @@ class _StandbyEditor extends HookConsumerWidget {
           .read(storeOperationsActionControllerProvider.notifier)
           .saveBrandTemplate(
             latest.copyWith(
+              storeName: draft.value.storeName,
+              standbyMessage: draft.value.standbyMessage,
+              standbyFullscreen: draft.value.standbyFullscreen,
+              standbyShowText: draft.value.standbyShowText,
+              standbyTextColor: draft.value.standbyTextColor,
+              standbyBackgroundColor: draft.value.standbyBackgroundColor,
+              standbyTextPosition: draft.value.standbyTextPosition,
               promotionImageUrls: draft.value.promotionImageUrls,
               promotionDurationMinutes: minutes.value.map(int.parse).toList(),
               standbyTransition: draft.value.standbyTransition,
@@ -130,6 +147,105 @@ class _StandbyEditor extends HookConsumerWidget {
                       '등록 순서대로 반복 재생합니다. 이미지가 없거나 모두 불러올 수 없으면 기본 대기 화면을 표시합니다.',
                     ),
                     const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: StoreWelcomeBoard(
+                          brand: draft.value,
+                          now: previewNow.value,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SwitchListTile(
+                      title: const Text('이미지를 전체 배경으로'),
+                      value: draft.value.standbyFullscreen,
+                      onChanged: (v) {
+                        draft.value = draft.value.copyWith(
+                          standbyFullscreen: v,
+                        );
+                        dirty.value = true;
+                      },
+                    ),
+                    SwitchListTile(
+                      title: const Text('대기 문구 표시'),
+                      value: draft.value.standbyShowText,
+                      onChanged: (v) {
+                        draft.value = draft.value.copyWith(standbyShowText: v);
+                        dirty.value = true;
+                      },
+                    ),
+                    TextFormField(
+                      initialValue: draft.value.storeName,
+                      maxLength: 60,
+                      decoration: const InputDecoration(labelText: '매장 이름'),
+                      onChanged: (v) {
+                        draft.value = draft.value.copyWith(storeName: v);
+                        dirty.value = true;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: draft.value.standbyMessage,
+                      maxLength: 200,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: '대기 문구'),
+                      onChanged: (v) {
+                        draft.value = draft.value.copyWith(standbyMessage: v);
+                        dirty.value = true;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    AppDropdownFormField<String>(
+                      initialValue: draft.value.standbyTextPosition,
+                      decoration: const InputDecoration(labelText: '문구 위치'),
+                      items: const [
+                        DropdownMenuItem(value: 'topLeft', child: Text('왼쪽 위')),
+                        DropdownMenuItem(value: 'center', child: Text('가운데')),
+                        DropdownMenuItem(
+                          value: 'bottomLeft',
+                          child: Text('왼쪽 아래'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          draft.value = draft.value.copyWith(
+                            standbyTextPosition: v,
+                          );
+                          dirty.value = true;
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    HexColorField(
+                      label: '대기 문구 색상',
+                      initialValue:
+                          '#${draft.value.standbyTextColor.toRadixString(16).padLeft(8, '0').substring(2)}',
+                      onChanged: (v) {
+                        final color = parseHexColor(v);
+                        if (color == null) return;
+                        draft.value = draft.value.copyWith(
+                          standbyTextColor: color,
+                        );
+                        dirty.value = true;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    HexColorField(
+                      label: '배경색',
+                      initialValue:
+                          '#${draft.value.standbyBackgroundColor.toRadixString(16).padLeft(8, '0').substring(2)}',
+                      onChanged: (v) {
+                        final color = parseHexColor(v);
+                        if (color == null) return;
+                        draft.value = draft.value.copyWith(
+                          standbyBackgroundColor: color,
+                        );
+                        dirty.value = true;
+                      },
+                    ),
+                    const SizedBox(height: 20),
                     AppDropdownFormField<StandbyImageFit>(
                       initialValue: draft.value.standbyImageFit,
                       isExpanded: true,

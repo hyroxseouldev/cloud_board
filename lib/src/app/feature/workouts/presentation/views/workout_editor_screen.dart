@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -466,6 +467,36 @@ class _EditorBody extends HookConsumerWidget {
                                   color: Theme.of(context).colorScheme.error,
                                 ),
                               ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                icon: const Icon(Icons.video_library_outlined),
+                                label: const Text('라이브러리에서 찾기'),
+                                onPressed: isBusy
+                                    ? null
+                                    : () async {
+                                        final selected =
+                                            await showModalBottomSheet<
+                                              WorkoutModule
+                                            >(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              builder: (c) =>
+                                                  FractionallySizedBox(
+                                                    heightFactor: .9,
+                                                    child: SlideLibraryScreen(
+                                                      onSelect: (m) =>
+                                                          Navigator.pop(c, m),
+                                                    ),
+                                                  ),
+                                            );
+                                        if (selected != null &&
+                                            context.mounted) {
+                                          addSlide(selected);
+                                        }
+                                      },
+                              ),
+                            ),
                             SizedBox(
                               height: 48,
                               child: Row(

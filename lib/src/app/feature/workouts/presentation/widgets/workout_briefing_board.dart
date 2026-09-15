@@ -251,9 +251,13 @@ class WorkoutBriefingBoard extends HookWidget {
                                 ),
                               )
                             : const Icon(Icons.play_arrow_rounded),
-                        label: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Text('수업 시작 · 3초 카운트다운'),
+                        label: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            workout.countdownSeconds == 0
+                                ? '수업 시작'
+                                : '수업 시작 · ${workout.countdownSeconds}초 카운트다운',
+                          ),
                         ),
                       ),
                     ),

@@ -1,3 +1,8 @@
+import 'dart:math' as math;
+
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_countdown.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_viewport.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 
 import 'dart:async';
@@ -14,6 +19,10 @@ import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_control_panel.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
+
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
@@ -33,12 +42,14 @@ class WorkoutPlayerScreen extends ConsumerWidget {
     this.sessionId,
     this.displayMode = false,
     this.onStandby,
+    this.displayPreferences = const DisplayPreferences(),
   });
   final String workoutId;
   final int startModule;
   final String? sessionId;
   final bool displayMode;
   final VoidCallback? onStandby;
+  final DisplayPreferences displayPreferences;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,6 +76,7 @@ class WorkoutPlayerScreen extends ConsumerWidget {
       sessionId: sessionId,
       displayMode: displayMode,
       onStandby: onStandby,
+      displayPreferences: displayPreferences,
     );
   }
 }
@@ -77,6 +89,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     required this.sessionId,
     required this.displayMode,
     required this.onStandby,
+    required this.displayPreferences,
   });
 
   final Workout workout;
@@ -84,6 +97,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
   final String? sessionId;
   final bool displayMode;
   final VoidCallback? onStandby;
+  final DisplayPreferences displayPreferences;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,8 +126,8 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     final isTv = ref.watch(androidTvProvider).value ?? false;
     final mediaController = ref.watch(workoutMediaControllerProvider);
     final serverOffset = ref.watch(serverTimeOffsetProvider).value ?? 0;
-    final showControls = useState(!displayMode);
     final standbyNow = useState(DateTime.now());
+    final touchLocked = useState(false);
     useEffect(() {
       if (!displayMode || !state.briefing) return null;
       final timer = Timer.periodic(
@@ -138,7 +152,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     }
 
     Future<void> requestExit() async {
-      if (displayMode) return;
+      if (displayMode || touchLocked.value) return;
       final shouldExit = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AppAlertDialog(
@@ -162,7 +176,9 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     useEffect(() {
       if (displayMode && isTv) return null;
       unawaited(WakelockPlus.enable());
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setEnabledSystemUIMode(
+        displayMode ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+      );
       return () {
         unawaited(WakelockPlus.disable());
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -306,29 +322,10 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         },
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  '준비하세요',
-                  style: TextStyle(color: Colors.white70, fontSize: 28),
-                ),
-                Text(
-                  '${(state.countdownMs / 1000).ceil()}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 160,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  currentMediaStep?.module.name ?? workout.name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white, fontSize: 24),
-                ),
-              ],
-            ),
+          body: WorkoutCountdown(
+            workout: workout,
+            seconds: (state.countdownMs / 1000).ceil(),
+            slideName: currentMediaStep?.module.name,
           ),
         ),
       );
@@ -339,6 +336,112 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
 
     final step = state.steps[state.index];
     final module = step.module;
+    if (!displayMode) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) unawaited(requestExit());
+        },
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.space): () {
+              if (!touchLocked.value) unawaited(actions.toggle());
+            },
+            const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+              if (!touchLocked.value) unawaited(actions.next());
+            },
+            const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+              if (!touchLocked.value) unawaited(actions.previous());
+            },
+            const SingleActivator(LogicalKeyboardKey.escape): () =>
+                unawaited(requestExit()),
+          },
+          child: Focus(
+            autofocus: true,
+            child: WorkoutControlPanel(
+              title: workout.name,
+              moduleCount: workout.modules.length,
+              currentModule: step.moduleIndex,
+              paused: state.isPaused,
+              busy: playbackAction.isLoading,
+              locked: touchLocked.value,
+              onLockChanged: (value) => touchLocked.value = value,
+              onPrevious: () => unawaited(actions.previous()),
+              onToggle: () => unawaited(actions.toggle()),
+              onNext: () => unawaited(actions.next()),
+              onExit: () => unawaited(requestExit()),
+              onSelectModule: actions.selectModule,
+              message: playbackAction.hasError
+                  ? '명령을 전달하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.'
+                  : sessionId != null && !isConnected
+                  ? '연결이 끊겼습니다. 디스플레이 상태를 확인해 주세요.'
+                  : null,
+              timeline: Consumer(
+                builder: (context, ref, _) {
+                  final live = ref.watch(provider);
+                  final durations = List.filled(workout.modules.length, 0);
+                  var elapsed = 0;
+                  for (var i = 0; i < live.steps.length; i++) {
+                    final item = live.steps[i];
+                    durations[item.moduleIndex] += item.duration;
+                    if (item.moduleIndex == step.moduleIndex) {
+                      if (i < live.index) elapsed += item.duration * 1000;
+                      if (i == live.index) {
+                        elapsed += item.duration * 1000 - live.remainingMs;
+                      }
+                    }
+                  }
+                  return WorkoutControlTimeline(
+                    durations: durations,
+                    currentModule: step.moduleIndex,
+                    elapsedMs: elapsed,
+                  );
+                },
+              ),
+              previewBuilder: (context, index) {
+                if (index != step.moduleIndex) {
+                  return WorkoutSlidePreview(
+                    module: workout.modules[index],
+                    isRest: false,
+                    brandL: workout.brandL,
+                    brandR: workout.brandR,
+                  );
+                }
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final scale = math.min(
+                      constraints.maxWidth / 1280,
+                      constraints.maxHeight / 720,
+                    );
+                    return WorkoutSlideCanvas(
+                      module: module,
+                      isRest: step.isRest,
+                      secondsLeft: state.secondsLeft,
+                      remainingMs: state.remainingMs,
+                      durationMs: step.duration * 1000,
+                      set: step.set,
+                      totalSets: step.totalSets,
+                      isPaused: state.isPaused,
+                      brandL: workout.brandL,
+                      brandR: workout.brandR,
+                      scale: scale,
+                      showLoadingIndicator: true,
+                      timer: _PlayerTimer(
+                        workout: workout,
+                        startModule: startModule,
+                        sessionId: sessionId,
+                        displayMode: false,
+                        scale: scale,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    }
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -358,9 +461,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         child: Focus(
           autofocus: true,
           child: GestureDetector(
-            onTap: displayMode
-                ? null
-                : () => showControls.value = !showControls.value,
             child: AsyncActionOverlay(
               isLoading: playbackAction.isLoading,
               child: Scaffold(
@@ -368,16 +468,20 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                 body: ColoredBox(
                   color: Colors.black,
                   child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
+                    child: DisplayViewport(
+                      preferences: displayPreferences,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final scale = constraints.maxWidth / 1280;
+                          final scale = math.min(
+                            constraints.maxWidth / 1280,
+                            constraints.maxHeight / 720,
+                          );
                           return Stack(
                             children: [
                               Positioned.fill(
                                 child: WorkoutSlideCanvas(
                                   module: module,
+                                  displayPreferences: displayPreferences,
                                   isRest: step.isRest,
                                   secondsLeft: state.secondsLeft,
                                   remainingMs: state.remainingMs,
@@ -422,17 +526,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                                   scale: scale,
                                 ),
                               ),
-                              if (showControls.value && !displayMode)
-                                _Controls(
-                                  onPrevious: () => actions.previous(),
-                                  onToggle: () => actions.toggle(),
-                                  onNext: () => actions.next(),
-                                  paused: state.isPaused,
-                                  indexLabel:
-                                      '${step.moduleIndex + 1} / ${workout.modules.length}',
-                                  onExit: () => unawaited(requestExit()),
-                                  scale: scale,
-                                ),
                             ],
                           );
                         },
@@ -512,87 +605,6 @@ class _ConnectionChip extends StatelessWidget {
           ),
           backgroundColor: Colors.black87,
         );
-}
-
-class _Controls extends StatelessWidget {
-  const _Controls({
-    required this.onPrevious,
-    required this.onToggle,
-    required this.onNext,
-    required this.paused,
-    required this.indexLabel,
-    required this.onExit,
-    required this.scale,
-  });
-  final VoidCallback onPrevious, onToggle, onNext, onExit;
-  final bool paused;
-  final String indexLabel;
-  final double scale;
-  @override
-  Widget build(BuildContext context) => Positioned(
-    left: 24 * scale,
-    right: 24 * scale,
-    bottom: 28 * scale,
-    child: SafeArea(
-      top: false,
-      child: Center(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(12 * scale),
-            border: Border.all(color: Colors.white38),
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 12 * scale,
-              vertical: 8 * scale,
-            ),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 10 * scale,
-              children: [
-                IconButton(
-                  onPressed: onPrevious,
-                  icon: const Icon(Icons.skip_previous, color: Colors.white),
-                ),
-                FilledButton.icon(
-                  onPressed: onToggle,
-                  icon: Icon(paused ? Icons.play_arrow : Icons.pause),
-                  label: Text(paused ? '재생' : '일시정지'),
-                  style: FilledButton.styleFrom(
-                    textStyle: TextStyle(fontSize: 16 * scale),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 18 * scale,
-                      vertical: 14 * scale,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: onNext,
-                  icon: const Icon(Icons.skip_next, color: Colors.white),
-                ),
-                Text(
-                  indexLabel,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16 * scale,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                OutlinedButton(
-                  onPressed: onExit,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('종료'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class _DoneScreen extends StatelessWidget {

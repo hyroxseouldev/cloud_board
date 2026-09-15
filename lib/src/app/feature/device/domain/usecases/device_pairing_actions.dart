@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_pairing_repository_impl.dart';
@@ -21,6 +22,17 @@ class DevicePairingActions {
   }) => _repository.claim(code: code, name: name, zoneName: zoneName);
 
   Future<void> unpair(String deviceId) => _repository.unpair(deviceId);
+
+  Future<void> rename({
+    required String deviceId,
+    required String name,
+    required String zoneName,
+  }) => _repository.rename(deviceId: deviceId, name: name, zoneName: zoneName);
+
+  Future<void> savePreferences(
+    String deviceId,
+    DisplayPreferences preferences,
+  ) => _repository.savePreferences(deviceId, preferences);
 
   Future<void> setDisplayState({
     required String deviceId,

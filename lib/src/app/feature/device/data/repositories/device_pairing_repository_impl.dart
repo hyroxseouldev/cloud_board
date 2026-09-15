@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -31,6 +32,19 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
 
   @override
   Future<void> unpair(String deviceId) => _dataSource.unpair(deviceId);
+
+  @override
+  Future<void> rename({
+    required String deviceId,
+    required String name,
+    required String zoneName,
+  }) => _dataSource.rename(deviceId: deviceId, name: name, zoneName: zoneName);
+
+  @override
+  Future<void> savePreferences(
+    String deviceId,
+    DisplayPreferences preferences,
+  ) => _dataSource.savePreferences(deviceId, preferences);
 
   @override
   Future<void> setDisplayState({

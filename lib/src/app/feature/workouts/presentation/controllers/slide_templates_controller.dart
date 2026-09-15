@@ -16,6 +16,26 @@ class SlideTemplatesController extends _$SlideTemplatesController {
     module.copyWith(id: newId(), name: name.trim()),
   ]);
 
+  Future<bool> updateTemplate(WorkoutModule updated) async {
+    if (updated.name.trim().isEmpty ||
+        updated.name.trim().length > 60 ||
+        updated.category.trim().length > 40) {
+      return false;
+    }
+    if (!(state.value?.any((item) => item.id == updated.id) ?? false)) {
+      return false;
+    }
+    return _write([
+      for (final item in state.value!)
+        item.id == updated.id
+            ? updated.copyWith(
+                name: updated.name.trim(),
+                category: updated.category.trim(),
+              )
+            : item,
+    ]);
+  }
+
   Future<bool> remove(String id) =>
       _write([...?state.value?.where((module) => module.id != id)]);
 

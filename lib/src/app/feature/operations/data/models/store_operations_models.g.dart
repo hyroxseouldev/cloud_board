@@ -21,6 +21,12 @@ BrandTemplateModel _$BrandTemplateModelFromJson(
   blackScreenStartMinutes:
       (json['blackScreenStartMinutes'] as num?)?.toInt() ?? 0,
   blackScreenEndMinutes: (json['blackScreenEndMinutes'] as num?)?.toInt() ?? 0,
+  standbyFullscreen: json['standbyFullscreen'] as bool? ?? true,
+  standbyShowText: json['standbyShowText'] as bool? ?? true,
+  standbyTextColor: (json['standbyTextColor'] as num?)?.toInt() ?? 0xFFFFFFFF,
+  standbyTextPosition: json['standbyTextPosition'] as String? ?? 'bottomLeft',
+  standbyBackgroundColor:
+      (json['standbyBackgroundColor'] as num?)?.toInt() ?? 0xFF000000,
   promotionDurationMinutes:
       (json['promotionDurationMinutes'] as List<dynamic>?)
           ?.map((e) => (e as num).toInt())
@@ -46,6 +52,11 @@ Map<String, dynamic> _$BrandTemplateModelToJson(
   BrandTemplateModel instance,
 ) => <String, dynamic>{
   'storeName': instance.storeName,
+  'standbyFullscreen': instance.standbyFullscreen,
+  'standbyShowText': instance.standbyShowText,
+  'standbyTextColor': instance.standbyTextColor,
+  'standbyTextPosition': instance.standbyTextPosition,
+  'standbyBackgroundColor': instance.standbyBackgroundColor,
   'standbyMessage': instance.standbyMessage,
   'logoUrl': instance.logoUrl,
   'promotionImageUrls': instance.promotionImageUrls,

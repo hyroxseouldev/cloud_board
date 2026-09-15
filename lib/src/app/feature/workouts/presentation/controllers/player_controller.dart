@@ -353,6 +353,26 @@ class PlayerController extends _$PlayerController {
     await _seekRemote(target);
   }
 
+  /// Carousel navigation always starts at the first work interval of a slide.
+  Future<void> selectModule(int moduleIndex) async {
+    if (!canControl ||
+        state.briefing ||
+        state.countdownMs > 0 ||
+        currentStep == null ||
+        _transitioning) {
+      return;
+    }
+    final target = state.steps.indexWhere(
+      (step) => step.moduleIndex == moduleIndex,
+    );
+    if (target < 0) return;
+    if (sessionId == null) {
+      _goLocal(target);
+    } else {
+      await _seekRemote(target);
+    }
+  }
+
   void _toggleLocal() {
     if (state.isPaused) {
       _setDeadline(state.copyWith(isPaused: false));

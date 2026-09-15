@@ -119,6 +119,11 @@ class _WorkoutListBody extends HookConsumerWidget {
           titleSpacing: 24,
           title: const _Logo(),
           actions: [
+            IconButton(
+              tooltip: '슬라이드 라이브러리',
+              onPressed: isBusy ? null : () => context.push('/slides'),
+              icon: const Icon(Icons.video_library_outlined),
+            ),
             _SettingsMenu(user: user, isBusy: isBusy),
             const SizedBox(width: 8),
           ],

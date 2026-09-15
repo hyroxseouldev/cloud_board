@@ -383,19 +383,32 @@ class _SlideEditorBody extends HookConsumerWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 440;
+            final showPreview =
+                previewExpanded.value &&
+                constraints.maxHeight >= (compact ? 220 : 160);
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        '미리보기',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () =>
+                            previewExpanded.value = !previewExpanded.value,
+                        borderRadius: BorderRadius.circular(
+                          AppStyle.controlRadius,
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 14),
+                          child: Text(
+                            '미리보기',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
                       ),
                     ),
-                    if (previewExpanded.value && !compact) phaseSelector,
+                    if (showPreview && !compact) phaseSelector,
                     IconButton(
                       key: const ValueKey('slide-preview-rehearse'),
                       tooltip: '전체 화면 · 시험 재생',
@@ -415,18 +428,26 @@ class _SlideEditorBody extends HookConsumerWidget {
                     ),
                   ],
                 ),
-                if (previewExpanded.value) ...[
+                if (showPreview) ...[
                   if (compact)
                     Align(
                       alignment: Alignment.centerRight,
                       child: phaseSelector,
                     ),
                   const SizedBox(height: 12),
-                  WorkoutSlidePreview(
-                    module: withIntervalBlocks(module, [selectedBlock]),
-                    isRest: previewRest.value,
-                    brandL: request.brandL,
-                    brandR: request.brandR,
+                  Flexible(
+                    child: Center(
+                      heightFactor: 1,
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: WorkoutSlidePreview(
+                          module: withIntervalBlocks(module, [selectedBlock]),
+                          isRest: previewRest.value,
+                          brandL: request.brandL,
+                          brandR: request.brandR,
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -531,10 +552,6 @@ class _SlideEditorBody extends HookConsumerWidget {
         key: const ValueKey('slide-editor-settings'),
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
         children: [
-          if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
-            preview,
-            const SizedBox(height: 24),
-          ],
           SegmentedButton<int>(
             segments: const [
               ButtonSegment(value: 1, label: Text('화면')),
@@ -660,8 +677,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                 try {
                   final file = await ImagePicker().pickImage(
                     source: ImageSource.gallery,
-                    maxWidth: 1920,
-                    imageQuality: 85,
                   );
                   if (file == null) return;
                   final bytes = await file.readAsBytes();
@@ -828,7 +843,31 @@ class _SlideEditorBody extends HookConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
                 child: summary,
               ),
-              Expanded(child: settings),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Column(
+                    children: [
+                      if (MediaQuery.viewInsetsOf(context).bottom == 0 &&
+                          constraints.maxHeight >= 160) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: constraints.maxHeight * 0.6,
+                            ),
+                            child: preview,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
+                          child: Divider(height: 1),
+                        ),
+                      ],
+                      Expanded(child: settings),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),

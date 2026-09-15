@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_preferences_dialog.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/rename_display_dialog.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_mode_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -86,6 +88,9 @@ class DisplaySettingsScreen extends ConsumerWidget {
                         : () => showDialog<bool>(
                             context: context,
                             barrierDismissible: false,
+                            barrierColor: AppColors.accent.withValues(
+                              alpha: 0.22,
+                            ),
                             builder: (_) => const AddDisplayDialog(),
                           ),
                     child: const Row(
@@ -162,6 +167,21 @@ class DisplaySettingsScreen extends ConsumerWidget {
                                     );
                                   }
                                 },
+                                onPreferences: () => showDialog<void>(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (_) =>
+                                      DisplayPreferencesDialog(device: device),
+                                ),
+                                onRename: () => showDialog<void>(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  barrierColor: AppColors.accent.withValues(
+                                    alpha: 0.22,
+                                  ),
+                                  builder: (_) =>
+                                      RenameDisplayDialog(device: device),
+                                ),
                                 onRemove: () async {
                                   await ref
                                       .read(
@@ -199,11 +219,15 @@ class _DisplayTile extends StatelessWidget {
     required this.device,
     required this.busy,
     required this.onRemove,
+    required this.onRename,
+    required this.onPreferences,
     required this.onToggle,
   });
   final DisplayDevice device;
   final bool busy;
   final VoidCallback onRemove;
+  final VoidCallback onRename;
+  final VoidCallback onPreferences;
   final ValueChanged<bool> onToggle;
 
   @override
@@ -249,7 +273,7 @@ class _DisplayTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}'
-                    '${device.acknowledgedRevision > 0 ? ' · 명령 확인 #${device.acknowledgedRevision}' : ''}',
+                    '',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -266,8 +290,14 @@ class _DisplayTile extends StatelessWidget {
               tooltip: '디스플레이 메뉴',
               enabled: !busy,
               icon: const Icon(Icons.more_vert, color: AppColors.muted),
-              onSelected: (_) => onRemove(),
+              onSelected: (value) => value == 'rename'
+                  ? onRename()
+                  : value == 'preferences'
+                  ? onPreferences()
+                  : onRemove(),
               itemBuilder: (_) => const [
+                PopupMenuItem(value: 'rename', child: Text('이름 수정')),
+                PopupMenuItem(value: 'preferences', child: Text('화면 맞춤')),
                 PopupMenuItem(value: 'remove', child: Text('연결 해제')),
               ],
             ),

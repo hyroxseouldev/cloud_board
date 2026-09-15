@@ -33,7 +33,7 @@ final class WorkoutControllerProvider
   WorkoutController create() => WorkoutController();
 }
 
-String _$workoutControllerHash() => r'a12f680091f51dd79cf27d1fa1dc122399ae06be';
+String _$workoutControllerHash() => r'1416f3c627f9078a193657593f2fd468d91b91f4';
 
 abstract class _$WorkoutController extends $StreamNotifier<List<Workout>> {
   Stream<List<Workout>> build();

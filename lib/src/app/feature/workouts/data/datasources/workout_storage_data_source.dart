@@ -42,7 +42,28 @@ class WorkoutStorageDataSource {
     }
     // URLs can be shared by duplicated slides and active playback snapshots.
     // Keep immutable assets until a reference-aware garbage collector can remove them.
-    return workout.copyWith(modules: modules);
+    var countdownSource = workout.countdownImageSource;
+    if (countdownSource.isNotEmpty && !_isRemoteUrl(countdownSource)) {
+      final image = WorkoutImageSource.decode(countdownSource);
+      if (!WorkoutImageSource.supportedContentTypes.contains(
+        image.contentType,
+      )) {
+        throw const FormatException('지원하지 않는 이미지 형식입니다.');
+      }
+      final reference = _workoutRoot(
+        userId,
+        workout.id,
+      ).child('countdown/background-${DateTime.now().microsecondsSinceEpoch}');
+      await reference.putData(
+        image.bytes,
+        SettableMetadata(contentType: image.contentType),
+      );
+      countdownSource = await reference.getDownloadURL();
+    }
+    return workout.copyWith(
+      modules: modules,
+      countdownImageSource: countdownSource,
+    );
   }
 
   bool _isRemoteUrl(String value) =>
