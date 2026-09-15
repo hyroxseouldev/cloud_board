@@ -38,6 +38,10 @@ void main() {
     expect(find.text('최근 색상'), findsOneWidget);
     expect(find.byKey(const ValueKey('recent-color-#AABBCC')), findsOneWidget);
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('recent-color-#112233')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('recent-color-#112233')));
     await tester.tap(find.text('선택'));
     await tester.pumpAndSettle();

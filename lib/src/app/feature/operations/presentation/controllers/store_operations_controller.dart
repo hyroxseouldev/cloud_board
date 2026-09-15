@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -82,15 +84,37 @@ class ScheduleRunnerController extends _$ScheduleRunnerController {
 
   Future<void> runDue() async {
     if (state.isLoading) return;
+    final account = ref.read(accountOwnerIdProvider);
+    final ownerId = account.value;
+    if (account.isLoading || account.hasError || ownerId == null) return;
+    // Cover every await, including the initial session query, and lock before it.
+    state = const AsyncLoading();
+    final result = await AsyncValue.guard(() => _runDueForOwner(ownerId));
+    if (ref.mounted) state = result;
+  }
+
+  bool _isCurrentOwner(String ownerId) {
+    if (!ref.mounted) return false;
+    final account = ref.read(accountOwnerIdProvider);
+    return !account.isLoading && !account.hasError && account.value == ownerId;
+  }
+
+  Future<void> _runDueForOwner(String ownerId) async {
     if (await ref.read(playbackActionsProvider).hasRunningSession()) return;
+    if (!_isCurrentOwner(ownerId)) return;
     final now = DateTime.now();
     final schedules = await ref.read(workoutSchedulesProvider.future);
+    if (!_isCurrentOwner(ownerId)) return;
     final due = schedules.where((item) => isScheduleDue(item, now)).toList();
     if (due.isEmpty) return;
     final workouts = await ref
         .read(workoutControllerProvider.notifier)
         .loadComplete();
+    if (!_isCurrentOwner(ownerId)) return;
     final devices = await ref.read(displayDevicesProvider.future);
+    if (!_isCurrentOwner(ownerId)) return;
+    final deviceId = await ref.read(deviceIdProvider.future);
+    if (!_isCurrentOwner(ownerId)) return;
     for (final schedule in due) {
       final workout = workouts
           .where((item) => item.id == schedule.workoutId)
@@ -104,23 +128,25 @@ class ScheduleRunnerController extends _$ScheduleRunnerController {
       final claimed = await ref
           .read(storeOperationsActionsProvider)
           .claimOccurrence(schedule.id, occurrenceKey);
+      if (!_isCurrentOwner(ownerId)) return;
       if (!claimed) continue;
       final steps = buildPlayerSteps(workout);
-      state = const AsyncLoading();
-      state = await AsyncValue.guard(() async {
-        final scheduledAt = scheduledDateTime(schedule, now);
-        await ref
-            .read(playbackActionsProvider)
-            .start(
-              workout: workout,
-              targetDeviceIds: targets,
-              stepIndex: 0,
-              durationMs: steps.first.duration * 1000,
-              deviceId: await ref.read(deviceIdProvider.future),
-              scheduled: true,
-              scheduledAtMs: scheduledAt.millisecondsSinceEpoch,
-            );
-      });
+      await ref
+          .read(playbackActionsProvider)
+          .start(
+            workout: workout,
+            targetDeviceIds: targets,
+            stepIndex: 0,
+            durationMs: steps.first.duration * 1000,
+            deviceId: deviceId,
+            scheduled: true,
+            scheduledAtMs: scheduledDateTime(
+              schedule,
+              now,
+            ).millisecondsSinceEpoch,
+          );
+      // Another due schedule must not replace the class that just started.
+      return;
     }
   }
 }

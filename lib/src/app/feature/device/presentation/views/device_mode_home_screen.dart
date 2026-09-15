@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -22,9 +24,19 @@ class DeviceModeHomeScreen extends HookConsumerWidget {
     final mode =
         state.value ??
         ref.read(deviceModeControllerProvider.notifier).currentMode;
+    final account = ref.watch(accountOwnerIdProvider);
+    final readyForSchedules =
+        !state.isLoading &&
+        !state.hasError &&
+        mode == DeviceMode.controller &&
+        !account.isLoading &&
+        !account.hasError &&
+        account.value != null;
     useEffect(() {
-      if (mode != DeviceMode.controller) return null;
+      if (!readyForSchedules) return null;
+      var active = true;
       void checkSchedules() {
+        if (!active || !context.mounted) return;
         unawaited(ref.read(scheduleRunnerControllerProvider.notifier).runDue());
       }
 
@@ -33,8 +45,11 @@ class DeviceModeHomeScreen extends HookConsumerWidget {
         const Duration(seconds: 20),
         (_) => checkSchedules(),
       );
-      return timer.cancel;
-    }, [mode]);
+      return () {
+        active = false;
+        timer.cancel();
+      };
+    }, [readyForSchedules, account.value]);
     if (state.isLoading && !state.hasValue) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

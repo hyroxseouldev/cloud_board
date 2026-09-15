@@ -167,37 +167,30 @@ class DevicePairingRealtimeDataSource {
     if (deviceId == null || displayUid == null) {
       throw StateError('연결 코드에 기기 정보가 없습니다. 디스플레이에서 새 코드를 만들어 주세요.');
     }
-    try {
-      await _root.update({
-        'pairingCodes/$normalizedCode/claimed': true,
-        'pairingCodes/$normalizedCode/claimedAtMs': ServerValue.timestamp,
-        'pairingCodes/$normalizedCode/ownerId': owner.uid,
-        'displayAccess/$displayUid/ownerId': owner.uid,
-        'displayAccess/$displayUid/deviceId': deviceId,
-        'displayAccess/$displayUid/pairingCode': normalizedCode,
-        'displayAccess/$displayUid/pairedAtMs': ServerValue.timestamp,
-        'users/${owner.uid}/devices/$deviceId': {
-          'id': deviceId,
-          'displayUid': displayUid,
-          'mode': 'display',
-          'name': name.trim().isEmpty ? '매장 디스플레이' : name.trim(),
-          'zoneId': 'main',
-          'zoneName': zoneName.trim().isEmpty ? '메인 구역' : zoneName.trim(),
-          'paired': true,
-          'pairedAtMs': ServerValue.timestamp,
-          'pairingCode': normalizedCode,
-          'online': true,
-          'onlineSinceMs': ServerValue.timestamp,
-          'lastSeenAtMs': ServerValue.timestamp,
-          'displayState': 'auto',
-        },
-      });
-    } on FirebaseException catch (error) {
-      if (error.code == 'permission-denied') {
-        throw StateError('코드가 만료되었거나 이미 사용되었습니다. 새 코드를 입력해 주세요.');
-      }
-      rethrow;
-    }
+    await _root.update({
+      'pairingCodes/$normalizedCode/claimed': true,
+      'pairingCodes/$normalizedCode/claimedAtMs': ServerValue.timestamp,
+      'pairingCodes/$normalizedCode/ownerId': owner.uid,
+      'displayAccess/$displayUid/ownerId': owner.uid,
+      'displayAccess/$displayUid/deviceId': deviceId,
+      'displayAccess/$displayUid/pairingCode': normalizedCode,
+      'displayAccess/$displayUid/pairedAtMs': ServerValue.timestamp,
+      'users/${owner.uid}/devices/$deviceId': {
+        'id': deviceId,
+        'displayUid': displayUid,
+        'mode': 'display',
+        'name': name.trim().isEmpty ? '매장 디스플레이' : name.trim(),
+        'zoneId': 'main',
+        'zoneName': zoneName.trim().isEmpty ? '메인 구역' : zoneName.trim(),
+        'paired': true,
+        'pairedAtMs': ServerValue.timestamp,
+        'pairingCode': normalizedCode,
+        'online': true,
+        'onlineSinceMs': ServerValue.timestamp,
+        'lastSeenAtMs': ServerValue.timestamp,
+        'displayState': 'auto',
+      },
+    });
   }
 
   Future<void> unpair(String deviceId) async {

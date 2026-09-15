@@ -34,7 +34,7 @@ final class DevicePairingControllerProvider
 }
 
 String _$devicePairingControllerHash() =>
-    r'f7976aa3dc7fe298b42b0afcc93df8ecd53724b2';
+    r'44d77d1a4dbd7b96835e8a2650a92367cf858276';
 
 abstract class _$DevicePairingController extends $AsyncNotifier<DevicePairing> {
   FutureOr<DevicePairing> build();
@@ -128,7 +128,7 @@ final class DeviceClaimControllerProvider
 }
 
 String _$deviceClaimControllerHash() =>
-    r'e885e8099f4f5ba50fa70b1d29b5aac9906b3b44';
+    r'a04d9308cfd154ee081d00a98af82d9baa78d7e0';
 
 abstract class _$DeviceClaimController extends $Notifier<AsyncValue<void>> {
   AsyncValue<void> build();

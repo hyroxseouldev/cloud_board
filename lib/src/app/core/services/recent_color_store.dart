@@ -8,10 +8,11 @@ class RecentColorStore {
   const RecentColorStore.local() : _preferences = null;
 
   static const storageKey = 'cloudboard.recent-colors.v1';
-  static const maxColors = 5;
+  static const maxColors = 10;
 
   final SharedPreferencesAsync? _preferences;
   static List<String> _memoryFallback = const [];
+  static Future<void>? _pendingWrite;
 
   SharedPreferencesAsync? _resolvePreferences() {
     if (_preferences != null) return _preferences;
@@ -23,6 +24,11 @@ class RecentColorStore {
   }
 
   Future<List<String>> load() async {
+    await _pendingWrite;
+    return _load();
+  }
+
+  Future<List<String>> _load() async {
     List<String> stored;
     try {
       stored =
@@ -41,10 +47,28 @@ class RecentColorStore {
     return colors;
   }
 
-  Future<List<String>> add(String value) async {
-    if (!isHexColor(value)) return load();
+  Future<List<String>> add(String value) {
+    final previous = _pendingWrite;
+    final result = previous == null
+        ? _add(value)
+        : previous.then((_) => _add(value));
+    late final Future<void> pending;
+    void clearPending() {
+      if (identical(_pendingWrite, pending)) _pendingWrite = null;
+    }
+
+    pending = result.then<void>(
+      (_) => clearPending(),
+      onError: (Object _, StackTrace _) => clearPending(),
+    );
+    _pendingWrite = pending;
+    return result;
+  }
+
+  Future<List<String>> _add(String value) async {
+    if (!isHexColor(value)) return _load();
     final normalized = value.toUpperCase();
-    final current = await load();
+    final current = await _load();
     final updated = [
       normalized,
       ...current.where((color) => color != normalized),

@@ -272,7 +272,8 @@ void main() {
       await tester.tap(find.text('연결하기'));
       await tester.pumpAndSettle();
       expect(find.byType(AddDisplayDialog), findsOneWidget);
-      expect(find.textContaining('코드가 만료되었습니다'), findsOneWidget);
+      expect(find.text('코드가 만료되었습니다'), findsOneWidget);
+      expect(find.textContaining('Bad state'), findsNothing);
       expect(
         tester
             .widget<TextField>(find.widgetWithText(TextField, '디스플레이의 6자리 코드'))
