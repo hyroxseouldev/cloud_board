@@ -150,7 +150,10 @@ void main() {
         expect(find.byType(WorkoutBriefingBoard), findsNothing);
         if (scenario == 'manual' || scenario == 'remote-manual') {
           await tester.tap(find.text('종료하기'));
-          await tester.pumpAndSettle();
+          // The live timer keeps scheduling frames behind the dialog. Wait only
+          // for the route animation; waiting for total idleness cannot finish.
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pump();
           expect(find.text('수업을 종료할까요?'), findsOneWidget);
           await tester.tap(find.text('수업 종료'));
           if (scenario == 'remote-manual') {
