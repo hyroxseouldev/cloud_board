@@ -94,6 +94,10 @@ class SlideEditorController extends _$SlideEditorController {
     _schedule();
   }
 
+  void replaceWithTemplate(WorkoutModule template) {
+    update(replaceSlideWithTemplate(state.module, template));
+  }
+
   void undo() {
     if (state.undo.isEmpty) return;
     state = state.copyWith(

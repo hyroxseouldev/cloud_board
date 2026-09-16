@@ -10,8 +10,10 @@ class WorkoutSlidePreview extends StatelessWidget {
     required this.isRest,
     this.brandL = '',
     this.brandR = '',
+    this.borderRadius = 12,
   });
 
+  final double borderRadius;
   final WorkoutModule module;
   final bool isRest;
   final String brandL;
@@ -22,7 +24,7 @@ class WorkoutSlidePreview extends StatelessWidget {
     final seconds = isRest ? module.restSeconds : module.workSeconds;
     final durationMs = seconds * 1000;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(borderRadius),
       child: ColoredBox(
         color: Colors.black,
         child: AspectRatio(

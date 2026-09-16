@@ -35,7 +35,7 @@ void main() {
 
     await tester.tap(find.byTooltip('색상 컬러 피커'));
     await tester.pumpAndSettle();
-    expect(find.text('최근 색상'), findsOneWidget);
+    expect(find.text('최근 사용색'), findsOneWidget);
     expect(find.byKey(const ValueKey('recent-color-#AABBCC')), findsOneWidget);
 
     await tester.ensureVisible(

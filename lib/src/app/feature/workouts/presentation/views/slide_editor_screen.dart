@@ -1,12 +1,11 @@
-import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_library_picker.dart';
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_board/src/app/core/widgets/hex_color_field.dart';
@@ -152,7 +151,6 @@ class _SlideEditorBody extends HookConsumerWidget {
     final busy = useState(false);
     final error = useState<String?>(null);
     final form = useMemoized(() => GlobalKey<FormState>());
-    final name = useTextEditingController(text: module.name);
     final description = useTextEditingController(text: module.text);
     final section = useState(1);
     final settingsScroll = useScrollController();
@@ -162,7 +160,7 @@ class _SlideEditorBody extends HookConsumerWidget {
     final selectedBlockId = useState<String?>(null);
     final blocks = effectiveIntervalBlocks(module);
     useEffect(() {
-      for (final item in [(name, module.name), (description, module.text)]) {
+      for (final item in [(description, module.text)]) {
         if (item.$1.text != item.$2) {
           item.$1.value = TextEditingValue(
             text: item.$2,
@@ -171,7 +169,7 @@ class _SlideEditorBody extends HookConsumerWidget {
         }
       }
       return null;
-    }, [module.name, module.text]);
+    }, [module.text]);
     useOnAppLifecycleStateChange((previous, next) {
       if (next != AppLifecycleState.resumed) unawaited(actions.flush());
     });
@@ -186,7 +184,7 @@ class _SlideEditorBody extends HookConsumerWidget {
 
     Future<void> save() async {
       if (busy.value) return;
-      if (name.text.trim().isEmpty) {
+      if (module.name.trim().isEmpty) {
         section.value = 1;
         error.value = '슬라이드 제목을 입력해 주세요.';
         return;
@@ -205,7 +203,7 @@ class _SlideEditorBody extends HookConsumerWidget {
       }
       busy.value = true;
       error.value = null;
-      final candidate = module.copyWith(name: name.text.trim());
+      final candidate = module.copyWith(name: module.name.trim());
       try {
         final saved = await request.onSave(candidate);
         if (!context.mounted) return;
@@ -215,14 +213,9 @@ class _SlideEditorBody extends HookConsumerWidget {
         }
         await actions.markSaved(candidate);
         if (!context.mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!context.mounted) return;
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            context.go('/editor/$workoutId');
-          }
-        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('슬라이드를 저장했습니다.')));
       } catch (_) {
         if (context.mounted) {
           error.value = '저장하지 못했습니다. 편집 내용은 유지됩니다. 다시 저장해 주세요.';
@@ -347,6 +340,31 @@ class _SlideEditorBody extends HookConsumerWidget {
       }
     }
 
+    Future<void> pickBackgroundImage() async {
+      try {
+        final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+        if (file == null) return;
+        final bytes = await file.readAsBytes();
+        if (context.mounted) {
+          actions.update(
+            ref
+                .read(provider)
+                .module
+                .copyWith(
+                  imageSource: WorkoutImageSource.fromBytes(
+                    bytes,
+                    contentType: file.mimeType,
+                  ),
+                ),
+          );
+        }
+      } catch (_) {
+        if (context.mounted) {
+          error.value = '이미지를 불러오지 못했습니다. 다시 선택해 주세요.';
+        }
+      }
+    }
+
     void rehearse() {
       FocusScope.of(context).unfocus();
       Navigator.of(context).push(
@@ -370,361 +388,504 @@ class _SlideEditorBody extends HookConsumerWidget {
         ButtonSegment(value: false, label: Text('운동')),
         ButtonSegment(value: true, label: Text('휴식')),
       ],
+      style: SegmentedButton.styleFrom(
+        minimumSize: const Size(44, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 12),
+        visualDensity: VisualDensity.compact,
+      ),
       selected: {previewRest.value},
       showSelectedIcon: false,
       onSelectionChanged: (values) => previewRest.value = values.first,
     );
     final preview = Material(
       key: const ValueKey('slide-preview-card'),
-      color: SlideEditorStyle.surface,
-      borderRadius: BorderRadius.circular(AppStyle.controlRadius),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 440;
-            final showPreview =
-                previewExpanded.value &&
-                constraints.maxHeight >= (compact ? 220 : 160);
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () =>
-                            previewExpanded.value = !previewExpanded.value,
-                        borderRadius: BorderRadius.circular(
-                          AppStyle.controlRadius,
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 14),
-                          child: Text(
-                            '미리보기',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+      color: Theme.of(context).colorScheme.surface,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showPreview =
+              previewExpanded.value && constraints.maxHeight >= 150;
+          final imageHeight = math.min(
+            constraints.maxWidth * 9 / 16,
+            math.max(0.0, constraints.maxHeight - 57),
+          );
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                key: const ValueKey('slide-preview-toolbar'),
+                height: 56,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          blocks.length > 1
+                              ? '미리보기 · 블록 ${blocks.indexOf(selectedBlock) + 1}'
+                              : '미리보기',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: SlideEditorStyle.accent,
                           ),
                         ),
                       ),
-                    ),
-                    if (showPreview && !compact) phaseSelector,
-                    IconButton(
-                      key: const ValueKey('slide-preview-rehearse'),
-                      tooltip: '전체 화면 · 시험 재생',
-                      onPressed: rehearse,
-                      icon: const Icon(Icons.play_arrow_rounded),
-                    ),
-                    IconButton(
-                      key: const ValueKey('slide-preview-toggle'),
-                      tooltip: previewExpanded.value ? '미리보기 접기' : '미리보기 펼치기',
-                      onPressed: () =>
-                          previewExpanded.value = !previewExpanded.value,
-                      icon: Icon(
-                        previewExpanded.value
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                      ),
-                    ),
-                  ],
-                ),
-                if (showPreview) ...[
-                  if (compact)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: phaseSelector,
-                    ),
-                  const SizedBox(height: 12),
-                  Flexible(
-                    child: Center(
-                      heightFactor: 1,
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: WorkoutSlidePreview(
-                          module: withIntervalBlocks(module, [selectedBlock]),
-                          isRest: previewRest.value,
-                          brandL: request.brandL,
-                          brandR: request.brandR,
+                      if (showPreview) phaseSelector,
+                      IconButton(
+                        key: const ValueKey('slide-preview-rehearse'),
+                        tooltip: '전체 화면 · 시험 재생',
+                        onPressed: rehearse,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                          iconSize: 22,
+                          foregroundColor: SlideEditorStyle.accent,
                         ),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                      ),
+                      IconButton(
+                        key: const ValueKey('slide-preview-toggle'),
+                        tooltip: previewExpanded.value ? '미리보기 접기' : '미리보기 펼치기',
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                          iconSize: 22,
+                          foregroundColor: SlideEditorStyle.accent,
+                        ),
+                        onPressed: () =>
+                            previewExpanded.value = !previewExpanded.value,
+                        icon: Icon(
+                          previewExpanded.value
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (showPreview) const Divider(height: 1),
+              if (showPreview)
+                SizedBox(
+                  height: imageHeight,
+                  width: double.infinity,
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: WorkoutSlidePreview(
+                        borderRadius: 0,
+                        module: withIntervalBlocks(module, [selectedBlock]),
+                        isRest: previewRest.value,
+                        brandL: request.brandL,
+                        brandR: request.brandR,
                       ),
                     ),
                   ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+
+    void selectSection(int value) {
+      FocusScope.of(context).unfocus();
+      section.value = value;
+      if (settingsScroll.hasClients) settingsScroll.jumpTo(0);
+    }
+
+    final titleButton = TextButton(
+      key: const ValueKey('slide-title-button'),
+      style: TextButton.styleFrom(
+        foregroundColor: SlideEditorStyle.accent,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        minimumSize: const Size(44, 44),
+        alignment: Alignment.centerLeft,
+      ),
+      onPressed: busy.value
+          ? null
+          : () async {
+              FocusScope.of(context).unfocus();
+              final edited = await showDialog<String>(
+                context: context,
+                builder: (_) => _SlideTitleDialog(initialValue: module.name),
+              );
+              if (edited == null || !context.mounted) return;
+              final latest = ref.read(provider).module;
+              if (edited != latest.name) update(latest.copyWith(name: edited));
+            },
+      child: Tooltip(
+        message: '슬라이드 제목 수정',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                module.name.isEmpty ? '슬라이드 제목' : module.name,
+                key: const ValueKey('slide-title-text'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Pretendard',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.edit_outlined, size: 18),
+          ],
+        ),
+      ),
+    );
+    final workTotal = blocks.fold(0, (sum, b) => sum + b.workSeconds * b.sets);
+    final restTotal = blocks.fold(
+      0,
+      (sum, b) => sum + b.restSeconds * (b.sets - 1),
+    );
+    final summary = Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: InkWell(
+        key: const ValueKey('slide-timer-summary'),
+        onTap: () {
+          FocusScope.of(context).unfocus();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => TimerEditorScreen(
+                workoutId: workoutId,
+                original: original,
+                scope: request.workout?.ownerId ?? 'local',
+                onSelectBlock: (id) => selectedBlockId.value = id,
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.timer_outlined,
+                size: 22,
+                color: SlideEditorStyle.accent,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                durationLabel(total),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: SlideEditorStyle.accent,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: [
+                    Text('운동 ${durationLabel(workTotal)}'),
+                    Text('휴식 ${durationLabel(restTotal)}'),
+                    Text('${blocks.fold(0, (sum, b) => sum + b.sets)}세트'),
+                    if (blocks.length > 1) Text('${blocks.length}블록'),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: SlideEditorStyle.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final settings = Form(
+      key: form,
+      child: section.value == 4
+          ? SlideLibraryPicker(
+              scope: request.workout?.ownerId ?? 'local',
+              onSelect: (template) async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => SlideLibraryReplacementDialog(
+                    template: template,
+                    brandL: request.brandL,
+                    brandR: request.brandR,
+                  ),
+                );
+                if (confirmed != true || !context.mounted) return;
+                resetFields(() => actions.replaceWithTemplate(template));
+                selectedBlockId.value = null;
+                previewRest.value = false;
+                selectSection(1);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('슬라이드를 교체했습니다. 저장 전까지 실행 취소로 되돌릴 수 있습니다.'),
+                  ),
+                );
+              },
+            )
+          : ListView(
+              controller: settingsScroll,
+              key: const ValueKey('slide-editor-settings'),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              children: [
+                if (section.value == 1) ...[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const label = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '타이머 표시',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '숨겨도 운동 진행은 유지됩니다.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: SlideEditorStyle.muted,
+                            ),
+                          ),
+                        ],
+                      );
+                      final toggle = SegmentedButton<TimerDisplayMode>(
+                        key: const ValueKey('timer-display-toggle'),
+                        showSelectedIcon: false,
+                        style: SegmentedButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          textStyle: const TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        segments: const [
+                          ButtonSegment(
+                            value: TimerDisplayMode.gaugeAndNumber,
+                            label: Text('숫자 + 게이지'),
+                          ),
+                          ButtonSegment(
+                            value: TimerDisplayMode.numberOnly,
+                            label: Text('숫자만'),
+                          ),
+                          ButtonSegment(
+                            value: TimerDisplayMode.hidden,
+                            label: Text('안 보임'),
+                          ),
+                        ],
+                        selected: {timerDisplayMode(module)},
+                        onSelectionChanged: (values) {
+                          final mode = values.first;
+                          update(
+                            module.copyWith(
+                              showTimer: mode != TimerDisplayMode.hidden,
+                              showTimerGauge:
+                                  mode == TimerDisplayMode.gaugeAndNumber,
+                            ),
+                          );
+                        },
+                      );
+                      if (constraints.maxWidth < 580) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [label, const SizedBox(height: 12), toggle],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          const Expanded(child: label),
+                          const SizedBox(width: 16),
+                          SizedBox(width: 310, child: toggle),
+                        ],
+                      );
+                    },
+                  ),
+                  const Divider(height: 20),
+                  SwitchListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('세트 표시'),
+                    subtitle: const Text('타이머와 별도로 남은 세트 수를 표시합니다.'),
+                    value: module.showSets,
+                    onChanged: (v) => update(module.copyWith(showSets: v)),
+                  ),
+                  const SizedBox(height: 16),
+                  SlideAppearanceControls(
+                    key: ValueKey('appearance-${revision.value}'),
+                    section: SlideAppearanceSection.timer,
+                    value: module.appearance,
+                    onChanged: (value, group) => update(
+                      module.copyWith(appearance: value),
+                      group: group,
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  const Text(
+                    '타이머 색상',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      HexColorField(
+                        compact: true,
+                        label: '세트 숫자 색상',
+                        initialValue: colorHex(module.appearance.setsColor),
+                        onChanged: (input) {
+                          final color = parseHexColor(input);
+                          if (color != null) {
+                            update(
+                              module.copyWith(
+                                appearance: module.appearance.copyWith(
+                                  setsColor: color,
+                                ),
+                              ),
+                              group: '세트 숫자 색상',
+                            );
+                          }
+                        },
+                      ),
+                      for (var i = 0; i < 4; i++)
+                        HexColorField(
+                          compact: true,
+                          key: ValueKey('phase-color-$i-${revision.value}'),
+                          label: const [
+                            '운동 게이지 색상',
+                            '휴식 게이지 색상',
+                            '운동 시간 텍스트 색상',
+                            '휴식 시간 텍스트 색상',
+                          ][i],
+                          initialValue:
+                              [
+                                module.workGaugeColor,
+                                module.restGaugeColor,
+                                module.workTextColor,
+                                module.restTextColor,
+                              ][i] ??
+                              colorHex(
+                                slideColor(module, rest: i.isOdd, text: i >= 2),
+                              ),
+                          onChanged: (v) => update(switch (i) {
+                            0 => module.copyWith(workGaugeColor: v),
+                            1 => module.copyWith(restGaugeColor: v),
+                            2 => module.copyWith(workTextColor: v),
+                            _ => module.copyWith(restTextColor: v),
+                          }, group: 'phase-color-$i'),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (section.value == 2) ...[
+                  _SlideEditorMenuTile(
+                    icon: Icons.image_outlined,
+                    title: '이미지',
+                    subtitle: module.imageSource.isEmpty
+                        ? '선택된 이미지가 없습니다.'
+                        : '배경 이미지 변경',
+                    menuTooltip: '이미지 메뉴',
+                    onSelected: (action) {
+                      if (action == 'change') {
+                        unawaited(pickBackgroundImage());
+                      } else if (action == 'remove') {
+                        update(module.copyWith(imageSource: ''));
+                      }
+                    },
+                    items: [
+                      PopupMenuItem(
+                        value: 'change',
+                        child: Text(
+                          module.imageSource.isEmpty ? '이미지 선택' : '이미지 변경',
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'remove',
+                        enabled: module.imageSource.isNotEmpty,
+                        child: const Text('이미지 제거'),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 1),
+                  _SlideEditorMenuTile(
+                    icon: Icons.palette_outlined,
+                    title: '스타일',
+                    subtitle: '색상·배치·표시 옵션',
+                    menuTooltip: '스타일 메뉴',
+                    onSelected: (action) {
+                      if (action == 'save') unawaited(saveStyle());
+                      if (action == 'load') unawaited(loadStyle());
+                    },
+                    items: const [
+                      PopupMenuItem(value: 'save', child: Text('스타일 저장')),
+                      PopupMenuItem(value: 'load', child: Text('스타일 불러오기')),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  SwitchListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('이미지 꽉 채우기'),
+                    value: module.coverImage,
+                    onChanged: (v) => update(module.copyWith(coverImage: v)),
+                  ),
+                  SlideAppearanceControls(
+                    section: SlideAppearanceSection.visibility,
+                    value: module.appearance,
+                    onChanged: (value, group) => update(
+                      module.copyWith(appearance: value),
+                      group: group,
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  TextFormField(
+                    controller: description,
+                    maxLines: 4,
+                    decoration: const InputDecoration(labelText: '화면 텍스트'),
+                    onChanged: (v) =>
+                        update(module.copyWith(text: v), group: 'body'),
+                  ),
+                  const Divider(height: 24),
+                  const Text(
+                    '색상',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  SlideAppearanceControls(
+                    key: ValueKey('background-appearance-${revision.value}'),
+                    section: SlideAppearanceSection.background,
+                    value: module.appearance,
+                    onChanged: (value, group) => update(
+                      module.copyWith(appearance: value),
+                      group: group,
+                    ),
+                  ),
+                ],
+                if (section.value == 3) ...[
+                  SwitchListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('전환음'),
+                    subtitle: const Text('이 슬라이드의 마지막 3초와 구간 전환에 소리를 냅니다.'),
+                    value: module.beep,
+                    onChanged: (v) => update(module.copyWith(beep: v)),
+                  ),
+                  const Text('소리 종류와 볼륨은 워크아웃 설정을 따릅니다.'),
                   const SizedBox(height: 12),
-                  Text(
-                    '블록 ${blocks.indexOf(selectedBlock) + 1} · ${durationLabel(total)}',
-                    style: const TextStyle(
+                  const Text(
+                    '소리는 상단 미리보기의 재생 버튼으로 확인할 수 있어요.',
+                    style: TextStyle(
                       fontSize: 12,
                       color: SlideEditorStyle.muted,
                     ),
                   ),
                 ],
-              ],
-            );
-          },
-        ),
-      ),
-    );
-
-    final summary = LayoutBuilder(
-      builder: (context, constraints) {
-        final titleField = TextFormField(
-          controller: name,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          decoration: const InputDecoration(
-            labelText: '슬라이드 제목',
-            floatingLabelBehavior: FloatingLabelBehavior.never,
-            suffixIcon: Icon(Icons.edit_outlined, size: 22),
-            contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-          ),
-          validator: (v) =>
-              v == null || v.trim().isEmpty ? '제목을 입력해 주세요.' : null,
-          onChanged: (v) => update(module.copyWith(name: v), group: 'name'),
-        );
-        final timer = Material(
-          color: SlideEditorStyle.surface,
-          borderRadius: BorderRadius.circular(AppStyle.controlRadius),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: const ValueKey('slide-timer-summary'),
-            onTap: () {
-              FocusScope.of(context).unfocus();
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => TimerEditorScreen(
-                    workoutId: workoutId,
-                    original: original,
-                    scope: request.workout?.ownerId ?? 'local',
-                    onSelectBlock: (id) => selectedBlockId.value = id,
-                  ),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      '타이머',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: SlideEditorStyle.muted,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    durationLabel(total),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: SlideEditorStyle.accent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-        if (constraints.maxWidth < 320 ||
-            MediaQuery.textScalerOf(context).scale(1) > 1.3) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [titleField, const SizedBox(height: 12), timer],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: titleField),
-            const SizedBox(width: 16),
-            Expanded(child: timer),
-          ],
-        );
-      },
-    );
-
-    final settings = Form(
-      key: form,
-      child: ListView(
-        controller: settingsScroll,
-        key: const ValueKey('slide-editor-settings'),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        children: [
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 1, label: Text('화면')),
-              ButtonSegment(value: 2, label: Text('소리')),
-            ],
-            selected: {section.value},
-            onSelectionChanged: (values) {
-              FocusScope.of(context).unfocus();
-              section.value = values.first;
-            },
-          ),
-          const SizedBox(height: 20),
-          if (section.value == 1) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: saveStyle,
-                  icon: const Icon(Icons.bookmark_add_outlined),
-                  label: const Text('스타일 저장'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: loadStyle,
-                  icon: const Icon(Icons.palette_outlined),
-                  label: const Text('스타일 불러오기'),
-                ),
+                const SizedBox(height: 32),
               ],
             ),
-            const SizedBox(height: 16),
-            AppDropdownFormField<TimerDisplayMode>(
-              key: ValueKey(
-                'timer-mode-${revision.value}-${module.showTimer}-${module.showTimerGauge}',
-              ),
-              initialValue: timerDisplayMode(module),
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: '타이머 표시',
-                helperText: '타이머를 숨겨도 운동 진행은 유지됩니다.',
-                helperMaxLines: 2,
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: TimerDisplayMode.gaugeAndNumber,
-                  child: Text('숫자 + 게이지'),
-                ),
-                DropdownMenuItem(
-                  value: TimerDisplayMode.numberOnly,
-                  child: Text('숫자만'),
-                ),
-                DropdownMenuItem(
-                  value: TimerDisplayMode.hidden,
-                  child: Text('안 보임'),
-                ),
-              ],
-              onChanged: (mode) {
-                if (mode != null) {
-                  update(
-                    module.copyWith(
-                      showTimer: mode != TimerDisplayMode.hidden,
-                      showTimerGauge: mode == TimerDisplayMode.gaugeAndNumber,
-                    ),
-                  );
-                }
-              },
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('세트 표시'),
-              subtitle: const Text('타이머와 별도로 남은 세트 수를 표시합니다.'),
-              value: module.showSets,
-              onChanged: (v) => update(module.copyWith(showSets: v)),
-            ),
-            const SizedBox(height: 16),
-            for (var i = 0; i < 4; i++)
-              HexColorField(
-                key: ValueKey('phase-color-$i-${revision.value}'),
-                label: const [
-                  '운동 게이지 색상',
-                  '휴식 게이지 색상',
-                  '운동 시간 텍스트 색상',
-                  '휴식 시간 텍스트 색상',
-                ][i],
-                initialValue:
-                    [
-                      module.workGaugeColor,
-                      module.restGaugeColor,
-                      module.workTextColor,
-                      module.restTextColor,
-                    ][i] ??
-                    colorHex(slideColor(module, rest: i.isOdd, text: i >= 2)),
-                onChanged: (v) => update(switch (i) {
-                  0 => module.copyWith(workGaugeColor: v),
-                  1 => module.copyWith(restGaugeColor: v),
-                  2 => module.copyWith(workTextColor: v),
-                  _ => module.copyWith(restTextColor: v),
-                }, group: 'phase-color-$i'),
-              ),
-            SlideAppearanceControls(
-              key: ValueKey('appearance-${revision.value}'),
-              value: module.appearance,
-              onChanged: (value, group) =>
-                  update(module.copyWith(appearance: value), group: group),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: description,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: '화면 텍스트'),
-              onChanged: (v) => update(module.copyWith(text: v), group: 'body'),
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('이미지 꽉 채우기'),
-              value: module.coverImage,
-              onChanged: (v) => update(module.copyWith(coverImage: v)),
-            ),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.image_outlined),
-              label: const Text('배경 이미지 선택'),
-              onPressed: () async {
-                try {
-                  final file = await ImagePicker().pickImage(
-                    source: ImageSource.gallery,
-                  );
-                  if (file == null) return;
-                  final bytes = await file.readAsBytes();
-                  if (context.mounted) {
-                    actions.update(
-                      ref
-                          .read(provider)
-                          .module
-                          .copyWith(
-                            imageSource: WorkoutImageSource.fromBytes(
-                              bytes,
-                              contentType: file.mimeType,
-                            ),
-                          ),
-                    );
-                  }
-                } catch (_) {
-                  if (context.mounted) {
-                    error.value = '이미지를 불러오지 못했습니다. 다시 선택해 주세요.';
-                  }
-                }
-              },
-            ),
-            if (module.imageSource.isNotEmpty)
-              TextButton(
-                onPressed: () => update(module.copyWith(imageSource: '')),
-                child: const Text('이미지 제거'),
-              ),
-          ],
-          if (section.value == 2) ...[
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('전환음'),
-              subtitle: const Text('이 슬라이드의 마지막 3초와 구간 전환에 소리를 냅니다.'),
-              value: module.beep,
-              onChanged: (v) => update(module.copyWith(beep: v)),
-            ),
-            const Text('소리 종류와 볼륨은 워크아웃 설정을 따릅니다.'),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: rehearse,
-              icon: const Icon(Icons.volume_up_outlined),
-              label: const Text('시험 재생에서 소리 확인'),
-            ),
-          ],
-          const SizedBox(height: 32),
-        ],
-      ),
     );
 
     return UnsavedChangesGuard(
@@ -740,6 +901,17 @@ class _SlideEditorBody extends HookConsumerWidget {
       },
       child: Scaffold(
         appBar: AppBar(
+          titleSpacing: 0,
+          title: AbsorbPointer(
+            absorbing: busy.value,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: titleButton,
+              ),
+            ),
+          ),
           actions: [
             IconButton(
               tooltip: '실행 취소',
@@ -757,18 +929,92 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: FilledButton(
-                onPressed: busy.value ? null : save,
-                child: Text(
-                  busy.value
-                      ? '저장 중…'
-                      : error.value == null
-                      ? '저장'
-                      : '다시 저장',
+              child: IconButton(
+                key: const ValueKey('slide-save-button'),
+                tooltip: busy.value
+                    ? '저장 중'
+                    : error.value == null
+                    ? '저장'
+                    : '다시 저장',
+                style: IconButton.styleFrom(
+                  foregroundColor: SlideEditorStyle.accent,
+                  minimumSize: const Size(48, 48),
                 ),
+                onPressed: busy.value ? null : save,
+                icon: busy.value
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          semanticsLabel: '저장 중',
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined, size: 24),
               ),
             ),
           ],
+        ),
+        bottomNavigationBar: AbsorbPointer(
+          absorbing: busy.value,
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<int>(
+                        key: const ValueKey('slide-editor-tabs'),
+                        style: SegmentedButton.styleFrom(
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(40),
+                          ),
+                          backgroundColor: const Color(0xFFF5F4F8),
+                          selectedBackgroundColor: const Color(0xFFDEDBED),
+                          minimumSize: const Size(44, 44),
+                          textStyle: const TextStyle(
+                            fontFamily: 'Pretendard',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        segments: const [
+                          ButtonSegment(value: 1, label: Text('타이머')),
+                          ButtonSegment(value: 2, label: Text('배경')),
+                          ButtonSegment(value: 3, label: Text('소리')),
+                          ButtonSegment(value: 4, label: Text('라이브러리')),
+                        ],
+                        showSelectedIcon: false,
+                        selected: {section.value},
+                        onSelectionChanged: (values) =>
+                            selectSection(values.first),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      state.storageError ??
+                          (state.dirty
+                              ? (state.localSaved
+                                    ? '저장 필요 · 이 기기에 임시저장됨'
+                                    : '저장 필요 · 임시저장 중…')
+                              : '저장됨'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: state.storageError == null
+                            ? SlideEditorStyle.muted
+                            : Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
         body: AbsorbPointer(
           absorbing: busy.value,
@@ -798,70 +1044,22 @@ class _SlideEditorBody extends HookConsumerWidget {
                     ),
                   ),
                 ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 14, 24, 20),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Expanded(
-                      flex: 3,
-                      child: Text(
-                        '슬라이드 편집',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          state.storageError ??
-                              (state.dirty
-                                  ? (state.localSaved
-                                        ? '저장 필요 · 이 기기에 임시저장됨'
-                                        : '저장 필요 · 임시저장 중…')
-                                  : '저장됨'),
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: state.storageError == null
-                                ? SlideEditorStyle.muted
-                                : Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-                child: summary,
-              ),
+              const Divider(height: 1),
+              summary,
+              const Divider(height: 1),
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) => Column(
                     children: [
                       if (MediaQuery.viewInsetsOf(context).bottom == 0 &&
                           constraints.maxHeight >= 160) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: constraints.maxHeight * 0.6,
-                            ),
-                            child: preview,
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: constraints.maxHeight * .6,
                           ),
+                          child: preview,
                         ),
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
-                          child: Divider(height: 1),
-                        ),
+                        const Divider(height: 1),
                       ],
                       Expanded(child: settings),
                     ],
@@ -872,6 +1070,84 @@ class _SlideEditorBody extends HookConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SlideEditorMenuTile extends HookWidget {
+  const _SlideEditorMenuTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.menuTooltip,
+    required this.items,
+    required this.onSelected,
+  });
+  final IconData icon;
+  final String title, subtitle, menuTooltip;
+  final List<PopupMenuEntry<String>> items;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final menu = useMemoized(() => GlobalKey<PopupMenuButtonState<String>>());
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      minVerticalPadding: 12,
+      leading: Icon(icon, color: SlideEditorStyle.accent),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(fontSize: 12, color: SlideEditorStyle.muted),
+      ),
+      trailing: PopupMenuButton<String>(
+        key: menu,
+        tooltip: menuTooltip,
+        icon: const Icon(Icons.more_vert, color: SlideEditorStyle.accent),
+        itemBuilder: (_) => items,
+        onSelected: onSelected,
+      ),
+      onTap: () => menu.currentState?.showButtonMenu(),
+    );
+  }
+}
+
+class _SlideTitleDialog extends HookWidget {
+  const _SlideTitleDialog({required this.initialValue});
+  final String initialValue;
+  @override
+  Widget build(BuildContext context) {
+    final controller = useTextEditingController(text: initialValue);
+    final form = useMemoized(() => GlobalKey<FormState>());
+    void confirm() {
+      if (form.currentState!.validate()) {
+        Navigator.pop(context, controller.text.trim());
+      }
+    }
+
+    return AppAlertDialog(
+      title: const Text('슬라이드 제목 수정'),
+      content: Form(
+        key: form,
+        child: TextFormField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(labelText: '슬라이드 제목'),
+          validator: (value) => value == null || value.trim().isEmpty
+              ? '슬라이드 제목을 입력해 주세요.'
+              : null,
+          onFieldSubmitted: (_) => confirm(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+        FilledButton(onPressed: confirm, child: const Text('변경')),
+      ],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/slide_editor_repository.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
@@ -37,3 +38,18 @@ WorkoutModule applySlideStyle(WorkoutModule target, WorkoutModule style) =>
       restTextColor: style.restTextColor,
       timerColorValue: style.timerColorValue,
     );
+
+/// Retain the edited slide's identity; copied timing blocks belong to that slide.
+WorkoutModule replaceSlideWithTemplate(
+  WorkoutModule target,
+  WorkoutModule template,
+) {
+  final prefix = newId();
+  return template.copyWith(
+    id: target.id,
+    intervalBlocks: [
+      for (var i = 0; i < template.intervalBlocks.length; i++)
+        template.intervalBlocks[i].copyWith(id: '$prefix-$i'),
+    ],
+  );
+}

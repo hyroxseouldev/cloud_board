@@ -56,6 +56,16 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('팝업 열기'));
     await tester.pumpAndSettle();
+    final cancel = find.widgetWithText(TextButton, '취소');
+    final confirm = find.widgetWithText(FilledButton, '변경사항 저장');
+    expect(
+      tester.getSize(cancel).width,
+      closeTo(tester.getSize(confirm).width, .1),
+    );
+    expect(
+      tester.getTopLeft(cancel).dy,
+      closeTo(tester.getTopLeft(confirm).dy, .1),
+    );
     // An open dialog must remain usable after a compact resize and keyboard inset.
     tester.view.physicalSize = const Size(320, 640);
     tester.view.viewInsets = const FakeViewPadding(bottom: 200);
@@ -63,6 +73,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('변경사항 저장').hitTestable(), findsOneWidget);
+    expect(cancel.hitTestable(), findsOneWidget);
+    expect(
+      tester.getSize(cancel).width,
+      closeTo(tester.getSize(confirm).width, .1),
+    );
+    expect(
+      tester.getSize(cancel).height,
+      closeTo(tester.getSize(confirm).height, .1),
+    );
     await tester.tap(find.text('변경사항 저장'));
     await tester.pumpAndSettle();
     expect(saves, 1);
