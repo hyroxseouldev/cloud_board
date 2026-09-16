@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -51,6 +52,11 @@ void main() {
     testWidgets(
       '$scenario returns to origin and clears notification without completion screen',
       (tester) async {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMessageHandler(
+              'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
+              (_) async => const StandardMessageCodec().encodeMessage([null]),
+            );
         final media = _Media();
         final sessions = StreamController<PlaybackSession?>();
         final router = GoRouter(
@@ -129,7 +135,12 @@ void main() {
           expect(find.text('수업을 종료할까요?'), findsOneWidget);
           await tester.tap(find.text('수업 종료'));
         } else if (scenario == 'natural') {
-          await tester.pump(const Duration(milliseconds: 1200));
+          // Player deadlines intentionally use wall time (background recovery).
+          // Advancing the widget's fake frame clock alone cannot expire them.
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 1200)),
+          );
+          await tester.pump(const Duration(milliseconds: 100));
         } else {
           sessions.add(null);
         }
