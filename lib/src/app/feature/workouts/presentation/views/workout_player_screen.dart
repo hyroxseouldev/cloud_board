@@ -172,7 +172,8 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     }, [displayMode, state.briefing]);
 
     final exitAllowed = useState(false);
-    Future<void> exitPlayer() async {
+    final exitAttempt = useRef<Future<bool>?>(null);
+    Future<bool> performExit() async {
       final active = ref.read(activePlaybackSessionProvider).value;
       if (sessionId != null &&
           !displayMode &&
@@ -181,21 +182,34 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         final success = await ref
             .read(playbackActionControllerProvider.notifier)
             .complete();
-        if (!success || !context.mounted) return;
+        if (!success || !context.mounted) return false;
       }
       if (context.mounted) {
         await mediaController.hide();
-        if (!context.mounted) return;
+        if (!context.mounted) return false;
         exitAllowed.value = true;
         await WidgetsBinding.instance.endOfFrame;
-        if (!context.mounted) return;
+        if (!context.mounted) return false;
         if (context.canPop()) {
           context.pop();
         } else {
           context.go('/');
         }
+        return true;
       }
+      return false;
     }
+
+    Future<bool> exitPlayer() => exitAttempt.value ??= performExit().then(
+      (success) {
+        if (!success) exitAttempt.value = null;
+        return success;
+      },
+      onError: (Object error, StackTrace stack) {
+        exitAttempt.value = null;
+        return false;
+      },
+    );
 
     Future<void> requestExit() async {
       if (displayMode || touchLocked.value) return;
@@ -296,8 +310,8 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         onStandby?.call();
         return;
       }
-      await exitPlayer();
-      if (context.mounted) {
+      final success = await exitPlayer();
+      if (context.mounted && !success) {
         exiting.value = false;
         exitFailed.value = true;
       }

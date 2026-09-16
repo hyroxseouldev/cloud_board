@@ -48,7 +48,12 @@ class _Media implements WorkoutMediaController {
 }
 
 void main() {
-  for (final scenario in ['natural', 'manual', 'remote-removed']) {
+  for (final scenario in [
+    'natural',
+    'manual',
+    'remote-removed',
+    'remote-manual',
+  ]) {
     testWidgets(
       '$scenario returns to origin and clears notification without completion screen',
       (tester) async {
@@ -59,10 +64,36 @@ void main() {
             );
         final media = _Media();
         final sessions = StreamController<PlaybackSession?>();
+        final session =
+            PlaybackSessionModel.fromWorkout(
+              id: 's',
+              ownerId: 'u',
+              zoneId: 'main',
+              targetDeviceIds: [],
+              workout: workout.copyWith(
+                modules: [workout.modules.single.copyWith(workSeconds: 600)],
+              ),
+              stepIndex: 0,
+              durationMs: 600000,
+              deviceId: 'd',
+            ).toEntity().copyWith(
+              anchorServerMs: DateTime.now().millisecondsSinceEpoch,
+            );
+        final complete = _Complete(
+          () => sessions.add(
+            session.copyWith(status: PlaybackStatus.completed, remainingMs: 0),
+          ),
+        );
+
         final router = GoRouter(
+          initialLocation: '/origin',
           routes: [
             GoRoute(
               path: '/',
+              builder: (_, _) => const Scaffold(body: Text('홈')),
+            ),
+            GoRoute(
+              path: '/origin',
               builder: (_, _) => const Scaffold(body: Text('수업 시작한 화면')),
             ),
             GoRoute(
@@ -70,7 +101,7 @@ void main() {
               builder: (_, _) => WorkoutPlayerScreen(
                 workoutId: 'w',
                 startModule: 0,
-                sessionId: scenario == 'remote-removed' ? 's' : null,
+                sessionId: scenario.startsWith('remote-') ? 's' : null,
               ),
             ),
           ],
@@ -93,6 +124,7 @@ void main() {
                 ),
               ),
               workoutMediaControllerProvider.overrideWithValue(media),
+              playbackActionControllerProvider.overrideWith(() => complete),
               activePlaybackSessionProvider.overrideWith(
                 (ref) => sessions.stream,
               ),
@@ -108,32 +140,25 @@ void main() {
         await tester.pumpAndSettle();
         unawaited(router.push('/player'));
         await tester.pump();
-        if (scenario == 'remote-removed') {
-          sessions.add(
-            PlaybackSessionModel.fromWorkout(
-              id: 's',
-              ownerId: 'u',
-              zoneId: 'main',
-              targetDeviceIds: [],
-              workout: workout,
-              stepIndex: 0,
-              durationMs: 60000,
-              deviceId: 'd',
-            ).toEntity().copyWith(
-              anchorServerMs: DateTime.now().millisecondsSinceEpoch,
-            ),
-          );
+        if (scenario.startsWith('remote-')) {
+          sessions.add(session);
         } else {
           sessions.add(null);
         }
         await tester.pump();
         await tester.pump();
         expect(find.byType(WorkoutBriefingBoard), findsNothing);
-        if (scenario == 'manual') {
+        if (scenario == 'manual' || scenario == 'remote-manual') {
           await tester.tap(find.text('종료하기'));
           await tester.pumpAndSettle();
           expect(find.text('수업을 종료할까요?'), findsOneWidget);
           await tester.tap(find.text('수업 종료'));
+          if (scenario == 'remote-manual') {
+            await tester.pump();
+            await tester.pump();
+            expect(complete.calls, 1);
+            complete.pending.complete(true);
+          }
         } else if (scenario == 'natural') {
           // Player deadlines intentionally use wall time (background recovery).
           // Advancing the widget's fake frame clock alone cannot expire them.
@@ -156,5 +181,18 @@ void main() {
         await tester.pumpAndSettle();
       },
     );
+  }
+}
+
+class _Complete extends PlaybackActionController {
+  _Complete(this.onComplete);
+  final void Function() onComplete;
+  final pending = Completer<bool>();
+  int calls = 0;
+  @override
+  Future<bool> complete() {
+    calls++;
+    onComplete();
+    return pending.future;
   }
 }
