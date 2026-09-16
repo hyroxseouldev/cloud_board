@@ -31,6 +31,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     required int durationMs,
     required List<String> targetDeviceIds,
   }) async {
+    if (state.isLoading) return null;
     state = const AsyncLoading();
     PlaybackSession? session;
     state = await AsyncValue.guard(() async {
@@ -42,7 +43,7 @@ class PlaybackActionController extends _$PlaybackActionController {
             stepIndex: stepIndex,
             durationMs: durationMs,
             deviceId: await ref.read(deviceIdProvider.future),
-            briefing: true,
+            briefing: false,
           );
       return '재생을 시작했습니다.';
     });
@@ -74,10 +75,12 @@ class PlaybackActionController extends _$PlaybackActionController {
     ),
   );
 
-  Future<bool> complete() => _run(
+  Future<bool>? _completion;
+  // Natural completion and the screen exit can arrive in the same frame.
+  Future<bool> complete() => _completion ??= _run(
     '재생을 종료했습니다.',
     (actions, deviceId) => actions.complete(deviceId: deviceId),
-  );
+  ).whenComplete(() => _completion = null);
 
   Future<bool> syncStep({
     required int stepIndex,
@@ -97,16 +100,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     }
   }
 
-  Future<bool> syncComplete() async {
-    try {
-      await ref
-          .read(playbackActionsProvider)
-          .complete(deviceId: await ref.read(deviceIdProvider.future));
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> syncComplete() => complete();
 
   Future<bool> _run(
     String successMessage,

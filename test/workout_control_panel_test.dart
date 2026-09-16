@@ -17,6 +17,7 @@ final _workout =
       const WorkoutAuthor(id: 'u', displayName: 'Coach', photoUrl: null),
     ).copyWith(
       name: 'Workout Untitle #1',
+      countdownSeconds: 0,
       modules: List.generate(
         3,
         (i) => WorkoutModule.empty('m$i').copyWith(

@@ -181,6 +181,7 @@ class PlayerController extends _$PlayerController {
           .clamp(0, max(0, steps.length - 1));
       remainingMs = steps.isEmpty ? 0 : steps[index].duration * 1000;
       isPaused = false;
+      countdownMs = workout.countdownSeconds.clamp(0, 60) * 1000;
     }
 
     final initial = PlayerState(

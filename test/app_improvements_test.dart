@@ -325,7 +325,7 @@ void main() {
       find.byKey(const ValueKey('slide-sets')),
     );
     expect(setsWithoutTimer.dx, moreOrLessEquals(setsWithTimer.dx));
-    expect(setsWithoutTimer.dy, moreOrLessEquals(setsWithTimer.dy));
+    expect(setsWithoutTimer.dy, lessThan(setsWithTimer.dy));
 
     await show(previewModule, rest: true);
     expect(find.text('휴식'), findsOneWidget);
@@ -439,6 +439,7 @@ void main() {
   });
   test('hidden timer progresses on server time and remaining sets recover', () {
     final hidden = workout.copyWith(
+      countdownSeconds: 0,
       modules: [module.copyWith(showTimer: false)],
     );
     final steps = buildPlayerSteps(hidden);
@@ -752,6 +753,7 @@ void main() {
     final guard = ExitGuard();
     final request = SlideEditRequest(
       module: module,
+      onSaveTimer: (_) async => true,
       onSave: (value) async {
         saved.add(value);
         return saved.length > 1;
@@ -802,7 +804,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('블록 2'), findsOneWidget);
     expect(saved, isEmpty);
-    await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
+    await tester.tap(find.byKey(const ValueKey('save-timer-editor')));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
     await tester.pumpAndSettle();
     router.go('/');
     await tester.pumpAndSettle();
@@ -1018,6 +1022,141 @@ void main() {
         expect(find.text('홈'), findsOneWidget);
         expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
         expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final id in ['w', 'new']) {
+    testWidgets(
+      '$id timer save persists alone without saving parent or slide appearance draft',
+      (tester) async {
+        final saved = <Workout>[];
+        final parentGuard = ExitGuard(), childGuard = ExitGuard();
+        final router = GoRouter(
+          initialLocation: '/editor/$id',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(body: Text('홈')),
+            ),
+            GoRoute(
+              path: '/editor/:id',
+              builder: (_, state) => WorkoutEditorScreen(
+                workoutId: state.pathParameters['id']!,
+                guard: parentGuard,
+              ),
+              onExit: (_, _) => parentGuard.confirm(),
+              routes: [
+                GoRoute(
+                  path: 'slides/:moduleId',
+                  builder: (_, state) => SlideEditorScreen(
+                    workoutId: id,
+                    moduleId: state.pathParameters['moduleId']!,
+                    guard: childGuard,
+                    request: state.extra as SlideEditRequest,
+                  ),
+                  onExit: (_, _) => childGuard.confirm(),
+                ),
+              ],
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authStateProvider.overrideWith(
+                (ref) => Stream.value(
+                  const AuthUser(
+                    id: 'u',
+                    email: 'coach@example.com',
+                    displayName: 'Coach',
+                    photoUrl: null,
+                  ),
+                ),
+              ),
+              workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              workoutActionControllerProvider.overrideWith(
+                () => _SaveWorkouts(saved),
+              ),
+            ],
+            child: MaterialApp.router(
+              theme: XonTheme.light,
+              builder: XonTheme.responsiveBuilder,
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (id == 'w') {
+          await tester.enterText(
+            find.widgetWithText(TextField, '워크아웃 이름'),
+            '저장하지 않은 워크아웃 이름',
+          );
+          await tester.pump();
+        }
+        if (id == 'new') {
+          await tester.tap(find.byTooltip('슬라이드 추가'));
+          await tester.pumpAndSettle();
+        }
+        await scrollTo(tester, find.text('새 운동 1'));
+        await tester.tap(find.text('새 운동 1'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
+        expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+        await renameSlide(tester, '저장하지 않은 슬라이드 이름');
+        await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
+        await tester.pumpAndSettle();
+        tester
+            .widget<CupertinoPicker>(
+              find.byKey(const ValueKey('combined-minutes-picker')),
+            )
+            .onSelectedItemChanged!(2);
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('save-timer-editor')));
+        await tester.pump(const Duration(milliseconds: 400));
+        if (id == 'new') {
+          expect(find.text('워크아웃 이름이 필요합니다'), findsOneWidget);
+          await tester.enterText(
+            find.widgetWithText(TextFormField, '저장할 워크아웃 이름'),
+            '새 수업',
+          );
+          await tester.tap(find.text('계속 저장'));
+        }
+        await tester.pumpAndSettle();
+        expect(saved, hasLength(1));
+        expect(saved.single.modules.single.name, '새 운동 1');
+        expect(saved.single.name, id == 'new' ? '새 수업' : '수업');
+        expect(
+          saved.single.modules.single.workSeconds,
+          greaterThanOrEqualTo(120),
+        );
+        expect(find.text('타이머 편집'), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('slide-title-text')))
+              .data,
+          '저장하지 않은 슬라이드 이름',
+        );
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('저장 안 하고 나가기'));
+        await tester.pumpAndSettle();
+        expect(find.text('워크아웃 편집'), findsOneWidget);
+        expect(
+          tester
+              .widget<TextField>(find.widgetWithText(TextField, '워크아웃 이름'))
+              .controller!
+              .text,
+          id == 'new' ? '새 수업' : '저장하지 않은 워크아웃 이름',
+        );
+        expect(saved, hasLength(1));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
       },
     );
   }

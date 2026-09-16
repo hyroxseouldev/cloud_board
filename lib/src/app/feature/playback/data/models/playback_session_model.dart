@@ -94,6 +94,7 @@ class PlaybackSessionModel {
           ? PlaybackStatus.paused.name
           : PlaybackStatus.playing.name,
       briefing: briefing,
+      startDelayMs: briefing ? 0 : workout.countdownSeconds.clamp(0, 60) * 1000,
       stepIndex: stepIndex,
       remainingMs: durationMs,
       anchorServerMs: 0,

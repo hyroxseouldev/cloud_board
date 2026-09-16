@@ -141,21 +141,6 @@ class WorkoutSlideCanvas extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                if (module.showSets) ...[
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      '${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
-                      key: const ValueKey('slide-sets'),
-                      style: TextStyle(
-                        color: Color(module.appearance.setsColor),
-                        fontSize: 22 * scale,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10 * scale),
-                ],
                 Row(
                   children: [
                     Expanded(
@@ -190,52 +175,102 @@ class WorkoutSlideCanvas extends StatelessWidget {
             ),
           ),
         ),
-        if (module.showTimer)
-          // Anchor to the slide, so title wrapping and set labels cannot move it.
-          Positioned(
-            left:
-                (constraints.maxWidth *
-                        (preferences.safeInset +
-                            module.appearance.timerX *
-                                (1 - 2 * preferences.safeInset)))
-                    .clamp(
-                      116 * scale * module.appearance.timerSize +
-                          constraints.maxWidth * preferences.safeInset,
-                      constraints.maxWidth -
-                          116 * scale * module.appearance.timerSize -
-                          constraints.maxWidth * preferences.safeInset,
-                    ) -
-                116 * scale * module.appearance.timerSize,
-            top:
-                (constraints.maxHeight *
-                        (preferences.safeInset +
-                            module.appearance.timerY *
-                                (1 - 2 * preferences.safeInset)))
-                    .clamp(
-                      116 * scale * module.appearance.timerSize +
-                          constraints.maxHeight * preferences.safeInset,
-                      constraints.maxHeight -
-                          116 * scale * module.appearance.timerSize -
-                          constraints.maxHeight * preferences.safeInset,
-                    ) -
-                116 * scale * module.appearance.timerSize,
-            child: RepaintBoundary(
-              child:
-                  timer ??
-                  WorkoutSlideTimer(
-                    module: module,
-                    isRest: isRest,
-                    secondsLeft: secondsLeft,
-                    remainingMs: remainingMs,
-                    durationMs: durationMs,
-                    isPaused: isPaused,
-                    scale: scale,
-                  ),
-            ),
+        if (module.showTimer || module.showSets)
+          _TimerGroup(
+            module: module,
+            scale: scale,
+            preferences: preferences,
+            constraints: constraints,
+            timer: module.showTimer
+                ? RepaintBoundary(
+                    child:
+                        timer ??
+                        WorkoutSlideTimer(
+                          module: module,
+                          isRest: isRest,
+                          secondsLeft: secondsLeft,
+                          remainingMs: remainingMs,
+                          durationMs: durationMs,
+                          isPaused: isPaused,
+                          scale: scale,
+                        ),
+                  )
+                : null,
+            sets: module.showSets
+                ? Text(
+                    '${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
+                    key: const ValueKey('slide-sets'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(module.appearance.setsColor),
+                      fontSize: 22 * scale * module.appearance.timerSize,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : null,
           ),
       ],
     ),
   );
+}
+
+/// The timer and set label share a single clamped anchor, including when hidden.
+class _TimerGroup extends StatelessWidget {
+  const _TimerGroup({
+    required this.module,
+    required this.scale,
+    required this.preferences,
+    required this.constraints,
+    this.timer,
+    this.sets,
+  });
+  final WorkoutModule module;
+  final double scale;
+  final DisplayPreferences preferences;
+  final BoxConstraints constraints;
+  final Widget? timer, sets;
+  @override
+  Widget build(BuildContext context) {
+    final unit = scale * module.appearance.timerSize;
+    final width = 232 * unit;
+    final timerHeight = timer == null ? 0.0 : width;
+    final labelHeight = sets == null ? 0.0 : 40 * unit;
+    final height = timerHeight + labelHeight;
+    final insetX = constraints.maxWidth * preferences.safeInset;
+    final insetY = constraints.maxHeight * preferences.safeInset;
+    final anchorX =
+        insetX + module.appearance.timerX * (constraints.maxWidth - 2 * insetX);
+    final anchorY =
+        insetY +
+        module.appearance.timerY * (constraints.maxHeight - 2 * insetY);
+    final left = (anchorX - width / 2).clamp(
+      insetX,
+      (constraints.maxWidth - insetX - width).clamp(insetX, double.infinity),
+    );
+    // Reserve the brand footer rather than allowing the set label to overlap it.
+    final maxTop = (constraints.maxHeight - insetY - height - 64 * scale).clamp(
+      insetY,
+      double.infinity,
+    );
+    final top = (anchorY - timerHeight / 2).clamp(insetY, maxTop);
+    return Positioned(
+      left: left,
+      top: top,
+      width: width,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ?timer,
+          if (sets != null)
+            SizedBox(
+              height: labelHeight,
+              child: Center(child: FittedBox(child: sets!)),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class WorkoutSlideTimer extends StatelessWidget {

@@ -136,8 +136,8 @@ void main() {
       },
     );
   }
-  for (final displayState in ['auto', 'standby']) {
-    testWidgets('$displayState display switches off using black state', (
+  for (final displayState in ['auto']) {
+    testWidgets('$displayState display switches off using standby state', (
       tester,
     ) async {
       final controller = _DisplayActions();
@@ -152,7 +152,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.calls, [
-        (deviceId: 'display-1', displayState: 'black'),
+        (deviceId: 'display-1', displayState: 'standby'),
       ]);
       expect(tester.takeException(), isNull);
     });
@@ -162,7 +162,7 @@ void main() {
     final controller = _DisplayActions();
     await _pumpDisplays(
       tester,
-      device: _device(displayState: 'black'),
+      device: _device(displayState: 'standby'),
       controller: controller,
     );
 
@@ -183,7 +183,9 @@ void main() {
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
 
-    expect(controller.calls, [(deviceId: 'display-1', displayState: 'black')]);
+    expect(controller.calls, [
+      (deviceId: 'display-1', displayState: 'standby'),
+    ]);
     expect(find.byType(SnackBar), findsOneWidget);
     expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
     expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNotNull);

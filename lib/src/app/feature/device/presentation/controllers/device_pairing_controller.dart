@@ -77,11 +77,13 @@ class DeviceClaimController extends _$DeviceClaimController {
     return !state.hasError;
   }
 
-  Future<void> unpair(String deviceId) async {
+  Future<bool> unpair(String deviceId) async {
+    if (state.isLoading) return false;
     state = const AsyncLoading();
     state = await AsyncValue.guard(
       () => ref.read(devicePairingActionsProvider).unpair(deviceId),
     );
+    return !state.hasError;
   }
 
   Future<bool> rename({

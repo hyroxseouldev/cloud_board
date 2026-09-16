@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_refresh_button.dart';
+import 'package:go_router/go_router.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_pairing_card.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -44,12 +45,52 @@ class DisplayModeScreen extends HookConsumerWidget {
       unawaited(ref.read(devicePairingControllerProvider.notifier).refresh());
     });
     final connected = ref.watch(playbackConnectionProvider).value ?? false;
+    // Firebase subscriptions refresh live; resubscribe after reconnect/resume,
+    // including streams that previously terminated with an error.
+    void refreshDisplayData() {
+      ref.invalidate(activePlaybackSessionProvider);
+      ref.invalidate(displayDevicesProvider);
+      ref.invalidate(brandTemplateProvider);
+      ref.invalidate(workoutSchedulesProvider);
+    }
+
+    ref.listen(playbackConnectionProvider, (previous, next) {
+      if (previous?.value == false && next.value == true) refreshDisplayData();
+    });
+    useOnAppLifecycleStateChange((previous, next) {
+      if (next == AppLifecycleState.resumed) refreshDisplayData();
+    });
     final deviceId = ref.watch(deviceIdProvider).value;
     final devices = ref.watch(displayDevicesProvider).value ?? const [];
     final brand =
         ref.watch(brandTemplateProvider).value ?? BrandTemplate.initial();
     final schedules =
         ref.watch(workoutSchedulesProvider).value ?? const <WorkoutSchedule>[];
+    useEffect(() {
+      final retry = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (!context.mounted ||
+            WidgetsBinding.instance.lifecycleState ==
+                AppLifecycleState.paused) {
+          return;
+        }
+        if (ref.read(activePlaybackSessionProvider).hasError) {
+          ref.invalidate(activePlaybackSessionProvider);
+        }
+        if (ref.read(displayDevicesProvider).hasError) {
+          ref.invalidate(displayDevicesProvider);
+        }
+        if (ref.read(brandTemplateProvider).hasError) {
+          ref.invalidate(brandTemplateProvider);
+        }
+        if (ref.read(workoutSchedulesProvider).hasError) {
+          ref.invalidate(workoutSchedulesProvider);
+        }
+        if (ref.read(playbackConnectionProvider).hasError) {
+          ref.invalidate(playbackConnectionProvider);
+        }
+      });
+      return retry.cancel;
+    }, const []);
     final now = useState(DateTime.now());
     final finishedSessionId = useState<String?>(null);
     final serverOffset = ref.watch(serverTimeOffsetProvider).value ?? 0;
@@ -108,12 +149,14 @@ class DisplayModeScreen extends HookConsumerWidget {
     final remoteState = currentDevice?.displayState ?? 'auto';
     final showBlack =
         remoteState == RemoteDisplayState.black.name ||
-        (!isActive && isBlackScreenTime(brand, now.value));
+        (!isActive &&
+            remoteState == RemoteDisplayState.auto.name &&
+            isBlackScreenTime(brand, now.value));
     final allowPlayback = remoteState == RemoteDisplayState.auto.name;
     useEffect(
       () {
         var cancelled = false;
-        if (isActive && session.briefing && allowPlayback) {
+        if (isActive && allowPlayback) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (cancelled || !context.mounted) return;
             unawaited(
@@ -203,37 +246,8 @@ class DisplayModeScreen extends HookConsumerWidget {
                   } catch (_) {}
                 },
               ),
-            if (!showBlack &&
-                (!isActive || session.briefing) &&
-                currentDevice?.paired == true)
-              Positioned(
-                top: isTv ? 24 : 100,
-                right: 24,
-                child: SafeArea(
-                  child: DisplayRefreshButton(
-                    autofocus: isTv,
-                    onRefresh: () async {
-                      ref.invalidate(activePlaybackSessionProvider);
-                      ref.invalidate(displayDevicesProvider);
-                      ref.invalidate(brandTemplateProvider);
-                      ref.invalidate(workoutSchedulesProvider);
-                      ref.invalidate(playbackConnectionProvider);
-                      await Future.wait([
-                        ref.read(activePlaybackSessionProvider.future),
-                        ref.read(displayDevicesProvider.future),
-                        ref.read(brandTemplateProvider.future),
-                        ref.read(workoutSchedulesProvider.future),
-                      ]).timeout(const Duration(seconds: 10));
-                      final online = await ref
-                          .read(playbackConnectionProvider.future)
-                          .timeout(const Duration(seconds: 5));
-                      if (!online) throw StateError('네트워크 연결을 확인해 주세요.');
-                    },
-                  ),
-                ),
-              ),
             if (!showBlack && !isTv)
-              const Positioned(
+              Positioned(
                 top: 18,
                 right: 18,
                 child: SafeArea(
@@ -246,7 +260,13 @@ class DisplayModeScreen extends HookConsumerWidget {
                     clipBehavior: Clip.antiAlias,
                     child: Padding(
                       padding: EdgeInsets.all(4),
-                      child: DeviceModeToggle(),
+                      child: DeviceModeToggle(
+                        onChanged: (mode) {
+                          if (mode == DeviceMode.controller) {
+                            context.go('/displays');
+                          }
+                        },
+                      ),
                     ),
                   ),
                 ),
