@@ -28,8 +28,10 @@ final workout =
     );
 
 class _Workouts extends WorkoutController {
+  _Workouts(this.value);
+  final Workout value;
   @override
-  Stream<List<Workout>> build() => Stream.value([workout]);
+  Stream<List<Workout>> build() => Stream.value([value]);
 }
 
 class _Media implements WorkoutMediaController {
@@ -71,7 +73,19 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              workoutControllerProvider.overrideWith(_Workouts.new),
+              workoutControllerProvider.overrideWith(
+                () => _Workouts(
+                  // Dialog animation must not race the one-second natural-end case
+                  // on slower CI machines, where wall-clock deadlines keep advancing.
+                  scenario == 'manual'
+                      ? workout.copyWith(
+                          modules: [
+                            workout.modules.single.copyWith(workSeconds: 600),
+                          ],
+                        )
+                      : workout,
+                ),
+              ),
               workoutMediaControllerProvider.overrideWithValue(media),
               activePlaybackSessionProvider.overrideWith(
                 (ref) => sessions.stream,
