@@ -323,9 +323,7 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
-      expect(find.text('WORKOUT DONE'), findsOneWidget);
-      expect(returnedToStandby, isFalse);
-      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('WORKOUT DONE'), findsNothing);
       expect(returnedToStandby, isTrue);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

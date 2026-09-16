@@ -25,7 +25,6 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
@@ -34,7 +33,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
-class WorkoutPlayerScreen extends ConsumerWidget {
+class WorkoutPlayerScreen extends HookConsumerWidget {
   const WorkoutPlayerScreen({
     super.key,
     required this.workoutId,
@@ -53,11 +52,46 @@ class WorkoutPlayerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final remoteSession = sessionId == null
+    final remote = sessionId == null
         ? null
-        : ref.watch(activePlaybackSessionProvider).value;
+        : ref.watch(activePlaybackSessionProvider);
+    final remoteSession = remote?.value;
+    final seenSession = useRef(false);
+    if (remoteSession?.id == sessionId && sessionId != null) {
+      seenSession.value = true;
+    }
+    final ended =
+        sessionId != null &&
+        seenSession.value &&
+        remote?.isLoading == false &&
+        remote?.hasError == false &&
+        remoteSession?.id != sessionId;
+    useEffect(() {
+      if (!ended) return null;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!context.mounted) return;
+        if (displayMode) {
+          onStandby?.call();
+        } else {
+          await ref.read(workoutMediaControllerProvider).hide();
+          if (!context.mounted) return;
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/');
+          }
+        }
+      });
+      return null;
+    }, [ended]);
     if (sessionId != null && remoteSession?.id != sessionId) {
-      return const Scaffold(body: Center(child: Text('수업 화면을 준비하고 있습니다…')));
+      return Scaffold(
+        body: Center(
+          child: Text(
+            remote?.hasError == true ? '수업 연결을 확인해 주세요.' : '수업 화면을 준비하고 있습니다…',
+          ),
+        ),
+      );
     }
     final matchesSession = sessionId != null && remoteSession?.id == sessionId;
     final workouts = matchesSession
@@ -137,6 +171,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       return timer.cancel;
     }, [displayMode, state.briefing]);
 
+    final exitAllowed = useState(false);
     Future<void> exitPlayer() async {
       final active = ref.read(activePlaybackSessionProvider).value;
       if (sessionId != null &&
@@ -148,7 +183,18 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             .complete();
         if (!success || !context.mounted) return;
       }
-      if (context.mounted) context.go('/');
+      if (context.mounted) {
+        await mediaController.hide();
+        if (!context.mounted) return;
+        exitAllowed.value = true;
+        await WidgetsBinding.instance.endOfFrame;
+        if (!context.mounted) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/');
+        }
+      }
     }
 
     Future<void> requestExit() async {
@@ -240,11 +286,30 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       });
       return () => cancelled = true;
     }, [workout, currentMediaStep?.moduleIndex, imageSize]);
+    final exiting = useState(false);
+    final exitFailed = useState(false);
+    Future<void> finish() async {
+      if (exiting.value) return;
+      exiting.value = true;
+      exitFailed.value = false;
+      if (displayMode) {
+        onStandby?.call();
+        return;
+      }
+      await exitPlayer();
+      if (context.mounted) {
+        exiting.value = false;
+        exitFailed.value = true;
+      }
+    }
+
     useEffect(() {
-      if (hasCurrentStep || !displayMode || onStandby == null) return null;
-      final timer = Timer(const Duration(seconds: 5), onStandby!);
-      return timer.cancel;
-    }, [hasCurrentStep, displayMode]);
+      if (hasCurrentStep) return null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) unawaited(finish());
+      });
+      return null;
+    }, [hasCurrentStep]);
     useEffect(
       () {
         if (displayMode) return null;
@@ -294,7 +359,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         );
       }
       return PopScope(
-        canPop: false,
+        canPop: exitAllowed.value,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) unawaited(requestExit());
         },
@@ -316,7 +381,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     }
     if (state.countdownMs > 0) {
       return PopScope(
-        canPop: false,
+        canPop: exitAllowed.value,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) unawaited(requestExit());
         },
@@ -331,14 +396,23 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       );
     }
     if (state.steps.isEmpty || state.index >= state.steps.length) {
-      return _DoneScreen(workout: workout, displayMode: displayMode);
+      return Scaffold(
+        body: Center(
+          child: exitFailed.value
+              ? TextButton(
+                  onPressed: finish,
+                  child: const Text('수업 종료를 전달하지 못했습니다. 다시 시도'),
+                )
+              : const SizedBox.shrink(),
+        ),
+      );
     }
 
     final step = state.steps[state.index];
     final module = step.module;
     if (!displayMode) {
       return PopScope(
-        canPop: false,
+        canPop: exitAllowed.value,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) unawaited(requestExit());
         },
@@ -443,7 +517,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       );
     }
     return PopScope(
-      canPop: false,
+      canPop: exitAllowed.value,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(requestExit());
       },
@@ -605,46 +679,4 @@ class _ConnectionChip extends StatelessWidget {
           ),
           backgroundColor: Colors.black87,
         );
-}
-
-class _DoneScreen extends StatelessWidget {
-  const _DoneScreen({required this.workout, required this.displayMode});
-  final Workout workout;
-  final bool displayMode;
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.black,
-    body: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'WORKOUT DONE',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 34,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${workout.name} · ${durationLabel(workoutDuration(workout))}',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 22),
-          if (displayMode)
-            const Text(
-              '잠시 후 대기 화면으로 돌아갑니다',
-              style: TextStyle(color: Colors.white70),
-            ),
-          if (!displayMode)
-            OutlinedButton(
-              onPressed: () => context.go('/'),
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-              child: const Text('닫기'),
-            ),
-        ],
-      ),
-    ),
-  );
 }

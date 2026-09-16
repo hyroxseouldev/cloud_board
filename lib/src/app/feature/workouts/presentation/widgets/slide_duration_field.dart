@@ -171,6 +171,7 @@ class SlideTimingEditor extends HookWidget {
     this.embedded = false,
     this.onApply,
     this.onCancel,
+    this.onChanged,
   });
 
   final int initialWorkSeconds;
@@ -179,6 +180,7 @@ class SlideTimingEditor extends HookWidget {
   final bool embedded;
   final ValueChanged<SlideTimingSelection>? onApply;
   final VoidCallback? onCancel;
+  final ValueChanged<SlideTimingSelection>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +226,11 @@ class SlideTimingEditor extends HookWidget {
     final workTotal = workMinutes.value * 60 + workSeconds.value;
     final restTotal = restMinutes.value * 60 + restSeconds.value;
     final valid = workTotal > 0;
+    void changed() => onChanged?.call((
+      workSeconds: workMinutes.value * 60 + workSeconds.value,
+      restSeconds: restMinutes.value * 60 + restSeconds.value,
+      sets: sets.value,
+    ));
 
     return Material(
       color: embedded
@@ -246,48 +253,49 @@ class SlideTimingEditor extends HookWidget {
                 ),
               ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: onCancel ?? () => Navigator.pop(context),
-                  child: const Text('취소'),
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      if (!embedded)
-                        Text(
-                          '시간 및 세트 설정',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                      Text(
-                        '${sets.value}세트 · ${formatSlideTime(workTotal)} / 휴식 ${formatSlideTime(restTotal)}',
-                        key: const ValueKey('selected-timing-summary'),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+            if (onChanged == null)
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: onCancel ?? () => Navigator.pop(context),
+                    child: const Text('취소'),
                   ),
-                ),
-                TextButton(
-                  onPressed: valid
-                      ? () {
-                          final selection = (
-                            workSeconds: workTotal,
-                            restSeconds: restTotal,
-                            sets: sets.value,
-                          );
-                          if (onApply != null) {
-                            onApply!(selection);
-                          } else {
-                            Navigator.pop(context, selection);
+                  Expanded(
+                    child: Column(
+                      children: [
+                        if (!embedded)
+                          Text(
+                            '시간 및 세트 설정',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        Text(
+                          '${sets.value}세트 · ${formatSlideTime(workTotal)} / 휴식 ${formatSlideTime(restTotal)}',
+                          key: const ValueKey('selected-timing-summary'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: valid
+                        ? () {
+                            final selection = (
+                              workSeconds: workTotal,
+                              restSeconds: restTotal,
+                              sets: sets.value,
+                            );
+                            if (onApply != null) {
+                              onApply!(selection);
+                            } else {
+                              Navigator.pop(context, selection);
+                            }
                           }
-                        }
-                      : null,
-                  child: const Text('완료'),
-                ),
-              ],
-            ),
+                        : null,
+                    child: const Text('완료'),
+                  ),
+                ],
+              ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -332,19 +340,27 @@ class SlideTimingEditor extends HookWidget {
                                 key: const ValueKey('work-duration-wheels'),
                                 minuteController: workMinuteController,
                                 secondController: workSecondController,
-                                onMinutesChanged: (value) =>
-                                    workMinutes.value = value,
-                                onSecondsChanged: (value) =>
-                                    workSeconds.value = value,
+                                onMinutesChanged: (value) {
+                                  workMinutes.value = value;
+                                  changed();
+                                },
+                                onSecondsChanged: (value) {
+                                  workSeconds.value = value;
+                                  changed();
+                                },
                               )
                             : _DurationWheels(
                                 key: const ValueKey('rest-duration-wheels'),
                                 minuteController: restMinuteController,
                                 secondController: restSecondController,
-                                onMinutesChanged: (value) =>
-                                    restMinutes.value = value,
-                                onSecondsChanged: (value) =>
-                                    restSeconds.value = value,
+                                onMinutesChanged: (value) {
+                                  restMinutes.value = value;
+                                  changed();
+                                },
+                                onSecondsChanged: (value) {
+                                  restSeconds.value = value;
+                                  changed();
+                                },
                               ),
                       ),
                     ),
@@ -367,8 +383,10 @@ class SlideTimingEditor extends HookWidget {
                         diameterRatio: 2.5,
                         selectionOverlay: const SizedBox.shrink(),
                         childCount: 999,
-                        onSelectedItemChanged: (value) =>
-                            sets.value = value + 1,
+                        onSelectedItemChanged: (value) {
+                          sets.value = value + 1;
+                          changed();
+                        },
                         itemBuilder: (_, value) => Center(
                           child: Text(
                             '${value + 1}'.padLeft(2, '0'),

@@ -229,7 +229,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
         FilledButton.icon(
           onPressed: canStart ? start : null,
           icon: const Icon(Icons.play_arrow_rounded),
-          label: const Text('브리핑 화면 열기'),
+          label: const Text('수업 시작'),
         ),
       ],
     );

@@ -5,10 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Android TV distribution', () {
-    test('Play uploads explicitly target the private internal track', () {
+    test('Play uploads explicitly target the existing closed Alpha track', () {
       final workflow = File('.github/workflows/google-play-main.yml')
           .readAsStringSync();
-      expect(workflow, contains('track: internal'));
+      expect(workflow, contains('track: alpha'));
       expect(workflow, isNot(contains('tracks:')));
     });
     final manifest = File('android/app/src/main/AndroidManifest.xml')

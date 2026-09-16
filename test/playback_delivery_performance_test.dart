@@ -9,6 +9,22 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'removed server session clears cached session instead of replaying it',
+    () async {
+      final local = _CachedLocal();
+      final repository = PlaybackRepositoryImpl(_EmptyRemote(), local, 'u');
+      final events = await repository.watchActive().toList();
+      expect(events.first?.id, 's');
+      expect(events.last, isNull);
+      expect(local.cached, isNull);
+      expect(
+        (await repository.watchActive().toList()).every((s) => s == null),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     'remote commands are delivered before a slow checkpoint write finishes',
     () async {
       final local = _Local();
@@ -85,4 +101,19 @@ class _Local implements PlaybackSessionLocalDataSource {
   Future<void> save(PlaybackSessionModel session) => pending.future;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _EmptyRemote extends _Remote {
+  @override
+  Stream<PlaybackSessionModel?> watchActive() => Stream.value(null);
+}
+
+class _CachedLocal extends _Local {
+  PlaybackSessionModel? cached = _session();
+  @override
+  Future<PlaybackSessionModel?> load() async => cached;
+  @override
+  Future<void> clear() async {
+    cached = null;
+  }
 }

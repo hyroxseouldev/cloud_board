@@ -15,6 +15,35 @@ final workout = Workout.empty(
 void main() {
   for (final seconds in [0, 17, 60]) {
     test(
+      'new session bypasses briefing and starts with $seconds second countdown',
+      () async {
+        final model = PlaybackSessionModel.fromWorkout(
+          id: 'session',
+          ownerId: 'u',
+          zoneId: 'main',
+          targetDeviceIds: ['tv'],
+          workout: workout.copyWith(countdownSeconds: seconds),
+          stepIndex: 0,
+          durationMs: 60000,
+          deviceId: 'controller',
+        );
+        final local = _Local(model);
+        final remote = _Remote(model);
+        final started = await PlaybackRepositoryImpl(remote, local, 'u').start(
+          workout: workout.copyWith(countdownSeconds: seconds),
+          targetDeviceIds: ['tv'],
+          stepIndex: 0,
+          durationMs: 60000,
+          deviceId: 'controller',
+        );
+        expect(started.briefing, isFalse);
+        expect(started.startDelayMs, seconds * 1000);
+        expect(local.model.startDelayMs, seconds * 1000);
+        expect(started.targetDeviceIds, ['tv']);
+      },
+    );
+
+    test(
       'begin sends $seconds seconds to the current briefing session',
       () async {
         final model = PlaybackSessionModel.fromWorkout(
@@ -109,6 +138,12 @@ class _Local implements PlaybackSessionLocalDataSource {
 class _Remote implements PlaybackRealtimeDataSource {
   _Remote(this.model);
   final PlaybackSessionModel model;
+  @override
+  Future<PlaybackSessionModel> start(
+    PlaybackSessionModel value, {
+    bool scheduled = false,
+    int? scheduledAtMs,
+  }) async => value;
   int? delay;
   String? sessionId;
   bool? briefingRequired;

@@ -37,11 +37,13 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       cached = null;
       await _local.clear();
     }
-    yield cached?.toEntity();
+    if (cached != null) yield cached.toEntity();
 
     await for (final remote in _dataSource.watchActive()) {
       if (remote == null) {
-        if (cached == null) yield null;
+        cached = null;
+        await _local.clear();
+        yield null;
         continue;
       }
       cached = remote;

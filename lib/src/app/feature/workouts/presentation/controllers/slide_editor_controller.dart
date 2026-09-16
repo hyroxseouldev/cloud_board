@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -182,6 +184,12 @@ class SlideEditorController extends _$SlideEditorController {
         );
       }
     }
+  }
+
+  Future<void> markTimingSaved(WorkoutModule snapshot) async {
+    _savedDuringLoad = true;
+    state = state.copyWith(saved: copySlideTiming(state.saved, snapshot));
+    await flush();
   }
 
   Future<void> discard() async {

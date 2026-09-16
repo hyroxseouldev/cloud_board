@@ -74,3 +74,15 @@ int slideColor(
           ? 0xFFFF3B30
           : module.timerColorValue ?? (rest ? 0xFF0047FF : 0xFFFFFFFF));
 }
+
+/// Only the editable interval data; appearance and text are independent drafts.
+WorkoutModule copySlideTiming(WorkoutModule target, WorkoutModule source) =>
+    target.copyWith(
+      workSeconds: source.workSeconds,
+      restSeconds: source.restSeconds,
+      sets: source.sets,
+      intervalBlocks: source.intervalBlocks,
+    );
+
+bool sameSlideTiming(WorkoutModule a, WorkoutModule b) =>
+    copySlideTiming(a, b) == a;
