@@ -138,15 +138,6 @@ class TimerEditorScreen extends HookConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('타이머 표시'),
-                    subtitle: const Text('타이머를 숨겨도 운동 진행은 유지됩니다.'),
-                    value: module.showTimer,
-                    onChanged: (value) =>
-                        actions.update(module.copyWith(showTimer: value)),
-                  ),
                   const Divider(height: 40),
                   ReorderableListView.builder(
                     shrinkWrap: true,

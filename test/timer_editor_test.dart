@@ -15,8 +15,13 @@ void main() {
       tester.view.physicalSize = size;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final original = WorkoutModule.empty('timer-test')
-          .copyWith(name: '수업', workSeconds: 90, restSeconds: 45, sets: 5);
+      final original = WorkoutModule.empty('timer-test').copyWith(
+        name: '수업',
+        workSeconds: 90,
+        restSeconds: 45,
+        sets: 5,
+        showTimer: false,
+      );
       var saves = 0;
       await tester.pumpWidget(
         ProviderScope(
@@ -87,10 +92,7 @@ void main() {
       await tester.tap(find.byTooltip('다시 실행'));
       await tester.pumpAndSettle();
       expect(container.read(provider).module.workSeconds, 130);
-      final visibility = find.widgetWithText(SwitchListTile, '타이머 표시');
-      await tester.ensureVisible(visibility);
-      await tester.tap(visibility);
-      await tester.pumpAndSettle();
+      expect(find.widgetWithText(SwitchListTile, '타이머 표시'), findsNothing);
       expect(container.read(provider).module.showTimer, isFalse);
       await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
       await tester.pumpAndSettle();

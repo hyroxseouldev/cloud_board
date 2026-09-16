@@ -226,7 +226,7 @@ void main() {
           tester
               .getSize(find.byKey(const ValueKey('slide-preview-card')))
               .width,
-          closeTo(size.width - 48, 1),
+          closeTo(size.width, 1),
         );
         expect(find.byTooltip('전체 화면 · 시험 재생'), findsOneWidget);
         expect(find.text('시험 재생'), findsNothing);
@@ -238,11 +238,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(WorkoutSlidePreview), findsOneWidget);
         expect(
-          find.widgetWithText(FilledButton, '저장').hitTestable(),
+          find.byKey(const ValueKey('slide-save-button')).hitTestable(),
           findsOneWidget,
         );
-        await scrollSettingsTo(tester, find.text('화면'));
-        await tester.tap(find.text('화면'));
+        await tester.tap(find.text('배경'));
         await tester.pumpAndSettle();
         final title = find.widgetWithText(SwitchListTile, '화면 제목 표시');
         final scroll = find
@@ -320,10 +319,7 @@ void main() {
       }
 
       await open();
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '슬라이드 제목'),
-        '복구할 제목',
-      );
+      await renameSlide(tester, '복구할 제목');
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
       expect(find.text('저장 필요 · 이 기기에 임시저장됨'), findsOneWidget);
@@ -335,22 +331,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, '슬라이드 제목'),
-            )
-            .controller!
-            .text,
+            .widget<Text>(find.byKey(const ValueKey('slide-title-text')))
+            .data,
         '복구할 제목',
       );
       await tester.tap(find.byTooltip('실행 취소'));
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, '슬라이드 제목'),
-            )
-            .controller!
-            .text,
+            .widget<Text>(find.byKey(const ValueKey('slide-title-text')))
+            .data,
         original.name,
       );
       await tester.pumpWidget(const SizedBox());
@@ -380,10 +370,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await scrollSettingsTo(tester, find.text('화면'));
-      await tester.tap(find.text('화면'));
+      await tester.tap(find.text('배경'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('스타일 저장'));
+      await scrollSettingsTo(tester, find.byTooltip('스타일 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('스타일 메뉴'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('스타일 저장'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -393,7 +385,9 @@ void main() {
       await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, '스타일 저장'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('스타일 불러오기'));
+      await tester.ensureVisible(find.byTooltip('스타일 메뉴'));
+      await tester.tap(find.byTooltip('스타일 메뉴'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('스타일 불러오기'));
       await tester.pumpAndSettle();
       expect(find.text('테스트 스타일'), findsOneWidget);
@@ -492,5 +486,13 @@ Future<void> scrollSettingsToTop(WidgetTester tester) async {
       .widget<ListView>(find.byKey(const ValueKey('slide-editor-settings')))
       .controller!
       .jumpTo(0);
+  await tester.pumpAndSettle();
+}
+
+Future<void> renameSlide(WidgetTester tester, String value) async {
+  await tester.tap(find.byKey(const ValueKey('slide-title-button')));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.widgetWithText(TextFormField, '슬라이드 제목'), value);
+  await tester.tap(find.widgetWithText(FilledButton, '변경'));
   await tester.pumpAndSettle();
 }

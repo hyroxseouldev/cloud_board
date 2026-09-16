@@ -17,6 +17,57 @@ abstract final class AppDialogTheme {
     vertical: 24,
   );
 
+  static const twoActionShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(AppStyle.controlRadius)),
+  );
+  static const twoActionTitle = TextStyle(
+    fontFamily: 'Pretendard',
+    fontSize: 18,
+    height: 1.4,
+    fontWeight: FontWeight.w600,
+    color: ink,
+  );
+
+  /// Both actions share the reference's quiet filled treatment. This theme is
+  /// limited to the footer so form controls retain their normal appearance.
+  static ThemeData twoActionFooter(ThemeData base) {
+    final style = ButtonStyle(
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (states) =>
+            states.contains(WidgetState.disabled) ? line : AppColors.selected,
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? muted.withValues(alpha: .6)
+            : accent,
+      ),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      ),
+      textStyle: const WidgetStatePropertyAll(
+        TextStyle(
+          fontFamily: 'Pretendard',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.3,
+        ),
+      ),
+      shape: const WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+      ),
+      side: const WidgetStatePropertyAll(BorderSide.none),
+      elevation: const WidgetStatePropertyAll(0),
+    );
+    return base.copyWith(
+      textButtonTheme: TextButtonThemeData(style: style),
+      filledButtonTheme: FilledButtonThemeData(style: style),
+      outlinedButtonTheme: OutlinedButtonThemeData(style: style),
+    );
+  }
+
   static const data = DialogThemeData(
     backgroundColor: surface,
     surfaceTintColor: Colors.transparent,
