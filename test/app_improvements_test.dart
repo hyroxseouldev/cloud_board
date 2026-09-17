@@ -29,6 +29,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/standby_rotation.dart';
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
@@ -48,6 +49,54 @@ const pixel =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 
 void main() {
+  testWidgets(
+    'class start failure is visible and the preparation flow can retry',
+    (tester) async {
+      tester.view.physicalSize = const Size(834, 1194);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final commands = _FailedStart();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authStateProvider.overrideWith(
+              (ref) => Stream.value(
+                const AuthUser(
+                  id: 'u',
+                  email: 'coach@example.com',
+                  displayName: 'Coach',
+                  photoUrl: null,
+                ),
+              ),
+            ),
+            workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            displayDevicesProvider.overrideWith(
+              (ref) => Stream.value(const []),
+            ),
+            deviceModeControllerProvider.overrideWith(_TestDeviceMode.new),
+            playbackActionControllerProvider.overrideWith(() => commands),
+          ],
+          child: MaterialApp(
+            theme: XonTheme.light,
+            home: const WorkoutListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('재생'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('수업 시작'));
+      await tester.pumpAndSettle();
+      expect(commands.starts, 1);
+      expect(find.textContaining('수업 제어에 실패했습니다'), findsOneWidget);
+      expect(find.textContaining('연결을 확인해 주세요'), findsOneWidget);
+      expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
+      await tester.tap(find.byTooltip('재생'));
+      await tester.pumpAndSettle();
+      expect(find.text('수업 준비'), findsOneWidget);
+    },
+  );
   testWidgets('system back asks before discarding the slide draft', (
     tester,
   ) async {
@@ -1412,6 +1461,23 @@ class _TestWorkouts extends WorkoutController {
   @override
   Stream<List<Workout>> build() async* {
     yield [workout];
+  }
+}
+
+class _FailedStart extends PlaybackActionController {
+  int starts = 0;
+  @override
+  Future<String?> start({
+    required Workout workout,
+    required int stepIndex,
+    required int durationMs,
+    required List<String> targetDeviceIds,
+  }) async {
+    starts++;
+    state = const AsyncLoading();
+    await Future<void>.delayed(Duration.zero);
+    state = AsyncError(StateError('연결을 확인해 주세요.'), StackTrace.current);
+    return null;
   }
 }
 

@@ -85,6 +85,13 @@ class _WorkoutListBody extends HookConsumerWidget {
     final authAction = ref.watch(authControllerProvider);
     final workoutAction = ref.watch(workoutActionControllerProvider);
     final playbackAction = ref.watch(playbackActionControllerProvider);
+    ref.listen(playbackActionControllerProvider, (previous, next) {
+      if (next.hasError && previous?.error != next.error) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('수업 제어에 실패했습니다: ${next.error}')));
+      }
+    });
     final isBusy =
         authAction.isLoading ||
         workoutAction.isLoading ||
