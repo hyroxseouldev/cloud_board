@@ -37,12 +37,11 @@ internal object ClassCommand {
         when (action) {
             "pause" -> { require(status == "playing"); status = "paused" }
             "play" -> { require(status == "paused"); status = "playing" }
-            "next" -> { index++; status = "playing"; remaining = if (index < steps.length()) steps.getJSONObject(index).getLong("durationMs") else 0 }
+            "next" -> { index++; remaining = if (index < steps.length()) steps.getJSONObject(index).getLong("durationMs") else 0 }
             "previous" -> {
                 val duration = steps.getJSONObject(index).getLong("durationMs")
                 if (remaining >= duration - 3000) index = max(0, index - 1)
                 remaining = steps.getJSONObject(index).getLong("durationMs")
-                status = "playing"
             }
             "stop" -> { status = "completed"; remaining = 0 }
             else -> error("알 수 없는 명령입니다")

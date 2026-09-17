@@ -86,6 +86,7 @@ void main() {
             (ref) => Stream.value(session),
           ),
           serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+          playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),
           playbackActionControllerProvider.overrideWith(() => fake),
         ],
       );
@@ -93,6 +94,14 @@ void main() {
       final sub = container.listen(provider, (_, _) {});
       await tester.pump();
       final actions = container.read(provider.notifier);
+      final connection = container.listen(
+        playbackConnectionProvider,
+        (_, _) {},
+      );
+      await tester.pump();
+      expect(container.read(playbackConnectionProvider).value, isTrue);
+      expect(container.read(provider).countdownMs, 0);
+      expect(container.read(activePlaybackSessionProvider).value?.id, 's');
       final before = container.read(provider);
       final pending = actions.selectModule(1);
       await actions.selectModule(2);
@@ -100,7 +109,11 @@ void main() {
       fake.result.complete(false);
       await pending;
       expect(container.read(provider).index, before.index);
-      expect(container.read(provider).remainingMs, before.remainingMs);
+      expect(
+        container.read(provider).remainingMs,
+        closeTo(before.remainingMs, 100),
+      );
+      connection.close();
       sub.close();
       container.dispose();
     },

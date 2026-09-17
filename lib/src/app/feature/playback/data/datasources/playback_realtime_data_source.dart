@@ -1,4 +1,11 @@
+import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_command.dart';
+
+import 'dart:async';
+import 'dart:math';
+
 import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
 import 'package:collection/collection.dart';
 
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
@@ -57,7 +64,14 @@ class PlaybackRealtimeDataSource {
     final snapshot = await _active.get();
     final value = snapshot.value;
     if (value is! Map) return false;
-    return value['status'] != 'completed';
+    final session = _decode(value).toEntity();
+    final offset = await _serverOffset();
+    return playbackPosition(
+          session,
+          playbackDurations(session.workout),
+          DateTime.now().millisecondsSinceEpoch + offset,
+        ).index <
+        playbackDurations(session.workout).length;
   }
 
   Future<PlaybackSessionModel> start(
@@ -65,6 +79,15 @@ class PlaybackRealtimeDataSource {
     bool scheduled = false,
     int? scheduledAtMs,
   }) async {
+    if ((await _database.ref('.info/connected').get()).value != true) {
+      throw StateError('컨트롤러의 서버 연결을 확인해 주세요.');
+    }
+    final devices = (await _user.child('devices').get()).value;
+    for (final id in model.targetDeviceIds) {
+      if (devices is! Map || !isRegisteredDisplay(devices[id])) {
+        throw StateError('연결이 완료된 디스플레이만 재생할 수 있습니다.');
+      }
+    }
     final json = model.toJson()..['anchorServerMs'] = ServerValue.timestamp;
     final event = _user.child('operations/events').push();
     final updates = <String, Object?>{
@@ -90,66 +113,107 @@ class PlaybackRealtimeDataSource {
   }
 
   Future<PlaybackSessionModel> update({
-    required String status,
+    required String? status,
     required String deviceId,
     int? stepIndex,
     int? remainingMs,
     int startDelayMs = 0,
     bool requireBriefing = false,
-    String? expectedSessionId,
+    required String expectedSessionId,
+    required int expectedRevision,
   }) async {
+    if ((await _database.ref('.info/connected').get()).value != true) {
+      throw StateError('컨트롤러의 서버 연결을 확인해 주세요.');
+    }
+    final offset = await _serverOffset();
+    final expiresAt = DateTime.now().millisecondsSinceEpoch + offset + 6000;
+    final commandId =
+        '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
     var workoutId = '';
     var workoutName = '';
     var shouldRecordCompletion = false;
     var shouldRecordStart = false;
-    final result = await _active.runTransaction((current) {
-      if (current == null) return Transaction.abort();
-      final json = Map<String, dynamic>.from(current as Map);
-      if (json['status'] == 'completed' ||
-          (expectedSessionId != null && json['id'] != expectedSessionId)) {
-        return Transaction.abort();
-      }
-      if (requireBriefing && json['briefing'] != true) {
-        return Transaction.abort();
-      }
-      shouldRecordStart = requireBriefing;
-      shouldRecordCompletion =
-          status == 'completed' &&
-          json['status'] != 'completed' &&
-          json['briefing'] != true;
-      final workout = json['workoutSnapshot'];
-      if (workout is Map) {
-        workoutId = workout['id']?.toString() ?? '';
-        workoutName = workout['name']?.toString() ?? '';
-      }
-      json.putIfAbsent('zoneId', () => 'main');
-      json['status'] = status;
-      json['briefing'] = false;
-      json['startDelayMs'] = startDelayMs;
-      json['updatedByDeviceId'] = deviceId;
-      json['revision'] = ((json['revision'] as num?)?.round() ?? 0) + 1;
-      json['anchorServerMs'] = ServerValue.timestamp;
-      if (stepIndex != null) json['stepIndex'] = stepIndex;
-      if (remainingMs != null) json['remainingMs'] = remainingMs;
-      return Transaction.success(json);
-    });
+    final result = await _active
+        .runTransaction((current) {
+          if (current == null) return Transaction.abort();
+          final json = Map<String, dynamic>.from(current as Map);
+          late final ({String status, int stepIndex, int remainingMs}) command;
+          try {
+            command = resolvePlaybackCommand(
+              session: _decode(current).toEntity(),
+              expectedSessionId: expectedSessionId,
+              expectedRevision: expectedRevision,
+              serverNowMs: DateTime.now().millisecondsSinceEpoch + offset,
+              expiresAtMs: expiresAt,
+              status: status,
+              stepIndex: stepIndex,
+              remainingMs: remainingMs,
+              requireBriefing: requireBriefing,
+            );
+          } on StateError {
+            return Transaction.abort();
+          }
+          shouldRecordStart = requireBriefing;
+          shouldRecordCompletion =
+              status == 'completed' &&
+              json['status'] != 'completed' &&
+              json['briefing'] != true;
+          final workout = json['workoutSnapshot'];
+          if (workout is Map) {
+            workoutId = workout['id']?.toString() ?? '';
+            workoutName = workout['name']?.toString() ?? '';
+          }
+          json.putIfAbsent('zoneId', () => 'main');
+          json['status'] = command.status;
+          json['stepIndex'] = command.stepIndex;
+          json['remainingMs'] = command.remainingMs;
+          // Reuse the already deployed deadline rule used by native notifications.
+          json['notificationCommand'] = {
+            'id': commandId,
+            'expiresAtMs': expiresAt,
+          };
+          json['briefing'] = false;
+          json['startDelayMs'] = startDelayMs;
+          json['updatedByDeviceId'] = deviceId;
+          json['revision'] = ((json['revision'] as num?)?.round() ?? 0) + 1;
+          json['anchorServerMs'] = ServerValue.timestamp;
+          return Transaction.success(json);
+        }, applyLocally: false)
+        .timeout(
+          const Duration(seconds: 6),
+          onTimeout: () {
+            // A queued SDK transaction cannot commit after the server deadline.
+            throw TimeoutException('명령 결과를 확인하지 못했습니다. 연결 후 수업 상태를 확인해 주세요.');
+          },
+        );
     if (!result.committed || result.snapshot.value == null) {
-      throw StateError('재생 세션을 업데이트하지 못했습니다.');
+      throw StateError('수업 상태가 변경되었거나 명령이 만료됐습니다. 현재 상태를 확인하고 다시 시도해 주세요.');
     }
     if (shouldRecordCompletion || shouldRecordStart) {
       final event = _user.child('operations/events').push();
-      await event.set({
-        'id': event.key,
-        'type': shouldRecordStart ? 'playback_started' : 'playback_completed',
-        'occurredAtMs': ServerValue.timestamp,
-        'deviceId': deviceId,
-        'workoutId': workoutId,
-        'workoutName': workoutName,
-        'scheduled': false,
-      });
+      unawaited(
+        event
+            .set({
+              'id': event.key,
+              'type': shouldRecordStart
+                  ? 'playback_started'
+                  : 'playback_completed',
+              'occurredAtMs': ServerValue.timestamp,
+              'deviceId': deviceId,
+              'workoutId': workoutId,
+              'workoutName': workoutName,
+              'scheduled': false,
+            })
+            .catchError((Object _) {}),
+      );
     }
     return _decode(result.snapshot.value);
   }
+
+  Future<int> _serverOffset() async =>
+      ((await _database.ref('.info/serverTimeOffset').get()).value as num?)
+          ?.round() ??
+      0;
 
   String _requireOwnerId() {
     final ownerId = _ownerId;

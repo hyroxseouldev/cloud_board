@@ -91,25 +91,28 @@ class DevicePairingRealtimeDataSource {
     return _ownerRef.child('devices').onValue.map((event) {
       final value = event.snapshot.value;
       if (value is! Map) return const <DisplayDevice>[];
-      final devices = value.entries.map((entry) {
-        final item = Map<String, dynamic>.from(entry.value as Map);
-        return DisplayDevice(
-          id: (item['id'] as String?) ?? entry.key.toString(),
-          name: (item['name'] as String?) ?? '연결 대기 디스플레이',
-          zoneId: (item['zoneId'] as String?) ?? 'main',
-          zoneName: (item['zoneName'] as String?) ?? '메인 구역',
-          online: item['online'] == true,
-          lastSeenAtMs: (item['lastSeenAtMs'] as num?)?.round() ?? 0,
-          currentSessionId: item['currentSessionId'] as String?,
-          acknowledgedRevision:
-              (item['acknowledgedRevision'] as num?)?.round() ?? 0,
-          paired: item['paired'] == true,
-          displayState: (item['displayState'] as String?) ?? 'auto',
-          preferences: decodeDisplayPreferences(item['preferences']),
-          lastCommandAtMs: (item['lastCommandAtMs'] as num?)?.round() ?? 0,
-          onlineSinceMs: (item['onlineSinceMs'] as num?)?.round() ?? 0,
-        );
-      }).toList()..sort((a, b) => a.name.compareTo(b.name));
+      final devices =
+          value.entries.where((entry) => isRegisteredDisplay(entry.value)).map((
+            entry,
+          ) {
+            final item = Map<String, dynamic>.from(entry.value as Map);
+            return DisplayDevice(
+              id: (item['id'] as String?) ?? entry.key.toString(),
+              name: (item['name'] as String?) ?? '연결 대기 디스플레이',
+              zoneId: (item['zoneId'] as String?) ?? 'main',
+              zoneName: (item['zoneName'] as String?) ?? '메인 구역',
+              online: item['online'] == true,
+              lastSeenAtMs: (item['lastSeenAtMs'] as num?)?.round() ?? 0,
+              currentSessionId: item['currentSessionId'] as String?,
+              acknowledgedRevision:
+                  (item['acknowledgedRevision'] as num?)?.round() ?? 0,
+              paired: isRegisteredDisplay(item),
+              displayState: (item['displayState'] as String?) ?? 'auto',
+              preferences: decodeDisplayPreferences(item['preferences']),
+              lastCommandAtMs: (item['lastCommandAtMs'] as num?)?.round() ?? 0,
+              onlineSinceMs: (item['onlineSinceMs'] as num?)?.round() ?? 0,
+            );
+          }).toList()..sort((a, b) => a.name.compareTo(b.name));
       return devices;
     });
   }
@@ -461,4 +464,12 @@ DisplayPreferences decodeDisplayPreferences(Object? raw) {
     offsetY: number('offsetY', 0, -.1, .1),
     safeInset: number('safeInset', 0, 0, .15),
   );
+}
+
+/// A claimed timestamp is migration evidence only when no explicit paired flag
+/// exists. Pending code issuance / online presence never constitutes pairing.
+bool isRegisteredDisplay(Object? value) {
+  if (value is! Map) return false;
+  if (value.containsKey('paired')) return value['paired'] == true;
+  return value['pairedAtMs'] is num && (value['pairedAtMs'] as num) > 0;
 }

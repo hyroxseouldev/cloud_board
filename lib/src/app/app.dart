@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/services/ios_class_controls.dart';
 import 'package:cloud_board/src/app/core/widgets/keyboard_dismiss_region.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
@@ -37,6 +38,11 @@ class XonBoardApp extends ConsumerWidget {
         );
     }
 
+    ref.listen(iosClassControlsProvider, (previous, next) {
+      if (next.hasError) {
+        debugPrint('iOS class controls unavailable: ${next.error}');
+      }
+    });
     ref.listen(androidClassNotificationsProvider, (previous, next) {
       if (next.value == false && previous?.value != false) {
         _scaffoldMessengerKey.currentState?.showSnackBar(

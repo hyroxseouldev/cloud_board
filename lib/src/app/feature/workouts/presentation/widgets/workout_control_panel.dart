@@ -23,6 +23,7 @@ class WorkoutControlPanel extends HookWidget {
     required this.previewBuilder,
     required this.timeline,
     this.message,
+    this.onMinimize,
     this.locked = false,
     this.onLockChanged,
   });
@@ -35,6 +36,7 @@ class WorkoutControlPanel extends HookWidget {
   final Widget Function(BuildContext, int) previewBuilder;
   final Widget timeline;
   final String? message;
+  final VoidCallback? onMinimize;
   final bool locked;
   final ValueChanged<bool>? onLockChanged;
 
@@ -134,20 +136,22 @@ class WorkoutControlPanel extends HookWidget {
                         ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(24, tall ? 30 : 12, 24, 0),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: disabled ? null : onExit,
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.ink,
-                              textStyle: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(
-                                    fontSize: compact ? 16 : 22,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                        child: Row(
+                          children: [
+                            if (onMinimize != null)
+                              IconButton(
+                                tooltip: '최소화',
+                                onPressed: disabled ? null : onMinimize,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                ),
+                              ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: disabled ? null : onExit,
+                              child: const Text('종료하기'),
                             ),
-                            child: const Text('종료하기'),
-                          ),
+                          ],
                         ),
                       ),
                       SizedBox(height: tall ? 64 : 24),
@@ -308,76 +312,132 @@ class WorkoutControlPanel extends HookWidget {
 }
 
 /// Width represents each slide's duration, including all work/rest intervals.
-class WorkoutControlTimeline extends StatelessWidget {
+class WorkoutControlTimeline extends HookWidget {
   const WorkoutControlTimeline({
     super.key,
     required this.durations,
     required this.currentModule,
     required this.elapsedMs,
+    this.onSelectModule,
   });
-
   final List<int> durations;
   final int currentModule, elapsedMs;
+  final Future<void> Function(int)? onSelectModule;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: '수업 진행',
-    value: '슬라이드 ${currentModule + 1} / ${durations.length}',
-    child: SizedBox(
-      height: 36,
-      child: Row(
-        children: List.generate(
-          durations.length,
-          (index) => Expanded(
-            // Keep very short slides visible beside long classes.
-            flex: math.max(
-              math.max(
-                1,
-                durations.fold<int>(0, (sum, item) => sum + item) ~/ 20,
-              ),
-              durations[index],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final progress = index < currentModule
-                      ? 1.0
-                      : index > currentModule
-                      ? 0.0
-                      : (elapsedMs / math.max(1, durations[index] * 1000))
-                            .clamp(0.0, 1.0);
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.centerLeft,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 12,
-                          color: AppColors.accent,
-                          backgroundColor: AppColors.selected,
-                        ),
+  Widget build(BuildContext context) {
+    final candidate = useState<int?>(null);
+    final pending = useState(false);
+    final enabled =
+        onSelectModule != null && !pending.value && durations.isNotEmpty;
+    final minFlex = math.max(1, durations.fold<int>(0, (a, b) => a + b) ~/ 20);
+    final flexes = durations.map((d) => math.max(minFlex, d)).toList();
+    final total = flexes.fold<int>(0, (a, b) => a + b);
+    Future<void> select(int index) async {
+      candidate.value = null;
+      if (!enabled) return;
+      pending.value = true;
+      try {
+        await onSelectModule!(index);
+      } finally {
+        if (context.mounted) pending.value = false;
+      }
+    }
+
+    return LayoutBuilder(
+      builder: (context, bounds) {
+        int hit(double x) {
+          final position =
+              (x / math.max(1, bounds.maxWidth)).clamp(0.0, 1.0) * total;
+          var end = 0;
+          for (var i = 0; i < flexes.length; i++) {
+            end += flexes[i];
+            if (position < end) return i;
+          }
+          return math.max(0, flexes.length - 1);
+        }
+
+        return GestureDetector(
+          key: const ValueKey('class-timeline'),
+          behavior: HitTestBehavior.opaque,
+          onTapUp: enabled
+              ? (d) => unawaited(select(hit(d.localPosition.dx)))
+              : null,
+          onHorizontalDragStart: enabled
+              ? (d) => candidate.value = hit(d.localPosition.dx)
+              : null,
+          onHorizontalDragUpdate: enabled
+              ? (d) => candidate.value = hit(d.localPosition.dx)
+              : null,
+          onHorizontalDragEnd: enabled
+              ? (_) {
+                  final index = candidate.value;
+                  if (index != null) unawaited(select(index));
+                }
+              : null,
+          onHorizontalDragCancel: () => candidate.value = null,
+          child: SizedBox(
+            height: 48,
+            child: Row(
+              children: List.generate(
+                durations.length,
+                (index) => Expanded(
+                  flex: flexes[index],
+                  child: Semantics(
+                    button: enabled,
+                    selected: index == (candidate.value ?? currentModule),
+                    label: '슬라이드 ${index + 1} 시작으로 이동',
+                    onTap: enabled ? () => unawaited(select(index)) : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final active = candidate.value ?? currentModule;
+                          final progress = index < active
+                              ? 1.0
+                              : index > active || candidate.value != null
+                              ? 0.0
+                              : (elapsedMs /
+                                        math.max(1, durations[index] * 1000))
+                                    .clamp(0.0, 1.0);
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.centerLeft,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 12,
+                                  color: AppColors.accent,
+                                  backgroundColor: AppColors.selected,
+                                ),
+                              ),
+                              if (index == active)
+                                Positioned(
+                                  left:
+                                      progress *
+                                      math.max(0, constraints.maxWidth - 24),
+                                  child: Icon(
+                                    Icons.circle,
+                                    size: 24,
+                                    color: candidate.value == null
+                                        ? AppColors.accent
+                                        : AppColors.ink,
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
-                      if (index == currentModule)
-                        Positioned(
-                          left:
-                              progress * math.max(0, constraints.maxWidth - 24),
-                          child: const Icon(
-                            Icons.circle,
-                            size: 24,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                    ],
-                  );
-                },
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
-    ),
-  );
+        );
+      },
+    );
+  }
 }
