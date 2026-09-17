@@ -17,7 +17,7 @@ import 'package:cloud_board/src/app/feature/device/presentation/controllers/devi
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
 class StoreOperationsScreen extends ConsumerWidget {
@@ -329,7 +329,7 @@ class _ScheduleTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final schedules = ref.watch(workoutSchedulesProvider);
     final workouts =
-        ref.watch(workoutControllerProvider).value ?? const <Workout>[];
+        ref.watch(workoutControllerProvider).value ?? const <WorkoutSummary>[];
     final devices =
         ref.watch(displayDevicesProvider).value ?? const <DisplayDevice>[];
     return Scaffold(
@@ -408,7 +408,7 @@ class _ScheduleTab extends ConsumerWidget {
 class _ScheduleDialog extends HookConsumerWidget {
   const _ScheduleDialog({required this.workouts, required this.devices});
 
-  final List<Workout> workouts;
+  final List<WorkoutSummary> workouts;
   final List<DisplayDevice> devices;
 
   @override

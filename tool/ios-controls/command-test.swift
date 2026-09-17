@@ -25,6 +25,13 @@ import Foundation
     let resumed = try ClassControlCommand.apply(frozen, config:config, action:"resume", now:900000)
     precondition(resumed["remainingMs"] as? Int64 == 10000)
     precondition(resumed["status"] as? String == "playing")
+    var split = state
+    split["schemaVersion"] = 2; split["snapshotId"] = "s"
+    split["workoutId"] = "w"; split["workoutName"] = "Frozen class"
+    let splitPaused = try ClassControlCommand.apply(split, config:config, action:"pause", now:2000)
+    precondition(splitPaused["snapshotId"] as? String == "s")
+    precondition(splitPaused["workoutSnapshot"] == nil)
+    precondition(splitPaused["status"] as? String == "paused")
     print("PASS: iOS elapsed position, paused slide navigation, resume, replaced/ended/wrong-owner rejection")
   }
 }

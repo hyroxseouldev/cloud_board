@@ -61,14 +61,13 @@ class SlideEditorScreen extends ConsumerWidget {
         workoutId: workoutId,
       );
     }
-    final workouts = ref.watch(workoutControllerProvider);
+    final workouts = ref.watch(workoutDetailProvider(workoutId));
     return workouts.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) =>
           Scaffold(body: Center(child: Text('운동을 불러오지 못했습니다: $e'))),
-      data: (items) {
-        final workout = items.where((w) => w.id == workoutId).firstOrNull;
+      data: (workout) {
         final module = workout?.modules
             .where((m) => m.id == moduleId)
             .firstOrNull;
@@ -84,11 +83,9 @@ class SlideEditorScreen extends ConsumerWidget {
             brandL: workout.brandL,
             brandR: workout.brandR,
             onSaveTimer: (timing) async {
-              final latest = ref
-                  .read(workoutControllerProvider)
-                  .value
-                  ?.where((w) => w.id == workoutId)
-                  .firstOrNull;
+              final latest = await ref.read(
+                workoutDetailProvider(workoutId).future,
+              );
               if (latest == null ||
                   !latest.modules.any((m) => m.id == moduleId)) {
                 return false;
@@ -109,13 +106,10 @@ class SlideEditorScreen extends ConsumerWidget {
                   null;
             },
             onSave: (updated) async {
-              final latest =
-                  ref
-                      .read(workoutControllerProvider)
-                      .value
-                      ?.where((w) => w.id == workoutId)
-                      .firstOrNull ??
-                  workout;
+              final latest = await ref.read(
+                workoutDetailProvider(workoutId).future,
+              );
+              if (latest == null) return false;
               return await ref
                       .read(workoutActionControllerProvider.notifier)
                       .save(

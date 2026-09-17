@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
@@ -340,6 +341,11 @@ class _CatalogRepository implements WorkoutRepository {
   Completer<void>? gate;
   bool fail = false;
   int loads = 0;
+  @override
+  Stream<List<WorkoutSummary>> watchSummaries() => watch().map((items) => items.map(summarizeWorkout).toList());
+  @override
+  Future<Workout?> loadOne(String id) async => (server ?? cached).where((w) => w.id == id).firstOrNull;
+
 
   @override
   Stream<List<Workout>> watch() async* {

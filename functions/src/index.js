@@ -1,3 +1,6 @@
+import {prunePlaybackSnapshots} from './playback-snapshots.js';
+import {onDocumentWritten} from 'firebase-functions/v2/firestore';
+import {syncWorkoutSummary, backfillCatalog} from './workout-catalog.js';
 import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getDatabase} from 'firebase-admin/database';
@@ -112,3 +115,36 @@ export const retryAccountDeletions=onSchedule({region,schedule:'every 15 minutes
     }
   }
 });
+
+// Compatibility bridge for old installed apps that only write workout details.
+// New apps batch-write both documents; matching projections are a no-op here.
+export const syncWorkoutCatalog = onDocumentWritten(
+  {document: 'users/{uid}/workouts/{workoutId}', region, retry: true, maxInstances: 3},
+  async event => {
+    const {uid, workoutId} = event.params;
+    await syncWorkoutSummary(db, uid, workoutId);
+    if (!(await db.doc(`users/${uid}/catalog/schema`).get()).exists) {
+      await backfillCatalog(db, uid);
+    }
+  },
+);
+
+// Bound immutable session storage. The active snapshot is always retained;
+// recently ended snapshots allow slow/reconnecting clients to finish loading.
+export const cleanupPlaybackSnapshots = onSchedule(
+  {region, schedule: 'every 24 hours', timeoutSeconds: 540, maxInstances: 1},
+  async () => {
+    const cutoff = Date.now() - 7 * 86400000;
+    let cursor;
+    do {
+      let query = db.collection('users').orderBy('__name__').limit(100);
+      if (cursor) query = query.startAfter(cursor);
+      const page = await query.get();
+      for (const user of page.docs) {
+        await prunePlaybackSnapshots(userRef(user.id), cutoff);
+      }
+      cursor = page.docs.at(-1);
+      if (page.size < 100) break;
+    } while (cursor);
+  },
+);

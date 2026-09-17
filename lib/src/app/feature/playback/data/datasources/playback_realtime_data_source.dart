@@ -15,12 +15,46 @@ class PlaybackRealtimeDataSource {
 
   final FirebaseDatabase _database;
   final String? _ownerId;
+  final _snapshots = <String, Map<String, dynamic>>{};
+  final _snapshotLoads = <String, Future<void>>{};
+
+  void _rememberSnapshot(String id, Map<String, dynamic> snapshot) {
+    _snapshots[id] = snapshot;
+    while (_snapshots.length > 3) {
+      _snapshots.remove(_snapshots.keys.first);
+    }
+  }
+
+  Future<void> _ensureSnapshot(Object? value) async {
+    if (value is! Map || value['schemaVersion'] != 2) return;
+    final id = value['id'];
+    if (id is! String || value['snapshotId'] != id) {
+      throw const FormatException('수업 자료 버전이 일치하지 않습니다.');
+    }
+    if (_snapshots.containsKey(id)) return;
+    await (_snapshotLoads[id] ??= () async {
+      try {
+        final snapshot = await _user.child('playbackSnapshots/$id').get();
+        _snapshots[id] = _stringMap(snapshot.value);
+        // Keep only a small number of immutable snapshots across sessions.
+        while (_snapshots.length > 3) {
+          _snapshots.remove(_snapshots.keys.first);
+        }
+      } finally {
+        _snapshotLoads.remove(id);
+      }
+    }());
+  }
+
+  Map? _lastWireState;
   Object? _rawWorkout;
   Map<String, dynamic>? _workout;
 
   PlaybackSessionModel _decode(Object? value) {
     if (value is! Map) throw const FormatException('재생 세션 형식이 올바르지 않습니다.');
-    final rawWorkout = value['workoutSnapshot'];
+    final rawWorkout = value['schemaVersion'] == 2
+        ? _snapshots[value['snapshotId']]
+        : value['workoutSnapshot'];
     if (_workout == null ||
         !const DeepCollectionEquality().equals(_rawWorkout, rawWorkout)) {
       _rawWorkout = rawWorkout;
@@ -33,7 +67,9 @@ class PlaybackRealtimeDataSource {
           entry.key.toString(): _normalizeValue(entry.value),
       'workoutSnapshot': _workout,
     };
-    return PlaybackSessionModel.fromJson(json);
+    final model = PlaybackSessionModel.fromJson(json);
+    _lastWireState = value;
+    return model;
   }
 
   DatabaseReference get _active =>
@@ -43,9 +79,10 @@ class PlaybackRealtimeDataSource {
 
   Stream<PlaybackSessionModel?> watchActive() {
     if (_ownerId == null) return Stream.value(null);
-    return _active.onValue.map((event) {
+    return _active.onValue.asyncMap((event) async {
       final value = event.snapshot.value;
       if (value == null) return null;
+      await _ensureSnapshot(value);
       return _decode(value);
     });
   }
@@ -63,7 +100,8 @@ class PlaybackRealtimeDataSource {
   Future<bool> hasRunningSession() async {
     final snapshot = await _active.get();
     final value = snapshot.value;
-    if (value is! Map) return false;
+    if (value is! Map || value['status'] == 'completed') return false;
+    await _ensureSnapshot(value);
     final session = _decode(value).toEntity();
     final offset = await _serverOffset();
     return playbackPosition(
@@ -89,9 +127,28 @@ class PlaybackRealtimeDataSource {
       }
     }
     final json = model.toJson()..['anchorServerMs'] = ServerValue.timestamp;
+    // Older installed TVs continue receiving v1 until every registered display
+    // has advertised support for immutable snapshots. Existing sessions never
+    // change format while running. No capability means v1, not an assumption.
+    final split = supportsSplitPlayback(devices);
+    if (split) {
+      json.remove('workoutSnapshot');
+      json.addAll({
+        'schemaVersion': 2,
+        'snapshotId': model.id,
+        'workoutId': model.workoutSnapshot['id'],
+        'workoutName': model.workoutSnapshot['name'],
+      });
+      _rememberSnapshot(model.id, model.workoutSnapshot);
+    }
     final event = _user.child('operations/events').push();
     final updates = <String, Object?>{
       'activeSession': json,
+      if (split)
+        'playbackSnapshots/${model.id}': {
+          ...model.workoutSnapshot,
+          '_storedAtMs': ServerValue.timestamp,
+        },
       'operations/events/${event.key}': {
         'id': event.key,
         'type': model.briefing ? 'briefing_opened' : 'playback_started',
@@ -109,6 +166,7 @@ class PlaybackRealtimeDataSource {
     }
     await _user.update(updates);
     final snapshot = await _active.get();
+    await _ensureSnapshot(snapshot.value);
     return _decode(snapshot.value);
   }
 
@@ -125,6 +183,20 @@ class PlaybackRealtimeDataSource {
     if (!await watchConnected().first.timeout(const Duration(seconds: 3))) {
       throw StateError('컨트롤러의 서버 연결을 확인해 주세요.');
     }
+    // Fetch only the small state in v2; the immutable workout is loaded once.
+    final cached = _lastWireState;
+    final observed =
+        cached != null &&
+            cached['id'] == expectedSessionId &&
+            cached['revision'] == expectedRevision
+        ? cached
+        : (await _active.get()).value;
+    if (observed is! Map ||
+        observed['id'] != expectedSessionId ||
+        observed['revision'] != expectedRevision) {
+      throw StateError('수업 상태가 변경되었습니다. 현재 상태를 확인해 주세요.');
+    }
+    await _ensureSnapshot(observed);
     final offset = await _serverOffset();
     final expiresAt = DateTime.now().millisecondsSinceEpoch + offset + 6000;
     final commandId =
@@ -135,8 +207,13 @@ class PlaybackRealtimeDataSource {
     var shouldRecordStart = false;
     final result = await _active
         .runTransaction((current) {
-          if (current == null) return Transaction.abort();
-          final json = Map<String, dynamic>.from(current as Map);
+          if (current is! Map ||
+              current['id'] != expectedSessionId ||
+              current['revision'] != expectedRevision ||
+              current['schemaVersion'] != observed['schemaVersion']) {
+            return Transaction.abort();
+          }
+          final json = Map<String, dynamic>.from(current);
           late final ({String status, int stepIndex, int remainingMs}) command;
           try {
             command = resolvePlaybackCommand(
@@ -158,7 +235,9 @@ class PlaybackRealtimeDataSource {
               status == 'completed' &&
               json['status'] != 'completed' &&
               json['briefing'] != true;
-          final workout = json['workoutSnapshot'];
+          final workout = json['schemaVersion'] == 2
+              ? _snapshots[json['snapshotId']]
+              : json['workoutSnapshot'];
           if (workout is Map) {
             workoutId = workout['id']?.toString() ?? '';
             workoutName = workout['name']?.toString() ?? '';
@@ -233,4 +312,16 @@ Object? _normalizeValue(Object? value) {
   if (value is Map) return _stringMap(value);
   if (value is List) return value.map(_normalizeValue).toList();
   return value;
+}
+
+/// Gate the new wire format on explicit device capability, including offline TVs.
+bool supportsSplitPlayback(Object? devices) {
+  if (devices == null) return true;
+  if (devices is! Map) return false;
+  return devices.values
+      .where(isRegisteredDisplay)
+      .every(
+        (value) =>
+            value is Map && (value['playbackProtocol'] as num? ?? 1) >= 2,
+      );
 }

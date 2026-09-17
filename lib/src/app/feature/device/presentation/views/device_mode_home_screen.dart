@@ -29,6 +29,9 @@ class DeviceModeHomeScreen extends HookConsumerWidget {
         !account.isLoading &&
         !account.hasError &&
         account.value != null;
+    // Keep the small schedule stream current while the controller home is
+    // running its local due-time checks; no periodic session get is needed.
+    if (readyForSchedules) ref.watch(workoutSchedulesProvider);
     useEffect(() {
       if (!readyForSchedules) return null;
       var active = true;

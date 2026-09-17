@@ -1,3 +1,4 @@
+import 'support/workout_catalog_fixture.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
@@ -33,6 +34,7 @@ void main() {
               ),
             ),
           ),
+          fixtureWorkoutDetails,
           workoutControllerProvider.overrideWith(_TestWorkouts.new),
         ],
         child: const MaterialApp(
@@ -77,7 +79,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            workoutControllerProvider.overrideWith(_LongWorkouts.new),
+            fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_LongWorkouts.new),
             authStateProvider.overrideWith((ref) => Stream.value(null)),
           ],
           child: const MaterialApp(
@@ -134,16 +137,16 @@ void main() {
   );
 }
 
-class _TestWorkouts extends WorkoutController {
+class _TestWorkouts extends FixtureWorkoutController {
   @override
-  Stream<List<Workout>> build() async* {
+  Stream<List<Workout>> fullBuild() async* {
     yield [_workout];
   }
 }
 
-class _LongWorkouts extends WorkoutController {
+class _LongWorkouts extends FixtureWorkoutController {
   @override
-  Stream<List<Workout>> build() async* {
+  Stream<List<Workout>> fullBuild() async* {
     yield [
       _workout.copyWith(
         modules: List.generate(

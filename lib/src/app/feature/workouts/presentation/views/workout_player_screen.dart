@@ -94,12 +94,18 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
       );
     }
     final matchesSession = sessionId != null && remoteSession?.id == sessionId;
-    final workouts = matchesSession
-        ? const <Workout>[]
-        : ref.watch(workoutControllerProvider).value ?? const <Workout>[];
-    final workout = matchesSession
-        ? remoteSession!.workout
-        : workouts.where((item) => item.id == workoutId).firstOrNull;
+    final detail = matchesSession
+        ? null
+        : ref.watch(workoutDetailProvider(workoutId));
+    if (detail?.isLoading == true) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (detail?.hasError == true) {
+      return Scaffold(
+        body: Center(child: Text('운동을 불러오지 못했습니다: ${detail!.error}')),
+      );
+    }
+    final workout = matchesSession ? remoteSession!.workout : detail?.value;
     if (workout == null) {
       return const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')));
     }
