@@ -137,7 +137,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = playerControllerProvider(
       workout,
-      startModule: startModule,
+      startModule: sessionId == null ? startModule : 0,
       sessionId: sessionId,
       canControl: !displayMode,
     );
@@ -211,6 +211,18 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       },
     );
 
+    Future<void> minimize() async {
+      if (touchLocked.value || displayMode || sessionId == null) return;
+      exitAllowed.value = true;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!context.mounted) return;
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
+    }
+
     Future<void> requestExit() async {
       if (displayMode || touchLocked.value) return;
       final shouldExit = await showDialog<bool>(
@@ -246,7 +258,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     }, [displayMode, isTv]);
 
     useEffect(() {
-      if (displayMode) return null;
+      if (displayMode || sessionId != null) return null;
       final subscription = mediaController.commands.listen((command) {
         switch (command) {
           case WorkoutMediaCommand.play:
@@ -326,7 +338,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     }, [hasCurrentStep]);
     useEffect(
       () {
-        if (displayMode) return null;
+        if (displayMode || sessionId != null) return null;
         if (currentMediaStep == null || isPreparing) {
           unawaited(mediaController.hide());
           return null;
@@ -375,7 +387,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       return PopScope(
         canPop: exitAllowed.value,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) unawaited(requestExit());
+          if (!didPop) {
+            unawaited(
+              sessionId != null && !displayMode ? minimize() : requestExit(),
+            );
+          }
         },
         child: WorkoutBriefingBoard(
           workout: workout,
@@ -397,7 +413,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       return PopScope(
         canPop: exitAllowed.value,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) unawaited(requestExit());
+          if (!didPop) {
+            unawaited(
+              sessionId != null && !displayMode ? minimize() : requestExit(),
+            );
+          }
         },
         child: Scaffold(
           backgroundColor: Colors.black,
@@ -428,7 +448,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       return PopScope(
         canPop: exitAllowed.value,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) unawaited(requestExit());
+          if (!didPop) {
+            unawaited(
+              sessionId != null && !displayMode ? minimize() : requestExit(),
+            );
+          }
         },
         child: CallbackShortcuts(
           bindings: {
@@ -458,11 +482,14 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
               onToggle: () => unawaited(actions.toggle()),
               onNext: () => unawaited(actions.next()),
               onExit: () => unawaited(requestExit()),
+              onMinimize: sessionId == null
+                  ? null
+                  : () => unawaited(minimize()),
               onSelectModule: actions.selectModule,
               message: playbackAction.hasError
                   ? '명령을 전달하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.'
                   : sessionId != null && !isConnected
-                  ? '연결이 끊겼습니다. 디스플레이 상태를 확인해 주세요.'
+                  ? '컨트롤러의 서버 연결이 끊겼습니다. 연결 복구 후 수업 상태를 확인해 주세요.'
                   : null,
               timeline: Consumer(
                 builder: (context, ref, _) {
@@ -483,6 +510,12 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                     durations: durations,
                     currentModule: step.moduleIndex,
                     elapsedMs: elapsed,
+                    onSelectModule:
+                        touchLocked.value ||
+                            playbackAction.isLoading ||
+                            (sessionId != null && !isConnected)
+                        ? null
+                        : actions.selectModule,
                   );
                 },
               ),
@@ -533,7 +566,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     return PopScope(
       canPop: exitAllowed.value,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(requestExit());
+        if (!didPop) {
+          unawaited(
+            sessionId != null && !displayMode ? minimize() : requestExit(),
+          );
+        }
       },
       child: CallbackShortcuts(
         bindings: {

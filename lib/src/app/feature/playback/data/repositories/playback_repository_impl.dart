@@ -133,7 +133,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     required int durationMs,
     required String deviceId,
   }) => _update(
-    status: PlaybackStatus.playing.name,
+    status: null,
     stepIndex: stepIndex,
     remainingMs: durationMs,
     deviceId: deviceId,
@@ -147,38 +147,27 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   );
 
   Future<void> _update({
-    required String status,
+    required String? status,
     required String deviceId,
     int? stepIndex,
     int? remainingMs,
     int startDelayMs = 0,
     bool requireBriefing = false,
   }) async {
-    final expectedSessionId = (await _local.load())?.id;
-    if (expectedSessionId == null) throw StateError('진행 중인 수업이 없습니다.');
-    await _local.update(
+    final expected = await _local.load();
+    if (expected == null) throw StateError('진행 중인 수업이 없습니다.');
+    await _dataSource.update(
       status: status,
       deviceId: deviceId,
       stepIndex: stepIndex,
       remainingMs: remainingMs,
       startDelayMs: startDelayMs,
+      requireBriefing: requireBriefing,
+      expectedSessionId: expected.id,
+      expectedRevision: expected.revision,
     );
-    try {
-      final updated = await _dataSource
-          .update(
-            status: status,
-            deviceId: deviceId,
-            stepIndex: stepIndex,
-            remainingMs: remainingMs,
-            startDelayMs: startDelayMs,
-            requireBriefing: requireBriefing,
-            expectedSessionId: expectedSessionId,
-          )
-          .timeout(const Duration(seconds: 2));
-      await _local.save(updated);
-    } on TimeoutException {
-      // Firebase keeps the write pending; local playback must continue offline.
-    }
+    // The confirmed stream owns checkpoints; a late response must not restore
+    // a session that was replaced or ended while this command was in flight.
   }
 }
 

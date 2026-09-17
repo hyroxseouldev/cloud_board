@@ -175,7 +175,6 @@ class SlideAppearanceControls extends StatelessWidget {
     String display,
     ValueChanged<double> change,
   ) {
-    final step = (max - min) / divisions;
     return SizedBox(
       height: 48,
       child: Row(
@@ -183,17 +182,6 @@ class SlideAppearanceControls extends StatelessWidget {
           SizedBox(
             width: 78,
             child: Text(label, style: const TextStyle(fontSize: 13)),
-          ),
-          IconButton(
-            tooltip: '$label 줄이기',
-            style: IconButton.styleFrom(
-              minimumSize: const Size(32, 44),
-              padding: EdgeInsets.zero,
-            ),
-            onPressed: value <= min
-                ? null
-                : () => change((value - step).clamp(min, max)),
-            icon: const Icon(Icons.remove, size: 16),
           ),
           Expanded(
             child: Slider(
@@ -205,17 +193,6 @@ class SlideAppearanceControls extends StatelessWidget {
               label: display,
               onChanged: change,
             ),
-          ),
-          IconButton(
-            tooltip: '$label 늘리기',
-            style: IconButton.styleFrom(
-              minimumSize: const Size(32, 44),
-              padding: EdgeInsets.zero,
-            ),
-            onPressed: value >= max
-                ? null
-                : () => change((value + step).clamp(min, max)),
-            icon: const Icon(Icons.add, size: 16),
           ),
           SizedBox(
             width: 42,

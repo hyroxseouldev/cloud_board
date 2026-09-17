@@ -65,7 +65,10 @@ void main() {
           'u',
         ).begin(deviceId: 'controller');
         expect(remote.delay, seconds * 1000);
-        expect(local.delay, seconds * 1000);
+        expect(
+          local.delay,
+          isNull,
+        ); // No optimistic cache write before acknowledgement.
         expect(remote.sessionId, 'session');
         expect(remote.briefingRequired, isTrue);
       },
@@ -149,13 +152,14 @@ class _Remote implements PlaybackRealtimeDataSource {
   bool? briefingRequired;
   @override
   Future<PlaybackSessionModel> update({
-    required String status,
+    required String? status,
     required String deviceId,
     int? stepIndex,
     int? remainingMs,
     int startDelayMs = 0,
     bool requireBriefing = false,
-    String? expectedSessionId,
+    required String expectedSessionId,
+    required int expectedRevision,
   }) async {
     delay = startDelayMs;
     sessionId = expectedSessionId;

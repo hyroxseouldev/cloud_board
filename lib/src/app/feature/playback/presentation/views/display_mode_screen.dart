@@ -152,7 +152,9 @@ class DisplayModeScreen extends HookConsumerWidget {
         (!isActive &&
             remoteState == RemoteDisplayState.auto.name &&
             isBlackScreenTime(brand, now.value));
-    final allowPlayback = remoteState == RemoteDisplayState.auto.name;
+    final allowPlayback =
+        currentDevice?.paired == true &&
+        remoteState == RemoteDisplayState.auto.name;
     useEffect(
       () {
         var cancelled = false;
@@ -183,7 +185,7 @@ class DisplayModeScreen extends HookConsumerWidget {
     );
 
     useEffect(() {
-      if (!isActive || deviceId == null) return null;
+      if (!isActive || !allowPlayback || deviceId == null) return null;
       unawaited(
         ref
             .read(devicePairingActionsProvider)
@@ -195,7 +197,7 @@ class DisplayModeScreen extends HookConsumerWidget {
             .catchError((_) {}),
       );
       return null;
-    }, [deviceId, session?.id, session?.revision, isActive]);
+    }, [deviceId, session?.id, session?.revision, isActive, allowPlayback]);
 
     // The standby clock continues to enforce scheduled black-screen periods,
     // but must not rebuild a playing slide each second.

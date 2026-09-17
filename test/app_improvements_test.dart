@@ -538,9 +538,10 @@ void main() {
       expect(find.byTooltip('기기 모드'), findsNothing);
       await tester.tap(find.byTooltip('설정'));
       await tester.pumpAndSettle();
-      for (final label in ['디스플레이 설정', '매장 운영', '프로필 조회 및 변경', '로그아웃']) {
+      for (final label in ['디스플레이 설정', '매장 운영', '프로필 조회 및 변경']) {
         expect(find.text(label), findsOneWidget);
       }
+      expect(find.text('로그아웃'), findsNothing);
       expect(find.text('기기 모드'), findsNothing);
       await tester.tap(find.text('디스플레이 설정'));
       await tester.pumpAndSettle();

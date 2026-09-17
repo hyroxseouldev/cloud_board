@@ -434,7 +434,7 @@ class _Logo extends StatelessWidget {
   );
 }
 
-enum _SettingsAction { displays, operations, profile, logout }
+enum _SettingsAction { displays, operations, profile }
 
 class _SettingsMenu extends ConsumerWidget {
   const _SettingsMenu({required this.user, required this.isBusy});
@@ -458,8 +458,6 @@ class _SettingsMenu extends ConsumerWidget {
             context.push('/operations');
           case _SettingsAction.profile:
             context.push('/profile');
-          case _SettingsAction.logout:
-            await ref.read(authControllerProvider.notifier).signOut();
         }
       },
       itemBuilder: (_) => [
@@ -501,14 +499,6 @@ class _SettingsMenu extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.manage_accounts_outlined),
               title: Text('프로필 조회 및 변경'),
-            ),
-          ),
-          const PopupMenuItem(
-            value: _SettingsAction.logout,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.logout_rounded),
-              title: Text('로그아웃'),
             ),
           ),
         ],

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -105,23 +107,13 @@ int synchronizedRemainingMs({
   List<PlayerStep> steps,
   int serverNowMs,
 ) {
-  var index = session.stepIndex.clamp(0, steps.length);
-  if (session.status == PlaybackStatus.completed) {
-    return (index: steps.length, remainingMs: 0, countdownMs: 0);
-  }
-  if (session.status != PlaybackStatus.playing || session.briefing) {
-    return (index: index, remainingMs: session.remainingMs, countdownMs: 0);
-  }
-  final elapsed = max<int>(0, serverNowMs - session.anchorServerMs);
-  final countdown = max<int>(0, session.startDelayMs - elapsed);
-  var remaining =
-      session.remainingMs - max<int>(0, elapsed - session.startDelayMs);
-  while (remaining <= 0 && index < steps.length) {
-    index++;
-    if (index < steps.length) remaining += steps[index].duration * 1000;
-  }
-  return (index: index, remainingMs: max(0, remaining), countdownMs: countdown);
+  return playbackPosition(session, [
+    for (final step in steps) step.duration * 1000,
+  ], serverNowMs);
 }
+
+@riverpod
+DateTime Function() playerClock(Ref ref) => DateTime.now;
 
 @riverpod
 class PlayerController extends _$PlayerController {
@@ -168,7 +160,7 @@ class PlayerController extends _$PlayerController {
         final position = resolvePlaybackPosition(
           remote,
           steps,
-          DateTime.now().millisecondsSinceEpoch + offset,
+          _now().millisecondsSinceEpoch + offset,
         );
         index = position.index;
         isPaused = remote.status != PlaybackStatus.playing;
@@ -213,6 +205,8 @@ class PlayerController extends _$PlayerController {
     return initial;
   }
 
+  DateTime _now() => ref.read(playerClockProvider)();
+
   PlayerStep? get currentStep =>
       state.steps.isEmpty || state.index >= state.steps.length
       ? null
@@ -220,11 +214,11 @@ class PlayerController extends _$PlayerController {
 
   void _setDeadline(PlayerState value) {
     _startsAt = value.countdownMs > 0
-        ? DateTime.now().add(Duration(milliseconds: value.countdownMs))
+        ? _now().add(Duration(milliseconds: value.countdownMs))
         : null;
     _endsAt = value.isPaused
         ? null
-        : DateTime.now().add(
+        : _now().add(
             Duration(milliseconds: value.remainingMs + value.countdownMs),
           );
   }
@@ -232,10 +226,7 @@ class PlayerController extends _$PlayerController {
   void _tick() {
     if (state.isPaused || _endsAt == null || currentStep == null) return;
     if (_startsAt != null) {
-      final countdown = max(
-        0,
-        _startsAt!.difference(DateTime.now()).inMilliseconds,
-      );
+      final countdown = max(0, _startsAt!.difference(_now()).inMilliseconds);
       final previousSecond = (state.countdownMs / 1000).ceil();
       state = state.copyWith(countdownMs: countdown);
       if (countdown > 0) {
@@ -248,7 +239,7 @@ class PlayerController extends _$PlayerController {
       _startsAt = null;
       _announceStep(state.index);
     }
-    final left = max(0, _endsAt!.difference(DateTime.now()).inMilliseconds);
+    final left = max(0, _endsAt!.difference(_now()).inMilliseconds);
     final previousSecond = state.secondsLeft;
     if (left != state.remainingMs) {
       state = state.copyWith(remainingMs: left);
@@ -262,7 +253,7 @@ class PlayerController extends _$PlayerController {
     }
     if (left <= 0 && !_transitioning) {
       var nextIndex = state.index + 1;
-      var nextRemaining = _endsAt!.difference(DateTime.now()).inMilliseconds;
+      var nextRemaining = _endsAt!.difference(_now()).inMilliseconds;
       while (nextIndex < state.steps.length) {
         nextRemaining += state.steps[nextIndex].duration * 1000;
         if (nextRemaining > 0) break;
@@ -284,18 +275,22 @@ class PlayerController extends _$PlayerController {
         }
         return;
       }
-      if (canControl && sessionId != null) {
-        unawaited(
-          _seekRemote(nextIndex, silent: true, remainingMs: nextRemaining),
-        );
-      } else {
-        _goLocal(nextIndex, remainingMs: nextRemaining);
-      }
+      _goLocal(nextIndex, remainingMs: nextRemaining);
     }
   }
 
+  bool get _canCommand {
+    if (!canControl || currentStep == null || _transitioning) return false;
+    if (sessionId == null) return true;
+    final remote = ref.read(activePlaybackSessionProvider).value;
+    return remote?.id == sessionId &&
+        remote?.status != PlaybackStatus.completed &&
+        ref.read(playbackConnectionProvider).value == true &&
+        !ref.read(playbackActionControllerProvider).isLoading;
+  }
+
   Future<void> toggle() async {
-    if (!canControl || state.briefing || state.countdownMs > 0) return;
+    if (!_canCommand || state.briefing || state.countdownMs > 0) return;
     if (sessionId == null) {
       _toggleLocal();
       return;
@@ -308,8 +303,8 @@ class PlayerController extends _$PlayerController {
           .read(playbackActionControllerProvider.notifier)
           .resume();
       if (!success) {
-        state = previous;
-        _setDeadline(previous);
+        if (!ref.mounted) return;
+        _restoreAfterFailure(previous);
       }
     } else {
       state = state.copyWith(isPaused: true);
@@ -318,8 +313,8 @@ class PlayerController extends _$PlayerController {
           .read(playbackActionControllerProvider.notifier)
           .pause(state.remainingMs);
       if (!success) {
-        state = previous;
-        _setDeadline(previous);
+        if (!ref.mounted) return;
+        _restoreAfterFailure(previous);
       }
     }
   }
@@ -333,7 +328,7 @@ class PlayerController extends _$PlayerController {
   }
 
   Future<void> next() async {
-    if (!canControl || state.briefing || state.countdownMs > 0) return;
+    if (!_canCommand || state.briefing || state.countdownMs > 0) return;
     if (sessionId == null || !canControl) {
       _goLocal(state.index + 1);
       return;
@@ -342,7 +337,7 @@ class PlayerController extends _$PlayerController {
   }
 
   Future<void> previous() async {
-    if (!canControl || state.briefing || state.countdownMs > 0) return;
+    if (!_canCommand || state.briefing || state.countdownMs > 0) return;
     final target =
         state.remainingMs < (currentStep?.duration ?? 0) * 1000 - 3000
         ? state.index
@@ -356,7 +351,7 @@ class PlayerController extends _$PlayerController {
 
   /// Carousel navigation always starts at the first work interval of a slide.
   Future<void> selectModule(int moduleIndex) async {
-    if (!canControl ||
+    if (!_canCommand ||
         state.briefing ||
         state.countdownMs > 0 ||
         currentStep == null ||
@@ -393,14 +388,16 @@ class PlayerController extends _$PlayerController {
     _transitioning = true;
     try {
       if (index >= state.steps.length) {
-        _ticker?.cancel();
-        state = state.copyWith(index: state.steps.length, remainingMs: 0);
-        if (silent) {
-          await ref
-              .read(playbackActionControllerProvider.notifier)
-              .syncComplete();
-        } else {
-          await ref.read(playbackActionControllerProvider.notifier).complete();
+        final success = await ref
+            .read(playbackActionControllerProvider.notifier)
+            .complete();
+        if (success && ref.mounted) {
+          _endsAt = null;
+          state = state.copyWith(
+            index: state.steps.length,
+            remainingMs: 0,
+            isPaused: true,
+          );
         }
         return;
       }
@@ -418,12 +415,33 @@ class PlayerController extends _$PlayerController {
               durationMs: state.steps[safeIndex].duration * 1000,
             );
       if (!success) {
-        state = previous;
-        _setDeadline(previous);
+        if (!ref.mounted) return;
+        _restoreAfterFailure(previous);
       }
     } finally {
       _transitioning = false;
     }
+  }
+
+  void _restoreAfterFailure(PlayerState previous) {
+    final remote = ref.read(activePlaybackSessionProvider).value;
+    if (remote?.id == sessionId) {
+      final position = resolvePlaybackPosition(
+        remote!,
+        previous.steps,
+        _now().millisecondsSinceEpoch +
+            (ref.read(serverTimeOffsetProvider).value ?? 0),
+      );
+      state = previous.copyWith(
+        index: position.index,
+        remainingMs: position.remainingMs,
+        countdownMs: position.countdownMs,
+        isPaused: remote.status != PlaybackStatus.playing,
+      );
+    } else {
+      state = previous;
+    }
+    _setDeadline(state);
   }
 
   void _goLocal(int index, {int? remainingMs}) {
@@ -437,12 +455,12 @@ class PlayerController extends _$PlayerController {
       timelineVersion: ++_timelineVersion,
       index: safeIndex,
       remainingMs: remainingMs ?? state.steps[safeIndex].duration * 1000,
-      isPaused: false,
+      isPaused: state.isPaused,
     );
     state = next;
     _setDeadline(next);
     _announcedStepIndex = null;
-    _announceStep(safeIndex);
+    if (!next.isPaused) _announceStep(safeIndex);
   }
 
   void _announceStep(int index) {
@@ -468,6 +486,8 @@ class PlayerController extends _$PlayerController {
   }
 
   void _play(WorkoutSound sound) {
+    // A remote controller must not request audio focus, even at volume zero.
+    if (sessionId != null && canControl) return;
     unawaited(
       ref
           .read(beepPlayerProvider)

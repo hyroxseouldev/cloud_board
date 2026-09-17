@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -157,9 +156,6 @@ WorkoutMediaController workoutMediaController(Ref ref) {
 class _WorkoutAudioHandler extends BaseAudioHandler {
   _WorkoutAudioHandler();
 
-  final AudioPlayer _backgroundPlayer = AudioPlayer();
-  bool _backgroundStarted = false;
-
   @override
   Future<void> play() => _emit(WorkoutMediaCommand.play);
 
@@ -196,9 +192,8 @@ class _WorkoutAudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _show(Map<String, dynamic> value) async {
-    // iOS remote controls still need an active audio session. Android uses
-    // ordinary class notifications and never initializes this handler.
-    await _ensureBackgroundAudio();
+    // Metadata only: never play silent audio to keep a remote class alive.
+    // iOS background delivery depends on OS eligibility; see CLY-12.
     final durationMs = (value['durationMs'] as num?)?.toInt() ?? 0;
     final remainingMs = (value['remainingMs'] as num?)?.toInt() ?? 0;
     final paused = value['isPaused'] as bool? ?? false;
@@ -237,59 +232,5 @@ class _WorkoutAudioHandler extends BaseAudioHandler {
       PlaybackState(processingState: AudioProcessingState.idle),
     );
     mediaItem.add(null);
-    _backgroundStarted = false;
-    await _backgroundPlayer.stop();
   }
-
-  Future<void> _ensureBackgroundAudio() async {
-    if (_backgroundStarted) return;
-    await _backgroundPlayer.setAudioContext(
-      AudioContext(
-        android: const AudioContextAndroid(
-          contentType: AndroidContentType.music,
-          usageType: AndroidUsageType.media,
-          audioFocus: AndroidAudioFocus.none,
-        ),
-        iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.playback,
-          options: const {AVAudioSessionOptions.mixWithOthers},
-        ),
-      ),
-    );
-    await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
-    await _backgroundPlayer.play(
-      BytesSource(_silentWave(), mimeType: 'audio/wav'),
-      volume: 1,
-      mode: PlayerMode.mediaPlayer,
-    );
-    _backgroundStarted = true;
-  }
-}
-
-Uint8List _silentWave() {
-  const sampleRate = 8000;
-  const sampleCount = sampleRate;
-  const dataLength = sampleCount * 2;
-  final bytes = ByteData(44 + dataLength);
-
-  void text(int offset, String value) {
-    for (var index = 0; index < value.length; index++) {
-      bytes.setUint8(offset + index, value.codeUnitAt(index));
-    }
-  }
-
-  text(0, 'RIFF');
-  bytes.setUint32(4, 36 + dataLength, Endian.little);
-  text(8, 'WAVE');
-  text(12, 'fmt ');
-  bytes.setUint32(16, 16, Endian.little);
-  bytes.setUint16(20, 1, Endian.little);
-  bytes.setUint16(22, 1, Endian.little);
-  bytes.setUint32(24, sampleRate, Endian.little);
-  bytes.setUint32(28, sampleRate * 2, Endian.little);
-  bytes.setUint16(32, 2, Endian.little);
-  bytes.setUint16(34, 16, Endian.little);
-  text(36, 'data');
-  bytes.setUint32(40, dataLength, Endian.little);
-  return bytes.buffer.asUint8List();
 }

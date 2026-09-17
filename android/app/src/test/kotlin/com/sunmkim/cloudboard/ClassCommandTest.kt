@@ -23,6 +23,14 @@ class ClassCommandTest {
         assertEquals(1, ClassCommand.apply(active, config(), "previous", 5000).getInt("stepIndex"))
         assertEquals(0, ClassCommand.apply(active, config(), "previous", 2000).getInt("stepIndex"))
     }
+    @Test fun pausedNavigationNeverResumes() {
+        val paused = state().put("status", "paused").put("stepIndex", 1).put("remainingMs", 20000)
+        for (action in listOf("next", "previous")) {
+            val result = ClassCommand.apply(paused, config(), action, 50000)
+            assertEquals("paused", result.getString("status"))
+            assertEquals(if (action == "next") 2 else 0, result.getInt("stepIndex"))
+        }
+    }
     @Test fun nextAtLastStepCompletes() {
         val active = state().put("stepIndex", 2).put("remainingMs", 5000)
         assertEquals("completed", ClassCommand.apply(active, config(), "next", 1000).getString("status"))

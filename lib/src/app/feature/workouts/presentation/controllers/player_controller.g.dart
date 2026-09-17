@@ -9,6 +9,53 @@ part of 'player_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(playerClock)
+final playerClockProvider = PlayerClockProvider._();
+
+final class PlayerClockProvider
+    extends
+        $FunctionalProvider<
+          DateTime Function(),
+          DateTime Function(),
+          DateTime Function()
+        >
+    with $Provider<DateTime Function()> {
+  PlayerClockProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playerClockProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playerClockHash();
+
+  @$internal
+  @override
+  $ProviderElement<DateTime Function()> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DateTime Function() create(Ref ref) {
+    return playerClock(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DateTime Function() value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DateTime Function()>(value),
+    );
+  }
+}
+
+String _$playerClockHash() => r'447f09b8ea5bea395c948aa7b162abf3544cd84f';
+
 @ProviderFor(PlayerController)
 final playerControllerProvider = PlayerControllerFamily._();
 
@@ -59,7 +106,7 @@ final class PlayerControllerProvider
   }
 }
 
-String _$playerControllerHash() => r'af2dc756c02d910494075d274ce1e468fdd537c5';
+String _$playerControllerHash() => r'7b9c6cca43aea9ae8ec2744ffac5ac04063caa44';
 
 final class PlayerControllerFamily extends $Family
     with

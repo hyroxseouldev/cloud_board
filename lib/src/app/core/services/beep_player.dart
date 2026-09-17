@@ -61,6 +61,7 @@ BeepPlayer beepPlayer(Ref ref) {
 Uint8List _createWave(WorkoutSound sound) {
   const sampleRate = 44100;
   final durationMs = switch (sound) {
+    WorkoutSound.gentleBeep => 160,
     WorkoutSound.doubleBeep => 520,
     WorkoutSound.boxingBell => 720,
     WorkoutSound.longFinish => 1050,
@@ -110,6 +111,8 @@ double _sample(WorkoutSound sound, double seconds, double progress) {
   switch (sound) {
     case WorkoutSound.silent:
       return 0;
+    case WorkoutSound.gentleBeep:
+      return tone(660) * fade * .65;
     case WorkoutSound.classicBeep:
       return tone(1046.5) * fade;
     case WorkoutSound.sharpBeep:

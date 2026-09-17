@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/widgets/active_class_shell.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -33,58 +34,72 @@ GoRouter appRouter(Ref ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/slides', builder: (_, _) => const SlideLibraryScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const DeviceModeHomeScreen(),
-      ),
-      GoRoute(
-        path: '/editor/:id',
-        builder: (_, state) => WorkoutEditorScreen(
-          workoutId: state.pathParameters['id']!,
-          guard: workoutGuard,
+      ShellRoute(
+        builder: (context, state, child) => ActiveClassShell(
+          playerVisible: state.uri.path.startsWith('/player/'),
+          child: child,
         ),
-        onExit: (_, _) => workoutGuard.confirm(),
         routes: [
           GoRoute(
-            path: 'slides/:moduleId',
-            builder: (_, state) => SlideEditorScreen(
+            path: '/slides',
+            builder: (_, _) => const SlideLibraryScreen(),
+          ),
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const DeviceModeHomeScreen(),
+          ),
+          GoRoute(
+            path: '/editor/:id',
+            builder: (_, state) => WorkoutEditorScreen(
               workoutId: state.pathParameters['id']!,
-              moduleId: state.pathParameters['moduleId']!,
-              guard: slideGuard,
-              request: state.extra is SlideEditRequest
-                  ? state.extra as SlideEditRequest
-                  : null,
+              guard: workoutGuard,
             ),
-            onExit: (_, _) => slideGuard.confirm(),
+            onExit: (_, _) => workoutGuard.confirm(),
+            routes: [
+              GoRoute(
+                path: 'slides/:moduleId',
+                builder: (_, state) => SlideEditorScreen(
+                  workoutId: state.pathParameters['id']!,
+                  moduleId: state.pathParameters['moduleId']!,
+                  guard: slideGuard,
+                  request: state.extra is SlideEditRequest
+                      ? state.extra as SlideEditRequest
+                      : null,
+                ),
+                onExit: (_, _) => slideGuard.confirm(),
+              ),
+            ],
           ),
-        ],
-      ),
-      GoRoute(
-        path: '/displays',
-        builder: (_, _) => const DisplaySettingsScreen(),
-      ),
-      GoRoute(path: '/profile', builder: (_, _) => const UserProfileScreen()),
-      GoRoute(
-        path: '/operations',
-        builder: (_, _) => const StoreOperationsScreen(),
-        routes: [
           GoRoute(
-            path: 'standby',
-            builder: (_, _) => StandbySettingsScreen(guard: standbyGuard),
-            onExit: (_, _) => standbyGuard.confirm(),
+            path: '/displays',
+            builder: (_, _) => const DisplaySettingsScreen(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (_, _) => const UserProfileScreen(),
+          ),
+          GoRoute(
+            path: '/operations',
+            builder: (_, _) => const StoreOperationsScreen(),
+            routes: [
+              GoRoute(
+                path: 'standby',
+                builder: (_, _) => StandbySettingsScreen(guard: standbyGuard),
+                onExit: (_, _) => standbyGuard.confirm(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/player/:id',
+            builder: (_, state) => WorkoutPlayerScreen(
+              workoutId: state.pathParameters['id']!,
+              startModule:
+                  int.tryParse(state.uri.queryParameters['start'] ?? '') ?? 0,
+              sessionId: state.uri.queryParameters['session'],
+            ),
           ),
         ],
-      ),
-      GoRoute(
-        path: '/player/:id',
-        builder: (_, state) => WorkoutPlayerScreen(
-          workoutId: state.pathParameters['id']!,
-          startModule:
-              int.tryParse(state.uri.queryParameters['start'] ?? '') ?? 0,
-          sessionId: state.uri.queryParameters['session'],
-        ),
       ),
     ],
   );

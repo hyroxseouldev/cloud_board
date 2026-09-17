@@ -106,6 +106,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     String successMessage,
     Future<void> Function(PlaybackActions actions, String deviceId) action,
   ) async {
+    if (state.isLoading) return false;
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await action(
