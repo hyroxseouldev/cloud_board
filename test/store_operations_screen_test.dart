@@ -1,4 +1,5 @@
 import 'support/workout_catalog_fixture.dart';
+
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -1,4 +1,5 @@
 import 'support/workout_catalog_fixture.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -74,7 +75,7 @@ void main() {
               ),
             ),
             fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            workoutControllerProvider.overrideWith(_TestWorkouts.new),
             newWorkoutCountdownDefaultsProvider('u')
                 .overrideWith((ref) async => const CountdownPreferences()),
             displayDevicesProvider.overrideWith(
@@ -562,7 +563,7 @@ void main() {
               ),
             ),
             fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            workoutControllerProvider.overrideWith(_TestWorkouts.new),
             newWorkoutCountdownDefaultsProvider('u')
                 .overrideWith((ref) async => const CountdownPreferences()),
             displayDevicesProvider.overrideWith(
@@ -1029,7 +1030,7 @@ void main() {
                 ),
               ),
               fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              workoutControllerProvider.overrideWith(_TestWorkouts.new),
               newWorkoutCountdownDefaultsProvider('u')
                   .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
@@ -1138,7 +1139,7 @@ void main() {
                 ),
               ),
               fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              workoutControllerProvider.overrideWith(_TestWorkouts.new),
               newWorkoutCountdownDefaultsProvider('u')
                   .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
@@ -1276,7 +1277,7 @@ void main() {
                 ),
               ),
               fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              workoutControllerProvider.overrideWith(_TestWorkouts.new),
               newWorkoutCountdownDefaultsProvider('u')
                   .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
