@@ -7,7 +7,8 @@ enum WorkoutSound {
   boxingBell('복싱 벨'),
   softBell('부드러운 벨'),
   doubleBeep('더블 비프'),
-  longFinish('긴 종료음');
+  longFinish('긴 종료음'),
+  videoBeep('비프 1');
 
   const WorkoutSound(this.label);
 
