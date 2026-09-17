@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_edit_gate.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/active_class_shell.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
 import 'package:go_router/go_router.dart';
@@ -38,7 +39,14 @@ GoRouter appRouter(Ref ref) {
       ShellRoute(
         builder: (context, state, child) => ActiveClassShell(
           playerVisible: state.uri.path.startsWith('/player/'),
-          child: child,
+          child: WorkoutEditGate(
+            workoutId:
+                state.uri.pathSegments.firstOrNull == 'editor' &&
+                    state.uri.pathSegments.length > 1
+                ? state.uri.pathSegments[1]
+                : null,
+            child: child,
+          ),
         ),
         routes: [
           GoRoute(

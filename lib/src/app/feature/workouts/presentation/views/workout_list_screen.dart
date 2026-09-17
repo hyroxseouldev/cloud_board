@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
@@ -595,14 +596,18 @@ class _AddWorkoutCard extends StatelessWidget {
   );
 }
 
-class _WorkoutCard extends StatelessWidget {
+class _WorkoutCard extends ConsumerWidget {
   const _WorkoutCard({required this.workout, required this.isBusy});
 
   final Workout workout;
   final bool isBusy;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final editBlocked = workoutEditBlockReason(
+      ref.watch(activePlaybackSessionProvider),
+      workout.id,
+    );
     final folder = workout.folder.isEmpty ? '폴더 없음' : workout.folder;
     final imageSource = workout.modules.firstOrNull?.imageSource ?? '';
     return Material(
@@ -610,7 +615,16 @@ class _WorkoutCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppStyle.cardRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: isBusy ? null : () => context.push('/editor/${workout.id}'),
+        onTap: isBusy
+            ? null
+            : () {
+                if (editBlocked != null) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(editBlocked)));
+                  return;
+                }
+                context.push('/editor/${workout.id}');
+              },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -699,10 +713,16 @@ class _WorkoutActions extends ConsumerWidget {
         tooltip: '워크아웃 메뉴',
         enabled: !isBusy,
         onSelected: (action) => _handleAction(context, ref, action),
-        itemBuilder: (_) => const [
+        itemBuilder: (_) => [
           PopupMenuItem(
             value: _WorkoutAction.edit,
-            child: ListTile(
+            enabled:
+                workoutEditBlockReason(
+                  ref.read(activePlaybackSessionProvider),
+                  workout.id,
+                ) ==
+                null,
+            child: const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.edit_outlined),
               title: Text('편집'),
@@ -719,7 +739,13 @@ class _WorkoutActions extends ConsumerWidget {
           PopupMenuDivider(),
           PopupMenuItem(
             value: _WorkoutAction.delete,
-            child: ListTile(
+            enabled:
+                workoutEditBlockReason(
+                  ref.read(activePlaybackSessionProvider),
+                  workout.id,
+                ) ==
+                null,
+            child: const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.delete_outline, color: Colors.red),
               title: Text('삭제', style: TextStyle(color: Colors.red)),
@@ -752,6 +778,17 @@ class _WorkoutActions extends ConsumerWidget {
     WidgetRef ref,
     _WorkoutAction action,
   ) async {
+    if (action != _WorkoutAction.duplicate) {
+      final reason = workoutEditBlockReason(
+        ref.read(activePlaybackSessionProvider),
+        workout.id,
+      );
+      if (reason != null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(reason)));
+        return;
+      }
+    }
     switch (action) {
       case _WorkoutAction.edit:
         context.push('/editor/${workout.id}');
