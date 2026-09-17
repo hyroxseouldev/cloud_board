@@ -342,10 +342,11 @@ class _CatalogRepository implements WorkoutRepository {
   bool fail = false;
   int loads = 0;
   @override
-  Stream<List<WorkoutSummary>> watchSummaries() => watch().map((items) => items.map(summarizeWorkout).toList());
+  Stream<List<WorkoutSummary>> watchSummaries() =>
+      watch().map((items) => items.map(summarizeWorkout).toList());
   @override
-  Future<Workout?> loadOne(String id) async => (server ?? cached).where((w) => w.id == id).firstOrNull;
-
+  Future<Workout?> loadOne(String id) async =>
+      (server ?? cached).where((w) => w.id == id).firstOrNull;
 
   @override
   Stream<List<Workout>> watch() async* {

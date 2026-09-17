@@ -1,4 +1,5 @@
 import 'support/workout_catalog_fixture.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -208,7 +209,7 @@ void main() {
         ),
         saveWorkoutProvider.overrideWith((ref) async => SaveWorkout(repo)),
         fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(_Catalog.new),
+        workoutControllerProvider.overrideWith(_Catalog.new),
       ],
     );
     addTearDown(container.dispose);

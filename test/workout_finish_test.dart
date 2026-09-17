@@ -1,4 +1,5 @@
 import 'support/workout_catalog_fixture.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -112,7 +113,7 @@ void main() {
           ProviderScope(
             overrides: [
               fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(
+              workoutControllerProvider.overrideWith(
                 () => _Workouts(
                   // Dialog animation must not race the one-second natural-end case
                   // on slower CI machines, where wall-clock deadlines keep advancing.
