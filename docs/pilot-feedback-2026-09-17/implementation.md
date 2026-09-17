@@ -53,3 +53,12 @@ App Intent는 현재 로그인 계정·고정한 수업 ID를 다시 검증하�
 - Bluetooth 스피커로 컨트롤러 중복음 제거와 새 기본 비프 청취 확인 필요.
 - QR/수동 코드 신규 등록, 등록된 오프라인 기기 유지, 연결 해제/재발급 현장 확인 필요.
 - 이번 작업에서 프로덕션 DB 수정, 실제 수업 명령 실행, 앱 배포는 하지 않았다.
+
+## 병합 후 시뮬레이터 시작 오류 수정
+
+2026-09-17 사용자가 iPad 시뮬레이터에서 수업 시작 불가를 제보했다. 준비창의 시작 버튼을 누르면 홈에 머물렀으며, 실행 로그의 스택은 `PlaybackRealtimeDataSource.start()`의 `.info/connected.get()`에서 `firebase_database/permission-denied`가 발생했음을 확인했다. 앞선 자동 테스트는 순수 명령 계산을 검증했지만 Apple SDK의 메타데이터 조회 차이를 검증하지 못했다.
+
+- `.info/connected` 및 `.info/serverTimeOffset`를 기존 SDK 이벤트 스트림의 첫 값으로 읽도록 수정했다. 3초 응답 제한을 두고 오프라인 거부·등록 확인·명령 만료 검사를 유지한다. 데이터베이스 권한을 넓히지 않는다. [Firebase 공식 메타데이터 관찰 예시](https://firebase.google.com/docs/database/ios/offline-capabilities#detecting_connection_state).
+- 홈의 수업 명령 실패가 아무 안내 없이 끝나지 않도록 오류 안내를 추가했다.
+- 실제 실행 중인 iPadOS 26.2 시뮬레이터에 Flutter hot reload로 적용해 시작 → 카운트다운 → 재생 → 일시정지 → 재개 → 자연 종료·홈 복귀를 확인했다. 온라인 디스플레이가 없는 해당 시뮬레이터 수업만 대상으로 확인했으며 외부 디스플레이 재생 검증은 남아 있다.
+- 메타데이터의 `get()`은 거절되고 SDK 이벤트만 전달되는 회귀 테스트에서 시작·정지·진행 세션 조회, 오프라인 명령 차단, 미등록 대상 차단을 검증했다. 시작 실패 안내·재시도 UI 테스트와 정적 분석도 통과했다.

@@ -79,7 +79,7 @@ class PlaybackRealtimeDataSource {
     bool scheduled = false,
     int? scheduledAtMs,
   }) async {
-    if ((await _database.ref('.info/connected').get()).value != true) {
+    if (!await watchConnected().first.timeout(const Duration(seconds: 3))) {
       throw StateError('컨트롤러의 서버 연결을 확인해 주세요.');
     }
     final devices = (await _user.child('devices').get()).value;
@@ -122,7 +122,7 @@ class PlaybackRealtimeDataSource {
     required String expectedSessionId,
     required int expectedRevision,
   }) async {
-    if ((await _database.ref('.info/connected').get()).value != true) {
+    if (!await watchConnected().first.timeout(const Duration(seconds: 3))) {
       throw StateError('컨트롤러의 서버 연결을 확인해 주세요.');
     }
     final offset = await _serverOffset();
@@ -210,10 +210,10 @@ class PlaybackRealtimeDataSource {
     return _decode(result.snapshot.value);
   }
 
-  Future<int> _serverOffset() async =>
-      ((await _database.ref('.info/serverTimeOffset').get()).value as num?)
-          ?.round() ??
-      0;
+  // .info is SDK-local metadata. get() makes a server read on Apple platforms
+  // and can fail with permission-denied even when the client is connected.
+  Future<int> _serverOffset() =>
+      watchServerTimeOffset().first.timeout(const Duration(seconds: 3));
 
   String _requireOwnerId() {
     final ownerId = _ownerId;
