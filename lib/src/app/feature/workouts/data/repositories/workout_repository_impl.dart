@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,6 +12,8 @@ import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_fi
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_storage_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 
 part 'workout_repository_impl.g.dart';
 
@@ -25,6 +29,77 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   final WorkoutFirestoreDataSource _firestore;
   final WorkoutStorageDataSource _storage;
   final WorkoutLocalDataSource _local;
+
+  @override
+  Future<Workout?> loadOne(String workoutId) async =>
+      (await _firestore.loadOne(_requireUser().uid, workoutId))?.toEntity();
+
+  @override
+  Stream<List<WorkoutSummary>> watchSummaries() async* {
+    final userId = _requireUser().uid;
+    // Retain full cached details already used by earlier app versions for offline
+    // playback. Do not download every detail just to construct this catalog.
+    final cached = await _firestore.loadCachedSummaries(userId);
+    final visible = {for (final item in cached) item.id: item.toEntity()};
+    if (visible.isNotEmpty) yield _sortedSummaries(visible.values);
+    try {
+      if (!await _firestore.hasSummaryCatalog(userId)) {
+        await for (final items in watch()) {
+          yield items.map(summarizeWorkout).toList();
+        }
+        return;
+      }
+      await for (final page in _firestore.loadSummaryPages(userId)) {
+        if (page.complete) {
+          final ids = page.items.map((item) => item.id).toSet();
+          visible.removeWhere((id, _) => !ids.contains(id));
+        }
+        for (final item in page.items) {
+          visible[item.id] = item.toEntity();
+        }
+        yield _sortedSummaries(visible.values);
+        if (page.complete) {
+          // Preserve the previous offline catalog behavior without keeping every
+          // decoded workout in Riverpod or blocking the first usable list.
+          unawaited(_warmOfflineDetails(userId, visible.values.toList()));
+        }
+      }
+    } catch (_) {
+      if (visible.isNotEmpty) return;
+      // Old detail caches remain usable even before the first summary sync.
+      final legacyCache = await _firestore.loadCached(userId);
+      if (legacyCache.isEmpty) rethrow;
+      yield legacyCache
+          .map((item) => summarizeWorkout(item.toEntity()))
+          .toList();
+    }
+  }
+
+  int _warmGeneration = 0;
+  Future<void> _warmOfflineDetails(
+    String uid,
+    List<WorkoutSummary> items,
+  ) async {
+    final generation = ++_warmGeneration;
+    var next = 0;
+    Future<void> worker() async {
+      while (next < items.length &&
+          generation == _warmGeneration &&
+          _auth.currentUser?.uid == uid) {
+        final item = items[next++];
+        try {
+          await _firestore.ensureOfflineDetail(uid, item.id, item.updatedAt);
+        } catch (_) {
+          return;
+        } // Offline: existing cached details remain usable.
+      }
+    }
+
+    await Future.wait([worker(), worker()]);
+  }
+
+  List<WorkoutSummary> _sortedSummaries(Iterable<WorkoutSummary> items) =>
+      items.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
   @override
   Future<List<Workout>> load() => watch().last;

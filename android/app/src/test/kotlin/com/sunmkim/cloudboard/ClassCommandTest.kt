@@ -7,6 +7,14 @@ import org.junit.Test
 class ClassCommandTest {
     private fun config() = JSONObject("""{"ownerId":"owner","sessionId":"a","deviceId":"phone","steps":[{"durationMs":10000},{"durationMs":20000},{"durationMs":5000}]}""")
     private fun state() = JSONObject("""{"id":"a","ownerId":"owner","status":"playing","stepIndex":0,"remainingMs":10000,"anchorServerMs":1000,"revision":4} """)
+    @Test fun splitSessionCommandsPreserveSnapshotReferenceWithoutLoadingContent() {
+        val split = state().put("schemaVersion", 2).put("snapshotId", "a").put("workoutId", "w")
+        val stopped = ClassCommand.apply(split, config(), "stop", 1000)
+        assertFalse(stopped.has("workoutSnapshot"))
+        assertEquals("a", stopped.getString("snapshotId"))
+        assertEquals("w", stopped.getString("workoutId"))
+        assertEquals("completed", stopped.getString("status"))
+    }
     @Test fun pauseResolvesElapsedStepsAndPreservesRemaining() {
         val result = ClassCommand.apply(state(), config(), "pause", 12000)
         assertEquals("paused", result.getString("status"))

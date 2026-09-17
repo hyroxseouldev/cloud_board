@@ -1,3 +1,4 @@
+import 'support/workout_catalog_fixture.dart';
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -206,7 +207,8 @@ void main() {
           (ref) => Stream.value(session(PlaybackStatus.playing)),
         ),
         saveWorkoutProvider.overrideWith((ref) async => SaveWorkout(repo)),
-        workoutControllerProvider.overrideWith(_Catalog.new),
+        fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_Catalog.new),
       ],
     );
     addTearDown(container.dispose);
@@ -264,9 +266,9 @@ class _DraftEditor extends StatelessWidget {
   );
 }
 
-class _Catalog extends WorkoutController {
+class _Catalog extends FixtureWorkoutController {
   @override
-  Stream<List<Workout>> build() => Stream.value([workout]);
+  Stream<List<Workout>> fullBuild() => Stream.value([workout]);
 }
 
 class _Repository implements WorkoutRepository {

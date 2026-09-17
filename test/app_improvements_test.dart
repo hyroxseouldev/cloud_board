@@ -1,3 +1,4 @@
+import 'support/workout_catalog_fixture.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -72,7 +73,8 @@ void main() {
                 ),
               ),
             ),
-            workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_TestWorkouts.new),
             newWorkoutCountdownDefaultsProvider('u')
                 .overrideWith((ref) async => const CountdownPreferences()),
             displayDevicesProvider.overrideWith(
@@ -559,7 +561,8 @@ void main() {
                 ),
               ),
             ),
-            workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_TestWorkouts.new),
             newWorkoutCountdownDefaultsProvider('u')
                 .overrideWith((ref) async => const CountdownPreferences()),
             displayDevicesProvider.overrideWith(
@@ -1025,7 +1028,8 @@ void main() {
                   ),
                 ),
               ),
-              workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_TestWorkouts.new),
               newWorkoutCountdownDefaultsProvider('u')
                   .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
@@ -1133,7 +1137,8 @@ void main() {
                   ),
                 ),
               ),
-              workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_TestWorkouts.new),
               newWorkoutCountdownDefaultsProvider('u')
                   .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
@@ -1270,7 +1275,8 @@ void main() {
                   ),
                 ),
               ),
-              workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_TestWorkouts.new),
               newWorkoutCountdownDefaultsProvider('u')
                   .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
@@ -1469,9 +1475,9 @@ Future<void> scrollTo(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
-class _TestWorkouts extends WorkoutController {
+class _TestWorkouts extends FixtureWorkoutController {
   @override
-  Stream<List<Workout>> build() async* {
+  Stream<List<Workout>> fullBuild() async* {
     yield [workout];
   }
 }
@@ -1505,6 +1511,7 @@ class _SaveWorkouts extends WorkoutActionController {
   Future<Workout?> save(Workout value) async {
     saved.add(value);
     ref.read(workoutControllerProvider.notifier).upsert(value);
+    ref.read(workoutDetailProvider(value.id).notifier).replace(value);
     return value;
   }
 }
@@ -1531,6 +1538,7 @@ class _RetryWorkoutSave extends WorkoutActionController {
     }
     saved.add(value);
     ref.read(workoutControllerProvider.notifier).upsert(value);
+    ref.read(workoutDetailProvider(value.id).notifier).replace(value);
     state = const AsyncData('저장했습니다.');
     return value;
   }

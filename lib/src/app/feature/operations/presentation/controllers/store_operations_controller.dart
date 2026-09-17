@@ -100,25 +100,28 @@ class ScheduleRunnerController extends _$ScheduleRunnerController {
   }
 
   Future<void> _runDueForOwner(String ownerId) async {
-    if (await ref.read(playbackActionsProvider).hasRunningSession()) return;
-    if (!_isCurrentOwner(ownerId)) return;
     final now = DateTime.now();
     final schedules = await ref.read(workoutSchedulesProvider.future);
     if (!_isCurrentOwner(ownerId)) return;
-    final due = schedules.where((item) => isScheduleDue(item, now)).toList();
+    final due = schedules
+        .where(
+          (item) =>
+              isScheduleDue(item, now) &&
+              item.lastOccurrenceKey != scheduleOccurrenceKey(item, now),
+        )
+        .toList();
     if (due.isEmpty) return;
-    final workouts = await ref
-        .read(workoutControllerProvider.notifier)
-        .loadComplete();
+    if (await ref.read(playbackActionsProvider).hasRunningSession()) return;
     if (!_isCurrentOwner(ownerId)) return;
     final devices = await ref.read(displayDevicesProvider.future);
     if (!_isCurrentOwner(ownerId)) return;
     final deviceId = await ref.read(deviceIdProvider.future);
     if (!_isCurrentOwner(ownerId)) return;
     for (final schedule in due) {
-      final workout = workouts
-          .where((item) => item.id == schedule.workoutId)
-          .firstOrNull;
+      final workout = await ref.read(
+        workoutDetailProvider(schedule.workoutId).future,
+      );
+      if (!_isCurrentOwner(ownerId)) return;
       if (workout == null || workout.modules.isEmpty) continue;
       final targets = schedule.targetDeviceIds.isEmpty
           ? devices.where((item) => item.online).map((item) => item.id).toList()

@@ -4,13 +4,16 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_repository.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_repository_impl.dart';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
+
 part 'workout_actions.g.dart';
 
 class LoadWorkouts {
   const LoadWorkouts(this._repository);
   final WorkoutRepository _repository;
-  Future<List<Workout>> call() => _repository.load();
-  Stream<List<Workout>> watch() => _repository.watch();
+  Future<List<WorkoutSummary>> call() => watch().last;
+  Stream<List<WorkoutSummary>> watch() => _repository.watchSummaries();
+  Future<Workout?> detail(String id) => _repository.loadOne(id);
 }
 
 class SaveWorkout {

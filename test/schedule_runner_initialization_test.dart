@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/playback/domain/repositories/playback_repository.dart';
@@ -52,6 +55,34 @@ void main() {
     );
   }
   test(
+    'no eligible schedules means zero playback reads across repeated ticks',
+    () async {
+      final playback = _Playback()
+        ..response = () async => throw StateError('must not read');
+      final container = ProviderContainer(
+        overrides: [
+          accountOwnerIdProvider.overrideWith((ref) => Stream.value('owner')),
+          workoutSchedulesProvider.overrideWith((ref) => Stream.value([])),
+          playbackActionsProvider.overrideWithValue(playback),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(accountOwnerIdProvider, (_, _) {});
+      container.listen(workoutSchedulesProvider, (_, _) {});
+      await container.read(accountOwnerIdProvider.future);
+      await container.read(workoutSchedulesProvider.future);
+      final runner = container.read(scheduleRunnerControllerProvider.notifier);
+      for (var i = 0; i < 180; i++) {
+        await runner.runDue();
+      }
+      expect(playback.checks, 0);
+      expect(
+        container.read(scheduleRunnerControllerProvider).hasError,
+        isFalse,
+      );
+    },
+  );
+  test(
     'network failure is caught, concurrent ticks skip, and next tick retries',
     () async {
       final pending = Completer<bool>();
@@ -60,7 +91,25 @@ void main() {
         overrides: [
           accountOwnerIdProvider.overrideWith((ref) => Stream.value('owner')),
           playbackActionsProvider.overrideWithValue(playback),
-          workoutSchedulesProvider.overrideWith((ref) => Stream.value([])),
+          workoutSchedulesProvider.overrideWith(
+            (ref) => Stream.value([
+              WorkoutSchedule(
+                id: 'due',
+                workoutId: 'w',
+                workoutName: 'w',
+                enabled: true,
+                createdAtMs: 0,
+                lastOccurrenceKey: null,
+                targetDeviceIds: [],
+                weekdays: [DateTime.now().weekday],
+                hour: DateTime.now().hour,
+                minute: DateTime.now().minute,
+              ),
+            ]),
+          ),
+          displayDevicesProvider.overrideWith(
+            (ref) => Stream.error(StateError('fixture stop')),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -72,11 +121,12 @@ void main() {
       final runner = container.read(scheduleRunnerControllerProvider.notifier);
       final first = runner.runDue();
       await runner.runDue();
+      await Future<void>.delayed(Duration.zero);
       expect(playback.checks, 1);
       pending.completeError(StateError('network down'));
       await first;
       expect(container.read(scheduleRunnerControllerProvider).hasError, isTrue);
-      playback.response = () async => false;
+      playback.response = () async => true;
       await runner.runDue();
       expect(playback.checks, 2);
       expect(

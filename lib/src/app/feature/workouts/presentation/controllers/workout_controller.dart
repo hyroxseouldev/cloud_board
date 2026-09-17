@@ -9,16 +9,51 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_actions.dart';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
+
 part 'workout_controller.g.dart';
+
+@riverpod
+class WorkoutDetail extends _$WorkoutDetail {
+  int _writes = 0;
+  @override
+  Future<Workout?> build(String id) async {
+    // Play/duplicate/scheduled starts may request a detail before any route
+    // watches it. Keep that one-shot request alive until it resolves.
+    final request = ref.keepAlive();
+    final version = _writes;
+    try {
+      final user = await ref.watch(authStateProvider.future);
+      if (user == null) return null;
+      final value = await (await ref.watch(loadWorkoutsProvider.future))
+          .detail(id);
+      return version == _writes ? value : state.value;
+    } finally {
+      request.close();
+    }
+  }
+
+  // A successful save updates the open editor without a loading transition
+  // that would unmount its unsaved draft and undo history.
+  void replace(Workout? value) {
+    // Bridge /editor/new -> /editor/<id> without throwing away the just-saved
+    // detail while no route has subscribed yet. This cache is strictly bounded.
+    final link = ref.keepAlive();
+    final timer = Timer(const Duration(seconds: 30), link.close);
+    ref.onDispose(timer.cancel);
+    _writes++;
+    state = AsyncData(value);
+  }
+}
 
 @Riverpod(keepAlive: true)
 class WorkoutController extends _$WorkoutController {
-  final _upserts = <String, Workout>{};
+  final _upserts = <String, WorkoutSummary>{};
   final _removed = <String>{};
   Future<void>? _loading;
 
   @override
-  Stream<List<Workout>> build() async* {
+  Stream<List<WorkoutSummary>> build() async* {
     _upserts.clear();
     _removed.clear();
     final complete = Completer<void>();
@@ -39,7 +74,7 @@ class WorkoutController extends _$WorkoutController {
   }
 
   // A scheduled start must not mistake the first page for the complete catalog.
-  Future<List<Workout>> loadComplete() async {
+  Future<List<WorkoutSummary>> loadComplete() async {
     await future;
     await _loading;
     return state.requireValue;
@@ -54,7 +89,7 @@ class WorkoutController extends _$WorkoutController {
     }
   }
 
-  List<Workout> _merge(List<Workout> items) {
+  List<WorkoutSummary> _merge(List<WorkoutSummary> items) {
     final merged = {for (final item in items) item.id: item, ..._upserts};
     for (final id in _removed) {
       merged.remove(id);
@@ -64,16 +99,17 @@ class WorkoutController extends _$WorkoutController {
   }
 
   void upsert(Workout workout) {
-    _upserts[workout.id] = workout;
+    final summary = summarizeWorkout(workout);
+    _upserts[workout.id] = summary;
     _removed.remove(workout.id);
     final items = state.value;
     if (items == null) return;
     final index = items.indexWhere((item) => item.id == workout.id);
     final next = [...items];
     if (index == -1) {
-      next.insert(0, workout);
+      next.insert(0, summary);
     } else {
-      next[index] = workout;
+      next[index] = summary;
     }
     state = AsyncData(next);
   }
@@ -94,6 +130,24 @@ class WorkoutActionController extends _$WorkoutActionController {
   @override
   AsyncValue<String?> build() => const AsyncData(null);
 
+  /// Keep the existing action overlay active while fetching a detail for play
+  /// or duplicate, so repeated taps cannot open multiple preparation dialogs.
+  Future<Workout?> prepare(String id) async {
+    if (state.isLoading) return null;
+    state = const AsyncLoading();
+    Workout? detail;
+    final subscription = ref.listen(workoutDetailProvider(id), (_, _) {});
+    final result = await AsyncValue.guard<String?>(() async {
+      detail = await ref.read(workoutDetailProvider(id).future);
+      if (detail == null) throw StateError('워크아웃을 찾을 수 없습니다.');
+      return null;
+    });
+    subscription.close();
+    if (!ref.mounted) return null;
+    state = result;
+    return result.hasError ? null : detail;
+  }
+
   Future<Workout?> save(Workout workout) async {
     state = const AsyncLoading();
     Workout? saved;
@@ -103,6 +157,7 @@ class WorkoutActionController extends _$WorkoutActionController {
       final save = await ref.read(saveWorkoutProvider.future);
       await _ensureEditable(workout.id);
       saved = await save(value);
+      ref.read(workoutDetailProvider(saved!.id).notifier).replace(saved);
       ref.read(workoutControllerProvider.notifier).upsert(saved!);
       return '워크아웃을 저장했습니다.';
     });
@@ -116,6 +171,7 @@ class WorkoutActionController extends _$WorkoutActionController {
       final delete = await ref.read(deleteWorkoutProvider.future);
       await _ensureEditable(workoutId);
       await delete(workoutId);
+      ref.read(workoutDetailProvider(workoutId).notifier).replace(null);
       ref.read(workoutControllerProvider.notifier).remove(workoutId);
     },
   );
@@ -135,6 +191,7 @@ class WorkoutActionController extends _$WorkoutActionController {
       final saved = await (await ref.read(saveWorkoutProvider.future))(
         duplicate,
       );
+      ref.read(workoutDetailProvider(saved.id).notifier).replace(saved);
       ref.read(workoutControllerProvider.notifier).upsert(saved);
     },
   );

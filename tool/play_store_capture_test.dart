@@ -1,3 +1,4 @@
+import '../test/support/workout_catalog_fixture.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -92,7 +93,8 @@ void main() {
                 operationEventsProvider.overrideWith(
                   (ref) => Stream.value(const <OperationEvent>[]),
                 ),
-                workoutControllerProvider.overrideWith(_Workouts.new),
+                fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(_Workouts.new),
               ],
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -275,9 +277,9 @@ final demo =
       ],
     );
 
-class _Workouts extends WorkoutController {
+class _Workouts extends FixtureWorkoutController {
   @override
-  Stream<List<Workout>> build() async* {
+  Stream<List<Workout>> fullBuild() async* {
     yield [
       demo,
       demo.copyWith(id: 'strength', name: '전신 근력', folder: '그룹 수업'),

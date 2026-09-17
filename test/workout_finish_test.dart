@@ -1,3 +1,4 @@
+import 'support/workout_catalog_fixture.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -28,11 +29,11 @@ final workout =
       ],
     );
 
-class _Workouts extends WorkoutController {
+class _Workouts extends FixtureWorkoutController {
   _Workouts(this.value);
   final Workout value;
   @override
-  Stream<List<Workout>> build() => Stream.value([value]);
+  Stream<List<Workout>> fullBuild() => Stream.value([value]);
 }
 
 class _Media implements WorkoutMediaController {
@@ -110,7 +111,8 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              workoutControllerProvider.overrideWith(
+              fixtureWorkoutDetails,
+          workoutControllerProvider.overrideWith(
                 () => _Workouts(
                   // Dialog animation must not race the one-second natural-end case
                   // on slower CI machines, where wall-clock deadlines keep advancing.

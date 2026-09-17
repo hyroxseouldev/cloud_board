@@ -1,3 +1,4 @@
+import 'support/workout_catalog_fixture.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,7 @@ void main() {
             (ref) => Stream.value(const <OperationEvent>[]),
           ),
           displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
+          fixtureWorkoutDetails,
           workoutControllerProvider.overrideWith(_FakeWorkoutController.new),
         ],
         child: MaterialApp(
@@ -50,9 +52,9 @@ void main() {
   });
 }
 
-class _FakeWorkoutController extends WorkoutController {
+class _FakeWorkoutController extends FixtureWorkoutController {
   @override
-  Stream<List<Workout>> build() async* {
+  Stream<List<Workout>> fullBuild() async* {
     yield const [];
   }
 }

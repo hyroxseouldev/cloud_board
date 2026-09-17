@@ -237,7 +237,7 @@ internal object ClassNotifications {
             val event = JSONObject().put("id", commandId).put("type", "playback_completed")
                 .put("occurredAtMs", confirmed.json.getLong("anchorServerMs"))
                 .put("deviceId", config.getString("deviceId"))
-                .put("workoutId", confirmed.json.getJSONObject("workoutSnapshot").optString("id"))
+                .put("workoutId", confirmed.json.optString("workoutId", confirmed.json.optJSONObject("workoutSnapshot")?.optString("id") ?: ""))
                 .put("workoutName", config.getString("workoutName")).put("scheduled", false)
             try { request("users/${Uri.encode(user.uid)}/operations/events/$commandId", token, deadline, event, conditional = false) }
             catch (_: Exception) { /* Confirmed class stop must not be reported as failed if audit logging times out. */ }

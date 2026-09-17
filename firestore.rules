@@ -7,11 +7,37 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/accountDeletions/$(userId));
     }
 
+    match /subscriptionEntitlements/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
     match /users/{userId} {
       allow read, delete: if isOwner(userId);
-      allow create, update: if isOwner(userId)
-        && request.resource.data.uid == userId;
+      allow create: if isOwner(userId) && request.resource.data.uid == userId
+        && !request.resource.data.keys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
+      allow update: if isOwner(userId) && request.resource.data.uid == userId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
 
+      match /catalog/{documentId} {
+        allow read: if isOwner(userId);
+        // Only the verified admin migration can activate a complete catalog.
+        allow write: if false;
+      }
+      match /workoutSummaries/{workoutId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['id', 'name', 'folder', 'imageSource', 'moduleCount', 'durationSeconds', 'updatedAt'])
+          && request.resource.data.id == workoutId
+          && request.resource.data.name is string
+          && request.resource.data.folder is string
+          && request.resource.data.imageSource is string
+          && request.resource.data.moduleCount is int
+          && request.resource.data.moduleCount >= 0
+          && request.resource.data.durationSeconds is int
+          && request.resource.data.updatedAt is timestamp
+          && getAfter(/databases/$(database)/documents/users/$(userId)/workouts/$(workoutId)).data.ownerId == userId;
+      }
       match /workouts/{workoutId} {
         allow read, delete: if isOwner(userId);
         allow create: if isOwner(userId)

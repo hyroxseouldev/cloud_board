@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
@@ -156,6 +157,21 @@ class DevicePairingRealtimeDataSource {
     if (normalizedCode.length != 6) {
       throw const FormatException('6자리 연결 코드를 입력해 주세요.');
     }
+    final access = await _database.ref('subscriptionAccess/${owner.uid}').get();
+    if (access.value is Map && (access.value! as Map)['managed'] == true) {
+      try {
+        await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
+            .httpsCallable('cloudboardPairDisplay')
+            .call<void>({
+              'code': normalizedCode,
+              'name': name.trim(),
+              'zoneName': zoneName.trim(),
+            });
+      } on FirebaseFunctionsException catch (error) {
+        throw StateError(error.message ?? '디스플레이 연결을 완료하지 못했습니다.');
+      }
+      return;
+    }
     final pairingRef = _database.ref('pairingCodes/$normalizedCode');
     final initialSnapshot = await pairingRef.get();
     if (!initialSnapshot.exists) {
@@ -295,6 +311,7 @@ class DevicePairingRealtimeDataSource {
       'online': true,
       'lastSeenAtMs': ServerValue.timestamp,
       'pendingOfflineEventKey': offlineEvent.key,
+      'playbackProtocol': 2,
     };
     if (!wasOnline) updates['onlineSinceMs'] = ServerValue.timestamp;
     await deviceRef.update(updates);
@@ -362,6 +379,7 @@ class DevicePairingRealtimeDataSource {
         'devices/$deviceId/online': true,
         'devices/$deviceId/lastSeenAtMs': ServerValue.timestamp,
         'devices/$deviceId/pendingOfflineEventKey': offlineEvent.key,
+        'devices/$deviceId/playbackProtocol': 2,
       };
       if (!wasOnline) {
         updates['devices/$deviceId/onlineSinceMs'] = ServerValue.timestamp;

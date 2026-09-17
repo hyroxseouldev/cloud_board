@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
@@ -166,6 +167,9 @@ class _Storage implements WorkoutStorageDataSource {
 
 class _Repository implements WorkoutRepository {
   final source = StreamController<List<Workout>>();
+  @override
+  Stream<List<WorkoutSummary>> watchSummaries() => watch().map((items) => items.map(summarizeWorkout).toList());
+
   @override
   Stream<List<Workout>> watch() => source.stream;
   @override

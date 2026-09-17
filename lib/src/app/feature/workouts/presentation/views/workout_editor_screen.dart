@@ -28,7 +28,9 @@ class WorkoutEditorScreen extends HookConsumerWidget {
   final ExitGuard? guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final values = ref.watch(workoutControllerProvider);
+    final values = workoutId == 'new'
+        ? const AsyncData<Workout?>(null)
+        : ref.watch(workoutDetailProvider(workoutId));
     final user = ref.watch(authStateProvider).value;
     final skipDefaults = useState(false);
     var initialDefaults = const CountdownPreferences();
@@ -62,7 +64,7 @@ class WorkoutEditorScreen extends HookConsumerWidget {
       initialDefaults = defaults.requireValue;
     }
     return values.when(
-      data: (items) {
+      data: (detail) {
         final workout = workoutId == 'new' && user != null
             ? initialDefaults.applyTo(
                 Workout.empty(
@@ -74,7 +76,7 @@ class WorkoutEditorScreen extends HookConsumerWidget {
                   ),
                 ),
               )
-            : items.where((item) => item.id == workoutId).firstOrNull;
+            : detail;
         return workout == null
             ? const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')))
             : _EditorBody(
@@ -242,11 +244,7 @@ class _EditorBody extends HookConsumerWidget {
       WorkoutModule original,
       WorkoutModule timing,
     ) async {
-      final existing = ref
-          .read(workoutControllerProvider)
-          .value
-          ?.where((w) => w.id == draft.value.id)
-          .firstOrNull;
+      final existing = ref.read(workoutDetailProvider(draft.value.id)).value;
       // New workouts need a real identity/name but must not persist other drafts.
       var base =
           existing ??

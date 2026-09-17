@@ -16,6 +16,7 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
@@ -46,7 +47,7 @@ class _WorkoutListBody extends HookConsumerWidget {
     final scroll = useScrollController();
     final refreshing = useState(false);
     final workouts = ref.watch(workoutControllerProvider);
-    final items = workouts.value ?? const <Workout>[];
+    final items = workouts.value ?? const <WorkoutSummary>[];
     final folders = useMemoized(
       () =>
           items
@@ -168,7 +169,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                 child: Divider(height: 1),
               ),
               Expanded(
-                child: AsyncValueWidget<List<Workout>>(
+                child: AsyncValueWidget<List<WorkoutSummary>>(
                   value: workouts,
                   onRetry: refreshing.value ? null : refresh,
                   data: (items) => RefreshIndicator(
@@ -386,7 +387,7 @@ class _WorkoutGrid extends StatelessWidget {
     required this.controller,
   });
 
-  final List<Workout> items;
+  final List<WorkoutSummary> items;
   final bool isBusy;
   final ScrollController controller;
 
@@ -599,7 +600,7 @@ class _AddWorkoutCard extends StatelessWidget {
 class _WorkoutCard extends ConsumerWidget {
   const _WorkoutCard({required this.workout, required this.isBusy});
 
-  final Workout workout;
+  final WorkoutSummary workout;
   final bool isBusy;
 
   @override
@@ -609,7 +610,7 @@ class _WorkoutCard extends ConsumerWidget {
       workout.id,
     );
     final folder = workout.folder.isEmpty ? '폴더 없음' : workout.folder;
-    final imageSource = workout.modules.firstOrNull?.imageSource ?? '';
+    final imageSource = workout.imageSource;
     return Material(
       color: SlideEditorStyle.surface,
       borderRadius: BorderRadius.circular(AppStyle.cardRadius),
@@ -654,7 +655,7 @@ class _WorkoutCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$folder · ${workout.modules.length}개 슬라이드',
+                    '$folder · ${workout.moduleCount}개 슬라이드',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -672,7 +673,7 @@ class _WorkoutCard extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      durationLabel(workoutDuration(workout)),
+                      durationLabel(workout.durationSeconds),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -695,7 +696,7 @@ class _WorkoutCard extends ConsumerWidget {
 class _WorkoutActions extends ConsumerWidget {
   const _WorkoutActions({required this.workout, required this.isBusy});
 
-  final Workout workout;
+  final WorkoutSummary workout;
   final bool isBusy;
 
   @override
@@ -704,7 +705,7 @@ class _WorkoutActions extends ConsumerWidget {
     children: [
       IconButton(
         tooltip: '재생',
-        onPressed: workout.modules.isEmpty || isBusy
+        onPressed: workout.moduleCount == 0 || isBusy
             ? null
             : () => _play(context, ref),
         icon: const Icon(Icons.play_arrow_rounded),
@@ -756,14 +757,34 @@ class _WorkoutActions extends ConsumerWidget {
     ],
   );
 
+  Future<Workout?> _detail(BuildContext context, WidgetRef ref) async {
+    try {
+      final detail = await ref
+          .read(workoutActionControllerProvider.notifier)
+          .prepare(workout.id);
+      if (!context.mounted) return null;
+      final error = ref.read(workoutActionControllerProvider).error;
+      if (error != null) throw error;
+      return detail;
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('운동을 불러오지 못했습니다: $error')));
+      }
+      return null;
+    }
+  }
+
   Future<void> _play(BuildContext context, WidgetRef ref) async {
-    final selection = await showWorkoutPreflight(context, workout);
+    final detail = await _detail(context, ref);
+    if (detail == null || !context.mounted) return;
+    final selection = await showWorkoutPreflight(context, detail);
     if (selection == null || !context.mounted) return;
-    final steps = buildPlayerSteps(workout);
+    final steps = buildPlayerSteps(detail);
     final sessionId = await ref
         .read(playbackActionControllerProvider.notifier)
         .start(
-          workout: workout,
+          workout: detail,
           targetDeviceIds: selection.targetDeviceIds,
           stepIndex: 0,
           durationMs: steps.first.duration * 1000,
@@ -793,9 +814,11 @@ class _WorkoutActions extends ConsumerWidget {
       case _WorkoutAction.edit:
         context.push('/editor/${workout.id}');
       case _WorkoutAction.duplicate:
+        final detail = await _detail(context, ref);
+        if (detail == null || !context.mounted) return;
         await ref
             .read(workoutActionControllerProvider.notifier)
-            .duplicate(workout, newId());
+            .duplicate(detail, newId());
       case _WorkoutAction.delete:
         final delete = await showDialog<bool>(
           context: context,
