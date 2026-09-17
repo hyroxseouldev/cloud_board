@@ -24,6 +24,11 @@ WorkoutModel _$WorkoutModelFromJson(Map<String, dynamic> json) => WorkoutModel(
   countdownBackgroundColor:
       (json['countdownBackgroundColor'] as num?)?.toInt() ?? 0xFF000000,
   countdownImageSource: json['countdownImageSource'] as String? ?? '',
+  countdownAppearance: json['countdownAppearance'] == null
+      ? const CountdownAppearance()
+      : CountdownAppearance.fromJson(
+          json['countdownAppearance'] as Map<String, dynamic>,
+        ),
   modules: (json['modules'] as List<dynamic>)
       .map((e) => WorkoutModuleModel.fromJson(e as Map<String, dynamic>))
       .toList(),
@@ -49,6 +54,7 @@ Map<String, dynamic> _$WorkoutModelToJson(
   'countdownSeconds': instance.countdownSeconds,
   'countdownBackgroundColor': instance.countdownBackgroundColor,
   'countdownImageSource': instance.countdownImageSource,
+  'countdownAppearance': instance.countdownAppearance.toJson(),
   'author': instance.author.toJson(),
   'modules': instance.modules.map((e) => e.toJson()).toList(),
   'createdAt': const FirestoreTimestampConverter().toJson(instance.createdAt),

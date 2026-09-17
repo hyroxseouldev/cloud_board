@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 
 import 'dart:convert';
@@ -71,6 +73,8 @@ void main() {
               ),
             ),
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            newWorkoutCountdownDefaultsProvider('u')
+                .overrideWith((ref) async => const CountdownPreferences()),
             displayDevicesProvider.overrideWith(
               (ref) => Stream.value(const []),
             ),
@@ -556,6 +560,8 @@ void main() {
               ),
             ),
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            newWorkoutCountdownDefaultsProvider('u')
+                .overrideWith((ref) async => const CountdownPreferences()),
             displayDevicesProvider.overrideWith(
               (ref) => Stream.value(const []),
             ),
@@ -1020,6 +1026,8 @@ void main() {
                 ),
               ),
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              newWorkoutCountdownDefaultsProvider('u')
+                  .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
                 () => _RetryWorkoutSave(saved),
               ),
@@ -1126,6 +1134,8 @@ void main() {
                 ),
               ),
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              newWorkoutCountdownDefaultsProvider('u')
+                  .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
                 () => _SaveWorkouts(saved),
               ),
@@ -1261,6 +1271,8 @@ void main() {
                 ),
               ),
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
+              newWorkoutCountdownDefaultsProvider('u')
+                  .overrideWith((ref) async => const CountdownPreferences()),
               workoutActionControllerProvider.overrideWith(
                 () => _SaveWorkouts(saved),
               ),

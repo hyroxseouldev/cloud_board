@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
@@ -33,7 +34,10 @@ void main() {
       addTearDown(right.dispose);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [beepPlayerProvider.overrideWithValue(audio)],
+          overrides: [
+            beepPlayerProvider.overrideWithValue(audio),
+            authStateProvider.overrideWith((ref) => Stream.value(null)),
+          ],
           child: MaterialApp(
             home: Scaffold(
               body: Builder(

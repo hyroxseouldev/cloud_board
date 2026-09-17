@@ -425,6 +425,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             workout: workout,
             seconds: (state.countdownMs / 1000).ceil(),
             slideName: currentMediaStep?.module.name,
+            slide: currentMediaStep?.module,
           ),
         ),
       );

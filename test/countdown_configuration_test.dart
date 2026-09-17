@@ -1,3 +1,5 @@
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -79,20 +81,25 @@ void main() {
     (tester) async {
       var draft = workout;
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: StatefulBuilder(
-              builder: (context, setState) => SingleChildScrollView(
-                child: CountdownSettings(
-                  workout: draft,
-                  onChanged: (v) => setState(() => draft = v),
+        ProviderScope(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(null)),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) => SingleChildScrollView(
+                  child: CountdownSettings(
+                    workout: draft,
+                    onChanged: (v) => setState(() => draft = v),
+                  ),
                 ),
               ),
             ),
           ),
         ),
       );
-      final field = find.byType(TextFormField);
+      final field = find.byType(TextFormField).last;
       await tester.enterText(field, '#12');
       await tester.pump();
       expect(draft.countdownBackgroundColor, 0xFF000000);
@@ -100,10 +107,10 @@ void main() {
       await tester.enterText(field, '#FFFFFF');
       await tester.pump();
       expect(draft.countdownBackgroundColor, 0xFFFFFFFF);
-      final slider = tester.widget<Slider>(
+      await tester.enterText(
         find.byKey(const ValueKey('countdown-seconds')),
+        '0',
       );
-      slider.onChanged!(0);
       await tester.pump();
       expect(draft.countdownSeconds, 0);
       expect(find.text('바로 시작 (카운트다운 없음)'), findsOneWidget);

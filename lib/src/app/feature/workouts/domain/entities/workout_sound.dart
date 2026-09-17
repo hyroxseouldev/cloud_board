@@ -24,6 +24,7 @@ enum WorkoutSound {
 }
 
 enum WorkoutSoundTheme {
+  videoBeep('비프 1 (기본)', '모든 안내를 비프 1로 재생'),
   simple('간단한 비프', '짧고 부드러운 삡 소리로 안내'),
   classic('클래식 비프', '익숙하고 또렷한 전자 비프음'),
   boxing('복싱 짐', '강한 벨로 구간을 확실하게 구분'),
@@ -58,6 +59,12 @@ class WorkoutSoundSelection {
 
 WorkoutSoundSelection soundsForTheme(WorkoutSoundTheme theme) =>
     switch (theme) {
+      WorkoutSoundTheme.videoBeep => const WorkoutSoundSelection(
+        countdown: WorkoutSound.videoBeep,
+        workStart: WorkoutSound.videoBeep,
+        restStart: WorkoutSound.videoBeep,
+        workoutEnd: WorkoutSound.videoBeep,
+      ),
       WorkoutSoundTheme.simple => const WorkoutSoundSelection(
         countdown: WorkoutSound.gentleBeep,
         workStart: WorkoutSound.gentleBeep,

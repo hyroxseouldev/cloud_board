@@ -58,19 +58,18 @@ class KeyboardDismissRegion extends StatelessWidget {
                     bottom: false,
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: TextButton.icon(
+                      child: IconButton(
                         onPressed: () =>
                             FocusManager.instance.primaryFocus?.unfocus(),
-                        style: TextButton.styleFrom(
+                        style: IconButton.styleFrom(
                           minimumSize: const Size(48, _toolbarHeight),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          textStyle: const TextStyle(fontSize: 14),
                         ),
                         icon: const Icon(
                           Icons.keyboard_hide_outlined,
                           size: 22,
+                          semanticLabel: '키보드 내리기',
                         ),
-                        label: const Text('키보드 내리기'),
                       ),
                     ),
                   ),

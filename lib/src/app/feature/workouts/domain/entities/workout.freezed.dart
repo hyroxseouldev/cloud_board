@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Workout {
 
- String get id; String get ownerId; WorkoutAuthor get author; String get name; String get folder; String get brandL; String get brandR; WorkoutSoundTheme get soundTheme; WorkoutSound get countdownSound; WorkoutSound get workStartSound; WorkoutSound get restStartSound; WorkoutSound get workoutEndSound; double get soundVolume; int get countdownSeconds; int get countdownBackgroundColor; String get countdownImageSource; List<WorkoutModule> get modules; DateTime get createdAt; DateTime get updatedAt;
+ String get id; String get ownerId; WorkoutAuthor get author; String get name; String get folder; String get brandL; String get brandR; WorkoutSoundTheme get soundTheme; WorkoutSound get countdownSound; WorkoutSound get workStartSound; WorkoutSound get restStartSound; WorkoutSound get workoutEndSound; double get soundVolume; int get countdownSeconds; int get countdownBackgroundColor; String get countdownImageSource; CountdownAppearance get countdownAppearance; List<WorkoutModule> get modules; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of Workout
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $WorkoutCopyWith<Workout> get copyWith => _$WorkoutCopyWithImpl<Workout>(this as
 @override
 bool operator ==(Object other) {
   final _this = this as Workout;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Workout&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.ownerId, _this.ownerId) || other.ownerId == _this.ownerId)&&(identical(other.author, _this.author) || other.author == _this.author)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.folder, _this.folder) || other.folder == _this.folder)&&(identical(other.brandL, _this.brandL) || other.brandL == _this.brandL)&&(identical(other.brandR, _this.brandR) || other.brandR == _this.brandR)&&(identical(other.soundTheme, _this.soundTheme) || other.soundTheme == _this.soundTheme)&&(identical(other.countdownSound, _this.countdownSound) || other.countdownSound == _this.countdownSound)&&(identical(other.workStartSound, _this.workStartSound) || other.workStartSound == _this.workStartSound)&&(identical(other.restStartSound, _this.restStartSound) || other.restStartSound == _this.restStartSound)&&(identical(other.workoutEndSound, _this.workoutEndSound) || other.workoutEndSound == _this.workoutEndSound)&&(identical(other.soundVolume, _this.soundVolume) || other.soundVolume == _this.soundVolume)&&(identical(other.countdownSeconds, _this.countdownSeconds) || other.countdownSeconds == _this.countdownSeconds)&&(identical(other.countdownBackgroundColor, _this.countdownBackgroundColor) || other.countdownBackgroundColor == _this.countdownBackgroundColor)&&(identical(other.countdownImageSource, _this.countdownImageSource) || other.countdownImageSource == _this.countdownImageSource)&&const DeepCollectionEquality().equals(other.modules, _this.modules)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.updatedAt, _this.updatedAt) || other.updatedAt == _this.updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Workout&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.ownerId, _this.ownerId) || other.ownerId == _this.ownerId)&&(identical(other.author, _this.author) || other.author == _this.author)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.folder, _this.folder) || other.folder == _this.folder)&&(identical(other.brandL, _this.brandL) || other.brandL == _this.brandL)&&(identical(other.brandR, _this.brandR) || other.brandR == _this.brandR)&&(identical(other.soundTheme, _this.soundTheme) || other.soundTheme == _this.soundTheme)&&(identical(other.countdownSound, _this.countdownSound) || other.countdownSound == _this.countdownSound)&&(identical(other.workStartSound, _this.workStartSound) || other.workStartSound == _this.workStartSound)&&(identical(other.restStartSound, _this.restStartSound) || other.restStartSound == _this.restStartSound)&&(identical(other.workoutEndSound, _this.workoutEndSound) || other.workoutEndSound == _this.workoutEndSound)&&(identical(other.soundVolume, _this.soundVolume) || other.soundVolume == _this.soundVolume)&&(identical(other.countdownSeconds, _this.countdownSeconds) || other.countdownSeconds == _this.countdownSeconds)&&(identical(other.countdownBackgroundColor, _this.countdownBackgroundColor) || other.countdownBackgroundColor == _this.countdownBackgroundColor)&&(identical(other.countdownImageSource, _this.countdownImageSource) || other.countdownImageSource == _this.countdownImageSource)&&(identical(other.countdownAppearance, _this.countdownAppearance) || other.countdownAppearance == _this.countdownAppearance)&&const DeepCollectionEquality().equals(other.modules, _this.modules)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.updatedAt, _this.updatedAt) || other.updatedAt == _this.updatedAt));
 }
 
 
 @override
 int get hashCode {
   final _this = this as Workout;
-  return Object.hashAll([runtimeType,_this.id,_this.ownerId,_this.author,_this.name,_this.folder,_this.brandL,_this.brandR,_this.soundTheme,_this.countdownSound,_this.workStartSound,_this.restStartSound,_this.workoutEndSound,_this.soundVolume,_this.countdownSeconds,_this.countdownBackgroundColor,_this.countdownImageSource,const DeepCollectionEquality().hash(_this.modules),_this.createdAt,_this.updatedAt]);
+  return Object.hashAll([runtimeType,_this.id,_this.ownerId,_this.author,_this.name,_this.folder,_this.brandL,_this.brandR,_this.soundTheme,_this.countdownSound,_this.workStartSound,_this.restStartSound,_this.workoutEndSound,_this.soundVolume,_this.countdownSeconds,_this.countdownBackgroundColor,_this.countdownImageSource,_this.countdownAppearance,const DeepCollectionEquality().hash(_this.modules),_this.createdAt,_this.updatedAt]);
 }
 
 @override
 String toString() {
   final _this = this as Workout;
-  return 'Workout(id: ${_this.id}, ownerId: ${_this.ownerId}, author: ${_this.author}, name: ${_this.name}, folder: ${_this.folder}, brandL: ${_this.brandL}, brandR: ${_this.brandR}, soundTheme: ${_this.soundTheme}, countdownSound: ${_this.countdownSound}, workStartSound: ${_this.workStartSound}, restStartSound: ${_this.restStartSound}, workoutEndSound: ${_this.workoutEndSound}, soundVolume: ${_this.soundVolume}, countdownSeconds: ${_this.countdownSeconds}, countdownBackgroundColor: ${_this.countdownBackgroundColor}, countdownImageSource: ${_this.countdownImageSource}, modules: ${_this.modules}, createdAt: ${_this.createdAt}, updatedAt: ${_this.updatedAt})';
+  return 'Workout(id: ${_this.id}, ownerId: ${_this.ownerId}, author: ${_this.author}, name: ${_this.name}, folder: ${_this.folder}, brandL: ${_this.brandL}, brandR: ${_this.brandR}, soundTheme: ${_this.soundTheme}, countdownSound: ${_this.countdownSound}, workStartSound: ${_this.workStartSound}, restStartSound: ${_this.restStartSound}, workoutEndSound: ${_this.workoutEndSound}, soundVolume: ${_this.soundVolume}, countdownSeconds: ${_this.countdownSeconds}, countdownBackgroundColor: ${_this.countdownBackgroundColor}, countdownImageSource: ${_this.countdownImageSource}, countdownAppearance: ${_this.countdownAppearance}, modules: ${_this.modules}, createdAt: ${_this.createdAt}, updatedAt: ${_this.updatedAt})';
 }
 
 
@@ -51,11 +51,11 @@ abstract mixin class $WorkoutCopyWith<$Res>  {
   factory $WorkoutCopyWith(Workout value, $Res Function(Workout) _then) = _$WorkoutCopyWithImpl;
 @useResult
 $Res call({
- String id, String ownerId, WorkoutAuthor author, String name, String folder, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, int countdownSeconds, int countdownBackgroundColor, String countdownImageSource, List<WorkoutModule> modules, DateTime createdAt, DateTime updatedAt
+ String id, String ownerId, WorkoutAuthor author, String name, String folder, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, int countdownSeconds, int countdownBackgroundColor, String countdownImageSource, CountdownAppearance countdownAppearance, List<WorkoutModule> modules, DateTime createdAt, DateTime updatedAt
 });
 
 
-$WorkoutAuthorCopyWith<$Res> get author;
+$WorkoutAuthorCopyWith<$Res> get author;$CountdownAppearanceCopyWith<$Res> get countdownAppearance;
 
 }
 /// @nodoc
@@ -68,7 +68,7 @@ class _$WorkoutCopyWithImpl<$Res>
 
 /// Create a copy of Workout
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? ownerId = null,Object? author = null,Object? name = null,Object? folder = null,Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdownSeconds = null,Object? countdownBackgroundColor = null,Object? countdownImageSource = null,Object? modules = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? ownerId = null,Object? author = null,Object? name = null,Object? folder = null,Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdownSeconds = null,Object? countdownBackgroundColor = null,Object? countdownImageSource = null,Object? countdownAppearance = null,Object? modules = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(Workout(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,ownerId: null == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
@@ -86,7 +86,8 @@ as WorkoutSound,soundVolume: null == soundVolume ? _self.soundVolume : soundVolu
 as double,countdownSeconds: null == countdownSeconds ? _self.countdownSeconds : countdownSeconds // ignore: cast_nullable_to_non_nullable
 as int,countdownBackgroundColor: null == countdownBackgroundColor ? _self.countdownBackgroundColor : countdownBackgroundColor // ignore: cast_nullable_to_non_nullable
 as int,countdownImageSource: null == countdownImageSource ? _self.countdownImageSource : countdownImageSource // ignore: cast_nullable_to_non_nullable
-as String,modules: null == modules ? _self.modules : modules // ignore: cast_nullable_to_non_nullable
+as String,countdownAppearance: null == countdownAppearance ? _self.countdownAppearance : countdownAppearance // ignore: cast_nullable_to_non_nullable
+as CountdownAppearance,modules: null == modules ? _self.modules : modules // ignore: cast_nullable_to_non_nullable
 as List<WorkoutModule>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
@@ -100,6 +101,15 @@ $WorkoutAuthorCopyWith<$Res> get author {
   
   return $WorkoutAuthorCopyWith<$Res>(_self.author, (value) {
     return _then(_self.copyWith(author: value));
+  });
+}/// Create a copy of Workout
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CountdownAppearanceCopyWith<$Res> get countdownAppearance {
+  
+  return $CountdownAppearanceCopyWith<$Res>(_self.countdownAppearance, (value) {
+    return _then(_self.copyWith(countdownAppearance: value));
   });
 }
 }
@@ -183,10 +193,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String ownerId,  WorkoutAuthor author,  String name,  String folder,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  int countdownSeconds,  int countdownBackgroundColor,  String countdownImageSource,  List<WorkoutModule> modules,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String ownerId,  WorkoutAuthor author,  String name,  String folder,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  int countdownSeconds,  int countdownBackgroundColor,  String countdownImageSource,  CountdownAppearance countdownAppearance,  List<WorkoutModule> modules,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Workout() when $default != null:
-return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdownSeconds,_that.countdownBackgroundColor,_that.countdownImageSource,_that.modules,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdownSeconds,_that.countdownBackgroundColor,_that.countdownImageSource,_that.countdownAppearance,_that.modules,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -204,10 +214,10 @@ return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String ownerId,  WorkoutAuthor author,  String name,  String folder,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  int countdownSeconds,  int countdownBackgroundColor,  String countdownImageSource,  List<WorkoutModule> modules,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String ownerId,  WorkoutAuthor author,  String name,  String folder,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  int countdownSeconds,  int countdownBackgroundColor,  String countdownImageSource,  CountdownAppearance countdownAppearance,  List<WorkoutModule> modules,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Workout():
-return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdownSeconds,_that.countdownBackgroundColor,_that.countdownImageSource,_that.modules,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdownSeconds,_that.countdownBackgroundColor,_that.countdownImageSource,_that.countdownAppearance,_that.modules,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -224,10 +234,10 @@ return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String ownerId,  WorkoutAuthor author,  String name,  String folder,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  int countdownSeconds,  int countdownBackgroundColor,  String countdownImageSource,  List<WorkoutModule> modules,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String ownerId,  WorkoutAuthor author,  String name,  String folder,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  int countdownSeconds,  int countdownBackgroundColor,  String countdownImageSource,  CountdownAppearance countdownAppearance,  List<WorkoutModule> modules,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Workout() when $default != null:
-return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdownSeconds,_that.countdownBackgroundColor,_that.countdownImageSource,_that.modules,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdownSeconds,_that.countdownBackgroundColor,_that.countdownImageSource,_that.countdownAppearance,_that.modules,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -239,7 +249,7 @@ return $default(_that.id,_that.ownerId,_that.author,_that.name,_that.folder,_tha
 
 
 class _Workout implements Workout {
-  const _Workout({required this.id, required this.ownerId, required this.author, required this.name, required this.folder, required this.brandL, required this.brandR, required this.soundTheme, required this.countdownSound, required this.workStartSound, required this.restStartSound, required this.workoutEndSound, required this.soundVolume, this.countdownSeconds = 3, this.countdownBackgroundColor = 0xFF000000, this.countdownImageSource = '', required  List<WorkoutModule> modules, required this.createdAt, required this.updatedAt}): _modules = modules;
+  const _Workout({required this.id, required this.ownerId, required this.author, required this.name, required this.folder, required this.brandL, required this.brandR, required this.soundTheme, required this.countdownSound, required this.workStartSound, required this.restStartSound, required this.workoutEndSound, required this.soundVolume, this.countdownSeconds = 3, this.countdownBackgroundColor = 0xFF000000, this.countdownImageSource = '', this.countdownAppearance = const CountdownAppearance(), required  List<WorkoutModule> modules, required this.createdAt, required this.updatedAt}): _modules = modules;
   
 
 @override final  String id;
@@ -258,6 +268,7 @@ class _Workout implements Workout {
 @override@JsonKey() final  int countdownSeconds;
 @override@JsonKey() final  int countdownBackgroundColor;
 @override@JsonKey() final  String countdownImageSource;
+@override@JsonKey() final  CountdownAppearance countdownAppearance;
  final  List<WorkoutModule> _modules;
 @override List<WorkoutModule> get modules {
   if (_modules is EqualUnmodifiableListView) return _modules;
@@ -278,18 +289,18 @@ _$WorkoutCopyWith<_Workout> get copyWith => __$WorkoutCopyWithImpl<_Workout>(thi
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Workout&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId)&&(identical(other.author, author) || other.author == author)&&(identical(other.name, name) || other.name == name)&&(identical(other.folder, folder) || other.folder == folder)&&(identical(other.brandL, brandL) || other.brandL == brandL)&&(identical(other.brandR, brandR) || other.brandR == brandR)&&(identical(other.soundTheme, soundTheme) || other.soundTheme == soundTheme)&&(identical(other.countdownSound, countdownSound) || other.countdownSound == countdownSound)&&(identical(other.workStartSound, workStartSound) || other.workStartSound == workStartSound)&&(identical(other.restStartSound, restStartSound) || other.restStartSound == restStartSound)&&(identical(other.workoutEndSound, workoutEndSound) || other.workoutEndSound == workoutEndSound)&&(identical(other.soundVolume, soundVolume) || other.soundVolume == soundVolume)&&(identical(other.countdownSeconds, countdownSeconds) || other.countdownSeconds == countdownSeconds)&&(identical(other.countdownBackgroundColor, countdownBackgroundColor) || other.countdownBackgroundColor == countdownBackgroundColor)&&(identical(other.countdownImageSource, countdownImageSource) || other.countdownImageSource == countdownImageSource)&&const DeepCollectionEquality().equals(other.modules, _modules)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Workout&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId)&&(identical(other.author, author) || other.author == author)&&(identical(other.name, name) || other.name == name)&&(identical(other.folder, folder) || other.folder == folder)&&(identical(other.brandL, brandL) || other.brandL == brandL)&&(identical(other.brandR, brandR) || other.brandR == brandR)&&(identical(other.soundTheme, soundTheme) || other.soundTheme == soundTheme)&&(identical(other.countdownSound, countdownSound) || other.countdownSound == countdownSound)&&(identical(other.workStartSound, workStartSound) || other.workStartSound == workStartSound)&&(identical(other.restStartSound, restStartSound) || other.restStartSound == restStartSound)&&(identical(other.workoutEndSound, workoutEndSound) || other.workoutEndSound == workoutEndSound)&&(identical(other.soundVolume, soundVolume) || other.soundVolume == soundVolume)&&(identical(other.countdownSeconds, countdownSeconds) || other.countdownSeconds == countdownSeconds)&&(identical(other.countdownBackgroundColor, countdownBackgroundColor) || other.countdownBackgroundColor == countdownBackgroundColor)&&(identical(other.countdownImageSource, countdownImageSource) || other.countdownImageSource == countdownImageSource)&&(identical(other.countdownAppearance, countdownAppearance) || other.countdownAppearance == countdownAppearance)&&const DeepCollectionEquality().equals(other.modules, _modules)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 
 @override
 int get hashCode {
-    return Object.hashAll([runtimeType,id,ownerId,author,name,folder,brandL,brandR,soundTheme,countdownSound,workStartSound,restStartSound,workoutEndSound,soundVolume,countdownSeconds,countdownBackgroundColor,countdownImageSource,const DeepCollectionEquality().hash(_modules),createdAt,updatedAt]);
+    return Object.hashAll([runtimeType,id,ownerId,author,name,folder,brandL,brandR,soundTheme,countdownSound,workStartSound,restStartSound,workoutEndSound,soundVolume,countdownSeconds,countdownBackgroundColor,countdownImageSource,countdownAppearance,const DeepCollectionEquality().hash(_modules),createdAt,updatedAt]);
 }
 
 @override
 String toString() {
-    return 'Workout(id: $id, ownerId: $ownerId, author: $author, name: $name, folder: $folder, brandL: $brandL, brandR: $brandR, soundTheme: $soundTheme, countdownSound: $countdownSound, workStartSound: $workStartSound, restStartSound: $restStartSound, workoutEndSound: $workoutEndSound, soundVolume: $soundVolume, countdownSeconds: $countdownSeconds, countdownBackgroundColor: $countdownBackgroundColor, countdownImageSource: $countdownImageSource, modules: $modules, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Workout(id: $id, ownerId: $ownerId, author: $author, name: $name, folder: $folder, brandL: $brandL, brandR: $brandR, soundTheme: $soundTheme, countdownSound: $countdownSound, workStartSound: $workStartSound, restStartSound: $restStartSound, workoutEndSound: $workoutEndSound, soundVolume: $soundVolume, countdownSeconds: $countdownSeconds, countdownBackgroundColor: $countdownBackgroundColor, countdownImageSource: $countdownImageSource, countdownAppearance: $countdownAppearance, modules: $modules, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -300,11 +311,11 @@ abstract mixin class _$WorkoutCopyWith<$Res> implements $WorkoutCopyWith<$Res> {
   factory _$WorkoutCopyWith(_Workout value, $Res Function(_Workout) _then) = __$WorkoutCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String ownerId, WorkoutAuthor author, String name, String folder, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, int countdownSeconds, int countdownBackgroundColor, String countdownImageSource, List<WorkoutModule> modules, DateTime createdAt, DateTime updatedAt
+ String id, String ownerId, WorkoutAuthor author, String name, String folder, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, int countdownSeconds, int countdownBackgroundColor, String countdownImageSource, CountdownAppearance countdownAppearance, List<WorkoutModule> modules, DateTime createdAt, DateTime updatedAt
 });
 
 
-@override $WorkoutAuthorCopyWith<$Res> get author;
+@override $WorkoutAuthorCopyWith<$Res> get author;@override $CountdownAppearanceCopyWith<$Res> get countdownAppearance;
 
 }
 /// @nodoc
@@ -317,7 +328,7 @@ class __$WorkoutCopyWithImpl<$Res>
 
 /// Create a copy of Workout
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? ownerId = null,Object? author = null,Object? name = null,Object? folder = null,Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdownSeconds = null,Object? countdownBackgroundColor = null,Object? countdownImageSource = null,Object? modules = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? ownerId = null,Object? author = null,Object? name = null,Object? folder = null,Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdownSeconds = null,Object? countdownBackgroundColor = null,Object? countdownImageSource = null,Object? countdownAppearance = null,Object? modules = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_Workout(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,ownerId: null == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
@@ -335,7 +346,8 @@ as WorkoutSound,soundVolume: null == soundVolume ? _self.soundVolume : soundVolu
 as double,countdownSeconds: null == countdownSeconds ? _self.countdownSeconds : countdownSeconds // ignore: cast_nullable_to_non_nullable
 as int,countdownBackgroundColor: null == countdownBackgroundColor ? _self.countdownBackgroundColor : countdownBackgroundColor // ignore: cast_nullable_to_non_nullable
 as int,countdownImageSource: null == countdownImageSource ? _self.countdownImageSource : countdownImageSource // ignore: cast_nullable_to_non_nullable
-as String,modules: null == modules ? _self._modules : modules // ignore: cast_nullable_to_non_nullable
+as String,countdownAppearance: null == countdownAppearance ? _self.countdownAppearance : countdownAppearance // ignore: cast_nullable_to_non_nullable
+as CountdownAppearance,modules: null == modules ? _self._modules : modules // ignore: cast_nullable_to_non_nullable
 as List<WorkoutModule>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
@@ -350,6 +362,15 @@ $WorkoutAuthorCopyWith<$Res> get author {
   
   return $WorkoutAuthorCopyWith<$Res>(_self.author, (value) {
     return _then(_self.copyWith(author: value));
+  });
+}/// Create a copy of Workout
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CountdownAppearanceCopyWith<$Res> get countdownAppearance {
+  
+  return $CountdownAppearanceCopyWith<$Res>(_self.countdownAppearance, (value) {
+    return _then(_self.copyWith(countdownAppearance: value));
   });
 }
 }

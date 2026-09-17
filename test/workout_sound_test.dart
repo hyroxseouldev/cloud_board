@@ -10,18 +10,17 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sou
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('비프 1은 모든 수업 이벤트에서 저장 후 복원된다', () {
-    final workout =
-        Workout.empty(
-          'video-beep-workout',
-          const WorkoutAuthor(id: 'owner', displayName: '매장', photoUrl: null),
-        ).copyWith(
-          soundTheme: WorkoutSoundTheme.custom,
-          countdownSound: WorkoutSound.videoBeep,
-          workStartSound: WorkoutSound.videoBeep,
-          restStartSound: WorkoutSound.videoBeep,
-          workoutEndSound: WorkoutSound.videoBeep,
-        );
+  test('새 워크아웃은 모든 이벤트에 비프 1을 기본 적용하고 저장 후 복원한다', () {
+    final workout = Workout.empty(
+      'video-beep-workout',
+      const WorkoutAuthor(id: 'owner', displayName: '매장', photoUrl: null),
+    );
+    expect(workout.soundTheme, WorkoutSoundTheme.videoBeep);
+    final theme = soundsForTheme(workout.soundTheme);
+    expect(theme.countdown, workout.countdownSound);
+    expect(theme.workStart, workout.workStartSound);
+    expect(theme.restStart, workout.restStartSound);
+    expect(theme.workoutEnd, workout.workoutEndSound);
     final restored = WorkoutModel.fromJson(
       WorkoutModel.fromEntity(workout).toJson(),
     ).toEntity();
@@ -68,9 +67,11 @@ void main() {
     expect(workout.soundVolume, 1);
   });
 
-  test('세 가지 기본 테마는 이벤트마다 구분되는 소리를 제공한다', () {
+  test('기존 테마는 이벤트마다 구분되는 소리를 유지한다', () {
     for (final theme in WorkoutSoundTheme.values.where(
-      (value) => value != WorkoutSoundTheme.custom,
+      (value) =>
+          value != WorkoutSoundTheme.custom &&
+          value != WorkoutSoundTheme.videoBeep,
     )) {
       final sounds = soundsForTheme(theme);
       expect(sounds.countdown, isNot(WorkoutSound.silent));
