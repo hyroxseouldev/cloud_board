@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/widgets/account_management_section.dart';
 
 import 'dart:typed_data';
@@ -20,12 +22,16 @@ class UserProfileScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileState = ref.watch(userProfileControllerProvider);
+    final authAction = ref.watch(authControllerProvider);
+    final deletion = ref.watch(accountDeletionControllerProvider);
     final nameController = useTextEditingController();
     final avatarBytes = useState<Uint8List?>(null);
     final avatarExtension = useState<String?>(null);
     final initializedUserId = useRef<String?>(null);
     final hasSubmitted = useRef(false);
-    final profile = profileState.value;
+    // Keep the form mounted while saving, including when a save fails.
+    final profileBeforeSave = useRef<UserProfile?>(null);
+    final profile = profileState.value ?? profileBeforeSave.value;
 
     useEffect(() {
       if (profile != null && initializedUserId.value != profile.id) {
@@ -86,7 +92,7 @@ class UserProfileScreen extends HookConsumerWidget {
                 Text('프로필 설정', style: AppStyle.of(context).mainText),
                 const SizedBox(height: 28),
                 AsyncValueWidget<UserProfile>(
-                  value: profileState,
+                  value: profile == null ? profileState : AsyncData(profile),
                   data: (data) => Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -178,6 +184,7 @@ class UserProfileScreen extends HookConsumerWidget {
                         onPressed: profileState.isLoading
                             ? null
                             : () async {
+                                profileBeforeSave.value = data;
                                 hasSubmitted.value = true;
                                 final success = await ref
                                     .read(
@@ -189,6 +196,7 @@ class UserProfileScreen extends HookConsumerWidget {
                                       avatarExtension: avatarExtension.value,
                                     );
                                 if (success && context.mounted) {
+                                  profileBeforeSave.value = null;
                                   avatarBytes.value = null;
                                   avatarExtension.value = null;
                                 }
@@ -211,6 +219,26 @@ class UserProfileScreen extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 24),
                 const AccountManagementSection(),
+                const SizedBox(height: 12),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppStyle.cardRadius),
+                  ),
+                  leading: const Icon(Icons.logout_rounded),
+                  title: const Text('로그아웃'),
+                  trailing: authAction.isLoading
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                  enabled:
+                      !authAction.isLoading &&
+                      !profileState.isLoading &&
+                      !deletion.isLoading,
+                  onTap: () =>
+                      ref.read(authControllerProvider.notifier).signOut(),
+                ),
               ],
             ),
           ),
