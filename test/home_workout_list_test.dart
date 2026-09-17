@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 
 import 'dart:async';
@@ -14,6 +17,44 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'active workout card explains lock; edit/delete disabled and copy allowed',
+    (tester) async {
+      final workout = _catalog(1).single;
+      await _mount(
+        tester,
+        _CatalogRepository([workout]),
+        activeSession: PlaybackSession(
+          id: 's',
+          ownerId: 'u',
+          zoneId: 'main',
+          workout: workout,
+          status: PlaybackStatus.paused,
+          stepIndex: 0,
+          remainingMs: 60000,
+          anchorServerMs: 0,
+          revision: 1,
+          updatedByDeviceId: 'controller',
+        ),
+      );
+      await tester.tap(find.text('수업 01'));
+      await tester.pumpAndSettle();
+      expect(find.text(workoutPlayingEditMessage), findsOneWidget);
+      await tester.tap(find.byTooltip('워크아웃 메뉴'));
+      await tester.pumpAndSettle();
+      PopupMenuItem<dynamic> item(String label) =>
+          tester.widget<PopupMenuItem<dynamic>>(
+            find.ancestor(
+              of: find.text(label),
+              matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+            ),
+          );
+      expect(item('편집').enabled, isFalse);
+      expect(item('삭제').enabled, isFalse);
+      expect(item('복사').enabled, isTrue);
+    },
+  );
+
   for (final size in [
     const Size(390, 844),
     const Size(834, 1194),
@@ -240,6 +281,7 @@ Future<ProviderContainer> _mount(
   WidgetTester tester,
   _CatalogRepository repository, {
   Size size = const Size(390, 844),
+  PlaybackSession? activeSession,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -248,6 +290,9 @@ Future<ProviderContainer> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        activePlaybackSessionProvider.overrideWith(
+          (ref) => Stream.value(activeSession),
+        ),
         authStateProvider.overrideWith(
           (ref) => Stream.value(
             const AuthUser(

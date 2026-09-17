@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
+
 import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -96,7 +99,10 @@ class WorkoutActionController extends _$WorkoutActionController {
     Workout? saved;
     state = await AsyncValue.guard(() async {
       final value = workout.copyWith(updatedAt: DateTime.now());
-      saved = await (await ref.read(saveWorkoutProvider.future))(value);
+      await _ensureEditable(workout.id);
+      final save = await ref.read(saveWorkoutProvider.future);
+      await _ensureEditable(workout.id);
+      saved = await save(value);
       ref.read(workoutControllerProvider.notifier).upsert(saved!);
       return '워크아웃을 저장했습니다.';
     });
@@ -106,7 +112,10 @@ class WorkoutActionController extends _$WorkoutActionController {
   Future<bool> delete(String workoutId) => _run(
     successMessage: '워크아웃을 삭제했습니다.',
     action: () async {
-      await (await ref.read(deleteWorkoutProvider.future))(workoutId);
+      await _ensureEditable(workoutId);
+      final delete = await ref.read(deleteWorkoutProvider.future);
+      await _ensureEditable(workoutId);
+      await delete(workoutId);
       ref.read(workoutControllerProvider.notifier).remove(workoutId);
     },
   );
@@ -129,6 +138,27 @@ class WorkoutActionController extends _$WorkoutActionController {
       ref.read(workoutControllerProvider.notifier).upsert(saved);
     },
   );
+
+  Future<void> _ensureEditable(String workoutId) async {
+    // Riverpod pauses unobserved streams. Keep this check subscribed even when
+    // a save originates outside the currently visible editor.
+    final subscription = ref.listen(activePlaybackSessionProvider, (_, _) {});
+    try {
+      final current = ref.read(activePlaybackSessionProvider);
+      if (current.isLoading) {
+        await ref
+            .read(activePlaybackSessionProvider.future)
+            .timeout(const Duration(seconds: 8));
+      }
+      final reason = workoutEditBlockReason(
+        ref.read(activePlaybackSessionProvider),
+        workoutId,
+      );
+      if (reason != null) throw StateError(reason);
+    } finally {
+      subscription.close();
+    }
+  }
 
   Future<bool> _run({
     required String successMessage,
