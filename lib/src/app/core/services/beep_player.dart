@@ -10,7 +10,7 @@ part 'beep_player.g.dart';
 
 class BeepPlayer {
   final AudioPlayer _player = AudioPlayer();
-  final Map<WorkoutSound, BytesSource> _sources = {};
+  final Map<WorkoutSound, Source> _sources = {};
   bool _configured = false;
 
   Future<void> play([
@@ -38,7 +38,9 @@ class BeepPlayer {
     }
     final source = _sources.putIfAbsent(
       sound,
-      () => BytesSource(_createWave(sound), mimeType: 'audio/wav'),
+      () => sound == WorkoutSound.videoBeep
+          ? AssetSource('sounds/video_beep.wav')
+          : BytesSource(_createWave(sound), mimeType: 'audio/wav'),
     );
     await _player.stop();
     await _player.play(
@@ -109,6 +111,8 @@ double _sample(WorkoutSound sound, double seconds, double progress) {
   double tone(double frequency) => sin(2 * pi * frequency * seconds);
   final fade = sin(pi * progress).clamp(0.0, 1.0);
   switch (sound) {
+    case WorkoutSound.videoBeep:
+      throw StateError('비프 1은 번들 음원으로 재생해야 합니다.');
     case WorkoutSound.silent:
       return 0;
     case WorkoutSound.gentleBeep:

@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 
@@ -23,6 +24,7 @@ abstract class Workout with _$Workout {
     @Default(3) int countdownSeconds,
     @Default(0xFF000000) int countdownBackgroundColor,
     @Default('') String countdownImageSource,
+    @Default(CountdownAppearance()) CountdownAppearance countdownAppearance,
     required List<WorkoutModule> modules,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -36,11 +38,11 @@ abstract class Workout with _$Workout {
     folder: '',
     brandL: 'CloudBoard',
     brandR: '',
-    soundTheme: WorkoutSoundTheme.simple,
-    countdownSound: WorkoutSound.gentleBeep,
-    workStartSound: WorkoutSound.gentleBeep,
-    restStartSound: WorkoutSound.doubleBeep,
-    workoutEndSound: WorkoutSound.doubleBeep,
+    soundTheme: WorkoutSoundTheme.videoBeep,
+    countdownSound: WorkoutSound.videoBeep,
+    workStartSound: WorkoutSound.videoBeep,
+    restStartSound: WorkoutSound.videoBeep,
+    workoutEndSound: WorkoutSound.videoBeep,
     soundVolume: 1,
     modules: const [],
     createdAt: DateTime.now(),

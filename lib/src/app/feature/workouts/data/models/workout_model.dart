@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -25,6 +26,7 @@ class WorkoutModel {
     this.countdownSeconds = 3,
     this.countdownBackgroundColor = 0xFF000000,
     this.countdownImageSource = '',
+    this.countdownAppearance = const CountdownAppearance(),
     required this.modules,
     required this.createdAt,
     required this.updatedAt,
@@ -44,6 +46,7 @@ class WorkoutModel {
   final double soundVolume;
   final int countdownSeconds, countdownBackgroundColor;
   final String countdownImageSource;
+  final CountdownAppearance countdownAppearance;
   final WorkoutAuthorModel author;
   final List<WorkoutModuleModel> modules;
   @FirestoreTimestampConverter()
@@ -79,6 +82,7 @@ class WorkoutModel {
     countdownSeconds: countdownSeconds.clamp(0, 60),
     countdownBackgroundColor: countdownBackgroundColor,
     countdownImageSource: countdownImageSource,
+    countdownAppearance: countdownAppearance,
     modules: modules.map((item) => item.toEntity()).toList(),
     createdAt: createdAt,
     updatedAt: updatedAt,
@@ -100,6 +104,7 @@ class WorkoutModel {
     countdownSeconds: value.countdownSeconds,
     countdownBackgroundColor: value.countdownBackgroundColor,
     countdownImageSource: value.countdownImageSource,
+    countdownAppearance: value.countdownAppearance,
     modules: value.modules.map(WorkoutModuleModel.fromEntity).toList(),
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,

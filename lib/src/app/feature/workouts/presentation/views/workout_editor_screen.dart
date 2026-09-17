@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -20,7 +22,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 
-class WorkoutEditorScreen extends ConsumerWidget {
+class WorkoutEditorScreen extends HookConsumerWidget {
   const WorkoutEditorScreen({super.key, required this.workoutId, this.guard});
   final String workoutId;
   final ExitGuard? guard;
@@ -28,21 +30,55 @@ class WorkoutEditorScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final values = ref.watch(workoutControllerProvider);
     final user = ref.watch(authStateProvider).value;
+    final skipDefaults = useState(false);
+    var initialDefaults = const CountdownPreferences();
+    if (workoutId == 'new' && user != null && !skipDefaults.value) {
+      final defaultsProvider = newWorkoutCountdownDefaultsProvider(user.id);
+      final defaults = ref.watch(defaultsProvider);
+      if (defaults.isLoading) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      if (defaults.hasError) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('새 워크아웃')),
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('계정 기본값을 불러오지 못했습니다.'),
+                TextButton(
+                  onPressed: () => ref.invalidate(defaultsProvider),
+                  child: const Text('다시 시도'),
+                ),
+                TextButton(
+                  onPressed: () => skipDefaults.value = true,
+                  child: const Text('기본 설정으로 만들기'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      initialDefaults = defaults.requireValue;
+    }
     return values.when(
       data: (items) {
         final workout = workoutId == 'new' && user != null
-            ? Workout.empty(
-                newId(),
-                WorkoutAuthor(
-                  id: user.id,
-                  displayName: user.displayName,
-                  photoUrl: user.photoUrl,
+            ? initialDefaults.applyTo(
+                Workout.empty(
+                  newId(),
+                  WorkoutAuthor(
+                    id: user.id,
+                    displayName: user.displayName,
+                    photoUrl: user.photoUrl,
+                  ),
                 ),
               )
             : items.where((item) => item.id == workoutId).firstOrNull;
         return workout == null
             ? const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')))
             : _EditorBody(
+                key: ValueKey('${user?.id}:$workoutId'),
                 initial: workout,
                 isNew: workoutId == 'new',
                 guard: guard,
@@ -139,7 +175,12 @@ class _SlideTemplateNameDialog extends HookWidget {
 }
 
 class _EditorBody extends HookConsumerWidget {
-  const _EditorBody({required this.initial, required this.isNew, this.guard});
+  const _EditorBody({
+    super.key,
+    required this.initial,
+    required this.isNew,
+    this.guard,
+  });
   final Workout initial;
   final bool isNew;
   final ExitGuard? guard;

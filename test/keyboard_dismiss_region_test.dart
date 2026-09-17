@@ -29,14 +29,22 @@ void main() {
       );
       await tester.enterText(find.byType(TextField), '123');
       expect(focus.hasFocus, isTrue);
-      expect(find.text('키보드 내리기'), findsOneWidget);
-      await tester.tap(find.text('키보드 내리기'));
+      expect(
+        find.widgetWithIcon(IconButton, Icons.keyboard_hide_outlined),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.widgetWithIcon(IconButton, Icons.keyboard_hide_outlined),
+      );
       await tester.pump();
       expect(focus.hasFocus, isFalse);
       expect(controller.text, '123');
       tester.view.resetViewInsets();
       await tester.pump();
-      expect(find.text('키보드 내리기'), findsNothing);
+      expect(
+        find.widgetWithIcon(IconButton, Icons.keyboard_hide_outlined),
+        findsNothing,
+      );
     }, variant: TargetPlatformVariant.only(platform));
 
     testWidgets('$platform outside tap dismisses but multiline keeps newline', (
@@ -116,10 +124,12 @@ void main() {
         expect(focus.hasFocus, isTrue);
         final field = tester.getRect(find.byType(TextField));
         final dismiss = tester.getRect(
-          find.widgetWithText(TextButton, '키보드 내리기'),
+          find.widgetWithIcon(IconButton, Icons.keyboard_hide_outlined),
         );
         expect(field.bottom, lessThanOrEqualTo(dismiss.top));
-        await tester.tap(find.text('키보드 내리기'));
+        await tester.tap(
+          find.widgetWithIcon(IconButton, Icons.keyboard_hide_outlined),
+        );
         await tester.pump();
         expect(focus.hasFocus, isFalse);
         Navigator.of(tester.element(find.byType(TextField))).pop();
