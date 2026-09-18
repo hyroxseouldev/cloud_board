@@ -9,7 +9,9 @@ export function summarizeWorkout(data, id = data.id) {
   }, 0);
   const summary = {
     id, name: data.name || '', folder: data.folder || '',
-    imageSource: modules[0]?.imageSource || '', moduleCount: modules.length,
+    // Firestore serializes WorkoutModuleModel.imageUrl. Preserve an explicit
+    // empty imageUrl (image removed); imageSource is only a legacy fallback.
+    imageSource: modules[0]?.imageUrl ?? modules[0]?.imageSource ?? '', moduleCount: modules.length,
     durationSeconds, updatedAt: data.updatedAt,
   };
   if (!summary.updatedAt || !Number.isFinite(durationSeconds)) {
