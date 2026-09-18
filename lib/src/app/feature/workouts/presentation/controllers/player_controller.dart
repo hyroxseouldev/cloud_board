@@ -369,6 +369,35 @@ class PlayerController extends _$PlayerController {
     }
   }
 
+  /// Scrubbing includes every work/rest interval in the selected slide.
+  Future<void> seekModulePosition(int moduleIndex, int elapsedMs) async {
+    if (!_canCommand || state.briefing || state.countdownMs > 0) return;
+    final indices = [
+      for (var i = 0; i < state.steps.length; i++)
+        if (state.steps[i].moduleIndex == moduleIndex) i,
+    ];
+    if (indices.isEmpty) return;
+    final totalMs = indices.fold<int>(
+      0,
+      (total, i) => total + state.steps[i].duration * 1000,
+    );
+    // The right edge selects the final second instead of ending the class.
+    var offset = elapsedMs.clamp(0, max(0, totalMs - 1000)).toInt();
+    for (final index in indices) {
+      final durationMs = state.steps[index].duration * 1000;
+      if (offset < durationMs) {
+        final remainingMs = durationMs - offset;
+        if (sessionId == null) {
+          _goLocal(index, remainingMs: remainingMs);
+        } else {
+          await _seekRemote(index, remainingMs: remainingMs);
+        }
+        return;
+      }
+      offset -= durationMs;
+    }
+  }
+
   void _toggleLocal() {
     if (state.isPaused) {
       _setDeadline(state.copyWith(isPaused: false));
@@ -412,7 +441,7 @@ class PlayerController extends _$PlayerController {
             )
           : await notifier.seek(
               stepIndex: safeIndex,
-              durationMs: state.steps[safeIndex].duration * 1000,
+              durationMs: state.remainingMs,
             );
       if (!success) {
         if (!ref.mounted) return;

@@ -189,6 +189,15 @@ class _ActiveClass extends HookConsumerWidget {
                     ),
                   ),
                   IconButton(
+                    tooltip: '이전 슬라이드',
+                    onPressed: disabled || step.moduleIndex == 0
+                        ? null
+                        : () => unawaited(
+                            actions.selectModule(step.moduleIndex - 1),
+                          ),
+                    icon: const Icon(Icons.skip_previous_rounded),
+                  ),
+                  IconButton(
                     tooltip: state.isPaused ? '수업 재개' : '수업 일시정지',
                     onPressed: disabled
                         ? null
@@ -205,19 +214,18 @@ class _ActiveClass extends HookConsumerWidget {
                                 : Icons.pause_rounded,
                           ),
                   ),
-                  if (MediaQuery.sizeOf(context).width >= 600)
-                    IconButton(
-                      tooltip: '다음 슬라이드',
-                      onPressed:
-                          disabled ||
-                              step.moduleIndex + 1 >=
-                                  session.workout.modules.length
-                          ? null
-                          : () => unawaited(
-                              actions.selectModule(step.moduleIndex + 1),
-                            ),
-                      icon: const Icon(Icons.skip_next_rounded),
-                    ),
+                  IconButton(
+                    tooltip: '다음 슬라이드',
+                    onPressed:
+                        disabled ||
+                            step.moduleIndex + 1 >=
+                                session.workout.modules.length
+                        ? null
+                        : () => unawaited(
+                            actions.selectModule(step.moduleIndex + 1),
+                          ),
+                    icon: const Icon(Icons.skip_next_rounded),
+                  ),
                   const SizedBox(width: 8),
                 ],
               ),

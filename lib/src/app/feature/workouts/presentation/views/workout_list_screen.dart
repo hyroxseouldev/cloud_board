@@ -121,7 +121,8 @@ class _WorkoutListBody extends HookConsumerWidget {
     }
 
     return AsyncActionOverlay(
-      isLoading: isBusy,
+      // Class commands show progress in the mini controller, not over this page.
+      isLoading: authAction.isLoading || workoutAction.isLoading,
       child: Scaffold(
         appBar: AppBar(
           centerTitle: false,

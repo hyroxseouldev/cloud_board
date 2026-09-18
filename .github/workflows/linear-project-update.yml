@@ -1,0 +1,65 @@
+name: Publish deployment update to Linear
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy Flutter Web to Firebase Hosting
+      - Upload Android and TV to Google Play
+      - Upload iOS to TestFlight
+    types: [completed]
+    branches: [main]
+  pull_request:
+    paths:
+      - .github/workflows/linear-project-update.yml
+      - tool/linear-deploy/**
+  push:
+    branches: [develop]
+    paths:
+      - .github/workflows/linear-project-update.yml
+      - tool/linear-deploy/**
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    if: github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tool/linear-deploy/*.test.mjs
+
+  publish:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # A later notification re-reads all three pipelines, including reruns.
+    concurrency:
+      group: linear-deployment-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
+    steps:
+      # Run only trusted default-branch code, never a downloaded build artifact.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test update publisher
+        run: node --test tool/linear-deploy/*.test.mjs
+      - name: Publish or refresh the commit's project update
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_PROJECT_ID: 00a512bb-598c-4967-b435-e78cadc4e8f2
+        run: node tool/linear-deploy/publish.mjs

@@ -403,7 +403,8 @@ class _EditorBody extends HookConsumerWidget {
       dirty: hasUnsavedChanges,
       blocked: isBusy,
       child: AsyncActionOverlay(
-        isLoading: isBusy,
+        // A mini-controller command must not obscure the editor.
+        isLoading: action.isLoading,
         child: Scaffold(
           appBar: AppBar(
             leading: BackButton(

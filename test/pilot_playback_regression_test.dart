@@ -214,7 +214,7 @@ void main() {
   testWidgets(
     'timeline drag commits once on release and disabled timeline ignores taps',
     (tester) async {
-      final calls = <int>[];
+      final calls = <({int moduleIndex, int elapsedMs})>[];
       final pending = Completer<void>();
       Widget ui(bool enabled) => MaterialApp(
         home: Scaffold(
@@ -225,9 +225,9 @@ void main() {
                 durations: const [1, 100, 1],
                 currentModule: 1,
                 elapsedMs: 1000,
-                onSelectModule: enabled
-                    ? (i) {
-                        calls.add(i);
+                onSeek: enabled
+                    ? (i, elapsedMs) {
+                        calls.add((moduleIndex: i, elapsedMs: elapsedMs));
                         return pending.future;
                       }
                     : null,
@@ -246,14 +246,14 @@ void main() {
       expect(calls, isEmpty);
       await drag.up();
       await tester.pump();
-      expect(calls, [2]);
+      expect(calls, [(moduleIndex: 2, elapsedMs: 0)]);
       await tester.tapAt(rect.center);
-      expect(calls, [2]);
+      expect(calls, [(moduleIndex: 2, elapsedMs: 0)]);
       pending.complete();
       await tester.pump();
       await tester.pumpWidget(ui(false));
       await tester.tapAt(rect.center);
-      expect(calls, [2]);
+      expect(calls, [(moduleIndex: 2, elapsedMs: 0)]);
       expect(tester.takeException(), isNull);
     },
   );
