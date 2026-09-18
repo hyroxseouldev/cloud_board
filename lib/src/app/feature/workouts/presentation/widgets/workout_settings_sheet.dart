@@ -12,15 +12,14 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
 
-/// Edits the parent workout draft; closing the sheet does not save or discard it.
-class WorkoutSettingsSheet extends StatelessWidget {
-  const WorkoutSettingsSheet({
+/// Shared screen, countdown and sound controls for account-wide settings.
+class WorkoutSettingsContent extends StatelessWidget {
+  const WorkoutSettingsContent({
     super.key,
     required this.draft,
     required this.brandL,
     required this.brandR,
   });
-
   final ValueNotifier<Workout> draft;
   final TextEditingController brandL;
   final TextEditingController brandR;
@@ -28,123 +27,54 @@ class WorkoutSettingsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Theme(
     data: SlideEditorStyle.theme(Theme.of(context)),
-    child: FractionallySizedBox(
-      heightFactor: .9,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
+    child: Column(
+      key: const ValueKey('workout-display-sound-settings'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeading(
+          icon: Icons.tv_rounded,
+          title: '화면 문구',
+          description: '수업 화면 하단에 표시할 문구입니다.',
         ),
-        child: SafeArea(
-          top: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final gutter = constraints.maxWidth >= 600 ? 32.0 : 24.0;
-              return Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(gutter, 20, 12, 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '워크아웃 설정',
-                            style: AppStyle.of(context).subText1,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: '설정 닫기',
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      key: const ValueKey('workout-settings-scroll'),
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: EdgeInsets.fromLTRB(gutter, 28, gutter, 32),
-                      child: Column(
-                        key: const ValueKey('workout-display-sound-settings'),
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _SectionHeading(
-                            icon: Icons.tv_rounded,
-                            title: '화면 문구',
-                            description: '수업 화면 하단에 표시할 문구입니다.',
-                          ),
-                          const SizedBox(height: 20),
-                          _SettingsGrid(
-                            children: [
-                              TextField(
-                                key: const ValueKey('brand-left'),
-                                controller: brandL,
-                                decoration: const InputDecoration(
-                                  labelText: '화면 왼쪽 아래 문구',
-                                  hintText: '예: 스튜디오 이름',
-                                ),
-                              ),
-                              TextField(
-                                key: const ValueKey('brand-right'),
-                                controller: brandR,
-                                decoration: const InputDecoration(
-                                  labelText: '화면 오른쪽 아래 문구',
-                                  hintText: '예: 오늘도 나만의 페이스로',
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 56),
-                          ValueListenableBuilder<Workout>(
-                            valueListenable: draft,
-                            builder: (context, workout, _) => CountdownSettings(
-                              workout: workout,
-                              onChanged: (v) => draft.value = v,
-                            ),
-                          ),
-                          const Divider(height: 56),
-                          ValueListenableBuilder<Workout>(
-                            valueListenable: draft,
-                            builder: (context, workout, _) =>
-                                _SoundSettingsSection(
-                                  workout: workout,
-                                  onChanged: (value) => draft.value = value,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(gutter, 14, gutter, 16),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            '워크아웃 저장 시 함께 저장돼요.',
-                            style: TextStyle(
-                              color: SlideEditorStyle.muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('설정 완료'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
+        const SizedBox(height: 20),
+        _SettingsGrid(
+          children: [
+            TextField(
+              key: const ValueKey('brand-left'),
+              controller: brandL,
+              decoration: const InputDecoration(
+                labelText: '화면 왼쪽 아래 문구',
+                hintText: '예: 스튜디오 이름',
+              ),
+            ),
+            TextField(
+              key: const ValueKey('brand-right'),
+              controller: brandR,
+              decoration: const InputDecoration(
+                labelText: '화면 오른쪽 아래 문구',
+                hintText: '예: 오늘도 나만의 페이스로',
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 56),
+        ValueListenableBuilder<Workout>(
+          valueListenable: draft,
+          builder: (context, workout, _) => CountdownSettings(
+            workout: workout,
+            showAccountDefaults: false,
+            onChanged: (v) => draft.value = v,
           ),
         ),
-      ),
+        const Divider(height: 56),
+        ValueListenableBuilder<Workout>(
+          valueListenable: draft,
+          builder: (context, workout, _) => _SoundSettingsSection(
+            workout: workout,
+            onChanged: (value) => draft.value = value,
+          ),
+        ),
+      ],
     ),
   );
 }

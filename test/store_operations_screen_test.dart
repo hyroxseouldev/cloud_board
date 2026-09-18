@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+
 import 'support/workout_catalog_fixture.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -22,6 +24,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authStateProvider.overrideWith((ref) => Stream.value(null)),
           brandTemplateProvider.overrideWith(
             (ref) => Stream.value(BrandTemplate.initial()),
           ),
@@ -45,7 +48,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    for (final label in ['예약 재생', '원격 관리', '운영 리포트']) {
+    for (final label in ['브랜드·대기 화면', '예약 재생', '원격 관리', '운영 리포트']) {
+      await tester.ensureVisible(find.text(label));
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

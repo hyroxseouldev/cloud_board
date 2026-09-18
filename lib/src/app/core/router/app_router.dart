@@ -27,6 +27,7 @@ GoRouter appRouter(Ref ref) {
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
   final standbyGuard = ExitGuard();
+  final operationsGuard = ExitGuard();
   final router = GoRouter(
     initialLocation: '/',
     refreshListenable: authRefresh,
@@ -120,7 +121,8 @@ GoRouter appRouter(Ref ref) {
           ),
           GoRoute(
             path: '/operations',
-            builder: (_, _) => const StoreOperationsScreen(),
+            builder: (_, _) => StoreOperationsScreen(guard: operationsGuard),
+            onExit: (_, _) => operationsGuard.confirm(),
             routes: [
               GoRoute(
                 path: 'standby',

@@ -1,5 +1,5 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -18,7 +18,6 @@ import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart'
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder_selector.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_settings_sheet.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 
@@ -33,9 +32,9 @@ class WorkoutEditorScreen extends HookConsumerWidget {
         : ref.watch(workoutDetailProvider(workoutId));
     final user = ref.watch(authStateProvider).value;
     final skipDefaults = useState(false);
-    var initialDefaults = const CountdownPreferences();
+    var initialDefaults = const WorkoutPreferences();
     if (workoutId == 'new' && user != null && !skipDefaults.value) {
-      final defaultsProvider = newWorkoutCountdownDefaultsProvider(user.id);
+      final defaultsProvider = accountWorkoutPreferencesProvider(user.id);
       final defaults = ref.watch(defaultsProvider);
       if (defaults.isLoading) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -384,20 +383,6 @@ class _EditorBody extends HookConsumerWidget {
       }
     }
 
-    Future<void> openSettings() => showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 800),
-      backgroundColor: Colors.white,
-      clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) =>
-          WorkoutSettingsSheet(draft: draft, brandL: brandL, brandR: brandR),
-    );
-
     return UnsavedChangesGuard(
       guard: guard,
       dirty: hasUnsavedChanges,
@@ -468,11 +453,6 @@ class _EditorBody extends HookConsumerWidget {
                                   tooltip: '저장',
                                   onPressed: isBusy ? null : saveInPlace,
                                   icon: const Icon(Icons.save_outlined),
-                                ),
-                                IconButton(
-                                  tooltip: '화면·사운드 설정',
-                                  onPressed: isBusy ? null : openSettings,
-                                  icon: const Icon(Icons.tune_rounded),
                                 ),
                               ],
                             ),

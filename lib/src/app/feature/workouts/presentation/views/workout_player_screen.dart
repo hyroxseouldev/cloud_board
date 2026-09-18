@@ -57,6 +57,8 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
         : ref.watch(activePlaybackSessionProvider);
     final remoteSession = remote?.value;
     final seenSession = useRef(false);
+    final localSnapshot = useRef<Workout?>(null);
+    if (localSnapshot.value?.id != workoutId) localSnapshot.value = null;
     if (remoteSession?.id == sessionId && sessionId != null) {
       seenSession.value = true;
     }
@@ -97,15 +99,22 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     final detail = matchesSession
         ? null
         : ref.watch(workoutDetailProvider(workoutId));
-    if (detail?.isLoading == true) {
+    if (localSnapshot.value == null && detail?.isLoading == true) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (detail?.hasError == true) {
+    if (localSnapshot.value == null && detail?.hasError == true) {
       return Scaffold(
         body: Center(child: Text('운동을 불러오지 못했습니다: ${detail!.error}')),
       );
     }
-    final workout = matchesSession ? remoteSession!.workout : detail?.value;
+    if (!matchesSession &&
+        localSnapshot.value == null &&
+        detail?.value != null) {
+      localSnapshot.value = detail!.value;
+    }
+    final workout = matchesSession
+        ? remoteSession!.workout
+        : localSnapshot.value;
     if (workout == null) {
       return const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')));
     }

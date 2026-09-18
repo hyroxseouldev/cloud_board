@@ -140,7 +140,9 @@ class CountdownSettings extends HookConsumerWidget {
     super.key,
     required this.workout,
     required this.onChanged,
+    this.showAccountDefaults = true,
   });
+  final bool showAccountDefaults;
   final Workout workout;
   final ValueChanged<Workout> onChanged;
 
@@ -456,77 +458,81 @@ class CountdownSettings extends HookConsumerWidget {
           ],
         ),
         if (imageError.value != null) Text(imageError.value!),
-        const Divider(height: 32),
-        Text('계정 기본값', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        const Text(
-          '새 워크아웃부터 적용됩니다. 기존 워크아웃과 진행 중인 수업은 바뀌지 않습니다.',
-          style: TextStyle(fontSize: 12),
-        ),
-        Wrap(
-          spacing: 12,
-          children: [
-            TextButton.icon(
-              onPressed: ownerId == null || defaults.isLoading
-                  ? null
-                  : () async {
-                      await ref
-                          .read(defaultsProvider.notifier)
-                          .save(CountdownPreferences.fromWorkout(latest.value));
-                    },
-              icon: defaults.isLoading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.bookmark_add_outlined),
-              label: const Text('내 기본값으로 저장'),
-            ),
-            TextButton.icon(
-              onPressed: ownerId == null || defaults.isLoading
-                  ? null
-                  : () async {
-                      final capturedOwner = ownerId;
-                      final captured = CountdownPreferences.fromWorkout(
-                        latest.value,
-                      );
-                      final value = await ref
-                          .read(defaultsProvider.notifier)
-                          .load();
-                      if (!context.mounted ||
-                          value == null ||
-                          ref.read(authStateProvider).value?.id !=
-                              capturedOwner) {
-                        return;
-                      }
-                      if (CountdownPreferences.fromWorkout(latest.value) !=
-                          captured) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              '설정이 변경되어 기본값을 적용하지 않았습니다. 다시 눌러 주세요.',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-                      undo.value = captured;
-                      onChanged(value.applyTo(latest.value));
-                    },
-              icon: const Icon(Icons.download_rounded),
-              label: const Text('내 기본값 가져오기'),
-            ),
-            if (undo.value != null)
-              TextButton(
-                onPressed: () {
-                  onChanged(undo.value!.applyTo(latest.value));
-                  undo.value = null;
-                },
-                child: const Text('가져오기 되돌리기'),
+        if (showAccountDefaults) ...[
+          const Divider(height: 32),
+          Text('계정 기본값', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Text(
+            '새 워크아웃부터 적용됩니다. 기존 워크아웃과 진행 중인 수업은 바뀌지 않습니다.',
+            style: TextStyle(fontSize: 12),
+          ),
+          Wrap(
+            spacing: 12,
+            children: [
+              TextButton.icon(
+                onPressed: ownerId == null || defaults.isLoading
+                    ? null
+                    : () async {
+                        await ref
+                            .read(defaultsProvider.notifier)
+                            .save(
+                              CountdownPreferences.fromWorkout(latest.value),
+                            );
+                      },
+                icon: defaults.isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.bookmark_add_outlined),
+                label: const Text('내 기본값으로 저장'),
               ),
-          ],
-        ),
+              TextButton.icon(
+                onPressed: ownerId == null || defaults.isLoading
+                    ? null
+                    : () async {
+                        final capturedOwner = ownerId;
+                        final captured = CountdownPreferences.fromWorkout(
+                          latest.value,
+                        );
+                        final value = await ref
+                            .read(defaultsProvider.notifier)
+                            .load();
+                        if (!context.mounted ||
+                            value == null ||
+                            ref.read(authStateProvider).value?.id !=
+                                capturedOwner) {
+                          return;
+                        }
+                        if (CountdownPreferences.fromWorkout(latest.value) !=
+                            captured) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                '설정이 변경되어 기본값을 적용하지 않았습니다. 다시 눌러 주세요.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        undo.value = captured;
+                        onChanged(value.applyTo(latest.value));
+                      },
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('내 기본값 가져오기'),
+              ),
+              if (undo.value != null)
+                TextButton(
+                  onPressed: () {
+                    onChanged(undo.value!.applyTo(latest.value));
+                    undo.value = null;
+                  },
+                  child: const Text('가져오기 되돌리기'),
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }
