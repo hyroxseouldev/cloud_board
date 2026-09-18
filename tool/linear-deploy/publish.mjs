@@ -90,9 +90,10 @@ export async function requestJson(url, options = {}, fetchImpl = fetch) {
   if (result.errors?.length) {
     const details = result.errors.map(error => {
       const code = error.extensions?.code ?? 'UNKNOWN';
-      // Only schema diagnostics are safe to expose; never print arbitrary API bodies.
-      return code === 'GRAPHQL_VALIDATION_FAILED'
-        ? `${code}: ${String(error.message).slice(0, 400)}` : code;
+      // Only schema and access diagnostics are exposed; never print API bodies or credentials.
+      const message = String(error.message).replaceAll(options.headers?.Authorization ?? '\0', '[redacted]').replace(/lin_api_[A-Za-z0-9]+/g, '[redacted]').slice(0, 400);
+      return ['GRAPHQL_VALIDATION_FAILED', 'FORBIDDEN'].includes(code)
+        ? `${code}: ${message}` : code;
     }).join('; ');
     throw new Error(`Linear GraphQL request failed (HTTP ${response.status ?? 200}): ${details}`);
   }
