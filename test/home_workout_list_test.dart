@@ -18,6 +18,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets('class commands do not flash a page overlay or reset browsing', (
+    tester,
+  ) async {
+    final commands = _Commands();
+    await _mount(tester, _CatalogRepository(_catalog(25)), commands: commands);
+    await tester.enterText(find.byType(TextField), '수업');
+    await tester.tap(find.byTooltip('다음 페이지'));
+    await tester.pumpAndSettle();
+    final grid = find.byKey(const ValueKey('workout-grid'));
+    final gridElement = tester.element(grid);
+    for (final result in [
+      const AsyncData<String?>(null),
+      AsyncError<String?>(StateError('offline'), StackTrace.current),
+    ]) {
+      commands.setStatus(const AsyncLoading());
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is AbsorbPointer && widget.absorbing,
+        ),
+        findsNothing,
+      );
+      expect(tester.element(grid), same(gridElement));
+      expect(find.text('2 / 3'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '수업',
+      );
+      commands.setStatus(result);
+      await tester.pump();
+      expect(tester.element(grid), same(gridElement));
+    }
+    expect(find.textContaining('수업 제어에 실패했습니다'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'active workout card explains lock; edit/delete disabled and copy allowed',
     (tester) async {
@@ -283,6 +320,7 @@ Future<ProviderContainer> _mount(
   _CatalogRepository repository, {
   Size size = const Size(390, 844),
   PlaybackSession? activeSession,
+  _Commands? commands,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -291,6 +329,8 @@ Future<ProviderContainer> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (commands != null)
+          playbackActionControllerProvider.overrideWith(() => commands),
         activePlaybackSessionProvider.overrideWith(
           (ref) => Stream.value(activeSession),
         ),
@@ -359,4 +399,10 @@ class _CatalogRepository implements WorkoutRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Commands extends PlaybackActionController {
+  @override
+  AsyncValue<String?> build() => const AsyncData(null);
+  void setStatus(AsyncValue<String?> value) => state = value;
 }

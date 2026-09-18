@@ -8,7 +8,29 @@ class UserProfileFirestoreDataSource {
 
   Future<Map<String, dynamic>?> fetch(String userId) async {
     final snapshot = await _firestore.collection('users').doc(userId).get();
-    return snapshot.data();
+    final entitlement = await _firestore
+        .collection('subscriptionEntitlements')
+        .doc(userId)
+        .get();
+    final data = snapshot.data();
+    final access = entitlement.data();
+    if (access == null || access['managed'] != true) return data;
+    final validUntil = (access['validUntilMs'] as num?)?.toInt() ?? 0;
+    final valid = validUntil > DateTime.now().millisecondsSinceEpoch;
+    final status = access['status'];
+    return {
+      ...?data,
+      'partnerTier': status == 'trialing' ? 'trial' : 'pro',
+      'subscriptionPlan': 'cloudboard_pro',
+      'subscriptionStatus': !valid
+          ? 'canceled'
+          : status == 'trialing'
+          ? 'trialing'
+          : status == 'past_due'
+          ? 'pastDue'
+          : 'active',
+      'displayLimit': access['displayLimit'] ?? 3,
+    };
   }
 
   Future<void> upsert(User user) async {
@@ -20,23 +42,7 @@ class UserProfileFirestoreDataSource {
       'photoUrl': user.photoURL,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-    final snapshot = await reference.get();
-    final data = snapshot.data() ?? const <String, dynamic>{};
-    final defaults = <String, Object?>{};
-    if (!data.containsKey('partnerTier')) defaults['partnerTier'] = 'pilot';
-    if (!data.containsKey('subscriptionPlan')) {
-      defaults['subscriptionPlan'] = 'cloudboard_pro';
-    }
-    if (!data.containsKey('subscriptionStatus')) {
-      defaults['subscriptionStatus'] = 'free';
-    }
-    if (!data.containsKey('displayLimit')) defaults['displayLimit'] = 3;
-    if (!data.containsKey('pilotStartedAt')) {
-      defaults['pilotStartedAt'] = FieldValue.serverTimestamp();
-    }
-    if (defaults.isNotEmpty) {
-      await reference.set(defaults, SetOptions(merge: true));
-    }
+    // Subscription fields are written only by the verified billing backend.
   }
 
   Future<void> update({

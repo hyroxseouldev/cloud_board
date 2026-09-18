@@ -517,12 +517,12 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                     durations: durations,
                     currentModule: step.moduleIndex,
                     elapsedMs: elapsed,
-                    onSelectModule:
+                    onSeek:
                         touchLocked.value ||
                             playbackAction.isLoading ||
                             (sessionId != null && !isConnected)
                         ? null
-                        : actions.selectModule,
+                        : actions.seekModulePosition,
                   );
                 },
               ),

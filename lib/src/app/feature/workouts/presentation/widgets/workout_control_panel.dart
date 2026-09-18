@@ -318,27 +318,26 @@ class WorkoutControlTimeline extends HookWidget {
     required this.durations,
     required this.currentModule,
     required this.elapsedMs,
-    this.onSelectModule,
+    this.onSeek,
   });
   final List<int> durations;
   final int currentModule, elapsedMs;
-  final Future<void> Function(int)? onSelectModule;
+  final Future<void> Function(int moduleIndex, int elapsedMs)? onSeek;
 
   @override
   Widget build(BuildContext context) {
-    final candidate = useState<int?>(null);
+    final candidate = useState<({int moduleIndex, int elapsedMs})?>(null);
     final pending = useState(false);
-    final enabled =
-        onSelectModule != null && !pending.value && durations.isNotEmpty;
+    final enabled = onSeek != null && !pending.value && durations.isNotEmpty;
     final minFlex = math.max(1, durations.fold<int>(0, (a, b) => a + b) ~/ 20);
     final flexes = durations.map((d) => math.max(minFlex, d)).toList();
     final total = flexes.fold<int>(0, (a, b) => a + b);
-    Future<void> select(int index) async {
+    Future<void> select(({int moduleIndex, int elapsedMs}) position) async {
       candidate.value = null;
       if (!enabled) return;
       pending.value = true;
       try {
-        await onSelectModule!(index);
+        await onSeek!(position.moduleIndex, position.elapsedMs);
       } finally {
         if (context.mounted) pending.value = false;
       }
@@ -346,89 +345,112 @@ class WorkoutControlTimeline extends HookWidget {
 
     return LayoutBuilder(
       builder: (context, bounds) {
-        int hit(double x) {
-          final position =
-              (x / math.max(1, bounds.maxWidth)).clamp(0.0, 1.0) * total;
-          var end = 0;
+        ({int moduleIndex, int elapsedMs}) hit(double x) {
+          var start = 0.0;
           for (var i = 0; i < flexes.length; i++) {
-            end += flexes[i];
-            if (position < end) return i;
+            final width = bounds.maxWidth * flexes[i] / total;
+            if (x < start + width || i == flexes.length - 1) {
+              // Use each rendered segment, including its minimum flex and
+              // three-pixel inset, rather than the whole workout duration.
+              final fraction = ((x - start - 3) / math.max(1, width - 6)).clamp(
+                0.0,
+                1.0,
+              );
+              final seconds = (fraction * durations[i]).round().clamp(
+                0,
+                math.max(0, durations[i] - 1),
+              );
+              return (moduleIndex: i, elapsedMs: seconds.toInt() * 1000);
+            }
+            start += width;
           }
-          return math.max(0, flexes.length - 1);
+          return (moduleIndex: 0, elapsedMs: 0);
         }
 
-        return GestureDetector(
-          key: const ValueKey('class-timeline'),
-          behavior: HitTestBehavior.opaque,
-          onTapUp: enabled
-              ? (d) => unawaited(select(hit(d.localPosition.dx)))
-              : null,
-          onHorizontalDragStart: enabled
-              ? (d) => candidate.value = hit(d.localPosition.dx)
-              : null,
-          onHorizontalDragUpdate: enabled
-              ? (d) => candidate.value = hit(d.localPosition.dx)
-              : null,
-          onHorizontalDragEnd: enabled
-              ? (_) {
-                  final index = candidate.value;
-                  if (index != null) unawaited(select(index));
-                }
-              : null,
-          onHorizontalDragCancel: () => candidate.value = null,
-          child: SizedBox(
-            height: 48,
-            child: Row(
-              children: List.generate(
-                durations.length,
-                (index) => Expanded(
-                  flex: flexes[index],
-                  child: Semantics(
-                    button: enabled,
-                    selected: index == (candidate.value ?? currentModule),
-                    label: '슬라이드 ${index + 1} 시작으로 이동',
-                    onTap: enabled ? () => unawaited(select(index)) : null,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final active = candidate.value ?? currentModule;
-                          final progress = index < active
-                              ? 1.0
-                              : index > active || candidate.value != null
-                              ? 0.0
-                              : (elapsedMs /
-                                        math.max(1, durations[index] * 1000))
-                                    .clamp(0.0, 1.0);
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            alignment: Alignment.centerLeft,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: LinearProgressIndicator(
-                                  value: progress,
-                                  minHeight: 12,
-                                  color: AppColors.accent,
-                                  backgroundColor: AppColors.selected,
-                                ),
-                              ),
-                              if (index == active)
-                                Positioned(
-                                  left:
-                                      progress *
-                                      math.max(0, constraints.maxWidth - 24),
-                                  child: Icon(
-                                    Icons.circle,
-                                    size: 24,
-                                    color: candidate.value == null
-                                        ? AppColors.accent
-                                        : AppColors.ink,
+        return Listener(
+          // Flutter may finish a recognized drag on pointer cancellation.
+          // Clear its candidate before the gesture recognizer can commit it.
+          onPointerCancel: (_) => candidate.value = null,
+          child: GestureDetector(
+            key: const ValueKey('class-timeline'),
+            behavior: HitTestBehavior.opaque,
+            onTapUp: enabled
+                ? (d) => unawaited(select(hit(d.localPosition.dx)))
+                : null,
+            onHorizontalDragStart: enabled
+                ? (d) => candidate.value = hit(d.localPosition.dx)
+                : null,
+            onHorizontalDragUpdate: enabled
+                ? (d) => candidate.value = hit(d.localPosition.dx)
+                : null,
+            onHorizontalDragEnd: enabled
+                ? (_) {
+                    final position = candidate.value;
+                    if (position != null) unawaited(select(position));
+                  }
+                : null,
+            onHorizontalDragCancel: () => candidate.value = null,
+            child: SizedBox(
+              height: 48,
+              child: Row(
+                children: List.generate(
+                  durations.length,
+                  (index) => Expanded(
+                    flex: flexes[index],
+                    child: Semantics(
+                      button: enabled,
+                      selected:
+                          index ==
+                          (candidate.value?.moduleIndex ?? currentModule),
+                      label: '슬라이드 ${index + 1} 재생 위치',
+                      onTap: enabled
+                          ? () => unawaited(
+                              select((moduleIndex: index, elapsedMs: 0)),
+                            )
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final active =
+                                candidate.value?.moduleIndex ?? currentModule;
+                            final elapsed =
+                                candidate.value?.elapsedMs ?? elapsedMs;
+                            final progress = index < active
+                                ? 1.0
+                                : index > active
+                                ? 0.0
+                                : (elapsed /
+                                          math.max(1, durations[index] * 1000))
+                                      .clamp(0.0, 1.0);
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.centerLeft,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 12,
+                                    color: AppColors.accent,
+                                    backgroundColor: AppColors.selected,
                                   ),
                                 ),
-                            ],
-                          );
-                        },
+                                if (index == active)
+                                  Positioned(
+                                    left: progress * constraints.maxWidth - 12,
+                                    child: Icon(
+                                      Icons.circle,
+                                      size: 24,
+                                      color: candidate.value == null
+                                          ? AppColors.accent
+                                          : AppColors.ink,
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

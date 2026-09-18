@@ -21,6 +21,11 @@ class UserProfileScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    useOnAppLifecycleStateChange((previous, next) {
+      if (next == AppLifecycleState.resumed) {
+        ref.invalidate(userProfileControllerProvider);
+      }
+    });
     final profileState = ref.watch(userProfileControllerProvider);
     final authAction = ref.watch(authControllerProvider);
     final deletion = ref.watch(accountDeletionControllerProvider);

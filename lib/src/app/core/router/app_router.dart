@@ -1,6 +1,7 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_edit_gate.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/active_class_shell.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
@@ -21,20 +22,50 @@ part 'app_router.g.dart';
 
 @Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
-  final auth = ref.watch(authStateProvider);
+  final authRefresh = ValueNotifier(0);
+  ref.listen(authStateProvider, (_, _) => authRefresh.value++);
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
   final standbyGuard = ExitGuard();
-  return GoRouter(
-    initialLocation: '/login',
+  final router = GoRouter(
+    initialLocation: '/',
+    refreshListenable: authRefresh,
     redirect: (context, state) {
-      final isLoggedIn = auth.value != null;
+      final auth = ref.read(authStateProvider);
       final isLoginRoute = state.matchedLocation == '/login';
+      final isLoadingRoute = state.matchedLocation == '/auth-loading';
+      if (auth.isLoading) {
+        if (isLoadingRoute) return null;
+        return Uri(
+          path: '/auth-loading',
+          queryParameters: {'from': state.uri.toString()},
+        ).toString();
+      }
+      final isLoggedIn = auth.value != null;
       if (!isLoggedIn && !isLoginRoute) return '/login';
+      if (isLoadingRoute) {
+        final destination = Uri.tryParse(
+          state.uri.queryParameters['from'] ?? '/',
+        );
+        if (destination == null ||
+            destination.hasScheme ||
+            destination.hasAuthority ||
+            !destination.path.startsWith('/') ||
+            destination.path == '/auth-loading' ||
+            destination.path == '/login') {
+          return '/';
+        }
+        return destination.toString();
+      }
       if (isLoggedIn && isLoginRoute) return '/';
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/auth-loading',
+        builder: (_, _) =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
+      ),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       ShellRoute(
         builder: (context, state, child) => ActiveClassShell(
@@ -111,4 +142,9 @@ GoRouter appRouter(Ref ref) {
       ),
     ],
   );
+  ref.onDispose(() {
+    router.dispose();
+    authRefresh.dispose();
+  });
+  return router;
 }
