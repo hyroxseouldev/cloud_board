@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
+
 import 'dart:convert';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -35,6 +37,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          workoutPreviewProvider(workout).overrideWith((ref) async => workout),
           displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
         ],
         child: MaterialApp(
@@ -93,6 +96,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          workoutPreviewProvider(workout).overrideWith((ref) async => workout),
           displayDevicesProvider.overrideWith((ref) => Stream.value(devices)),
         ],
         child: MaterialApp(

@@ -31,7 +31,7 @@ import 'package:cloud_board/src/app/feature/operations/domain/entities/store_ope
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_board.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
 
 class WorkoutPlayerScreen extends HookConsumerWidget {
   const WorkoutPlayerScreen({
@@ -98,7 +98,7 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     final matchesSession = sessionId != null && remoteSession?.id == sessionId;
     final detail = matchesSession
         ? null
-        : ref.watch(workoutDetailProvider(workoutId));
+        : ref.watch(localPlaybackWorkoutProvider(workoutId));
     if (localSnapshot.value == null && detail?.isLoading == true) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

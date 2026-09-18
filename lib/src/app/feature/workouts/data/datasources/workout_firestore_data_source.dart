@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/data/models/workout_document.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_content.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
@@ -87,7 +90,7 @@ class WorkoutFirestoreDataSource {
     // Default SDK source refreshes online and retains existing detail cache offline.
     final snapshot = await _workouts(userId).doc(workoutId).get();
     return snapshot.exists
-        ? WorkoutModel.fromJson({...snapshot.data()!, 'id': snapshot.id})
+        ? WorkoutDocument.decode({...snapshot.data()!, 'id': snapshot.id})
         : null;
   }
 
@@ -130,23 +133,39 @@ class WorkoutFirestoreDataSource {
       snapshot.docs
           .map(
             (document) =>
-                WorkoutModel.fromJson({...document.data(), 'id': document.id}),
+                WorkoutDocument.decode({...document.data(), 'id': document.id}),
           )
           .toList();
 
-  Future<void> save(String userId, WorkoutModel workout) async {
-    final batch = _firestore.batch();
-    batch.set(
-      _workouts(userId).doc(workout.id),
-      workout.toJson(),
-      SetOptions(merge: true),
-    );
-    batch.set(
-      _summaries(userId).doc(workout.id),
-      WorkoutSummaryModel.fromEntity(summarizeWorkout(workout.toEntity()))
-          .toJson(),
-    );
-    await batch.commit();
+  Future<WorkoutModel> save(String userId, WorkoutModel workout) async {
+    // Never persist settings composed for a preview. Preserve existing legacy
+    // values during rollout; switch to content-only only after admin activation.
+    final content = WorkoutContent.fromWorkout(workout.toEntity());
+    return _firestore.runTransaction((transaction) async {
+      final settings = (await transaction.get(
+        _firestore.doc('users/$userId/settings/workout'),
+      )).data();
+      final reference = _workouts(userId).doc(workout.id);
+      final previous = (await transaction.get(reference)).data();
+      final contentOnly = settings?['contentOnly'] == true;
+      final json = WorkoutDocument.encode(content);
+      if (!contentOnly) {
+        json.remove('schemaVersion');
+        final defaults = workout.toJson();
+        for (final key in WorkoutDocument.legacySettingKeys) {
+          json[key] = previous != null ? previous[key] : defaults[key];
+        }
+      }
+      // Return the actual persisted representation, not a composed caller value.
+      final stored = WorkoutDocument.decode(json);
+      transaction.set(reference, json);
+      transaction.set(
+        _summaries(userId).doc(workout.id),
+        WorkoutSummaryModel.fromEntity(summarizeWorkout(workout.toEntity()))
+            .toJson(),
+      );
+      return stored;
+    });
   }
 
   Future<void> delete(String userId, String workoutId) async {

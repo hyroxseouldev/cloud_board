@@ -46,7 +46,7 @@ final class LoadWorkoutsProvider
   }
 }
 
-String _$loadWorkoutsHash() => r'42d149250df74be06048f3b22de10bcc1d82bac8';
+String _$loadWorkoutsHash() => r'e4371c7d84080dec9b27a806b85b764feeb3d552';
 
 @ProviderFor(saveWorkout)
 final saveWorkoutProvider = SaveWorkoutProvider._();

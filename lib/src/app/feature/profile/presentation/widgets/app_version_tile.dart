@@ -18,7 +18,7 @@ class AppVersionTile extends HookWidget {
       title: const Text('앱 버전'),
       subtitle: Text(
         value != null
-            ? '${value.version}${value.buildNumber.isEmpty ? '' : ' (${value.buildNumber})'}'
+            ? '버전 ${value.version} · 빌드 ${value.buildNumber.isEmpty ? '확인 불가' : value.buildNumber}'
             : info.hasError
             ? '버전 정보를 불러오지 못했습니다.'
             : '확인 중…',

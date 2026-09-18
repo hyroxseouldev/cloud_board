@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_library_picker.dart';
 
 import 'dart:async';
@@ -168,6 +170,13 @@ class _SlideEditorBody extends HookConsumerWidget {
     );
     final state = ref.watch(provider);
     final actions = ref.read(provider.notifier);
+    final previewSettings = request.workout == null
+        ? null
+        : ref.watch(workoutPreviewProvider(request.workout!));
+    final renderedWorkout = previewSettings?.value ?? request.workout;
+    final renderedBrandL = renderedWorkout?.brandL ?? request.brandL;
+    final renderedBrandR = renderedWorkout?.brandR ?? request.brandR;
+
     final module = state.module;
     final busy = useState(false);
     final error = useState<String?>(null);
@@ -387,14 +396,30 @@ class _SlideEditorBody extends HookConsumerWidget {
     }
 
     void rehearse() {
+      if (previewSettings != null &&
+          (previewSettings.isLoading || previewSettings.hasError)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              previewSettings.hasError
+                  ? '공통 설정을 불러오지 못했습니다. 다시 시도해 주세요.'
+                  : '공통 설정을 불러오고 있습니다.',
+            ),
+          ),
+        );
+        if (previewSettings.hasError) {
+          ref.invalidate(workoutPreviewProvider(request.workout!));
+        }
+        return;
+      }
       FocusScope.of(context).unfocus();
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => SlideRehearsalScreen(
             module: module,
-            brandL: request.brandL,
-            brandR: request.brandR,
-            workout: request.workout,
+            brandL: renderedBrandL,
+            brandR: renderedBrandR,
+            workout: renderedWorkout,
           ),
         ),
       );
@@ -493,13 +518,26 @@ class _SlideEditorBody extends HookConsumerWidget {
                   child: Center(
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: WorkoutSlidePreview(
-                        borderRadius: 0,
-                        module: withIntervalBlocks(module, [selectedBlock]),
-                        isRest: previewRest.value,
-                        brandL: request.brandL,
-                        brandR: request.brandR,
-                      ),
+                      child: previewSettings?.isLoading == true
+                          ? const Center(child: CircularProgressIndicator())
+                          : previewSettings?.hasError == true
+                          ? Center(
+                              child: TextButton(
+                                onPressed: () => ref.invalidate(
+                                  workoutPreviewProvider(request.workout!),
+                                ),
+                                child: const Text('공통 설정을 불러오지 못했습니다 · 다시 시도'),
+                              ),
+                            )
+                          : WorkoutSlidePreview(
+                              borderRadius: 0,
+                              module: withIntervalBlocks(module, [
+                                selectedBlock,
+                              ]),
+                              isRest: previewRest.value,
+                              brandL: renderedBrandL,
+                              brandR: renderedBrandR,
+                            ),
                     ),
                   ),
                 ),
@@ -631,8 +669,8 @@ class _SlideEditorBody extends HookConsumerWidget {
                   context: context,
                   builder: (_) => SlideLibraryReplacementDialog(
                     template: template,
-                    brandL: request.brandL,
-                    brandR: request.brandR,
+                    brandL: renderedBrandL,
+                    brandR: renderedBrandR,
                   ),
                 );
                 if (confirmed != true || !context.mounted) return;

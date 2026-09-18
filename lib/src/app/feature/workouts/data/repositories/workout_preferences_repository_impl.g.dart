@@ -27,7 +27,7 @@ final class WorkoutPreferencesRepositoryProvider
         argument: null,
         retry: null,
         name: r'workoutPreferencesRepositoryProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -56,4 +56,4 @@ final class WorkoutPreferencesRepositoryProvider
 }
 
 String _$workoutPreferencesRepositoryHash() =>
-    r'fe96cf814cb465a89893ef3f12aa749f49043d40';
+    r'0ee68f6c7bd5a24c52d7c68849265485543f6d0b';

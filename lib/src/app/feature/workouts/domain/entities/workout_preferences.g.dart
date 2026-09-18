@@ -8,6 +8,7 @@ part of 'workout_preferences.dart';
 
 _WorkoutPreferences _$WorkoutPreferencesFromJson(Map<String, dynamic> json) =>
     _WorkoutPreferences(
+      revision: (json['revision'] as num?)?.toInt() ?? 0,
       brandL: json['brandL'] as String? ?? 'CloudBoard',
       brandR: json['brandR'] as String? ?? '',
       soundTheme:

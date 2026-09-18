@@ -61,7 +61,7 @@ void main() {
     tester,
   ) async {
     await mount(tester, (_) async => true);
-    expect(find.text('1.2.3 (529)'), findsOneWidget);
+    expect(find.text('버전 1.2.3 · 빌드 529'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('앱 버전')).dy,
       greaterThan(tester.getTopLeft(find.text('개인정보처리방침')).dy),
