@@ -168,8 +168,11 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       updatedAt: DateTime.now(),
     );
     final uploaded = await _storage.syncImages(user.uid, ownedWorkout);
-    await _firestore.save(user.uid, WorkoutModel.fromEntity(uploaded));
-    return uploaded;
+    final stored = await _firestore.save(
+      user.uid,
+      WorkoutModel.fromEntity(uploaded),
+    );
+    return stored.toEntity();
   }
 
   @override

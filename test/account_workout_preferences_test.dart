@@ -29,10 +29,18 @@ class _Preferences implements WorkoutPreferencesRepository {
   }
 
   @override
-  Future<void> save(String ownerId, WorkoutPreferences settings) async {
+  Future<WorkoutPreferences> loadForEditing(String ownerId) async =>
+      value ?? const WorkoutPreferences();
+
+  @override
+  Future<WorkoutPreferences> save(
+    String ownerId,
+    WorkoutPreferences settings,
+  ) async {
     if (pending != null) await pending!.future;
     if (fail) throw StateError('offline');
     value = settings;
+    return settings;
   }
 }
 

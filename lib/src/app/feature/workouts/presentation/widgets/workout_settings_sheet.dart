@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_countdown.dart';
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 
@@ -20,7 +22,7 @@ class WorkoutSettingsContent extends StatelessWidget {
     required this.brandL,
     required this.brandR,
   });
-  final ValueNotifier<Workout> draft;
+  final ValueNotifier<WorkoutPreferences> draft;
   final TextEditingController brandL;
   final TextEditingController brandR;
 
@@ -58,16 +60,29 @@ class WorkoutSettingsContent extends StatelessWidget {
           ],
         ),
         const Divider(height: 56),
-        ValueListenableBuilder<Workout>(
+        ValueListenableBuilder<WorkoutPreferences>(
           valueListenable: draft,
           builder: (context, workout, _) => CountdownSettings(
-            workout: workout,
+            workout: workout
+                .applyTo(
+                  Workout.empty(
+                    'settings-preview',
+                    const WorkoutAuthor(
+                      id: '',
+                      displayName: '',
+                      photoUrl: null,
+                    ),
+                  ),
+                )
+                .copyWith(name: '운동 제목'),
             showAccountDefaults: false,
-            onChanged: (v) => draft.value = v,
+            onChanged: (v) =>
+                draft.value = WorkoutPreferences.fromWorkout(v)
+                    .copyWith(revision: workout.revision),
           ),
         ),
         const Divider(height: 56),
-        ValueListenableBuilder<Workout>(
+        ValueListenableBuilder<WorkoutPreferences>(
           valueListenable: draft,
           builder: (context, workout, _) => _SoundSettingsSection(
             workout: workout,
@@ -145,8 +160,8 @@ class _SettingsGrid extends StatelessWidget {
 class _SoundSettingsSection extends ConsumerWidget {
   const _SoundSettingsSection({required this.workout, required this.onChanged});
 
-  final Workout workout;
-  final ValueChanged<Workout> onChanged;
+  final WorkoutPreferences workout;
+  final ValueChanged<WorkoutPreferences> onChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -173,7 +188,7 @@ class _SoundSettingsSection extends ConsumerWidget {
       preview(sounds.workStart);
     }
 
-    Workout custom({
+    WorkoutPreferences custom({
       WorkoutSound? countdown,
       WorkoutSound? workStart,
       WorkoutSound? restStart,

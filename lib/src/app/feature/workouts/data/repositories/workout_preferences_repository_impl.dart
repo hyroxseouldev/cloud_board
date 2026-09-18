@@ -15,16 +15,26 @@ class WorkoutPreferencesRepositoryImpl implements WorkoutPreferencesRepository {
   Future<WorkoutPreferences?> load(String ownerId, {bool fresh = false}) =>
       source.load(ownerId, fresh: fresh);
   @override
-  Future<void> save(String ownerId, WorkoutPreferences value) =>
+  Future<WorkoutPreferences> loadForEditing(String ownerId) =>
+      source.loadForEditing(ownerId);
+  @override
+  Future<WorkoutPreferences> save(String ownerId, WorkoutPreferences value) =>
       source.save(ownerId, value);
 }
 
-@riverpod
-WorkoutPreferencesRepository workoutPreferencesRepository(Ref ref) =>
-    WorkoutPreferencesRepositoryImpl(
-      WorkoutPreferencesDataSource(
-        FirebaseFirestore.instance,
-        FirebaseStorage.instance,
-        FirebaseAuth.instance,
-      ),
-    );
+@Riverpod(keepAlive: true)
+WorkoutPreferencesRepository workoutPreferencesRepository(Ref ref) {
+  final source = WorkoutPreferencesDataSource(
+    FirebaseFirestore.instance,
+    FirebaseStorage.instance,
+    FirebaseAuth.instance,
+  );
+  final subscription = FirebaseAuth.instance.authStateChanges().listen(
+    (_) => source.clear(),
+  );
+  ref.onDispose(() {
+    subscription.cancel();
+    source.clear();
+  });
+  return WorkoutPreferencesRepositoryImpl(source);
+}

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
@@ -44,6 +46,24 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
     final imageCheck = useState<AsyncValue<int>>(const AsyncLoading());
     final readiness = evaluateWorkoutReadiness(workout);
+    final loadingPreview = useState(false);
+    Future<Workout?> resolvePreview() async {
+      if (loadingPreview.value) return null;
+      loadingPreview.value = true;
+      try {
+        return await ref.read(workoutPreviewProvider(workout).future);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('공통 설정을 불러오지 못했습니다. 다시 시도해 주세요.')),
+          );
+          ref.invalidate(workoutPreviewProvider(workout));
+        }
+        return null;
+      } finally {
+        if (context.mounted) loadingPreview.value = false;
+      }
+    }
 
     useEffect(() {
       var cancelled = false;
@@ -203,17 +223,32 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
               OutlinedButton.icon(
                 icon: const Icon(Icons.preview_outlined),
                 label: const Text('브리핑 미리보기'),
-                onPressed: () => showDialog<void>(
-                  context: context,
-                  builder: (previewContext) => Dialog.fullscreen(
-                    child: WorkoutBriefingPreview(workout: workout),
-                  ),
-                ),
+                onPressed: loadingPreview.value
+                    ? null
+                    : () async {
+                        final resolved = await resolvePreview();
+                        if (!context.mounted || resolved == null) return;
+                        await showDialog<void>(
+                          context: context,
+                          builder: (_) => Dialog.fullscreen(
+                            child: WorkoutBriefingPreview(workout: resolved),
+                          ),
+                        );
+                      },
               ),
               OutlinedButton.icon(
-                onPressed: () => ref
-                    .read(beepPlayerProvider)
-                    .play(workout.workStartSound, workout.soundVolume),
+                onPressed: loadingPreview.value
+                    ? null
+                    : () async {
+                        final resolved = await resolvePreview();
+                        if (!context.mounted || resolved == null) return;
+                        await ref
+                            .read(beepPlayerProvider)
+                            .play(
+                              resolved.workStartSound,
+                              resolved.soundVolume,
+                            );
+                      },
                 icon: const Icon(Icons.volume_up_rounded),
                 label: const Text('소리 테스트'),
               ),

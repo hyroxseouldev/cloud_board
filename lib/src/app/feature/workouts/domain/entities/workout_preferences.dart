@@ -12,6 +12,7 @@ abstract class WorkoutPreferences with _$WorkoutPreferences {
   // ignore: invalid_annotation_target
   @JsonSerializable(explicitToJson: true)
   const factory WorkoutPreferences({
+    @JsonKey(includeToJson: false) @Default(0) int revision,
     @Default('CloudBoard') String brandL,
     @Default('') String brandR,
     @Default(WorkoutSoundTheme.videoBeep) WorkoutSoundTheme soundTheme,

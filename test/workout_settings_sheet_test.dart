@@ -1,6 +1,6 @@
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_settings_sheet.dart';
 import 'package:flutter/material.dart';
@@ -16,16 +16,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final draft = ValueNotifier(
-        Workout.empty(
-          'workout',
-          const WorkoutAuthor(
-            id: 'coach',
-            displayName: 'Coach',
-            photoUrl: null,
-          ),
-        ),
-      );
+      final draft = ValueNotifier(const WorkoutPreferences());
       final left = TextEditingController();
       final right = TextEditingController();
       final audio = _RecordingPlayer();

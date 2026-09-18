@@ -1,5 +1,3 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -31,48 +29,15 @@ class WorkoutEditorScreen extends HookConsumerWidget {
         ? const AsyncData<Workout?>(null)
         : ref.watch(workoutDetailProvider(workoutId));
     final user = ref.watch(authStateProvider).value;
-    final skipDefaults = useState(false);
-    var initialDefaults = const WorkoutPreferences();
-    if (workoutId == 'new' && user != null && !skipDefaults.value) {
-      final defaultsProvider = accountWorkoutPreferencesProvider(user.id);
-      final defaults = ref.watch(defaultsProvider);
-      if (defaults.isLoading) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      }
-      if (defaults.hasError) {
-        return Scaffold(
-          appBar: AppBar(title: const Text('새 워크아웃')),
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('계정 기본값을 불러오지 못했습니다.'),
-                TextButton(
-                  onPressed: () => ref.invalidate(defaultsProvider),
-                  child: const Text('다시 시도'),
-                ),
-                TextButton(
-                  onPressed: () => skipDefaults.value = true,
-                  child: const Text('기본 설정으로 만들기'),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-      initialDefaults = defaults.requireValue;
-    }
     return values.when(
       data: (detail) {
         final workout = workoutId == 'new' && user != null
-            ? initialDefaults.applyTo(
-                Workout.empty(
-                  newId(),
-                  WorkoutAuthor(
-                    id: user.id,
-                    displayName: user.displayName,
-                    photoUrl: user.photoUrl,
-                  ),
+            ? Workout.empty(
+                newId(),
+                WorkoutAuthor(
+                  id: user.id,
+                  displayName: user.displayName,
+                  photoUrl: user.photoUrl,
                 ),
               )
             : detail;
@@ -191,15 +156,11 @@ class _EditorBody extends HookConsumerWidget {
     final savedBaseline = useState(initial);
     final name = useTextEditingController(text: initial.name);
     final folder = useTextEditingController(text: initial.folder);
-    final brandL = useTextEditingController(text: initial.brandL);
-    final brandR = useTextEditingController(text: initial.brandR);
     final slideScroll = useScrollController();
     final selectedSlide = useState<String?>(null);
     final rowExtent = 96 * MediaQuery.textScalerOf(context).scale(1);
     useListenable(name);
     useListenable(folder);
-    useListenable(brandL);
-    useListenable(brandR);
     final templatesProvider = slideTemplatesControllerProvider(
       ref.watch(authStateProvider).value?.id ?? initial.ownerId,
     );
@@ -210,9 +171,7 @@ class _EditorBody extends HookConsumerWidget {
     final hasUnsavedChanges =
         draft.value != savedBaseline.value ||
         name.text.trim() != savedBaseline.value.name ||
-        folder.text.trim() != savedBaseline.value.folder ||
-        brandL.text.trim() != savedBaseline.value.brandL ||
-        brandR.text.trim() != savedBaseline.value.brandR;
+        folder.text.trim() != savedBaseline.value.folder;
 
     Future<Workout?> persist({Workout? edited}) async {
       if (name.text.trim().isEmpty) {
@@ -226,8 +185,6 @@ class _EditorBody extends HookConsumerWidget {
       final value = (edited ?? draft.value).copyWith(
         name: name.text.trim(),
         folder: folder.text.trim(),
-        brandL: brandL.text.trim(),
-        brandR: brandR.text.trim(),
       );
       final saved = await ref
           .read(workoutActionControllerProvider.notifier)
@@ -647,11 +604,9 @@ class _EditorBody extends HookConsumerWidget {
                                   workout: draft.value.copyWith(
                                     name: name.text,
                                     folder: folder.text,
-                                    brandL: brandL.text,
-                                    brandR: brandR.text,
                                   ),
-                                  brandL: brandL.text,
-                                  brandR: brandR.text,
+                                  brandL: draft.value.brandL,
+                                  brandR: draft.value.brandR,
                                   onSaveTimer: (updated) =>
                                       persistTimer(module, updated),
                                   onSave: (updated) async {

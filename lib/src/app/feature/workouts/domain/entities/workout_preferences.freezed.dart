@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$WorkoutPreferences {
 
- String get brandL; String get brandR; WorkoutSoundTheme get soundTheme; WorkoutSound get countdownSound; WorkoutSound get workStartSound; WorkoutSound get restStartSound; WorkoutSound get workoutEndSound; double get soundVolume; CountdownPreferences get countdown;
+@JsonKey(includeToJson: false) int get revision; String get brandL; String get brandR; WorkoutSoundTheme get soundTheme; WorkoutSound get countdownSound; WorkoutSound get workStartSound; WorkoutSound get restStartSound; WorkoutSound get workoutEndSound; double get soundVolume; CountdownPreferences get countdown;
 /// Create a copy of WorkoutPreferences
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $WorkoutPreferencesCopyWith<WorkoutPreferences> get copyWith => _$WorkoutPrefere
 @override
 bool operator ==(Object other) {
   final _this = this as WorkoutPreferences;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutPreferences&&(identical(other.brandL, _this.brandL) || other.brandL == _this.brandL)&&(identical(other.brandR, _this.brandR) || other.brandR == _this.brandR)&&(identical(other.soundTheme, _this.soundTheme) || other.soundTheme == _this.soundTheme)&&(identical(other.countdownSound, _this.countdownSound) || other.countdownSound == _this.countdownSound)&&(identical(other.workStartSound, _this.workStartSound) || other.workStartSound == _this.workStartSound)&&(identical(other.restStartSound, _this.restStartSound) || other.restStartSound == _this.restStartSound)&&(identical(other.workoutEndSound, _this.workoutEndSound) || other.workoutEndSound == _this.workoutEndSound)&&(identical(other.soundVolume, _this.soundVolume) || other.soundVolume == _this.soundVolume)&&(identical(other.countdown, _this.countdown) || other.countdown == _this.countdown));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutPreferences&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.brandL, _this.brandL) || other.brandL == _this.brandL)&&(identical(other.brandR, _this.brandR) || other.brandR == _this.brandR)&&(identical(other.soundTheme, _this.soundTheme) || other.soundTheme == _this.soundTheme)&&(identical(other.countdownSound, _this.countdownSound) || other.countdownSound == _this.countdownSound)&&(identical(other.workStartSound, _this.workStartSound) || other.workStartSound == _this.workStartSound)&&(identical(other.restStartSound, _this.restStartSound) || other.restStartSound == _this.restStartSound)&&(identical(other.workoutEndSound, _this.workoutEndSound) || other.workoutEndSound == _this.workoutEndSound)&&(identical(other.soundVolume, _this.soundVolume) || other.soundVolume == _this.soundVolume)&&(identical(other.countdown, _this.countdown) || other.countdown == _this.countdown));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as WorkoutPreferences;
-  return Object.hash(runtimeType,_this.brandL,_this.brandR,_this.soundTheme,_this.countdownSound,_this.workStartSound,_this.restStartSound,_this.workoutEndSound,_this.soundVolume,_this.countdown);
+  return Object.hash(runtimeType,_this.revision,_this.brandL,_this.brandR,_this.soundTheme,_this.countdownSound,_this.workStartSound,_this.restStartSound,_this.workoutEndSound,_this.soundVolume,_this.countdown);
 }
 
 @override
 String toString() {
   final _this = this as WorkoutPreferences;
-  return 'WorkoutPreferences(brandL: ${_this.brandL}, brandR: ${_this.brandR}, soundTheme: ${_this.soundTheme}, countdownSound: ${_this.countdownSound}, workStartSound: ${_this.workStartSound}, restStartSound: ${_this.restStartSound}, workoutEndSound: ${_this.workoutEndSound}, soundVolume: ${_this.soundVolume}, countdown: ${_this.countdown})';
+  return 'WorkoutPreferences(revision: ${_this.revision}, brandL: ${_this.brandL}, brandR: ${_this.brandR}, soundTheme: ${_this.soundTheme}, countdownSound: ${_this.countdownSound}, workStartSound: ${_this.workStartSound}, restStartSound: ${_this.restStartSound}, workoutEndSound: ${_this.workoutEndSound}, soundVolume: ${_this.soundVolume}, countdown: ${_this.countdown})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $WorkoutPreferencesCopyWith<$Res>  {
   factory $WorkoutPreferencesCopyWith(WorkoutPreferences value, $Res Function(WorkoutPreferences) _then) = _$WorkoutPreferencesCopyWithImpl;
 @useResult
 $Res call({
- String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
+@JsonKey(includeToJson: false) int revision, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
 });
 
 
@@ -71,9 +71,10 @@ class _$WorkoutPreferencesCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutPreferences
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdown = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? revision = null,Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdown = null,}) {
   return _then(WorkoutPreferences(
-brandL: null == brandL ? _self.brandL : brandL // ignore: cast_nullable_to_non_nullable
+revision: null == revision ? _self.revision : revision // ignore: cast_nullable_to_non_nullable
+as int,brandL: null == brandL ? _self.brandL : brandL // ignore: cast_nullable_to_non_nullable
 as String,brandR: null == brandR ? _self.brandR : brandR // ignore: cast_nullable_to_non_nullable
 as String,soundTheme: null == soundTheme ? _self.soundTheme : soundTheme // ignore: cast_nullable_to_non_nullable
 as WorkoutSoundTheme,countdownSound: null == countdownSound ? _self.countdownSound : countdownSound // ignore: cast_nullable_to_non_nullable
@@ -176,10 +177,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(includeToJson: false)  int revision,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkoutPreferences() when $default != null:
-return $default(_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
+return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
   return orElse();
 
 }
@@ -197,10 +198,10 @@ return $default(_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(includeToJson: false)  int revision,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutPreferences():
-return $default(_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
+return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -217,10 +218,10 @@ return $default(_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(includeToJson: false)  int revision,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutPreferences() when $default != null:
-return $default(_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
+return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
   return null;
 
 }
@@ -232,9 +233,10 @@ return $default(_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,
 
 @JsonSerializable(explicitToJson: true)
 class _WorkoutPreferences extends WorkoutPreferences {
-  const _WorkoutPreferences({this.brandL = 'CloudBoard', this.brandR = '', this.soundTheme = WorkoutSoundTheme.videoBeep, this.countdownSound = WorkoutSound.videoBeep, this.workStartSound = WorkoutSound.videoBeep, this.restStartSound = WorkoutSound.videoBeep, this.workoutEndSound = WorkoutSound.videoBeep, this.soundVolume = 1.0, this.countdown = const CountdownPreferences()}): super._();
+  const _WorkoutPreferences({@JsonKey(includeToJson: false) this.revision = 0, this.brandL = 'CloudBoard', this.brandR = '', this.soundTheme = WorkoutSoundTheme.videoBeep, this.countdownSound = WorkoutSound.videoBeep, this.workStartSound = WorkoutSound.videoBeep, this.restStartSound = WorkoutSound.videoBeep, this.workoutEndSound = WorkoutSound.videoBeep, this.soundVolume = 1.0, this.countdown = const CountdownPreferences()}): super._();
   factory _WorkoutPreferences.fromJson(Map<String, dynamic> json) => _$WorkoutPreferencesFromJson(json);
 
+@override@JsonKey(includeToJson: false) final  int revision;
 @override@JsonKey() final  String brandL;
 @override@JsonKey() final  String brandR;
 @override@JsonKey() final  WorkoutSoundTheme soundTheme;
@@ -258,18 +260,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutPreferences&&(identical(other.brandL, brandL) || other.brandL == brandL)&&(identical(other.brandR, brandR) || other.brandR == brandR)&&(identical(other.soundTheme, soundTheme) || other.soundTheme == soundTheme)&&(identical(other.countdownSound, countdownSound) || other.countdownSound == countdownSound)&&(identical(other.workStartSound, workStartSound) || other.workStartSound == workStartSound)&&(identical(other.restStartSound, restStartSound) || other.restStartSound == restStartSound)&&(identical(other.workoutEndSound, workoutEndSound) || other.workoutEndSound == workoutEndSound)&&(identical(other.soundVolume, soundVolume) || other.soundVolume == soundVolume)&&(identical(other.countdown, countdown) || other.countdown == countdown));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutPreferences&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.brandL, brandL) || other.brandL == brandL)&&(identical(other.brandR, brandR) || other.brandR == brandR)&&(identical(other.soundTheme, soundTheme) || other.soundTheme == soundTheme)&&(identical(other.countdownSound, countdownSound) || other.countdownSound == countdownSound)&&(identical(other.workStartSound, workStartSound) || other.workStartSound == workStartSound)&&(identical(other.restStartSound, restStartSound) || other.restStartSound == restStartSound)&&(identical(other.workoutEndSound, workoutEndSound) || other.workoutEndSound == workoutEndSound)&&(identical(other.soundVolume, soundVolume) || other.soundVolume == soundVolume)&&(identical(other.countdown, countdown) || other.countdown == countdown));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,brandL,brandR,soundTheme,countdownSound,workStartSound,restStartSound,workoutEndSound,soundVolume,countdown);
+    return Object.hash(runtimeType,revision,brandL,brandR,soundTheme,countdownSound,workStartSound,restStartSound,workoutEndSound,soundVolume,countdown);
 }
 
 @override
 String toString() {
-    return 'WorkoutPreferences(brandL: $brandL, brandR: $brandR, soundTheme: $soundTheme, countdownSound: $countdownSound, workStartSound: $workStartSound, restStartSound: $restStartSound, workoutEndSound: $workoutEndSound, soundVolume: $soundVolume, countdown: $countdown)';
+    return 'WorkoutPreferences(revision: $revision, brandL: $brandL, brandR: $brandR, soundTheme: $soundTheme, countdownSound: $countdownSound, workStartSound: $workStartSound, restStartSound: $restStartSound, workoutEndSound: $workoutEndSound, soundVolume: $soundVolume, countdown: $countdown)';
 }
 
 
@@ -280,7 +282,7 @@ abstract mixin class _$WorkoutPreferencesCopyWith<$Res> implements $WorkoutPrefe
   factory _$WorkoutPreferencesCopyWith(_WorkoutPreferences value, $Res Function(_WorkoutPreferences) _then) = __$WorkoutPreferencesCopyWithImpl;
 @override @useResult
 $Res call({
- String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
+@JsonKey(includeToJson: false) int revision, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
 });
 
 
@@ -297,9 +299,10 @@ class __$WorkoutPreferencesCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutPreferences
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdown = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? revision = null,Object? brandL = null,Object? brandR = null,Object? soundTheme = null,Object? countdownSound = null,Object? workStartSound = null,Object? restStartSound = null,Object? workoutEndSound = null,Object? soundVolume = null,Object? countdown = null,}) {
   return _then(_WorkoutPreferences(
-brandL: null == brandL ? _self.brandL : brandL // ignore: cast_nullable_to_non_nullable
+revision: null == revision ? _self.revision : revision // ignore: cast_nullable_to_non_nullable
+as int,brandL: null == brandL ? _self.brandL : brandL // ignore: cast_nullable_to_non_nullable
 as String,brandR: null == brandR ? _self.brandR : brandR // ignore: cast_nullable_to_non_nullable
 as String,soundTheme: null == soundTheme ? _self.soundTheme : soundTheme // ignore: cast_nullable_to_non_nullable
 as WorkoutSoundTheme,countdownSound: null == countdownSound ? _self.countdownSound : countdownSound // ignore: cast_nullable_to_non_nullable

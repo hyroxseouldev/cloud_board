@@ -12,13 +12,77 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    function settingsPath(userId) {
+      return /databases/$(database)/documents/users/$(userId)/settings/workout;
+    }
+    function contentOnly(userId) {
+      return exists(settingsPath(userId)) && get(settingsPath(userId)).data.contentOnly == true;
+    }
+    function validSound(v) {
+      return v in ['silent', 'gentleBeep', 'classicBeep', 'sharpBeep', 'lowPulse',
+        'boxingBell', 'softBell', 'doubleBeep', 'longFinish', 'videoBeep'];
+    }
+    function validPreferences(p) {
+      return p is map && p.keys().hasOnly(['brandL', 'brandR', 'soundTheme',
+          'countdownSound', 'workStartSound', 'restStartSound', 'workoutEndSound', 'soundVolume', 'countdown'])
+        && p.brandL is string && p.brandR is string
+        && p.brandL.size() <= 2000 && p.brandR.size() <= 2000
+        && p.soundTheme in ['videoBeep', 'simple', 'classic', 'boxing', 'studio', 'custom']
+        && validSound(p.countdownSound) && validSound(p.workStartSound)
+        && validSound(p.restStartSound) && validSound(p.workoutEndSound)
+        && p.soundVolume is number && p.soundVolume >= 0 && p.soundVolume <= 1
+        && p.countdown is map
+        && p.countdown.keys().hasOnly(['seconds', 'backgroundColor', 'imageSource', 'appearance'])
+        && p.countdown.seconds is int && p.countdown.seconds >= 0 && p.countdown.seconds <= 60
+        && p.countdown.backgroundColor is int && p.countdown.imageSource is string
+        && p.countdown.appearance is map
+        && validCountdownAppearance(p.countdown.appearance);
+    }
+    function validCountdownAppearance(a) {
+      return a.keys().hasOnly(['showReady', 'showTitle', 'numberScale', 'numberFormat',
+          'numberColor', 'numberShadow', 'overlayEnabled', 'overlayOpacity', 'overlayColor'])
+        && a.showReady is bool && a.showTitle is bool && a.numberShadow is bool
+        && a.numberScale is number && a.numberScale >= 0.5 && a.numberScale <= 1.8
+        && a.numberFormat in ['seconds', 'clock'] && a.overlayEnabled is bool
+        && (a.numberColor == null || a.numberColor is int)
+        && (a.overlayColor == null || a.overlayColor is int)
+        && (a.overlayOpacity == null || (a.overlayOpacity is number && a.overlayOpacity >= 0 && a.overlayOpacity <= 1));
+    }
+    function validSettings(d) {
+      return d.keys().hasOnly(['schemaVersion', 'revision', 'updatedAt', 'contentOnly', 'preferences'])
+        && d.schemaVersion == 1 && d.revision is int && d.updatedAt == request.time
+        && d.contentOnly is bool && validPreferences(d.preferences);
+    }
+    function compatibleProfileWrite(userId) {
+      return !existsAfter(settingsPath(userId))
+        || (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['workoutSettings', 'countdownDefaults']))
+        || (!getAfter(settingsPath(userId)).data.contentOnly
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['countdownDefaults'])
+          && request.resource.data.workoutSettings == getAfter(settingsPath(userId)).data.preferences);
+    }
+    function compatibleWorkoutWrite(userId) {
+      return !contentOnly(userId) || (request.resource.data.schemaVersion == 2
+        && request.resource.data.keys().hasOnly(['schemaVersion', 'id', 'ownerId', 'author', 'name', 'folder', 'modules', 'createdAt', 'updatedAt']));
+    }
+
     match /users/{userId} {
       allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.uid == userId
         && !request.resource.data.keys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
       allow update: if isOwner(userId) && request.resource.data.uid == userId
+        && compatibleProfileWrite(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
 
+      match /settings/workout {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && validSettings(request.resource.data)
+          && request.resource.data.revision == 1 && request.resource.data.contentOnly == false;
+        allow update: if isOwner(userId) && validSettings(request.resource.data)
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.contentOnly == resource.data.contentOnly;
+        // Only the migration tool may activate content-only writes or remove settings.
+        allow delete: if false;
+      }
       match /catalog/{documentId} {
         allow read: if isOwner(userId);
         // Only the verified admin migration can activate a complete catalog.
@@ -40,11 +104,11 @@ service cloud.firestore {
       }
       match /workouts/{workoutId} {
         allow read, delete: if isOwner(userId);
-        allow create: if isOwner(userId)
+        allow create: if isOwner(userId) && compatibleWorkoutWrite(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.author.id == userId
           && request.resource.data.id == workoutId;
-        allow update: if isOwner(userId)
+        allow update: if isOwner(userId) && compatibleWorkoutWrite(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.author.id == userId
           && request.resource.data.id == workoutId
