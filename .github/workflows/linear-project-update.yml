@@ -1,6 +1,12 @@
 name: Publish deployment update to Linear
 
 on:
+  workflow_dispatch:
+    inputs:
+      deployment_run_id:
+        description: Existing main deployment run to publish (does not rebuild the app)
+        required: true
+        type: string
   workflow_run:
     workflows:
       - Deploy Flutter Web to Firebase Hosting
@@ -24,7 +30,7 @@ permissions:
 
 jobs:
   verify:
-    if: github.event_name != 'workflow_run'
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,15 +41,16 @@ jobs:
 
   publish:
     if: >-
-      github.event_name == 'workflow_run' &&
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
-      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # A later notification re-reads all three pipelines, including reruns.
     concurrency:
-      group: linear-deployment-${{ github.event.workflow_run.head_sha }}
+      group: linear-deployment-publisher
       cancel-in-progress: false
     steps:
       # Run only trusted default-branch code, never a downloaded build artifact.
