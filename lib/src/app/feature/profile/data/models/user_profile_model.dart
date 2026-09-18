@@ -22,9 +22,9 @@ class UserProfileModel {
   final String email;
   final String displayName;
   final String? photoUrl;
-  @JsonKey(defaultValue: 'pilot')
+  @JsonKey(defaultValue: 'free')
   final String partnerTier;
-  @JsonKey(defaultValue: 'cloudboard_pro')
+  @JsonKey(defaultValue: 'free')
   final String subscriptionPlan;
   @JsonKey(defaultValue: 'free')
   final String subscriptionStatus;
@@ -44,7 +44,7 @@ class UserProfileModel {
     photoUrl: photoUrl,
     partnerTier: PartnerTier.values.firstWhere(
       (value) => value.name == partnerTier,
-      orElse: () => PartnerTier.pilot,
+      orElse: () => PartnerTier.free,
     ),
     subscriptionPlan: subscriptionPlan,
     subscriptionStatus: SubscriptionStatus.values.firstWhere(

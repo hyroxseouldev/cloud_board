@@ -14,14 +14,14 @@ class UserProfileFirestoreDataSource {
         .get();
     final data = snapshot.data();
     final access = entitlement.data();
-    if (access == null || access['managed'] != true) return data;
+    if (access == null || access['managed'] != true) return { ...?data, 'partnerTier': 'free', 'subscriptionPlan': 'free', 'subscriptionStatus': 'free' };
     final validUntil = (access['validUntilMs'] as num?)?.toInt() ?? 0;
     final valid = validUntil > DateTime.now().millisecondsSinceEpoch;
     final status = access['status'];
     return {
       ...?data,
-      'partnerTier': status == 'trialing' ? 'trial' : 'pro',
-      'subscriptionPlan': 'cloudboard_pro',
+      'partnerTier': !valid ? 'free' : status == 'trialing' ? 'trial' : 'pro',
+      'subscriptionPlan': valid ? 'cloudboard_pro' : 'free',
       'subscriptionStatus': !valid
           ? 'canceled'
           : status == 'trialing'

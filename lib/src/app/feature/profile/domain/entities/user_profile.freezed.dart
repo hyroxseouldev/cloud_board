@@ -220,7 +220,7 @@ return $default(_that.id,_that.email,_that.displayName,_that.photoUrl,_that.part
 
 
 class _UserProfile implements UserProfile {
-  const _UserProfile({required this.id, required this.email, required this.displayName, required this.photoUrl, this.partnerTier = PartnerTier.pilot, this.subscriptionPlan = 'cloudboard_pro', this.subscriptionStatus = SubscriptionStatus.free, this.pilotEndsAt, this.displayLimit = 3});
+  const _UserProfile({required this.id, required this.email, required this.displayName, required this.photoUrl, this.partnerTier = PartnerTier.free, this.subscriptionPlan = 'free', this.subscriptionStatus = SubscriptionStatus.free, this.pilotEndsAt, this.displayLimit = 3});
   
 
 @override final  String id;

@@ -1,3 +1,6 @@
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
 import 'package:cloud_board/src/app/core/services/ios_class_controls.dart';
 import 'package:cloud_board/src/app/core/widgets/keyboard_dismiss_region.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
@@ -13,11 +16,23 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 
 final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
-class XonBoardApp extends ConsumerWidget {
+class XonBoardApp extends HookConsumerWidget {
   const XonBoardApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(storeEntitlementProvider);
+    ref.watch(storeAccountLinkProvider);
+    useOnAppLifecycleStateChange((previous, next) {
+      if (next == AppLifecycleState.resumed) {
+        ref.invalidate(storeAccountLinkProvider);
+        ref.invalidate(storeEntitlementProvider);
+      }
+    });
+    ref.listen(
+      storeEntitlementProvider,
+      (_, _) => ref.invalidate(userProfileControllerProvider),
+    );
     void showActionResult(
       AsyncValue<String?>? previous,
       AsyncValue<String?> next,
@@ -55,6 +70,9 @@ class XonBoardApp extends ConsumerWidget {
       }
     });
     ref.listen(authStateProvider, (previous, next) {
+      if (previous?.value?.id != next.value?.id) {
+        ref.invalidate(userProfileControllerProvider);
+      }
       if (next.value != null && previous?.value?.id != next.value?.id) {
         ref.invalidate(accountDeletionControllerProvider);
       }

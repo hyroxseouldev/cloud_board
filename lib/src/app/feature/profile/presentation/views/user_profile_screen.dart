@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/widgets/account_management_section.dart';
@@ -36,7 +37,9 @@ class UserProfileScreen extends HookConsumerWidget {
     final hasSubmitted = useRef(false);
     // Keep the form mounted while saving, including when a save fails.
     final profileBeforeSave = useRef<UserProfile?>(null);
-    final profile = profileState.value ?? profileBeforeSave.value;
+    final currentUid = ref.watch(authStateProvider).value?.id;
+    final candidate = profileState.value ?? profileBeforeSave.value;
+    final profile = candidate?.id == currentUid ? candidate : null;
 
     useEffect(() {
       if (profile != null && initializedUserId.value != profile.id) {
@@ -94,10 +97,43 @@ class UserProfileScreen extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('웹 계정 · 이용 상태'),
+                        Text(switch (ref
+                            .watch(storeAccountLinkProvider)
+                            .value) {
+                          'linked' => '같은 Google 계정의 매장이 연결되었습니다.',
+                          'web_registration_required' =>
+                            'CloudBoard 웹에서 Google 로그인과 문자 인증을 완료해 주세요.',
+                          'google_required' => '웹과 같은 Google 계정으로 로그인해 주세요.',
+                          _ => '계정 연결을 확인하고 있습니다.',
+                        }),
+                        if (ref.watch(storeAccountLinkProvider).hasError)
+                          const Text('연결을 확인하지 못했습니다. 다시 시도해 주세요.'),
+                        TextButton(
+                          onPressed: () {
+                            ref.invalidate(storeAccountLinkProvider);
+                            ref.invalidate(storeEntitlementProvider);
+                          },
+                          child: const Text('연결 다시 확인'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 Text('프로필 설정', style: AppStyle.of(context).mainText),
                 const SizedBox(height: 28),
                 AsyncValueWidget<UserProfile>(
-                  value: profile == null ? profileState : AsyncData(profile),
+                  value: profile != null
+                      ? AsyncData(profile)
+                      : profileState.hasValue
+                      ? const AsyncLoading()
+                      : profileState,
                   data: (data) => Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

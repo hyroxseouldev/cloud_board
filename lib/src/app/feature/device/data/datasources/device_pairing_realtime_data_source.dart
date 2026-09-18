@@ -172,6 +172,10 @@ class DevicePairingRealtimeDataSource {
       }
       return;
     }
+    final pilot = await _database.ref('legacyPilotAccess/${owner.uid}/validUntilMs').get();
+    if (pilot.value is! num || (pilot.value as num) <= DateTime.now().millisecondsSinceEpoch) {
+      throw StateError('웹에서 무료 가입과 앱 계정 연결을 완료해 주세요.');
+    }
     final pairingRef = _database.ref('pairingCodes/$normalizedCode');
     final initialSnapshot = await pairingRef.get();
     if (!initialSnapshot.exists) {
