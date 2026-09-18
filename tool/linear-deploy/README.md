@@ -18,13 +18,13 @@
 
 - GitHub 저장소 Secret: `LINEAR_API_KEY`
 - Linear 개인 키: `Cloudboard GitHub deployment updates`
-- 권한: Write(읽기·쓰기 포함), 팀: Cloudboard만. Admin 제외.
+- 권한: **Read와 Write를 각각 선택**, 팀: Cloudboard만. Admin 제외. UI의 Write 설명과 달리 API 조회에는 별도의 Read scope가 필요하다.
 - 프로젝트 ID: `00a512bb-598c-4967-b435-e78cadc4e8f2` (워크플로 환경 변수)
 - 2026-09-18 브라우저에서 키 생성 및 Secret 등록 완료. 키 값은 소스에 저장하지 않았다.
 
 워크플로와 스크립트가 기본 브랜치 main에 있어야 `workflow_run`이 실행된다. 배포 워크플로 이름, 업로드 단계 이름, 산출물 이름을 바꿀 때는 `pipelines` 설정도 함께 수정한다.
 
-기록 액션은 별도 워크플로로 동작해 기록 실패 때문에 앱을 재배포하지 않는다. PR/포크 배포는 대상에서 제외하고, 실행 코드는 기본 브랜치에서만 체크아웃한다. GitHub Token은 contents/actions 읽기 권한만 사용한다. API 키는 글 게시 단계에만 전달한다.
+기록 액션은 별도 워크플로로 동작해 기록 실패 때문에 앱을 재배포하지 않는다. `workflow_dispatch`에서 `deployment_run_id`에 기존 main 배포 실행 ID를 넣으면 최신 게시 코드로 그 배포 기록만 복구한다. main에서만 허용하며, 입력 ID로 조회한 실제 GitHub 실행의 저장소·브랜치·이벤트·워크플로도 재검증한다. 자동 실행과 수동 복구는 직렬 처리한다. PR/포크 배포는 대상에서 제외하고, 실행 코드는 기본 브랜치에서만 체크아웃한다. GitHub Token은 contents/actions 읽기 권한만 사용한다. API 키는 글 게시 단계에만 전달한다.
 
 ## 검증
 
@@ -34,8 +34,8 @@ node --test tool/linear-deploy/*.test.mjs
 
 실제 GitHub 실행의 `workflow_run` 페이로드를 `GITHUB_EVENT_PATH`에 제공하고 `LINEAR_DRY_RUN=true`로 실행하면 Linear 쓰기 없이 결과를 출력한다. `GITHUB_REPOSITORY`, `GITHUB_TOKEN`, `LINEAR_PROJECT_ID`도 필요하다. dry-run에는 Linear 키가 필요 없다.
 
-- 회귀 테스트 10개: 소스 제한, 최신 실행 선택, 업로드 단계 확인, 단일 글 갱신·생성 응답 유실, API 오류, merge 및 다중 커밋 변경 범위.
+- 회귀 테스트 12개: 소스 제한, 최신 실행 선택, 업로드 단계 확인, 단일 글 갱신·생성 응답 유실, API 오류, merge 및 다중 커밋 변경 범위.
 - 실제 main `661b055`의 배포 실행을 read-only dry-run으로 조회: 웹 완료 / Android 빌드 32 제출 / iOS 빌드 526 업로드 확인.
-- 실제 Linear 게시 및 GitHub 자동 실행은 main 반영 후 첫 실행에서 확인해야 한다. 이 설정 작업에서 과거 배포 글을 게시하거나 앱을 배포하지 않았다.
+- 2026-09-18 실제 게시 검증: `cac29d3` 배포 글 생성 및 iOS 완료 이벤트의 자동 갱신 성공. 최초 `FORBIDDEN: Invalid scope: read required` 오류는 기존 키에 Read 권한을 명시적으로 추가하여 해결했다. [게시 결과](https://linear.app/clyrdev/project/cloudboard-a68eceb7634d/activity#project-update-2b6df7e0), [자동 실행](https://github.com/hyroxseouldev/cloud_board/actions/runs/35302209319).
 
 공식 참고: [프로젝트 업데이트](https://linear.app/docs/initiative-and-project-updates), [Linear GraphQL](https://linear.app/developers/graphql), [공식 API 스키마](https://github.com/linear/linear/blob/master/packages/sdk/src/schema.graphql), [GitHub workflow_run](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).
