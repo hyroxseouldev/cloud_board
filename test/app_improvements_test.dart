@@ -1,7 +1,7 @@
 import 'support/workout_catalog_fixture.dart';
 
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 
 import 'dart:convert';
@@ -76,8 +76,8 @@ void main() {
             ),
             fixtureWorkoutDetails,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
-            newWorkoutCountdownDefaultsProvider('u')
-                .overrideWith((ref) async => const CountdownPreferences()),
+            accountWorkoutPreferencesProvider('u')
+                .overrideWith((ref) async => const WorkoutPreferences()),
             displayDevicesProvider.overrideWith(
               (ref) => Stream.value(const []),
             ),
@@ -564,8 +564,8 @@ void main() {
             ),
             fixtureWorkoutDetails,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
-            newWorkoutCountdownDefaultsProvider('u')
-                .overrideWith((ref) async => const CountdownPreferences()),
+            accountWorkoutPreferencesProvider('u')
+                .overrideWith((ref) async => const WorkoutPreferences()),
             displayDevicesProvider.overrideWith(
               (ref) => Stream.value(const []),
             ),
@@ -597,7 +597,7 @@ void main() {
       expect(find.byTooltip('기기 모드'), findsNothing);
       await tester.tap(find.byTooltip('설정'));
       await tester.pumpAndSettle();
-      for (final label in ['디스플레이 설정', '매장 운영', '프로필 조회 및 변경']) {
+      for (final label in ['디스플레이 설정', '매장 운영', 'Coach']) {
         expect(find.text(label), findsOneWidget);
       }
       expect(find.text('로그아웃'), findsNothing);
@@ -1031,8 +1031,8 @@ void main() {
               ),
               fixtureWorkoutDetails,
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
-              newWorkoutCountdownDefaultsProvider('u')
-                  .overrideWith((ref) async => const CountdownPreferences()),
+              accountWorkoutPreferencesProvider('u')
+                  .overrideWith((ref) async => const WorkoutPreferences()),
               workoutActionControllerProvider.overrideWith(
                 () => _RetryWorkoutSave(saved),
               ),
@@ -1140,8 +1140,8 @@ void main() {
               ),
               fixtureWorkoutDetails,
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
-              newWorkoutCountdownDefaultsProvider('u')
-                  .overrideWith((ref) async => const CountdownPreferences()),
+              accountWorkoutPreferencesProvider('u')
+                  .overrideWith((ref) async => const WorkoutPreferences()),
               workoutActionControllerProvider.overrideWith(
                 () => _SaveWorkouts(saved),
               ),
@@ -1278,8 +1278,8 @@ void main() {
               ),
               fixtureWorkoutDetails,
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
-              newWorkoutCountdownDefaultsProvider('u')
-                  .overrideWith((ref) async => const CountdownPreferences()),
+              accountWorkoutPreferencesProvider('u')
+                  .overrideWith((ref) async => const WorkoutPreferences()),
               workoutActionControllerProvider.overrideWith(
                 () => _SaveWorkouts(saved),
               ),

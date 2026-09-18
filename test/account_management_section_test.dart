@@ -1,3 +1,4 @@
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/data/repositories/account_deletion_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
@@ -13,6 +14,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  setUp(
+    () => PackageInfo.setMockInitialValues(
+      appName: 'CloudBoard',
+      packageName: 'com.sunmkim.cloudboard',
+      version: '1.2.3',
+      buildNumber: '529',
+      buildSignature: 'test',
+    ),
+  );
+
   Future<void> mount(
     WidgetTester tester,
     Future<bool> Function(Uri) launch, {
@@ -45,6 +56,17 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('installed version and build appear below privacy policy', (
+    tester,
+  ) async {
+    await mount(tester, (_) async => true);
+    expect(find.text('1.2.3 (529)'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('앱 버전')).dy,
+      greaterThan(tester.getTopLeft(find.text('개인정보처리방침')).dy),
+    );
+  });
 
   for (final size in [const Size(390, 844), const Size(834, 1194)]) {
     testWidgets('links preserve the current screen and draft at $size', (

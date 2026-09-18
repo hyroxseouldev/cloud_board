@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
@@ -35,6 +37,16 @@ class PlaybackActionController extends _$PlaybackActionController {
     state = const AsyncLoading();
     PlaybackSession? session;
     state = await AsyncValue.guard(() async {
+      final uid = ref.read(firebaseAccountUserProvider).value?.uid;
+      final entitlement = ref.read(storeEntitlementProvider).value;
+      final serverNow =
+          DateTime.now().millisecondsSinceEpoch +
+          (ref.read(serverTimeOffsetProvider).value ?? 0);
+      if (entitlement?.allowsNewClass(uid, serverNow) != true) {
+        throw StateError(
+          '웹에서 계정 연결과 체험 또는 구독 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.',
+        );
+      }
       session = await ref
           .read(playbackActionsProvider)
           .start(

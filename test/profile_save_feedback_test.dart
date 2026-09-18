@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/user_profile_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/usecases/user_profile_actions.dart';
@@ -45,9 +48,21 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final repository = _Profiles();
+    final accounts = StreamController<AuthUser?>();
+    addTearDown(accounts.close);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authStateProvider.overrideWith((ref) async* {
+            yield const AuthUser(
+              id: 'coach',
+              email: 'coach@example.com',
+              displayName: 'Coach',
+              photoUrl: null,
+            );
+            yield* accounts.stream;
+          }),
+          storeAccountLinkProvider.overrideWith((ref) async => 'linked'),
           getUserProfileProvider.overrideWith(
             (ref) => GetUserProfile(repository),
           ),
@@ -103,5 +118,18 @@ void main() {
     expect(find.text('New coach'), findsNWidgets(2));
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('로그아웃'), findsOneWidget);
+
+    accounts.add(
+      const AuthUser(
+        id: 'another-coach',
+        email: 'another@example.com',
+        displayName: 'Another coach',
+        photoUrl: null,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('New coach'), findsNothing);
+    expect(find.text('coach@example.com'), findsNothing);
   });
 }

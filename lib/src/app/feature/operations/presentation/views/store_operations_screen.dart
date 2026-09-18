@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
+
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/account_workout_settings_tab.dart';
+
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 
 import 'dart:async';
@@ -21,11 +25,12 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sum
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
 class StoreOperationsScreen extends ConsumerWidget {
-  const StoreOperationsScreen({super.key});
+  const StoreOperationsScreen({super.key, this.guard});
+  final ExitGuard? guard;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => DefaultTabController(
-    length: 4,
+    length: 5,
     child: Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -37,6 +42,7 @@ class StoreOperationsScreen extends ConsumerWidget {
         bottom: const TabBar(
           isScrollable: true,
           tabs: [
+            Tab(icon: Icon(Icons.tune_rounded), text: '워크아웃 설정'),
             Tab(
               icon: Icon(Icons.branding_watermark_outlined),
               text: '브랜드·대기 화면',
@@ -47,8 +53,9 @@ class StoreOperationsScreen extends ConsumerWidget {
           ],
         ),
       ),
-      body: const TabBarView(
+      body: TabBarView(
         children: [
+          AccountWorkoutSettingsTab(guard: guard),
           _BrandSettingsTab(),
           _ScheduleTab(),
           _RemoteDisplaysTab(),

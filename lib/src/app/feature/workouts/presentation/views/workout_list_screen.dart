@@ -473,7 +473,7 @@ class _SettingsMenu extends ConsumerWidget {
       itemBuilder: (_) => [
         if (user != null) ...[
           PopupMenuItem(
-            enabled: false,
+            value: _SettingsAction.profile,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: _Avatar(user: user!, radius: 20),
@@ -500,15 +500,7 @@ class _SettingsMenu extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.storefront_rounded),
               title: Text('매장 운영'),
-              subtitle: Text('예약 · 브랜드 · 리포트'),
-            ),
-          ),
-          const PopupMenuItem(
-            value: _SettingsAction.profile,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.manage_accounts_outlined),
-              title: Text('프로필 조회 및 변경'),
+              subtitle: Text('워크아웃 설정 · 예약 · 브랜드 · 리포트'),
             ),
           ),
         ],

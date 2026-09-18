@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -8,7 +9,8 @@ import 'package:cloud_board/src/app/feature/playback/domain/repositories/playbac
 part 'playback_actions.g.dart';
 
 class PlaybackActions {
-  const PlaybackActions(this._repository);
+  const PlaybackActions(this._repository, {this.preferences});
+  final WorkoutPreferencesActions? preferences;
   final PlaybackRepository _repository;
 
   Future<bool> hasRunningSession() => _repository.hasRunningSession();
@@ -22,8 +24,8 @@ class PlaybackActions {
     bool scheduled = false,
     bool briefing = false,
     int? scheduledAtMs,
-  }) => _repository.start(
-    workout: workout,
+  }) async => _repository.start(
+    workout: await preferences?.apply(workout, fresh: true) ?? workout,
     targetDeviceIds: targetDeviceIds,
     stepIndex: stepIndex,
     durationMs: durationMs,
@@ -57,5 +59,7 @@ class PlaybackActions {
 }
 
 @riverpod
-PlaybackActions playbackActions(Ref ref) =>
-    PlaybackActions(ref.watch(playbackRepositoryProvider));
+PlaybackActions playbackActions(Ref ref) => PlaybackActions(
+  ref.watch(playbackRepositoryProvider),
+  preferences: ref.watch(workoutPreferencesActionsProvider),
+);

@@ -40,27 +40,20 @@ void main() {
           ],
           child: MaterialApp(
             home: Scaffold(
-              body: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    builder: (_) => WorkoutSettingsSheet(
-                      draft: draft,
-                      brandL: left,
-                      brandR: right,
-                    ),
+              body: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: WorkoutSettingsContent(
+                    draft: draft,
+                    brandL: left,
+                    brandR: right,
                   ),
-                  child: const Text('open'),
                 ),
               ),
             ),
           ),
         ),
       );
-      await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('brand-left')),
@@ -126,27 +119,9 @@ void main() {
       expect(draft.value.workStartSound, WorkoutSound.boxingBell);
       expect(draft.value.restStartSound, WorkoutSound.classicBeep);
       expect(draft.value.workoutEndSound, WorkoutSound.sharpBeep);
-      final edited = draft.value;
-      await tester.tap(find.text('설정 완료'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
       expect(left.text, 'CloudBoard');
       expect(right.text, '오늘도 함께');
-      expect(draft.value, edited);
-      expect(find.text('직접 설정'), findsOneWidget);
-      expect(tester.widget<Slider>(slider).value, volume);
-
-      // The keyboard must leave the second field and the close action reachable.
-      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-      await tester.pumpAndSettle();
-      await tapVisible(find.byType(TextField).last);
-      expect(find.byType(TextField).last.hitTestable(), findsOneWidget);
-      expect(find.byTooltip('설정 닫기').hitTestable(), findsOneWidget);
-      expect(find.text('설정 완료').hitTestable(), findsOneWidget);
-      await tester.tap(find.byTooltip('설정 닫기'));
-      await tester.pumpAndSettle();
-      expect(draft.value, edited);
+      expect(find.text('내 기본값으로 저장'), findsNothing);
       expect(tester.takeException(), isNull);
       tester.view.resetViewInsets();
     });

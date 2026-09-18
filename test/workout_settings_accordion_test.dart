@@ -21,7 +21,7 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
   });
-  testWidgets('화면·사운드 설정은 상단 버튼으로 열고 닫아도 편집을 유지한다', (tester) async {
+  testWidgets('계정 공통 설정은 워크아웃 편집 메뉴에서 제거된다', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -45,29 +45,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('화면·사운드 설정'), findsOneWidget);
+    expect(find.byTooltip('화면·사운드 설정'), findsNothing);
     expect(find.text('화면 왼쪽 아래 문구'), findsNothing);
     expect(find.text('수업 사운드'), findsNothing);
-
-    await tester.tap(find.byTooltip('화면·사운드 설정'));
-    await tester.pumpAndSettle();
-    expect(find.text('화면 왼쪽 아래 문구'), findsOneWidget);
-    expect(find.text('화면 오른쪽 아래 문구'), findsOneWidget);
-    expect(find.text('수업 사운드'), findsOneWidget);
-    final brandFields = find.descendant(
-      of: find.byKey(const ValueKey('workout-display-sound-settings')),
-      matching: find.byType(TextField),
-    );
-    await tester.enterText(brandFields.first, '바뀐 화면 문구');
-    await tester.tap(find.byTooltip('설정 닫기'));
-    await tester.pumpAndSettle();
-    expect(find.text('저장 필요'), findsOneWidget);
-    await tester.tap(find.byTooltip('화면·사운드 설정'));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<TextField>(brandFields.first).controller!.text,
-      '바뀐 화면 문구',
-    );
     expect(tester.takeException(), isNull);
   });
   testWidgets(

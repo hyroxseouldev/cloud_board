@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
@@ -18,6 +19,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets('settings profile header opens profile with no duplicate menu', (
+    tester,
+  ) async {
+    await _mount(
+      tester,
+      _CatalogRepository(_catalog(1)),
+      testProfileRoute: true,
+    );
+    await tester.tap(find.byTooltip('설정'));
+    await tester.pumpAndSettle();
+    expect(find.text('프로필 조회 및 변경'), findsNothing);
+    await tester.tap(find.text('Coach'));
+    await tester.pumpAndSettle();
+    expect(find.text('프로필 목적지'), findsOneWidget);
+  });
+
   testWidgets('class commands do not flash a page overlay or reset browsing', (
     tester,
   ) async {
@@ -321,11 +338,24 @@ Future<ProviderContainer> _mount(
   Size size = const Size(390, 844),
   PlaybackSession? activeSession,
   _Commands? commands,
+  bool testProfileRoute = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  final router = testProfileRoute
+      ? GoRouter(
+          routes: [
+            GoRoute(path: '/', builder: (_, _) => const WorkoutListScreen()),
+            GoRoute(
+              path: '/profile',
+              builder: (_, _) => const Scaffold(body: Text('프로필 목적지')),
+            ),
+          ],
+        )
+      : null;
+  if (router != null) addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -348,11 +378,13 @@ Future<ProviderContainer> _mount(
           (ref) async => LoadWorkouts(repository),
         ),
       ],
-      child: MaterialApp(
-        theme: XonTheme.light,
-        builder: XonTheme.responsiveBuilder,
-        home: const WorkoutListScreen(),
-      ),
+      child: router == null
+          ? MaterialApp(
+              theme: XonTheme.light,
+              builder: XonTheme.responsiveBuilder,
+              home: const WorkoutListScreen(),
+            )
+          : MaterialApp.router(theme: XonTheme.light, routerConfig: router),
     ),
   );
   await tester.pumpAndSettle();

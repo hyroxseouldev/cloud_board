@@ -19,7 +19,7 @@ const env = await initializeTestEnvironment({projectId,
 });
 const workout = {id: 'w', ownerId: 'owner', author: {id: 'owner'}, name: '한국어 운동', folder: '전체 검색',
   createdAt: Timestamp.fromMillis(1000), updatedAt: Timestamp.fromMillis(2000),
-  modules: [{id: 'm', name: 'work', imageSource: 'https://example.invalid/image', text: 'a'.repeat(100000),
+  modules: [{id: 'm', name: 'work', imageUrl: 'https://example.invalid/image', text: 'a'.repeat(100000),
     workSeconds: 30, restSeconds: 10, sets: 3,
     intervalBlocks: [{workSeconds: 40, restSeconds: 15, sets: 2}]}]};
 try {
@@ -31,6 +31,7 @@ try {
   const summary = (await db.doc('users/owner/workoutSummaries/w').get()).data();
   assert.deepEqual(summary, summarizeWorkout(workout));
   assert.equal(summary.durationSeconds, 95);
+  assert.equal(summary.imageSource, workout.modules[0].imageUrl);
   assert.equal((await db.doc('users/owner/catalog/schema').get()).data().version, 2);
   assert.deepEqual((await db.doc('users/owner/workouts/w').get()).data(), workout);
   assert.equal((await db.doc('users/other/workoutSummaries/untouched').get()).exists, false);
