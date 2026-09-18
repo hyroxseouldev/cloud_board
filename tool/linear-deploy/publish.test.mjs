@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { pipelines, trustedRun, latestRuns, deploymentStatus, updateId, renderUpdate, upsertUpdate, requestJson, changeRange } from './publish.mjs';
+import { pipelines, sourceRunId, trustedRun, latestRuns, deploymentStatus, updateId, renderUpdate, upsertUpdate, requestJson, changeRange } from './publish.mjs';
 
 const repository = 'hyroxseouldev/cloud_board';
 const sha = 'a'.repeat(40);
@@ -115,7 +115,7 @@ test('archived or moved update is not overwritten or recreated', async () => {
 
 test('HTTP 200 GraphQL errors and API failures are not treated as success or logged verbatim', async () => {
   await assert.rejects(requestJson('https://api.linear.app/graphql', {}, async () => ({ok: true, json: async () => ({errors: [{message: 'sensitive detail'}]})})), /GraphQL request failed/);
-  await assert.rejects(requestJson('https://api.github.com/', {}, async () => ({ok: false, status: 403})), /HTTP 403/);
+  await assert.rejects(requestJson('https://api.github.com/', {}, async () => ({ok: false, status: 403, json: async () => ({})})), /HTTP 403/);
 });
 
 test('commit range covers multi-commit main pushes and merge branch contents', () => {
@@ -137,4 +137,15 @@ test('commit range covers multi-commit main pushes and merge branch contents', (
     assert.deepEqual(range.commits.map(c => c.subject), ['three', 'four']);
     assert.match(range.commits[0].message, /STA-4/);
   } finally {process.chdir(previousCwd); rmSync(directory, {recursive: true, force: true});}
+});
+
+test('manual recovery only selects numeric main run IDs, verified against GitHub afterwards', () => {
+  assert.equal(sourceRunId({inputs: {deployment_run_id: '123'}}, 'workflow_dispatch', 'refs/heads/main', repository), '123');
+  assert.throws(() => sourceRunId({inputs: {deployment_run_id: '123'}}, 'workflow_dispatch', 'refs/heads/develop', repository));
+  assert.throws(() => sourceRunId({inputs: {deployment_run_id: '../secrets'}}, 'workflow_dispatch', 'refs/heads/main', repository));
+});
+
+test('HTTP 400 schema errors expose diagnostics but no arbitrary API details', async () => {
+  const response = {ok: false, status: 400, json: async () => ({errors: [{message: 'Cannot query field example', extensions: {code: 'GRAPHQL_VALIDATION_FAILED'}}]})};
+  await assert.rejects(requestJson('https://api.linear.app/graphql', {}, async () => response), /Cannot query field example/);
 });

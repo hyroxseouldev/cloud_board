@@ -86,9 +86,17 @@ export function renderUpdate({ repository, sha, base, date, commits, results, ve
 
 export async function requestJson(url, options = {}, fetchImpl = fetch) {
   const response = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(30_000) });
+  const result = await response.json().catch(() => ({}));
+  if (result.errors?.length) {
+    const details = result.errors.map(error => {
+      const code = error.extensions?.code ?? 'UNKNOWN';
+      // Only schema diagnostics are safe to expose; never print arbitrary API bodies.
+      return code === 'GRAPHQL_VALIDATION_FAILED'
+        ? `${code}: ${String(error.message).slice(0, 400)}` : code;
+    }).join('; ');
+    throw new Error(`Linear GraphQL request failed (HTTP ${response.status ?? 200}): ${details}`);
+  }
   if (!response.ok) throw new Error(`API request failed (${new URL(url).hostname}, HTTP ${response.status}).`);
-  const result = await response.json();
-  if (result.errors?.length) throw new Error(`Linear GraphQL request failed (${result.errors.length} errors). Check key permissions and API schema.`);
   return result;
 }
 
@@ -154,6 +162,17 @@ export function changeRange(sha, previousShas) {
   return { base, commits };
 }
 
+export function sourceRunId(event, eventName, ref, repository) {
+  if (eventName === 'workflow_dispatch') {
+    if (ref !== 'refs/heads/main' || !/^\d+$/.test(event.inputs?.deployment_run_id ?? '')) {
+      throw new Error('Manual publishing requires main and a numeric deployment run ID.');
+    }
+    return event.inputs.deployment_run_id;
+  }
+  if (!trustedRun(event.workflow_run, repository)) throw new Error('Only this repository’s main deployment runs can be published.');
+  return event.workflow_run.id;
+}
+
 export async function publish(env = process.env, fetchImpl = fetch) {
   const dryRun = env.LINEAR_DRY_RUN === 'true';
   for (const key of ['GITHUB_EVENT_PATH', 'GITHUB_REPOSITORY', 'GITHUB_TOKEN', 'LINEAR_PROJECT_ID', ...(dryRun ? [] : ['LINEAR_API_KEY'])]) {
@@ -162,7 +181,7 @@ export async function publish(env = process.env, fetchImpl = fetch) {
   const repository = env.GITHUB_REPOSITORY;
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error('Invalid repository.');
   const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
-  if (!trustedRun(event.workflow_run, repository)) throw new Error('Only this repository’s main deployment runs can be published.');
+  const runId = sourceRunId(event, env.GITHUB_EVENT_NAME, env.GITHUB_REF, repository);
   const gh = (path) => requestJson(`https://api.github.com/repos/${repository}${path}`, {
     headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
   }, fetchImpl);
@@ -175,7 +194,7 @@ export async function publish(env = process.env, fetchImpl = fetch) {
     }
     throw new Error('GitHub pagination limit reached; refusing an incomplete deployment report.');
   };
-  const trigger = await gh(`/actions/runs/${event.workflow_run.id}`);
+  const trigger = await gh(`/actions/runs/${runId}`);
   if (!trustedRun(trigger, repository)) throw new Error('Deployment source is no longer a trusted main run.');
   const sha = trigger.head_sha;
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid commit SHA.');
