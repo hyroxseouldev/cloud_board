@@ -1,4 +1,10 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_library_picker.dart';
+
+import 'support/workout_preferences_fixture.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
@@ -143,9 +149,17 @@ void main() {
           ),
         ).copyWith(soundVolume: .35, modules: [target]);
         final saved = <WorkoutModule>[];
+        final preferences = FixtureWorkoutPreferences(
+          ownerId: 'coach',
+          value: const WorkoutPreferences(
+            brandL: 'Account brand',
+            soundVolume: .8,
+          ),
+        );
         final container = ProviderContainer(
           overrides: [
             slideEditorRepositoryProvider.overrideWithValue(repository),
+            workoutPreferencesRepositoryProvider.overrideWithValue(preferences),
           ],
         );
         addTearDown(container.dispose);
@@ -234,6 +248,12 @@ void main() {
         expect(container.read(provider).dirty, isTrue);
         expect(saved, [target], reason: 'Replacement only updates the draft');
         expect(workout.soundVolume, .35);
+        expect(preferences.loadedOwners, ['coach']);
+        final preview = container
+            .read(workoutPreviewProvider(workout))
+            .requireValue;
+        expect(preview.brandL, 'Account brand');
+        expect(preview.soundVolume, .8);
         expect(await repository.loadTemplates('coach'), [template]);
         await tester.tap(find.byTooltip('실행 취소'));
         await tester.pumpAndSettle();
