@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/core/widgets/web_page_frame.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -19,25 +20,31 @@ class ActiveClassShell extends ConsumerWidget {
     super.key,
     required this.child,
     required this.playerVisible,
+    this.homeVisible = false,
   });
   final Widget child;
   final bool playerVisible;
+  final bool homeVisible;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(deviceModeControllerProvider).value;
     final session = ref.watch(activePlaybackSessionProvider).value;
-    if (mode != DeviceMode.controller ||
-        session == null ||
-        session.status == PlaybackStatus.completed ||
-        session.workout.modules.isEmpty) {
-      return child;
-    }
-    return _ActiveClass(
-      key: ValueKey(session.id),
-      session: session,
-      playerVisible: playerVisible,
-      child: child,
+    final showActiveClass =
+        mode == DeviceMode.controller &&
+        session != null &&
+        session.status != PlaybackStatus.completed &&
+        session.workout.modules.isNotEmpty;
+    return WebPageFrame(
+      fullWidth: playerVisible || (homeVisible && mode == DeviceMode.display),
+      child: showActiveClass
+          ? _ActiveClass(
+              key: ValueKey(session.id),
+              session: session,
+              playerVisible: playerVisible,
+              child: child,
+            )
+          : child,
     );
   }
 }

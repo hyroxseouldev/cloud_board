@@ -1,9 +1,77 @@
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
+import 'package:cloud_board/src/app/core/widgets/web_page_frame.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('web page bounds controls and preserves state across resizing', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1920, 1080);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final fullWidth = ValueNotifier(false);
+    addTearDown(fullWidth.dispose);
+    const pageKey = ValueKey('management-page');
+    Size? contentSize;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<bool>(
+          valueListenable: fullWidth,
+          builder: (context, expanded, _) => WebPageFrame(
+            fullWidth: expanded,
+            child: Builder(
+              builder: (context) {
+                contentSize = MediaQuery.sizeOf(context);
+                return Scaffold(
+                  key: pageKey,
+                  appBar: AppBar(title: const Text('워크아웃')),
+                  body: const TextField(),
+                  floatingActionButton: FloatingActionButton(
+                    onPressed: () {},
+                    child: const Icon(Icons.add),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final page = find.byKey(pageKey);
+    final width = kIsWeb ? AppStyle.webPageMaxWidth : 1920.0;
+    expect(tester.getSize(page).width, width);
+    expect(tester.getTopLeft(page).dx, (1920 - width) / 2);
+    expect(contentSize!.width, width);
+    expect(
+      tester.getRect(find.byType(FloatingActionButton)).right,
+      lessThanOrEqualTo(tester.getRect(page).right),
+    );
+    await tester.enterText(find.byType(TextField), '편집 중인 내용');
+    for (final size in [const Size(834, 1194), const Size(390, 844)]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      expect(tester.getSize(page).width, size.width);
+      expect(contentSize!.width, size.width);
+      expect(find.text('편집 중인 내용'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    tester.view.physicalSize = const Size(1920, 1080);
+    fullWidth.value = true;
+    await tester.pumpAndSettle();
+    expect(tester.getSize(page).width, 1920);
+    fullWidth.value = false;
+    await tester.pumpAndSettle();
+    expect(tester.getSize(page).width, width);
+    expect(find.text('편집 중인 내용'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('resizing preserves themed controls and dialog actions', (
     tester,
   ) async {

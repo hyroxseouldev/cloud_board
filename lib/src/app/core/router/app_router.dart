@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
+import 'package:cloud_board/src/app/core/widgets/web_page_frame.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/views/standby_settings_screen.dart';
 
@@ -67,10 +68,14 @@ GoRouter appRouter(Ref ref) {
         builder: (_, _) =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
       ),
-      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        builder: (_, _) => const WebPageFrame(child: LoginScreen()),
+      ),
       ShellRoute(
         builder: (context, state, child) => ActiveClassShell(
           playerVisible: state.uri.path.startsWith('/player/'),
+          homeVisible: state.uri.path == '/',
           child: WorkoutEditGate(
             workoutId:
                 state.uri.pathSegments.firstOrNull == 'editor' &&
