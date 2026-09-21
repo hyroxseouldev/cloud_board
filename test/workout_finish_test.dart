@@ -1,4 +1,7 @@
 import 'support/workout_catalog_fixture.dart';
+import 'support/workout_preferences_fixture.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
 
 import 'dart:async';
 
@@ -65,6 +68,7 @@ void main() {
               (_) async => const StandardMessageCodec().encodeMessage([null]),
             );
         final media = _Media();
+        final preferences = FixtureWorkoutPreferences(ownerId: 'u');
         final sessions = StreamController<PlaybackSession?>();
         final session =
             PlaybackSessionModel.fromWorkout(
@@ -113,6 +117,9 @@ void main() {
           ProviderScope(
             overrides: [
               fixtureWorkoutDetails,
+              workoutPreferencesRepositoryProvider.overrideWithValue(
+                preferences,
+              ),
               workoutControllerProvider.overrideWith(
                 () => _Workouts(
                   // Dialog animation must not race the one-second natural-end case
@@ -151,6 +158,12 @@ void main() {
         await tester.pump();
         await tester.pump();
         expect(find.byType(WorkoutBriefingBoard), findsNothing);
+        expect(find.text('종료하기'), findsOneWidget);
+        expect(
+          preferences.loadedOwners,
+          scenario.startsWith('remote-') ? isEmpty : ['u'],
+          reason: 'Local playback resolves account settings; remote uses its snapshot',
+        );
         if (scenario == 'manual' || scenario == 'remote-manual') {
           await tester.tap(find.text('종료하기'));
           // The live timer keeps scheduling frames behind the dialog. Wait only
