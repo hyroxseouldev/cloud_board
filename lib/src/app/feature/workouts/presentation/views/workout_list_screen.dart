@@ -2,6 +2,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
@@ -235,7 +236,9 @@ class _WorkoutToolbar extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
     child: Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 952),
+        constraints: const BoxConstraints(
+          maxWidth: kIsWeb ? AppStyle.webPageMaxWidth : 952,
+        ),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final searchField = TextField(
@@ -336,7 +339,11 @@ class _Pagination extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AppStyle.cardWidth * 2 + 60),
+      constraints: const BoxConstraints(
+        maxWidth: kIsWeb
+            ? AppStyle.webPageMaxWidth
+            : AppStyle.cardWidth * 2 + 60,
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 16, 8),
         child: Row(
@@ -395,7 +402,11 @@ class _WorkoutGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AppStyle.cardWidth * 2 + 60),
+      constraints: const BoxConstraints(
+        maxWidth: kIsWeb
+            ? AppStyle.webPageMaxWidth
+            : AppStyle.cardWidth * 2 + 60,
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final columns = !AppStyle.of(context).compact

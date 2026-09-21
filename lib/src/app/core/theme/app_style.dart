@@ -7,6 +7,7 @@ class AppStyle extends ThemeExtension<AppStyle> {
 
   final bool compact;
   static const fullWidth = 660.0;
+  static const webPageMaxWidth = 1200.0;
   static const cardWidth = 540.0;
   static const cardMinHeight = 280.0;
   static const popupWidth = 420.0;
