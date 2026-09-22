@@ -139,10 +139,17 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        final toggleRect = tester.getRect(
+          find.byType(SegmentedButton<DeviceMode>),
+        );
         await tester.tap(find.text('Control'));
         await tester.pumpAndSettle();
         expect(router.routeInformationProvider.value.uri.path, '/displays');
         expect(router.canPop(), isFalse);
+        expect(
+          tester.getRect(find.byType(SegmentedButton<DeviceMode>)),
+          toggleRect,
+        );
         expect(find.text('매장 TV'), findsOneWidget);
         expect(
           tester

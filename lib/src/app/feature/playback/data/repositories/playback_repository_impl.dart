@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -63,6 +66,16 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 
   @override
   Stream<bool> watchConnected() => _dataSource.watchConnected();
+
+  @override
+  Future<void> recover({required bool restartTransport}) async {
+    final fresh = await _dataSource.recover(restartTransport: restartTransport);
+    if (fresh == null) {
+      await _local.clear();
+    } else {
+      await _local.save(fresh);
+    }
+  }
 
   @override
   Future<bool> hasRunningSession() => _dataSource.hasRunningSession();
@@ -179,8 +192,42 @@ PlaybackRepository playbackRepository(Ref ref) {
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
+  final source = PlaybackRealtimeDataSource(
+    database,
+    ownerId,
+    serverRead: (path) async {
+      final user = auth.currentUser;
+      if (user == null || user.uid != ownerId) {
+        throw StateError('로그인 계정을 확인해 주세요.');
+      }
+      final token = await user.getIdToken().timeout(const Duration(seconds: 6));
+      if (token == null) throw StateError('인증을 확인해 주세요.');
+      final client = http.Client();
+      try {
+        final response = await client
+            .get(
+              Uri.parse('$realtimeDatabaseUrl/$path.json')
+                  .replace(queryParameters: {'auth': token}),
+            )
+            .timeout(const Duration(seconds: 6));
+        if (auth.currentUser?.uid != user.uid) {
+          throw StateError('로그인 계정이 변경되었습니다.');
+        }
+        if (response.statusCode != 200) {
+          throw StateError('최신 수업 상태를 확인하지 못했습니다.');
+        }
+        return jsonDecode(response.body);
+      } on http.ClientException {
+        // ClientException may include the authenticated URL; never expose it.
+        throw StateError('네트워크 연결을 확인하고 다시 시도해 주세요.');
+      } finally {
+        client.close();
+      }
+    },
+  );
+  ref.onDispose(source.dispose);
   return PlaybackRepositoryImpl(
-    PlaybackRealtimeDataSource(database, ownerId),
+    source,
     ref.watch(playbackSessionLocalDataSourceProvider),
     ownerId,
   );

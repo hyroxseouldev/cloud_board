@@ -157,6 +157,7 @@ class _EditorBody extends HookConsumerWidget {
     final name = useTextEditingController(text: initial.name);
     final folder = useTextEditingController(text: initial.folder);
     final slideScroll = useScrollController();
+    final templateScroll = useScrollController();
     final selectedSlide = useState<String?>(null);
     final rowExtent = 96 * MediaQuery.textScalerOf(context).scale(1);
     useListenable(name);
@@ -346,7 +347,7 @@ class _EditorBody extends HookConsumerWidget {
       blocked: isBusy,
       child: AsyncActionOverlay(
         // A mini-controller command must not obscure the editor.
-        isLoading: action.isLoading,
+        isLoading: false,
         child: Scaffold(
           appBar: AppBar(
             leading: BackButton(
@@ -365,6 +366,8 @@ class _EditorBody extends HookConsumerWidget {
                 child: Text(
                   action.isLoading
                       ? '저장 중…'
+                      : action.hasError
+                      ? '저장 실패'
                       : hasUnsavedChanges
                       ? '저장 필요'
                       : '저장됨',
@@ -373,6 +376,16 @@ class _EditorBody extends HookConsumerWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: '저장',
+                onPressed: isBusy ? null : saveInPlace,
+                icon: action.isLoading
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
               ),
               const SizedBox(width: 16),
             ],
@@ -405,11 +418,6 @@ class _EditorBody extends HookConsumerWidget {
                                         ? AppStyle.of(context).subText2
                                         : AppStyle.of(context).mainText,
                                   ),
-                                ),
-                                IconButton(
-                                  tooltip: '저장',
-                                  onPressed: isBusy ? null : saveInPlace,
-                                  icon: const Icon(Icons.save_outlined),
                                 ),
                               ],
                             ),
@@ -519,45 +527,68 @@ class _EditorBody extends HookConsumerWidget {
                                               fontSize: 12,
                                             ),
                                           )
-                                        : ListView.separated(
-                                            key: const ValueKey(
-                                              'workout-slide-templates',
-                                            ),
-                                            scrollDirection: Axis.horizontal,
-                                            itemCount: templates.value!.length,
-                                            separatorBuilder: (_, _) =>
-                                                const SizedBox(width: 8),
-                                            itemBuilder: (context, index) {
-                                              final template =
-                                                  templates.value![index];
-                                              return Center(
-                                                child: Tooltip(
-                                                  message:
-                                                      '${template.name} · ${durationLabel(workoutModuleDuration(template))} 추가',
-                                                  child: InputChip(
-                                                    label: Text(template.name),
-                                                    backgroundColor:
-                                                        AppColors.selected,
-                                                    deleteButtonTooltipMessage:
-                                                        '${template.name} 칩 삭제',
-                                                    onPressed:
-                                                        isBusy ||
-                                                            templates.isLoading
-                                                        ? null
-                                                        : () => addSlide(
-                                                            template,
-                                                          ),
-                                                    onDeleted:
-                                                        isBusy ||
-                                                            templates.isLoading
-                                                        ? null
-                                                        : () => removeTemplate(
-                                                            template,
-                                                          ),
+                                        : Scrollbar(
+                                            controller: templateScroll,
+                                            thumbVisibility: true,
+                                            child: ListView.separated(
+                                              controller: templateScroll,
+                                              padding: const EdgeInsets.only(
+                                                bottom: 6,
+                                              ),
+                                              key: const ValueKey(
+                                                'workout-slide-templates',
+                                              ),
+                                              scrollDirection: Axis.horizontal,
+                                              itemCount:
+                                                  templates.value!.length,
+                                              separatorBuilder: (_, _) =>
+                                                  const SizedBox(width: 8),
+                                              itemBuilder: (context, index) {
+                                                final template =
+                                                    templates.value![index];
+                                                return Center(
+                                                  child: Tooltip(
+                                                    message:
+                                                        '${template.name} · ${durationLabel(workoutModuleDuration(template))} 추가',
+                                                    child: InputChip(
+                                                      label: ConstrainedBox(
+                                                        constraints:
+                                                            const BoxConstraints(
+                                                              maxWidth: 180,
+                                                            ),
+                                                        child: Text(
+                                                          template.name,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
+                                                      backgroundColor:
+                                                          AppColors.selected,
+                                                      deleteButtonTooltipMessage:
+                                                          '${template.name} 칩 삭제',
+                                                      onPressed:
+                                                          isBusy ||
+                                                              templates
+                                                                  .isLoading
+                                                          ? null
+                                                          : () => addSlide(
+                                                              template,
+                                                            ),
+                                                      onDeleted:
+                                                          isBusy ||
+                                                              templates
+                                                                  .isLoading
+                                                          ? null
+                                                          : () =>
+                                                                removeTemplate(
+                                                                  template,
+                                                                ),
+                                                    ),
                                                   ),
-                                                ),
-                                              );
-                                            },
+                                                );
+                                              },
+                                            ),
                                           ),
                                   ),
                                   IconButton(

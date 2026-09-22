@@ -13,6 +13,9 @@ class PlaybackActions {
   final WorkoutPreferencesActions? preferences;
   final PlaybackRepository _repository;
 
+  Future<void> recover({required bool restartTransport}) =>
+      _repository.recover(restartTransport: restartTransport);
+
   Future<bool> hasRunningSession() => _repository.hasRunningSession();
 
   Future<PlaybackSession> start({

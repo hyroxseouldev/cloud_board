@@ -233,6 +233,11 @@ class PlayerController extends _$PlayerController {
   }
 
   void _tick() {
+    if (sessionId != null &&
+        canControl &&
+        !ref.read(playbackRecoveryControllerProvider).hasValue) {
+      return;
+    }
     if (state.isPaused || _endsAt == null || currentStep == null) return;
     if (_startsAt != null) {
       final countdown = max(0, _startsAt!.difference(_now()).inMilliseconds);
@@ -291,7 +296,12 @@ class PlayerController extends _$PlayerController {
   }
 
   bool get _canCommand {
-    if (!canControl || currentStep == null || _transitioning) return false;
+    if (!canControl ||
+        currentStep == null ||
+        _transitioning ||
+        !ref.read(playbackRecoveryControllerProvider).hasValue) {
+      return false;
+    }
     if (sessionId == null) return true;
     final remote = ref.read(activePlaybackSessionProvider).value;
     return remote?.id == sessionId &&

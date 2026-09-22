@@ -60,6 +60,7 @@ void main() {
         ).toEntity().copyWith(status: PlaybackStatus.paused);
         final sessions = StreamController<PlaybackSession?>();
         final commands = _Commands();
+        final recovery = _Recovery();
         final media = _Media();
         final container = ProviderContainer(
           overrides: [
@@ -73,6 +74,7 @@ void main() {
             ),
             workoutMediaControllerProvider.overrideWith((ref) => media),
             playbackActionControllerProvider.overrideWith(() => commands),
+            playbackRecoveryControllerProvider.overrideWith(() => recovery),
             androidTvProvider.overrideWith((ref) async => false),
           ],
         );
@@ -164,6 +166,18 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('expand-class')));
         await tester.pumpAndSettle();
         expect(find.byTooltip('최소화'), findsOneWidget);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await tester.pump();
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(recovery.resumes, 1);
+        expect(find.text('최신 수업 상태를 확인하고 있습니다…'), findsOneWidget);
+        expect(find.byTooltip('다음 슬라이드').hitTestable(), findsNothing);
+        recovery.finish();
+        await tester.pumpAndSettle();
+        expect(find.text('최신 수업 상태를 확인하고 있습니다…'), findsNothing);
         expect(find.byKey(const ValueKey('expand-class')), findsNothing);
         await tester.tap(find.byTooltip('최소화'));
         await tester.pumpAndSettle();
@@ -229,5 +243,18 @@ class _Media implements WorkoutMediaController {
   @override
   Future<void> hide() async {
     hides++;
+  }
+}
+
+class _Recovery extends PlaybackRecoveryController {
+  int resumes = 0;
+  @override
+  Future<void> recover() async {
+    resumes++;
+    state = const AsyncLoading();
+  }
+
+  void finish() {
+    state = const AsyncData(null);
   }
 }

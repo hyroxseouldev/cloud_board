@@ -43,6 +43,8 @@ class DisplaySettingsScreen extends HookConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        toolbarHeight: 64,
+        actions: [modeControl, const SizedBox(width: 18)],
         leading: BackButton(
           onPressed: () => context.canPop() ? context.pop() : context.go('/'),
         ),
@@ -53,34 +55,7 @@ class DisplaySettingsScreen extends HookConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
             children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final title = Text(
-                    '디스플레이 설정',
-                    style: AppStyle.of(context).mainText,
-                  );
-                  if (constraints.maxWidth < 480) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        title,
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: modeControl,
-                        ),
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: title),
-                      const SizedBox(width: 16),
-                      modeControl,
-                    ],
-                  );
-                },
-              ),
+              Text('디스플레이 설정', style: AppStyle.of(context).mainText),
               const SizedBox(height: 32),
               Row(
                 children: [

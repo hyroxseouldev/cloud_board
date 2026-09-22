@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
+import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+
 import 'support/workout_catalog_fixture.dart';
 
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -21,6 +24,53 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
   });
+  for (final width in [320.0, 834.0, 1200.0]) {
+    testWidgets('long template chips scroll independently of add at $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            fixtureWorkoutDetails,
+            workoutControllerProvider.overrideWith(_LongWorkouts.new),
+            authStateProvider.overrideWith((ref) => Stream.value(null)),
+            slideTemplatesControllerProvider('coach')
+                .overrideWith(_ManyTemplates.new),
+          ],
+          child: MaterialApp(
+            theme: XonTheme.light,
+            home: const WorkoutEditorScreen(workoutId: 'workout'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final plus = find.byTooltip('슬라이드 추가');
+      final position = tester.getRect(plus);
+      final list = find.byKey(const ValueKey('workout-slide-list'));
+      final before = tester.widget<ReorderableListView>(list).itemCount;
+      final chips = find.byKey(const ValueKey('workout-slide-templates'));
+      await tester.drag(chips, const Offset(-900, 0));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(plus), position);
+      expect(tester.widget<ReorderableListView>(list).itemCount, before);
+      await tester.tap(find.byType(InputChip).hitTestable().first);
+      await tester.pumpAndSettle();
+      expect(tester.widget<ReorderableListView>(list).itemCount, before + 1);
+      expect(find.text('라이브러리에서 찾기'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byTooltip('저장'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('계정 공통 설정은 워크아웃 편집 메뉴에서 제거된다', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -139,4 +189,14 @@ class _LongWorkouts extends FixtureWorkoutController {
       ),
     ];
   }
+}
+
+class _ManyTemplates extends SlideTemplatesController {
+  @override
+  Future<List<WorkoutModule>> build(String scope) async => List.generate(
+    12,
+    (i) =>
+        WorkoutModule.empty('template-$i')
+            .copyWith(name: '긴 이름의 워밍업 슬라이드 반복 운동 $i'),
+  );
 }

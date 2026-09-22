@@ -1052,12 +1052,18 @@ void main() {
         await tester.pump();
         final title = tester.getRect(find.text('워크아웃 편집'));
         final save = tester.getRect(find.byTooltip('저장'));
-        expect(save.left, greaterThanOrEqualTo(title.right));
-        expect((save.center.dy - title.center.dy).abs(), lessThan(2));
+        expect(save.bottom, lessThanOrEqualTo(title.top));
+        expect(
+          find.descendant(
+            of: find.byType(AppBar),
+            matching: find.byTooltip('저장'),
+          ),
+          findsOneWidget,
+        );
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();
         expect(saved, isEmpty);
-        expect(find.text('저장 필요'), findsOneWidget);
+        expect(find.text('저장 실패'), findsOneWidget);
         expect(router.routeInformationProvider.value.uri.path, '/editor/$id');
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();

@@ -6,6 +6,7 @@ abstract interface class PlaybackRepository {
   Stream<int> watchServerTimeOffset();
   Stream<bool> watchConnected();
   Future<bool> hasRunningSession();
+  Future<void> recover({required bool restartTransport});
   Future<PlaybackSession> start({
     required Workout workout,
     required List<String> targetDeviceIds,

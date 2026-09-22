@@ -149,7 +149,7 @@ final class PlaybackActionControllerProvider
 }
 
 String _$playbackActionControllerHash() =>
-    r'8e8c9195f262ae8b8c78e8b5a29e2326ecac056d';
+    r'9b7bf24a705bf4fd3e0b883e6f58972e4b9b1f98';
 
 abstract class _$PlaybackActionController
     extends $Notifier<AsyncValue<String?>> {
@@ -163,6 +163,67 @@ abstract class _$PlaybackActionController
             as $ClassProviderElement<
               AnyNotifier<AsyncValue<String?>, AsyncValue<String?>>,
               AsyncValue<String?>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// Blocks controller commands until a foreground server handshake completes.
+
+@ProviderFor(PlaybackRecoveryController)
+final playbackRecoveryControllerProvider =
+    PlaybackRecoveryControllerProvider._();
+
+/// Blocks controller commands until a foreground server handshake completes.
+final class PlaybackRecoveryControllerProvider
+    extends $NotifierProvider<PlaybackRecoveryController, AsyncValue<void>> {
+  /// Blocks controller commands until a foreground server handshake completes.
+  PlaybackRecoveryControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playbackRecoveryControllerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playbackRecoveryControllerHash();
+
+  @$internal
+  @override
+  PlaybackRecoveryController create() => PlaybackRecoveryController();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AsyncValue<void> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AsyncValue<void>>(value),
+    );
+  }
+}
+
+String _$playbackRecoveryControllerHash() =>
+    r'3ede6b4ad71ec1a244bd0640b7f66c41aec005fc';
+
+/// Blocks controller commands until a foreground server handshake completes.
+
+abstract class _$PlaybackRecoveryController
+    extends $Notifier<AsyncValue<void>> {
+  AsyncValue<void> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<void>, AsyncValue<void>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<void>, AsyncValue<void>>,
+              AsyncValue<void>,
               Object?,
               Object?
             >;
