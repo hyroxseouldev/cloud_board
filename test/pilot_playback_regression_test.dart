@@ -260,6 +260,10 @@ void main() {
 }
 
 class _Audio implements BeepPlayer {
+  @override
+  Future<void> playCountdown(WorkoutSound sound, double volume) =>
+      play(sound, volume);
+
   final sounds = <WorkoutSound>[];
   @override
   Future<void> play([

@@ -9,15 +9,57 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sou
 part 'beep_player.g.dart';
 
 class BeepPlayer {
-  final AudioPlayer _player = AudioPlayer();
-  final Map<WorkoutSound, Source> _sources = {};
+  BeepPlayer({AudioPlayer? player}) : _player = player ?? AudioPlayer();
+
+  final AudioPlayer _player;
+  final Map<(WorkoutSound, bool), Source> _sources = {};
   bool _configured = false;
+  bool _disposed = false;
+  int _request = 0;
+  Future<void> _pending = Future.value();
 
   Future<void> play([
     WorkoutSound sound = WorkoutSound.classicBeep,
     double volume = 1,
-  ]) async {
-    if (sound == WorkoutSound.silent || volume <= 0) return;
+  ]) => _enqueue(sound, volume, false);
+
+  /// A single short cue, distinct from the longer interval-start sound.
+  Future<void> playCountdown(WorkoutSound sound, double volume) =>
+      _enqueue(sound, volume, true);
+
+  Future<void> _enqueue(WorkoutSound sound, double volume, bool countdown) {
+    if (_disposed || sound == WorkoutSound.silent || volume <= 0) {
+      return Future.value();
+    }
+    final request = ++_request;
+    final task = _pending.then((_) async {
+      if (_disposed || request != _request) return;
+      await _configure();
+      if (_disposed || request != _request) return;
+      final source = _sources.putIfAbsent(
+        (sound, countdown),
+        () => sound == WorkoutSound.videoBeep
+            ? AssetSource(
+                countdown
+                    ? 'sounds/video_beep_tick.wav'
+                    : 'sounds/video_beep.wav',
+              )
+            : BytesSource(_createWave(sound), mimeType: 'audio/wav'),
+      );
+      await _player.stop();
+      if (_disposed || request != _request) return;
+      await _player.play(
+        source,
+        volume: volume.clamp(0, 1),
+        mode: PlayerMode.mediaPlayer,
+      );
+    });
+    // Serialize native calls. A failed request must not poison later playback.
+    _pending = task.catchError((Object _) {});
+    return task;
+  }
+
+  Future<void> _configure() async {
     if (!_configured) {
       await _player.setAudioContext(
         AudioContext(
@@ -36,21 +78,14 @@ class BeepPlayer {
       await _player.setReleaseMode(ReleaseMode.stop);
       _configured = true;
     }
-    final source = _sources.putIfAbsent(
-      sound,
-      () => sound == WorkoutSound.videoBeep
-          ? AssetSource('sounds/video_beep.wav')
-          : BytesSource(_createWave(sound), mimeType: 'audio/wav'),
-    );
-    await _player.stop();
-    await _player.play(
-      source,
-      volume: volume.clamp(0, 1),
-      mode: PlayerMode.mediaPlayer,
-    );
   }
 
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() async {
+    _disposed = true;
+    ++_request;
+    await _pending;
+    await _player.dispose();
+  }
 }
 
 @Riverpod(keepAlive: true)

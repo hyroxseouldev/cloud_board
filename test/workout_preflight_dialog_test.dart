@@ -1,9 +1,6 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
-
 import 'dart:convert';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_preview.dart';
 
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -37,7 +34,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          workoutPreviewProvider(workout).overrideWith((ref) async => workout),
           displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
         ],
         child: MaterialApp(
@@ -96,7 +92,6 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          workoutPreviewProvider(workout).overrideWith((ref) async => workout),
           displayDevicesProvider.overrideWith((ref) => Stream.value(devices)),
         ],
         child: MaterialApp(
@@ -120,16 +115,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(CheckboxListTile).last);
     await tester.pump();
-    await tester.ensureVisible(find.text('브리핑 미리보기'));
-    await tester.tap(find.text('브리핑 미리보기'));
-    await tester.pumpAndSettle();
-    expect(find.byType(WorkoutBriefingPreview), findsOneWidget);
-    expect(find.text('수업 시작 · 3초 카운트다운'), findsNothing);
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byTooltip('미리보기 닫기'));
-    await tester.pumpAndSettle();
-    expect(find.byType(WorkoutBriefingPreview), findsNothing);
+    expect(find.text('브리핑 미리보기'), findsNothing);
+    expect(find.text('소리 테스트'), findsNothing);
     expect(find.text('1대를 선택했습니다.'), findsOneWidget);
     expect(
       tester

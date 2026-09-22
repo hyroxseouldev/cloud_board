@@ -45,6 +45,22 @@ void main() {
     expect(duration, inExclusiveRange(0.4, 0.8));
   });
 
+  test('카운트다운 비프는 180ms 단일 펄스이며 양 끝을 페이드한다', () async {
+    final bytes = await rootBundle.load('assets/sounds/video_beep_tick.wav');
+    final duration =
+        bytes.getUint32(40, Endian.little) / bytes.getUint32(28, Endian.little);
+    expect(duration, closeTo(.18, .001));
+    expect(bytes.getInt16(44, Endian.little), 0);
+    expect(bytes.getInt16(bytes.lengthInBytes - 2, Endian.little), 0);
+    var peak = 0;
+    for (var offset = 44; offset < bytes.lengthInBytes; offset += 2) {
+      final value = bytes.getInt16(offset, Endian.little).abs();
+      if (value > peak) peak = value;
+    }
+    expect(peak, greaterThan(1000));
+    expect(peak, lessThan(32767));
+  });
+
   test('기존 워크아웃 데이터는 클래식 사운드 설정으로 불러온다', () {
     final workout = WorkoutModel.fromJson({
       'id': 'workout-1',

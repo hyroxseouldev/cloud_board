@@ -43,10 +43,14 @@ class SlideRehearsalScreen extends HookConsumerWidget {
     useOnAppLifecycleStateChange((previous, next) {
       if (next != AppLifecycleState.resumed) actions.pause();
     });
-    Future<void> sound(WorkoutSound value) async {
+    Future<void> sound(WorkoutSound value, {bool countdown = false}) async {
       try {
         player.value ??= BeepPlayer();
-        await player.value!.play(value, workout?.soundVolume ?? 1);
+        if (countdown) {
+          await player.value!.playCountdown(value, workout?.soundVolume ?? 1);
+        } else {
+          await player.value!.play(value, workout?.soundVolume ?? 1);
+        }
       } catch (_) {
         if (context.mounted) soundError.value = '이 기기에서 소리를 재생하지 못했습니다.';
       }
@@ -67,9 +71,15 @@ class SlideRehearsalScreen extends HookConsumerWidget {
           ),
         );
       } else if (before.secondsLeft != after.secondsLeft &&
+          after.secondsLeft > 0 &&
           after.secondsLeft <= 3 &&
           next.playing) {
-        unawaited(sound(workout?.countdownSound ?? WorkoutSound.classicBeep));
+        unawaited(
+          sound(
+            workout?.countdownSound ?? WorkoutSound.classicBeep,
+            countdown: true,
+          ),
+        );
       }
     });
     final preview = AspectRatio(

@@ -178,6 +178,73 @@ void main() {
     },
   );
 
+  for (final width in [320.0, 834.0, 1200.0]) {
+    testWidgets(
+      'timeline describes current rest and destination at width $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final calls = <({int module, int elapsed})>[];
+        final modules = [
+          _workout.modules.first.copyWith(name: '스쿼트'),
+          _workout.modules.last.copyWith(name: '런지'),
+        ];
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(16),
+                child: WorkoutControlTimeline(
+                  durations: const [25, 60],
+                  modules: modules,
+                  currentModule: 0,
+                  elapsedMs: 12000,
+                  onSeek: (module, elapsed) async =>
+                      calls.add((module: module, elapsed: elapsed)),
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(find.text('현재 슬라이드 1/2'), findsOneWidget);
+        expect(find.text('전체 수업 0:12 / 1:25'), findsOneWidget);
+        expect(find.text('블록 1 · 1/2세트 · 휴식'), findsOneWidget);
+        expect(find.text('휴식 남은 시간 0:03'), findsOneWidget);
+        final rect = tester.getRect(
+          find.byKey(const ValueKey('class-timeline')),
+        );
+        final gesture = await tester.startGesture(
+          Offset(rect.left + 4, rect.center.dy),
+        );
+        await gesture.moveTo(Offset(rect.right - 4, rect.center.dy));
+        await tester.pump();
+        expect(find.text('이동할 위치 · 슬라이드 2 · 런지'), findsOneWidget);
+        expect(find.text('손을 놓으면 이 위치로 이동합니다.'), findsOneWidget);
+        expect(calls, isEmpty);
+        await gesture.up();
+        await tester.pump();
+        expect(calls, hasLength(1));
+        expect(calls.single.module, 1);
+        // Detailed slider is linear within the current slide; preview before commit.
+        final slider = tester.widget<Slider>(
+          find.byKey(const ValueKey('slide-detail-timeline')),
+        );
+        slider.onChangeStart!(18000);
+        slider.onChanged!(18000);
+        await tester.pump();
+        expect(find.text('블록 1 · 2/2세트 · 운동'), findsOneWidget);
+        expect(find.text('슬라이드 내 0:18 / 0:25'), findsOneWidget);
+        expect(calls, hasLength(1));
+        slider.onChangeEnd!(18000);
+        await tester.pump();
+        expect(calls.last, (module: 0, elapsed: 18000));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'unequal segment widths map to each slide time rather than total time',
     (tester) async {
@@ -212,6 +279,10 @@ void main() {
 }
 
 class _Audio implements BeepPlayer {
+  @override
+  Future<void> playCountdown(WorkoutSound sound, double volume) =>
+      play(sound, volume);
+
   final sounds = <WorkoutSound>[];
   @override
   Future<void> play([

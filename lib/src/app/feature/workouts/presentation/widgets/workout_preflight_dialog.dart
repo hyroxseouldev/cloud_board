@@ -1,5 +1,3 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
-
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
@@ -7,13 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_briefing_preview.dart';
 
 class WorkoutPreflightSelection {
   WorkoutPreflightSelection({required Iterable<String> targetDeviceIds})
@@ -46,25 +42,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
     final imageCheck = useState<AsyncValue<int>>(const AsyncLoading());
     final readiness = evaluateWorkoutReadiness(workout);
-    final loadingPreview = useState(false);
-    Future<Workout?> resolvePreview() async {
-      if (loadingPreview.value) return null;
-      loadingPreview.value = true;
-      try {
-        return await ref.read(workoutPreviewProvider(workout).future);
-      } catch (_) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('공통 설정을 불러오지 못했습니다. 다시 시도해 주세요.')),
-          );
-          ref.invalidate(workoutPreviewProvider(workout));
-        }
-        return null;
-      } finally {
-        if (context.mounted) loadingPreview.value = false;
-      }
-    }
-
     useEffect(() {
       var cancelled = false;
 
@@ -219,39 +196,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.preview_outlined),
-                label: const Text('브리핑 미리보기'),
-                onPressed: loadingPreview.value
-                    ? null
-                    : () async {
-                        final resolved = await resolvePreview();
-                        if (!context.mounted || resolved == null) return;
-                        await showDialog<void>(
-                          context: context,
-                          builder: (_) => Dialog.fullscreen(
-                            child: WorkoutBriefingPreview(workout: resolved),
-                          ),
-                        );
-                      },
-              ),
-              OutlinedButton.icon(
-                onPressed: loadingPreview.value
-                    ? null
-                    : () async {
-                        final resolved = await resolvePreview();
-                        if (!context.mounted || resolved == null) return;
-                        await ref
-                            .read(beepPlayerProvider)
-                            .play(
-                              resolved.workStartSound,
-                              resolved.soundVolume,
-                            );
-                      },
-                icon: const Icon(Icons.volume_up_rounded),
-                label: const Text('소리 테스트'),
-              ),
             ],
           ),
         ),
