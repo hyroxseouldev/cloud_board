@@ -127,6 +127,8 @@ class PlayerController extends _$PlayerController {
   String? _announcedSessionId;
   int? _announcedStepIndex;
   bool _announcedCompletion = false;
+  String? _preparationIdentity;
+  int _lastPreparationSecond = 4;
 
   @override
   PlayerState build(
@@ -136,6 +138,11 @@ class PlayerController extends _$PlayerController {
     bool canControl = true,
   }) {
     _ticker?.cancel();
+    final preparationIdentity = '${workout.id}:$sessionId';
+    if (_preparationIdentity != preparationIdentity) {
+      _preparationIdentity = preparationIdentity;
+      _lastPreparationSecond = 4;
+    }
     if (_stepsWorkout != workout) {
       _stepsWorkout = workout;
       _cachedSteps = buildPlayerSteps(workout);
@@ -188,11 +195,13 @@ class PlayerController extends _$PlayerController {
     _setDeadline(initial);
     _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) => _tick());
     Future.microtask(() {
-      if (!ref.mounted) return;
+      if (!ref.mounted || state.timelineVersion != initial.timelineVersion) {
+        return;
+      }
       if (index >= steps.length) {
         _announceCompletion();
-      } else if (initial.countdownMs > 0 && steps[index].module.beep) {
-        _play(workout.countdownSound);
+      } else if (initial.countdownMs > 0) {
+        _announcePreparation();
       } else if (!initial.briefing &&
           initial.countdownMs == 0 &&
           !initial.isPaused) {
@@ -224,6 +233,11 @@ class PlayerController extends _$PlayerController {
   }
 
   void _tick() {
+    if (sessionId != null &&
+        canControl &&
+        !ref.read(playbackRecoveryControllerProvider).hasValue) {
+      return;
+    }
     if (state.isPaused || _endsAt == null || currentStep == null) return;
     if (_startsAt != null) {
       final countdown = max(0, _startsAt!.difference(_now()).inMilliseconds);
@@ -232,12 +246,14 @@ class PlayerController extends _$PlayerController {
       if (countdown > 0) {
         if ((countdown / 1000).ceil() != previousSecond &&
             currentStep!.module.beep) {
-          _play(workout.countdownSound);
+          _announcePreparation();
         }
         return;
       }
       _startsAt = null;
-      _announceStep(state.index);
+      // If the app resumed after this interval ended, announce only the
+      // current interval selected below instead of replaying a past start.
+      if (_now().isBefore(_endsAt!)) _announceStep(state.index);
     }
     final left = max(0, _endsAt!.difference(_now()).inMilliseconds);
     final previousSecond = state.secondsLeft;
@@ -248,7 +264,7 @@ class PlayerController extends _$PlayerController {
           second > 0 &&
           second <= 3 &&
           second != previousSecond) {
-        _play(workout.countdownSound);
+        _play(workout.countdownSound, countdown: true);
       }
     }
     if (left <= 0 && !_transitioning) {
@@ -280,7 +296,12 @@ class PlayerController extends _$PlayerController {
   }
 
   bool get _canCommand {
-    if (!canControl || currentStep == null || _transitioning) return false;
+    if (!canControl ||
+        currentStep == null ||
+        _transitioning ||
+        !ref.read(playbackRecoveryControllerProvider).hasValue) {
+      return false;
+    }
     if (sessionId == null) return true;
     final remote = ref.read(activePlaybackSessionProvider).value;
     return remote?.id == sessionId &&
@@ -514,13 +535,29 @@ class PlayerController extends _$PlayerController {
     }
   }
 
-  void _play(WorkoutSound sound) {
+  void _announcePreparation() {
+    final second = (state.countdownMs / 1000).ceil();
+    if (state.isPaused ||
+        state.briefing ||
+        second < 1 ||
+        second > 3 ||
+        second >= _lastPreparationSecond) {
+      return;
+    }
+    _lastPreparationSecond = second;
+    if (currentStep?.module.beep == true) {
+      _play(workout.countdownSound, countdown: true);
+    }
+  }
+
+  void _play(WorkoutSound sound, {bool countdown = false}) {
     // A remote controller must not request audio focus, even at volume zero.
     if (sessionId != null && canControl) return;
+    final player = ref.read(beepPlayerProvider);
     unawaited(
-      ref
-          .read(beepPlayerProvider)
-          .play(sound, workout.soundVolume)
+      (countdown
+              ? player.playCountdown(sound, workout.soundVolume)
+              : player.play(sound, workout.soundVolume))
           .catchError((_) {}),
     );
   }

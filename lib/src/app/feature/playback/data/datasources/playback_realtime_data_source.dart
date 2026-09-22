@@ -5,13 +5,81 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
 import 'package:collection/collection.dart';
 
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 
 class PlaybackRealtimeDataSource {
-  PlaybackRealtimeDataSource(this._database, this._ownerId);
+  PlaybackRealtimeDataSource(this._database, this._ownerId, {this.serverRead});
+
+  final Future<Object?> Function(String path)? serverRead;
+  final _refreshes = StreamController<PlaybackSessionModel?>.broadcast();
+  bool _recovering = false;
+  int _generation = 0;
+  PlaybackSessionModel? _verified;
+  String? _removedSessionId;
+  bool _disposed = false;
+
+  Future<void> dispose() {
+    _disposed = true;
+    ++_generation;
+    return _refreshes.close();
+  }
+
+  /// Explicit resume handshake. REST reads cannot silently fall back to SDK cache.
+  Future<PlaybackSessionModel?> recover({
+    required bool restartTransport,
+  }) async {
+    if (_disposed) throw StateError('계정 연결이 변경되었습니다.');
+    final read = serverRead;
+    if (read == null) throw StateError('서버 상태 확인을 사용할 수 없습니다.');
+    final previousId = _lastWireState?['id'] as String?;
+    _recovering = true;
+    final generation = ++_generation;
+    final elapsed = Stopwatch()..start();
+    try {
+      if (restartTransport) {
+        try {
+          await _database.goOffline();
+        } finally {
+          await _database.goOnline();
+        }
+      } else {
+        await _database.goOnline();
+      }
+      await watchConnected()
+          .firstWhere((value) => value)
+          .timeout(const Duration(seconds: 6));
+      debugPrint(
+        'Playback recovery: transport connected in ${elapsed.elapsedMilliseconds}ms',
+      );
+      final value = await read('users/${_requireOwnerId()}/activeSession');
+      if (value is Map &&
+          value['schemaVersion'] == 2 &&
+          !_snapshots.containsKey(value['snapshotId'])) {
+        final id = value['id'];
+        if (id is! String || value['snapshotId'] != id) {
+          throw const FormatException('수업 자료 버전이 일치하지 않습니다.');
+        }
+        _rememberSnapshot(
+          id,
+          _stringMap(
+            await read('users/${_requireOwnerId()}/playbackSnapshots/$id'),
+          ),
+        );
+      }
+      final model = value == null ? null : _decode(value);
+      if (generation != _generation) throw StateError('수업 상태 확인이 취소되었습니다.');
+      _verified = model;
+      _removedSessionId = model == null ? previousId : null;
+      _refreshes.add(model);
+      return model;
+    } finally {
+      if (generation == _generation) _recovering = false;
+    }
+  }
 
   final FirebaseDatabase _database;
   final String? _ownerId;
@@ -79,11 +147,45 @@ class PlaybackRealtimeDataSource {
 
   Stream<PlaybackSessionModel?> watchActive() {
     if (_ownerId == null) return Stream.value(null);
-    return _active.onValue.asyncMap((event) async {
-      final value = event.snapshot.value;
-      if (value == null) return null;
-      await _ensureSnapshot(value);
-      return _decode(value);
+    return Stream.multi((sink) {
+      final remote = _active.onValue
+          .asyncMap((event) async {
+            final generation = _generation;
+            final value = event.snapshot.value;
+            if (_recovering) return (deliver: false, model: null);
+            if (value != null) await _ensureSnapshot(value);
+            final model = value == null ? null : _decode(value);
+            final verified = _verified;
+            final stale =
+                model != null &&
+                verified != null &&
+                (model.id == verified.id
+                    ? model.revision < verified.revision
+                    : model.anchorServerMs < verified.anchorServerMs);
+            return (
+              deliver:
+                  !_recovering &&
+                  generation == _generation &&
+                  !stale &&
+                  (model == null || model.id != _removedSessionId),
+              model: model,
+            );
+          })
+          .listen(
+            (event) {
+              if (event.deliver) sink.add(event.model);
+            },
+            onError: sink.addError,
+            onDone: sink.close,
+          );
+      final refreshed = _refreshes.stream.listen(
+        sink.add,
+        onError: sink.addError,
+      );
+      sink.onCancel = () async {
+        await remote.cancel();
+        await refreshed.cancel();
+      };
     });
   }
 

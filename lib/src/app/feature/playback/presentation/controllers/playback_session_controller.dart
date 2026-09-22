@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -118,7 +121,10 @@ class PlaybackActionController extends _$PlaybackActionController {
     String successMessage,
     Future<void> Function(PlaybackActions actions, String deviceId) action,
   ) async {
-    if (state.isLoading) return false;
+    if (state.isLoading ||
+        !ref.read(playbackRecoveryControllerProvider).hasValue) {
+      return false;
+    }
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await action(
@@ -128,5 +134,78 @@ class PlaybackActionController extends _$PlaybackActionController {
       return successMessage;
     });
     return !state.hasError;
+  }
+}
+
+/// Blocks controller commands until a foreground server handshake completes.
+@Riverpod(keepAlive: true)
+class PlaybackRecoveryController extends _$PlaybackRecoveryController {
+  int _epoch = 0;
+  bool _running = false;
+  bool _retryQueued = false;
+
+  @override
+  AsyncValue<void> build() => const AsyncData(null);
+
+  void suspend() {
+    ++_epoch;
+    state = const AsyncLoading();
+  }
+
+  Future<void> recover() async {
+    if (_running) {
+      _retryQueued = true;
+      return;
+    }
+    _running = true;
+    final epoch = _epoch;
+    final elapsed = Stopwatch()..start();
+    state = const AsyncLoading();
+    final actionsSubscription = ref.listen(playbackActionsProvider, (_, _) {});
+    try {
+      final actions = ref.read(playbackActionsProvider);
+      await actions.recover(restartTransport: true);
+      debugPrint(
+        'Playback recovery: server confirmed in ${elapsed.elapsedMilliseconds}ms',
+      );
+      if (!ref.mounted || epoch != _epoch) return;
+      if (!identical(actions, ref.read(playbackActionsProvider))) {
+        throw StateError('계정이 변경되었습니다. 다시 확인해 주세요.');
+      }
+      ref.invalidate(activePlaybackSessionProvider);
+      ref.invalidate(serverTimeOffsetProvider);
+      final received = Completer<void>();
+      final subscription = ref.listen(activePlaybackSessionProvider, (
+        previous,
+        next,
+      ) {
+        if (received.isCompleted) return;
+        if (next.hasError) {
+          received.completeError(next.error!, next.stackTrace);
+        } else if (!next.isLoading) {
+          received.complete();
+        }
+      }, fireImmediately: true);
+      try {
+        await received.future.timeout(const Duration(seconds: 6));
+      } finally {
+        subscription.close();
+      }
+      if (ref.mounted && epoch == _epoch) state = const AsyncData(null);
+    } catch (error, stack) {
+      if (ref.mounted && epoch == _epoch) state = AsyncError(error, stack);
+    } finally {
+      actionsSubscription.close();
+      _running = false;
+      if (ref.mounted) {
+        debugPrint(
+          'Playback recovery: completed in ${elapsed.elapsedMilliseconds}ms; ready=${state.hasValue}',
+        );
+      }
+      if (_retryQueued && ref.mounted) {
+        _retryQueued = false;
+        unawaited(recover());
+      }
+    }
   }
 }

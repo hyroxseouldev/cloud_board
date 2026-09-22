@@ -524,6 +524,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                   }
                   return WorkoutControlTimeline(
                     durations: durations,
+                    modules: workout.modules,
                     currentModule: step.moduleIndex,
                     elapsedMs: elapsed,
                     onSeek:

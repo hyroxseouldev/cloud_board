@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_rehearsal.dart';
 
 /// The controller surface. Display playback keeps its full-screen canvas.
 class WorkoutControlPanel extends HookWidget {
@@ -199,7 +201,9 @@ class WorkoutControlPanel extends HookWidget {
                       ),
                       SizedBox(height: tall ? 54 : 24),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: width * .15),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 24 : width * .1,
+                        ),
                         child: timeline,
                       ),
                       if (message != null)
@@ -214,7 +218,7 @@ class WorkoutControlPanel extends HookWidget {
                             ),
                           ),
                         ),
-                      SizedBox(height: tall ? 100 : 40),
+                      SizedBox(height: tall ? 40 : 24),
                       SizedBox(
                         height: previewHeight,
                         child: NotificationListener<ScrollNotification>(
@@ -318,9 +322,11 @@ class WorkoutControlTimeline extends HookWidget {
     required this.durations,
     required this.currentModule,
     required this.elapsedMs,
+    this.modules = const [],
     this.onSeek,
   });
   final List<int> durations;
+  final List<WorkoutModule> modules;
   final int currentModule, elapsedMs;
   final Future<void> Function(int moduleIndex, int elapsedMs)? onSeek;
 
@@ -328,6 +334,17 @@ class WorkoutControlTimeline extends HookWidget {
   Widget build(BuildContext context) {
     final candidate = useState<({int moduleIndex, int elapsedMs})?>(null);
     final pending = useState(false);
+    final detailCanceled = useRef(false);
+    final intervalLegends = useMemoized(
+      () => List.generate(
+        modules.length,
+        (i) => _intervalLegend(
+          modules[i],
+          i < durations.length ? durations[i] * 1000 : 0,
+        ),
+      ),
+      [modules],
+    );
     final enabled = onSeek != null && !pending.value && durations.isNotEmpty;
     final minFlex = math.max(1, durations.fold<int>(0, (a, b) => a + b) ~/ 20);
     final flexes = durations.map((d) => math.max(minFlex, d)).toList();
@@ -343,7 +360,7 @@ class WorkoutControlTimeline extends HookWidget {
       }
     }
 
-    return LayoutBuilder(
+    final track = LayoutBuilder(
       builder: (context, bounds) {
         ({int moduleIndex, int elapsedMs}) hit(double x) {
           var start = 0.0;
@@ -402,7 +419,8 @@ class WorkoutControlTimeline extends HookWidget {
                       selected:
                           index ==
                           (candidate.value?.moduleIndex ?? currentModule),
-                      label: '슬라이드 ${index + 1} 재생 위치',
+                      label: '슬라이드 ${index + 1} ${_title(index)} 재생 위치',
+                      value: '${_time(durations[index] * 1000)} 길이',
                       onTap: enabled
                           ? () => unawaited(
                               select((moduleIndex: index, elapsedMs: 0)),
@@ -460,6 +478,199 @@ class WorkoutControlTimeline extends HookWidget {
           ),
         );
       },
+    );
+    if (durations.isEmpty) return const SizedBox.shrink();
+    final current = currentModule.clamp(0, durations.length - 1);
+    final target = candidate.value;
+    final active = (target?.moduleIndex ?? current).clamp(
+      0,
+      durations.length - 1,
+    );
+    final position = (target?.elapsedMs ?? elapsedMs).clamp(
+      0,
+      durations[active] * 1000,
+    );
+    final totalMs = durations.fold<int>(0, (a, b) => a + b) * 1000;
+    final classElapsed =
+        durations.take(current).fold<int>(0, (a, b) => a + b) * 1000 +
+        elapsedMs;
+    final frame = active < modules.length
+        ? rehearsalFrame(modules[active], position)
+        : null;
+    final stage = frame == null
+        ? ''
+        : '블록 ${frame.blockIndex + 1} · ${frame.set}/${frame.totalSets}세트 · ${frame.isRest ? '휴식' : '운동'}';
+    final maxPosition = math.max(0, durations[active] * 1000 - 1000).toDouble();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            Text(
+              '현재 슬라이드 ${current + 1}/${durations.length}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '전체 수업 ${_time(classElapsed)} / ${_time(totalMs)}',
+              style: const TextStyle(color: AppColors.muted),
+            ),
+          ],
+        ),
+        track,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: List.generate(
+              durations.length,
+              (index) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: TextButton(
+                  onPressed: enabled
+                      ? () => unawaited(
+                          select((moduleIndex: index, elapsedMs: 0)),
+                        )
+                      : null,
+                  style: TextButton.styleFrom(
+                    backgroundColor: index == current
+                        ? AppColors.selected
+                        : null,
+                    foregroundColor: index == current
+                        ? AppColors.accent
+                        : AppColors.muted,
+                  ),
+                  child: Text('${index + 1}. ${_title(index)}'),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.selected.withValues(alpha: .35),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  target == null
+                      ? '현재 · ${_title(active)}'
+                      : '이동할 위치 · 슬라이드 ${active + 1} · ${_title(active)}',
+                  key: const ValueKey('timeline-destination'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                if (stage.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(stage, key: const ValueKey('timeline-stage')),
+                ],
+                const SizedBox(height: 6),
+                Text(
+                  '슬라이드 내 ${_time(position)} / ${_time(durations[active] * 1000)}',
+                ),
+                if (frame != null)
+                  Text(
+                    '${frame.isRest ? '휴식' : '운동'} 남은 시간 ${_time(frame.remainingMs, roundUp: true)}',
+                    style: const TextStyle(color: AppColors.muted),
+                  ),
+                Listener(
+                  onPointerCancel: (_) {
+                    detailCanceled.value = true;
+                    candidate.value = null;
+                  },
+                  child: Slider(
+                    key: const ValueKey('slide-detail-timeline'),
+                    min: 0,
+                    max: math.max(1, maxPosition),
+                    value: position.toDouble().clamp(0, maxPosition),
+                    semanticFormatterCallback: (value) =>
+                        '${_title(active)} 내 ${_time(value.round())}',
+                    onChangeStart: enabled && maxPosition > 0
+                        ? (_) => detailCanceled.value = false
+                        : null,
+                    onChanged: enabled && maxPosition > 0
+                        ? (value) {
+                            candidate.value = (
+                              moduleIndex: active,
+                              elapsedMs: (value / 1000).round() * 1000,
+                            );
+                          }
+                        : null,
+                    onChangeEnd: enabled && maxPosition > 0
+                        ? (value) {
+                            if (!detailCanceled.value) {
+                              unawaited(
+                                select((
+                                  moduleIndex: active,
+                                  elapsedMs: (value / 1000).round() * 1000,
+                                )),
+                              );
+                            }
+                          }
+                        : null,
+                  ),
+                ),
+                if (active < intervalLegends.length) intervalLegends[active],
+                const SizedBox(height: 8),
+                Text(
+                  pending.value
+                      ? '이동 중…'
+                      : target != null
+                      ? '손을 놓으면 이 위치로 이동합니다.'
+                      : '막대를 터치하거나 드래그해 이동하세요.',
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _title(int index) =>
+      index < modules.length && modules[index].name.trim().isNotEmpty
+      ? modules[index].name
+      : '슬라이드 ${index + 1}';
+
+  static String _time(int milliseconds, {bool roundUp = false}) {
+    final seconds = math.max(
+      0,
+      roundUp ? (milliseconds / 1000).ceil() : milliseconds ~/ 1000,
+    );
+    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+  }
+
+  Widget _intervalLegend(WorkoutModule module, int totalMs) {
+    final labels = <Widget>[];
+    var offset = 0;
+    while (offset < totalMs) {
+      final frame = rehearsalFrame(module, offset);
+      if (frame.durationMs <= 0) break;
+      labels.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Text(
+            '${_time(offset)} ${frame.isRest ? '휴식' : '운동'} ${frame.set}세트',
+            style: TextStyle(
+              fontSize: 12,
+              color: frame.isRest ? AppColors.muted : AppColors.accent,
+            ),
+          ),
+        ),
+      );
+      final next = frame.startMs + frame.durationMs;
+      if (next <= offset) break;
+      offset = next;
+    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: labels),
     );
   }
 }

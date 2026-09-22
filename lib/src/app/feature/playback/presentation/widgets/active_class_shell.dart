@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -15,7 +16,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 
 /// Session lifetime belongs to the signed-in shell, not the full player route.
 /// The navigator is above the bar so page FABs and save actions get real space.
-class ActiveClassShell extends ConsumerWidget {
+class ActiveClassShell extends HookConsumerWidget {
   const ActiveClassShell({
     super.key,
     required this.child,
@@ -30,6 +31,25 @@ class ActiveClassShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(deviceModeControllerProvider).value;
     final session = ref.watch(activePlaybackSessionProvider).value;
+    final recovery = ref.watch(playbackRecoveryControllerProvider);
+    final suspended = useRef(false);
+    useOnAppLifecycleStateChange((previous, next) {
+      if (kIsWeb ||
+          defaultTargetPlatform != TargetPlatform.android ||
+          mode != DeviceMode.controller) {
+        return;
+      }
+      final notifier = ref.read(playbackRecoveryControllerProvider.notifier);
+      if (next == AppLifecycleState.paused &&
+          session != null &&
+          session.status != PlaybackStatus.completed) {
+        suspended.value = true;
+        notifier.suspend();
+      } else if (next == AppLifecycleState.resumed && suspended.value) {
+        suspended.value = false;
+        unawaited(notifier.recover());
+      }
+    });
     final showActiveClass =
         mode == DeviceMode.controller &&
         session != null &&
@@ -37,14 +57,60 @@ class ActiveClassShell extends ConsumerWidget {
         session.workout.modules.isNotEmpty;
     return WebPageFrame(
       fullWidth: playerVisible || (homeVisible && mode == DeviceMode.display),
-      child: showActiveClass
-          ? _ActiveClass(
-              key: ValueKey(session.id),
-              session: session,
-              playerVisible: playerVisible,
-              child: child,
-            )
-          : child,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          showActiveClass
+              ? _ActiveClass(
+                  key: ValueKey(session.id),
+                  session: session,
+                  playerVisible: playerVisible,
+                  child: child,
+                )
+              : child,
+          if (mode == DeviceMode.controller &&
+              !recovery.hasValue &&
+              playerVisible)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (recovery.isLoading)
+                            const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(
+                            recovery.hasError
+                                ? '수업 상태를 확인하지 못했습니다. 네트워크를 확인해 주세요.'
+                                : '최신 수업 상태를 확인하고 있습니다…',
+                            textAlign: TextAlign.center,
+                          ),
+                          if (recovery.hasError)
+                            TextButton(
+                              onPressed: () => unawaited(
+                                ref
+                                    .read(
+                                      playbackRecoveryControllerProvider
+                                          .notifier,
+                                    )
+                                    .recover(),
+                              ),
+                              child: const Text('다시 연결'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -79,7 +145,9 @@ class _ActiveClass extends HookConsumerWidget {
     );
     final state = ref.read(provider);
     final actions = ref.read(provider.notifier);
-    final connected = ref.watch(playbackConnectionProvider).value == true;
+    final connected =
+        ref.watch(playbackConnectionProvider).value == true &&
+        ref.watch(playbackRecoveryControllerProvider).hasValue;
     final command = ref.watch(playbackActionControllerProvider);
     final step = state.index < state.steps.length
         ? state.steps[state.index]
@@ -195,6 +263,16 @@ class _ActiveClass extends HookConsumerWidget {
                       ),
                     ),
                   ),
+                  if (ref.watch(playbackRecoveryControllerProvider).hasError)
+                    IconButton(
+                      tooltip: '다시 연결',
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () => unawaited(
+                        ref
+                            .read(playbackRecoveryControllerProvider.notifier)
+                            .recover(),
+                      ),
+                    ),
                   IconButton(
                     tooltip: '이전 슬라이드',
                     onPressed: disabled || step.moduleIndex == 0
