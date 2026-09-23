@@ -332,7 +332,7 @@ void main() {
       await renameSlide(tester, '복구할 제목');
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
-      expect(find.text('저장 필요 · 이 기기에 임시저장됨'), findsOneWidget);
+      expect(find.byTooltip('저장 필요 · 이 기기에 임시저장됨'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       await open();

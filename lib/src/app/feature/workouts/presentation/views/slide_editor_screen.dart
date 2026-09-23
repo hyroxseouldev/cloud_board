@@ -944,6 +944,24 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
     );
 
+    final saveStatusDetail =
+        state.storageError ??
+        (busy.value
+            ? workoutSaveProgressLabel(uploadProgress)
+            : state.dirty
+            ? (state.localSaved ? '저장 필요 · 이 기기에 임시저장됨' : '저장 필요 · 임시저장 중…')
+            : '저장됨');
+    final saveStatusLabel = state.storageError != null
+        ? '저장 확인'
+        : busy.value
+        ? (uploadProgress != null &&
+                  uploadProgress.completed < uploadProgress.total
+              ? '${uploadProgress.completed}/${uploadProgress.total} 저장 중'
+              : '저장 중')
+        : state.dirty
+        ? '저장 필요'
+        : '저장됨';
+
     return UnsavedChangesGuard(
       guard: guard,
       dirty: state.dirty,
@@ -982,6 +1000,35 @@ class _SlideEditorBody extends HookConsumerWidget {
                   ? null
                   : () => resetFields(actions.redo),
               icon: const Icon(Icons.redo),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Tooltip(
+                message: saveStatusDetail,
+                child: Semantics(
+                  liveRegion: true,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width < 600
+                          ? 64
+                          : 180,
+                    ),
+                    child: Text(
+                      saveStatusLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: state.storageError != null
+                            ? Theme.of(context).colorScheme.error
+                            : state.dirty
+                            ? Colors.orange
+                            : SlideEditorStyle.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -1051,23 +1098,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                             selectSection(values.first),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      state.storageError ??
-                          (busy.value
-                              ? workoutSaveProgressLabel(uploadProgress)
-                              : state.dirty
-                              ? (state.localSaved
-                                    ? '저장 필요 · 이 기기에 임시저장됨'
-                                    : '저장 필요 · 임시저장 중…')
-                              : '저장됨'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: state.storageError == null
-                            ? SlideEditorStyle.muted
-                            : Theme.of(context).colorScheme.error,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1092,11 +1122,11 @@ class _SlideEditorBody extends HookConsumerWidget {
                     ),
                   ],
                 ),
-              if (error.value != null)
+              if (error.value != null || state.storageError != null)
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Text(
-                    error.value!,
+                    error.value ?? state.storageError!,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),
