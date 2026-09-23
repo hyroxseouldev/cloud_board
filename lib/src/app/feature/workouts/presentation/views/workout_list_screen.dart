@@ -24,6 +24,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/widgets/app_version_tile.dart';
 
 class WorkoutListScreen extends StatelessWidget {
   const WorkoutListScreen({super.key});
@@ -515,6 +516,11 @@ class _SettingsMenu extends ConsumerWidget {
             ),
           ),
         ],
+        const PopupMenuDivider(),
+        const PopupMenuItem<_SettingsAction>(
+          enabled: false,
+          child: AppVersionTile(compact: true),
+        ),
       ],
     );
   }
