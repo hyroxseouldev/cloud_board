@@ -1077,7 +1077,7 @@ void main() {
         await tester.pump();
         final title = tester.getRect(find.text('워크아웃 편집'));
         final save = tester.getRect(find.byTooltip('저장'));
-        expect(save.bottom, lessThanOrEqualTo(title.top));
+        expect(save.center.dy, closeTo(title.center.dy, 1));
         expect(
           find.descendant(
             of: find.byType(AppBar),

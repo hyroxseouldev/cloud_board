@@ -382,6 +382,12 @@ class _EditorBody extends HookConsumerWidget {
             label: const Text('슬라이드 추가'),
           ),
           appBar: AppBar(
+            title: const Text(
+              '워크아웃 편집',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            centerTitle: false,
             leading: BackButton(
               onPressed: isBusy
                   ? null
@@ -443,19 +449,6 @@ class _EditorBody extends HookConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '워크아웃 편집',
-                                    style: compact
-                                        ? AppStyle.of(context).subText2
-                                        : AppStyle.of(context).mainText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: compact ? 4 : 16),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
