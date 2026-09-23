@@ -405,23 +405,16 @@ class _WorkoutGrid extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       const horizontalPadding = 24.0;
-      const gap = 16.0;
-      const minCardWidth = 280.0;
-      const maxCardWidth = 360.0;
-      final availableWidth = math.max(
-        0.0,
-        constraints.maxWidth - horizontalPadding * 2,
-      );
-      final columns = ((availableWidth + gap) / (minCardWidth + gap))
-          .floor()
-          .clamp(1, 3);
-      // The existing add FAB stays available. Avoid spending the first screen
-      // on a second add action when the catalog has only one column.
-      final showAddCard = columns > 1;
+      const gap = 12.0;
       final gridWidth = math.min(
         constraints.maxWidth,
-        columns * maxCardWidth + (columns - 1) * gap + horizontalPadding * 2,
+        kIsWeb ? AppStyle.webPageMaxWidth : AppStyle.cardWidth * 2 + 60,
       );
+      final columns = !AppStyle.of(context).compact
+          ? 3
+          : gridWidth < 360
+          ? 1
+          : 2;
       final cardWidth =
           (gridWidth - horizontalPadding * 2 - (columns - 1) * gap) / columns;
       final textScaler = MediaQuery.textScalerOf(context);
@@ -455,13 +448,10 @@ class _WorkoutGrid extends StatelessWidget {
               crossAxisSpacing: gap,
               mainAxisSpacing: gap,
             ),
-            itemCount: items.length + (showAddCard ? 1 : 0),
-            itemBuilder: (context, index) => showAddCard && index == 0
+            itemCount: items.length + 1,
+            itemBuilder: (context, index) => index == 0
                 ? _AddWorkoutCard(isBusy: isBusy)
-                : _WorkoutCard(
-                    workout: items[index - (showAddCard ? 1 : 0)],
-                    isBusy: isBusy,
-                  ),
+                : _WorkoutCard(workout: items[index - 1], isBusy: isBusy),
           ),
         ),
       );
@@ -675,10 +665,12 @@ class _WorkoutCard extends ConsumerWidget {
                           ),
                         ),
                       )
-                    : WorkoutImage(
-                        source: imageSource,
-                        fit: BoxFit.contain,
+                    : ClipRRect(
                         borderRadius: thumbnailRadius,
+                        child: WorkoutImage(
+                          source: imageSource,
+                          fit: BoxFit.cover,
+                        ),
                       ),
               ),
             ),

@@ -24,7 +24,10 @@ void main() {
   ) async {
     for (final (width, columns) in [
       (320.0, 1),
-      (640.0, 2),
+      (390.0, 2),
+      (640.0, 3),
+      (768.0, 3),
+      (834.0, 3),
       (960.0, 3),
       (1600.0, 3),
     ]) {
@@ -152,8 +155,8 @@ void main() {
   );
 
   for (final (size, columns) in [
-    (const Size(390, 844), 1),
-    (const Size(834, 1194), 2),
+    (const Size(390, 844), 2),
+    (const Size(834, 1194), 3),
     (const Size(1194, 834), 3),
   ]) {
     testWidgets('pagination and filters stay consistent at $size', (
@@ -166,7 +169,7 @@ void main() {
           .childrenDelegate
           .estimatedChildCount!;
       expect(find.text('1 / 3'), findsOneWidget);
-      expect(cardCount(), columns == 1 ? 12 : 13);
+      expect(cardCount(), 13);
       expect(find.byType(FloatingActionButton), findsOneWidget);
       final thumbnail = tester.getSize(
         find.byKey(const ValueKey('workout-thumbnail-w1')),

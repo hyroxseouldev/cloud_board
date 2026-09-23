@@ -11,7 +11,6 @@ class WorkoutImage extends StatelessWidget {
     this.showLoadingIndicator = false,
     this.onError,
     this.resolutionScale = 1,
-    this.borderRadius,
   });
 
   final double resolutionScale;
@@ -19,7 +18,6 @@ class WorkoutImage extends StatelessWidget {
   final BoxFit fit;
   final bool showLoadingIndicator;
   final VoidCallback? onError;
-  final BorderRadius? borderRadius;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -32,7 +30,6 @@ class WorkoutImage extends StatelessWidget {
       ),
       showLoadingIndicator: showLoadingIndicator,
       onError: onError,
-      borderRadius: borderRadius,
     ),
   );
 }
@@ -44,14 +41,12 @@ class _SizedWorkoutImage extends HookWidget {
     required this.size,
     required this.showLoadingIndicator,
     required this.onError,
-    required this.borderRadius,
   });
   final String source;
   final BoxFit fit;
   final WorkoutImageSize size;
   final bool showLoadingIndicator;
   final VoidCallback? onError;
-  final BorderRadius? borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +69,7 @@ class _SizedWorkoutImage extends HookWidget {
     }
 
     if (provider == null) return error();
-    final image = Image(
+    return Image(
       image: provider,
       fit: fit,
       loadingBuilder: showLoadingIndicator
@@ -91,12 +86,6 @@ class _SizedWorkoutImage extends HookWidget {
             }
           : null,
       errorBuilder: (context, exception, stack) => error(),
-    );
-    if (borderRadius == null) return image;
-    // Loose constraints let the clip follow the contained image itself,
-    // including portrait images inside a landscape thumbnail frame.
-    return Align(
-      child: ClipRRect(borderRadius: borderRadius!, child: image),
     );
   }
 }
