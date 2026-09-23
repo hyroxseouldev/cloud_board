@@ -12,14 +12,24 @@ class SlideEditorActions {
   Future<void> saveDraft(String key, WorkoutModule module) =>
       repository.saveDraft(key, module);
   Future<void> clearDraft(String key) => repository.clearDraft(key);
+  Stream<List<WorkoutModule>> watchTemplates(String scope) =>
+      repository.watchTemplates(scope);
+  Stream<List<WorkoutModule>> watchStyles(String scope) =>
+      repository.watchStyles(scope);
   Future<List<WorkoutModule>> loadTemplates(String scope) =>
       repository.loadTemplates(scope);
-  Future<void> saveTemplates(String scope, List<WorkoutModule> templates) =>
-      repository.saveTemplates(scope, templates);
+  Future<void> saveTemplates(
+    String scope,
+    List<WorkoutModule> templates, {
+    List<WorkoutModule>? previous,
+  }) => repository.saveTemplates(scope, templates, previous: previous);
   Future<List<WorkoutModule>> loadStyles(String scope) =>
       repository.loadStyles(scope);
-  Future<void> saveStyles(String scope, List<WorkoutModule> styles) =>
-      repository.saveStyles(scope, styles);
+  Future<void> saveStyles(
+    String scope,
+    List<WorkoutModule> styles, {
+    List<WorkoutModule>? previous,
+  }) => repository.saveStyles(scope, styles, previous: previous);
 }
 
 @riverpod

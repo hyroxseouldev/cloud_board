@@ -62,6 +62,8 @@ dependencies:
   qr_flutter: ^4.1.0
   app_settings: ^9.0.0
   package_info_plus: ^10.2.1
+  image: ^4.10.1
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

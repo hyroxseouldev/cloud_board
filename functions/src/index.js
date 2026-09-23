@@ -148,3 +148,16 @@ export const cleanupPlaybackSnapshots = onSchedule(
     } while (cursor);
   },
 );
+
+export const updateSlideLibrary = onCall({region, timeoutSeconds: 60, maxInstances: 10}, async request => {
+  const {mutateSlideLibrary} = await import('./slide-library.js');
+  return mutateSlideLibrary(db, request.auth?.uid, request.data);
+});
+
+export const syncSlideLibraryPlan = onDocumentWritten({
+  region, document: 'subscriptionEntitlements/{uid}', retry: true,
+  timeoutSeconds: 120, maxInstances: 5,
+}, async event => {
+  const {reconcileSlideLibraryFavorites} = await import('./slide-library.js');
+  await reconcileSlideLibraryFavorites(db, event.params.uid);
+});

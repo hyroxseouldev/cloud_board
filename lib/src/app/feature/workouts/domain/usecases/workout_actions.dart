@@ -20,7 +20,10 @@ class LoadWorkouts {
 class SaveWorkout {
   const SaveWorkout(this._repository);
   final WorkoutRepository _repository;
-  Future<Workout> call(Workout workout) => _repository.save(workout);
+  Future<Workout> call(
+    Workout workout, {
+    void Function(int completed, int total)? onProgress,
+  }) => _repository.save(workout, onProgress: onProgress);
 }
 
 class DeleteWorkout {

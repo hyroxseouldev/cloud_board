@@ -205,6 +205,11 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         await tester.pumpWidget(
           ProviderScope(
+            overrides: [
+              slideEditorRepositoryProvider.overrideWithValue(
+                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+              ),
+            ],
             child: MaterialApp(
               theme: XonTheme.light,
               builder: XonTheme.responsiveBuilder,
@@ -300,6 +305,11 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             key: UniqueKey(),
+            overrides: [
+              slideEditorRepositoryProvider.overrideWithValue(
+                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+              ),
+            ],
             child: MaterialApp(
               theme: XonTheme.light,
               builder: XonTheme.responsiveBuilder,
@@ -354,6 +364,11 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+          ],
           child: MaterialApp(
             theme: XonTheme.light,
             builder: XonTheme.responsiveBuilder,
@@ -420,6 +435,11 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+          ],
           child: MaterialApp(
             theme: XonTheme.light,
             builder: XonTheme.responsiveBuilder,

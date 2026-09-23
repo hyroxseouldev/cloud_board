@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
+
 import 'support/workout_catalog_fixture.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
@@ -64,6 +67,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+
             authStateProvider.overrideWith(
               (ref) => Stream.value(
                 const AuthUser(
@@ -136,6 +143,11 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          slideEditorRepositoryProvider.overrideWithValue(
+            LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+          ),
+        ],
         child: MaterialApp.router(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
@@ -552,6 +564,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+
             authStateProvider.overrideWith(
               (ref) => Stream.value(
                 const AuthUser(
@@ -845,6 +861,11 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          slideEditorRepositoryProvider.overrideWithValue(
+            LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+          ),
+        ],
         child: MaterialApp.router(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
@@ -1019,6 +1040,10 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              slideEditorRepositoryProvider.overrideWithValue(
+                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+              ),
+
               authStateProvider.overrideWith(
                 (ref) => Stream.value(
                   const AuthUser(
@@ -1134,6 +1159,10 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              slideEditorRepositoryProvider.overrideWithValue(
+                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+              ),
+
               authStateProvider.overrideWith(
                 (ref) => Stream.value(
                   const AuthUser(
@@ -1272,6 +1301,10 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              slideEditorRepositoryProvider.overrideWithValue(
+                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+              ),
+
               authStateProvider.overrideWith(
                 (ref) => Stream.value(
                   const AuthUser(
@@ -1405,6 +1438,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+
             brandTemplateProvider.overrideWith((ref) => Stream.value(initial)),
             storeOperationsActionControllerProvider.overrideWith(
               () => _SaveBrand(saved),

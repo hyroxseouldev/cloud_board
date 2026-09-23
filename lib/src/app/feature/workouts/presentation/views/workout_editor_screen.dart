@@ -100,31 +100,42 @@ class _SlideTemplateNameDialog extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final name = useTextEditingController(text: initialName);
+    final favorite = useState(true);
     final form = useMemoized(() => GlobalKey<FormState>());
     void submit() {
       if (form.currentState!.validate()) {
-        Navigator.pop(context, name.text.trim());
+        Navigator.pop(context, (
+          name: name.text.trim(),
+          favorite: favorite.value,
+        ));
       }
     }
 
     return AppAlertDialog(
-      title: const Text('자주 쓰는 슬라이드로 저장'),
+      title: const Text('라이브러리에 저장'),
       content: Form(
         key: form,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('내용과 타이머·화면 설정을 이 기기에 저장해 다른 워크아웃에서도 사용할 수 있어요.'),
+            const Text('내용과 타이머·화면 설정을 계정에 저장합니다. 즐겨찾기는 빠른 삽입 칩으로 표시됩니다.'),
             const SizedBox(height: 16),
             TextFormField(
               controller: name,
               autofocus: true,
               maxLength: 40,
-              decoration: const InputDecoration(labelText: '칩 이름'),
+              decoration: const InputDecoration(labelText: '이름'),
               validator: (value) =>
                   value == null || value.trim().isEmpty ? '이름을 입력해 주세요.' : null,
               onFieldSubmitted: (_) => submit(),
+            ),
+            CheckboxListTile(
+              value: favorite.value,
+              onChanged: (value) => favorite.value = value ?? false,
+              title: const Text('즐겨찾기에 추가'),
+              subtitle: const Text('플러스 3개 · 프리미엄 무제한'),
+              contentPadding: EdgeInsets.zero,
             ),
           ],
         ),
@@ -134,7 +145,7 @@ class _SlideTemplateNameDialog extends HookWidget {
           onPressed: () => Navigator.pop(context),
           child: const Text('취소'),
         ),
-        FilledButton(onPressed: submit, child: const Text('칩 만들기')),
+        FilledButton(onPressed: submit, child: const Text('저장')),
       ],
     );
   }
@@ -167,7 +178,11 @@ class _EditorBody extends HookConsumerWidget {
       ref.watch(authStateProvider).value?.id ?? initial.ownerId,
     );
     final templates = ref.watch(templatesProvider);
+    final favoriteTemplates = (templates.value ?? <WorkoutModule>[])
+        .where((item) => item.favorite)
+        .toList();
     final action = ref.watch(workoutActionControllerProvider);
+    final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isBusy = action.isLoading || playbackAction.isLoading;
     final hasUnsavedChanges =
@@ -295,19 +310,22 @@ class _EditorBody extends HookConsumerWidget {
     }
 
     Future<void> saveTemplate(WorkoutModule module) async {
-      final templateName = await showDialog<String>(
+      final templateName = await showDialog<({String name, bool favorite})>(
         context: context,
         builder: (_) => _SlideTemplateNameDialog(initialName: module.name),
       );
       if (templateName == null || !context.mounted) return;
       final saved = await ref
           .read(templatesProvider.notifier)
-          .save(module, templateName);
+          .save(module, templateName.name, favorite: templateName.favorite);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            saved ? '자주 쓰는 슬라이드 칩을 만들었습니다.' : '칩을 저장하지 못했습니다. 다시 시도해 주세요.',
+            saved
+                ? '라이브러리에 저장했습니다.'
+                : ref.read(templatesProvider.notifier).lastError ??
+                      '저장하지 못했습니다. 다시 시도해 주세요.',
           ),
         ),
       );
@@ -317,8 +335,10 @@ class _EditorBody extends HookConsumerWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AppAlertDialog(
-          title: const Text('자주 쓰는 슬라이드를 삭제할까요?'),
-          content: Text('“${template.name}” 칩을 삭제합니다. 워크아웃에 추가한 슬라이드는 유지됩니다.'),
+          title: const Text('즐겨찾기를 해제할까요?'),
+          content: Text(
+            '“${template.name}” 칩을 숨깁니다. 라이브러리와 워크아웃의 슬라이드는 유지됩니다.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
@@ -334,7 +354,7 @@ class _EditorBody extends HookConsumerWidget {
       if (confirmed != true || !context.mounted) return;
       final removed = await ref
           .read(templatesProvider.notifier)
-          .remove(template.id);
+          .updateTemplate(template.copyWith(favorite: false));
       if (!removed && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('칩을 삭제하지 못했습니다. 다시 시도해 주세요.')),
@@ -377,7 +397,7 @@ class _EditorBody extends HookConsumerWidget {
               Center(
                 child: Text(
                   action.isLoading
-                      ? '저장 중…'
+                      ? workoutSaveProgressLabel(uploadProgress)
                       : action.hasError
                       ? '저장 실패'
                       : hasUnsavedChanges
@@ -390,7 +410,9 @@ class _EditorBody extends HookConsumerWidget {
                 ),
               ),
               IconButton(
-                tooltip: '저장',
+                tooltip: action.isLoading
+                    ? workoutSaveProgressLabel(uploadProgress)
+                    : '저장',
                 onPressed: isBusy ? null : saveInPlace,
                 icon: action.isLoading
                     ? const SizedBox.square(
@@ -531,9 +553,9 @@ class _EditorBody extends HookConsumerWidget {
                                             ),
                                             child: const Text('칩 불러오기 다시 시도'),
                                           )
-                                        : (templates.value ?? []).isEmpty
+                                        : favoriteTemplates.isEmpty
                                         ? const Text(
-                                            '슬라이드 메뉴(⋮)에서 칩으로 저장',
+                                            '라이브러리의 즐겨찾기를 칩으로 표시합니다',
                                             style: TextStyle(
                                               color: XonColors.muted,
                                               fontSize: 12,
@@ -552,12 +574,12 @@ class _EditorBody extends HookConsumerWidget {
                                               ),
                                               scrollDirection: Axis.horizontal,
                                               itemCount:
-                                                  templates.value!.length,
+                                                  favoriteTemplates.length,
                                               separatorBuilder: (_, _) =>
                                                   const SizedBox(width: 8),
                                               itemBuilder: (context, index) {
                                                 final template =
-                                                    templates.value![index];
+                                                    favoriteTemplates[index];
                                                 return Center(
                                                   child: Tooltip(
                                                     message:

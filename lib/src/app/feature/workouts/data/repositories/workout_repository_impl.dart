@@ -153,10 +153,16 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       values.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
   @override
-  Future<Workout> save(Workout workout) =>
-      _saveForUser(workout, _requireUser());
+  Future<Workout> save(
+    Workout workout, {
+    void Function(int completed, int total)? onProgress,
+  }) => _saveForUser(workout, _requireUser(), onProgress: onProgress);
 
-  Future<Workout> _saveForUser(Workout workout, User user) async {
+  Future<Workout> _saveForUser(
+    Workout workout,
+    User user, {
+    void Function(int completed, int total)? onProgress,
+  }) async {
     final author = WorkoutAuthor(
       id: user.uid,
       displayName: user.displayName ?? '사용자',
@@ -167,7 +173,11 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       author: author,
       updatedAt: DateTime.now(),
     );
-    final uploaded = await _storage.syncImages(user.uid, ownedWorkout);
+    final uploaded = await _storage.syncImages(
+      user.uid,
+      ownedWorkout,
+      onProgress: onProgress,
+    );
     final stored = await _firestore.save(
       user.uid,
       WorkoutModel.fromEntity(uploaded),

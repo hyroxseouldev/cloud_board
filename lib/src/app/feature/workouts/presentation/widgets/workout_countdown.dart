@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/prepare_workout_image.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -12,7 +14,6 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 
@@ -429,7 +430,7 @@ class CountdownSettings extends HookConsumerWidget {
                           source: ImageSource.gallery,
                         );
                         if (file == null) return;
-                        final source = WorkoutImageSource.fromBytes(
+                        final source = await prepareWorkoutImage(
                           await file.readAsBytes(),
                           contentType: file.mimeType,
                         );

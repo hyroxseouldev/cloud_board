@@ -73,6 +73,11 @@ service cloud.firestore {
         && compatibleProfileWrite(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
 
+      // Cloud Function validates item conflicts and account-wide favorite limits.
+      match /{collection}/{itemId} {
+        allow read: if collection in ['slideTemplates', 'slideStyles', 'libraryState'] && isOwner(userId);
+        allow write: if false;
+      }
       match /settings/workout {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && validSettings(request.resource.data)
