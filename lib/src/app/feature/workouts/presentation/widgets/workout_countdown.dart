@@ -111,7 +111,7 @@ class WorkoutCountdown extends StatelessWidget {
                           style: TextStyle(
                             fontSize:
                                 math.min(box.maxWidth, box.maxHeight) *
-                                .4 *
+                                .3 *
                                 appearance.numberScale.clamp(.5, 1.8),
                             fontWeight: FontWeight.w900,
                             height: 1.15,

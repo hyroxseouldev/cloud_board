@@ -135,7 +135,7 @@ void main() {
       final number = tester.widget<Text>(
         find.byKey(const ValueKey('countdown-number')),
       );
-      expect(number.style!.fontSize, closeTo(600 * .4 * 1.4, .001));
+      expect(number.style!.fontSize, closeTo(600 * .3 * 1.4, .001));
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(body: WorkoutCountdown(workout: base, seconds: 3)),

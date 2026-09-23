@@ -28,13 +28,18 @@
           ".validate": "newData.hasChildren(['id', 'ownerId', 'zoneId', 'status', 'stepIndex', 'remainingMs', 'anchorServerMs', 'revision', 'updatedByDeviceId']) && newData.child('ownerId').val() === auth.uid && newData.child('zoneId').isString() && newData.child('status').isString() && (newData.child('status').val() === 'playing' || newData.child('status').val() === 'paused' || newData.child('status').val() === 'completed') && newData.child('stepIndex').isNumber() && newData.child('stepIndex').val() >= 0 && newData.child('remainingMs').isNumber() && newData.child('remainingMs').val() >= 0 && newData.child('anchorServerMs').isNumber() && newData.child('revision').isNumber() && ((newData.child('schemaVersion').val() !== 2 && newData.child('workoutSnapshot').exists()) || (newData.child('schemaVersion').val() === 2 && !newData.child('workoutSnapshot').exists() && newData.child('snapshotId').val() === newData.child('id').val() && newData.parent().child('playbackSnapshots').child(newData.child('snapshotId').val()).exists())) && (!data.exists() || data.child('id').val() !== newData.child('id').val() || data.child('schemaVersion').val() !== 2 || (newData.child('schemaVersion').val() === 2 && newData.child('snapshotId').val() === data.child('snapshotId').val()))",
           "notificationCommand": {
             ".validate": "newData.hasChildren(['id', 'expiresAtMs']) && newData.child('id').isString() && newData.child('expiresAtMs').isNumber() && (newData.child('id').val() === data.child('id').val() || (newData.child('expiresAtMs').val() >= now && newData.child('expiresAtMs').val() <= now + 10000))"
+          },
+          "targetDeviceIds": {
+            "$index": {
+              ".validate": "root.child('subscriptionAccess').child($uid).child('plan').val() !== 'plus' || (newData.val() === data.val() && data.parent().parent().child('status').val() !== 'completed' && newData.parent().parent().child('id').val() === data.parent().parent().child('id').val()) || ($index === '0' && newData.isString() && root.child('users').child($uid).child('devices').child(newData.val()).child('paired').val() === true && root.child('users').child($uid).child('devices').child(newData.val()).child('displayState').val() === 'auto')"
+            }
           }
         },
         "devices": {
           ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
           "$deviceId": {
             ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && root.child('displayAccess').child(auth.uid).child('deviceId').val() === $deviceId))) && !root.child('accountDeletions').child($uid).exists() && ((root.child('legacyPilotAccess').child($uid).child('validUntilMs').isNumber() && root.child('legacyPilotAccess').child($uid).child('validUntilMs').val() > now) || !newData.exists() || (data.exists() && newData.child('displayUid').val() === data.child('displayUid').val() && newData.child('paired').val() === data.child('paired').val()))",
-            ".validate": "newData.hasChildren(['id', 'mode', 'online', 'lastSeenAtMs']) && newData.child('id').val() === $deviceId && newData.child('mode').val() === 'display' && newData.child('online').isBoolean() && newData.child('lastSeenAtMs').isNumber()"
+            ".validate": "newData.hasChildren(['id', 'mode', 'online', 'lastSeenAtMs']) && newData.child('id').val() === $deviceId && newData.child('mode').val() === 'display' && newData.child('online').isBoolean() && newData.child('lastSeenAtMs').isNumber() && (root.child('subscriptionAccess').child($uid).child('plan').val() !== 'plus' || newData.child('displayState').val() === data.child('displayState').val())"
           }
         },
         "pairingCodes": {

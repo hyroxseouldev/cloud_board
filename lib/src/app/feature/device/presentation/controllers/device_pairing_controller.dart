@@ -9,6 +9,7 @@ import 'package:cloud_board/src/app/feature/device/data/repositories/device_pair
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 
 part 'device_pairing_controller.g.dart';
 
@@ -55,7 +56,8 @@ class DeviceClaimController extends _$DeviceClaimController {
       final profile = await ref.read(userProfileControllerProvider.future);
       phase = 'load_devices';
       final devices = await ref.read(displayDevicesProvider.future);
-      if (devices.where((item) => item.paired).length >= profile.displayLimit) {
+      if (!profile.hasPlanDisplayPolicy &&
+          devices.where((item) => item.paired).length >= profile.displayLimit) {
         throw StateError(
           '현재 등급에서는 디스플레이를 ${profile.displayLimit}대까지 연결할 수 있습니다.',
         );
@@ -119,6 +121,7 @@ class DeviceClaimController extends _$DeviceClaimController {
     required String deviceId,
     required String displayState,
   }) async {
+    if (state.isLoading) return false;
     state = const AsyncLoading();
     state = await AsyncValue.guard(
       () => ref

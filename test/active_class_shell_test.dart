@@ -146,6 +146,8 @@ void main() {
         expect(container.read(player).isPaused, isTrue);
         expect(control('이전 슬라이드').onPressed, isNull);
         expect(control('다음 슬라이드').onPressed, isNull);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
         commands.finishSeek();
         await tester.pumpAndSettle();
         expect(control('다음 슬라이드').onPressed, isNull);

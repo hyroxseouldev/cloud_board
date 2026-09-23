@@ -101,45 +101,63 @@ class WorkoutControlPanel extends HookWidget {
                   width: width,
                   child: Column(
                     children: [
-                      if (onLockChanged != null)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                            child: locked
-                                ? Semantics(
-                                    button: true,
-                                    label: '터치 잠금 해제. 길게 누르세요',
-                                    child: InkWell(
-                                      key: const ValueKey('unlock-controls'),
-                                      onLongPress: () => onLockChanged!(false),
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: const Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.lock_outline),
-                                            SizedBox(width: 8),
-                                            Text('터치 잠금 중 · 길게 눌러 해제'),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : TextButton.icon(
-                                    onPressed: disabled
-                                        ? null
-                                        : () => onLockChanged!(true),
-                                    icon: const Icon(Icons.lock_open),
-                                    label: const Text('터치 잠금'),
-                                  ),
-                          ),
-                        ),
                       Padding(
-                        padding: EdgeInsets.fromLTRB(24, tall ? 30 : 12, 24, 0),
+                        padding: EdgeInsets.fromLTRB(
+                          compact ? 12 : 24,
+                          8,
+                          compact ? 12 : 24,
+                          0,
+                        ),
                         child: Row(
                           children: [
+                            if (onLockChanged != null)
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: locked
+                                      ? Semantics(
+                                          button: true,
+                                          label: '터치 잠금 해제. 길게 누르세요',
+                                          child: InkWell(
+                                            key: const ValueKey(
+                                              'unlock-controls',
+                                            ),
+                                            onLongPress: () =>
+                                                onLockChanged!(false),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(16),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.lock_outline),
+                                                  SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      '터치 잠금 중 · 길게 눌러 해제',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : TextButton.icon(
+                                          onPressed: disabled
+                                              ? null
+                                              : () => onLockChanged!(true),
+                                          icon: const Icon(Icons.lock_open),
+                                          label: const Text('터치 잠금'),
+                                        ),
+                                ),
+                              )
+                            else
+                              const Spacer(),
                             if (onMinimize != null)
                               IconButton(
                                 tooltip: '최소화',
@@ -148,7 +166,6 @@ class WorkoutControlPanel extends HookWidget {
                                   Icons.keyboard_arrow_down_rounded,
                                 ),
                               ),
-                            const Spacer(),
                             TextButton(
                               onPressed: disabled ? null : onExit,
                               child: const Text('종료하기'),

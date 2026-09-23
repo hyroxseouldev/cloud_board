@@ -2,16 +2,23 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/usecases/user_profile_actions.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 
 part 'user_profile_controller.g.dart';
 
 @riverpod
 class UserProfileController extends _$UserProfileController {
   @override
-  Future<UserProfile> build() => ref.watch(getUserProfileProvider).call();
+  Future<UserProfile> build() {
+    ref.watch(
+      storeEntitlementProvider.select((value) => value.value?.revision),
+    );
+    return ref.watch(getUserProfileProvider).call();
+  }
 
   Future<bool> updateProfile({
     required String displayName,

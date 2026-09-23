@@ -309,18 +309,21 @@ class _PartnerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lastDay = profile.pilotEndsAt
+        ?.subtract(const Duration(milliseconds: 1))
+        .toLocal();
     final endLabel = profile.pilotEndsAt == null
         ? '파일럿 기간 협의 중'
-        : '${profile.pilotEndsAt!.year}.${profile.pilotEndsAt!.month.toString().padLeft(2, '0')}.${profile.pilotEndsAt!.day.toString().padLeft(2, '0')}까지';
+        : '${lastDay!.year}.${lastDay.month.toString().padLeft(2, '0')}.${lastDay.day.toString().padLeft(2, '0')}까지';
     return _ProfileSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('이용 정보', style: AppStyle.of(context).subText2),
           const SizedBox(height: 20),
-          _ProfileInfo(label: '등급', value: profile.partnerTier.label),
+          _ProfileInfo(label: '등급', value: profile.planLabel),
           _ProfileInfo(label: '이용 상태', value: profile.subscriptionStatus.label),
-          _ProfileInfo(label: '연결 가능', value: '디스플레이 ${profile.displayLimit}대'),
+          _ProfileInfo(label: '연결 가능', value: profile.displayLimitLabel),
           _ProfileInfo(label: '이용 기간', value: endLabel),
         ],
       ),

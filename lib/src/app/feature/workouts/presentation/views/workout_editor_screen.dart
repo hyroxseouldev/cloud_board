@@ -160,6 +160,7 @@ class _EditorBody extends HookConsumerWidget {
     final templateScroll = useScrollController();
     final selectedSlide = useState<String?>(null);
     final rowExtent = 96 * MediaQuery.textScalerOf(context).scale(1);
+    const slideListPadding = EdgeInsets.fromLTRB(24, 12, 24, 96);
     useListenable(name);
     useListenable(folder);
     final templatesProvider = slideTemplatesControllerProvider(
@@ -265,7 +266,7 @@ class _EditorBody extends HookConsumerWidget {
         // Include the newly appended row before the lazy list updates its extent.
         final maxOffset =
             (draft.value.modules.length * rowExtent +
-                    36 -
+                    slideListPadding.vertical -
                     slideScroll.position.viewportDimension)
                 .clamp(0.0, double.infinity);
         slideScroll.animateTo(
@@ -349,6 +350,16 @@ class _EditorBody extends HookConsumerWidget {
         // A mini-controller command must not obscure the editor.
         isLoading: false,
         child: Scaffold(
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerFloat,
+          floatingActionButton: FloatingActionButton(
+            tooltip: '슬라이드 추가',
+            onPressed: isBusy ? null : () => addSlide(),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.add_rounded),
+          ),
           appBar: AppBar(
             leading: BackButton(
               onPressed: isBusy
@@ -591,11 +602,6 @@ class _EditorBody extends HookConsumerWidget {
                                             ),
                                           ),
                                   ),
-                                  IconButton(
-                                    tooltip: '슬라이드 추가',
-                                    onPressed: isBusy ? null : () => addSlide(),
-                                    icon: const Icon(Icons.add_rounded),
-                                  ),
                                 ],
                               ),
                             ),
@@ -608,7 +614,7 @@ class _EditorBody extends HookConsumerWidget {
                           key: const ValueKey('workout-slide-list'),
                           scrollController: slideScroll,
                           itemExtent: rowExtent,
-                          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                          padding: slideListPadding,
                           buildDefaultDragHandles: false,
                           itemCount: draft.value.modules.length,
                           onReorderItem: (oldIndex, newIndex) {
