@@ -597,7 +597,7 @@ class _AddWorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: SlideEditorStyle.surface,
+    color: Colors.transparent,
     borderRadius: BorderRadius.circular(AppStyle.cardRadius),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
