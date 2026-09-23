@@ -6,9 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 /// Reads the installed build metadata, including CI's platform build number.
 class AppVersionTile extends HookWidget {
-  const AppVersionTile({super.key, this.compact = false});
-
-  final bool compact;
+  const AppVersionTile({super.key});
 
   static Future<PackageInfo> _readBuildInfo() {
     const name = String.fromEnvironment('APP_BUILD_NAME');
@@ -57,8 +55,7 @@ class AppVersionTile extends HookWidget {
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      dense: compact,
-      leading: compact ? null : const Icon(Icons.info_outline_rounded),
+      leading: const Icon(Icons.info_outline_rounded),
       title: const Text('앱 버전'),
       subtitle: Text(
         version ?? (info.hasError ? '버전 정보를 불러오지 못했습니다.' : '확인 중…'),
