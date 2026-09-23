@@ -14,6 +14,22 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sum
 part 'workout_controller.g.dart';
 
 @riverpod
+class WorkoutUploadProgress extends _$WorkoutUploadProgress {
+  @override
+  ({int completed, int total})? build() => null;
+  void update(int completed, int total) =>
+      state = (completed: completed, total: total);
+  void reset() => state = null;
+}
+
+String workoutSaveProgressLabel(({int completed, int total})? progress) =>
+    progress != null &&
+        progress.total > 0 &&
+        progress.completed < progress.total
+    ? '이미지 ${progress.completed}/${progress.total} 저장 중'
+    : '저장 중';
+
+@riverpod
 class WorkoutDetail extends _$WorkoutDetail {
   int _writes = 0;
   @override
@@ -149,6 +165,8 @@ class WorkoutActionController extends _$WorkoutActionController {
   }
 
   Future<Workout?> save(Workout workout) async {
+    if (state.isLoading) return null;
+    ref.read(workoutUploadProgressProvider.notifier).reset();
     state = const AsyncLoading();
     Workout? saved;
     state = await AsyncValue.guard(() async {
@@ -156,7 +174,16 @@ class WorkoutActionController extends _$WorkoutActionController {
       await _ensureEditable(workout.id);
       final save = await ref.read(saveWorkoutProvider.future);
       await _ensureEditable(workout.id);
-      saved = await save(value);
+      saved = await save(
+        value,
+        onProgress: (completed, total) {
+          if (ref.mounted) {
+            ref
+                .read(workoutUploadProgressProvider.notifier)
+                .update(completed, total);
+          }
+        },
+      );
       ref.read(workoutDetailProvider(saved!.id).notifier).replace(saved);
       ref.read(workoutControllerProvider.notifier).upsert(saved!);
       return '워크아웃을 저장했습니다.';

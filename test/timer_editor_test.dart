@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -29,6 +32,11 @@ Future<ProviderContainer> openEditor(
 ) async {
   await tester.pumpWidget(
     ProviderScope(
+      overrides: [
+        slideEditorRepositoryProvider.overrideWithValue(
+          LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+        ),
+      ],
       child: MaterialApp(
         theme: XonTheme.light,
         builder: XonTheme.responsiveBuilder,

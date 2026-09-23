@@ -54,8 +54,8 @@ class SlideLibraryScreen extends HookConsumerWidget {
       final success = await action();
       if (!success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('변경하지 못했습니다. 기존 슬라이드는 유지됩니다. 다시 시도해 주세요.'),
+          SnackBar(
+            content: Text(actions.lastError ?? '변경하지 못했습니다. 다시 시도해 주세요.'),
           ),
         );
       }
@@ -120,13 +120,14 @@ class SlideLibraryScreen extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      '이 계정으로 이 기기에 저장한 슬라이드입니다. 워크아웃 편집의 슬라이드 메뉴에서 추가할 수 있어요.',
+                      '같은 계정의 기기에서 자동으로 동기화됩니다. 플러스 즐겨찾기 3개 · 프리미엄 무제한. 기존 자료는 모두 보관되며, 플러스에서 3개를 넘는 즐겨찾기는 일반 항목으로 옮겨집니다.',
                       style: TextStyle(fontSize: 12, color: AppColors.muted),
                     ),
                   ],
                 ),
               ),
-              if (templates.isLoading) const LinearProgressIndicator(),
+              if (templates.isLoading && !templates.hasError)
+                const LinearProgressIndicator(),
               if (templates.hasError)
                 TextButton(
                   onPressed: () => ref.invalidate(provider),
@@ -136,7 +137,13 @@ class SlideLibraryScreen extends HookConsumerWidget {
                 child: items.isEmpty
                     ? Center(
                         child: Text(
-                          all.isEmpty ? '저장한 슬라이드가 없습니다.' : '검색 결과가 없습니다.',
+                          templates.hasError
+                              ? '라이브러리를 불러오지 못했습니다.'
+                              : templates.isLoading
+                              ? '라이브러리를 불러오는 중입니다.'
+                              : all.isEmpty
+                              ? '저장한 슬라이드가 없습니다.'
+                              : '검색 결과가 없습니다.',
                         ),
                       )
                     : ListView.builder(

@@ -205,6 +205,11 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         await tester.pumpWidget(
           ProviderScope(
+            overrides: [
+              slideEditorRepositoryProvider.overrideWithValue(
+                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+              ),
+            ],
             child: MaterialApp(
               theme: XonTheme.light,
               builder: XonTheme.responsiveBuilder,
@@ -300,6 +305,11 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             key: UniqueKey(),
+            overrides: [
+              slideEditorRepositoryProvider.overrideWithValue(
+                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+              ),
+            ],
             child: MaterialApp(
               theme: XonTheme.light,
               builder: XonTheme.responsiveBuilder,
@@ -322,7 +332,7 @@ void main() {
       await renameSlide(tester, '복구할 제목');
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
-      expect(find.text('저장 필요 · 이 기기에 임시저장됨'), findsOneWidget);
+      expect(find.byTooltip('저장 필요 · 이 기기에 임시저장됨'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       await open();
@@ -354,6 +364,11 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+          ],
           child: MaterialApp(
             theme: XonTheme.light,
             builder: XonTheme.responsiveBuilder,
@@ -420,6 +435,11 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+          ],
           child: MaterialApp(
             theme: XonTheme.light,
             builder: XonTheme.responsiveBuilder,

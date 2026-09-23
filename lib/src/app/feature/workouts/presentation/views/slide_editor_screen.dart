@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/prepare_workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_library_picker.dart';
@@ -14,7 +15,6 @@ import 'package:cloud_board/src/app/core/widgets/hex_color_field.dart';
 import 'package:cloud_board/src/app/core/utils/hex_color.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
@@ -179,6 +179,7 @@ class _SlideEditorBody extends HookConsumerWidget {
 
     final module = state.module;
     final busy = useState(false);
+    final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final error = useState<String?>(null);
     final form = useMemoized(() => GlobalKey<FormState>());
     final description = useTextEditingController(text: module.text);
@@ -265,7 +266,7 @@ class _SlideEditorBody extends HookConsumerWidget {
         await actions.saveStyle(styleName);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('이 기기에 스타일을 저장했습니다. 같은 이름은 덮어씁니다.')),
+            const SnackBar(content: Text('계정에 스타일을 저장했습니다. 같은 이름은 덮어씁니다.')),
           );
         }
       } catch (_) {
@@ -374,18 +375,13 @@ class _SlideEditorBody extends HookConsumerWidget {
       try {
         final file = await ImagePicker().pickImage(source: ImageSource.gallery);
         if (file == null) return;
-        final bytes = await file.readAsBytes();
+        final source = await prepareWorkoutImage(
+          await file.readAsBytes(),
+          contentType: file.mimeType,
+        );
         if (context.mounted) {
           actions.update(
-            ref
-                .read(provider)
-                .module
-                .copyWith(
-                  imageSource: WorkoutImageSource.fromBytes(
-                    bytes,
-                    contentType: file.mimeType,
-                  ),
-                ),
+            ref.read(provider).module.copyWith(imageSource: source),
           );
         }
       } catch (_) {
@@ -948,6 +944,24 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
     );
 
+    final saveStatusDetail =
+        state.storageError ??
+        (busy.value
+            ? workoutSaveProgressLabel(uploadProgress)
+            : state.dirty
+            ? (state.localSaved ? '저장 필요 · 이 기기에 임시저장됨' : '저장 필요 · 임시저장 중…')
+            : '저장됨');
+    final saveStatusLabel = state.storageError != null
+        ? '저장 확인'
+        : busy.value
+        ? (uploadProgress != null &&
+                  uploadProgress.completed < uploadProgress.total
+              ? '${uploadProgress.completed}/${uploadProgress.total} 저장 중'
+              : '저장 중')
+        : state.dirty
+        ? '저장 필요'
+        : '저장됨';
+
     return UnsavedChangesGuard(
       guard: guard,
       dirty: state.dirty,
@@ -988,11 +1002,40 @@ class _SlideEditorBody extends HookConsumerWidget {
               icon: const Icon(Icons.redo),
             ),
             Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Tooltip(
+                message: saveStatusDetail,
+                child: Semantics(
+                  liveRegion: true,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width < 600
+                          ? 64
+                          : 180,
+                    ),
+                    child: Text(
+                      saveStatusLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: state.storageError != null
+                            ? Theme.of(context).colorScheme.error
+                            : state.dirty
+                            ? Colors.orange
+                            : SlideEditorStyle.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.only(right: 12),
               child: IconButton(
                 key: const ValueKey('slide-save-button'),
                 tooltip: busy.value
-                    ? '저장 중'
+                    ? workoutSaveProgressLabel(uploadProgress)
                     : error.value == null
                     ? '저장'
                     : '다시 저장',
@@ -1055,21 +1098,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                             selectSection(values.first),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      state.storageError ??
-                          (state.dirty
-                              ? (state.localSaved
-                                    ? '저장 필요 · 이 기기에 임시저장됨'
-                                    : '저장 필요 · 임시저장 중…')
-                              : '저장됨'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: state.storageError == null
-                            ? SlideEditorStyle.muted
-                            : Theme.of(context).colorScheme.error,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1094,11 +1122,11 @@ class _SlideEditorBody extends HookConsumerWidget {
                     ),
                   ],
                 ),
-              if (error.value != null)
+              if (error.value != null || state.storageError != null)
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Text(
-                    error.value!,
+                    error.value ?? state.storageError!,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),

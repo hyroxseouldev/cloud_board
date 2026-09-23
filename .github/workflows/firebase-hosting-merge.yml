@@ -48,6 +48,15 @@ jobs:
           npm ci --prefix functions
           npm test --prefix functions
 
+      - name: Set up Java for Firestore rules tests
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Test account library concurrency and security rules
+        run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-library 'node functions/test/slide-library-emulator.mjs'
+
       - name: Validate database rules JSON
         run: python3 -m json.tool database.rules.json > /dev/null
 

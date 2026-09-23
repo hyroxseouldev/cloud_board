@@ -26,15 +26,22 @@ class WorkoutImageSource {
 
   static String fromBytes(Uint8List bytes, {String? contentType}) {
     if (bytes.length >= 10 * 1024 * 1024) {
-      throw const FormatException('이미지는 10MB 미만으로 선택해 주세요. 원본 화질을 유지해 저장합니다.');
+      throw const FormatException(
+        '이미지는 10MB 미만으로 선택해 주세요. 이미지 크기를 줄인 후 다시 선택해 주세요.',
+      );
     }
+    final image = identify(bytes, contentType: contentType);
+    return 'data:${image.contentType};base64,${base64Encode(bytes)}';
+  }
+
+  static WorkoutImageSource identify(Uint8List bytes, {String? contentType}) {
     final type = _detectedContentType(bytes) ?? contentType?.toLowerCase();
     if (type == null || !supportedContentTypes.contains(type)) {
       throw const FormatException(
         '지원하지 않는 이미지 형식입니다. JPG, PNG, WebP 또는 GIF 파일을 선택해 주세요.',
       );
     }
-    return 'data:$type;base64,${base64Encode(bytes)}';
+    return WorkoutImageSource(bytes: bytes, contentType: type);
   }
 
   static const supportedContentTypes = <String>{

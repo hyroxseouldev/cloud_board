@@ -7,6 +7,9 @@ abstract interface class WorkoutRepository {
   Stream<List<WorkoutSummary>> watchSummaries();
   Future<Workout?> loadOne(String workoutId);
   Stream<List<Workout>> watch();
-  Future<Workout> save(Workout workout);
+  Future<Workout> save(
+    Workout workout, {
+    void Function(int completed, int total)? onProgress,
+  });
   Future<void> delete(String workoutId);
 }

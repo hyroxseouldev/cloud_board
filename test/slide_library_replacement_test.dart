@@ -13,6 +13,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -21,7 +22,12 @@ class _MemorySource extends SlideEditorLocalDataSource {
   bool failReads = false;
   @override
   Future<String?> read(String key) async {
-    if (failReads) throw StateError('offline');
+    if (failReads) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'permission-denied',
+      );
+    }
     return values[key];
   }
 
@@ -66,6 +72,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('라이브러리를 불러오지 못했습니다.'), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(find.textContaining('저장한 슬라이드가 없습니다.'), findsNothing);
       source.failReads = false;
       await tester.tap(find.text('다시 불러오기'));
@@ -211,7 +218,9 @@ void main() {
                 )
                 .first,
           );
-          await tester.tap(card);
+          // In landscape the tall thumbnail can extend below the viewport;
+          // tap its visible leading edge after scrolling it into view.
+          await tester.tapAt(tester.getTopLeft(card) + const Offset(20, 20));
           await tester.pumpAndSettle();
         }
 

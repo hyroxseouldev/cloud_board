@@ -55,4 +55,4 @@ final class SlideEditorRepositoryProvider
 }
 
 String _$slideEditorRepositoryHash() =>
-    r'd0746cc341e498a6ae8dfe3a7f8d6dc9374f5692';
+    r'c35d96a8c3c43a27b6f25eb4da9d31984f93d665';

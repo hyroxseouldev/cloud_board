@@ -276,7 +276,10 @@ class _Repository implements WorkoutRepository {
   final saves = <Workout>[];
   final deletes = <String>[];
   @override
-  Future<Workout> save(Workout value) async {
+  Future<Workout> save(
+    Workout value, {
+    void Function(int completed, int total)? onProgress,
+  }) async {
     saves.add(value);
     return value;
   }

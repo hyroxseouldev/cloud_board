@@ -9,6 +9,74 @@ part of 'workout_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(WorkoutUploadProgress)
+final workoutUploadProgressProvider = WorkoutUploadProgressProvider._();
+
+final class WorkoutUploadProgressProvider
+    extends
+        $NotifierProvider<
+          WorkoutUploadProgress,
+          ({int completed, int total})?
+        > {
+  WorkoutUploadProgressProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'workoutUploadProgressProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$workoutUploadProgressHash();
+
+  @$internal
+  @override
+  WorkoutUploadProgress create() => WorkoutUploadProgress();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(({int completed, int total})? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<({int completed, int total})?>(
+        value,
+      ),
+    );
+  }
+}
+
+String _$workoutUploadProgressHash() =>
+    r'b07fc6c4c8e81172b065208feb84e412e8b71b5c';
+
+abstract class _$WorkoutUploadProgress
+    extends $Notifier<({int completed, int total})?> {
+  ({int completed, int total})? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref =
+        this.ref
+            as $Ref<
+              ({int completed, int total})?,
+              ({int completed, int total})?
+            >;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<
+                ({int completed, int total})?,
+                ({int completed, int total})?
+              >,
+              ({int completed, int total})?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(WorkoutDetail)
 final workoutDetailProvider = WorkoutDetailFamily._();
 
@@ -181,7 +249,7 @@ final class WorkoutActionControllerProvider
 }
 
 String _$workoutActionControllerHash() =>
-    r'21e56252b0379f87f71c590fa9b2704b5a478783';
+    r'c1bc7ec999c983734b026f7c5e1dc5de0ec7f54e';
 
 abstract class _$WorkoutActionController
     extends $Notifier<AsyncValue<String?>> {

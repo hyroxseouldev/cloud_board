@@ -14,7 +14,7 @@ final slideTemplatesControllerProvider = SlideTemplatesControllerFamily._();
 
 final class SlideTemplatesControllerProvider
     extends
-        $AsyncNotifierProvider<SlideTemplatesController, List<WorkoutModule>> {
+        $StreamNotifierProvider<SlideTemplatesController, List<WorkoutModule>> {
   SlideTemplatesControllerProvider._({
     required SlideTemplatesControllerFamily super.from,
     required String super.argument,
@@ -53,7 +53,7 @@ final class SlideTemplatesControllerProvider
 }
 
 String _$slideTemplatesControllerHash() =>
-    r'201d9500c5530c0b9908767e292b78624bb80234';
+    r'5ad40fa2ef29bd134a8817abf0c69673d0574c9d';
 
 final class SlideTemplatesControllerFamily extends $Family
     with
@@ -61,7 +61,7 @@ final class SlideTemplatesControllerFamily extends $Family
           SlideTemplatesController,
           AsyncValue<List<WorkoutModule>>,
           List<WorkoutModule>,
-          FutureOr<List<WorkoutModule>>,
+          Stream<List<WorkoutModule>>,
           String
         > {
   SlideTemplatesControllerFamily._()
@@ -81,11 +81,11 @@ final class SlideTemplatesControllerFamily extends $Family
 }
 
 abstract class _$SlideTemplatesController
-    extends $AsyncNotifier<List<WorkoutModule>> {
+    extends $StreamNotifier<List<WorkoutModule>> {
   late final _$args = ref.$arg as String;
   String get scope => _$args;
 
-  FutureOr<List<WorkoutModule>> build(String scope);
+  Stream<List<WorkoutModule>> build(String scope);
   @$mustCallSuper
   @override
   WhenComplete runBuild() {

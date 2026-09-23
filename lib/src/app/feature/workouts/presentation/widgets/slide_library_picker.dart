@@ -78,7 +78,7 @@ class SlideLibraryPicker extends HookConsumerWidget {
             ),
           ),
         ),
-        if (templates.isLoading)
+        if (templates.isLoading && !templates.hasError)
           const SliverToBoxAdapter(child: LinearProgressIndicator())
         else if (templates.hasError)
           SliverToBoxAdapter(

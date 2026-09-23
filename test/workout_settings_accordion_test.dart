@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 
@@ -35,6 +37,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+
             fixtureWorkoutDetails,
             workoutControllerProvider.overrideWith(_LongWorkouts.new),
             authStateProvider.overrideWith((ref) => Stream.value(null)),
@@ -75,6 +81,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          slideEditorRepositoryProvider.overrideWithValue(
+            LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+          ),
+
           authStateProvider.overrideWith(
             (ref) => Stream.value(
               const AuthUser(
@@ -110,6 +120,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          slideEditorRepositoryProvider.overrideWithValue(
+            LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+          ),
+
           fixtureWorkoutDetails,
           workoutControllerProvider.overrideWith(_LongWorkouts.new),
           authStateProvider.overrideWith((ref) => Stream.value(null)),
@@ -138,11 +152,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('자주 쓰는 슬라이드로 저장'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextFormField, '칩 이름'),
-      '나의 워밍업',
-    );
-    await tester.tap(find.text('칩 만들기'));
+    await tester.enterText(find.widgetWithText(TextFormField, '이름'), '나의 워밍업');
+    await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
@@ -195,10 +206,12 @@ class _LongWorkouts extends FixtureWorkoutController {
 
 class _ManyTemplates extends SlideTemplatesController {
   @override
-  Future<List<WorkoutModule>> build(String scope) async => List.generate(
-    12,
-    (i) =>
-        WorkoutModule.empty('template-$i')
-            .copyWith(name: '긴 이름의 워밍업 슬라이드 반복 운동 $i'),
+  Stream<List<WorkoutModule>> build(String scope) => Stream.value(
+    List.generate(
+      12,
+      (i) =>
+          WorkoutModule.empty('template-$i')
+              .copyWith(name: '긴 이름의 워밍업 슬라이드 반복 운동 $i', favorite: true),
+    ),
   );
 }

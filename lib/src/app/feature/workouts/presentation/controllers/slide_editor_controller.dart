@@ -45,6 +45,21 @@ class SlideEditorController extends _$SlideEditorController {
     _actions = ref.watch(slideEditorActionsProvider);
     _key = base64Url.encode(utf8.encode('$scope/$workoutId/${original.id}'));
     ref.onDispose(() => _debounce?.cancel());
+    final stylesSubscription = _actions
+        .watchStyles(scope)
+        .listen(
+          (styles) {
+            if (ref.mounted) state = state.copyWith(styles: styles);
+          },
+          onError: (Object error) {
+            if (ref.mounted) {
+              state = state.copyWith(
+                storageError: '스타일 동기화에 실패했습니다. 연결을 확인한 뒤 다시 열어 주세요.',
+              );
+            }
+          },
+        );
+    ref.onDispose(stylesSubscription.cancel);
     Future.microtask(_load);
     return SlideEditorState(module: original, saved: original);
   }
@@ -52,13 +67,11 @@ class SlideEditorController extends _$SlideEditorController {
   Future<void> _load() async {
     try {
       final draft = await _actions.loadDraft(_key);
-      final styles = await _actions.loadStyles(scope);
       if (!ref.mounted) return;
       state = state.copyWith(
         recovery: !_savedDuringLoad && draft != null && draft != state.saved
             ? draft
             : null,
-        styles: styles,
       );
     } catch (_) {
       if (ref.mounted) {
@@ -197,22 +210,37 @@ class SlideEditorController extends _$SlideEditorController {
     await _actions.clearDraft(_key);
   }
 
+  bool _savingStyle = false;
   Future<void> saveStyle(String name) async {
-    final style = applySlideStyle(
-      WorkoutModule.empty(newId()),
-      state.module,
-    ).copyWith(name: name.trim());
-    final styles = [
-      ...state.styles.where((value) => value.name != style.name),
-      style,
-    ];
-    await _actions.saveStyles(scope, styles);
-    if (ref.mounted) state = state.copyWith(styles: styles);
+    if (_savingStyle) return;
+    _savingStyle = true;
+    try {
+      final style = applySlideStyle(
+        WorkoutModule.empty(newId()),
+        state.module,
+      ).copyWith(name: name.trim());
+      final styles = [
+        ...state.styles.where((value) => value.name != style.name),
+        style,
+      ];
+      await _actions.saveStyles(scope, styles, previous: state.styles);
+      final synced = await _actions.loadStyles(scope);
+      if (ref.mounted) state = state.copyWith(styles: synced);
+    } finally {
+      _savingStyle = false;
+    }
   }
 
   Future<void> deleteStyle(String id) async {
-    final styles = state.styles.where((value) => value.id != id).toList();
-    await _actions.saveStyles(scope, styles);
-    if (ref.mounted) state = state.copyWith(styles: styles);
+    if (_savingStyle) return;
+    _savingStyle = true;
+    try {
+      final styles = state.styles.where((value) => value.id != id).toList();
+      await _actions.saveStyles(scope, styles, previous: state.styles);
+      final synced = await _actions.loadStyles(scope);
+      if (ref.mounted) state = state.copyWith(styles: synced);
+    } finally {
+      _savingStyle = false;
+    }
   }
 }
