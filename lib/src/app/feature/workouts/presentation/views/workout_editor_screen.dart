@@ -528,6 +528,7 @@ class _EditorBody extends HookConsumerWidget {
                                   Expanded(
                                     child:
                                         templates.isLoading &&
+                                            !templates.hasError &&
                                             !templates.hasValue
                                         ? const Align(
                                             alignment: Alignment.centerLeft,

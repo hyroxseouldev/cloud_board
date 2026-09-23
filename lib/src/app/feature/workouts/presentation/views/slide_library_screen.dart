@@ -126,7 +126,8 @@ class SlideLibraryScreen extends HookConsumerWidget {
                   ],
                 ),
               ),
-              if (templates.isLoading) const LinearProgressIndicator(),
+              if (templates.isLoading && !templates.hasError)
+                const LinearProgressIndicator(),
               if (templates.hasError)
                 TextButton(
                   onPressed: () => ref.invalidate(provider),
@@ -136,7 +137,13 @@ class SlideLibraryScreen extends HookConsumerWidget {
                 child: items.isEmpty
                     ? Center(
                         child: Text(
-                          all.isEmpty ? '저장한 슬라이드가 없습니다.' : '검색 결과가 없습니다.',
+                          templates.hasError
+                              ? '라이브러리를 불러오지 못했습니다.'
+                              : templates.isLoading
+                              ? '라이브러리를 불러오는 중입니다.'
+                              : all.isEmpty
+                              ? '저장한 슬라이드가 없습니다.'
+                              : '검색 결과가 없습니다.',
                         ),
                       )
                     : ListView.builder(
