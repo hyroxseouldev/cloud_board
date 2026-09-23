@@ -638,9 +638,10 @@ class _WorkoutCard extends ConsumerWidget {
     );
     final folder = workout.folder.isEmpty ? '폴더 없음' : workout.folder;
     final imageSource = workout.imageSource;
+    const thumbnailRadius = BorderRadius.all(Radius.circular(16));
     return Material(
-      color: SlideEditorStyle.surface,
-      borderRadius: BorderRadius.circular(AppStyle.cardRadius),
+      color: Colors.transparent,
+      borderRadius: thumbnailRadius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: isBusy
@@ -661,18 +662,28 @@ class _WorkoutCard extends ConsumerWidget {
               aspectRatio: 16 / 9,
               child: ExcludeSemantics(
                 child: imageSource.isEmpty
-                    ? const Center(
-                        child: Icon(
-                          Icons.view_carousel_outlined,
-                          size: 36,
-                          color: AppColors.selected,
+                    ? const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: SlideEditorStyle.surface,
+                          borderRadius: thumbnailRadius,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.view_carousel_outlined,
+                            size: 36,
+                            color: AppColors.selected,
+                          ),
                         ),
                       )
-                    : WorkoutImage(source: imageSource, fit: BoxFit.contain),
+                    : WorkoutImage(
+                        source: imageSource,
+                        fit: BoxFit.contain,
+                        borderRadius: thumbnailRadius,
+                      ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -702,7 +713,7 @@ class _WorkoutCard extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Padding(
-              padding: const EdgeInsets.only(left: 12, right: 4, bottom: 8),
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
               child: Row(
                 children: [
                   Expanded(
