@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
@@ -24,7 +26,6 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
-import 'package:cloud_board/src/app/feature/profile/presentation/widgets/app_version_tile.dart';
 
 class WorkoutListScreen extends StatelessWidget {
   const WorkoutListScreen({super.key});
@@ -401,49 +402,70 @@ class _WorkoutGrid extends StatelessWidget {
   final ScrollController controller;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxWidth: kIsWeb
-            ? AppStyle.webPageMaxWidth
-            : AppStyle.cardWidth * 2 + 60,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = !AppStyle.of(context).compact
-              ? 3
-              : constraints.maxWidth < 360
-              ? 1
-              : 2;
-          final cardWidth =
-              (constraints.maxWidth - 48 - (columns - 1) * 12) / columns;
-          final textScale = MediaQuery.textScalerOf(context).scale(1);
-          return GridView.builder(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const horizontalPadding = 24.0;
+      const gap = 16.0;
+      const minCardWidth = 280.0;
+      const maxCardWidth = 360.0;
+      final availableWidth = math.max(
+        0.0,
+        constraints.maxWidth - horizontalPadding * 2,
+      );
+      final columns = ((availableWidth + gap) / (minCardWidth + gap))
+          .floor()
+          .clamp(1, 3);
+      // The existing add FAB stays available. Avoid spending the first screen
+      // on a second add action when the catalog has only one column.
+      final showAddCard = columns > 1;
+      final gridWidth = math.min(
+        constraints.maxWidth,
+        columns * maxCardWidth + (columns - 1) * gap + horizontalPadding * 2,
+      );
+      final cardWidth =
+          (gridWidth - horizontalPadding * 2 - (columns - 1) * gap) / columns;
+      final textScaler = MediaQuery.textScalerOf(context);
+      final detailsHeight =
+          12 +
+          (textScaler.scale(18) * 1.25).ceilToDouble() +
+          4 +
+          (textScaler.scale(12) * 1.25).ceilToDouble() +
+          12 +
+          math.max(
+            AppStyle.of(context).buttonHeight,
+            textScaler.scale(12) * 1.25,
+          ) +
+          8;
+      return Center(
+        child: SizedBox(
+          width: gridWidth,
+          child: GridView.builder(
             key: const ValueKey('workout-grid'),
             controller: controller,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
               24,
-              24,
-              24,
+              horizontalPadding,
               AppStyle.of(context).floatingSize + 40,
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
-              mainAxisExtent: AppStyle.of(context).compact
-                  ? cardWidth * 9 / 16 + 138 * textScale
-                  : AppStyle.cardMinHeight + 138 * (textScale - 1),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+              mainAxisExtent: cardWidth * 9 / 16 + detailsHeight,
+              crossAxisSpacing: gap,
+              mainAxisSpacing: gap,
             ),
-            itemCount: items.length + 1,
-            itemBuilder: (context, index) => index == 0
+            itemCount: items.length + (showAddCard ? 1 : 0),
+            itemBuilder: (context, index) => showAddCard && index == 0
                 ? _AddWorkoutCard(isBusy: isBusy)
-                : _WorkoutCard(workout: items[index - 1], isBusy: isBusy),
-          );
-        },
-      ),
-    ),
+                : _WorkoutCard(
+                    workout: items[index - (showAddCard ? 1 : 0)],
+                    isBusy: isBusy,
+                  ),
+          ),
+        ),
+      );
+    },
   );
 }
 
@@ -516,11 +538,6 @@ class _SettingsMenu extends ConsumerWidget {
             ),
           ),
         ],
-        const PopupMenuDivider(),
-        const PopupMenuItem<_SettingsAction>(
-          enabled: false,
-          child: AppVersionTile(compact: true),
-        ),
       ],
     );
   }
@@ -639,7 +656,9 @@ class _WorkoutCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
+            AspectRatio(
+              key: ValueKey('workout-thumbnail-${workout.id}'),
+              aspectRatio: 16 / 9,
               child: ExcludeSemantics(
                 child: imageSource.isEmpty
                     ? const Center(
@@ -653,7 +672,7 @@ class _WorkoutCard extends ConsumerWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -661,7 +680,11 @@ class _WorkoutCard extends ConsumerWidget {
                     workout.name.isEmpty ? '이름 없음' : workout.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppStyle.of(context).subText3,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      height: 1.25,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -671,6 +694,7 @@ class _WorkoutCard extends ConsumerWidget {
                     style: const TextStyle(
                       color: XonColors.muted,
                       fontSize: 12,
+                      height: 1.25,
                     ),
                   ),
                 ],
@@ -678,7 +702,7 @@ class _WorkoutCard extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Padding(
-              padding: const EdgeInsets.only(left: 12, right: 4, bottom: 4),
+              padding: const EdgeInsets.only(left: 12, right: 4, bottom: 8),
               child: Row(
                 children: [
                   Expanded(
@@ -688,6 +712,7 @@ class _WorkoutCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12,
+                        height: 1.25,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
