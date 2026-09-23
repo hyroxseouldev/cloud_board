@@ -63,7 +63,22 @@ jobs:
 
       - name: Build Flutter web app
         run: |
-          flutter build web --release
+          set -euo pipefail
+          build_name="$(awk '/^version:/ {split($2, version, "+"); print version[1]; exit}' pubspec.yaml)"
+          test -n "$build_name"
+          # Include the attempt so rerunning a deployment remains identifiable.
+          build_number="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+          flutter build web --release \
+            --build-name "$build_name" \
+            --build-number "$build_number" \
+            --dart-define="APP_BUILD_NAME=$build_name" \
+            --dart-define="APP_BUILD_NUMBER=$build_number"
+          python3 - "$build_number" <<'PY'
+          import json, sys
+          with open('build/web/version.json') as file:
+              assert json.load(file)['build_number'] == sys.argv[1]
+          PY
+          echo "Web build: $build_name ($build_number)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy to Firebase Hosting
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

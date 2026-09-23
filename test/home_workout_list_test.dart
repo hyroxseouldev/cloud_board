@@ -15,13 +15,38 @@ import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_act
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   testWidgets('settings profile header opens profile with no duplicate menu', (
     tester,
   ) async {
+    PackageInfo.setMockInitialValues(
+      appName: 'CloudBoard',
+      packageName: 'cloud_board',
+      version: '1.0.0',
+      buildNumber: '532',
+      buildSignature: '',
+    );
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
     await _mount(
       tester,
       _CatalogRepository(_catalog(1)),
@@ -30,6 +55,10 @@ void main() {
     await tester.tap(find.byTooltip('설정'));
     await tester.pumpAndSettle();
     expect(find.text('프로필 조회 및 변경'), findsNothing);
+    expect(find.text('버전 1.0.0 · 빌드 532'), findsOneWidget);
+    await tester.tap(find.byTooltip('버전 정보 복사'));
+    await tester.pumpAndSettle();
+    expect(copied, contains('버전 1.0.0 · 빌드 532'));
     await tester.tap(find.text('Coach'));
     await tester.pumpAndSettle();
     expect(find.text('프로필 목적지'), findsOneWidget);
