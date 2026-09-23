@@ -14,6 +14,8 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairin
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/add_display_dialog.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
+import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 
 class DisplaySettingsScreen extends HookConsumerWidget {
   const DisplaySettingsScreen({super.key});
@@ -129,6 +131,53 @@ class DisplaySettingsScreen extends HookConsumerWidget {
                       busy: busy || pendingRemoval.value != null,
                       removing: pendingRemoval.value == device.id,
                       onToggle: (enabled) async {
+                        if (enabled &&
+                            items.any(
+                              (d) =>
+                                  d.id != device.id && d.displayState == 'auto',
+                            )) {
+                          try {
+                            final profile = await ref.read(
+                              userProfileControllerProvider.future,
+                            );
+                            if (!context.mounted) return;
+                            if (profile.subscriptionPlan == 'plus') {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (dialogContext) => AppAlertDialog(
+                                  title: const Text('송출 화면을 변경할까요?'),
+                                  content: Text(
+                                    '플러스는 동시에 1대에 송출할 수 있습니다. 기존 화면의 송출을 끄고 ${device.name}에서 이어서 표시합니다.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(dialogContext, false),
+                                      child: const Text('취소'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () =>
+                                          Navigator.pop(dialogContext, true),
+                                      child: const Text('변경'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed != true || !context.mounted) return;
+                            }
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '플랜 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                        }
                         final success = await ref
                             .read(deviceClaimControllerProvider.notifier)
                             .setDisplayState(

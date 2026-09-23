@@ -189,7 +189,14 @@ class _ActiveClass extends HookConsumerWidget {
               : '운동'} · ${state.secondsLeft ~/ 60}:${(state.secondsLeft % 60).toString().padLeft(2, '0')}';
     return Column(
       children: [
-        Expanded(child: child),
+        Expanded(
+          // The mini controller below already owns the bottom safe area.
+          child: MediaQuery.removePadding(
+            context: context,
+            removeBottom: true,
+            child: child,
+          ),
+        ),
         Material(
           color: AppColors.surface,
           elevation: 8,
@@ -287,17 +294,11 @@ class _ActiveClass extends HookConsumerWidget {
                     onPressed: disabled
                         ? null
                         : () => unawaited(actions.toggle()),
-                    icon: command.isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            state.isPaused
-                                ? Icons.play_arrow_rounded
-                                : Icons.pause_rounded,
-                          ),
+                    icon: Icon(
+                      state.isPaused
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
+                    ),
                   ),
                   IconButton(
                     tooltip: '다음 슬라이드',

@@ -307,7 +307,9 @@ class PlayerController extends _$PlayerController {
     return remote?.id == sessionId &&
         remote?.status != PlaybackStatus.completed &&
         ref.read(playbackConnectionProvider).value == true &&
-        !ref.read(playbackActionControllerProvider).isLoading;
+        ref
+            .read(playbackActionControllerProvider.notifier)
+            .canSendTransportCommand;
   }
 
   Future<void> toggle() async {

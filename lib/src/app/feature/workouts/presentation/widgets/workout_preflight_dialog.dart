@@ -35,7 +35,9 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider).value ?? const [];
-    final onlineDevices = devices.where((item) => item.online).toList();
+    final onlineDevices = devices
+        .where((item) => item.online && item.displayState == 'auto')
+        .toList();
     final selectedDeviceIds = useState<Set<String>>(
       onlineDevices.map((device) => device.id).toSet(),
     );

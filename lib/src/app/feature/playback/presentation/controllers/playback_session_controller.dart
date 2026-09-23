@@ -27,8 +27,16 @@ Stream<bool> playbackConnection(Ref ref) =>
 
 @Riverpod(keepAlive: true)
 class PlaybackActionController extends _$PlaybackActionController {
+  Timer? _transportCooldown;
+
+  bool get canSendTransportCommand =>
+      !state.isLoading && !(_transportCooldown?.isActive ?? false);
+
   @override
-  AsyncValue<String?> build() => const AsyncData(null);
+  AsyncValue<String?> build() {
+    ref.onDispose(() => _transportCooldown?.cancel());
+    return const AsyncData(null);
+  }
 
   Future<String?> start({
     required Workout workout,
@@ -69,11 +77,13 @@ class PlaybackActionController extends _$PlaybackActionController {
     '일시정지했습니다.',
     (actions, deviceId) =>
         actions.pause(remainingMs: remainingMs, deviceId: deviceId),
+    throttle: true,
   );
 
   Future<bool> resume() => _run(
     '재생을 계속합니다.',
     (actions, deviceId) => actions.resume(deviceId: deviceId),
+    throttle: true,
   );
 
   Future<bool> begin() => _run(
@@ -88,6 +98,7 @@ class PlaybackActionController extends _$PlaybackActionController {
       durationMs: durationMs,
       deviceId: deviceId,
     ),
+    throttle: true,
   );
 
   Future<bool>? _completion;
@@ -119,11 +130,19 @@ class PlaybackActionController extends _$PlaybackActionController {
 
   Future<bool> _run(
     String successMessage,
-    Future<void> Function(PlaybackActions actions, String deviceId) action,
-  ) async {
+    Future<void> Function(PlaybackActions actions, String deviceId) action, {
+    bool throttle = false,
+  }) async {
     if (state.isLoading ||
+        (throttle && !canSendTransportCommand) ||
         !ref.read(playbackRecoveryControllerProvider).hasValue) {
       return false;
+    }
+    if (throttle) {
+      // Accept the first tap immediately and drop rapid follow-up commands.
+      // Loading continues to guard requests that take longer than this window.
+      _transportCooldown?.cancel();
+      _transportCooldown = Timer(const Duration(milliseconds: 350), () {});
     }
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
@@ -133,6 +152,7 @@ class PlaybackActionController extends _$PlaybackActionController {
       );
       return successMessage;
     });
+    if (state.hasError && throttle) _transportCooldown?.cancel();
     return !state.hasError;
   }
 }

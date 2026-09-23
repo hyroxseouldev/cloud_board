@@ -273,11 +273,24 @@ class DevicePairingRealtimeDataSource {
   Future<void> setDisplayState({
     required String deviceId,
     required String displayState,
-  }) {
+  }) async {
     if (!const {'auto', 'standby', 'black'}.contains(displayState)) {
       throw ArgumentError.value(displayState, 'displayState');
     }
-    return _ownerRef.child('devices/$deviceId').update({
+    final access =
+        (await _database.ref('subscriptionAccess/$_ownerId').get()).value;
+    if (access is Map &&
+        (access['plan'] == 'plus' || access['plan'] == 'premium')) {
+      try {
+        await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
+            .httpsCallable('cloudboardSetDisplayState')
+            .call<void>({'deviceId': deviceId, 'displayState': displayState});
+      } on FirebaseFunctionsException catch (error) {
+        throw StateError(error.message ?? '디스플레이 상태를 변경하지 못했습니다.');
+      }
+      return;
+    }
+    await _ownerRef.child('devices/$deviceId').update({
       'displayState': displayState,
       'lastCommandAtMs': ServerValue.timestamp,
     });

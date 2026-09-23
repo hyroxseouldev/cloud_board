@@ -27,6 +27,21 @@ extension SubscriptionStatusLabel on SubscriptionStatus {
   };
 }
 
+extension UserProfilePlan on UserProfile {
+  bool get hasPlanDisplayPolicy =>
+      subscriptionPlan == 'plus' || subscriptionPlan == 'premium';
+  bool get unlimitedDisplays =>
+      subscriptionPlan == 'premium' && displayLimit == -1;
+  String get planLabel => switch (subscriptionPlan) {
+    'plus' => 'CloudBoard 플러스',
+    'premium' => 'CloudBoard 프리미엄',
+    _ => partnerTier.label,
+  };
+  String get displayLimitLabel => unlimitedDisplays
+      ? '디스플레이 무제한'
+      : '디스플레이 ${hasPlanDisplayPolicy ? "동시 " : ""}$displayLimit대';
+}
+
 @freezed
 abstract class UserProfile with _$UserProfile {
   const factory UserProfile({
