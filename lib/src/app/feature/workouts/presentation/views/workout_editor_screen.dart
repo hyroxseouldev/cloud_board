@@ -352,13 +352,14 @@ class _EditorBody extends HookConsumerWidget {
         child: Scaffold(
           floatingActionButtonLocation:
               FloatingActionButtonLocation.centerFloat,
-          floatingActionButton: FloatingActionButton(
+          floatingActionButton: FloatingActionButton.extended(
             tooltip: '슬라이드 추가',
             onPressed: isBusy ? null : () => addSlide(),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.add_rounded),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('슬라이드 추가'),
           ),
           appBar: AppBar(
             leading: BackButton(
