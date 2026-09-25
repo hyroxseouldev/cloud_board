@@ -472,10 +472,6 @@ class _EditorBody extends HookConsumerWidget {
                                       labelText: '워크아웃 이름',
                                       hintText: 'Title',
                                       isDense: true,
-                                      suffixIcon: Icon(
-                                        Icons.edit_outlined,
-                                        size: 18,
-                                      ),
                                     ),
                                   ),
                                 ),
