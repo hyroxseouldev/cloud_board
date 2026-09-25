@@ -187,6 +187,13 @@ class _SlideEditorBody extends HookConsumerWidget {
     final form = useMemoized(() => GlobalKey<FormState>());
     final description = useTextEditingController(text: module.text);
     final section = useState(1);
+    final sectionTransition = useAnimationController(
+      duration: const Duration(milliseconds: 180),
+      initialValue: 1,
+    );
+    final sectionOpacity = sectionTransition.drive(
+      CurveTween(curve: Curves.easeOutCubic),
+    );
     final settingsScroll = useScrollController();
     final revision = useState(0);
     final selectedBlockId = useState<String?>(null);
@@ -472,8 +479,14 @@ class _SlideEditorBody extends HookConsumerWidget {
     );
 
     void selectSection(int value) {
+      if (value == section.value) return;
       FocusScope.of(context).unfocus();
       section.value = value;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        sectionTransition.value = 1;
+      } else {
+        sectionTransition.forward(from: 0);
+      }
       if (settingsScroll.hasClients) settingsScroll.jumpTo(0);
     }
 
@@ -1034,7 +1047,12 @@ class _SlideEditorBody extends HookConsumerWidget {
                         ),
                         const Divider(height: 1),
                       ],
-                      Expanded(child: settings),
+                      Expanded(
+                        child: FadeTransition(
+                          opacity: sectionOpacity,
+                          child: settings,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1070,85 +1088,103 @@ class _SlideEditorTabBar extends StatelessWidget {
                   constraints.maxWidth < 600 &&
                   MediaQuery.textScalerOf(context).scale(12) >
                       (constraints.maxWidth < 350 ? 12 : 14);
+              final slot = (constraints.maxWidth - 16) / 17;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
+                child: Stack(
                   key: const ValueKey('slide-editor-tabs'),
                   children: [
-                    for (final item in const [
-                      (1, '타이머', Icons.timer_outlined),
-                      (2, '배경', Icons.image_outlined),
-                      (3, '소리', Icons.volume_up_outlined),
-                      (4, '라이브러리', Icons.filter_none_rounded),
-                    ])
-                      Expanded(
-                        flex: item.$1 == 4 ? 5 : 4,
-                        child: Semantics(
-                          selected: selected == item.$1,
-                          button: true,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () => onSelected(item.$1),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 2,
-                                vertical: 6,
-                              ),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 140),
-                                constraints: const BoxConstraints(
-                                  minHeight: 36,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: selected == item.$1
-                                      ? colors.primaryContainer
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Flex(
-                                  direction: stacked
-                                      ? Axis.vertical
-                                      : Axis.horizontal,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      item.$3,
-                                      size: 18,
-                                      color: selected == item.$1
-                                          ? colors.primary
-                                          : colors.onSurfaceVariant,
+                    AnimatedPositioned(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      left: (selected - 1) * 4 * slot + 2,
+                      width: (selected == 4 ? 5 : 4) * slot - 4,
+                      top: 6,
+                      bottom: 6,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          key: const ValueKey('slide-tab-indicator'),
+                          decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        for (final item in const [
+                          (1, '타이머', Icons.timer_outlined),
+                          (2, '배경', Icons.image_outlined),
+                          (3, '소리', Icons.volume_up_outlined),
+                          (4, '라이브러리', Icons.filter_none_rounded),
+                        ])
+                          Expanded(
+                            flex: item.$1 == 4 ? 5 : 4,
+                            child: Semantics(
+                              selected: selected == item.$1,
+                              button: true,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: () => onSelected(item.$1),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                    vertical: 6,
+                                  ),
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 36,
                                     ),
-                                    SizedBox(
-                                      width: stacked ? 0 : 4,
-                                      height: stacked ? 4 : 0,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                      vertical: 6,
                                     ),
-                                    Text(
-                                      item.$2,
-                                      style: TextStyle(
-                                        fontFamily: 'Pretendard',
-                                        fontSize: constraints.maxWidth < 350
-                                            ? 11
-                                            : 12,
-                                        fontWeight: selected == item.$1
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                        color: selected == item.$1
-                                            ? colors.primary
-                                            : colors.onSurfaceVariant,
-                                      ),
+                                    child: Flex(
+                                      direction: stacked
+                                          ? Axis.vertical
+                                          : Axis.horizontal,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          item.$3,
+                                          size: 18,
+                                          color: selected == item.$1
+                                              ? colors.primary
+                                              : colors.onSurfaceVariant,
+                                        ),
+                                        SizedBox(
+                                          width: stacked ? 0 : 4,
+                                          height: stacked ? 4 : 0,
+                                        ),
+                                        Text(
+                                          item.$2,
+                                          style: TextStyle(
+                                            fontFamily: 'Pretendard',
+                                            fontSize: constraints.maxWidth < 350
+                                                ? 11
+                                                : 12,
+                                            fontWeight: selected == item.$1
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                            color: selected == item.$1
+                                                ? colors.primary
+                                                : colors.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
+                      ],
+                    ),
                   ],
                 ),
               );

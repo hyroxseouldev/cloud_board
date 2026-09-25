@@ -146,6 +146,17 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      final indicator = find.byKey(const ValueKey('slide-tab-indicator'));
+      final startX = tester.getTopLeft(indicator).dx;
+      await tester.tap(find.descendant(of: bar, matching: find.text('배경')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final movingX = tester.getTopLeft(indicator).dx;
+      expect(movingX, greaterThan(startX));
+      // Retarget before the first animation finishes.
+      await tester.tap(find.descendant(of: bar, matching: find.text('소리')));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(indicator).dx, greaterThan(movingX));
       await tab('배경');
       final body = find.widgetWithText(TextFormField, '화면 텍스트');
       await reveal(body);
@@ -190,8 +201,10 @@ void main() {
       final colorRow = find.byKey(const ValueKey('timer-color-scroll'));
       final firstColor = find.byKey(const ValueKey('color-swatch-세트 숫자'));
       final lastColor = find.byKey(const ValueKey('color-swatch-휴식 시간 텍스트'));
-      expect(tester.getTopLeft(firstColor).dy,
-          closeTo(tester.getTopLeft(lastColor).dy, 1));
+      expect(
+        tester.getTopLeft(firstColor).dy,
+        closeTo(tester.getTopLeft(lastColor).dy, 1),
+      );
       await tester.drag(colorRow, const Offset(-600, 0));
       await tester.pumpAndSettle();
       await tester.ensureVisible(lastColor);
