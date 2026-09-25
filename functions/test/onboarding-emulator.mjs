@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {initializeApp,deleteApp} from 'firebase-admin/app';
+import {getFirestore} from 'firebase-admin/firestore';
+import {getDatabase} from 'firebase-admin/database';
+import {initializeTestEnvironment,assertFails} from '@firebase/rules-unit-testing';
+import {doc,getDoc,setDoc} from 'firebase/firestore';
+import {handleOnboarding,sendOnboardingCode,verifyOnboardingCode,readOnboarding,saveOnboarding,startOnboardingTrial,deleteOnboardingData} from '../src/onboarding.js';
+assert.match(process.env.FIRESTORE_EMULATOR_HOST||'',/^(127\.0\.0\.1|localhost):\d+$/);
+const projectId='demo-cloudboard-onboarding';
+const app=initializeApp({projectId,databaseURL:`http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}?ns=${projectId}`});
+const db=getFirestore(app),realtime=getDatabase(app),secret='test-only-secret',codes=new Map();
+const send=async(phone,code)=>{codes.set(phone,code);};
+const [host,port]=process.env.FIRESTORE_EMULATOR_HOST.split(':');
+const env=await initializeTestEnvironment({projectId,firestore:{host,port:Number(port),rules:fs.readFileSync(new URL('../../firestore.rules',import.meta.url),'utf8')}});
+const profile={purpose:'operating',role:'owner',centerName:'테스트 센터',centerTypes:['gym'],province:'서울',district:'강남구'};
+async function register(uid,phone) {await sendOnboardingCode(db,uid,phone,secret,send);await verifyOnboardingCode(db,uid,codes.get(phone),secret);}
+try {
+  await env.clearFirestore();await realtime.ref().remove();
+  await assert.rejects(handleOnboarding({db,realtime,auth:{uid:'anon',token:{firebase:{sign_in_provider:'anonymous'}}},input:{},secret,send}),{code:'unauthenticated'});
+  await register('owner','+821011112222');
+  let state=await readOnboarding(db,'owner');
+  assert.equal(state.phoneRequired,false);assert.equal(state.step,0);
+  const centerId=state.storeId;
+  await verifyOnboardingCode(db,'owner','111111',secret); // verified retry cannot create another center
+  assert.equal((await readOnboarding(db,'owner')).storeId,centerId);
+  await assert.rejects(startOnboardingTrial(db,realtime,'owner'),{code:'invalid-argument'});
+  await saveOnboarding(db,'owner',{action:'defer',profile,revision:0,step:1});
+  state=await readOnboarding(db,'owner');assert.equal(state.profile.centerName,'테스트 센터');assert.equal(state.deferred,true);
+  await assert.rejects(saveOnboarding(db,'owner',{action:'save',profile,revision:0,step:2}),{code:'aborted'});
+  await Promise.all([startOnboardingTrial(db,realtime,'owner'),startOnboardingTrial(db,realtime,'owner')]);
+  const first=(await db.doc('onboardingTrials/owner').get()).data();
+  await startOnboardingTrial(db,realtime,'owner');
+  assert.deepEqual((await db.doc('onboardingTrials/owner').get()).data(),first);
+  assert.equal((await realtime.ref('subscriptionAccess/owner').get()).val().plan,'premium');
+  await saveOnboarding(db,'owner',{action:'complete',profile,revision:1,step:3});
+  assert.equal((await readOnboarding(db,'owner')).completed,true);
+  // Expiry never extends on retry; input data stays readable.
+  await assert.rejects(startOnboardingTrial(db,realtime,'owner',first.endsAtMs),{code:'failed-precondition'});
+  assert.equal((await readOnboarding(db,'owner')).profile.centerName,'테스트 센터');
+  await sendOnboardingCode(db,'other','+821011112222',secret,send);
+  await assert.rejects(verifyOnboardingCode(db,'other',codes.get('+821011112222'),secret),{code:'invalid-argument'});
+  await sendOnboardingCode(db,'wrong','+821022223333',secret,send);
+  const correct=codes.get('+821022223333'),incorrect=correct==='000000'?'111111':'000000';
+  for(let i=0;i<5;i++) await assert.rejects(verifyOnboardingCode(db,'wrong',incorrect,secret),{code:'invalid-argument'});
+  await assert.rejects(verifyOnboardingCode(db,'wrong',correct,secret),{code:'invalid-argument'});
+  await assert.rejects(sendOnboardingCode(db,'wrong','+821022223333',secret,send),{code:'resource-exhausted'});
+  await register('paid','+821033334444');
+  await saveOnboarding(db,'paid',{action:'save',profile,revision:0,step:2});
+  const paid={managed:true,plan:'plus',source:'app_store',status:'active',validUntilMs:Date.now()+99999999,revision:50};
+  await db.doc('subscriptionEntitlements/paid').set(paid);await realtime.ref('subscriptionAccess/paid').set(paid);
+  await startOnboardingTrial(db,realtime,'paid');
+  assert.deepEqual((await db.doc('subscriptionEntitlements/paid').get()).data(),paid);
+  assert.equal((await db.doc('onboardingTrials/paid').get()).exists,false);
+  await register('pilot','+821044445555');
+  await saveOnboarding(db,'pilot',{action:'save',profile,revision:0,step:2});
+  await realtime.ref('legacyPilotAccess/pilot').set({validUntilMs:Date.now()+99999999});
+  const pilot=await readOnboarding(db,'pilot',Date.now(),realtime);
+  assert.equal(pilot.hasAccess,true);assert.equal(pilot.trialEligible,false);
+  await startOnboardingTrial(db,realtime,'pilot');
+  assert.equal((await db.doc('onboardingTrials/pilot').get()).exists,false);
+  // Clients cannot read another center, SMS secrets or mutate completion/grants.
+  const client=env.authenticatedContext('owner').firestore();
+  await assertFails(getDoc(doc(client,`centers/${centerId}`)));
+  await assertFails(getDoc(doc(client,'onboardingPhoneChallenges/owner')));
+  await assertFails(setDoc(doc(client,'users/owner/onboarding/progress'),{completed:true}));
+  await assertFails(setDoc(doc(client,'subscriptionEntitlements/owner'),{validUntilMs:9999999999999}));
+  await db.doc('accountDeletions/owner').set({status:'pending'});
+  await assert.rejects(readOnboarding(db,'owner'),{code:'permission-denied'});
+  await assert.rejects(startOnboardingTrial(db,realtime,'owner'),{code:'permission-denied'});
+  await deleteOnboardingData(db,'owner');
+  assert.equal((await db.doc(`centers/${centerId}`).get()).exists,false);
+  assert.equal((await db.doc('subscriptionEntitlements/owner').get()).exists,false);
+  assert.equal((await db.collection('onboardingPhoneOwners').where('uid','==','owner').get()).empty,true);
+  await deleteOnboardingData(db,'paid');
+  assert.deepEqual((await db.doc('subscriptionEntitlements/paid').get()).data(),paid);
+  console.log('PASS: SMS ownership/attempts/cooldown, resume/conflicts, concurrent trial, expiry, paid protection, rules and deletion lock');
+} finally {await env.cleanup();await db.terminate();await deleteApp(app);}

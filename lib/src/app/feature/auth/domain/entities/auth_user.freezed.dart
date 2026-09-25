@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AuthUser {
 
- String get id; String get email; String get displayName; String? get photoUrl;
+ String get id; String get email; String get displayName; String? get photoUrl; bool? get needsOnboarding;
 /// Create a copy of AuthUser
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $AuthUserCopyWith<AuthUser> get copyWith => _$AuthUserCopyWithImpl<AuthUser>(thi
 @override
 bool operator ==(Object other) {
   final _this = this as AuthUser;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthUser&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.email, _this.email) || other.email == _this.email)&&(identical(other.displayName, _this.displayName) || other.displayName == _this.displayName)&&(identical(other.photoUrl, _this.photoUrl) || other.photoUrl == _this.photoUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthUser&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.email, _this.email) || other.email == _this.email)&&(identical(other.displayName, _this.displayName) || other.displayName == _this.displayName)&&(identical(other.photoUrl, _this.photoUrl) || other.photoUrl == _this.photoUrl)&&(identical(other.needsOnboarding, _this.needsOnboarding) || other.needsOnboarding == _this.needsOnboarding));
 }
 
 
 @override
 int get hashCode {
   final _this = this as AuthUser;
-  return Object.hash(runtimeType,_this.id,_this.email,_this.displayName,_this.photoUrl);
+  return Object.hash(runtimeType,_this.id,_this.email,_this.displayName,_this.photoUrl,_this.needsOnboarding);
 }
 
 @override
 String toString() {
   final _this = this as AuthUser;
-  return 'AuthUser(id: ${_this.id}, email: ${_this.email}, displayName: ${_this.displayName}, photoUrl: ${_this.photoUrl})';
+  return 'AuthUser(id: ${_this.id}, email: ${_this.email}, displayName: ${_this.displayName}, photoUrl: ${_this.photoUrl}, needsOnboarding: ${_this.needsOnboarding})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $AuthUserCopyWith<$Res>  {
   factory $AuthUserCopyWith(AuthUser value, $Res Function(AuthUser) _then) = _$AuthUserCopyWithImpl;
 @useResult
 $Res call({
- String id, String email, String displayName, String? photoUrl
+ String id, String email, String displayName, String? photoUrl, bool? needsOnboarding
 });
 
 
@@ -68,13 +68,14 @@ class _$AuthUserCopyWithImpl<$Res>
 
 /// Create a copy of AuthUser
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,Object? needsOnboarding = freezed,}) {
   return _then(AuthUser(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,needsOnboarding: freezed == needsOnboarding ? _self.needsOnboarding : needsOnboarding // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
@@ -159,10 +160,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl,  bool? needsOnboarding)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AuthUser() when $default != null:
-return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
+return $default(_that.id,_that.email,_that.displayName,_that.photoUrl,_that.needsOnboarding);case _:
   return orElse();
 
 }
@@ -180,10 +181,10 @@ return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String email,  String displayName,  String? photoUrl,  bool? needsOnboarding)  $default,) {final _that = this;
 switch (_that) {
 case _AuthUser():
-return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
+return $default(_that.id,_that.email,_that.displayName,_that.photoUrl,_that.needsOnboarding);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +201,10 @@ return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String email,  String displayName,  String? photoUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String email,  String displayName,  String? photoUrl,  bool? needsOnboarding)?  $default,) {final _that = this;
 switch (_that) {
 case _AuthUser() when $default != null:
-return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
+return $default(_that.id,_that.email,_that.displayName,_that.photoUrl,_that.needsOnboarding);case _:
   return null;
 
 }
@@ -215,13 +216,14 @@ return $default(_that.id,_that.email,_that.displayName,_that.photoUrl);case _:
 
 
 class _AuthUser implements AuthUser {
-  const _AuthUser({required this.id, required this.email, required this.displayName, required this.photoUrl});
+  const _AuthUser({required this.id, required this.email, required this.displayName, required this.photoUrl, this.needsOnboarding = false});
   
 
 @override final  String id;
 @override final  String email;
 @override final  String displayName;
 @override final  String? photoUrl;
+@override@JsonKey() final  bool? needsOnboarding;
 
 /// Create a copy of AuthUser
 /// with the given fields replaced by the non-null parameter values.
@@ -233,18 +235,18 @@ _$AuthUserCopyWith<_AuthUser> get copyWith => __$AuthUserCopyWithImpl<_AuthUser>
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AuthUser&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AuthUser&&(identical(other.id, id) || other.id == id)&&(identical(other.email, email) || other.email == email)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.needsOnboarding, needsOnboarding) || other.needsOnboarding == needsOnboarding));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,email,displayName,photoUrl);
+    return Object.hash(runtimeType,id,email,displayName,photoUrl,needsOnboarding);
 }
 
 @override
 String toString() {
-    return 'AuthUser(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl)';
+    return 'AuthUser(id: $id, email: $email, displayName: $displayName, photoUrl: $photoUrl, needsOnboarding: $needsOnboarding)';
 }
 
 
@@ -255,7 +257,7 @@ abstract mixin class _$AuthUserCopyWith<$Res> implements $AuthUserCopyWith<$Res>
   factory _$AuthUserCopyWith(_AuthUser value, $Res Function(_AuthUser) _then) = __$AuthUserCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String email, String displayName, String? photoUrl
+ String id, String email, String displayName, String? photoUrl, bool? needsOnboarding
 });
 
 
@@ -272,13 +274,14 @@ class __$AuthUserCopyWithImpl<$Res>
 
 /// Create a copy of AuthUser
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? email = null,Object? displayName = null,Object? photoUrl = freezed,Object? needsOnboarding = freezed,}) {
   return _then(_AuthUser(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,needsOnboarding: freezed == needsOnboarding ? _self.needsOnboarding : needsOnboarding // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 

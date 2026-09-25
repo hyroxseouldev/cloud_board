@@ -831,7 +831,6 @@ void main() {
     final guard = ExitGuard();
     final request = SlideEditRequest(
       module: module,
-      onSaveTimer: (_) async => true,
       onSave: (value) async {
         saved.add(value);
         return saved.length > 1;
@@ -877,10 +876,20 @@ void main() {
     );
     await tester.pumpAndSettle();
     final title = find.byKey(const ValueKey('slide-title-button'));
-    expect(tester.widget<IconButton>(find.byKey(const ValueKey('slide-save-button'))).onPressed, isNull);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('slide-save-button')))
+          .onPressed,
+      isNull,
+    );
     expect(find.text('저장됨'), findsNothing);
     await renameSlide(tester, '수정 제목');
-    expect(tester.widget<IconButton>(find.byKey(const ValueKey('slide-save-button'))).onPressed, isNotNull);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('slide-save-button')))
+          .onPressed,
+      isNotNull,
+    );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
     await tester.pumpAndSettle();
@@ -888,9 +897,11 @@ void main() {
     final settingsRect = tester.getRect(
       find.byKey(const ValueKey('timer-editor-settings')),
     );
-    for (var attempt = 0;
-        attempt < 20 && addBlock.hitTestable().evaluate().isEmpty;
-        attempt++) {
+    for (
+      var attempt = 0;
+      attempt < 20 && addBlock.hitTestable().evaluate().isEmpty;
+      attempt++
+    ) {
       // Drag beside the duration wheels, which handle their own vertical swipes.
       await tester.dragFrom(
         Offset(settingsRect.left + 8, settingsRect.center.dy),
@@ -902,10 +913,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('블록 2'), findsOneWidget);
     expect(saved, isEmpty);
-    await tester.tap(find.byKey(const ValueKey('save-timer-editor')));
+    await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
-    await tester.pumpAndSettle();
+    expect(saved, isEmpty);
     router.go('/');
     await tester.pumpAndSettle();
     expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
@@ -1089,11 +1099,16 @@ void main() {
         );
         await tester.pumpAndSettle();
         final saveButton = find.byKey(const ValueKey('workout-save-button'));
-        expect(tester.widget<IconButton>(saveButton).onPressed,
-            id == 'new' ? isNotNull : isNull);
-        final initialName = tester.widget<TextField>(
-          find.byKey(const ValueKey('workout-name-button')),
-        ).controller!.text;
+        expect(
+          tester.widget<IconButton>(saveButton).onPressed,
+          id == 'new' ? isNotNull : isNull,
+        );
+        final initialName = tester
+            .widget<TextField>(
+              find.byKey(const ValueKey('workout-name-button')),
+            )
+            .controller!
+            .text;
         await tester.tap(find.byKey(const ValueKey('workout-name-button')));
         await tester.pumpAndSettle();
         final nameInput = find.widgetWithText(TextFormField, '워크아웃 이름');
@@ -1104,15 +1119,29 @@ void main() {
         await tester.enterText(nameInput, '취소할 이름');
         await tester.tap(find.widgetWithText(TextButton, '취소'));
         await tester.pumpAndSettle();
-        expect(tester.widget<TextField>(
-          find.byKey(const ValueKey('workout-name-button')),
-        ).controller!.text, initialName);
-        expect(tester.widget<IconButton>(saveButton).onPressed,
-            id == 'new' ? isNotNull : isNull);
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const ValueKey('workout-name-button')),
+              )
+              .controller!
+              .text,
+          initialName,
+        );
+        expect(
+          tester.widget<IconButton>(saveButton).onPressed,
+          id == 'new' ? isNotNull : isNull,
+        );
         await renameWorkout(tester, '  첫 번째 저장  ');
-        expect(tester.widget<TextField>(
-          find.byKey(const ValueKey('workout-name-button')),
-        ).controller!.text, '첫 번째 저장');
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const ValueKey('workout-name-button')),
+              )
+              .controller!
+              .text,
+          '첫 번째 저장',
+        );
         await tester.pump();
         final title = tester.getRect(find.text('워크아웃 편집'));
         final save = tester.getRect(find.byTooltip('저장'));
@@ -1127,15 +1156,32 @@ void main() {
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();
         expect(saved, isEmpty);
-        expect(find.text('저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.'), findsOneWidget);
-        expect(tester.widget<IconButton>(find.byKey(const ValueKey('workout-save-button'))).onPressed, isNotNull);
+        expect(
+          find.text('저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const ValueKey('workout-save-button')),
+              )
+              .onPressed,
+          isNotNull,
+        );
         expect(router.routeInformationProvider.value.uri.path, '/editor/$id');
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();
         expect(saved.length, 1);
         expect(find.text('워크아웃 편집'), findsOneWidget);
         expect(find.text('저장됨'), findsNothing);
-        expect(tester.widget<IconButton>(find.byKey(const ValueKey('workout-save-button'))).onPressed, isNull);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const ValueKey('workout-save-button')),
+              )
+              .onPressed,
+          isNull,
+        );
         expect(
           router.routeInformationProvider.value.uri.path,
           '/editor/${saved.first.id}',
@@ -1159,142 +1205,137 @@ void main() {
   }
 
   for (final id in ['w', 'new']) {
-    testWidgets(
-      '$id timer save persists alone without saving parent or slide appearance draft',
-      (tester) async {
-        final saved = <Workout>[];
-        final parentGuard = ExitGuard(), childGuard = ExitGuard();
-        final router = GoRouter(
-          initialLocation: '/editor/$id',
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const Scaffold(body: Text('홈')),
+    testWidgets('$id timer apply defers persistence until the slide save', (
+      tester,
+    ) async {
+      final saved = <Workout>[];
+      final parentGuard = ExitGuard(), childGuard = ExitGuard();
+      final router = GoRouter(
+        initialLocation: '/editor/$id',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const Scaffold(body: Text('홈')),
+          ),
+          GoRoute(
+            path: '/editor/:id',
+            builder: (_, state) => WorkoutEditorScreen(
+              workoutId: state.pathParameters['id']!,
+              guard: parentGuard,
             ),
-            GoRoute(
-              path: '/editor/:id',
-              builder: (_, state) => WorkoutEditorScreen(
-                workoutId: state.pathParameters['id']!,
-                guard: parentGuard,
-              ),
-              onExit: (_, _) => parentGuard.confirm(),
-              routes: [
-                GoRoute(
-                  path: 'slides/:moduleId',
-                  builder: (_, state) => SlideEditorScreen(
-                    workoutId: id,
-                    moduleId: state.pathParameters['moduleId']!,
-                    guard: childGuard,
-                    request: state.extra as SlideEditRequest,
-                  ),
-                  onExit: (_, _) => childGuard.confirm(),
+            onExit: (_, _) => parentGuard.confirm(),
+            routes: [
+              GoRoute(
+                path: 'slides/:moduleId',
+                builder: (_, state) => SlideEditorScreen(
+                  workoutId: id,
+                  moduleId: state.pathParameters['moduleId']!,
+                  guard: childGuard,
+                  request: state.extra as SlideEditRequest,
                 ),
-              ],
-            ),
-          ],
-        );
-        addTearDown(router.dispose);
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              slideEditorRepositoryProvider.overrideWithValue(
-                LocalSlideEditorRepository(SlideEditorLocalDataSource()),
-              ),
-
-              authStateProvider.overrideWith(
-                (ref) => Stream.value(
-                  const AuthUser(
-                    id: 'u',
-                    email: 'coach@example.com',
-                    displayName: 'Coach',
-                    photoUrl: null,
-                  ),
-                ),
-              ),
-              fixtureWorkoutDetails,
-              workoutControllerProvider.overrideWith(_TestWorkouts.new),
-              accountWorkoutPreferencesProvider('u')
-                  .overrideWith((ref) async => const WorkoutPreferences()),
-              workoutActionControllerProvider.overrideWith(
-                () => _SaveWorkouts(saved),
+                onExit: (_, _) => childGuard.confirm(),
               ),
             ],
-            child: MaterialApp.router(
-              theme: XonTheme.light,
-              builder: XonTheme.responsiveBuilder,
-              routerConfig: router,
-            ),
           ),
-        );
-        await tester.pumpAndSettle();
-        if (id == 'w') {
-          await renameWorkout(tester, '저장하지 않은 워크아웃 이름');
-          await tester.pump();
-        }
-        if (id == 'new') {
-          await tester.tap(find.byTooltip('슬라이드 추가'));
-          await tester.pumpAndSettle();
-        }
-        await scrollTo(tester, find.text('새 운동 1'));
-        await tester.tap(find.text('새 운동 1'));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
-        expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
-        await renameSlide(tester, '저장하지 않은 슬라이드 이름');
-        await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
-        await tester.pumpAndSettle();
-        tester
-            .widget<CupertinoPicker>(
-              find.byKey(const ValueKey('combined-minutes-picker')),
-            )
-            .onSelectedItemChanged!(2);
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+
+            authStateProvider.overrideWith(
+              (ref) => Stream.value(
+                const AuthUser(
+                  id: 'u',
+                  email: 'coach@example.com',
+                  displayName: 'Coach',
+                  photoUrl: null,
+                ),
+              ),
+            ),
+            fixtureWorkoutDetails,
+            workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            accountWorkoutPreferencesProvider('u')
+                .overrideWith((ref) async => const WorkoutPreferences()),
+            workoutActionControllerProvider.overrideWith(
+              () => _SaveWorkouts(saved),
+            ),
+          ],
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            builder: XonTheme.responsiveBuilder,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (id == 'w') {
+        await renameWorkout(tester, '저장하지 않은 워크아웃 이름');
         await tester.pump();
-        await tester.tap(find.byKey(const ValueKey('save-timer-editor')));
-        await tester.pump(const Duration(milliseconds: 400));
-        if (id == 'new') {
-          expect(find.text('워크아웃 이름이 필요합니다'), findsOneWidget);
-          await tester.enterText(
-            find.widgetWithText(TextFormField, '저장할 워크아웃 이름'),
-            '새 수업',
-          );
-          await tester.tap(find.text('계속 저장'));
-        }
+      }
+      if (id == 'new') {
+        await tester.tap(find.byTooltip('슬라이드 추가'));
         await tester.pumpAndSettle();
-        expect(saved, hasLength(1));
-        expect(saved.single.modules.single.name, '새 운동 1');
-        expect(saved.single.name, id == 'new' ? '새 수업' : '수업');
-        expect(
-          saved.single.modules.single.workSeconds,
-          greaterThanOrEqualTo(120),
+      }
+      await scrollTo(tester, find.text('새 운동 1'));
+      await tester.tap(find.text('새 운동 1'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
+      expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+      await renameSlide(tester, '저장하지 않은 슬라이드 이름');
+      await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
+      await tester.pumpAndSettle();
+      tester
+          .widget<CupertinoPicker>(
+            find.byKey(const ValueKey('combined-minutes-picker')),
+          )
+          .onSelectedItemChanged!(2);
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
+      await tester.pumpAndSettle();
+      expect(saved, isEmpty);
+      expect(find.text('타이머 편집'), findsNothing);
+      expect(find.text('워크아웃 이름이 필요합니다'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('slide-save-button')));
+      await tester.pump(const Duration(milliseconds: 400));
+      if (id == 'new') {
+        expect(find.text('워크아웃 이름이 필요합니다'), findsOneWidget);
+        await tester.enterText(
+          find.widgetWithText(TextFormField, '저장할 워크아웃 이름'),
+          '새 수업',
         );
-        expect(find.text('타이머 편집'), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
-        await tester.pumpAndSettle();
-        expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
-        expect(
-          tester
-              .widget<Text>(find.byKey(const ValueKey('slide-title-text')))
-              .data,
-          '저장하지 않은 슬라이드 이름',
-        );
-        await tester.pageBack();
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('저장 안 하고 나가기'));
-        await tester.pumpAndSettle();
-        expect(find.text('워크아웃 편집'), findsOneWidget);
-        expect(
-          tester
-              .widget<TextField>(find.widgetWithText(TextField, '워크아웃 이름'))
-              .controller!
-              .text,
-          id == 'new' ? '새 수업' : '저장하지 않은 워크아웃 이름',
-        );
-        expect(saved, hasLength(1));
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-        await tester.pumpAndSettle();
-      },
-    );
+        await tester.tap(find.text('계속 저장'));
+      }
+      await tester.pumpAndSettle();
+      expect(saved, hasLength(1));
+      expect(saved.single.modules.single.name, '저장하지 않은 슬라이드 이름');
+      expect(saved.single.name, id == 'new' ? '새 수업' : '저장하지 않은 워크아웃 이름');
+      expect(
+        saved.single.modules.single.workSeconds,
+        greaterThanOrEqualTo(120),
+      );
+      expect(find.text('타이머 편집'), findsNothing);
+      expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+      expect(find.text('워크아웃 편집'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, '워크아웃 이름'))
+            .controller!
+            .text,
+        id == 'new' ? '새 수업' : '저장하지 않은 워크아웃 이름',
+      );
+      expect(saved, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    });
   }
 
   for (final id in ['w', 'new']) {
@@ -1415,7 +1456,14 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('하위 페이지에서 수정'), findsOneWidget);
         expect(find.text('저장됨'), findsNothing);
-        expect(tester.widget<IconButton>(find.byKey(const ValueKey('workout-save-button'))).onPressed, isNull);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const ValueKey('workout-save-button')),
+              )
+              .onPressed,
+          isNull,
+        );
         if (id == 'w') {
           await tester.tap(find.byTooltip('슬라이드 메뉴').first);
           await tester.pumpAndSettle();
@@ -1635,9 +1683,7 @@ Future<void> renameSlide(WidgetTester tester, String value) async {
 Future<void> renameWorkout(WidgetTester tester, String value) async {
   await tester.tap(find.byKey(const ValueKey('workout-name-button')));
   await tester.pumpAndSettle();
-  await tester.enterText(
-    find.widgetWithText(TextFormField, '워크아웃 이름'), value,
-  );
+  await tester.enterText(find.widgetWithText(TextFormField, '워크아웃 이름'), value);
   await tester.tap(find.widgetWithText(FilledButton, '변경'));
   await tester.pumpAndSettle();
 }

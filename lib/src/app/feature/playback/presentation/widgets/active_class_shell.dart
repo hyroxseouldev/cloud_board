@@ -175,6 +175,18 @@ class _ActiveClass extends HookConsumerWidget {
         step == null ||
         MediaQuery.viewInsetsOf(context).bottom > 0;
     if (hidden) return child;
+    final totalMs = state.steps.fold<int>(
+      0,
+      (total, item) => total + item.duration * 1000,
+    );
+    final elapsedMs = preparing
+        ? 0
+        : state.steps
+                  .take(state.index)
+                  .fold<int>(0, (total, item) => total + item.duration * 1000) +
+              step.duration * 1000 -
+              state.remainingMs;
+    final progress = totalMs > 0 ? (elapsedMs / totalMs).clamp(0.0, 1.0) : 0.0;
     final disabled = command.isLoading || !connected || preparing;
     final label = !connected
         ? '컨트롤러 서버 연결 확인 중'
@@ -200,122 +212,145 @@ class _ActiveClass extends HookConsumerWidget {
         Material(
           color: AppColors.surface,
           elevation: 8,
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 76,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      key: const ValueKey('expand-class'),
-                      onTap: () => context.push(
-                        Uri(
-                          path: '/player/${session.workout.id}',
-                          queryParameters: {'session': session.id},
-                        ).toString(),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: SizedBox(
-                                width: 64,
-                                height: 44,
-                                child: step.module.imageSource.isEmpty
-                                    ? const ColoredBox(
-                                        color: AppColors.selected,
-                                        child: Icon(Icons.slideshow_outlined),
-                                      )
-                                    : WorkoutImage(
-                                        source: step.module.imageSource,
-                                        fit: BoxFit.cover,
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    session.workout.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (ref.watch(playbackRecoveryControllerProvider).hasError)
-                    IconButton(
-                      tooltip: '다시 연결',
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () => unawaited(
-                        ref
-                            .read(playbackRecoveryControllerProvider.notifier)
-                            .recover(),
-                      ),
-                    ),
-                  IconButton(
-                    tooltip: '이전 슬라이드',
-                    onPressed: disabled || step.moduleIndex == 0
-                        ? null
-                        : () => unawaited(
-                            actions.selectModule(step.moduleIndex - 1),
-                          ),
-                    icon: const Icon(Icons.skip_previous_rounded),
-                  ),
-                  IconButton(
-                    tooltip: state.isPaused ? '수업 재개' : '수업 일시정지',
-                    onPressed: disabled
-                        ? null
-                        : () => unawaited(actions.toggle()),
-                    icon: Icon(
-                      state.isPaused
-                          ? Icons.play_arrow_rounded
-                          : Icons.pause_rounded,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '다음 슬라이드',
-                    onPressed:
-                        disabled ||
-                            step.moduleIndex + 1 >=
-                                session.workout.modules.length
-                        ? null
-                        : () => unawaited(
-                            actions.selectModule(step.moduleIndex + 1),
-                          ),
-                    icon: const Icon(Icons.skip_next_rounded),
-                  ),
-                  const SizedBox(width: 8),
-                ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LinearProgressIndicator(
+                key: const ValueKey('mini-class-progress'),
+                value: progress,
+                minHeight: 3,
+                stopIndicatorRadius: 0,
+                trackGap: 0,
+                color: AppColors.accent,
+                backgroundColor: AppColors.selected,
+                semanticsLabel: '전체 수업 진행률',
+                semanticsValue: '${(progress * 100).round()}%',
               ),
-            ),
+              SafeArea(
+                top: false,
+                child: SizedBox(
+                  height: 76,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          key: const ValueKey('expand-class'),
+                          onTap: () => context.push(
+                            Uri(
+                              path: '/player/${session.workout.id}',
+                              queryParameters: {'session': session.id},
+                            ).toString(),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: SizedBox(
+                                    width: 64,
+                                    height: 44,
+                                    child: step.module.imageSource.isEmpty
+                                        ? const ColoredBox(
+                                            color: AppColors.selected,
+                                            child: Icon(
+                                              Icons.slideshow_outlined,
+                                            ),
+                                          )
+                                        : WorkoutImage(
+                                            source: step.module.imageSource,
+                                            fit: BoxFit.cover,
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        session.workout.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (ref
+                          .watch(playbackRecoveryControllerProvider)
+                          .hasError)
+                        IconButton(
+                          tooltip: '다시 연결',
+                          icon: const Icon(Icons.refresh),
+                          onPressed: () => unawaited(
+                            ref
+                                .read(
+                                  playbackRecoveryControllerProvider.notifier,
+                                )
+                                .recover(),
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: '이전 슬라이드',
+                        onPressed: disabled || step.moduleIndex == 0
+                            ? null
+                            : () => unawaited(
+                                actions.selectModule(step.moduleIndex - 1),
+                              ),
+                        icon: const Icon(Icons.skip_previous_rounded),
+                      ),
+                      IconButton(
+                        tooltip: state.isPaused ? '수업 재개' : '수업 일시정지',
+                        onPressed: disabled
+                            ? null
+                            : () => unawaited(actions.toggle()),
+                        icon: Icon(
+                          state.isPaused
+                              ? Icons.play_arrow_rounded
+                              : Icons.pause_rounded,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '다음 슬라이드',
+                        onPressed:
+                            disabled ||
+                                step.moduleIndex + 1 >=
+                                    session.workout.modules.length
+                            ? null
+                            : () => unawaited(
+                                actions.selectModule(step.moduleIndex + 1),
+                              ),
+                        icon: const Icon(Icons.skip_next_rounded),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

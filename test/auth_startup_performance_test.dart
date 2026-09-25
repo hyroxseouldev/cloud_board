@@ -55,6 +55,8 @@ class _User implements User {
   @override
   String get uid => 'u';
   @override
+  UserMetadata get metadata => UserMetadata(0, 0);
+  @override
   String? get email => 'user@example.com';
   @override
   String? get displayName => 'Coach';

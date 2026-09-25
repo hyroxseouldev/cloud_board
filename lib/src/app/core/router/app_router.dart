@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboarding_screen.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_edit_gate.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/active_class_shell.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
@@ -25,11 +27,13 @@ part 'app_router.g.dart';
 GoRouter appRouter(Ref ref) {
   final authRefresh = ValueNotifier(0);
   ref.listen(authStateProvider, (_, _) => authRefresh.value++);
+  ref.listen(onboardingRequiredProvider, (_, _) => authRefresh.value++);
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
   final standbyGuard = ExitGuard();
   final operationsGuard = ExitGuard();
   final profileGuard = ExitGuard();
+  final onboardingGuard = ExitGuard();
   final router = GoRouter(
     initialLocation: '/',
     refreshListenable: authRefresh,
@@ -60,6 +64,12 @@ GoRouter appRouter(Ref ref) {
         }
         return destination.toString();
       }
+      if (isLoggedIn && auth.value?.needsOnboarding == true) {
+        final onboarding = ref.read(onboardingRequiredProvider);
+        if (onboarding.value != false && state.uri.path != '/onboarding') {
+          return '/onboarding';
+        }
+      }
       if (isLoggedIn && isLoginRoute) return '/';
       return null;
     },
@@ -68,6 +78,14 @@ GoRouter appRouter(Ref ref) {
         path: '/auth-loading',
         builder: (_, _) =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        onExit: (_, _) => onboardingGuard.confirm(),
+        builder: (_, state) => OnboardingScreen(
+          editing: state.uri.queryParameters['edit'] == 'true',
+          guard: onboardingGuard,
+        ),
       ),
       GoRoute(
         path: '/login',

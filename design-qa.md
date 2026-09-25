@@ -54,3 +54,15 @@ final result: passed
 - Verification: analyzer clean; native hot reload successful; sound tab tap verified. No browser prototype, build or deployment involved.
 - Follow-up: large accessibility text fallback has not been visually captured on simulator.
 - final result: passed
+
+## STA-34 — Firebase onboarding, design 3 (2026-09-25)
+
+- Reference: `docs/design/onboarding/reference.png`, 850×1848, approved purpose-selection mock 3.
+- Implementation: `docs/design/onboarding/purpose-fixture.png`, real Flutter widgets at 390×844 logical / 780×1688 raster, regular Pretendard and Material icons loaded, fake repository with operating selected. This is a deterministic UI fixture, not a production account with fabricated verification.
+- Live entry: `docs/design/onboarding/phone-simulator.jpg`, 368×800 normalized screenshot from iPhone 17 Pro, authenticated callable loaded successfully after hot reload. No real SMS was sent.
+- Reference, purpose fixture and live phone entry were opened together in one comparison result. Compared normalized full frames and the heading, progress indicators, grouped choices, selected border, bottom primary action and explanatory copy.
+- White background, existing lavender theme, three purpose rows, trailing radio controls, outline group and bottom CTA match the chosen direction. AppBar uses the existing brand style; `건너뛰기` is clarified as `나중에` because it saves progress. Initial production state has no preselected purpose. Native status bar/safe area appears on device and is outside the supplied mock.
+- Existing Material outlined icons replace the mock's drawn icons. No generated raster assets are needed in the app. Form body scrolls independently above the bottom action, with a 600 logical-pixel content limit on wider devices.
+- Tests cover 320/390/834 widths without overflow, failed save retry, explicit trial consent, existing-access completion and auth redirect. The phone screen uses a scrollable body for the keyboard. Subsequent center fields and trial steps were behavior-tested; not all field combinations have live simulator screenshots.
+- No actionable P0/P1/P2 visual findings in the reviewed purpose and phone states. Actual SMS delivery and full production OTP completion remain manual checks.
+- final result: passed for reviewed visual states.

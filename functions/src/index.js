@@ -44,8 +44,15 @@ const services={
     await ignoreMissingAuth(()=>auth.revokeRefreshTokens(uid));
   },
   async deleteFiles(uid) { await bucket.deleteFiles({prefix:`users/${uid}/`}); },
-  async deleteDocuments(uid) { await db.recursiveDelete(db.doc(`users/${uid}`)); },
-  async deleteRealtime(uid) { await userRef(uid).remove(); },
+  async deleteDocuments(uid) {
+    const {deleteOnboardingData}=await import('./onboarding.js');
+    await deleteOnboardingData(db,uid);
+    await db.recursiveDelete(db.doc(`users/${uid}`));
+  },
+  async deleteRealtime(uid) {
+    await userRef(uid).remove();
+    await realtime.ref(`subscriptionAccess/${uid}`).transaction(value=>value?.source==='app_trial'?null:undefined);
+  },
   async verifyEmpty(uid) {
     const [files, user, live, access, codes]=await Promise.all([
       bucket.getFiles({prefix:`users/${uid}/`,maxResults:1,autoPaginate:false}),
@@ -160,4 +167,42 @@ export const syncSlideLibraryPlan = onDocumentWritten({
 }, async event => {
   const {reconcileSlideLibraryFavorites} = await import('./slide-library.js');
   await reconcileSlideLibraryFavorites(db, event.params.uid);
+});
+
+// Firebase-native app onboarding. No web login or Postgres connection required.
+export const cloudboardAppOnboarding = onCall({
+  region, timeoutSeconds: 60, maxInstances: 3,
+  secrets: ['CLOUDBOARD_ONBOARDING_SECRET', 'SOLAPI_API_KEY', 'SOLAPI_API_SECRET'],
+}, async request => {
+  if (!request.auth) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+  const bearer=request.rawRequest.headers.authorization?.replace(/^Bearer /i,'');
+  try {
+    const token=await auth.verifyIdToken(bearer||'',true);
+    if(token.uid!==request.auth.uid) throw new Error();
+  } catch { throw new HttpsError('unauthenticated','다시 로그인해 주세요.'); }
+  const {handleOnboarding}=await import('./onboarding.js');
+  const {sendOnboardingSms}=await import('./onboarding-sms.js');
+  return handleOnboarding({db,realtime,auth:request.auth,input:request.data,
+    secret:process.env.CLOUDBOARD_ONBOARDING_SECRET,send:sendOnboardingSms});
+});
+
+// Retrying projection repairs a dropped connection between the two Firebase stores.
+export const syncAppTrialAccess = onDocumentWritten({
+  region, document: 'subscriptionEntitlements/{uid}', retry: true, maxInstances: 3,
+}, async event => {
+  const {syncNativeTrial}=await import('./onboarding.js');
+  await syncNativeTrial(db,realtime,event.params.uid);
+});
+
+export const cleanupOnboardingVerification = onSchedule({region,schedule:'every 24 hours',maxInstances:1},async()=>{
+  for(const [collection,field,cutoff] of [
+    ['onboardingPhoneChallenges','expiresAtMs',Date.now()-86400000],
+    ['onboardingSmsLimits','expiresAt',Timestamp.now()],
+  ]) {
+    let page;
+    do {
+      page=await db.collection(collection).where(field,'<',cutoff).limit(400).get();
+      const batch=db.batch(); for(const document of page.docs) batch.delete(document.ref); await batch.commit();
+    } while(page.size===400);
+  }
 });

@@ -177,7 +177,7 @@ class DevicePairingRealtimeDataSource {
         .get();
     if (pilot.value is! num ||
         (pilot.value as num) <= DateTime.now().millisecondsSinceEpoch) {
-      throw StateError('웹에서 무료 가입과 앱 계정 연결을 완료해 주세요.');
+      throw StateError('프로필의 센터 정보 · 온보딩에서 문자 인증과 무료 체험 시작을 완료해 주세요.');
     }
     final pairingRef = _database.ref('pairingCodes/$normalizedCode');
     final initialSnapshot = await pairingRef.get();

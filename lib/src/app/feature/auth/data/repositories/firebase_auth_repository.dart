@@ -90,5 +90,11 @@ class FirebaseAuthRepository implements AuthRepository {
               ? '매장 디스플레이'
               : user.displayName ?? '사용자',
           photoUrl: user.photoURL,
+          needsOnboarding:
+              !user.isAnonymous &&
+              (user.metadata.creationTime?.isAfter(
+                    DateTime.utc(2026, 9, 25, 11),
+                  ) ??
+                  false),
         );
 }

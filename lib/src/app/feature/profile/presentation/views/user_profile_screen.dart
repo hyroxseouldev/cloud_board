@@ -11,7 +11,6 @@ import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
-import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
@@ -32,23 +31,6 @@ class UserProfileScreen extends HookConsumerWidget {
     final uid = ref.watch(authStateProvider).value?.id;
     final authAction = ref.watch(authControllerProvider);
     final deletion = ref.watch(accountDeletionControllerProvider);
-    final link = ref.watch(storeAccountLinkProvider);
-    final linkLabel = link.hasError
-        ? '연결 확인 실패'
-        : switch (link.value) {
-            'linked' => '연결됨',
-            'web_registration_required' => '웹 가입 필요',
-            'google_required' => 'Google 계정 필요',
-            'connection_unavailable' => '네트워크 확인 필요',
-            'signed_out' => '로그인 필요',
-            _ => '확인 중…',
-          };
-    final linkHelp = switch (link.value) {
-      'web_registration_required' =>
-        'CloudBoard 웹에서 Google 로그인과 문자 인증을 완료해 주세요.',
-      'google_required' => '웹과 같은 Google 계정으로 로그인해 주세요.',
-      _ => null,
-    };
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -98,20 +80,18 @@ class UserProfileScreen extends HookConsumerWidget {
                     label: '이메일',
                     value: data.email,
                   ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _ProfileGroup(
+                title: '센터',
+                children: [
                   ListTile(
-                    leading: const Icon(Icons.link_rounded),
-                    title: const Text('웹 계정 연결'),
-                    subtitle: Text([linkLabel, ?linkHelp].join('\n')),
-                    trailing: IconButton(
-                      tooltip: '연결 다시 확인',
-                      onPressed: link.isLoading
-                          ? null
-                          : () {
-                              ref.invalidate(storeAccountLinkProvider);
-                              ref.invalidate(storeEntitlementProvider);
-                            },
-                      icon: const Icon(Icons.refresh_rounded),
-                    ),
+                    leading: const Icon(Icons.storefront_outlined),
+                    title: const Text('센터 정보 · 온보딩'),
+                    subtitle: const Text('센터 정보 수정과 1개월 무료 체험'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/onboarding?edit=true'),
                   ),
                 ],
               ),

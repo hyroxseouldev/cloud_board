@@ -230,7 +230,10 @@ class SlideLibraryReplacementDialog extends HookWidget {
             '현재 슬라이드의 제목·이미지·본문·시간·표시 옵션·전환음 설정이 교체됩니다. 워크아웃의 소리 종류와 볼륨은 유지됩니다.',
           ),
           const SizedBox(height: 8),
-          const Text('변경 내용은 저장 버튼을 눌러야 반영됩니다.', style: TextStyle(fontSize: 12)),
+          const Text(
+            '변경 내용은 저장 버튼을 눌러야 반영됩니다.',
+            style: TextStyle(fontSize: 12),
+          ),
         ],
       ),
       actions: [

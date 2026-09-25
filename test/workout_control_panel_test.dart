@@ -129,6 +129,8 @@ void main() {
       (tester) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+        addTearDown(tester.view.resetPadding);
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         var current = 0;
@@ -155,6 +157,7 @@ void main() {
                       setState(() => current = (current + 1).clamp(0, 2)),
                   onToggle: () => setState(() => paused = !paused),
                   onExit: () => exits++,
+                  onMinimize: () {},
                   onSelectModule: (index) async {
                     selections.add(index);
                     if (!failed) setState(() => current = index);
@@ -163,7 +166,15 @@ void main() {
                     module: _workout.modules[index],
                     isRest: false,
                   ),
+                  progress: WorkoutControlTimeline(
+                    section: WorkoutTimelineSection.progress,
+                    durations: const [140, 140, 140],
+                    currentModule: current,
+                    elapsedMs: 10000,
+                  ),
                   timeline: WorkoutControlTimeline(
+                    section: WorkoutTimelineSection.detail,
+                    modules: _workout.modules,
                     durations: const [140, 140, 140],
                     currentModule: current,
                     elapsedMs: 10000,
@@ -174,6 +185,26 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        final tips = tester.getRect(find.byKey(const ValueKey('control-tips')));
+        expect(tips.bottom, lessThanOrEqualTo(size.height));
+        expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+        expect(
+          tester.getCenter(find.text('종료하기')).dx,
+          lessThan(tester.getCenter(find.byTooltip('최소화')).dx),
+        );
+        final body = tester.widget<SingleChildScrollView>(
+          find.byKey(const ValueKey('control-body')),
+        );
+        final scrollable = find
+            .descendant(
+              of: find.byWidget(body),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        expect(
+          tester.state<ScrollableState>(scrollable).position.maxScrollExtent,
+          0,
+        );
         await tester.tap(find.byTooltip('일시정지'));
         await tester.pumpAndSettle();
         expect(paused, isTrue);
@@ -206,6 +237,68 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
+  }
+  for (final size in [const Size(390, 844), const Size(844, 390)]) {
+    testWidgets('large text keeps progress and tips pinned at $size', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: XonTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: WorkoutControlPanel(
+            title: '긴 이름을 가진 워크아웃 컨트롤 화면',
+            moduleCount: 3,
+            currentModule: 0,
+            paused: false,
+            busy: false,
+            onPrevious: () {},
+            onNext: () {},
+            onToggle: () {},
+            onExit: () {},
+            onMinimize: () {},
+            onLockChanged: (_) {},
+            onSelectModule: (_) async {},
+            previewBuilder: (_, _) => const ColoredBox(color: Colors.black),
+            progress: const WorkoutControlTimeline(
+              section: WorkoutTimelineSection.progress,
+              durations: [140, 140, 140],
+              currentModule: 0,
+              elapsedMs: 10000,
+            ),
+            timeline: WorkoutControlTimeline(
+              section: WorkoutTimelineSection.detail,
+              durations: const [140, 140, 140],
+              modules: _workout.modules,
+              currentModule: 0,
+              elapsedMs: 10000,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final progress = find.byKey(const ValueKey('class-timeline'));
+      final tips = find.byKey(const ValueKey('control-tips'));
+      final progressBefore = tester.getRect(progress);
+      final tipsBefore = tester.getRect(tips);
+      expect(tipsBefore.bottom, lessThanOrEqualTo(size.height));
+      await tester.drag(
+        find.byKey(const ValueKey('control-body')),
+        const Offset(0, -200),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(progress), progressBefore);
+      expect(tester.getRect(tips), tipsBefore);
+      expect(tester.takeException(), isNull);
+    });
   }
 }
 

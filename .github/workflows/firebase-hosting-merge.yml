@@ -57,6 +57,9 @@ jobs:
       - name: Test account library concurrency and security rules
         run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-library 'node functions/test/slide-library-emulator.mjs'
 
+      - name: Test onboarding transactions and security rules
+        run: npx --yes firebase-tools emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'
+
       - name: Validate database rules JSON
         run: python3 -m json.tool database.rules.json > /dev/null
 
@@ -68,7 +71,16 @@ jobs:
 
       - name: Deploy account deletion functions and data rules
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npx --yes firebase-tools deploy --only functions:account-deletion,firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
+        env:
+          SOLAPI_FROM: ${{ secrets.SOLAPI_FROM }}
+        run: |
+          set -euo pipefail
+          test -n "$SOLAPI_FROM" || { echo 'Missing SMS sender configuration.' >&2; exit 1; }
+          umask 077
+          sender_env=functions/.env.cloud-board-stationd
+          trap 'rm -f "$sender_env"' EXIT
+          printf 'SOLAPI_FROM=%s\n' "$SOLAPI_FROM" > "$sender_env"
+          npx --yes firebase-tools deploy --only functions:account-deletion,firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
 
       - name: Build Flutter web app
         run: |

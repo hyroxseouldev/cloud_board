@@ -749,11 +749,7 @@ class _HomeDrawer extends HookWidget {
                     ),
                     onTap: () => Navigator.of(context).pop(),
                   ),
-                  destination(
-                    '즐겨찾기',
-                    Icons.star_outline_rounded,
-                    '/slides',
-                  ),
+                  destination('즐겨찾기', Icons.star_outline_rounded, '/slides'),
                   const Divider(height: 32),
                   if (user != null)
                     destination(

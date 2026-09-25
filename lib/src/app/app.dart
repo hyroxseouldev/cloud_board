@@ -22,10 +22,8 @@ class XonBoardApp extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(storeEntitlementProvider);
-    ref.watch(storeAccountLinkProvider);
     useOnAppLifecycleStateChange((previous, next) {
       if (next == AppLifecycleState.resumed) {
-        ref.invalidate(storeAccountLinkProvider);
         ref.invalidate(storeEntitlementProvider);
       }
     });

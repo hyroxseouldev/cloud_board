@@ -230,57 +230,6 @@ class _EditorBody extends HookConsumerWidget {
       return saved;
     }
 
-    Future<bool> persistTimer(
-      WorkoutModule original,
-      WorkoutModule timing,
-    ) async {
-      final existing = ref.read(workoutDetailProvider(draft.value.id)).value;
-      // New workouts need a real identity/name but must not persist other drafts.
-      var base =
-          existing ??
-          (isNew
-              ? savedBaseline.value.copyWith(modules: const [])
-              : savedBaseline.value);
-      if (base.name.trim().isEmpty) {
-        final entered = name.text.trim().isNotEmpty
-            ? name.text.trim()
-            : await showDialog<String>(
-                context: context,
-                builder: (_) => const _WorkoutNameDialog(),
-              );
-        if (entered == null || !context.mounted) return false;
-        base = base.copyWith(name: entered);
-        if (name.text.trim().isEmpty) name.text = entered;
-      }
-      final persistedModule = base.modules
-          .where((m) => m.id == original.id)
-          .firstOrNull;
-      final updated = copySlideTiming(persistedModule ?? original, timing);
-      final candidate = base.copyWith(
-        modules: persistedModule == null
-            ? [...base.modules, updated]
-            : [
-                for (final m in base.modules)
-                  if (m.id == updated.id) updated else m,
-              ],
-      );
-      final saved = await ref
-          .read(workoutActionControllerProvider.notifier)
-          .save(candidate);
-      if (saved == null || !context.mounted) return false;
-      hasPersisted.value = true;
-      savedBaseline.value = saved;
-      draft.value = draft.value.copyWith(
-        name: existing == null ? saved.name : draft.value.name,
-        updatedAt: saved.updatedAt,
-        modules: [
-          for (final m in draft.value.modules)
-            if (m.id == updated.id) copySlideTiming(m, updated) else m,
-        ],
-      );
-      return true;
-    }
-
     Future<void> saveInPlace() async {
       if (isBusy || (hasPersisted.value && !hasUnsavedChanges)) return;
       final saved = await persist();
@@ -671,8 +620,6 @@ class _EditorBody extends HookConsumerWidget {
                                   ),
                                   brandL: draft.value.brandL,
                                   brandR: draft.value.brandR,
-                                  onSaveTimer: (updated) =>
-                                      persistTimer(module, updated),
                                   onSave: (updated) async {
                                     final candidate = draft.value.copyWith(
                                       modules: draft.value.modules

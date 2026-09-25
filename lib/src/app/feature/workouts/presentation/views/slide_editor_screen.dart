@@ -31,7 +31,6 @@ class SlideEditRequest {
   SlideEditRequest({
     required this.module,
     required this.onSave,
-    this.onSaveTimer,
     this.brandL = '',
     this.brandR = '',
     this.workout,
@@ -39,7 +38,6 @@ class SlideEditRequest {
   });
   final WorkoutModule module;
   final Future<bool> Function(WorkoutModule) onSave;
-  final Future<bool> Function(WorkoutModule)? onSaveTimer;
   final String brandL;
   final String brandR;
   final Workout? workout;
@@ -87,29 +85,6 @@ class SlideEditorScreen extends ConsumerWidget {
             workout: workout,
             brandL: workout.brandL,
             brandR: workout.brandR,
-            onSaveTimer: (timing) async {
-              final latest = await ref.read(
-                workoutDetailProvider(workoutId).future,
-              );
-              if (latest == null ||
-                  !latest.modules.any((m) => m.id == moduleId)) {
-                return false;
-              }
-              return await ref
-                      .read(workoutActionControllerProvider.notifier)
-                      .save(
-                        latest.copyWith(
-                          modules: [
-                            for (final m in latest.modules)
-                              if (m.id == moduleId)
-                                copySlideTiming(m, timing)
-                              else
-                                m,
-                          ],
-                        ),
-                      ) !=
-                  null;
-            },
             onSave: (updated) async {
               final latest = await ref.read(
                 workoutDetailProvider(workoutId).future,
@@ -566,7 +541,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                 original: original,
                 scope: request.workout?.ownerId ?? 'local',
                 onSelectBlock: (id) => selectedBlockId.value = id,
-                onSave: request.onSaveTimer ?? request.onSave,
               ),
             ),
           );
