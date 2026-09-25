@@ -89,7 +89,10 @@ GoRouter appRouter(Ref ref) {
         routes: [
           GoRoute(
             path: '/slides',
-            builder: (_, _) => const SlideLibraryScreen(),
+            builder: (_, state) => SlideLibraryScreen(
+              initialFavoritesOnly:
+                  state.uri.queryParameters['favorites'] == 'true',
+            ),
           ),
           GoRoute(
             path: '/',

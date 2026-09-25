@@ -10,13 +10,18 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/sl
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 class SlideLibraryScreen extends HookConsumerWidget {
-  const SlideLibraryScreen({super.key, this.onSelect});
+  const SlideLibraryScreen({
+    super.key,
+    this.onSelect,
+    this.initialFavoritesOnly = false,
+  });
+  final bool initialFavoritesOnly;
   final ValueChanged<WorkoutModule>? onSelect;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final search = useTextEditingController();
     useListenable(search);
-    final favorites = useState(false);
+    final favorites = useState(initialFavoritesOnly);
     final category = useState('');
     final scope = ref.watch(authStateProvider).value?.id;
     if (scope == null) {
