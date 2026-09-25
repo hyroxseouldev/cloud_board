@@ -205,8 +205,7 @@ class _SlideEditorBody extends HookConsumerWidget {
       if (next != AppLifecycleState.resumed) unawaited(actions.flush());
     });
 
-    void update(WorkoutModule value, {String? group}) =>
-        actions.update(value, group: group);
+    void update(WorkoutModule value) => actions.update(value);
     void resetFields(VoidCallback change) {
       FocusScope.of(context).unfocus();
       change();
@@ -676,7 +675,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                 selectSection(1);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('슬라이드를 교체했습니다. 저장 전까지 실행 취소로 되돌릴 수 있습니다.'),
+                    content: Text('슬라이드를 교체했습니다. 저장 버튼을 눌러 반영해 주세요.'),
                   ),
                 );
               },
@@ -773,10 +772,8 @@ class _SlideEditorBody extends HookConsumerWidget {
                     key: ValueKey('appearance-${revision.value}'),
                     section: SlideAppearanceSection.timer,
                     value: module.appearance,
-                    onChanged: (value, group) => update(
-                      module.copyWith(appearance: value),
-                      group: group,
-                    ),
+                    onChanged: (value, _) =>
+                        update(module.copyWith(appearance: value)),
                   ),
                   const Divider(height: 24),
                   const Text(
@@ -790,7 +787,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                     children: [
                       HexColorField(
                         compact: true,
-                        label: '세트 숫자 색상',
+                        label: '세트 숫자',
                         initialValue: colorHex(module.appearance.setsColor),
                         onChanged: (input) {
                           final color = parseHexColor(input);
@@ -801,7 +798,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                                   setsColor: color,
                                 ),
                               ),
-                              group: '세트 숫자 색상',
                             );
                           }
                         },
@@ -811,10 +807,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                           compact: true,
                           key: ValueKey('phase-color-$i-${revision.value}'),
                           label: const [
-                            '운동 게이지 색상',
-                            '휴식 게이지 색상',
-                            '운동 시간 텍스트 색상',
-                            '휴식 시간 텍스트 색상',
+                            '운동 게이지',
+                            '휴식 게이지',
+                            '운동 시간 텍스트',
+                            '휴식 시간 텍스트',
                           ][i],
                           initialValue:
                               [
@@ -831,7 +827,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                             1 => module.copyWith(restGaugeColor: v),
                             2 => module.copyWith(workTextColor: v),
                             _ => module.copyWith(restTextColor: v),
-                          }, group: 'phase-color-$i'),
+                          }),
                         ),
                     ],
                   ),
@@ -892,18 +888,15 @@ class _SlideEditorBody extends HookConsumerWidget {
                   SlideAppearanceControls(
                     section: SlideAppearanceSection.visibility,
                     value: module.appearance,
-                    onChanged: (value, group) => update(
-                      module.copyWith(appearance: value),
-                      group: group,
-                    ),
+                    onChanged: (value, _) =>
+                        update(module.copyWith(appearance: value)),
                   ),
                   const Divider(height: 24),
                   TextFormField(
                     controller: description,
                     maxLines: 4,
                     decoration: const InputDecoration(labelText: '화면 텍스트'),
-                    onChanged: (v) =>
-                        update(module.copyWith(text: v), group: 'body'),
+                    onChanged: (v) => update(module.copyWith(text: v)),
                   ),
                   const Divider(height: 24),
                   const Text(
@@ -914,10 +907,8 @@ class _SlideEditorBody extends HookConsumerWidget {
                     key: ValueKey('background-appearance-${revision.value}'),
                     section: SlideAppearanceSection.background,
                     value: module.appearance,
-                    onChanged: (value, group) => update(
-                      module.copyWith(appearance: value),
-                      group: group,
-                    ),
+                    onChanged: (value, _) =>
+                        update(module.copyWith(appearance: value)),
                   ),
                 ],
                 if (section.value == 3) ...[
@@ -987,20 +978,6 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
           ),
           actions: [
-            IconButton(
-              tooltip: '실행 취소',
-              onPressed: busy.value || state.undo.isEmpty
-                  ? null
-                  : () => resetFields(actions.undo),
-              icon: const Icon(Icons.undo),
-            ),
-            IconButton(
-              tooltip: '다시 실행',
-              onPressed: busy.value || state.redo.isEmpty
-                  ? null
-                  : () => resetFields(actions.redo),
-              icon: const Icon(Icons.redo),
-            ),
             Padding(
               padding: const EdgeInsets.only(left: 4),
               child: Tooltip(

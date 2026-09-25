@@ -98,12 +98,8 @@ void main() {
         expect(container.read(provider).module.restSeconds, 45);
         expect(container.read(provider).module.sets, 3);
         expect(find.text('운동 06:30'), findsOneWidget);
-        await tester.tap(find.byTooltip('실행 취소'));
-        await tester.pumpAndSettle();
-        expect(container.read(provider).module.sets, 5);
-        await tester.tap(find.byTooltip('다시 실행'));
-        await tester.pumpAndSettle();
-        expect(container.read(provider).module.sets, 3);
+        expect(find.byTooltip('실행 취소'), findsNothing);
+        expect(find.byTooltip('다시 실행'), findsNothing);
         await tester.tap(find.byKey(const ValueKey('save-timer-editor')));
         await tester.pumpAndSettle();
         expect(find.text('타이머 편집'), findsOneWidget);

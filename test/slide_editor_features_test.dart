@@ -134,7 +134,7 @@ void main() {
     },
   );
 
-  test('undo redo, recovery across controllers and successful save clears draft', () async {
+  test('recovery across controllers and successful save clears draft', () async {
     final repository = LocalSlideEditorRepository(SlideEditorLocalDataSource());
     ProviderContainer container() => ProviderContainer(
       overrides: [slideEditorRepositoryProvider.overrideWithValue(repository)],
@@ -152,9 +152,6 @@ void main() {
       appearance: const SlideAppearance(timerY: .6),
     );
     actions.update(edited);
-    actions.undo();
-    expect(first.read(provider).module, original);
-    actions.redo();
     expect(first.read(provider).module, edited);
     await actions.flush();
     await actions.saveStyle('saved');
@@ -197,7 +194,7 @@ void main() {
     const Size(1194, 834),
   ]) {
     testWidgets(
-      'editor pinned collapsible preview and save fit $size and title visibility can undo',
+      'editor pinned collapsible preview and save fit $size and title visibility updates',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = size;
@@ -281,16 +278,8 @@ void main() {
           isFalse,
         );
         expect(find.byType(WorkoutSlidePreview).hitTestable(), findsOneWidget);
-        await tester.tap(find.byTooltip('실행 취소'));
-        await tester.pumpAndSettle();
-        expect(
-          tester
-              .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
-              .module
-              .appearance
-              .showTitle,
-          isTrue,
-        );
+        expect(find.byTooltip('실행 취소'), findsNothing);
+        expect(find.byTooltip('다시 실행'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pumpAndSettle();
@@ -345,14 +334,8 @@ void main() {
             .data,
         '복구할 제목',
       );
-      await tester.tap(find.byTooltip('실행 취소'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('slide-title-text')))
-            .data,
-        original.name,
-      );
+      expect(find.byTooltip('실행 취소'), findsNothing);
+      expect(find.byTooltip('다시 실행'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -415,15 +398,8 @@ void main() {
       expect(applied.workTextColor, '#000000');
       expect(workoutModuleDuration(applied), 12);
       expect(applied.name, original.name);
-      await tester.tap(find.byTooltip('실행 취소'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
-            .module
-            .workTextColor,
-        original.workTextColor,
-      );
+      expect(find.byTooltip('실행 취소'), findsNothing);
+      expect(find.byTooltip('다시 실행'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

@@ -11,7 +11,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/sl
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_duration_field.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
 
-/// A child of the slide editor. All applied changes share its draft and history.
+/// A child of the slide editor. All applied changes share its draft.
 class TimerEditorScreen extends HookConsumerWidget {
   const TimerEditorScreen({
     super.key,
@@ -34,7 +34,6 @@ class TimerEditorScreen extends HookConsumerWidget {
     final module = state.module;
     final blocks = effectiveIntervalBlocks(module);
     final expanded = useState<String?>(blocks.first.id);
-    final revision = useState(0);
     final busy = useState(false);
     final valid = blocks.every(
       (b) => b.workSeconds > 0 && b.restSeconds >= 0 && b.sets > 0,
@@ -73,11 +72,6 @@ class TimerEditorScreen extends HookConsumerWidget {
       actions.update(withIntervalBlocks(ref.read(provider).module, value));
     }
 
-    void history(VoidCallback action) {
-      action();
-      revision.value++;
-    }
-
     return Theme(
       data: SlideEditorStyle.theme(Theme.of(context)),
       child: UnsavedChangesGuard(
@@ -95,20 +89,6 @@ class TimerEditorScreen extends HookConsumerWidget {
           appBar: AppBar(
             leading: BackButton(onPressed: () => Navigator.maybePop(context)),
             actions: [
-              IconButton(
-                tooltip: '실행 취소',
-                icon: const Icon(Icons.undo),
-                onPressed: busy.value || state.undo.isEmpty
-                    ? null
-                    : () => history(actions.undo),
-              ),
-              IconButton(
-                tooltip: '다시 실행',
-                icon: const Icon(Icons.redo),
-                onPressed: busy.value || state.redo.isEmpty
-                    ? null
-                    : () => history(actions.redo),
-              ),
               TextButton(
                 key: const ValueKey('save-timer-editor'),
                 onPressed: busy.value || !valid ? null : save,
@@ -320,9 +300,7 @@ class TimerEditorScreen extends HookConsumerWidget {
                                       child: Divider(height: 1),
                                     ),
                                     SlideTimingEditor(
-                                      key: ValueKey(
-                                        '${block.id}-${revision.value}',
-                                      ),
+                                      key: ValueKey(block.id),
                                       embedded: true,
                                       initialWorkSeconds: block.workSeconds,
                                       initialRestSeconds: block.restSeconds,
