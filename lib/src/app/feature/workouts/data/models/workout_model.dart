@@ -288,6 +288,8 @@ class SlideAppearanceModel {
     this.timerY = 0.5,
     this.timerSize = 1,
     this.ringWidth = 30,
+    this.setsSize = 1,
+    this.setsOffsetY = 0,
     this.showTitle = true,
     this.showBody = true,
     this.showBrand = true,
@@ -300,6 +302,8 @@ class SlideAppearanceModel {
   final double timerY;
   final double timerSize;
   final double ringWidth;
+  final double setsSize;
+  final double setsOffsetY;
   final bool showTitle;
   final bool showBody;
   final bool showBrand;
@@ -315,6 +319,8 @@ class SlideAppearanceModel {
     timerY: timerY.isFinite ? timerY.clamp(0, 1) : .5,
     timerSize: timerSize.isFinite ? timerSize.clamp(.6, 1.6) : 1,
     ringWidth: ringWidth.isFinite ? ringWidth.clamp(12, 40) : 30,
+    setsSize: setsSize.isFinite ? setsSize.clamp(.5, 2) : 1,
+    setsOffsetY: setsOffsetY.isFinite ? setsOffsetY.clamp(-.5, .5) : 0,
     showTitle: showTitle,
     showBody: showBody,
     showBrand: showBrand,
@@ -329,6 +335,8 @@ class SlideAppearanceModel {
         timerY: value.timerY,
         timerSize: value.timerSize,
         ringWidth: value.ringWidth,
+        setsSize: value.setsSize,
+        setsOffsetY: value.setsOffsetY,
         showTitle: value.showTitle,
         showBody: value.showBody,
         showBrand: value.showBrand,

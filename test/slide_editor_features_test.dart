@@ -40,6 +40,8 @@ void main() {
           timerY: .65,
           timerSize: 1.25,
           ringWidth: 18,
+          setsSize: 1.5,
+          setsOffsetY: -.12,
           showTitle: false,
           showBody: false,
           showBrand: false,
@@ -53,6 +55,16 @@ void main() {
         jsonEncode(WorkoutModuleModel.fromEntity(value).toJson()),
       ) as Map<String, dynamic>;
       expect(WorkoutModuleModel.fromJson(json).toEntity(), value);
+      expect(
+        SlideAppearanceModel.fromJson({}).toEntity(),
+        const SlideAppearance(),
+      );
+      final bounded = const SlideAppearanceModel(
+        setsSize: 9,
+        setsOffsetY: -9,
+      ).toEntity();
+      expect(bounded.setsSize, 2);
+      expect(bounded.setsOffsetY, -.5);
       json.remove('appearance');
       expect(
         WorkoutModuleModel.fromJson(json).toEntity().appearance,
@@ -333,7 +345,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
       expect(find.text('저장됨'), findsNothing);
-      expect(tester.widget<IconButton>(find.byKey(const ValueKey('slide-save-button'))).onPressed, isNotNull);
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const ValueKey('slide-save-button')))
+            .onPressed,
+        isNotNull,
+      );
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       await open();
