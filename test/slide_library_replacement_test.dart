@@ -182,6 +182,7 @@ void main() {
                 guard: ExitGuard(),
                 request: SlideEditRequest(
                   module: target,
+                  needsInitialSave: true,
                   workout: workout,
                   onSave: (value) async {
                     saved.add(value);
@@ -218,9 +219,14 @@ void main() {
                 )
                 .first,
           );
-          // In landscape the tall thumbnail can extend below the viewport;
-          // tap its visible leading edge after scrolling it into view.
-          await tester.tapAt(tester.getTopLeft(card) + const Offset(20, 20));
+          // Error banners and short landscape viewports can clip either edge.
+          final viewport = find.descendant(
+            of: find.byKey(const ValueKey('slide-library-picker')),
+            matching: find.byType(Scrollable),
+          ).first;
+          final visible = tester.getRect(card).intersect(tester.getRect(viewport));
+          expect(visible.height, greaterThan(0));
+          await tester.tapAt(visible.center);
           await tester.pumpAndSettle();
         }
 

@@ -663,6 +663,8 @@ class _EditorBody extends HookConsumerWidget {
                                 '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
                                 extra: SlideEditRequest(
                                   module: module,
+                                  needsInitialSave:
+                                      !hasPersisted.value || hasUnsavedChanges,
                                   workout: draft.value.copyWith(
                                     name: name.text,
                                     folder: folder.text,

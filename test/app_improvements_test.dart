@@ -877,7 +877,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     final title = find.byKey(const ValueKey('slide-title-button'));
+    expect(tester.widget<IconButton>(find.byKey(const ValueKey('slide-save-button'))).onPressed, isNull);
+    expect(find.text('저장됨'), findsNothing);
     await renameSlide(tester, '수정 제목');
+    expect(tester.widget<IconButton>(find.byKey(const ValueKey('slide-save-button'))).onPressed, isNotNull);
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
     await tester.pumpAndSettle();
@@ -942,6 +945,7 @@ void main() {
     await tester.tap(retry);
     await tester.pumpAndSettle();
     expect(saved.length, 2);
+    expect(tester.widget<IconButton>(save).onPressed, isNull);
     expect(router.routeInformationProvider.value.uri.path, '/edit');
     expect(title.hitTestable(), findsOneWidget);
     expect(find.text('슬라이드를 저장했습니다.'), findsOneWidget);

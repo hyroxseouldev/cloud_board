@@ -34,6 +34,7 @@ class SlideEditRequest {
     this.brandL = '',
     this.brandR = '',
     this.workout,
+    this.needsInitialSave = false,
   });
   final WorkoutModule module;
   final Future<bool> Function(WorkoutModule) onSave;
@@ -41,6 +42,7 @@ class SlideEditRequest {
   final String brandL;
   final String brandR;
   final Workout? workout;
+  final bool needsInitialSave;
 }
 
 class SlideEditorScreen extends ConsumerWidget {
@@ -179,6 +181,7 @@ class _SlideEditorBody extends HookConsumerWidget {
 
     final module = state.module;
     final busy = useState(false);
+    final needsInitialSave = useState(request.needsInitialSave);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final error = useState<String?>(null);
     final form = useMemoized(() => GlobalKey<FormState>());
@@ -211,7 +214,7 @@ class _SlideEditorBody extends HookConsumerWidget {
     }
 
     Future<void> save() async {
-      if (busy.value) return;
+      if (busy.value || (!state.dirty && !needsInitialSave.value)) return;
       if (module.name.trim().isEmpty) {
         section.value = 1;
         error.value = '슬라이드 제목을 입력해 주세요.';
@@ -241,6 +244,7 @@ class _SlideEditorBody extends HookConsumerWidget {
         }
         await actions.markSaved(candidate);
         if (!context.mounted) return;
+        needsInitialSave.value = false;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(const SnackBar(content: Text('슬라이드를 저장했습니다.')));
@@ -859,24 +863,6 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
     );
 
-    final saveStatusDetail =
-        state.storageError ??
-        (busy.value
-            ? workoutSaveProgressLabel(uploadProgress)
-            : state.dirty
-            ? (state.localSaved ? '저장 필요 · 이 기기에 임시저장됨' : '저장 필요 · 임시저장 중…')
-            : '저장됨');
-    final saveStatusLabel = state.storageError != null
-        ? '저장 확인'
-        : busy.value
-        ? (uploadProgress != null &&
-                  uploadProgress.completed < uploadProgress.total
-              ? '${uploadProgress.completed}/${uploadProgress.total} 저장 중'
-              : '저장 중')
-        : state.dirty
-        ? '저장 필요'
-        : '저장됨';
-
     return UnsavedChangesGuard(
       guard: guard,
       dirty: state.dirty,
@@ -914,35 +900,6 @@ class _SlideEditorBody extends HookConsumerWidget {
               icon: const Icon(Icons.play_arrow_rounded),
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Tooltip(
-                message: saveStatusDetail,
-                child: Semantics(
-                  liveRegion: true,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width < 600
-                          ? 64
-                          : 180,
-                    ),
-                    child: Text(
-                      saveStatusLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: state.storageError != null
-                            ? Theme.of(context).colorScheme.error
-                            : state.dirty
-                            ? Colors.orange
-                            : SlideEditorStyle.muted,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Padding(
               padding: const EdgeInsets.only(right: 12),
               child: IconButton(
                 key: const ValueKey('slide-save-button'),
@@ -955,7 +912,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                   foregroundColor: SlideEditorStyle.accent,
                   minimumSize: const Size(48, 48),
                 ),
-                onPressed: busy.value ? null : save,
+                onPressed:
+                    busy.value || (!state.dirty && !needsInitialSave.value)
+                    ? null
+                    : save,
                 icon: busy.value
                     ? const SizedBox.square(
                         dimension: 22,
