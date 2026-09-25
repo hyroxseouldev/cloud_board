@@ -751,7 +751,7 @@ class _HomeDrawer extends HookWidget {
                   ),
                   destination(
                     '슬라이드 라이브러리',
-                    Icons.video_library_outlined,
+                    Icons.star_outline_rounded,
                     '/slides',
                   ),
                   const Divider(height: 32),
