@@ -202,14 +202,6 @@ class SlideAppearanceControls extends StatelessWidget {
               onChanged: change,
             ),
           ),
-          SizedBox(
-            width: 42,
-            child: Text(
-              display,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
         ],
       ),
     );
