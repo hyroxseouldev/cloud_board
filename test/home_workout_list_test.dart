@@ -30,8 +30,8 @@ void main() {
     );
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
-    expect(find.text('즐겨찾기'), findsNothing);
-    await tester.tap(find.text('슬라이드 라이브러리'));
+    expect(find.text('슬라이드 라이브러리'), findsNothing);
+    await tester.tap(find.text('즐겨찾기'));
     await tester.pump();
     // Navigation must not cover and mute the still-closing drawer.
     expect(find.text('라이브러리: all'), findsNothing);

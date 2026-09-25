@@ -750,7 +750,7 @@ class _HomeDrawer extends HookWidget {
                     onTap: () => Navigator.of(context).pop(),
                   ),
                   destination(
-                    '슬라이드 라이브러리',
+                    '즐겨찾기',
                     Icons.star_outline_rounded,
                     '/slides',
                   ),
