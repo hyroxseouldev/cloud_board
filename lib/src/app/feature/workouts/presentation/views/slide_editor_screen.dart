@@ -986,49 +986,9 @@ class _SlideEditorBody extends HookConsumerWidget {
         ),
         bottomNavigationBar: AbsorbPointer(
           absorbing: busy.value,
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: SegmentedButton<int>(
-                        key: const ValueKey('slide-editor-tabs'),
-                        style: SegmentedButton.styleFrom(
-                          side: BorderSide.none,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(40),
-                          ),
-                          backgroundColor: const Color(0xFFF5F4F8),
-                          selectedBackgroundColor: const Color(0xFFDEDBED),
-                          minimumSize: const Size(44, 44),
-                          textStyle: const TextStyle(
-                            fontFamily: 'Pretendard',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        segments: const [
-                          ButtonSegment(value: 1, label: Text('타이머')),
-                          ButtonSegment(value: 2, label: Text('배경')),
-                          ButtonSegment(value: 3, label: Text('소리')),
-                          ButtonSegment(value: 4, label: Text('라이브러리')),
-                        ],
-                        showSelectedIcon: false,
-                        selected: {section.value},
-                        onSelectionChanged: (values) =>
-                            selectSection(values.first),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          child: _SlideEditorTabBar(
+            selected: section.value,
+            onSelected: selectSection,
           ),
         ),
         body: AbsorbPointer(
@@ -1080,6 +1040,119 @@ class _SlideEditorBody extends HookConsumerWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SlideEditorTabBar extends StatelessWidget {
+  const _SlideEditorTabBar({required this.selected, required this.onSelected});
+
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.surface,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  constraints.maxWidth < 600 &&
+                  MediaQuery.textScalerOf(context).scale(12) >
+                      (constraints.maxWidth < 350 ? 12 : 14);
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  key: const ValueKey('slide-editor-tabs'),
+                  children: [
+                    for (final item in const [
+                      (1, '타이머', Icons.timer_outlined),
+                      (2, '배경', Icons.image_outlined),
+                      (3, '소리', Icons.volume_up_outlined),
+                      (4, '라이브러리', Icons.filter_none_rounded),
+                    ])
+                      Expanded(
+                        flex: item.$1 == 4 ? 5 : 4,
+                        child: Semantics(
+                          selected: selected == item.$1,
+                          button: true,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => onSelected(item.$1),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 6,
+                              ),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 140),
+                                constraints: const BoxConstraints(
+                                  minHeight: 36,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: selected == item.$1
+                                      ? colors.primaryContainer
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Flex(
+                                  direction: stacked
+                                      ? Axis.vertical
+                                      : Axis.horizontal,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      item.$3,
+                                      size: 18,
+                                      color: selected == item.$1
+                                          ? colors.primary
+                                          : colors.onSurfaceVariant,
+                                    ),
+                                    SizedBox(
+                                      width: stacked ? 0 : 4,
+                                      height: stacked ? 4 : 0,
+                                    ),
+                                    Text(
+                                      item.$2,
+                                      style: TextStyle(
+                                        fontFamily: 'Pretendard',
+                                        fontSize: constraints.maxWidth < 350
+                                            ? 11
+                                            : 12,
+                                        fontWeight: selected == item.$1
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: selected == item.$1
+                                            ? colors.primary
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
