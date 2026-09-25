@@ -885,14 +885,26 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
     await tester.pumpAndSettle();
     final addBlock = find.byKey(const ValueKey('add-interval-block'));
-    await scrollTo(tester, addBlock);
+    final settingsRect = tester.getRect(
+      find.byKey(const ValueKey('timer-editor-settings')),
+    );
+    for (var attempt = 0;
+        attempt < 20 && addBlock.hitTestable().evaluate().isEmpty;
+        attempt++) {
+      // Drag beside the duration wheels, which handle their own vertical swipes.
+      await tester.dragFrom(
+        Offset(settingsRect.left + 8, settingsRect.center.dy),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+    }
     await tester.tap(addBlock);
     await tester.pumpAndSettle();
     expect(find.text('블록 2'), findsOneWidget);
     expect(saved, isEmpty);
     await tester.tap(find.byKey(const ValueKey('save-timer-editor')));
     await tester.pumpAndSettle();
-    await tester.pageBack();
+    await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
     await tester.pumpAndSettle();
     router.go('/');
     await tester.pumpAndSettle();
@@ -1256,7 +1268,7 @@ void main() {
           greaterThanOrEqualTo(120),
         );
         expect(find.text('타이머 편집'), findsOneWidget);
-        await tester.pageBack();
+        await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
         await tester.pumpAndSettle();
         expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
         expect(

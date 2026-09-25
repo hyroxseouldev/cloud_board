@@ -532,9 +532,22 @@ class _SlideEditorBody extends HookConsumerWidget {
         key: const ValueKey('slide-timer-summary'),
         onTap: () {
           FocusScope.of(context).unfocus();
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => TimerEditorScreen(
+          showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            // Dismiss through the close action so unsaved timing is guarded.
+            isDismissible: false,
+            enableDrag: false,
+            showDragHandle: false,
+            constraints: const BoxConstraints(maxWidth: 720),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            builder: (_) => FractionallySizedBox(
+              heightFactor: .9,
+              child: TimerEditorScreen(
                 workoutId: workoutId,
                 original: original,
                 scope: request.workout?.ownerId ?? 'local',
@@ -576,7 +589,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: SlideEditorStyle.muted),
+              const Icon(
+                Icons.keyboard_arrow_up,
+                color: SlideEditorStyle.muted,
+              ),
             ],
           ),
         ),

@@ -67,7 +67,12 @@ Future<void> select(WidgetTester tester, String key, int index) async {
 }
 
 void main() {
-  for (final size in [const Size(834, 1194), const Size(390, 844)]) {
+  for (final size in [
+    const Size(834, 1194),
+    const Size(390, 844),
+    const Size(320, 568),
+    const Size(844, 390),
+  ]) {
     testWidgets(
       'one save persists timing, stays open and preserves other draft at $size',
       (tester) async {
@@ -86,6 +91,13 @@ void main() {
         await tester.pump();
         await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
         await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsOneWidget);
+        final sheet = tester.getRect(
+          find.byKey(const ValueKey('timer-editor-sheet')),
+        );
+        expect(sheet.top, greaterThan(0));
+        expect(sheet.width, lessThanOrEqualTo(720));
+        expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
         expect(find.text('운동 07:30'), findsOneWidget);
         expect(find.text('휴식 03:00'), findsOneWidget);
         expect(find.byType(CupertinoPicker), findsNWidgets(3));
@@ -110,7 +122,7 @@ void main() {
         expect(container.read(provider).saved.workSeconds, 130);
         expect(container.read(provider).module.name, '아직 저장하지 않은 이름');
         expect(container.read(provider).dirty, isTrue);
-        await tester.pageBack();
+        await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
         await tester.pumpAndSettle();
         expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
         expect(find.text('타이머 편집'), findsNothing);
@@ -153,13 +165,13 @@ void main() {
       expect(find.textContaining('저장하지 못했습니다. 변경 내용'), findsOneWidget);
       expect(container.read(provider).module.workSeconds, 150);
       expect(container.read(provider).saved.workSeconds, 90);
-      await tester.pageBack();
+      await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
       await tester.pumpAndSettle();
       expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
       await tester.tap(find.text('계속 편집'));
       await tester.pumpAndSettle();
       expect(container.read(provider).module.workSeconds, 150);
-      await tester.pageBack();
+      await tester.tap(find.byKey(const ValueKey('close-timer-editor')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('저장 안 하고 나가기'));
       await tester.pumpAndSettle();
