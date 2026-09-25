@@ -58,19 +58,31 @@ class WorkoutEditorScreen extends HookConsumerWidget {
 }
 
 class _WorkoutNameDialog extends HookWidget {
-  const _WorkoutNameDialog();
+  const _WorkoutNameDialog({this.initialName = '', this.forSave = true});
+  final String initialName;
+  final bool forSave;
   @override
   Widget build(BuildContext context) {
-    final name = useTextEditingController();
+    final name = useTextEditingController(text: initialName);
     final form = useMemoized(() => GlobalKey<FormState>());
+    void submit() {
+      if (form.currentState!.validate()) {
+        Navigator.pop(context, name.text.trim());
+      }
+    }
+
     return AppAlertDialog(
-      title: const Text('워크아웃 이름이 필요합니다'),
+      title: Text(forSave ? '워크아웃 이름이 필요합니다' : '워크아웃 이름 수정'),
       content: Form(
         key: form,
         child: TextFormField(
           controller: name,
           autofocus: true,
-          decoration: const InputDecoration(labelText: '저장할 워크아웃 이름'),
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => submit(),
+          decoration: InputDecoration(
+            labelText: forSave ? '저장할 워크아웃 이름' : '워크아웃 이름',
+          ),
           validator: (v) =>
               v == null || v.trim().isEmpty ? '이름을 입력해 주세요.' : null,
         ),
@@ -80,14 +92,7 @@ class _WorkoutNameDialog extends HookWidget {
           onPressed: () => Navigator.pop(context),
           child: const Text('취소'),
         ),
-        FilledButton(
-          onPressed: () {
-            if (form.currentState!.validate()) {
-              Navigator.pop(context, name.text.trim());
-            }
-          },
-          child: const Text('계속 저장'),
-        ),
+        FilledButton(onPressed: submit, child: Text(forSave ? '계속 저장' : '변경')),
       ],
     );
   }
@@ -165,6 +170,7 @@ class _EditorBody extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = useState(initial);
     final savedBaseline = useState(initial);
+    final hasPersisted = useState(!isNew);
     final name = useTextEditingController(text: initial.name);
     final folder = useTextEditingController(text: initial.folder);
     final slideScroll = useScrollController();
@@ -190,6 +196,16 @@ class _EditorBody extends HookConsumerWidget {
         name.text.trim() != savedBaseline.value.name ||
         folder.text.trim() != savedBaseline.value.folder;
 
+    Future<void> editName() async {
+      if (isBusy) return;
+      final value = await showDialog<String>(
+        context: context,
+        builder: (_) =>
+            _WorkoutNameDialog(initialName: name.text, forSave: false),
+      );
+      if (value != null && context.mounted) name.text = value;
+    }
+
     Future<Workout?> persist({Workout? edited}) async {
       if (name.text.trim().isEmpty) {
         final enteredName = await showDialog<String>(
@@ -207,6 +223,7 @@ class _EditorBody extends HookConsumerWidget {
           .read(workoutActionControllerProvider.notifier)
           .save(value);
       if (saved != null) {
+        hasPersisted.value = true;
         draft.value = saved;
         savedBaseline.value = saved;
       }
@@ -251,6 +268,7 @@ class _EditorBody extends HookConsumerWidget {
           .read(workoutActionControllerProvider.notifier)
           .save(candidate);
       if (saved == null || !context.mounted) return false;
+      hasPersisted.value = true;
       savedBaseline.value = saved;
       draft.value = draft.value.copyWith(
         name: existing == null ? saved.name : draft.value.name,
@@ -264,6 +282,7 @@ class _EditorBody extends HookConsumerWidget {
     }
 
     Future<void> saveInPlace() async {
+      if (isBusy || (hasPersisted.value && !hasUnsavedChanges)) return;
       final saved = await persist();
       if (saved == null || !context.mounted || !isNew) return;
       // Give the dirty-state guard a frame to observe the saved baseline.
@@ -400,26 +419,14 @@ class _EditorBody extends HookConsumerWidget {
                     },
             ),
             actions: [
-              Center(
-                child: Text(
-                  action.isLoading
-                      ? workoutSaveProgressLabel(uploadProgress)
-                      : action.hasError
-                      ? '저장 실패'
-                      : hasUnsavedChanges
-                      ? '저장 필요'
-                      : '저장됨',
-                  style: TextStyle(
-                    color: hasUnsavedChanges ? Colors.orange : XonColors.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
               IconButton(
+                key: const ValueKey('workout-save-button'),
                 tooltip: action.isLoading
                     ? workoutSaveProgressLabel(uploadProgress)
                     : '저장',
-                onPressed: isBusy ? null : saveInPlace,
+                onPressed: isBusy || (hasPersisted.value && !hasUnsavedChanges)
+                    ? null
+                    : saveInPlace,
                 icon: action.isLoading
                     ? const SizedBox.square(
                         dimension: 20,
@@ -455,8 +462,12 @@ class _EditorBody extends HookConsumerWidget {
                                 Expanded(
                                   flex: 3,
                                   child: TextField(
+                                    key: const ValueKey('workout-name-button'),
                                     controller: name,
                                     enabled: !isBusy,
+                                    readOnly: true,
+                                    showCursor: false,
+                                    onTap: editName,
                                     decoration: const InputDecoration(
                                       labelText: '워크아웃 이름',
                                       hintText: 'Title',

@@ -602,23 +602,23 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('수업'), findsOneWidget);
-      expect(find.text('워크아웃 추가'), findsOneWidget);
+      expect(find.byTooltip('워크아웃 추가'), findsOneWidget);
       expect(find.byType(FloatingActionButton).hitTestable(), findsOneWidget);
 
       expect(find.byTooltip('리스트 보기'), findsNothing);
       expect(find.byTooltip('그리드 보기'), findsNothing);
 
-      expect(find.byTooltip('설정'), findsOneWidget);
+      expect(find.byTooltip('메뉴'), findsOneWidget);
       expect(find.byTooltip('디스플레이 설정'), findsNothing);
       expect(find.byTooltip('기기 모드'), findsNothing);
-      await tester.tap(find.byTooltip('설정'));
+      await tester.tap(find.byTooltip('메뉴'));
       await tester.pumpAndSettle();
-      for (final label in ['디스플레이 설정', '매장 운영', 'Coach']) {
+      for (final label in ['디스플레이 관리', '매장 관리', 'Coach']) {
         expect(find.text(label), findsOneWidget);
       }
       expect(find.text('로그아웃'), findsNothing);
       expect(find.text('기기 모드'), findsNothing);
-      await tester.tap(find.text('디스플레이 설정'));
+      await tester.tap(find.text('디스플레이 관리'));
       await tester.pumpAndSettle();
       expect(find.text('등록된 디스플레이'), findsOneWidget);
       expect(find.byType(AlertDialog), findsNothing);
@@ -631,6 +631,8 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byTooltip('검색'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '없는 수업');
       await tester.pumpAndSettle();
       expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
@@ -1070,10 +1072,31 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.widgetWithText(TextField, '워크아웃 이름'),
-          '첫 번째 저장',
-        );
+        final saveButton = find.byKey(const ValueKey('workout-save-button'));
+        expect(tester.widget<IconButton>(saveButton).onPressed,
+            id == 'new' ? isNotNull : isNull);
+        final initialName = tester.widget<TextField>(
+          find.byKey(const ValueKey('workout-name-button')),
+        ).controller!.text;
+        await tester.tap(find.byKey(const ValueKey('workout-name-button')));
+        await tester.pumpAndSettle();
+        final nameInput = find.widgetWithText(TextFormField, '워크아웃 이름');
+        await tester.enterText(nameInput, '   ');
+        await tester.tap(find.widgetWithText(FilledButton, '변경'));
+        await tester.pumpAndSettle();
+        expect(find.text('이름을 입력해 주세요.'), findsOneWidget);
+        await tester.enterText(nameInput, '취소할 이름');
+        await tester.tap(find.widgetWithText(TextButton, '취소'));
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(
+          find.byKey(const ValueKey('workout-name-button')),
+        ).controller!.text, initialName);
+        expect(tester.widget<IconButton>(saveButton).onPressed,
+            id == 'new' ? isNotNull : isNull);
+        await renameWorkout(tester, '  첫 번째 저장  ');
+        expect(tester.widget<TextField>(
+          find.byKey(const ValueKey('workout-name-button')),
+        ).controller!.text, '첫 번째 저장');
         await tester.pump();
         final title = tester.getRect(find.text('워크아웃 편집'));
         final save = tester.getRect(find.byTooltip('저장'));
@@ -1088,22 +1111,21 @@ void main() {
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();
         expect(saved, isEmpty);
-        expect(find.text('저장 실패'), findsOneWidget);
+        expect(find.text('저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.'), findsOneWidget);
+        expect(tester.widget<IconButton>(find.byKey(const ValueKey('workout-save-button'))).onPressed, isNotNull);
         expect(router.routeInformationProvider.value.uri.path, '/editor/$id');
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();
         expect(saved.length, 1);
         expect(find.text('워크아웃 편집'), findsOneWidget);
-        expect(find.text('저장됨'), findsOneWidget);
+        expect(find.text('저장됨'), findsNothing);
+        expect(tester.widget<IconButton>(find.byKey(const ValueKey('workout-save-button'))).onPressed, isNull);
         expect(
           router.routeInformationProvider.value.uri.path,
           '/editor/${saved.first.id}',
         );
         expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
-        await tester.enterText(
-          find.widgetWithText(TextField, '워크아웃 이름'),
-          '이어서 수정',
-        );
+        await renameWorkout(tester, '이어서 수정');
         await tester.pump();
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();
@@ -1190,10 +1212,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         if (id == 'w') {
-          await tester.enterText(
-            find.widgetWithText(TextField, '워크아웃 이름'),
-            '저장하지 않은 워크아웃 이름',
-          );
+          await renameWorkout(tester, '저장하지 않은 워크아웃 이름');
           await tester.pump();
         }
         if (id == 'new') {
@@ -1379,7 +1398,8 @@ void main() {
         await tester.ensureVisible(find.text('하위 페이지에서 수정'));
         await tester.pumpAndSettle();
         expect(find.text('하위 페이지에서 수정'), findsOneWidget);
-        expect(find.text('저장됨'), findsOneWidget);
+        expect(find.text('저장됨'), findsNothing);
+        expect(tester.widget<IconButton>(find.byKey(const ValueKey('workout-save-button'))).onPressed, isNull);
         if (id == 'w') {
           await tester.tap(find.byTooltip('슬라이드 메뉴').first);
           await tester.pumpAndSettle();
@@ -1592,6 +1612,16 @@ Future<void> renameSlide(WidgetTester tester, String value) async {
   await tester.tap(find.byKey(const ValueKey('slide-title-button')));
   await tester.pumpAndSettle();
   await tester.enterText(find.widgetWithText(TextFormField, '슬라이드 제목'), value);
+  await tester.tap(find.widgetWithText(FilledButton, '변경'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> renameWorkout(WidgetTester tester, String value) async {
+  await tester.tap(find.byKey(const ValueKey('workout-name-button')));
+  await tester.pumpAndSettle();
+  await tester.enterText(
+    find.widgetWithText(TextFormField, '워크아웃 이름'), value,
+  );
   await tester.tap(find.widgetWithText(FilledButton, '변경'));
   await tester.pumpAndSettle();
 }
