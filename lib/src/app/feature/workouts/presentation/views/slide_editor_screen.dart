@@ -758,13 +758,13 @@ class _SlideEditorBody extends HookConsumerWidget {
                     key: const ValueKey('timer-color-scroll'),
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      spacing: 8,
+                      spacing: 4,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         HexColorField(
                           compact: true,
                           compactWidth: MediaQuery.textScalerOf(context)
-                              .scale(104),
+                              .scale(80),
                           label: '세트 숫자',
                           initialValue: colorHex(module.appearance.setsColor),
                           onChanged: (input) {
@@ -784,7 +784,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                           HexColorField(
                             compact: true,
                             compactWidth: MediaQuery.textScalerOf(context)
-                                .scale(104),
+                                .scale(80),
                             key: ValueKey('phase-color-$i-${revision.value}'),
                             label: const [
                               '운동 게이지',
