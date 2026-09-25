@@ -611,7 +611,7 @@ class _SlideEditorBody extends HookConsumerWidget {
           : ListView(
               controller: settingsScroll,
               key: const ValueKey('slide-editor-settings'),
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
               children: [
                 if (section.value == 1) ...[
                   summary,
@@ -738,57 +738,68 @@ class _SlideEditorBody extends HookConsumerWidget {
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      HexColorField(
-                        compact: true,
-                        label: '세트 숫자',
-                        initialValue: colorHex(module.appearance.setsColor),
-                        onChanged: (input) {
-                          final color = parseHexColor(input);
-                          if (color != null) {
-                            update(
-                              module.copyWith(
-                                appearance: module.appearance.copyWith(
-                                  setsColor: color,
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      for (var i = 0; i < 4; i++)
+                  SingleChildScrollView(
+                    key: const ValueKey('timer-color-scroll'),
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      spacing: 8,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         HexColorField(
                           compact: true,
-                          key: ValueKey('phase-color-$i-${revision.value}'),
-                          label: const [
-                            '운동 게이지',
-                            '휴식 게이지',
-                            '운동 시간 텍스트',
-                            '휴식 시간 텍스트',
-                          ][i],
-                          initialValue:
-                              [
-                                module.workGaugeColor,
-                                module.restGaugeColor,
-                                module.workTextColor,
-                                module.restTextColor,
-                              ][i] ??
-                              colorHex(
-                                slideColor(module, rest: i.isOdd, text: i >= 2),
-                              ),
-                          onChanged: (v) => update(switch (i) {
-                            0 => module.copyWith(workGaugeColor: v),
-                            1 => module.copyWith(restGaugeColor: v),
-                            2 => module.copyWith(workTextColor: v),
-                            _ => module.copyWith(restTextColor: v),
-                          }),
+                          compactWidth: MediaQuery.textScalerOf(context)
+                              .scale(104),
+                          label: '세트 숫자',
+                          initialValue: colorHex(module.appearance.setsColor),
+                          onChanged: (input) {
+                            final color = parseHexColor(input);
+                            if (color != null) {
+                              update(
+                                module.copyWith(
+                                  appearance: module.appearance.copyWith(
+                                    setsColor: color,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
-                    ],
+                        for (var i = 0; i < 4; i++)
+                          HexColorField(
+                            compact: true,
+                            compactWidth: MediaQuery.textScalerOf(context)
+                                .scale(104),
+                            key: ValueKey('phase-color-$i-${revision.value}'),
+                            label: const [
+                              '운동 게이지',
+                              '휴식 게이지',
+                              '운동 시간 텍스트',
+                              '휴식 시간 텍스트',
+                            ][i],
+                            initialValue:
+                                [
+                                  module.workGaugeColor,
+                                  module.restGaugeColor,
+                                  module.workTextColor,
+                                  module.restTextColor,
+                                ][i] ??
+                                colorHex(
+                                  slideColor(
+                                    module,
+                                    rest: i.isOdd,
+                                    text: i >= 2,
+                                  ),
+                                ),
+                            onChanged: (v) => update(switch (i) {
+                              0 => module.copyWith(workGaugeColor: v),
+                              1 => module.copyWith(restGaugeColor: v),
+                              2 => module.copyWith(workTextColor: v),
+                              _ => module.copyWith(restTextColor: v),
+                            }),
+                          ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
                 ],
                 if (section.value == 2) ...[
                   _SlideEditorMenuTile(
@@ -887,7 +898,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 32),
               ],
             ),
     );

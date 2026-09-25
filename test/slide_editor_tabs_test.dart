@@ -187,6 +187,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '선택'));
       await tester.pumpAndSettle();
+      final colorRow = find.byKey(const ValueKey('timer-color-scroll'));
+      final firstColor = find.byKey(const ValueKey('color-swatch-세트 숫자'));
+      final lastColor = find.byKey(const ValueKey('color-swatch-휴식 시간 텍스트'));
+      expect(tester.getTopLeft(firstColor).dy,
+          closeTo(tester.getTopLeft(lastColor).dy, 1));
+      await tester.drag(colorRow, const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(lastColor);
+      await tester.pumpAndSettle();
+      expect(lastColor.hitTestable(), findsOneWidget);
       await tab('배경');
       await reveal(body);
       expect(tester.widget<TextFormField>(body).controller!.text, '변경 본문');
