@@ -65,6 +65,11 @@ void main() {
       ).toEntity();
       expect(bounded.setsSize, 2);
       expect(bounded.setsOffsetY, -.5);
+      expect(SlideAppearanceModel.fromJson({}).toEntity().setsOffsetY, .07);
+      expect(
+        SlideAppearanceModel.fromJson({'setsOffsetY': 0}).toEntity().setsOffsetY,
+        0,
+      );
       json.remove('appearance');
       expect(
         WorkoutModuleModel.fromJson(json).toEntity().appearance,

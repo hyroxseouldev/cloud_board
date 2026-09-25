@@ -119,7 +119,7 @@ abstract class SlideAppearance with _$SlideAppearance {
     @Default(1) double timerSize,
     @Default(30) double ringWidth,
     @Default(1) double setsSize,
-    @Default(0) double setsOffsetY,
+    @Default(0.07) double setsOffsetY,
     @Default(true) bool showTitle,
     @Default(true) bool showBody,
     @Default(true) bool showBrand,

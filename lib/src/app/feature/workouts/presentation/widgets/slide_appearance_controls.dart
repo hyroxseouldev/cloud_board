@@ -49,7 +49,7 @@ class SlideAppearanceControls extends StatelessWidget {
                     timerSize: 1,
                     ringWidth: 30,
                     setsSize: 1,
-                    setsOffsetY: 0,
+                    setsOffsetY: .07,
                   ),
                   null,
                 ),

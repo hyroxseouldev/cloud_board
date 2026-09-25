@@ -163,7 +163,7 @@ SlideAppearanceModel _$SlideAppearanceModelFromJson(
   timerSize: (json['timerSize'] as num?)?.toDouble() ?? 1,
   ringWidth: (json['ringWidth'] as num?)?.toDouble() ?? 30,
   setsSize: (json['setsSize'] as num?)?.toDouble() ?? 1,
-  setsOffsetY: (json['setsOffsetY'] as num?)?.toDouble() ?? 0,
+  setsOffsetY: (json['setsOffsetY'] as num?)?.toDouble() ?? 0.07,
   showTitle: json['showTitle'] as bool? ?? true,
   showBody: json['showBody'] as bool? ?? true,
   showBrand: json['showBrand'] as bool? ?? true,

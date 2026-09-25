@@ -1478,7 +1478,7 @@ return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.
 
 
 class _SlideAppearance implements SlideAppearance {
-  const _SlideAppearance({this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1, this.ringWidth = 30, this.setsSize = 1, this.setsOffsetY = 0, this.showTitle = true, this.showBody = true, this.showBrand = true, this.titleColor = 0xFFFFFFFF, this.bodyColor = 0xFFFFFFFF, this.setsColor = 0xB3FFFFFF, this.brandColor = 0xFFFFFFFF});
+  const _SlideAppearance({this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1, this.ringWidth = 30, this.setsSize = 1, this.setsOffsetY = 0.07, this.showTitle = true, this.showBody = true, this.showBrand = true, this.titleColor = 0xFFFFFFFF, this.bodyColor = 0xFFFFFFFF, this.setsColor = 0xB3FFFFFF, this.brandColor = 0xFFFFFFFF});
   
 
 @override@JsonKey() final  double timerX;
