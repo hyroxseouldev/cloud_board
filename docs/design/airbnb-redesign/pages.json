@@ -1,0 +1,62 @@
+[
+  {
+    "id": "01",
+    "title": "로그인",
+    "file": "01-login.png"
+  },
+  {
+    "id": "02",
+    "title": "홈",
+    "file": "02-home.png"
+  },
+  {
+    "id": "03",
+    "title": "워크아웃 편집",
+    "file": "03-workout-editor.png"
+  },
+  {
+    "id": "04",
+    "title": "슬라이드 편집",
+    "file": "04-slide-editor.png"
+  },
+  {
+    "id": "05",
+    "title": "디스플레이 관리",
+    "file": "05-displays.png"
+  },
+  {
+    "id": "06",
+    "title": "프로필",
+    "file": "06-profile.png"
+  },
+  {
+    "id": "07",
+    "title": "온보딩",
+    "file": "07-onboarding.png"
+  },
+  {
+    "id": "08",
+    "title": "즐겨찾기",
+    "file": "08-favorites.png"
+  },
+  {
+    "id": "09",
+    "title": "매장 운영",
+    "file": "09-operations.png"
+  },
+  {
+    "id": "10",
+    "title": "대기 화면 설정",
+    "file": "10-standby.png"
+  },
+  {
+    "id": "11",
+    "title": "수업 진행",
+    "file": "11-player.png"
+  },
+  {
+    "id": "12",
+    "title": "TV 송출",
+    "file": "12-tv-display.png"
+  }
+]
