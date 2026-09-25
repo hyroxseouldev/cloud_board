@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/account_workout_settings_tab.dart';
@@ -24,14 +25,15 @@ import 'package:cloud_board/src/app/feature/operations/presentation/widgets/stor
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
-class StoreOperationsScreen extends ConsumerWidget {
+class StoreOperationsScreen extends HookConsumerWidget {
   const StoreOperationsScreen({super.key, this.guard});
   final ExitGuard? guard;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => DefaultTabController(
-    length: 5,
-    child: Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tabs = useTabController(initialLength: 5);
+    useListenable(tabs);
+    return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           tooltip: '뒤로',
@@ -39,31 +41,56 @@ class StoreOperationsScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         title: const Text('매장 운영'),
-        bottom: const TabBar(
-          isScrollable: true,
-          tabs: [
-            Tab(icon: Icon(Icons.tune_rounded), text: '워크아웃 설정'),
-            Tab(
-              icon: Icon(Icons.branding_watermark_outlined),
-              text: '브랜드·대기 화면',
-            ),
-            Tab(icon: Icon(Icons.calendar_month_outlined), text: '예약 재생'),
-            Tab(icon: Icon(Icons.connected_tv_rounded), text: '원격 관리'),
-            Tab(icon: Icon(Icons.insights_rounded), text: '운영 리포트'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        children: [
-          AccountWorkoutSettingsTab(guard: guard),
-          _BrandSettingsTab(),
-          _ScheduleTab(),
-          _RemoteDisplaysTab(),
-          _ReportTab(),
+      bottomNavigationBar: AppBottomTabBar(
+        key: const ValueKey('store-operations-tabs'),
+        indicatorKey: const ValueKey('operations-tab-indicator'),
+        selected: tabs.index,
+        stackedBelowWidth: 600,
+        onSelected: (index) {
+          FocusScope.of(context).unfocus();
+          tabs.animateTo(
+            index,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          );
+        },
+        items: const [
+          AppBottomTab(label: '워크아웃', icon: Icons.tune_rounded),
+          AppBottomTab(label: '대기 화면', icon: Icons.branding_watermark_outlined),
+          AppBottomTab(label: '예약 재생', icon: Icons.calendar_month_outlined),
+          AppBottomTab(label: '원격 관리', icon: Icons.connected_tv_rounded),
+          AppBottomTab(label: '리포트', icon: Icons.insights_rounded),
         ],
       ),
-    ),
-  );
+      body: TabBarView(
+        controller: tabs,
+        children: [
+          for (final child in [
+            AccountWorkoutSettingsTab(guard: guard),
+            const _BrandSettingsTab(),
+            const _ScheduleTab(),
+            const _RemoteDisplaysTab(),
+            const _ReportTab(),
+          ])
+            _KeepAliveOperationsTab(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _KeepAliveOperationsTab extends HookWidget {
+  const _KeepAliveOperationsTab({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    useAutomaticKeepAlive();
+    return child;
+  }
 }
 
 class _BrandSettingsTab extends HookConsumerWidget {
