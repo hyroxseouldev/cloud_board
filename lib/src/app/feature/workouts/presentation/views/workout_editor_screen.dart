@@ -517,6 +517,7 @@ class _EditorBody extends HookConsumerWidget {
                                 Expanded(
                                   child: Text(
                                     durationLabel(workoutDuration(draft.value)),
+                                    textAlign: TextAlign.end,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       color: XonColors.muted,
