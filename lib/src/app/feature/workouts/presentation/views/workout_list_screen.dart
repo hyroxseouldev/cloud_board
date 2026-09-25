@@ -48,6 +48,7 @@ class _WorkoutListBody extends HookConsumerWidget {
     final searchFocus = useFocusNode();
     final previousPage = useRef(0);
     final previousOffset = useRef(0.0);
+    final pendingDrawerRoute = useRef<String?>(null);
     final selectedFolder = useState<String?>(null);
     final page = useState(0);
     final scroll = useScrollController();
@@ -148,7 +149,28 @@ class _WorkoutListBody extends HookConsumerWidget {
       child: AsyncActionOverlay(
         isLoading: authAction.isLoading || workoutAction.isLoading,
         child: Scaffold(
-          drawer: _HomeDrawer(user: user, isBusy: isBusy),
+          drawer: _HomeDrawer(
+            user: user,
+            isBusy: isBusy,
+            onNavigate: (drawerContext, route) {
+              if (pendingDrawerRoute.value != null) return;
+              pendingDrawerRoute.value = route;
+              Scaffold.of(drawerContext).closeDrawer();
+            },
+            onClosed: () {
+              // Scaffold unmounts the drawer content when its closing animation
+              // is dismissed. onDrawerChanged(false) fires too early (at start).
+              final route = pendingDrawerRoute.value;
+              pendingDrawerRoute.value = null;
+              if (route == null) return;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted &&
+                    ModalRoute.of(context)?.isCurrent == true) {
+                  context.push(route);
+                }
+              });
+            },
+          ),
           appBar: AppBar(
             centerTitle: false,
             titleSpacing: 0,
@@ -673,16 +695,21 @@ class _Logo extends StatelessWidget {
   );
 }
 
-class _HomeDrawer extends StatelessWidget {
-  const _HomeDrawer({required this.user, required this.isBusy});
+class _HomeDrawer extends HookWidget {
+  const _HomeDrawer({
+    required this.user,
+    required this.isBusy,
+    required this.onNavigate,
+    required this.onClosed,
+  });
   final AuthUser? user;
   final bool isBusy;
+  final void Function(BuildContext, String) onNavigate;
+  final VoidCallback onClosed;
   @override
   Widget build(BuildContext context) {
-    void open(String route) {
-      Navigator.of(context).pop();
-      context.push(route);
-    }
+    useEffect(() => onClosed, const []);
+    void open(String route) => onNavigate(context, route);
 
     Widget destination(String label, IconData icon, String route) => ListTile(
       leading: Icon(icon),
@@ -721,11 +748,6 @@ class _HomeDrawer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     onTap: () => Navigator.of(context).pop(),
-                  ),
-                  destination(
-                    '즐겨찾기',
-                    Icons.star_outline_rounded,
-                    '/slides?favorites=true',
                   ),
                   destination(
                     '슬라이드 라이브러리',

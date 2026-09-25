@@ -21,11 +21,18 @@ Date: 2026-09-25
 - Search moves to the appbar action, receives focus, clears/closes, and restores prior page and scroll offset.
 - Folder filtering and pagination retained; single-page controls hidden.
 - Mobile uses a compact list; iPad portrait/landscape retain three-column grids; existing web maximum width retained.
-- Drawer links retain existing destinations; favorites opens the library with the favorites query flag.
+- Drawer links retain existing destinations; the duplicate favorites destination was removed after user feedback. Favorites remains a filter inside the slide library.
 - Display connection label uses paired/online device data rather than a mock count.
 - Existing playback entry, preflight, copy/delete actions and active-workout edit restrictions retained.
 - Targeted home, auth-router and slide-template tests passed; resize coverage includes 320–1600 logical width and 2× text, plus iPad portrait/landscape.
 - Targeted static analysis passed. Final iPhone simulator build/install/launch passed.
 - Real display pairing and a complete class playback session were not retested for this home layout change. No backend, authentication or subscription schema changes.
+
+## Follow-up: drawer navigation
+
+- User reported the drawer closing visibly only after returning from a destination. Previous code started drawer close and route push together, allowing the offstage home ticker to pause before close finished.
+- Queue one destination, close the drawer, and navigate after Flutter unmounts the fully dismissed drawer content. The early onDrawerChanged(false) callback is not used as an animation-completion signal. Pending navigation is guarded against duplicate taps and an unmounted/non-current home route.
+- Regression test verifies the destination is absent while the drawer closes, drawer content is absent even offstage on the destination and during back navigation, and another menu destination still works afterward. Home suite: 14 passed; targeted static analysis passed.
+- Drawer now has one slide-library destination; favorites remains inside that page.
 
 final result: passed

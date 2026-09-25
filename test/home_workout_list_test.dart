@@ -20,26 +20,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  testWidgets('drawer favorites and library use distinct entry filters', (
+  testWidgets('drawer closes before navigating and stays closed on return', (
     tester,
   ) async {
-    for (final (label, expected) in [
-      ('즐겨찾기', '라이브러리: true'),
-      ('슬라이드 라이브러리', '라이브러리: all'),
-    ]) {
-      await _mount(
-        tester,
-        _CatalogRepository(_catalog(1)),
-        testProfileRoute: true,
-      );
-      await tester.tap(find.byTooltip('메뉴'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-      expect(find.text(expected), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    }
+    await _mount(
+      tester,
+      _CatalogRepository(_catalog(1)),
+      testProfileRoute: true,
+    );
+    await tester.tap(find.byTooltip('메뉴'));
+    await tester.pumpAndSettle();
+    expect(find.text('즐겨찾기'), findsNothing);
+    await tester.tap(find.text('슬라이드 라이브러리'));
+    await tester.pump();
+    // Navigation must not cover and mute the still-closing drawer.
+    expect(find.text('라이브러리: all'), findsNothing);
+    expect(find.byType(Drawer), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('라이브러리: all'), findsOneWidget);
+    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
+    GoRouter.of(tester.element(find.text('라이브러리: all'))).pop();
+    await tester.pump();
+    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('메뉴').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('메뉴'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Coach'));
+    await tester.pumpAndSettle();
+    expect(find.text('프로필 목적지'), findsOneWidget);
+    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('closing search restores folder, page and scroll position', (
