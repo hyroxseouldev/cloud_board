@@ -194,7 +194,7 @@ void main() {
     const Size(1194, 834),
   ]) {
     testWidgets(
-      'editor pinned collapsible preview and save fit $size and title visibility updates',
+      'editor pinned preview and appbar actions fit $size and title visibility updates',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = size;
@@ -230,15 +230,26 @@ void main() {
               .width,
           closeTo(size.width, 1),
         );
-        expect(find.byTooltip('전체 화면 · 시험 재생'), findsOneWidget);
+        expect(find.byTooltip('미리 재생'), findsOneWidget);
         expect(find.text('시험 재생'), findsNothing);
         expect(find.text('슬라이드 설정'), findsNothing);
-        await tester.tap(find.byKey(const ValueKey('slide-preview-toggle')));
-        await tester.pumpAndSettle();
-        expect(find.byType(WorkoutSlidePreview), findsNothing);
-        await tester.tap(find.byKey(const ValueKey('slide-preview-toggle')));
-        await tester.pumpAndSettle();
-        expect(find.byType(WorkoutSlidePreview), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('slide-preview-toolbar')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('slide-preview-toggle')),
+          findsNothing,
+        );
+        expect(
+          find
+              .descendant(
+                of: find.byType(AppBar),
+                matching: find.byKey(const ValueKey('slide-preview-rehearse')),
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
         expect(
           find.byKey(const ValueKey('slide-save-button')).hitTestable(),
           findsOneWidget,

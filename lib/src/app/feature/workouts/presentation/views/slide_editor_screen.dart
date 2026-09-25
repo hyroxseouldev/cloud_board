@@ -186,8 +186,6 @@ class _SlideEditorBody extends HookConsumerWidget {
     final section = useState(1);
     final settingsScroll = useScrollController();
     final revision = useState(0);
-    final previewRest = useState(false);
-    final previewExpanded = useState(true);
     final selectedBlockId = useState<String?>(null);
     final blocks = effectiveIntervalBlocks(module);
     useEffect(() {
@@ -424,118 +422,45 @@ class _SlideEditorBody extends HookConsumerWidget {
         blocks.where((v) => v.id == selectedBlockId.value).firstOrNull ??
         blocks.first;
     final total = workoutModuleDuration(module);
-    final phaseSelector = SegmentedButton<bool>(
-      segments: const [
-        ButtonSegment(value: false, label: Text('운동')),
-        ButtonSegment(value: true, label: Text('휴식')),
-      ],
-      style: SegmentedButton.styleFrom(
-        minimumSize: const Size(44, 32),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 12),
-        visualDensity: VisualDensity.compact,
-      ),
-      selected: {previewRest.value},
-      showSelectedIcon: false,
-      onSelectionChanged: (values) => previewRest.value = values.first,
-    );
     final preview = Material(
       key: const ValueKey('slide-preview-card'),
       color: Theme.of(context).colorScheme.surface,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final showPreview =
-              previewExpanded.value && constraints.maxHeight >= 150;
           final imageHeight = math.min(
             constraints.maxWidth * 9 / 16,
-            math.max(0.0, constraints.maxHeight - 57),
+            math.max(0.0, constraints.maxHeight),
           );
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                key: const ValueKey('slide-preview-toolbar'),
-                height: 56,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          blocks.length > 1
-                              ? '미리보기 · 블록 ${blocks.indexOf(selectedBlock) + 1}'
-                              : '미리보기',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: SlideEditorStyle.accent,
+                height: imageHeight,
+                width: double.infinity,
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: previewSettings?.isLoading == true
+                        ? const Center(child: CircularProgressIndicator())
+                        : previewSettings?.hasError == true
+                        ? Center(
+                            child: TextButton(
+                              onPressed: () => ref.invalidate(
+                                workoutPreviewProvider(request.workout!),
+                              ),
+                              child: const Text('공통 설정을 불러오지 못했습니다 · 다시 시도'),
+                            ),
+                          )
+                        : WorkoutSlidePreview(
+                            borderRadius: 0,
+                            module: withIntervalBlocks(module, [selectedBlock]),
+                            isRest: false,
+                            brandL: renderedBrandL,
+                            brandR: renderedBrandR,
                           ),
-                        ),
-                      ),
-                      if (showPreview) phaseSelector,
-                      IconButton(
-                        key: const ValueKey('slide-preview-rehearse'),
-                        tooltip: '전체 화면 · 시험 재생',
-                        onPressed: rehearse,
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(44, 44),
-                          iconSize: 22,
-                          foregroundColor: SlideEditorStyle.accent,
-                        ),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                      ),
-                      IconButton(
-                        key: const ValueKey('slide-preview-toggle'),
-                        tooltip: previewExpanded.value ? '미리보기 접기' : '미리보기 펼치기',
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(44, 44),
-                          iconSize: 22,
-                          foregroundColor: SlideEditorStyle.accent,
-                        ),
-                        onPressed: () =>
-                            previewExpanded.value = !previewExpanded.value,
-                        icon: Icon(
-                          previewExpanded.value
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
-              if (showPreview) const Divider(height: 1),
-              if (showPreview)
-                SizedBox(
-                  height: imageHeight,
-                  width: double.infinity,
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: previewSettings?.isLoading == true
-                          ? const Center(child: CircularProgressIndicator())
-                          : previewSettings?.hasError == true
-                          ? Center(
-                              child: TextButton(
-                                onPressed: () => ref.invalidate(
-                                  workoutPreviewProvider(request.workout!),
-                                ),
-                                child: const Text('공통 설정을 불러오지 못했습니다 · 다시 시도'),
-                              ),
-                            )
-                          : WorkoutSlidePreview(
-                              borderRadius: 0,
-                              module: withIntervalBlocks(module, [
-                                selectedBlock,
-                              ]),
-                              isRest: previewRest.value,
-                              brandL: renderedBrandL,
-                              brandR: renderedBrandR,
-                            ),
-                    ),
-                  ),
-                ),
             ],
           );
         },
@@ -671,7 +596,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                 if (confirmed != true || !context.mounted) return;
                 resetFields(() => actions.replaceWithTemplate(template));
                 selectedBlockId.value = null;
-                previewRest.value = false;
                 selectSection(1);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -923,7 +847,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                   const Text('소리 종류와 볼륨은 워크아웃 설정을 따릅니다.'),
                   const SizedBox(height: 12),
                   const Text(
-                    '소리는 상단 미리보기의 재생 버튼으로 확인할 수 있어요.',
+                    '소리는 상단 앱바의 미리 재생 버튼으로 확인할 수 있어요.',
                     style: TextStyle(
                       fontSize: 12,
                       color: SlideEditorStyle.muted,
@@ -978,6 +902,17 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
           ),
           actions: [
+            IconButton(
+              key: const ValueKey('slide-preview-rehearse'),
+              tooltip: '미리 재생',
+              onPressed: busy.value ? null : rehearse,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                iconSize: 22,
+                foregroundColor: SlideEditorStyle.accent,
+              ),
+              icon: const Icon(Icons.play_arrow_rounded),
+            ),
             Padding(
               padding: const EdgeInsets.only(left: 4),
               child: Tooltip(
