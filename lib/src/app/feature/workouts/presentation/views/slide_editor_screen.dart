@@ -706,7 +706,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                                 ),
                               ),
                               const Text(
-                                '세트 표시하기',
+                                '세트 표시',
                                 style: TextStyle(fontSize: 13),
                               ),
                             ],
