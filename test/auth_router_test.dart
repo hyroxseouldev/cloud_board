@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/router/app_router.dart';
@@ -15,12 +17,49 @@ void main() {
     photoUrl: null,
   );
 
+  testWidgets('new accounts stay in onboarding until saved or deferred', (
+    tester,
+  ) async {
+    final gate = Completer<bool>();
+    final container = ProviderContainer(
+      overrides: [
+        authStateProvider.overrideWith(
+          (ref) => Stream.value(user.copyWith(needsOnboarding: true)),
+        ),
+        onboardingRequiredProvider.overrideWith((ref) => gate.future),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(appRouterProvider, (_, _) {});
+    addTearDown(subscription.close);
+    final router = subscription.read();
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pump();
+    final context = tester.element(find.byType(SizedBox).first);
+    Future<String> redirected(String path) async =>
+        (await router.configuration.redirect(
+          context,
+          router.configuration.findMatch(Uri.parse(path)),
+          redirectHistory: [],
+        )).uri.path;
+    expect(await redirected('/'), '/onboarding');
+    expect(await redirected('/onboarding'), '/onboarding');
+    gate.complete(false);
+    await tester.pump();
+    expect(await redirected('/profile'), '/profile');
+    expect(await redirected('/login'), '/');
+    await tester.pump();
+  });
+
   testWidgets(
     'restores auth before showing login and keeps the router stable',
     (tester) async {
       final users = StreamController<AuthUser?>();
       final container = ProviderContainer(
-        overrides: [authStateProvider.overrideWith((ref) => users.stream)],
+        overrides: [
+          authStateProvider.overrideWith((ref) => users.stream),
+          onboardingRequiredProvider.overrideWith((ref) async => false),
+        ],
       );
       addTearDown(() async {
         container.dispose();
@@ -70,6 +109,8 @@ void main() {
       expect((await redirect('/profile')).path, '/login');
       expect((await redirect('/login')).path, '/login');
       expect((await redirect(pending.toString())).path, '/login');
+      await tester.pump();
+      await tester.pump();
     },
   );
 }

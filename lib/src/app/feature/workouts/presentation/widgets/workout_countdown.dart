@@ -24,11 +24,15 @@ class WorkoutCountdown extends StatelessWidget {
     required this.seconds,
     this.slideName,
     this.slide,
+    this.onSkip,
+    this.skipEnabled = true,
   });
   final Workout workout;
   final int seconds;
   final String? slideName;
   final WorkoutModule? slide;
+  final VoidCallback? onSkip;
+  final bool skipEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +133,26 @@ class WorkoutCountdown extends StatelessWidget {
                 ),
               ),
             ),
+            if (onSkip != null)
+              SafeArea(
+                minimum: const EdgeInsets.all(20),
+                child: Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton.icon(
+                    key: const ValueKey('skip-countdown'),
+                    onPressed: skipEnabled ? onSkip : null,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white54,
+                      backgroundColor: Colors.black54,
+                      minimumSize: const Size(48, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    icon: const Icon(Icons.skip_next_rounded, size: 20),
+                    label: const Text('건너뛰기'),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

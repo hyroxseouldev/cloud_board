@@ -133,6 +133,15 @@ void main() {
         tester.view.viewInsets = const FakeViewPadding();
         await tester.pumpAndSettle();
         expect(find.textContaining('일시정지 · 0:45'), findsOneWidget);
+        double progress() => tester
+            .widget<LinearProgressIndicator>(
+              find.byKey(const ValueKey('mini-class-progress')),
+            )
+            .value!;
+        // 15 seconds elapsed out of two one-minute slides.
+        expect(progress(), closeTo(15 / 120, .001));
+        await tester.pump(const Duration(seconds: 2));
+        expect(progress(), closeTo(15 / 120, .001));
         IconButton control(String tooltip) => tester.widget<IconButton>(
           find.byWidgetPredicate(
             (widget) => widget is IconButton && widget.tooltip == tooltip,
@@ -152,6 +161,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(control('다음 슬라이드').onPressed, isNull);
         expect(control('이전 슬라이드').onPressed, isNotNull);
+        expect(progress(), closeTo(.5, .001));
         await tester.tap(find.byTooltip('이전 슬라이드'));
         await tester.pump();
         expect(commands.seeks, [1, 0]);

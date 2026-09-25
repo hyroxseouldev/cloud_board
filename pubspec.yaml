@@ -89,6 +89,8 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - assets/images/login_welcome.png
+    - assets/images/google_g.png
     - assets/sounds/video_beep.wav
     - assets/sounds/video_beep_tick.wav
 

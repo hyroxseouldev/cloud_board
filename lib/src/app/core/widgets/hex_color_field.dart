@@ -17,8 +17,10 @@ class HexColorField extends HookWidget {
     required this.onChanged,
     this.recentColorStore,
     this.compact = false,
+    this.compactWidth = 86,
   });
   final bool compact;
+  final double compactWidth;
   final String label, initialValue;
   final ValueChanged<String> onChanged;
   final RecentColorStore? recentColorStore;
@@ -73,7 +75,7 @@ class HexColorField extends HookWidget {
 
     if (compact) {
       return SizedBox(
-        width: 86,
+        width: compactWidth,
         child: Tooltip(
           message: '$label ${controller.text}',
           child: InkWell(

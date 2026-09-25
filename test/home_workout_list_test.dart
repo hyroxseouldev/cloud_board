@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -19,6 +20,83 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets('drawer closes before navigating and stays closed on return', (
+    tester,
+  ) async {
+    await _mount(
+      tester,
+      _CatalogRepository(_catalog(1)),
+      testProfileRoute: true,
+    );
+    await tester.tap(find.byTooltip('메뉴'));
+    await tester.pumpAndSettle();
+    expect(find.text('슬라이드 라이브러리'), findsNothing);
+    await tester.tap(find.text('즐겨찾기'));
+    await tester.pump();
+    // Navigation must not cover and mute the still-closing drawer.
+    expect(find.text('라이브러리: all'), findsNothing);
+    expect(find.byType(Drawer), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('라이브러리: all'), findsOneWidget);
+    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
+    GoRouter.of(tester.element(find.text('라이브러리: all'))).pop();
+    await tester.pump();
+    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('메뉴').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('메뉴'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Coach'));
+    await tester.pumpAndSettle();
+    expect(find.text('프로필 목적지'), findsOneWidget);
+    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('closing search restores folder, page and scroll position', (
+    tester,
+  ) async {
+    await _mount(tester, _CatalogRepository(_catalog(25)));
+    await _folder(tester, 'Stationd');
+    await tester.tap(find.byTooltip('다음 페이지'));
+    await tester.pumpAndSettle();
+    await _openSearch(tester);
+    await tester.enterText(find.byType(TextField), '수업 01');
+    await tester.pumpAndSettle();
+    expect(
+      find
+          .text('수업 01', findRichText: false)
+          .evaluate()
+          .where((e) => e.widget is Text)
+          .length,
+      1,
+    );
+    await tester.tap(find.byTooltip('검색 닫기'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Stationd'), findsOneWidget);
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(find.text('수업 13'), findsOneWidget);
+  });
+
+  testWidgets('search close restores a scrolled list', (tester) async {
+    await _mount(tester, _CatalogRepository(_catalog(12)));
+    final list = find.byKey(const ValueKey('workout-list'));
+    await tester.drag(list, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    final before = tester.widget<ListView>(list).controller!.offset;
+    expect(before, greaterThan(0));
+    await _openSearch(tester);
+    await tester.enterText(find.byType(TextField), '수업 01');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('검색 닫기'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ListView>(list).controller!.offset,
+      closeTo(before, 1),
+    );
+  });
+
   testWidgets('cards retain bounds and thumbnail ratio as the window resizes', (
     tester,
   ) async {
@@ -37,19 +115,26 @@ void main() {
         size: Size(width, 1000),
         textScale: 2,
       );
-      final grid = tester.widget<GridView>(
-        find.byKey(const ValueKey('workout-grid')),
-      );
-      expect(
-        (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
-            .crossAxisCount,
-        columns,
-      );
+      if (width >= 600) {
+        final grid = tester.widget<GridView>(
+          find.byKey(const ValueKey('workout-grid')),
+        );
+        expect(
+          (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+              .crossAxisCount,
+          columns,
+        );
+      } else {
+        expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
+      }
       final thumbnail = tester.getSize(
         find.byKey(const ValueKey('workout-thumbnail-w1')),
       );
       expect(thumbnail.width, lessThanOrEqualTo(360));
-      expect(thumbnail.width / thumbnail.height, closeTo(16 / 9, .001));
+      expect(
+        thumbnail.width / thumbnail.height,
+        closeTo(width < 600 ? 1 : 16 / 9, .001),
+      );
       await tester.ensureVisible(find.byTooltip('재생'));
       await tester.pumpAndSettle();
       expect(find.byTooltip('재생').hitTestable(), findsOneWidget);
@@ -66,7 +151,7 @@ void main() {
       _CatalogRepository(_catalog(1)),
       testProfileRoute: true,
     );
-    await tester.tap(find.byTooltip('설정'));
+    await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
     expect(find.text('프로필 조회 및 변경'), findsNothing);
     expect(find.text('앱 버전'), findsNothing);
@@ -80,10 +165,11 @@ void main() {
   ) async {
     final commands = _Commands();
     await _mount(tester, _CatalogRepository(_catalog(25)), commands: commands);
+    await _openSearch(tester);
     await tester.enterText(find.byType(TextField), '수업');
     await tester.tap(find.byTooltip('다음 페이지'));
     await tester.pumpAndSettle();
-    final grid = find.byKey(const ValueKey('workout-grid'));
+    final grid = find.byKey(const ValueKey('workout-list'));
     final gridElement = tester.element(grid);
     for (final result in [
       const AsyncData<String?>(null),
@@ -164,26 +250,33 @@ void main() {
     ) async {
       final repository = _CatalogRepository(_catalog(25));
       final container = await _mount(tester, repository, size: size);
-      int cardCount() => tester
-          .widget<GridView>(find.byKey(const ValueKey('workout-grid')))
-          .childrenDelegate
-          .estimatedChildCount!;
+      final mobile = size.width < 600;
+      int cardCount() => mobile
+          ? (tester
+                        .widget<ListView>(
+                          find.byKey(const ValueKey('workout-list')),
+                        )
+                        .childrenDelegate
+                        .estimatedChildCount! +
+                    1) ~/
+                2
+          : tester
+                .widget<GridView>(find.byKey(const ValueKey('workout-grid')))
+                .childrenDelegate
+                .estimatedChildCount!;
       expect(find.text('1 / 3'), findsOneWidget);
-      expect(cardCount(), 13);
+      expect(cardCount(), 12);
       expect(find.byType(FloatingActionButton), findsOneWidget);
-      final thumbnail = tester.getSize(
-        find.byKey(const ValueKey('workout-thumbnail-w1')),
-      );
-      expect(thumbnail.width, lessThanOrEqualTo(360));
-      expect(thumbnail.width / thumbnail.height, closeTo(16 / 9, .001));
-      final grid = tester.widget<GridView>(
-        find.byKey(const ValueKey('workout-grid')),
-      );
-      expect(
-        (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
-            .crossAxisCount,
-        columns,
-      );
+      if (!mobile) {
+        final grid = tester.widget<GridView>(
+          find.byKey(const ValueKey('workout-grid')),
+        );
+        expect(
+          (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+              .crossAxisCount,
+          columns,
+        );
+      }
       expect(
         tester
             .widget<IconButton>(
@@ -195,7 +288,7 @@ void main() {
         isNull,
       );
       await tester.drag(
-        find.byKey(const ValueKey('workout-grid')),
+        find.byKey(ValueKey(mobile ? 'workout-list' : 'workout-grid')),
         const Offset(0, -350),
       );
       await tester.pumpAndSettle();
@@ -216,7 +309,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('3 / 3'), findsOneWidget);
-      expect(cardCount(), columns == 1 ? 1 : 2);
+      expect(cardCount(), 1);
       expect(
         tester
             .widget<IconButton>(
@@ -232,11 +325,15 @@ void main() {
       container.read(workoutControllerProvider.notifier).remove('w25');
       await tester.pumpAndSettle();
       expect(find.text('2 / 2'), findsOneWidget);
-      expect(cardCount(), columns == 1 ? 12 : 13);
+      expect(cardCount(), 12);
+      await _openSearch(tester);
       await tester.enterText(find.byType(TextField), '수업 01');
       await tester.pumpAndSettle();
-      expect(find.text('1 / 1'), findsOneWidget);
-      expect(cardCount(), columns == 1 ? 1 : 2);
+      expect(
+        find.byKey(const ValueKey('workout-page-indicator')),
+        findsNothing,
+      );
+      expect(cardCount(), 1);
       await tester.tap(find.byTooltip('검색 지우기'));
       await tester.pumpAndSettle();
       expect(find.text('1 / 2'), findsOneWidget);
@@ -249,6 +346,7 @@ void main() {
       await _folder(tester, 'Stationd');
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.text('워크아웃 13개'), findsOneWidget);
+      await _openSearch(tester);
       await tester.enterText(find.byType(TextField), '수업 14');
       await tester.pumpAndSettle();
       expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
@@ -273,6 +371,7 @@ void main() {
     final repository = _CatalogRepository(_catalog(13));
     await _mount(tester, repository);
     await _folder(tester, 'Stationd');
+    await _openSearch(tester);
     await tester.enterText(find.byType(TextField), '수업');
     await tester.pumpAndSettle();
     await tester.tap(
@@ -286,27 +385,16 @@ void main() {
       ...repository.cached,
       _catalog(14).last.copyWith(folder: 'Stationd'),
     ];
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == '워크아웃 새로고침',
-      ),
-    );
+    final refresh = tester
+        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+        .onRefresh();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(repository.loads, 2);
     expect(find.text('2 / 2'), findsOneWidget);
     expect(find.text('워크아웃 13개'), findsOneWidget);
-    expect(
-      tester
-          .widget<IconButton>(
-            find.byWidgetPredicate(
-              (widget) => widget is IconButton && widget.tooltip == '워크아웃 새로고침',
-            ),
-          )
-          .onPressed,
-      isNull,
-    );
     repository.gate!.complete();
+    await refresh;
     await tester.pumpAndSettle();
     expect(find.text('워크아웃 14개'), findsOneWidget);
     expect(find.text('2 / 2'), findsOneWidget);
@@ -314,16 +402,6 @@ void main() {
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       '수업',
-    );
-    expect(
-      tester
-          .widget<IconButton>(
-            find.byWidgetPredicate(
-              (widget) => widget is IconButton && widget.tooltip == '워크아웃 새로고침',
-            ),
-          )
-          .onPressed,
-      isNotNull,
     );
     expect(tester.takeException(), isNull);
   });
@@ -335,6 +413,7 @@ void main() {
         final repository = _CatalogRepository(emptyCatalog ? [] : _catalog(1));
         await _mount(tester, repository);
         if (!emptyCatalog) {
+          await _openSearch(tester);
           await tester.enterText(find.byType(TextField), '없는 수업');
           await tester.pumpAndSettle();
         }
@@ -354,18 +433,23 @@ void main() {
     final repository = _CatalogRepository(_catalog(1));
     await _mount(tester, repository);
     repository.fail = true;
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == '워크아웃 새로고침',
-      ),
-    );
+    await tester
+        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+        .onRefresh();
     await tester.pumpAndSettle();
     expect(find.text('새로고침하지 못했습니다. 다시 시도해 주세요.'), findsOneWidget);
     expect(find.text('다시 시도'), findsOneWidget);
     repository.fail = false;
     await tester.tap(find.text('다시 시도'));
     await tester.pumpAndSettle();
-    expect(find.text('수업 01'), findsOneWidget);
+    expect(
+      find
+          .text('수업 01', findRichText: false)
+          .evaluate()
+          .where((e) => e.widget is Text)
+          .length,
+      1,
+    );
     expect(find.text('다시 시도'), findsNothing);
     expect(repository.loads, 3);
     expect(tester.takeException(), isNull);
@@ -373,9 +457,14 @@ void main() {
 }
 
 Future<void> _folder(WidgetTester tester, String name) async {
-  await tester.tap(find.byType(DropdownButtonFormField<String>));
+  await tester.tap(find.byTooltip('폴더 선택'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(name).last);
+  await tester.tap(
+    find.ancestor(
+      of: find.text(name).last,
+      matching: find.byType(CheckedPopupMenuItem<String>),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -400,6 +489,14 @@ Future<ProviderContainer> _mount(
               path: '/profile',
               builder: (_, _) => const Scaffold(body: Text('프로필 목적지')),
             ),
+            GoRoute(
+              path: '/slides',
+              builder: (_, state) => Scaffold(
+                body: Text(
+                  '라이브러리: ${state.uri.queryParameters['favorites'] ?? 'all'}',
+                ),
+              ),
+            ),
           ],
         )
       : null;
@@ -407,6 +504,7 @@ Future<ProviderContainer> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        displayDevicesProvider.overrideWith((ref) => Stream.value([])),
         if (commands != null)
           playbackActionControllerProvider.overrideWith(() => commands),
         activePlaybackSessionProvider.overrideWith(
@@ -489,4 +587,11 @@ class _Commands extends PlaybackActionController {
   @override
   AsyncValue<String?> build() => const AsyncData(null);
   void setStatus(AsyncValue<String?> value) => state = value;
+}
+
+Future<void> _openSearch(WidgetTester tester) async {
+  if (find.byType(TextField).evaluate().isEmpty) {
+    await tester.tap(find.byTooltip('검색'));
+    await tester.pumpAndSettle();
+  }
 }

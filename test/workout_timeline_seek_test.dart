@@ -8,6 +8,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_control_panel.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_interval_slider_track.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -26,6 +27,34 @@ final _workout =
     );
 
 void main() {
+  test(
+    'interval track follows timing across blocks without trailing rests',
+    () {
+      final module = _workout.modules.first.copyWith(
+        intervalBlocks: const [
+          WorkoutIntervalBlock(
+            id: 'a',
+            workSeconds: 10,
+            restSeconds: 5,
+            sets: 2,
+          ),
+          WorkoutIntervalBlock(
+            id: 'b',
+            workSeconds: 3,
+            restSeconds: 0,
+            sets: 2,
+          ),
+        ],
+      );
+      expect(workoutIntervalSegments(module), [
+        (startMs: 0, endMs: 10000, isRest: false),
+        (startMs: 10000, endMs: 15000, isRest: true),
+        (startMs: 15000, endMs: 25000, isRest: false),
+        (startMs: 25000, endMs: 28000, isRest: false),
+        (startMs: 28000, endMs: 31000, isRest: false),
+      ]);
+    },
+  );
   testWidgets('local seek maps work/rest/set boundaries and clamps endpoints', (
     tester,
   ) async {
@@ -126,7 +155,7 @@ void main() {
   }
 
   testWidgets(
-    'single-slide handle follows drag; release seeks inside slide once',
+    'continuous progress follows drag; release seeks inside slide once',
     (tester) async {
       final calls = <({int module, int elapsed})>[];
       await tester.pumpWidget(
@@ -149,17 +178,21 @@ void main() {
       );
       final timeline = find.byKey(const ValueKey('class-timeline'));
       final rect = tester.getRect(timeline);
-      final handle = find.descendant(
+      final progress = find.descendant(
         of: timeline,
-        matching: find.byIcon(Icons.circle),
+        matching: find.byType(LinearProgressIndicator),
       );
-      final start = tester.getCenter(handle).dx;
+      expect(
+        find.descendant(of: timeline, matching: find.byIcon(Icons.circle)),
+        findsNothing,
+      );
+      expect(tester.widget<LinearProgressIndicator>(progress).value, 0);
       final gesture = await tester.startGesture(
         Offset(rect.left + 3, rect.center.dy),
       );
       await gesture.moveTo(rect.center);
       await tester.pump();
-      expect(tester.getCenter(handle).dx, greaterThan(start + 150));
+      expect(tester.widget<LinearProgressIndicator>(progress).value, .5);
       expect(calls, isEmpty);
       await gesture.up();
       await tester.pump();
@@ -208,10 +241,10 @@ void main() {
             ),
           ),
         );
-        expect(find.text('현재 슬라이드 1/2'), findsOneWidget);
-        expect(find.text('전체 수업 0:12 / 1:25'), findsOneWidget);
-        expect(find.text('블록 1 · 1/2세트 · 휴식'), findsOneWidget);
-        expect(find.text('휴식 남은 시간 0:03'), findsOneWidget);
+        expect(find.text('1/2'), findsOneWidget);
+        expect(find.text('0:12 / 1:25'), findsOneWidget);
+        expect(find.text('1/2 · 휴식'), findsOneWidget);
+        expect(find.text('0:03 남음'), findsOneWidget);
         final rect = tester.getRect(
           find.byKey(const ValueKey('class-timeline')),
         );
@@ -231,11 +264,22 @@ void main() {
         final slider = tester.widget<Slider>(
           find.byKey(const ValueKey('slide-detail-timeline')),
         );
+        WorkoutIntervalSliderTrack intervalTrack() =>
+            SliderTheme.of(
+                  tester.element(
+                    find.byKey(const ValueKey('slide-detail-timeline')),
+                  ),
+                ).trackShape!
+                as WorkoutIntervalSliderTrack;
+        expect(intervalTrack().segments, hasLength(3));
+        expect(intervalTrack().positionMs, 12000);
+        expect(slider.semanticFormatterCallback!(12000), contains('1세트 휴식'));
         slider.onChangeStart!(18000);
         slider.onChanged!(18000);
         await tester.pump();
-        expect(find.text('블록 1 · 2/2세트 · 운동'), findsOneWidget);
-        expect(find.text('슬라이드 내 0:18 / 0:25'), findsOneWidget);
+        expect(find.text('2/2 · 운동'), findsOneWidget);
+        expect(find.text('0:18 / 0:25'), findsOneWidget);
+        expect(intervalTrack().positionMs, 18000);
         expect(calls, hasLength(1));
         slider.onChangeEnd!(18000);
         await tester.pump();
@@ -246,7 +290,60 @@ void main() {
   }
 
   testWidgets(
-    'unequal segment widths map to each slide time rather than total time',
+    'slide dropdown replaces chips and blocks duplicate pending seeks',
+    (tester) async {
+      final calls = <({int module, int elapsed})>[];
+      final pending = Completer<void>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WorkoutControlTimeline(
+              section: WorkoutTimelineSection.detail,
+              durations: const [25, 60],
+              modules: _workout.modules,
+              currentModule: 0,
+              elapsedMs: 12000,
+              onSeek: (module, elapsed) {
+                calls.add((module: module, elapsed: elapsed));
+                return pending.future;
+              },
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(TextButton), findsNothing);
+      await tester.tap(find.byTooltip('슬라이드 선택'));
+      await tester.pumpAndSettle();
+      final entries = find.byType(PopupMenuItem<int>);
+      expect(entries, findsNWidgets(2));
+      await tester.tap(entries.last);
+      await tester.pumpAndSettle();
+      expect(calls, [(module: 1, elapsed: 0)]);
+      expect(
+        tester
+            .widget<Slider>(find.byKey(const ValueKey('slide-detail-timeline')))
+            .onChanged,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<PopupMenuButton<int>>(find.byType(PopupMenuButton<int>))
+            .enabled,
+        isFalse,
+      );
+      pending.complete();
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<PopupMenuButton<int>>(find.byType(PopupMenuButton<int>))
+            .enabled,
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
+    'continuous progress maps actual class time across unequal slides',
     (tester) async {
       final calls = <({int module, int elapsed})>[];
       await tester.pumpWidget(

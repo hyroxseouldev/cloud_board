@@ -1269,7 +1269,7 @@ as int,
 /// @nodoc
 mixin _$SlideAppearance {
 
- double get timerX; double get timerY; double get timerSize; double get ringWidth; bool get showTitle; bool get showBody; bool get showBrand; int get titleColor; int get bodyColor; int get setsColor; int get brandColor;
+ double get timerX; double get timerY; double get timerSize; double get ringWidth; double get setsSize; double get setsOffsetY; bool get showTitle; bool get showBody; bool get showBrand; int get titleColor; int get bodyColor; int get setsColor; int get brandColor;
 /// Create a copy of SlideAppearance
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1281,20 +1281,20 @@ $SlideAppearanceCopyWith<SlideAppearance> get copyWith => _$SlideAppearanceCopyW
 @override
 bool operator ==(Object other) {
   final _this = this as SlideAppearance;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SlideAppearance&&(identical(other.timerX, _this.timerX) || other.timerX == _this.timerX)&&(identical(other.timerY, _this.timerY) || other.timerY == _this.timerY)&&(identical(other.timerSize, _this.timerSize) || other.timerSize == _this.timerSize)&&(identical(other.ringWidth, _this.ringWidth) || other.ringWidth == _this.ringWidth)&&(identical(other.showTitle, _this.showTitle) || other.showTitle == _this.showTitle)&&(identical(other.showBody, _this.showBody) || other.showBody == _this.showBody)&&(identical(other.showBrand, _this.showBrand) || other.showBrand == _this.showBrand)&&(identical(other.titleColor, _this.titleColor) || other.titleColor == _this.titleColor)&&(identical(other.bodyColor, _this.bodyColor) || other.bodyColor == _this.bodyColor)&&(identical(other.setsColor, _this.setsColor) || other.setsColor == _this.setsColor)&&(identical(other.brandColor, _this.brandColor) || other.brandColor == _this.brandColor));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SlideAppearance&&(identical(other.timerX, _this.timerX) || other.timerX == _this.timerX)&&(identical(other.timerY, _this.timerY) || other.timerY == _this.timerY)&&(identical(other.timerSize, _this.timerSize) || other.timerSize == _this.timerSize)&&(identical(other.ringWidth, _this.ringWidth) || other.ringWidth == _this.ringWidth)&&(identical(other.setsSize, _this.setsSize) || other.setsSize == _this.setsSize)&&(identical(other.setsOffsetY, _this.setsOffsetY) || other.setsOffsetY == _this.setsOffsetY)&&(identical(other.showTitle, _this.showTitle) || other.showTitle == _this.showTitle)&&(identical(other.showBody, _this.showBody) || other.showBody == _this.showBody)&&(identical(other.showBrand, _this.showBrand) || other.showBrand == _this.showBrand)&&(identical(other.titleColor, _this.titleColor) || other.titleColor == _this.titleColor)&&(identical(other.bodyColor, _this.bodyColor) || other.bodyColor == _this.bodyColor)&&(identical(other.setsColor, _this.setsColor) || other.setsColor == _this.setsColor)&&(identical(other.brandColor, _this.brandColor) || other.brandColor == _this.brandColor));
 }
 
 
 @override
 int get hashCode {
   final _this = this as SlideAppearance;
-  return Object.hash(runtimeType,_this.timerX,_this.timerY,_this.timerSize,_this.ringWidth,_this.showTitle,_this.showBody,_this.showBrand,_this.titleColor,_this.bodyColor,_this.setsColor,_this.brandColor);
+  return Object.hash(runtimeType,_this.timerX,_this.timerY,_this.timerSize,_this.ringWidth,_this.setsSize,_this.setsOffsetY,_this.showTitle,_this.showBody,_this.showBrand,_this.titleColor,_this.bodyColor,_this.setsColor,_this.brandColor);
 }
 
 @override
 String toString() {
   final _this = this as SlideAppearance;
-  return 'SlideAppearance(timerX: ${_this.timerX}, timerY: ${_this.timerY}, timerSize: ${_this.timerSize}, ringWidth: ${_this.ringWidth}, showTitle: ${_this.showTitle}, showBody: ${_this.showBody}, showBrand: ${_this.showBrand}, titleColor: ${_this.titleColor}, bodyColor: ${_this.bodyColor}, setsColor: ${_this.setsColor}, brandColor: ${_this.brandColor})';
+  return 'SlideAppearance(timerX: ${_this.timerX}, timerY: ${_this.timerY}, timerSize: ${_this.timerSize}, ringWidth: ${_this.ringWidth}, setsSize: ${_this.setsSize}, setsOffsetY: ${_this.setsOffsetY}, showTitle: ${_this.showTitle}, showBody: ${_this.showBody}, showBrand: ${_this.showBrand}, titleColor: ${_this.titleColor}, bodyColor: ${_this.bodyColor}, setsColor: ${_this.setsColor}, brandColor: ${_this.brandColor})';
 }
 
 
@@ -1305,7 +1305,7 @@ abstract mixin class $SlideAppearanceCopyWith<$Res>  {
   factory $SlideAppearanceCopyWith(SlideAppearance value, $Res Function(SlideAppearance) _then) = _$SlideAppearanceCopyWithImpl;
 @useResult
 $Res call({
- double timerX, double timerY, double timerSize, double ringWidth, bool showTitle, bool showBody, bool showBrand, int titleColor, int bodyColor, int setsColor, int brandColor
+ double timerX, double timerY, double timerSize, double ringWidth, double setsSize, double setsOffsetY, bool showTitle, bool showBody, bool showBrand, int titleColor, int bodyColor, int setsColor, int brandColor
 });
 
 
@@ -1322,12 +1322,14 @@ class _$SlideAppearanceCopyWithImpl<$Res>
 
 /// Create a copy of SlideAppearance
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? ringWidth = null,Object? showTitle = null,Object? showBody = null,Object? showBrand = null,Object? titleColor = null,Object? bodyColor = null,Object? setsColor = null,Object? brandColor = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? ringWidth = null,Object? setsSize = null,Object? setsOffsetY = null,Object? showTitle = null,Object? showBody = null,Object? showBrand = null,Object? titleColor = null,Object? bodyColor = null,Object? setsColor = null,Object? brandColor = null,}) {
   return _then(SlideAppearance(
 timerX: null == timerX ? _self.timerX : timerX // ignore: cast_nullable_to_non_nullable
 as double,timerY: null == timerY ? _self.timerY : timerY // ignore: cast_nullable_to_non_nullable
 as double,timerSize: null == timerSize ? _self.timerSize : timerSize // ignore: cast_nullable_to_non_nullable
 as double,ringWidth: null == ringWidth ? _self.ringWidth : ringWidth // ignore: cast_nullable_to_non_nullable
+as double,setsSize: null == setsSize ? _self.setsSize : setsSize // ignore: cast_nullable_to_non_nullable
+as double,setsOffsetY: null == setsOffsetY ? _self.setsOffsetY : setsOffsetY // ignore: cast_nullable_to_non_nullable
 as double,showTitle: null == showTitle ? _self.showTitle : showTitle // ignore: cast_nullable_to_non_nullable
 as bool,showBody: null == showBody ? _self.showBody : showBody // ignore: cast_nullable_to_non_nullable
 as bool,showBrand: null == showBrand ? _self.showBrand : showBrand // ignore: cast_nullable_to_non_nullable
@@ -1420,10 +1422,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double timerX,  double timerY,  double timerSize,  double ringWidth,  bool showTitle,  bool showBody,  bool showBrand,  int titleColor,  int bodyColor,  int setsColor,  int brandColor)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double timerX,  double timerY,  double timerSize,  double ringWidth,  double setsSize,  double setsOffsetY,  bool showTitle,  bool showBody,  bool showBrand,  int titleColor,  int bodyColor,  int setsColor,  int brandColor)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SlideAppearance() when $default != null:
-return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.showTitle,_that.showBody,_that.showBrand,_that.titleColor,_that.bodyColor,_that.setsColor,_that.brandColor);case _:
+return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.setsSize,_that.setsOffsetY,_that.showTitle,_that.showBody,_that.showBrand,_that.titleColor,_that.bodyColor,_that.setsColor,_that.brandColor);case _:
   return orElse();
 
 }
@@ -1441,10 +1443,10 @@ return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double timerX,  double timerY,  double timerSize,  double ringWidth,  bool showTitle,  bool showBody,  bool showBrand,  int titleColor,  int bodyColor,  int setsColor,  int brandColor)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double timerX,  double timerY,  double timerSize,  double ringWidth,  double setsSize,  double setsOffsetY,  bool showTitle,  bool showBody,  bool showBrand,  int titleColor,  int bodyColor,  int setsColor,  int brandColor)  $default,) {final _that = this;
 switch (_that) {
 case _SlideAppearance():
-return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.showTitle,_that.showBody,_that.showBrand,_that.titleColor,_that.bodyColor,_that.setsColor,_that.brandColor);case _:
+return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.setsSize,_that.setsOffsetY,_that.showTitle,_that.showBody,_that.showBrand,_that.titleColor,_that.bodyColor,_that.setsColor,_that.brandColor);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1461,10 +1463,10 @@ return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double timerX,  double timerY,  double timerSize,  double ringWidth,  bool showTitle,  bool showBody,  bool showBrand,  int titleColor,  int bodyColor,  int setsColor,  int brandColor)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double timerX,  double timerY,  double timerSize,  double ringWidth,  double setsSize,  double setsOffsetY,  bool showTitle,  bool showBody,  bool showBrand,  int titleColor,  int bodyColor,  int setsColor,  int brandColor)?  $default,) {final _that = this;
 switch (_that) {
 case _SlideAppearance() when $default != null:
-return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.showTitle,_that.showBody,_that.showBrand,_that.titleColor,_that.bodyColor,_that.setsColor,_that.brandColor);case _:
+return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.setsSize,_that.setsOffsetY,_that.showTitle,_that.showBody,_that.showBrand,_that.titleColor,_that.bodyColor,_that.setsColor,_that.brandColor);case _:
   return null;
 
 }
@@ -1476,13 +1478,15 @@ return $default(_that.timerX,_that.timerY,_that.timerSize,_that.ringWidth,_that.
 
 
 class _SlideAppearance implements SlideAppearance {
-  const _SlideAppearance({this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1, this.ringWidth = 30, this.showTitle = true, this.showBody = true, this.showBrand = true, this.titleColor = 0xFFFFFFFF, this.bodyColor = 0xFFFFFFFF, this.setsColor = 0xB3FFFFFF, this.brandColor = 0xFFFFFFFF});
+  const _SlideAppearance({this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1, this.ringWidth = 30, this.setsSize = 1, this.setsOffsetY = 0.07, this.showTitle = true, this.showBody = true, this.showBrand = true, this.titleColor = 0xFFFFFFFF, this.bodyColor = 0xFFFFFFFF, this.setsColor = 0xB3FFFFFF, this.brandColor = 0xFFFFFFFF});
   
 
 @override@JsonKey() final  double timerX;
 @override@JsonKey() final  double timerY;
 @override@JsonKey() final  double timerSize;
 @override@JsonKey() final  double ringWidth;
+@override@JsonKey() final  double setsSize;
+@override@JsonKey() final  double setsOffsetY;
 @override@JsonKey() final  bool showTitle;
 @override@JsonKey() final  bool showBody;
 @override@JsonKey() final  bool showBrand;
@@ -1501,18 +1505,18 @@ _$SlideAppearanceCopyWith<_SlideAppearance> get copyWith => __$SlideAppearanceCo
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _SlideAppearance&&(identical(other.timerX, timerX) || other.timerX == timerX)&&(identical(other.timerY, timerY) || other.timerY == timerY)&&(identical(other.timerSize, timerSize) || other.timerSize == timerSize)&&(identical(other.ringWidth, ringWidth) || other.ringWidth == ringWidth)&&(identical(other.showTitle, showTitle) || other.showTitle == showTitle)&&(identical(other.showBody, showBody) || other.showBody == showBody)&&(identical(other.showBrand, showBrand) || other.showBrand == showBrand)&&(identical(other.titleColor, titleColor) || other.titleColor == titleColor)&&(identical(other.bodyColor, bodyColor) || other.bodyColor == bodyColor)&&(identical(other.setsColor, setsColor) || other.setsColor == setsColor)&&(identical(other.brandColor, brandColor) || other.brandColor == brandColor));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _SlideAppearance&&(identical(other.timerX, timerX) || other.timerX == timerX)&&(identical(other.timerY, timerY) || other.timerY == timerY)&&(identical(other.timerSize, timerSize) || other.timerSize == timerSize)&&(identical(other.ringWidth, ringWidth) || other.ringWidth == ringWidth)&&(identical(other.setsSize, setsSize) || other.setsSize == setsSize)&&(identical(other.setsOffsetY, setsOffsetY) || other.setsOffsetY == setsOffsetY)&&(identical(other.showTitle, showTitle) || other.showTitle == showTitle)&&(identical(other.showBody, showBody) || other.showBody == showBody)&&(identical(other.showBrand, showBrand) || other.showBrand == showBrand)&&(identical(other.titleColor, titleColor) || other.titleColor == titleColor)&&(identical(other.bodyColor, bodyColor) || other.bodyColor == bodyColor)&&(identical(other.setsColor, setsColor) || other.setsColor == setsColor)&&(identical(other.brandColor, brandColor) || other.brandColor == brandColor));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,timerX,timerY,timerSize,ringWidth,showTitle,showBody,showBrand,titleColor,bodyColor,setsColor,brandColor);
+    return Object.hash(runtimeType,timerX,timerY,timerSize,ringWidth,setsSize,setsOffsetY,showTitle,showBody,showBrand,titleColor,bodyColor,setsColor,brandColor);
 }
 
 @override
 String toString() {
-    return 'SlideAppearance(timerX: $timerX, timerY: $timerY, timerSize: $timerSize, ringWidth: $ringWidth, showTitle: $showTitle, showBody: $showBody, showBrand: $showBrand, titleColor: $titleColor, bodyColor: $bodyColor, setsColor: $setsColor, brandColor: $brandColor)';
+    return 'SlideAppearance(timerX: $timerX, timerY: $timerY, timerSize: $timerSize, ringWidth: $ringWidth, setsSize: $setsSize, setsOffsetY: $setsOffsetY, showTitle: $showTitle, showBody: $showBody, showBrand: $showBrand, titleColor: $titleColor, bodyColor: $bodyColor, setsColor: $setsColor, brandColor: $brandColor)';
 }
 
 
@@ -1523,7 +1527,7 @@ abstract mixin class _$SlideAppearanceCopyWith<$Res> implements $SlideAppearance
   factory _$SlideAppearanceCopyWith(_SlideAppearance value, $Res Function(_SlideAppearance) _then) = __$SlideAppearanceCopyWithImpl;
 @override @useResult
 $Res call({
- double timerX, double timerY, double timerSize, double ringWidth, bool showTitle, bool showBody, bool showBrand, int titleColor, int bodyColor, int setsColor, int brandColor
+ double timerX, double timerY, double timerSize, double ringWidth, double setsSize, double setsOffsetY, bool showTitle, bool showBody, bool showBrand, int titleColor, int bodyColor, int setsColor, int brandColor
 });
 
 
@@ -1540,12 +1544,14 @@ class __$SlideAppearanceCopyWithImpl<$Res>
 
 /// Create a copy of SlideAppearance
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? ringWidth = null,Object? showTitle = null,Object? showBody = null,Object? showBrand = null,Object? titleColor = null,Object? bodyColor = null,Object? setsColor = null,Object? brandColor = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? ringWidth = null,Object? setsSize = null,Object? setsOffsetY = null,Object? showTitle = null,Object? showBody = null,Object? showBrand = null,Object? titleColor = null,Object? bodyColor = null,Object? setsColor = null,Object? brandColor = null,}) {
   return _then(_SlideAppearance(
 timerX: null == timerX ? _self.timerX : timerX // ignore: cast_nullable_to_non_nullable
 as double,timerY: null == timerY ? _self.timerY : timerY // ignore: cast_nullable_to_non_nullable
 as double,timerSize: null == timerSize ? _self.timerSize : timerSize // ignore: cast_nullable_to_non_nullable
 as double,ringWidth: null == ringWidth ? _self.ringWidth : ringWidth // ignore: cast_nullable_to_non_nullable
+as double,setsSize: null == setsSize ? _self.setsSize : setsSize // ignore: cast_nullable_to_non_nullable
+as double,setsOffsetY: null == setsOffsetY ? _self.setsOffsetY : setsOffsetY // ignore: cast_nullable_to_non_nullable
 as double,showTitle: null == showTitle ? _self.showTitle : showTitle // ignore: cast_nullable_to_non_nullable
 as bool,showBody: null == showBody ? _self.showBody : showBody // ignore: cast_nullable_to_non_nullable
 as bool,showBrand: null == showBrand ? _self.showBrand : showBrand // ignore: cast_nullable_to_non_nullable

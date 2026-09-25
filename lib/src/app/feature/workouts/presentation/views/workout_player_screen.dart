@@ -441,6 +441,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             seconds: (state.countdownMs / 1000).ceil(),
             slideName: currentMediaStep?.module.name,
             slide: currentMediaStep?.module,
+            onSkip: displayMode
+                ? null
+                : () => unawaited(actions.skipCountdown()),
+            skipEnabled:
+                !playbackAction.isLoading && (sessionId == null || isConnected),
           ),
         ),
       );
@@ -461,6 +466,36 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     final step = state.steps[state.index];
     final module = step.module;
     if (!displayMode) {
+      Widget timelineSection(WorkoutTimelineSection section) => Consumer(
+        builder: (context, ref, _) {
+          final live = ref.watch(provider);
+          final durations = List.filled(workout.modules.length, 0);
+          var elapsed = 0;
+          for (var i = 0; i < live.steps.length; i++) {
+            final item = live.steps[i];
+            durations[item.moduleIndex] += item.duration;
+            if (item.moduleIndex == step.moduleIndex) {
+              if (i < live.index) elapsed += item.duration * 1000;
+              if (i == live.index) {
+                elapsed += item.duration * 1000 - live.remainingMs;
+              }
+            }
+          }
+          return WorkoutControlTimeline(
+            section: section,
+            durations: durations,
+            modules: workout.modules,
+            currentModule: step.moduleIndex,
+            elapsedMs: elapsed,
+            onSeek:
+                touchLocked.value ||
+                    playbackAction.isLoading ||
+                    (sessionId != null && !isConnected)
+                ? null
+                : actions.seekModulePosition,
+          );
+        },
+      );
       return PopScope(
         canPop: exitAllowed.value,
         onPopInvokedWithResult: (didPop, _) {
@@ -507,35 +542,8 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                   : sessionId != null && !isConnected
                   ? '컨트롤러의 서버 연결이 끊겼습니다. 연결 복구 후 수업 상태를 확인해 주세요.'
                   : null,
-              timeline: Consumer(
-                builder: (context, ref, _) {
-                  final live = ref.watch(provider);
-                  final durations = List.filled(workout.modules.length, 0);
-                  var elapsed = 0;
-                  for (var i = 0; i < live.steps.length; i++) {
-                    final item = live.steps[i];
-                    durations[item.moduleIndex] += item.duration;
-                    if (item.moduleIndex == step.moduleIndex) {
-                      if (i < live.index) elapsed += item.duration * 1000;
-                      if (i == live.index) {
-                        elapsed += item.duration * 1000 - live.remainingMs;
-                      }
-                    }
-                  }
-                  return WorkoutControlTimeline(
-                    durations: durations,
-                    modules: workout.modules,
-                    currentModule: step.moduleIndex,
-                    elapsedMs: elapsed,
-                    onSeek:
-                        touchLocked.value ||
-                            playbackAction.isLoading ||
-                            (sessionId != null && !isConnected)
-                        ? null
-                        : actions.seekModulePosition,
-                  );
-                },
-              ),
+              progress: timelineSection(WorkoutTimelineSection.progress),
+              timeline: timelineSection(WorkoutTimelineSection.detail),
               previewBuilder: (context, index) {
                 if (index != step.moduleIndex) {
                   return WorkoutSlidePreview(

@@ -203,7 +203,11 @@ class WorkoutSlideCanvas extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(module.appearance.setsColor),
-                      fontSize: 22 * scale * module.appearance.timerSize,
+                      fontSize:
+                          28 *
+                          scale *
+                          module.appearance.timerSize *
+                          module.appearance.setsSize,
                       height: 1.2,
                       fontWeight: FontWeight.w700,
                     ),
@@ -215,7 +219,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
   );
 }
 
-/// The timer and set label share a single clamped anchor, including when hidden.
+/// The set label follows the timer anchor with an independently clamped offset.
 class _TimerGroup extends StatelessWidget {
   const _TimerGroup({
     required this.module,
@@ -236,6 +240,7 @@ class _TimerGroup extends StatelessWidget {
     final width = 232 * unit;
     final timerHeight = timer == null ? 0.0 : width;
     final labelHeight = sets == null ? 0.0 : 40 * unit;
+    final scaledLabelHeight = labelHeight * module.appearance.setsSize;
     final height = timerHeight + labelHeight;
     final insetX = constraints.maxWidth * preferences.safeInset;
     final insetY = constraints.maxHeight * preferences.safeInset;
@@ -254,17 +259,31 @@ class _TimerGroup extends StatelessWidget {
       double.infinity,
     );
     final top = (anchorY - timerHeight / 2).clamp(insetY, maxTop);
+    final labelTop =
+        (top +
+                timerHeight +
+                module.appearance.setsOffsetY * constraints.maxHeight)
+            .clamp(
+              insetY,
+              (constraints.maxHeight - insetY - scaledLabelHeight - 64 * scale)
+                  .clamp(insetY, double.infinity),
+            );
     return Positioned(
       left: left,
       top: top,
       width: width,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          ?timer,
+          if (timer != null)
+            Positioned(top: 0, left: 0, right: 0, child: timer!),
           if (sets != null)
-            SizedBox(
-              height: labelHeight,
+            Positioned(
+              top: labelTop - top,
+              left: 0,
+              right: 0,
+              height: scaledLabelHeight,
               child: Center(child: FittedBox(child: sets!)),
             ),
         ],

@@ -116,66 +116,78 @@ class AccountManagementSection extends HookConsumerWidget {
       }
     }
 
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppStyle.cardRadius),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('계정 관리', style: AppStyle.of(context).subText2),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.person_remove_outlined),
-              title: Text(
-                processing
-                    ? '계정 삭제 처리 중…'
-                    : deleting
-                    ? '본인 확인 및 삭제 처리 중…'
-                    : '계정 삭제',
-              ),
-              subtitle: const Text('클라우드보드 계정과 관련 데이터를 삭제합니다.'),
-              trailing: deletion.isLoading
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(
-                      processing
-                          ? Icons.hourglass_top_rounded
-                          : Icons.chevron_right_rounded,
-                    ),
-              enabled: !opening.value && !deleting,
-              onTap: requestDeletion,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('계정 삭제 안내 및 문의'),
-              trailing: const Icon(Icons.open_in_new_rounded, size: 20),
-              enabled: !opening.value && !deleting,
-              onTap: () => open('delete-account'),
-            ),
-            if (processing)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: SelectableText(AccountDeletionResult.processing.message),
-              ),
-            const Divider(),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.privacy_tip_outlined),
-              title: const Text('개인정보처리방침'),
-              trailing: const Icon(Icons.open_in_new_rounded, size: 20),
-              enabled: !opening.value,
-              onTap: () => open('privacy'),
-            ),
-            const AppVersionTile(),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 16, bottom: 8),
+          child: Text(
+            '계정 관리',
+            style: TextStyle(fontSize: 14, color: AppColors.muted),
+          ),
         ),
-      ),
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppStyle.cardRadius),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.person_remove_outlined),
+                  title: Text(
+                    processing
+                        ? '계정 삭제 처리 중…'
+                        : deleting
+                        ? '본인 확인 및 삭제 처리 중…'
+                        : '계정 삭제',
+                  ),
+                  subtitle: const Text('클라우드보드 계정과 관련 데이터를 삭제합니다.'),
+                  trailing: deletion.isLoading
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          processing
+                              ? Icons.hourglass_top_rounded
+                              : Icons.chevron_right_rounded,
+                        ),
+                  enabled: !opening.value && !deleting,
+                  onTap: requestDeletion,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('계정 삭제 안내 및 문의'),
+                  trailing: const Icon(Icons.open_in_new_rounded, size: 20),
+                  enabled: !opening.value && !deleting,
+                  onTap: () => open('delete-account'),
+                ),
+                if (processing)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: SelectableText(
+                      AccountDeletionResult.processing.message,
+                    ),
+                  ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('개인정보처리방침'),
+                  trailing: const Icon(Icons.open_in_new_rounded, size: 20),
+                  enabled: !opening.value,
+                  onTap: () => open('privacy'),
+                ),
+                const AppVersionTile(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

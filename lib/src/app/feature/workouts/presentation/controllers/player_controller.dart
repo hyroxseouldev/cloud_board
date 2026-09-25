@@ -359,6 +359,16 @@ class PlayerController extends _$PlayerController {
     await _seekRemote(state.index + 1);
   }
 
+  /// Start the current first interval without consuming its preparation time.
+  Future<void> skipCountdown() async {
+    if (!_canCommand || state.briefing || state.countdownMs <= 0) return;
+    if (sessionId == null) {
+      _goLocal(state.index);
+    } else {
+      await _seekRemote(state.index);
+    }
+  }
+
   Future<void> previous() async {
     if (!_canCommand || state.briefing || state.countdownMs > 0) return;
     final target =
@@ -505,6 +515,7 @@ class PlayerController extends _$PlayerController {
     final safeIndex = max(0, index);
     final next = state.copyWith(
       timelineVersion: ++_timelineVersion,
+      countdownMs: 0,
       index: safeIndex,
       remainingMs: remainingMs ?? state.steps[safeIndex].duration * 1000,
       isPaused: state.isPaused,

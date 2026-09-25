@@ -16,7 +16,11 @@ class UnsavedChangesGuard extends HookWidget {
     this.guard,
     this.blocked = false,
     this.onDiscard,
+    this.confirmTitle = '저장하지 않고 나갈까요?',
+    this.confirmMessage = '저장하지 않은 변경사항이 사라집니다.',
+    this.discardLabel = '저장 안 하고 나가기',
   });
+  final String confirmTitle, confirmMessage, discardLabel;
   final bool dirty;
   final Widget child;
   final ExitGuard? guard;
@@ -34,8 +38,8 @@ class UnsavedChangesGuard extends HookWidget {
       final future = showDialog<bool>(
         context: context,
         builder: (dialogContext) => AppAlertDialog(
-          title: const Text('저장하지 않고 나갈까요?'),
-          content: const Text('저장하지 않은 변경사항이 사라집니다.'),
+          title: Text(confirmTitle),
+          content: Text(confirmMessage),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
@@ -43,7 +47,7 @@ class UnsavedChangesGuard extends HookWidget {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('저장 안 하고 나가기'),
+              child: Text(discardLabel),
             ),
           ],
         ),

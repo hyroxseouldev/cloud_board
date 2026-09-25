@@ -97,7 +97,7 @@ void main() {
     const Size(844, 390),
   ]) {
     testWidgets(
-      'library previews before atomic replacement, preserves scope, identity and undo at $size',
+      'library previews before atomic replacement, preserves scope and identity at $size',
       (tester) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
@@ -182,6 +182,7 @@ void main() {
                 guard: ExitGuard(),
                 request: SlideEditRequest(
                   module: target,
+                  needsInitialSave: true,
                   workout: workout,
                   onSave: (value) async {
                     saved.add(value);
@@ -218,9 +219,18 @@ void main() {
                 )
                 .first,
           );
-          // In landscape the tall thumbnail can extend below the viewport;
-          // tap its visible leading edge after scrolling it into view.
-          await tester.tapAt(tester.getTopLeft(card) + const Offset(20, 20));
+          // Error banners and short landscape viewports can clip either edge.
+          final viewport = find
+              .descendant(
+                of: find.byKey(const ValueKey('slide-library-picker')),
+                matching: find.byType(Scrollable),
+              )
+              .first;
+          final visible = tester
+              .getRect(card)
+              .intersect(tester.getRect(viewport));
+          expect(visible.height, greaterThan(0));
+          await tester.tapAt(visible.center);
           await tester.pumpAndSettle();
         }
 
@@ -236,7 +246,6 @@ void main() {
         await tester.tap(find.widgetWithText(TextButton, '취소'));
         await tester.pumpAndSettle();
         expect(container.read(provider).module, target);
-        expect(container.read(provider).undo, isEmpty);
         await openCard();
         await tester.tap(find.widgetWithText(FilledButton, '현재 슬라이드 교체'));
         await tester.pumpAndSettle();
@@ -253,7 +262,6 @@ void main() {
           ),
           template,
         );
-        expect(container.read(provider).undo, [target]);
         expect(container.read(provider).dirty, isTrue);
         expect(saved, [target], reason: 'Replacement only updates the draft');
         expect(workout.soundVolume, .35);
@@ -264,12 +272,8 @@ void main() {
         expect(preview.brandL, 'Account brand');
         expect(preview.soundVolume, .8);
         expect(await repository.loadTemplates('coach'), [template]);
-        await tester.tap(find.byTooltip('실행 취소'));
-        await tester.pumpAndSettle();
-        expect(container.read(provider).module, target);
-        await tester.tap(find.byTooltip('다시 실행'));
-        await tester.pumpAndSettle();
-        expect(container.read(provider).module, replaced);
+        expect(find.byTooltip('실행 취소'), findsNothing);
+        expect(find.byTooltip('다시 실행'), findsNothing);
         await tester.tap(find.byKey(const ValueKey('slide-save-button')));
         await tester.pumpAndSettle();
         expect(saved.last, replaced);

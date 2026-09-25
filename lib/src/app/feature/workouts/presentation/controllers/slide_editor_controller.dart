@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
-
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -17,8 +15,6 @@ abstract class SlideEditorState with _$SlideEditorState {
   const factory SlideEditorState({
     required WorkoutModule module,
     required WorkoutModule saved,
-    @Default([]) List<WorkoutModule> undo,
-    @Default([]) List<WorkoutModule> redo,
     @Default([]) List<WorkoutModule> styles,
     WorkoutModule? recovery,
     @Default(false) bool localSaved,
@@ -32,8 +28,6 @@ class SlideEditorController extends _$SlideEditorController {
   Timer? _debounce;
   bool _loaded = false;
   bool _savedDuringLoad = false;
-  String? _group;
-  DateTime? _lastChange;
   late SlideEditorActions _actions;
   late String _key;
   @override
@@ -85,56 +79,14 @@ class SlideEditorController extends _$SlideEditorController {
     }
   }
 
-  void update(WorkoutModule next, {String? group}) {
+  void update(WorkoutModule next) {
     if (next == state.module) return;
-    final now = DateTime.now();
-    final merge =
-        group != null &&
-        group == _group &&
-        _lastChange != null &&
-        now.difference(_lastChange!).inMilliseconds < 600;
-    state = state.copyWith(
-      module: next,
-      undo: merge
-          ? state.undo
-          : [
-              ...state.undo,
-              state.module,
-            ].reversed.take(50).toList().reversed.toList(),
-      redo: [],
-      localSaved: false,
-    );
-    _group = group;
-    _lastChange = now;
+    state = state.copyWith(module: next, localSaved: false);
     _schedule();
   }
 
   void replaceWithTemplate(WorkoutModule template) {
     update(replaceSlideWithTemplate(state.module, template));
-  }
-
-  void undo() {
-    if (state.undo.isEmpty) return;
-    state = state.copyWith(
-      module: state.undo.last,
-      undo: state.undo.sublist(0, state.undo.length - 1),
-      redo: [...state.redo, state.module],
-      localSaved: false,
-    );
-    _group = null;
-    _schedule();
-  }
-
-  void redo() {
-    if (state.redo.isEmpty) return;
-    state = state.copyWith(
-      module: state.redo.last,
-      redo: state.redo.sublist(0, state.redo.length - 1),
-      undo: [...state.undo, state.module],
-      localSaved: false,
-    );
-    _group = null;
-    _schedule();
   }
 
   void _schedule() {
@@ -197,12 +149,6 @@ class SlideEditorController extends _$SlideEditorController {
         );
       }
     }
-  }
-
-  Future<void> markTimingSaved(WorkoutModule snapshot) async {
-    _savedDuringLoad = true;
-    state = state.copyWith(saved: copySlideTiming(state.saved, snapshot));
-    await flush();
   }
 
   Future<void> discard() async {

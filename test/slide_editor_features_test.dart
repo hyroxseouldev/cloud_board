@@ -40,6 +40,8 @@ void main() {
           timerY: .65,
           timerSize: 1.25,
           ringWidth: 18,
+          setsSize: 1.5,
+          setsOffsetY: -.12,
           showTitle: false,
           showBody: false,
           showBrand: false,
@@ -53,6 +55,23 @@ void main() {
         jsonEncode(WorkoutModuleModel.fromEntity(value).toJson()),
       ) as Map<String, dynamic>;
       expect(WorkoutModuleModel.fromJson(json).toEntity(), value);
+      expect(
+        SlideAppearanceModel.fromJson({}).toEntity(),
+        const SlideAppearance(),
+      );
+      final bounded = const SlideAppearanceModel(
+        setsSize: 9,
+        setsOffsetY: -9,
+      ).toEntity();
+      expect(bounded.setsSize, 2);
+      expect(bounded.setsOffsetY, -.5);
+      expect(SlideAppearanceModel.fromJson({}).toEntity().setsOffsetY, .07);
+      expect(
+        SlideAppearanceModel.fromJson({'setsOffsetY': 0})
+            .toEntity()
+            .setsOffsetY,
+        0,
+      );
       json.remove('appearance');
       expect(
         WorkoutModuleModel.fromJson(json).toEntity().appearance,
@@ -134,7 +153,7 @@ void main() {
     },
   );
 
-  test('undo redo, recovery across controllers and successful save clears draft', () async {
+  test('recovery across controllers and successful save clears draft', () async {
     final repository = LocalSlideEditorRepository(SlideEditorLocalDataSource());
     ProviderContainer container() => ProviderContainer(
       overrides: [slideEditorRepositoryProvider.overrideWithValue(repository)],
@@ -152,9 +171,6 @@ void main() {
       appearance: const SlideAppearance(timerY: .6),
     );
     actions.update(edited);
-    actions.undo();
-    expect(first.read(provider).module, original);
-    actions.redo();
     expect(first.read(provider).module, edited);
     await actions.flush();
     await actions.saveStyle('saved');
@@ -197,7 +213,7 @@ void main() {
     const Size(1194, 834),
   ]) {
     testWidgets(
-      'editor pinned collapsible preview and save fit $size and title visibility can undo',
+      'editor pinned preview and appbar actions fit $size and title visibility updates',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = size;
@@ -233,15 +249,26 @@ void main() {
               .width,
           closeTo(size.width, 1),
         );
-        expect(find.byTooltip('전체 화면 · 시험 재생'), findsOneWidget);
+        expect(find.byTooltip('미리 재생'), findsOneWidget);
         expect(find.text('시험 재생'), findsNothing);
         expect(find.text('슬라이드 설정'), findsNothing);
-        await tester.tap(find.byKey(const ValueKey('slide-preview-toggle')));
-        await tester.pumpAndSettle();
-        expect(find.byType(WorkoutSlidePreview), findsNothing);
-        await tester.tap(find.byKey(const ValueKey('slide-preview-toggle')));
-        await tester.pumpAndSettle();
-        expect(find.byType(WorkoutSlidePreview), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('slide-preview-toolbar')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('slide-preview-toggle')),
+          findsNothing,
+        );
+        expect(
+          find
+              .descendant(
+                of: find.byType(AppBar),
+                matching: find.byKey(const ValueKey('slide-preview-rehearse')),
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
         expect(
           find.byKey(const ValueKey('slide-save-button')).hitTestable(),
           findsOneWidget,
@@ -281,16 +308,8 @@ void main() {
           isFalse,
         );
         expect(find.byType(WorkoutSlidePreview).hitTestable(), findsOneWidget);
-        await tester.tap(find.byTooltip('실행 취소'));
-        await tester.pumpAndSettle();
-        expect(
-          tester
-              .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
-              .module
-              .appearance
-              .showTitle,
-          isTrue,
-        );
+        expect(find.byTooltip('실행 취소'), findsNothing);
+        expect(find.byTooltip('다시 실행'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pumpAndSettle();
@@ -332,7 +351,13 @@ void main() {
       await renameSlide(tester, '복구할 제목');
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('저장 필요 · 이 기기에 임시저장됨'), findsOneWidget);
+      expect(find.text('저장됨'), findsNothing);
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const ValueKey('slide-save-button')))
+            .onPressed,
+        isNotNull,
+      );
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       await open();
@@ -345,14 +370,8 @@ void main() {
             .data,
         '복구할 제목',
       );
-      await tester.tap(find.byTooltip('실행 취소'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('slide-title-text')))
-            .data,
-        original.name,
-      );
+      expect(find.byTooltip('실행 취소'), findsNothing);
+      expect(find.byTooltip('다시 실행'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -415,15 +434,8 @@ void main() {
       expect(applied.workTextColor, '#000000');
       expect(workoutModuleDuration(applied), 12);
       expect(applied.name, original.name);
-      await tester.tap(find.byTooltip('실행 취소'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
-            .module
-            .workTextColor,
-        original.workTextColor,
-      );
+      expect(find.byTooltip('실행 취소'), findsNothing);
+      expect(find.byTooltip('다시 실행'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

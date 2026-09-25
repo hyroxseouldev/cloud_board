@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:go_router/go_router.dart';
+import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
+
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
@@ -48,6 +51,24 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final repository = _Profiles();
+    final guard = ExitGuard();
+    final router = GoRouter(
+      initialLocation: '/profile',
+      routes: [
+        GoRoute(
+          path: '/profile',
+          builder: (_, _) => const UserProfileScreen(),
+          routes: [
+            GoRoute(
+              path: 'edit',
+              builder: (_, _) => EditUserProfileScreen(guard: guard),
+              onExit: (_, _) => guard.confirm(),
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
     final accounts = StreamController<AuthUser?>();
     addTearDown(accounts.close);
     await tester.pumpWidget(
@@ -71,21 +92,30 @@ void main() {
           ),
           androidTvProvider.overrideWith((ref) async => false),
         ],
-        child: MaterialApp(
+        child: MaterialApp.router(
+          routerConfig: router,
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
-          home: const UserProfileScreen(),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    final name = find.widgetWithText(TextField, '이름');
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.byTooltip('프로필 수정'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EditUserProfileScreen), findsOneWidget);
+    final name = find.byType(TextField);
     await tester.enterText(name, 'New coach');
-    await tester.ensureVisible(find.text('변경사항 저장'));
-    await tester.tap(find.text('변경사항 저장'));
     await tester.pump();
-    expect(find.text('계정 정보'), findsOneWidget);
-    expect(find.text('이용 정보'), findsOneWidget);
+    await tester.tap(find.byTooltip('뒤로'));
+    await tester.pumpAndSettle();
+    expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
+    await tester.tap(find.text('계속 편집'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('프로필 저장'));
+    await tester.tap(find.text('프로필 저장'));
+    await tester.pump();
+    expect(find.text('로그인 계정'), findsOneWidget);
     expect(find.text('New coach'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(
@@ -103,20 +133,25 @@ void main() {
 
     repository.pending.completeError(StateError('offline'));
     await tester.pumpAndSettle();
-    expect(find.text('계정 정보'), findsOneWidget);
+    expect(find.text('로그인 계정'), findsOneWidget);
     expect(find.text('New coach'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.textContaining('프로필을 저장하지 못했습니다'), findsOneWidget);
 
     repository.pending = Completer<UserProfile>();
-    await tester.tap(find.text('변경사항 저장'));
+    await tester.tap(find.text('프로필 저장'));
     await tester.pump();
     repository.pending.complete(_profile.copyWith(displayName: 'New coach'));
     await tester.pumpAndSettle();
     expect(repository.saves, 2);
     expect(find.text('프로필을 저장했습니다.'), findsOneWidget);
-    expect(find.text('New coach'), findsNWidgets(2));
+    expect(find.text('New coach'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    await tester.tap(find.byTooltip('뒤로'));
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, '/profile');
+    expect(find.text('New coach'), findsOneWidget);
+    await tester.ensureVisible(find.text('로그아웃'));
     expect(find.text('로그아웃'), findsOneWidget);
 
     accounts.add(

@@ -50,7 +50,7 @@ class WorkoutDetail extends _$WorkoutDetail {
   }
 
   // A successful save updates the open editor without a loading transition
-  // that would unmount its unsaved draft and undo history.
+  // that would unmount its unsaved draft.
   void replace(Workout? value) {
     // Bridge /editor/new -> /editor/<id> without throwing away the just-saved
     // detail while no route has subscribed yet. This cache is strictly bounded.

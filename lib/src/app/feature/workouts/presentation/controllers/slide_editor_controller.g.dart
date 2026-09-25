@@ -59,7 +59,7 @@ final class SlideEditorControllerProvider
 }
 
 String _$slideEditorControllerHash() =>
-    r'46a41d694093a320989c46c964c26f857ba0e8f4';
+    r'd2f8b6e3ca37fab1810ba205a308840d00d648ce';
 
 final class SlideEditorControllerFamily extends $Family
     with

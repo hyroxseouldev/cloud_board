@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CloudBoard · 디자인 갤러리</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f6f8;color:#202027;font-family:system-ui,-apple-system,'Apple SD Gothic Neo',sans-serif}button,a,input{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer}header{padding:32px 4vw 22px;background:#fff;border-bottom:1px solid #e6e6ed}h1{font-size:28px;letter-spacing:-1px;margin:8px 0}p{color:#62626d;line-height:1.6;margin:8px 0}.eyebrow{color:#7e78a3;font-size:13px;font-weight:650;letter-spacing:1px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:24px}.filters{display:flex;gap:6px;flex-wrap:wrap}button,.issue{border:1px solid #dedee7;background:#fff;color:#30303c;border-radius:10px;padding:11px 16px;min-height:44px;text-decoration:none}button[aria-pressed=true]{background:#272632;color:white;border-color:#272632}button:focus-visible,a:focus-visible{outline:3px solid #a39bc7;outline-offset:3px}.controls{display:flex;gap:16px;align-items:center;font-size:14px}input{accent-color:#7e78a3;max-width:100px}main{--size:250px;padding:28px 4vw 50px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(var(--size),100%),1fr));gap:24px}.tile{background:white;border:1px solid #e5e5ec;border-radius:14px;overflow:hidden}.tile>button{display:block;border:0;border-radius:0;background:#eeeef2;padding:14px;width:100%;height:440px;min-height:0}.tile img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 5px #00000012)}.tile>button:hover{background:#e6e4ec}.meta{padding:16px 18px}.meta h2{font-size:16px;margin:0 0 6px}.meta p{font-size:13px;margin:0}.number{color:#8a829f;font-weight:500;margin-right:7px}.tile[hidden]{display:none}footer{padding:0 4vw 32px;color:#777;font-size:13px}dialog{border:0;padding:0;background:#17171c;color:white;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0}dialog::backdrop{background:#17171c}.viewerbar{height:72px;display:flex;align-items:center;gap:10px;padding:12px 22px;border-bottom:1px solid #3a3a42}.viewerbar h2{font-size:16px;flex:1;margin:0}.viewerbar button,.viewerbar a{background:#292930;border-color:#454550;color:white}.canvas{height:calc(100dvh - 72px);overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:20px}.canvas img{max-width:100%;max-height:100%;object-fit:contain;display:block}.canvas.zoom img{max-height:none;max-width:none;width:var(--zoom-width);height:auto}.canvas.zoom{justify-content:flex-start}.hint{font-size:12px;color:#aaa;margin-left:8px}@media(max-width:650px){header{padding:22px 20px}h1{font-size:24px}main{padding:20px;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr))}.tile>button{height:320px;padding:8px}.meta{padding:12px}.meta h2{font-size:14px}.meta p{font-size:12px}.viewerbar{height:auto;min-height:72px;flex-wrap:wrap;padding:10px}.viewerbar h2{width:100%;flex-basis:100%}.viewerbar button,.viewerbar a{padding:8px 10px;font-size:13px}.canvas{height:calc(100dvh - 110px);padding:12px}.hint{display:none}.controls label{display:none}}@media(max-width:380px){main{grid-template-columns:1fr}.tile>button{height:480px}}
+</style>
+<header>
+<div class="eyebrow">CLOUDBOARD / DESIGN REVIEW</div>
+<h1>수업 준비는 가볍게.</h1>
+<p>12개 대표 화면을 한곳에서. 이미지를 누르면 크게 볼 수 있어요.</p>
+<div class="toolbar"><div class="filters" aria-label="화면 분류">
+<button data-filter="all" aria-pressed="true">전체 12</button><button data-filter="start" aria-pressed="false">시작·계정</button><button data-filter="create" aria-pressed="false">수업 준비</button><button data-filter="operate" aria-pressed="false">운영·송출</button>
+</div><div class="controls"><label>미리보기 크기 <input id="size" type="range" min="200" max="400" value="250" aria-label="미리보기 크기"></label><a class="issue" href="https://linear.app/clyrdev/issue/STA-36" target="_blank" rel="noopener">Linear 이슈 ↗</a></div></div>
+</header>
+<main id="gallery"></main>
+<footer>디자인 검토용 AI 시안 · 실제 앱 구현 화면이 아닙니다. 세부 동작·반응형 기준은 STA-36에서 확인할 수 있어요.</footer>
+<dialog id="viewer" aria-labelledby="viewer-title">
+<div class="viewerbar"><h2 id="viewer-title"></h2><span class="hint">← → 이동 · Esc 닫기</span><button id="prev" aria-label="이전 이미지">←</button><button id="next" aria-label="다음 이미지">→</button><button id="zoom" aria-pressed="false">확대</button><a id="download" class="issue" download>이미지 저장</a><button id="close" aria-label="갤러리로 돌아가기">닫기 ✕</button></div>
+<div class="canvas" id="canvas"><img id="large" alt=""></div>
+</dialog>
+<script>
+const pages=[
+['01-login.png','로그인','환영 메시지와 로그인','start'],
+['02-home.png','홈','워크아웃 목록과 빠른 재생','create'],
+['03-workout-editor.png','워크아웃 편집','슬라이드 순서와 전체 시간','create'],
+['04-slide-editor.png','슬라이드 편집','미리보기와 타이머 설정','create'],
+['05-displays.png','디스플레이 관리','연결 상태와 화면 표시','operate'],
+['06-profile.png','프로필','계정과 이용 정보','start'],
+['remaining/07-onboarding.png','온보딩','센터 소개와 첫 시작','start'],
+['remaining/08-favorites.png','즐겨찾기','재사용 슬라이드 모음','create'],
+['remaining/09-operations.png','매장 운영','운영 기능별 진입','operate'],
+['remaining/10-standby.png','대기 화면 설정','센터 안내와 배경 이미지','operate'],
+['remaining/11-player.png','수업 진행','현재 구간과 재생 제어','operate'],
+['remaining/12-tv-display.png','TV 송출','멀리서도 읽히는 운동 화면','operate']
+];
+const embedded=/*EMBEDDED_IMAGES*/{};
+const source=p=>embedded[p[0]]||p[0];
+const gallery=document.querySelector('#gallery'), viewer=document.querySelector('#viewer'), large=document.querySelector('#large'), canvas=document.querySelector('#canvas'), zoom=document.querySelector('#zoom');
+let current=0,visible=pages.map((_,i)=>i),opener=null;
+pages.forEach((p,i)=>{const tile=document.createElement('article');tile.className='tile';tile.dataset.group=p[3];const button=document.createElement('button');button.setAttribute('aria-label',p[1]+' 시안 크게 보기');const img=document.createElement('img');img.src=source(p);img.alt=p[1]+' 리디자인 시안';img.loading='lazy';button.append(img);button.onclick=()=>{opener=button;show(i);viewer.showModal();document.querySelector('#close').focus()};const meta=document.createElement('div');meta.className='meta';meta.innerHTML='<h2><span class="number">'+String(i+1).padStart(2,'0')+'</span>'+p[1]+'</h2><p>'+p[2]+'</p>';tile.append(button,meta);gallery.append(tile)});
+function show(i){current=i;const p=pages[i];large.src=source(p);large.alt=p[1]+' 리디자인 시안';document.querySelector('#viewer-title').textContent=String(i+1).padStart(2,'0')+' / 12 · '+p[1];const a=document.querySelector('#download');a.href=source(p);a.download=p[0].split('/').pop();canvas.classList.remove('zoom');zoom.textContent='확대';zoom.setAttribute('aria-pressed','false');canvas.scrollTo(0,0)}
+function move(delta){show(visible[(visible.indexOf(current)+delta+visible.length)%visible.length])}
+document.querySelector('#prev').onclick=()=>move(-1);document.querySelector('#next').onclick=()=>move(1);document.querySelector('#close').onclick=()=>viewer.close();viewer.addEventListener('close',()=>opener?.focus());
+zoom.onclick=()=>{const on=canvas.classList.toggle('zoom');canvas.style.setProperty('--zoom-width',Math.max(large.naturalWidth,canvas.clientWidth)+'px');zoom.textContent=on?'화면에 맞춤':'확대';zoom.setAttribute('aria-pressed',String(on))};
+document.addEventListener('keydown',e=>{if(!viewer.open)return;if(e.key==='ArrowLeft'){e.preventDefault();move(-1)}if(e.key==='ArrowRight'){e.preventDefault();move(1)}});
+document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));visible=[];[...gallery.children].forEach((tile,i)=>{tile.hidden=b.dataset.filter!=='all'&&tile.dataset.group!==b.dataset.filter;if(!tile.hidden)visible.push(i)})});
+document.querySelector('#size').oninput=e=>gallery.style.setProperty('--size',e.target.value+'px');
+</script>
+</html>

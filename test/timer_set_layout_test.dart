@@ -5,6 +5,57 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
 
 void main() {
+  testWidgets('set size and offset change independently of the timer', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    Future<void> render(double size, double offset) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkoutSlideCanvas(
+            module: WorkoutModule.empty('m').copyWith(
+              appearance: SlideAppearance(
+                timerX: .5,
+                timerY: .4,
+                setsSize: size,
+                setsOffsetY: offset,
+              ),
+            ),
+            isRest: false,
+            secondsLeft: 60,
+            remainingMs: 60000,
+            durationMs: 60000,
+            set: 1,
+            totalSets: 3,
+            isPaused: true,
+            brandL: '',
+            brandR: '',
+            scale: 1,
+          ),
+        ),
+      ),
+    );
+    final label = find.byKey(const ValueKey('slide-sets'));
+    final timer = find.byKey(const ValueKey('slide-timer'));
+    await render(1, 0);
+    final originalLabel = tester.getRect(label);
+    final originalTimer = tester.getRect(timer);
+    await render(1.5, -.1);
+    expect(tester.getRect(label).height, greaterThan(originalLabel.height));
+    expect(tester.getRect(label).top, lessThan(originalLabel.top));
+    expect(tester.getRect(timer), originalTimer);
+    for (final offset in [-.5, .5]) {
+      await render(2, offset);
+      final bounds = tester.getRect(label);
+      expect(bounds.top, greaterThanOrEqualTo(0));
+      expect(bounds.bottom, lessThanOrEqualTo(720 - 64));
+      expect(tester.getRect(timer), originalTimer);
+      expect(tester.takeException(), isNull);
+    }
+  });
   testWidgets(
     'set label shares timer anchor and stays above brand footer at screen edges',
     (tester) async {
