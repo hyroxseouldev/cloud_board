@@ -545,7 +545,7 @@ class _SlideEditorBody extends HookConsumerWidget {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
             children: [
               const Icon(
@@ -614,6 +614,8 @@ class _SlideEditorBody extends HookConsumerWidget {
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               children: [
                 if (section.value == 1) ...[
+                  summary,
+                  const Divider(height: 24),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const label = Column(
@@ -671,30 +673,57 @@ class _SlideEditorBody extends HookConsumerWidget {
                           );
                         },
                       );
-                      if (constraints.maxWidth < 580) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [label, const SizedBox(height: 12), toggle],
-                        );
-                      }
-                      return Row(
+                      final setsToggle = MergeSemantics(
+                        child: InkWell(
+                          onTap: () => update(
+                            module.copyWith(showSets: !module.showSets),
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Checkbox(
+                                key: const ValueKey('slide-show-sets'),
+                                value: module.showSets,
+                                onChanged: (value) => update(
+                                  module.copyWith(showSets: value ?? false),
+                                ),
+                              ),
+                              const Text(
+                                '세트 표시하기',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                      final narrow =
+                          constraints.maxWidth <
+                          340 * MediaQuery.textScalerOf(context).scale(1);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Expanded(child: label),
-                          const SizedBox(width: 16),
-                          SizedBox(width: 310, child: toggle),
+                          if (narrow) ...[
+                            label,
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: setsToggle,
+                            ),
+                          ] else
+                            Row(
+                              children: [
+                                const Expanded(child: label),
+                                const SizedBox(width: 8),
+                                setsToggle,
+                              ],
+                            ),
+                          const SizedBox(height: 12),
+                          toggle,
                         ],
                       );
                     },
                   ),
                   const Divider(height: 20),
-                  SwitchListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('세트 표시'),
-                    subtitle: const Text('타이머와 별도로 남은 세트 수를 표시합니다.'),
-                    value: module.showSets,
-                    onChanged: (v) => update(module.copyWith(showSets: v)),
-                  ),
                   const SizedBox(height: 16),
                   SlideAppearanceControls(
                     key: ValueKey('appearance-${revision.value}'),
@@ -1004,8 +1033,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                     ),
                   ),
                 ),
-              const Divider(height: 1),
-              summary,
               const Divider(height: 1),
               Expanded(
                 child: LayoutBuilder(

@@ -912,8 +912,8 @@ void main() {
       find.descendant(of: displayMode, matching: find.text('숫자만')),
     );
     await tester.pumpAndSettle();
-    await scrollTo(tester, find.widgetWithText(SwitchListTile, '세트 표시'));
-    await tester.tap(find.widgetWithText(SwitchListTile, '세트 표시'));
+    await scrollTo(tester, find.byKey(const ValueKey('slide-show-sets')));
+    await tester.tap(find.byKey(const ValueKey('slide-show-sets')));
     await tester.pumpAndSettle();
     final save = find.byKey(const ValueKey('slide-save-button'));
     await tester.scrollUntilVisible(

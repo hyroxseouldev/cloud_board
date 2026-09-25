@@ -203,7 +203,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(module.appearance.setsColor),
-                      fontSize: 22 * scale * module.appearance.timerSize,
+                      fontSize: 28 * scale * module.appearance.timerSize,
                       height: 1.2,
                       fontWeight: FontWeight.w700,
                     ),
