@@ -1,21 +1,21 @@
-import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
-import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
-import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
-import 'package:cloud_board/src/app/feature/profile/presentation/widgets/account_management_section.dart';
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:cloud_board/src/app/core/theme/app_style.dart';
-import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
+import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/widgets/account_management_section.dart';
 
 class UserProfileScreen extends HookConsumerWidget {
   const UserProfileScreen({super.key});
@@ -23,14 +23,163 @@ class UserProfileScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useOnAppLifecycleStateChange((previous, next) {
-      if (next == AppLifecycleState.resumed) {
+      if (next == AppLifecycleState.resumed &&
+          ModalRoute.of(context)?.isCurrent == true) {
         ref.invalidate(userProfileControllerProvider);
       }
     });
-    final profileState = ref.watch(userProfileControllerProvider);
+    final profile = ref.watch(userProfileControllerProvider);
+    final uid = ref.watch(authStateProvider).value?.id;
     final authAction = ref.watch(authControllerProvider);
     final deletion = ref.watch(accountDeletionControllerProvider);
+    final link = ref.watch(storeAccountLinkProvider);
+    final linkLabel = link.hasError
+        ? '연결 확인 실패'
+        : switch (link.value) {
+            'linked' => '연결됨',
+            'web_registration_required' => '웹 가입 필요',
+            'google_required' => 'Google 계정 필요',
+            'connection_unavailable' => '네트워크 확인 필요',
+            'signed_out' => '로그인 필요',
+            _ => '확인 중…',
+          };
+    final linkHelp = switch (link.value) {
+      'web_registration_required' =>
+        'CloudBoard 웹에서 Google 로그인과 문자 인증을 완료해 주세요.',
+      'google_required' => '웹과 같은 Google 계정으로 로그인해 주세요.',
+      _ => null,
+    };
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('프로필'),
+        centerTitle: true,
+        leading: IconButton(
+          tooltip: '뒤로',
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
+      ),
+      body: _ProfileBody(
+        child: AsyncValueWidget<UserProfile>(
+          value: profile.hasValue && profile.value?.id != uid
+              ? const AsyncLoading()
+              : profile,
+          onRetry: () => ref.invalidate(userProfileControllerProvider),
+          data: (data) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 12),
+              Center(
+                child: _ProfileAvatar(
+                  displayName: data.displayName,
+                  photoUrl: data.photoUrl,
+                  tooltip: '프로필 수정',
+                  onPressed: () => context.push('/profile/edit'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                data.displayName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 32),
+              _ProfileGroup(
+                title: '계정',
+                children: [
+                  _ProfileInfo(
+                    icon: Icons.mail_outline_rounded,
+                    label: '이메일',
+                    value: data.email,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.link_rounded),
+                    title: const Text('웹 계정 연결'),
+                    subtitle: Text([linkLabel, ?linkHelp].join('\n')),
+                    trailing: IconButton(
+                      tooltip: '연결 다시 확인',
+                      onPressed: link.isLoading
+                          ? null
+                          : () {
+                              ref.invalidate(storeAccountLinkProvider);
+                              ref.invalidate(storeEntitlementProvider);
+                            },
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _ProfileGroup(
+                title: '이용 정보',
+                children: [
+                  _ProfileInfo(
+                    icon: Icons.workspace_premium_outlined,
+                    label: '구독',
+                    value: data.planLabel,
+                  ),
+                  _ProfileInfo(
+                    icon: Icons.check_circle_outline_rounded,
+                    label: '이용 상태',
+                    value: data.subscriptionStatus.label,
+                  ),
+                  _ProfileInfo(
+                    icon: Icons.connected_tv_rounded,
+                    label: '연결 가능',
+                    value: data.displayLimitLabel,
+                  ),
+                  _ProfileInfo(
+                    icon: Icons.calendar_today_outlined,
+                    label: '이용 기간',
+                    value: _endLabel(data),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const AccountManagementSection(),
+              const SizedBox(height: 16),
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  leading: const Icon(Icons.logout_rounded),
+                  title: const Text('로그아웃'),
+                  trailing: authAction.isLoading
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                  enabled: !authAction.isLoading && !deletion.isLoading,
+                  onTap: () =>
+                      ref.read(authControllerProvider.notifier).signOut(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class EditUserProfileScreen extends HookConsumerWidget {
+  const EditUserProfileScreen({super.key, this.guard});
+  final ExitGuard? guard;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileState = ref.watch(userProfileControllerProvider);
     final nameController = useTextEditingController();
+    useListenable(nameController);
+    final exitGuard = useMemoized(() => guard ?? ExitGuard(), [guard]);
     final avatarBytes = useState<Uint8List?>(null);
     final avatarExtension = useState<String?>(null);
     final initializedUserId = useRef<String?>(null);
@@ -75,210 +224,162 @@ class UserProfileScreen extends HookConsumerWidget {
         maxWidth: 1024,
         imageQuality: 88,
       );
-      if (image == null) return;
-      avatarBytes.value = await image.readAsBytes();
+      if (image == null || !context.mounted) return;
+      final bytes = await image.readAsBytes();
+      if (!context.mounted) return;
+      avatarBytes.value = bytes;
       avatarExtension.value = image.name.split('.').last;
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: '뒤로',
-          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+    final dirty =
+        profile != null &&
+        (nameController.text.trim() != profile.displayName ||
+            avatarBytes.value != null);
+    Future<void> leave() async {
+      if (!await exitGuard.confirm() || !context.mounted) return;
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/profile');
+      }
+    }
+
+    return UnsavedChangesGuard(
+      dirty: dirty,
+      blocked: hasSubmitted.value && profileState.isLoading,
+      guard: exitGuard,
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: AppBar(
+          backgroundColor: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+          title: const Text('프로필 수정'),
+          centerTitle: true,
+          leading: IconButton(
+            tooltip: '뒤로',
+            onPressed: leave,
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          ),
         ),
-      ),
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppStyle.fullWidth + 48),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-            child: Column(
+        body: _ProfileBody(
+          child: AsyncValueWidget<UserProfile>(
+            value: profile != null
+                ? AsyncData(profile)
+                : profileState.hasValue
+                ? const AsyncLoading()
+                : profileState,
+            onRetry: () => ref.invalidate(userProfileControllerProvider),
+            data: (data) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('웹 계정 · 이용 상태'),
-                        Text(switch (ref
-                            .watch(storeAccountLinkProvider)
-                            .value) {
-                          'linked' => '같은 Google 계정의 매장이 연결되었습니다.',
-                          'web_registration_required' =>
-                            'CloudBoard 웹에서 Google 로그인과 문자 인증을 완료해 주세요.',
-                          'google_required' => '웹과 같은 Google 계정으로 로그인해 주세요.',
-                          _ => '계정 연결을 확인하고 있습니다.',
-                        }),
-                        if (ref.watch(storeAccountLinkProvider).hasError)
-                          const Text('연결을 확인하지 못했습니다. 다시 시도해 주세요.'),
-                        TextButton(
-                          onPressed: () {
-                            ref.invalidate(storeAccountLinkProvider);
-                            ref.invalidate(storeEntitlementProvider);
+                const SizedBox(height: 24),
+                Center(
+                  child: _ProfileAvatar(
+                    displayName: data.displayName,
+                    photoUrl: data.photoUrl,
+                    bytes: avatarBytes.value,
+                    radius: 52,
+                    tooltip: '프로필 사진 변경',
+                    icon: Icons.camera_alt_outlined,
+                    onPressed: profileState.isLoading
+                        ? null
+                        : () async {
+                            try {
+                              await selectAvatar();
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      '사진을 불러오지 못했습니다. 다시 시도해 주세요.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
                           },
-                          child: const Text('연결 다시 확인'),
-                        ),
-                      ],
+                  ),
+                ),
+                const SizedBox(height: 36),
+                const Text(
+                  '이름',
+                  style: TextStyle(color: AppColors.muted, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nameController,
+                  enabled: !profileState.isLoading,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    hintText: '이름을 입력해 주세요',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
-                Text('프로필 설정', style: AppStyle.of(context).mainText),
-                const SizedBox(height: 28),
-                AsyncValueWidget<UserProfile>(
-                  value: profile != null
-                      ? AsyncData(profile)
-                      : profileState.hasValue
-                      ? const AsyncLoading()
-                      : profileState,
-                  data: (data) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ProfileSection(
-                        child: Row(
-                          children: [
-                            _ProfileAvatar(
-                              displayName: data.displayName,
-                              photoUrl: data.photoUrl,
-                              bytes: avatarBytes.value,
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    data.displayName,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppStyle.of(context).subText3,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    data.email,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: '프로필 사진 변경',
-                              onPressed: profileState.isLoading
-                                  ? null
-                                  : selectAvatar,
-                              icon: const Icon(Icons.edit_outlined, size: 20),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _ProfileSection(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text('계정 정보', style: AppStyle.of(context).subText2),
-                            const SizedBox(height: 20),
-                            TextField(
-                              controller: nameController,
-                              enabled: !profileState.isLoading,
-                              textInputAction: TextInputAction.done,
-                              decoration: const InputDecoration(
-                                labelText: '이름',
-                                fillColor: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              initialValue: data.email,
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                labelText: '이메일',
-                                fillColor: Colors.white,
-                                helperText: '로그인 계정 이메일은 여기서 변경할 수 없습니다.',
-                                helperMaxLines: 2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _PartnerCard(profile: data),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          minimumSize: Size.fromHeight(
-                            AppStyle.of(context).primaryButtonHeight,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppStyle.controlRadius,
-                            ),
-                          ),
-                        ),
-                        onPressed: profileState.isLoading
-                            ? null
-                            : () async {
-                                profileBeforeSave.value = data;
-                                hasSubmitted.value = true;
-                                final success = await ref
-                                    .read(
-                                      userProfileControllerProvider.notifier,
-                                    )
-                                    .updateProfile(
-                                      displayName: nameController.text,
-                                      avatarBytes: avatarBytes.value,
-                                      avatarExtension: avatarExtension.value,
-                                    );
-                                if (success && context.mounted) {
-                                  profileBeforeSave.value = null;
-                                  avatarBytes.value = null;
-                                  avatarExtension.value = null;
-                                }
-                              },
-                        icon: profileState.isLoading
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.save_rounded),
-                        label: Text(
-                          profileState.isLoading ? '저장 중...' : '변경사항 저장',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 24),
-                const AccountManagementSection(),
+                _ProfileGroup(
+                  title: '로그인 계정',
+                  children: [
+                    _ProfileInfo(
+                      icon: Icons.mail_outline_rounded,
+                      label: '이메일',
+                      value: data.email,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppStyle.cardRadius),
+                const Text(
+                  '로그인 계정 이메일은 여기서 변경할 수 없습니다.',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 32),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  leading: const Icon(Icons.logout_rounded),
-                  title: const Text('로그아웃'),
-                  trailing: authAction.isLoading
+                  onPressed:
+                      profileState.isLoading ||
+                          !dirty ||
+                          nameController.text.trim().isEmpty
+                      ? null
+                      : () async {
+                          FocusScope.of(context).unfocus();
+                          profileBeforeSave.value = data;
+                          hasSubmitted.value = true;
+                          final success = await ref
+                              .read(userProfileControllerProvider.notifier)
+                              .updateProfile(
+                                displayName: nameController.text,
+                                avatarBytes: avatarBytes.value,
+                                avatarExtension: avatarExtension.value,
+                              );
+                          if (success && context.mounted) {
+                            profileBeforeSave.value = null;
+                            avatarBytes.value = null;
+                            avatarExtension.value = null;
+                          }
+                        },
+                  icon: profileState.isLoading
                       ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : null,
-                  enabled:
-                      !authAction.isLoading &&
-                      !profileState.isLoading &&
-                      !deletion.isLoading,
-                  onTap: () =>
-                      ref.read(authControllerProvider.notifier).signOut(),
+                      : const Icon(Icons.check_rounded),
+                  label: Text(profileState.isLoading ? '저장 중...' : '프로필 저장'),
                 ),
               ],
             ),
@@ -289,68 +390,82 @@ class UserProfileScreen extends HookConsumerWidget {
   }
 }
 
-class _ProfileSection extends StatelessWidget {
-  const _ProfileSection({required this.child});
+class _ProfileBody extends StatelessWidget {
+  const _ProfileBody({required this.child});
   final Widget child;
-
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppStyle.cardRadius),
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AppStyle.fullWidth + 48),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: child,
+        ),
+      ),
     ),
-    child: Padding(padding: const EdgeInsets.all(20), child: child),
   );
 }
 
-class _PartnerCard extends StatelessWidget {
-  const _PartnerCard({required this.profile});
-  final UserProfile profile;
-
+class _ProfileGroup extends StatelessWidget {
+  const _ProfileGroup({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
   @override
-  Widget build(BuildContext context) {
-    final lastDay = profile.pilotEndsAt
-        ?.subtract(const Duration(milliseconds: 1))
-        .toLocal();
-    final endLabel = profile.pilotEndsAt == null
-        ? '파일럿 기간 협의 중'
-        : '${lastDay!.year}.${lastDay.month.toString().padLeft(2, '0')}.${lastDay.day.toString().padLeft(2, '0')}까지';
-    return _ProfileSection(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('이용 정보', style: AppStyle.of(context).subText2),
-          const SizedBox(height: 20),
-          _ProfileInfo(label: '등급', value: profile.planLabel),
-          _ProfileInfo(label: '이용 상태', value: profile.subscriptionStatus.label),
-          _ProfileInfo(label: '연결 가능', value: profile.displayLimitLabel),
-          _ProfileInfo(label: '이용 기간', value: endLabel),
-        ],
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 16, bottom: 8),
+        child: Text(
+          title,
+          style: const TextStyle(fontSize: 14, color: AppColors.muted),
+        ),
       ),
-    );
-  }
+      Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) const Divider(height: 1, indent: 56, endIndent: 16),
+              children[i],
+            ],
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _ProfileInfo extends StatelessWidget {
-  const _ProfileInfo({required this.label, required this.value});
+  const _ProfileInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
   final String label;
   final String value;
-
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 88,
-          child: Text(label, style: const TextStyle(color: AppColors.muted)),
-        ),
+        Icon(icon, size: 22),
+        const SizedBox(width: 14),
+        Expanded(flex: 2, child: Text(label)),
         const SizedBox(width: 12),
         Expanded(
+          flex: 5,
           child: Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: AppColors.muted),
           ),
         ),
       ],
@@ -358,16 +473,31 @@ class _ProfileInfo extends StatelessWidget {
   );
 }
 
+String _endLabel(UserProfile profile) {
+  final lastDay = profile.pilotEndsAt
+      ?.subtract(const Duration(milliseconds: 1))
+      .toLocal();
+  if (lastDay == null) return '파일럿 기간 협의 중';
+  return '${lastDay.year}.${lastDay.month.toString().padLeft(2, '0')}.${lastDay.day.toString().padLeft(2, '0')}까지';
+}
+
 class _ProfileAvatar extends StatelessWidget {
   const _ProfileAvatar({
     required this.displayName,
     required this.photoUrl,
-    required this.bytes,
+    required this.tooltip,
+    required this.onPressed,
+    this.bytes,
+    this.radius = 44,
+    this.icon = Icons.edit_outlined,
   });
-
   final String displayName;
   final String? photoUrl;
   final Uint8List? bytes;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final double radius;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -376,17 +506,39 @@ class _ProfileAvatar extends StatelessWidget {
         : photoUrl != null && photoUrl!.isNotEmpty
         ? NetworkImage(photoUrl!)
         : null;
-    return CircleAvatar(
-      radius: 32,
-      foregroundImage: image,
-      child: image == null
-          ? Text(
+    return SizedBox(
+      width: radius * 2 + 12,
+      height: radius * 2 + 12,
+      child: Stack(
+        children: [
+          CircleAvatar(
+            radius: radius,
+            backgroundColor: const Color(0xFF839191),
+            foregroundColor: Colors.white,
+            foregroundImage: image,
+            child: Text(
               displayName.isEmpty
                   ? '?'
                   : displayName.characters.first.toUpperCase(),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-            )
-          : null,
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w500),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: IconButton.filledTonal(
+              tooltip: tooltip,
+              onPressed: onPressed,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.ink,
+                side: const BorderSide(color: AppColors.surface, width: 2),
+              ),
+              icon: Icon(icon, size: 20),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

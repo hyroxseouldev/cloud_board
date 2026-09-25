@@ -29,6 +29,7 @@ GoRouter appRouter(Ref ref) {
   final slideGuard = ExitGuard();
   final standbyGuard = ExitGuard();
   final operationsGuard = ExitGuard();
+  final profileGuard = ExitGuard();
   final router = GoRouter(
     initialLocation: '/',
     refreshListenable: authRefresh,
@@ -123,6 +124,13 @@ GoRouter appRouter(Ref ref) {
           GoRoute(
             path: '/profile',
             builder: (_, _) => const UserProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (_, _) => EditUserProfileScreen(guard: profileGuard),
+                onExit: (_, _) => profileGuard.confirm(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/operations',
