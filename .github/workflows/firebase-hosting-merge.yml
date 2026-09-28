@@ -60,6 +60,9 @@ jobs:
       - name: Test onboarding transactions and security rules
         run: npx --yes firebase-tools emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'
 
+      - name: Test billing without Apple keys and purchase ownership
+        run: npx --yes firebase-tools emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-billing 'node functions/test/billing-emulator.mjs && node functions/test/google-play-emulator.mjs'
+
       - name: Validate database rules JSON
         run: python3 -m json.tool database.rules.json > /dev/null
 
@@ -73,6 +76,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           SOLAPI_FROM: ${{ secrets.SOLAPI_FROM }}
+          APPLE_IAP_SECRETS_ENABLED: ${{ vars.APPLE_IAP_SECRETS_ENABLED || 'false' }}
         run: |
           set -euo pipefail
           test -n "$SOLAPI_FROM" || { echo 'Missing SMS sender configuration.' >&2; exit 1; }
@@ -80,6 +84,12 @@ jobs:
           sender_env=functions/.env.cloud-board-stationd
           trap 'rm -f "$sender_env"' EXIT
           printf 'SOLAPI_FROM=%s\n' "$SOLAPI_FROM" > "$sender_env"
+          # Deploy and runtime must use the same explicit opt-in. No placeholder keys.
+          case "$APPLE_IAP_SECRETS_ENABLED" in
+            true|false) ;;
+            *) echo 'Invalid Apple secret binding setting.' >&2; exit 1 ;;
+          esac
+          printf 'APPLE_IAP_SECRETS_ENABLED=%s\n' "$APPLE_IAP_SECRETS_ENABLED" >> "$sender_env"
           npx --yes firebase-tools deploy --only functions:account-deletion,firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
 
       - name: Build Flutter web app

@@ -10,6 +10,7 @@ import {onCall, onRequest, HttpsError} from 'firebase-functions/v2/https';
 import {onSchedule} from 'firebase-functions/v2/scheduler';
 import {onMessagePublished} from 'firebase-functions/v2/pubsub';
 import {eraseAccount, requireDeletionIdentity} from './delete-account.js';
+import {appleApiReady, appleSecretBindings} from './apple-billing-config.js';
 
 const projectId=process.env.GCLOUD_PROJECT || 'cloud-board-stationd';
 initializeApp({projectId,databaseURL:`https://${projectId}-default-rtdb.asia-southeast1.firebasedatabase.app`,storageBucket:`${projectId}.firebasestorage.app`});
@@ -203,7 +204,7 @@ export const syncAppTrialAccess = onDocumentWritten({
   }
 });
 
-const appleSecrets = ['APPLE_IAP_PRIVATE_KEY', 'APPLE_IAP_KEY_ID', 'APPLE_IAP_ISSUER_ID'];
+const appleSecrets = appleSecretBindings();
 export const cloudboardBilling = onCall({region, secrets: appleSecrets, timeoutSeconds: 120, maxInstances: 5}, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   const bearer = request.rawRequest.headers.authorization?.replace(/^Bearer /i, '');
@@ -231,6 +232,7 @@ export const processAppStoreNotification = onDocumentCreated({region,
   document: 'appStoreEvents/{eventId}', secrets: appleSecrets, retry: true,
   timeoutSeconds: 120, maxInstances: 5,
 }, async event => {
+  if (!appleApiReady()) return; // The durable queue resumes when credentials are enabled.
   const {processAppleEvent} = await import('./billing.js');
   await processAppleEvent(db, realtime, event.data.ref);
 });
@@ -240,12 +242,14 @@ export const reconcileAppStoreBilling = onSchedule({region, schedule: 'every 5 m
 }, async () => {
   const {refreshSubscription, refreshEntitlements, processAppleEvent} = await import('./billing.js');
   const now = Date.now();
-  const events = await db.collection('appStoreEvents').where('nextAttemptAtMs', '<=', now).limit(50).get();
-  for (const event of events.docs) await processAppleEvent(db, realtime, event.ref);
-  const subscriptions = await db.collection('appStoreSubscriptions').where('nextCheckAtMs', '<=', now).limit(50).get();
-  for (const sub of subscriptions.docs) {
-    try { await refreshSubscription(db, realtime, sub.ref); }
-    catch (_) { /* Keep the last VERIFIED expiry; never extend on network failure. */ }
+  if (appleApiReady()) {
+    const events = await db.collection('appStoreEvents').where('nextAttemptAtMs', '<=', now).limit(50).get();
+    for (const event of events.docs) await processAppleEvent(db, realtime, event.ref);
+    const subscriptions = await db.collection('appStoreSubscriptions').where('nextCheckAtMs', '<=', now).limit(50).get();
+    for (const sub of subscriptions.docs) {
+      try { await refreshSubscription(db, realtime, sub.ref); }
+      catch (_) { /* Keep the last VERIFIED expiry; never extend on network failure. */ }
+    }
   }
   const accounts = await db.collection('billingAccounts').where('nextCheckAtMs', '<=', now).limit(100).get();
   for (const account of accounts.docs) await refreshEntitlements(db, realtime, account.id);
