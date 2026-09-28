@@ -3,6 +3,7 @@ import {isDeepStrictEqual} from 'node:util';
 import {HttpsError} from 'firebase-functions/v2/https';
 import {appleGrant, billingSource, products, purchasesAllowed, resolveGrants, tokenPattern} from './billing-policy.js';
 import {latestAppleSubscription, verifyApplePayload} from './apple-store.js';
+import {appleApiReady} from './apple-billing-config.js';
 
 const fail = (code, message) => new HttpsError(code, message);
 const accountRef = (db, uid) => db.doc(`billingAccounts/${uid}`);
@@ -148,6 +149,7 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
   const action = input?.action ?? 'load';
   if (action === 'verify') {
     if (adapter.verify) return adapter.verify();
+    if (!appleApiReady()) throw fail('failed-precondition', 'Apple 구독 연결을 준비 중이에요. 기존 무료 체험과 이용 권한은 유지됩니다.');
     let verified;
     try { verified = await verifyApplePayload(input.signedTransaction); }
     catch { throw fail('invalid-argument', 'App Store 결제 정보를 확인하지 못했습니다. 구매 복원을 다시 시도해 주세요.'); }
@@ -161,7 +163,7 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
   }
   if (action === 'refresh') {
     if (adapter.refresh) await adapter.refresh();
-    else {
+    else if (appleApiReady()) {
       const rows = await db.collection('appStoreSubscriptions').where('uid', '==', uid).get();
       for (const row of rows.docs) await refreshSubscription(db, realtime, row.ref);
     }
@@ -176,7 +178,8 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
   const legacyActive = summary.data()?.validUntilMs > Date.now() &&
     !['app_trial', 'app_store', 'google_play'].includes(summary.data()?.grantSource);
   const eligible = progress.data()?.phoneVerified === true && !existingPaid && !legacyActive;
-  const enabled = purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;
+  const storeReady = adapter.store === 'google_play' || appleApiReady();
+  const enabled = storeReady && purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;
   if (action === 'prepare' && (!enabled || !products[input.productId])) throw fail('failed-precondition', '지금은 새 구독을 시작할 수 없습니다. 이용 상태를 확인해 주세요.');
   return {appAccountToken: account.appAccountToken, purchasesEnabled: enabled,
     productIds: Object.keys(products), ...summary.data()};

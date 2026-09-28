@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {AppStoreServerAPIClient, SignedDataVerifier, Environment} from '@apple/app-store-server-library';
 import {appAppleId, bundleId, validateTransaction} from './billing-policy.js';
+import {appleApiReady} from './apple-billing-config.js';
 
 const services = new Map();
 
@@ -38,6 +39,7 @@ export async function verifyApplePayload(payload, notification = false) {
 }
 
 export async function latestAppleSubscription(originalId, environment) {
+  if (!appleApiReady()) throw new Error('apple-not-configured');
   const {verifier, client} = service(environment);
   const response = await client().getAllSubscriptionStatuses(originalId);
   if (response.environment !== environment || response.bundleId !== bundleId) throw new Error('apple-app-mismatch');

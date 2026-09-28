@@ -38,6 +38,15 @@ Android는 `in_app_purchase_android` → `cloudboardPlayBilling` → Google Play
 
 ## 공통 구매 스위치 — 아직 실결제 활성화 안 함
 
+### 결제 키 없는 무료 출시와 자동 배포
+
+`APPLE_IAP_SECRETS_ENABLED`는 기본 `false`다. Firebase Functions의 배포 설정에서 Apple 키 참조 자체를 제외하므로 Apple Secret Manager 항목이 하나도 없어도 main 자동 배포가 진행된다. 문자 인증의 기존 Secret Manager 설정은 그대로 필요하다. 빈 값이나 가짜 결제 키를 만들지 않는다.
+
+- GitHub Actions는 저장소 변수 `APPLE_IAP_SECRETS_ENABLED`를 Functions 배포용 `.env.cloud-board-stationd`에 전달한다. 변수를 만들지 않으면 `false`다. 로컬 Firebase 배포에서도 기본 비활성이다.
+- Apple 키가 없을 때 구독 상태 조회·새로고침, 무료 체험, 기존 서버 권한과 만료 계산은 정상 동작한다. Apple 새 구매·거래 검증은 준비 중으로 처리하고 API 갱신 worker는 기다린다. 검증된 권한을 임의로 연장하거나 삭제하지 않는다.
+- 나중에 실제 키 3개를 등록한 뒤 GitHub 저장소 변수 `APPLE_IAP_SECRETS_ENABLED=true`로 바꾸고 재배포하면 키가 필요한 함수에만 연결된다. 로컬 배포에서는 같은 값을 `functions/.env.cloud-board-stationd`에 설정한다. 단순히 키를 등록하는 것만으로 기능이나 실결제가 열리지 않는다.
+- 키 연결과 아래 `appConfig/billing` 구매 스위치는 별개다. 런타임에서 키가 모두 확인되지 않으면 Firestore 구매 스위치를 켜도 Apple 새 구매를 차단한다. Google Play의 준비/구매 스위치는 독립적이다.
+
 서버 전용 `appConfig/billing`은 필드가 누락돼도 기본 비활성이다. Apple을 열어도 Google이 자동으로 열리지 않는다.
 
 ```json
@@ -65,7 +74,7 @@ Android는 `in_app_purchase_android` → `cloudboardPlayBilling` → Google Play
    - `APPLE_IAP_PRIVATE_KEY` (p8 내용)
    - `APPLE_IAP_KEY_ID`
    - `APPLE_IAP_ISSUER_ID`
-5. 서버와 rules를 배포한다. 새 secret을 연결하는 Functions는 secret 준비 전 배포할 수 없다. 현재 제출되어 심사 중인 바이너리는 이 변경과 별개다.
+5. 실제 secret 3개 등록 후 `APPLE_IAP_SECRETS_ENABLED=true`로 재배포해 연결한다. 키 없는 무료 배포는 이 플래그를 기본 false로 유지하면 된다. 현재 제출되어 심사 중인 바이너리는 이 변경과 별개다.
    ```sh
    firebase deploy --project cloud-board-stationd --only firestore:rules,functions:cloudboardBilling,functions:appStoreNotifications,functions:processAppStoreNotification,functions:reconcileAppStoreBilling,functions:syncAppTrialAccess,functions:syncSlideLibraryPlan,functions:deleteMyAccount,functions:retryAccountDeletions
    ```
@@ -88,7 +97,7 @@ Android는 `in_app_purchase_android` → `cloudboardPlayBilling` → Google Play
    ```sh
    firebase deploy --project cloud-board-stationd --only firestore:rules,functions:cloudboardPlayBilling,functions:googlePlayNotifications,functions:processGooglePlayNotification,functions:reconcileGooglePlayBilling,functions:syncAppTrialAccess,functions:syncSlideLibraryPlan,functions:deleteMyAccount,functions:retryAccountDeletions
    ```
-   Apple 서버가 이미 운영 중이면 공유 권한 계산 변경을 반영하도록 위 Apple 배포 항목도 함께 갱신한다. Apple secret 준비가 별도로 필요하다.
+   Apple 서버가 이미 운영 중이면 공유 권한 계산 변경을 반영하도록 위 Apple 배포 항목도 함께 갱신한다. Apple 키 연결은 위의 별도 플래그를 따른다.
 5. Pub/Sub 토픽 `projects/cloud-board-stationd/topics/cloudboard-google-play`에 `google-play-developer-notifications@system.gserviceaccount.com`의 Publisher 권한을 부여한다. Play Console의 실시간 개발자 알림(RTDN)에 이 토픽을 연결하고 테스트 알림의 전달 성공을 확인한다. TEST 알림은 권한을 변경하지 않는다. Public HTTP webhook을 만들지 않는다.
 6. Play Console 라이선스 테스터와 테스트 트랙 참여자를 지정하고 Play에서 서명된 테스트 버전을 설치한다. 동일 테스터의 Firebase uid를 `billingTesters`에 등록한다.
 7. 준비 완료 후 `legalReady`, `googlePlayProductsReady`, `googlePlaySandboxPurchasesEnabled`만 true로 설정한다. `googlePlayPurchasesEnabled`는 false로 유지한다. Google 응답의 `testPurchase`를 확인해 테스트 결제임을 검증한다.

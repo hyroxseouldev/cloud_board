@@ -19,6 +19,21 @@ try {
   const fresh=await handleBilling(db,realtime,'fresh',{});
   assert.equal(fresh.purchasesEnabled,false);
   assert.equal((await db.doc('subscriptionEntitlements/fresh').get()).exists,false,'viewing billing must not consume trial eligibility');
+  // Even a mistakenly enabled Firestore switch cannot open checkout without keys.
+  await db.doc('appConfig/billing').set({legalReady:true,productsReady:true,purchasesEnabled:true});
+  await db.doc('users/fresh/onboarding/progress').set({phoneVerified:true});
+  const freeTrialEnd=Date.now()+3600000;
+  await db.doc('onboardingTrials/fresh').set({endsAtMs:freeTrialEnd});
+  for (const action of ['load','refresh']) {
+    const status=await handleBilling(db,realtime,'fresh',{action});
+    assert.equal(status.purchasesEnabled,false);
+    assert.equal(status.status,'trialing');
+    assert.equal(status.validUntilMs,freeTrialEnd);
+  }
+  await assert.rejects(handleBilling(db,realtime,'fresh',{action:'prepare',productId:'com.sunmkim.cloudboard.plus.monthly'}),{code:'failed-precondition'});
+  await assert.rejects(handleBilling(db,realtime,'fresh',{action:'verify',signedTransaction:'not-verified'}),{code:'failed-precondition'});
+  assert.equal((await db.collection('appStoreSubscriptions').get()).empty,true);
+  await db.doc('appConfig/billing').delete();
   const [a,b]=await Promise.all([billingAccount(db,realtime,'owner'),billingAccount(db,realtime,'owner')]);
   assert.equal(a.appAccountToken,b.appAccountToken);
   await billingAccount(db,realtime,'other');
