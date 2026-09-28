@@ -8,12 +8,15 @@ class BillingActions {
   const BillingActions(this.repository);
   final BillingRepository repository;
   bool get storeSupported => repository.storeSupported;
+  String get store => repository.store;
   Stream<List<StorePurchase>> get events => repository.events;
   Future<BillingStatus> load({bool refresh = false}) =>
       repository.load(refresh: refresh);
   Future<List<BillingOffer>> offers(List<String> ids) => repository.offers(ids);
   Future<void> purchase(String id) => repository.purchase(id);
   Future<void> restore() => repository.restore();
+  Future<void> recoverPendingPurchases() =>
+      repository.recoverPendingPurchases();
   Future<String?> verify(StorePurchase purchase) =>
       repository.verifyAndComplete(purchase);
 }

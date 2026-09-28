@@ -55,13 +55,15 @@ export function resolveGrants(grants, now = Date.now()) {
     displaysUnlimited: false, maxActiveDisplays: 0, displayLimit: 0,
     favoritesUnlimited: false, maxFavorites: 3, idleScreenCustomization: 'basic'};
   const legacyDefaults = {...planAccess('plus'), displayLimit: 3, maxActiveDisplays: 3};
-  const capabilities = winner.source === 'app_store' || winner.source === 'app_trial'
+  const capabilities = ['app_store', 'google_play', 'app_trial'].includes(winner.source)
     ? planAccess(winner.plan) : Object.fromEntries(Object.keys(legacyDefaults).map(k => [k, Object.hasOwn(winner, k) ? winner[k] : legacyDefaults[k]]));
   return {...capabilities, managed: true, source: billingSource, grantSource: winner.source ?? 'legacy',
     plan: winner.plan ?? 'cloudboard_pro', status: winner.status ?? 'active', validUntilMs: winner.validUntilMs};
 }
 
-export function purchasesAllowed(config, tester = false) {
+export function purchasesAllowed(config, tester = false, store = 'app_store') {
+  if (store === 'google_play') return config?.legalReady === true && config?.googlePlayProductsReady === true &&
+    (config?.googlePlayPurchasesEnabled === true || (tester && config?.googlePlaySandboxPurchasesEnabled === true));
   return config?.legalReady === true && config?.productsReady === true &&
     (config?.purchasesEnabled === true || (tester && config?.sandboxPurchasesEnabled === true));
 }

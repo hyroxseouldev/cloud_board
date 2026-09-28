@@ -26,6 +26,7 @@ Future<List<BillingOffer>> billingOffers(Ref ref) async {
 class BillingPurchaseController extends _$BillingPurchaseController {
   final _unverified = <String, StorePurchase>{};
   Future<void> _queue = Future.value();
+  bool _recovering = false;
   @override
   BillingActivity build() {
     final actions = ref.watch(billingActionsProvider);
@@ -41,7 +42,7 @@ class BillingPurchaseController extends _$BillingPurchaseController {
         if (ref.mounted) {
           state = const BillingActivity(
             needsVerification: true,
-            message: 'App Store 연결을 확인한 뒤 구매를 복원해 주세요.',
+            message: '스토어 연결을 확인한 뒤 구매를 복원해 주세요.',
             error: true,
           );
         }
@@ -51,17 +52,36 @@ class BillingPurchaseController extends _$BillingPurchaseController {
     ref.listen(authStateProvider, (before, after) {
       if (before?.value?.id != after.value?.id) {
         state = BillingActivity(needsVerification: _unverified.isNotEmpty);
-        if (after.value != null) unawaited(retry());
+        if (after.value != null) {
+          unawaited(retry());
+          unawaited(recoverPendingPurchases());
+        }
       }
     });
     return const BillingActivity();
   }
 
+  Future<void> recoverPendingPurchases() async {
+    if (_recovering ||
+        ref.read(authStateProvider).value == null ||
+        ref.read(billingActionsProvider).store != 'google_play') {
+      return;
+    }
+    _recovering = true;
+    // Query Play on foreground/login to recover approvals completed outside the
+    // app. A network failure never changes access or blocks the editor.
+    await AsyncValue.guard(
+      () => ref.read(billingActionsProvider).recoverPendingPurchases(),
+    );
+    _recovering = false;
+  }
+
   Future<void> _handle(StorePurchase purchase) async {
     if (purchase.phase == StorePurchasePhase.pending) {
-      state = const BillingActivity(
-        busy: true,
-        message: 'App Store 결제 승인을 기다리고 있어요.',
+      state = BillingActivity(
+        busy: purchase.store != 'google_play',
+        needsVerification: true,
+        message: '스토어 결제 승인을 기다리고 있어요.',
       );
       return;
     }
@@ -106,6 +126,7 @@ class BillingPurchaseController extends _$BillingPurchaseController {
 
   Future<void> retry() async {
     if (state.busy) return;
+    if (_unverified.isEmpty) await recoverPendingPurchases();
     _queue = _queue.then((_) async {
       for (final purchase in _unverified.values.toList()) {
         if (ref.mounted) await _handle(purchase);
@@ -116,10 +137,7 @@ class BillingPurchaseController extends _$BillingPurchaseController {
 
   Future<void> purchase(String id) async {
     if (state.busy || state.needsVerification) return;
-    state = const BillingActivity(
-      busy: true,
-      message: 'App Store 결제 화면을 여는 중이에요.',
-    );
+    state = const BillingActivity(busy: true, message: '스토어 결제 화면을 여는 중이에요.');
     final result = await AsyncValue.guard(
       () => ref.read(billingActionsProvider).purchase(id),
     );

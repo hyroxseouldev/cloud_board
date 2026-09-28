@@ -11,7 +11,11 @@ class FirebaseBillingRepository implements BillingRepository {
   @override
   bool get storeSupported => source.supported;
   @override
+  String get store => source.store;
+  @override
   Stream<List<StorePurchase>> get events => source.events;
+  @override
+  Future<void> recoverPendingPurchases() => source.recoverPendingPurchases();
   @override
   Future<BillingStatus> load({bool refresh = false}) async =>
       BillingModel.fromJson(
@@ -44,13 +48,16 @@ class FirebaseBillingRepository implements BillingRepository {
   Future<String?> verifyAndComplete(StorePurchase purchase) async {
     final response = await source.call({
       'action': 'verify',
-      'signedTransaction': purchase.signedTransaction,
+      if (purchase.store == 'google_play')
+        'purchaseToken': purchase.signedTransaction
+      else
+        'signedTransaction': purchase.signedTransaction,
     });
     if (response['verified'] != true) throw StateError('구독 확인을 다시 시도해 주세요.');
     // Never finish a purchase until the server has committed ownership and access.
     await source.complete(purchase.key);
     return response['retired'] == true
-        ? '삭제한 계정의 이전 구매를 정리했어요. 자동 갱신은 Apple 구독 관리에서 별도로 해지해 주세요.'
+        ? '삭제한 계정의 이전 구매를 확인했어요. 자동 갱신은 구매한 스토어에서 별도로 해지해 주세요.'
         : null;
   }
 }

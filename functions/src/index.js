@@ -8,6 +8,7 @@ import {getFirestore, Timestamp} from 'firebase-admin/firestore';
 import {getStorage} from 'firebase-admin/storage';
 import {onCall, onRequest, HttpsError} from 'firebase-functions/v2/https';
 import {onSchedule} from 'firebase-functions/v2/scheduler';
+import {onMessagePublished} from 'firebase-functions/v2/pubsub';
 import {eraseAccount, requireDeletionIdentity} from './delete-account.js';
 
 const projectId=process.env.GCLOUD_PROJECT || 'cloud-board-stationd';
@@ -249,6 +250,53 @@ export const reconcileAppStoreBilling = onSchedule({region, schedule: 'every 5 m
   const accounts = await db.collection('billingAccounts').where('nextCheckAtMs', '<=', now).limit(100).get();
   for (const account of accounts.docs) await refreshEntitlements(db, realtime, account.id);
   const finished = await db.collection('appStoreEvents').where('processedAtMs', '<', now - 30 * 86400000).limit(200).get();
+  const batch = db.batch(); for (const event of finished.docs) batch.delete(event.ref); await batch.commit();
+});
+
+// Uses runtime Application Default Credentials. Grant this service account the
+// app-scoped Play Console subscription permissions; never ship a JSON key.
+export const cloudboardPlayBilling = onCall({region, timeoutSeconds: 120, maxInstances: 5}, async request => {
+  if (!request.auth) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+  const bearer = request.rawRequest.headers.authorization?.replace(/^Bearer /i, '');
+  try {
+    if ((await auth.verifyIdToken(bearer || '', true)).uid !== request.auth.uid) throw new Error();
+  } catch { throw new HttpsError('unauthenticated', '다시 로그인해 주세요.'); }
+  const {handlePlayBilling} = await import('./google-play-billing.js');
+  return handlePlayBilling(db, realtime, request.auth.uid, request.data);
+});
+
+export const googlePlayNotifications = onMessagePublished({region,
+  topic: 'cloudboard-google-play', retry: true, timeoutSeconds: 60, maxInstances: 5,
+}, async event => {
+  let value;
+  try { value = event.data.message.json; } catch { return; }
+  const {acceptPlayNotification} = await import('./google-play-billing.js');
+  await acceptPlayNotification(db, event.data.message.messageId, value);
+});
+
+export const processGooglePlayNotification = onDocumentCreated({region,
+  document: 'googlePlayEvents/{eventId}', retry: true, timeoutSeconds: 120, maxInstances: 5,
+}, async event => {
+  const {processPlayEvent} = await import('./google-play-billing.js');
+  await processPlayEvent(db, realtime, event.data.ref);
+});
+
+export const reconcileGooglePlayBilling = onSchedule({region, schedule: 'every 5 minutes',
+  timeoutSeconds: 540, maxInstances: 1,
+}, async () => {
+  const {processPlayEvent, refreshPlaySubscription} = await import('./google-play-billing.js');
+  const {refreshEntitlements} = await import('./billing.js');
+  const now = Date.now();
+  const events = await db.collection('googlePlayEvents').where('nextAttemptAtMs', '<=', now).limit(50).get();
+  for (const event of events.docs) await processPlayEvent(db, realtime, event.ref);
+  const subscriptions = await db.collection('googlePlaySubscriptions').where('nextCheckAtMs', '<=', now).limit(50).get();
+  for (const sub of subscriptions.docs) {
+    try { await refreshPlaySubscription(db, realtime, sub.ref); }
+    catch (_) { /* Retain only the verified expiry on network/permission failure. */ }
+  }
+  const accounts = await db.collection('billingAccounts').where('nextCheckAtMs', '<=', now).limit(100).get();
+  for (const account of accounts.docs) await refreshEntitlements(db, realtime, account.id);
+  const finished = await db.collection('googlePlayEvents').where('processedAtMs', '<', now - 30 * 86400000).limit(200).get();
   const batch = db.batch(); for (const event of finished.docs) batch.delete(event.ref); await batch.commit();
 });
 

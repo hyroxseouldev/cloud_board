@@ -34,35 +34,40 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
   const livePilot = (await realtime.ref(`legacyPilotAccess/${uid}`).get()).val();
   await db.runTransaction(async tx => {
     const accessRef = db.doc(`subscriptionEntitlements/${uid}`), aRef = accountRef(db, uid);
-    const [lock, account, access, trial, tester, subscriptions, progress] = await Promise.all([
+    const [lock, account, access, trial, tester, subscriptions, progress, playSubscriptions] = await Promise.all([
       tx.get(db.doc(`accountDeletions/${uid}`)), tx.get(aRef), tx.get(accessRef),
       tx.get(db.doc(`onboardingTrials/${uid}`)), tx.get(db.doc(`billingTesters/${uid}`)),
       tx.get(db.collection('appStoreSubscriptions').where('uid', '==', uid)),
       tx.get(db.doc(`users/${uid}/onboarding/progress`)),
+      tx.get(db.collection('googlePlaySubscriptions').where('uid', '==', uid)),
     ]);
     if (lock.exists || !account.exists || account.data().deleted) return;
     const data = account.data(), previous = access.data();
     const baseline = previous && previous.source !== billingSource ? clean(previous) : data.baseline;
     const apple = subscriptions.docs.map(d => d.data()).filter(d => d.environment === 'Production' || tester.data()?.enabled === true);
+    const play = playSubscriptions.docs.map(d => d.data()).filter(d => !d.deleted && !d.replacedBy &&
+      (d.environment === 'Production' || tester.data()?.enabled === true));
     const grants = [baseline, baseline?.managed ? null : data.oldRealtime, livePilot,
       trial.exists ? {source: 'app_trial', plan: 'premium', status: 'trialing', validUntilMs: trial.data().endsAtMs} : null,
-      ...apple.map(d => d.grant)];
+      ...apple.map(d => d.grant), ...play.map(d => d.grant)];
     const result = {...resolveGrants(grants, now),
       storeId: progress.data()?.storeId ?? previous?.storeId ?? baseline?.storeId ?? null};
     const comparable = previous ? Object.fromEntries(Object.keys(result).map(k => [k, previous[k]])) : null;
     // Merely opening the page must not turn a new user's pending trial into a
     // historical expired grant, or migrate any legacy account before a purchase.
-    if ((subscriptions.size > 0 || previous?.source === billingSource) && !isDeepStrictEqual(comparable, result)) {
+    if ((subscriptions.size > 0 || playSubscriptions.size > 0 || previous?.source === billingSource) && !isDeepStrictEqual(comparable, result)) {
       tx.set(accessRef, {...result, revision: (previous?.revision ?? 0) + 1});
     }
     const futureEnds = grants.filter(g => g?.validUntilMs > now).map(g => g.validUntilMs);
     tx.update(aRef, {baseline, nextCheckAtMs: Math.min(now + 3600000, ...futureEnds)});
     // Billing status is distinct from effective access (for example an active trial).
-    apple.sort((a, b) => (b.grant?.expiresAtMs ?? 0) - (a.grant?.expiresAtMs ?? 0));
-    const paid = apple[0]?.grant;
+    const paidGrants = [...apple, ...play].map(d => d.grant).filter(Boolean);
+    const renewable = g => g.validUntilMs > now || g.autoRenew || ['billing_retry', 'paused', 'pending'].includes(g.status);
+    paidGrants.sort((a, b) => Number(renewable(b)) - Number(renewable(a)) || b.expiresAtMs - a.expiresAtMs);
+    const paid = paidGrants[0];
     tx.set(summaryRef(db, uid), {plan: result.plan, status: result.status,
       validUntilMs: result.validUntilMs, grantSource: result.grantSource ?? null,
-      paid: paid ?? null, updatedAtMs: now});
+      paid: paid ?? null, paidStores: [...new Set(paidGrants.map(g => g.source))], updatedAtMs: now});
   });
   await projectBillingAccess(db, realtime, uid);
 }
@@ -137,11 +142,12 @@ export async function refreshSubscription(db, realtime, ref, fetchLatest = lates
   }
 }
 
-export async function handleBilling(db, realtime, uid, input) {
+export async function handleBilling(db, realtime, uid, input, adapter = {}) {
   if (!uid) throw fail('unauthenticated', '로그인이 필요합니다.');
   const account = await billingAccount(db, realtime, uid);
   const action = input?.action ?? 'load';
   if (action === 'verify') {
+    if (adapter.verify) return adapter.verify();
     let verified;
     try { verified = await verifyApplePayload(input.signedTransaction); }
     catch { throw fail('invalid-argument', 'App Store 결제 정보를 확인하지 못했습니다. 구매 복원을 다시 시도해 주세요.'); }
@@ -154,8 +160,11 @@ export async function handleBilling(db, realtime, uid, input) {
     return {verified: true};
   }
   if (action === 'refresh') {
-    const rows = await db.collection('appStoreSubscriptions').where('uid', '==', uid).get();
-    for (const row of rows.docs) await refreshSubscription(db, realtime, row.ref);
+    if (adapter.refresh) await adapter.refresh();
+    else {
+      const rows = await db.collection('appStoreSubscriptions').where('uid', '==', uid).get();
+      for (const row of rows.docs) await refreshSubscription(db, realtime, row.ref);
+    }
   } else if (!['load', 'prepare'].includes(action)) throw fail('invalid-argument', '지원하지 않는 요청입니다.');
   await refreshEntitlements(db, realtime, uid);
   const [config, tester, summary, progress] = await Promise.all([
@@ -163,11 +172,11 @@ export async function handleBilling(db, realtime, uid, input) {
     summaryRef(db, uid).get(), db.doc(`users/${uid}/onboarding/progress`).get(),
   ]);
   const paid = summary.data()?.paid;
-  const existingPaid = paid && (paid.validUntilMs > Date.now() || paid.autoRenew || paid.status === 'billing_retry');
+  const existingPaid = paid && (paid.validUntilMs > Date.now() || paid.autoRenew || ['billing_retry', 'paused', 'pending'].includes(paid.status));
   const legacyActive = summary.data()?.validUntilMs > Date.now() &&
-    !['app_trial', 'app_store'].includes(summary.data()?.grantSource);
+    !['app_trial', 'app_store', 'google_play'].includes(summary.data()?.grantSource);
   const eligible = progress.data()?.phoneVerified === true && !existingPaid && !legacyActive;
-  const enabled = purchasesAllowed(config.data(), tester.data()?.enabled === true) && eligible;
+  const enabled = purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;
   if (action === 'prepare' && (!enabled || !products[input.productId])) throw fail('failed-precondition', '지금은 새 구독을 시작할 수 없습니다. 이용 상태를 확인해 주세요.');
   return {appAccountToken: account.appAccountToken, purchasesEnabled: enabled,
     productIds: Object.keys(products), ...summary.data()};
@@ -221,6 +230,8 @@ export async function deleteBillingData(db, uid) {
   await batch.commit();
   const subscriptions = await db.collection('appStoreSubscriptions').where('uid', '==', uid).get();
   for (const sub of subscriptions.docs) await sub.ref.set({deleted: true});
+  const playSubscriptions = await db.collection('googlePlaySubscriptions').where('uid', '==', uid).get();
+  for (const sub of playSubscriptions.docs) await sub.ref.set({deleted: true});
   const transactions = await db.collection('appStoreTransactions').where('uid', '==', uid).get();
   for (const transaction of transactions.docs) await transaction.ref.delete();
   await db.doc(`billingTesters/${uid}`).delete();

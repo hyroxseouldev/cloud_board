@@ -24,10 +24,23 @@ class XonBoardApp extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(billingPurchaseControllerProvider);
+    useEffect(() {
+      Future.microtask(() {
+        if (context.mounted) {
+          ref
+              .read(billingPurchaseControllerProvider.notifier)
+              .recoverPendingPurchases();
+        }
+      });
+      return null;
+    }, const []);
     ref.watch(storeEntitlementProvider);
     useOnAppLifecycleStateChange((previous, next) {
       if (next == AppLifecycleState.resumed) {
         ref.invalidate(storeEntitlementProvider);
+        ref
+            .read(billingPurchaseControllerProvider.notifier)
+            .recoverPendingPurchases();
       }
     });
     ref.listen(

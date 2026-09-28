@@ -8,6 +8,8 @@ import 'package:cloud_board/src/app/feature/billing/domain/usecases/billing_acti
 import 'package:cloud_board/src/app/feature/billing/presentation/controllers/billing_controller.dart';
 
 const appleSubscriptionsUrl = 'https://apps.apple.com/account/subscriptions';
+const googleSubscriptionsUrl =
+    'https://play.google.com/store/account/subscriptions?package=com.sunmkim.cloudboard';
 const subscriptionTermsUrl =
     'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 const subscriptionPrivacyUrl =
@@ -20,7 +22,9 @@ class SubscriptionScreen extends HookConsumerWidget {
     final status = ref.watch(billingStatusProvider);
     final activity = ref.watch(billingPurchaseControllerProvider);
     final actions = ref.read(billingPurchaseControllerProvider.notifier);
-    final supported = ref.watch(billingActionsProvider).storeSupported;
+    final billing = ref.watch(billingActionsProvider);
+    final supported = billing.storeSupported;
+    final deviceStore = billing.store;
     final offers = ref.watch(billingOffersProvider);
     useOnAppLifecycleStateChange((previous, next) {
       if (next == AppLifecycleState.resumed) {
@@ -61,162 +65,190 @@ class SubscriptionScreen extends HookConsumerWidget {
       body: AsyncValueWidget<BillingStatus>(
         value: status,
         onRetry: () => ref.invalidate(billingStatusProvider),
-        data: (data) => Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-              children: [
-                Text(
-                  '우리 센터에 맞는\n수업의 다음 단계.',
-                  style: Theme.of(context).textTheme.headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data.statusLabel,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          data.planLabel,
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        if (data.validUntilMs > 0) ...[
-                          const SizedBox(height: 8),
-                          Text('${date(data.validUntilMs)}까지 이용'),
-                        ],
-                        if (data.status == 'trialing') ...[
-                          const SizedBox(height: 12),
-                          const Text(
-                            '1개월 무료 체험은 자동으로 결제되지 않아요.\n유료 구독을 선택하면 바로 결제가 시작되며, 남은 체험 기간이 유료 구독 기간에 더해지지는 않아요.',
-                          ),
-                        ],
-                        if (data.paidStatus != null) ...[
-                          const Divider(height: 32),
+        data: (data) {
+          final paidStore = data.paidSource ?? deviceStore;
+          final storeLabel = paidStore == 'google_play'
+              ? 'Google Play'
+              : 'Apple';
+          final managementStores = {
+            if (supported) deviceStore,
+            ...data.paidStores,
+            if (data.paidStatus != null) paidStore,
+          };
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                children: [
+                  Text(
+                    '우리 센터에 맞는\n수업의 다음 단계.',
+                    style: Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 24),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            data.autoRenew
-                                ? 'App Store 자동 갱신 켜짐'
-                                : 'App Store 자동 갱신 꺼짐',
+                            data.statusLabel,
+                            style: Theme.of(context).textTheme.labelLarge,
                           ),
-                          if (data.paidExpiresAtMs > 0)
-                            Text('결제 이용 기간 · ${date(data.paidExpiresAtMs)}까지'),
-                          if (data.nextProductId != null &&
-                              !data.nextProductId!.contains(
-                                '.${data.paidPlan}.',
-                              ))
-                            Text(
-                              '다음 갱신부터 ${data.nextProductId!.contains('.premium.') ? '프리미엄' : '플러스'} 적용 예정',
+                          const SizedBox(height: 8),
+                          Text(
+                            data.planLabel,
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          if (data.validUntilMs > 0) ...[
+                            const SizedBox(height: 8),
+                            Text('${date(data.validUntilMs)}까지 이용'),
+                          ],
+                          if (data.status == 'trialing') ...[
+                            const SizedBox(height: 12),
+                            const Text(
+                              '1개월 무료 체험은 자동으로 결제되지 않아요.\n유료 구독을 선택하면 바로 결제가 시작되며, 남은 체험 기간이 유료 구독 기간에 더해지지는 않아요.',
                             ),
-                          if ([
-                            'billing_retry',
-                            'grace_period',
-                          ].contains(data.paidStatus))
-                            const Text('Apple 구독 관리에서 결제 수단을 확인해 주세요.'),
+                          ],
+                          if (data.paidStatus != null) ...[
+                            const Divider(height: 32),
+                            if (data.paidStatus == 'pending')
+                              const Text('결제 승인 대기 중이에요. 승인 후 이용 권한이 반영돼요.'),
+                            if (data.paidStatus == 'paused')
+                              Text(
+                                '구독이 일시중지됐어요. $storeLabel 구독 관리에서 다시 시작할 수 있어요.',
+                              ),
+                            Text(
+                              data.autoRenew
+                                  ? '$storeLabel 자동 갱신 켜짐'
+                                  : '$storeLabel 자동 갱신 꺼짐',
+                            ),
+                            if (data.paidExpiresAtMs > 0)
+                              Text(
+                                '결제 이용 기간 · ${date(data.paidExpiresAtMs)}까지',
+                              ),
+                            if (data.nextProductId != null &&
+                                !data.nextProductId!.contains(
+                                  '.${data.paidPlan}.',
+                                ))
+                              Text(
+                                '다음 갱신부터 ${data.nextProductId!.contains('.premium.') ? '프리미엄' : '플러스'} 적용 예정',
+                              ),
+                            if ([
+                              'billing_retry',
+                              'grace_period',
+                            ].contains(data.paidStatus))
+                              Text('$storeLabel 구독 관리에서 결제 수단을 확인해 주세요.'),
+                          ],
                         ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                if (!data.purchasesEnabled)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      data.paidStatus != null
-                          ? '기존 구독의 변경·해지는 Apple 구독 관리에서 할 수 있어요.'
-                          : '유료 구독은 준비 중이에요. 기존 이용 권한과 무료 체험은 그대로 유지돼요.',
-                    ),
-                  ),
-                if (!supported)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      '연결된 계정의 구독은 모든 기기에서 적용돼요. Apple 구매 복원은 iPhone 또는 iPad에서 진행해 주세요.',
-                    ),
-                  ),
-                for (final plan in ['plus', 'premium']) ...[
-                  _PlanCard(
-                    plan: plan,
-                    offer: offers.value
-                        ?.where((o) => o.id.contains('.$plan.'))
-                        .firstOrNull,
-                    enabled:
-                        supported &&
-                        data.purchasesEnabled &&
-                        !activity.busy &&
-                        !activity.needsVerification,
-                    onPurchase: actions.purchase,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (offers.hasError)
-                  TextButton(
-                    onPressed: () => ref.invalidate(billingOffersProvider),
-                    child: const Text('상품 정보를 다시 불러오기'),
-                  ),
-                if (activity.busy) const LinearProgressIndicator(),
-                if (activity.message != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        activity.message!,
-                        style: TextStyle(
-                          color: activity.error
-                              ? Theme.of(context).colorScheme.error
-                              : null,
-                        ),
                       ),
                     ),
                   ),
-                if (activity.needsVerification)
-                  OutlinedButton(
-                    onPressed: activity.busy ? null : actions.retry,
-                    child: const Text('결제 확인 다시 시도'),
-                  ),
-                if (supported)
-                  TextButton.icon(
-                    onPressed: activity.busy ? null : actions.restore,
-                    icon: const Icon(Icons.restore_rounded),
-                    label: const Text('구매 복원'),
-                  ),
-                if (supported || data.paidStatus != null)
-                  TextButton.icon(
-                    onPressed: () => open(appleSubscriptionsUrl),
-                    icon: const Icon(Icons.open_in_new_rounded),
-                    label: const Text('Apple 구독 관리'),
-                  ),
-                const SizedBox(height: 16),
-                const Text(
-                  '유료 구독은 매월 자동 갱신됩니다. 결제 금액과 갱신 조건은 App Store 결제 화면에서 확인할 수 있어요. '
-                  '해지는 Apple 구독 관리에서 언제든 할 수 있으며, 해지해도 이미 결제한 기간까지 이용할 수 있어요.',
-                  style: TextStyle(fontSize: 13, height: 1.6),
-                ),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  children: [
-                    TextButton(
-                      onPressed: () => open(subscriptionTermsUrl),
-                      child: const Text('이용약관'),
+                  const SizedBox(height: 24),
+                  if (!data.purchasesEnabled)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        data.paidStatus != null
+                            ? '기존 구독의 갱신·해지는 $storeLabel 구독 관리에서 할 수 있어요.'
+                            : '유료 구독은 준비 중이에요. 기존 이용 권한과 무료 체험은 그대로 유지돼요.',
+                      ),
                     ),
-                    TextButton(
-                      onPressed: () => open(subscriptionPrivacyUrl),
-                      child: const Text('개인정보처리방침'),
+                  if (!supported)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        '연결된 계정의 구독은 모든 기기에서 적용돼요. 구매 복원은 구입한 스토어의 모바일 기기에서 진행해 주세요.',
+                      ),
                     ),
+                  for (final plan in ['plus', 'premium']) ...[
+                    _PlanCard(
+                      plan: plan,
+                      offer: offers.value
+                          ?.where((o) => o.id.contains('.$plan.'))
+                          .firstOrNull,
+                      enabled:
+                          supported &&
+                          data.purchasesEnabled &&
+                          !activity.busy &&
+                          !activity.needsVerification,
+                      onPurchase: actions.purchase,
+                    ),
+                    const SizedBox(height: 12),
                   ],
-                ),
-              ],
+                  if (offers.hasError)
+                    TextButton(
+                      onPressed: () => ref.invalidate(billingOffersProvider),
+                      child: const Text('상품 정보를 다시 불러오기'),
+                    ),
+                  if (activity.busy) const LinearProgressIndicator(),
+                  if (activity.message != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          activity.message!,
+                          style: TextStyle(
+                            color: activity.error
+                                ? Theme.of(context).colorScheme.error
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (activity.needsVerification)
+                    OutlinedButton(
+                      onPressed: activity.busy ? null : actions.retry,
+                      child: const Text('결제 확인 다시 시도'),
+                    ),
+                  if (supported)
+                    TextButton.icon(
+                      onPressed: activity.busy ? null : actions.restore,
+                      icon: const Icon(Icons.restore_rounded),
+                      label: const Text('구매 복원'),
+                    ),
+                  for (final store in managementStores)
+                    TextButton.icon(
+                      onPressed: () => open(
+                        store == 'google_play'
+                            ? googleSubscriptionsUrl
+                            : appleSubscriptionsUrl,
+                      ),
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: Text(
+                        store == 'google_play'
+                            ? 'Google Play 구독 관리'
+                            : 'Apple 구독 관리',
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '유료 구독은 매월 자동 갱신됩니다. 결제 금액과 갱신 조건은 스토어 결제 화면에서 확인할 수 있어요. '
+                    '해지는 구입한 스토어의 구독 관리에서 언제든 할 수 있으며, 해지해도 이미 결제한 기간까지 이용할 수 있어요.',
+                    style: TextStyle(fontSize: 13, height: 1.6),
+                  ),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    children: [
+                      if (deviceStore == 'app_store')
+                        TextButton(
+                          onPressed: () => open(subscriptionTermsUrl),
+                          child: const Text('이용약관'),
+                        ),
+                      TextButton(
+                        onPressed: () => open(subscriptionPrivacyUrl),
+                        child: const Text('개인정보처리방침'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

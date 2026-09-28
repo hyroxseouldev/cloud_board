@@ -13,6 +13,7 @@ class BillingModel {
     this.validUntilMs = 0,
     this.grantSource,
     this.paid,
+    this.paidStores = const [],
   });
   final String appAccountToken, plan, status;
   final bool purchasesEnabled;
@@ -20,6 +21,7 @@ class BillingModel {
   final int validUntilMs;
   final String? grantSource;
   final Map<String, dynamic>? paid;
+  final List<String> paidStores;
   factory BillingModel.fromJson(Map<String, dynamic> json) =>
       _$BillingModelFromJson(json);
   BillingStatus toEntity() => BillingStatus(
@@ -32,6 +34,8 @@ class BillingModel {
     grantSource: grantSource,
     paidStatus: paid?['status'] as String?,
     paidPlan: paid?['plan'] as String?,
+    paidSource: paid?['source'] as String?,
+    paidStores: paidStores,
     nextProductId: paid?['nextProductId'] as String?,
     autoRenew: paid?['autoRenew'] == true,
     paidExpiresAtMs: (paid?['expiresAtMs'] as num?)?.toInt() ?? 0,

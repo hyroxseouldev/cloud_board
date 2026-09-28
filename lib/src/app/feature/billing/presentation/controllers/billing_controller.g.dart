@@ -122,7 +122,7 @@ final class BillingPurchaseControllerProvider
 }
 
 String _$billingPurchaseControllerHash() =>
-    r'66edddedec263d025c71100ce9bf7aade7fc0a3d';
+    r'a0d3e9ac28e6a84e203e822847ad3c392451fe8e';
 
 abstract class _$BillingPurchaseController extends $Notifier<BillingActivity> {
   BillingActivity build();

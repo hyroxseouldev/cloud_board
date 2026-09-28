@@ -14,6 +14,8 @@ abstract class BillingStatus with _$BillingStatus {
     String? grantSource,
     String? paidStatus,
     String? paidPlan,
+    String? paidSource,
+    @Default([]) List<String> paidStores,
     String? nextProductId,
     @Default(false) bool autoRenew,
     @Default(0) int paidExpiresAtMs,
@@ -30,6 +32,8 @@ abstract class BillingStatus with _$BillingStatus {
     'active' => '이용 중',
     'grace_period' => '결제 확인 필요 · 유예 기간',
     'billing_retry' => '결제 확인 필요',
+    'paused' => '구독 일시중지',
+    'pending' => '결제 승인 대기',
     'revoked' => '환불 또는 이용 종료',
     _ => '이용 기간 종료',
   };
@@ -49,6 +53,7 @@ abstract class StorePurchase with _$StorePurchase {
     required String key,
     required StorePurchasePhase phase,
     required String signedTransaction,
+    @Default('app_store') String store,
     String? error,
   }) = _StorePurchase;
 }
