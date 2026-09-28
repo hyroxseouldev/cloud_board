@@ -99,6 +99,12 @@ class UserProfileScreen extends HookConsumerWidget {
               _ProfileGroup(
                 title: '이용 정보',
                 children: [
+                  ListTile(
+                    leading: const Icon(Icons.credit_card_rounded),
+                    title: const Text('내 구독 관리'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/subscription'),
+                  ),
                   _ProfileInfo(
                     icon: Icons.workspace_premium_outlined,
                     label: '구독',
