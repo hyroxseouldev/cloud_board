@@ -90,7 +90,9 @@ jobs:
             *) echo 'Invalid Apple secret binding setting.' >&2; exit 1 ;;
           esac
           printf 'APPLE_IAP_SECRETS_ENABLED=%s\n' "$APPLE_IAP_SECRETS_ENABLED" >> "$sender_env"
-          npx --yes firebase-tools deploy --only functions:account-deletion,firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
+          # Approve the declared retry policy for new event functions in CI.
+          npx --yes firebase-tools deploy --only functions:account-deletion --project cloud-board-stationd --non-interactive --force
+          npx --yes firebase-tools deploy --only firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
 
       - name: Build Flutter web app
         run: |
