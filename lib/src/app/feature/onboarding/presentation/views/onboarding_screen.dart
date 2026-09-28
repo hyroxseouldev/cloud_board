@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -179,7 +181,13 @@ class _OnboardingForm extends HookConsumerWidget {
     final actions = ref.read(onboardingActionProvider.notifier);
     final busy = action.isLoading;
     final scroll = useScrollController();
+    final backwards = useState(false);
+    final reducedMotion =
+        MediaQuery.disableAnimationsOf(context) ||
+        MediaQuery.accessibleNavigationOf(context);
     void move(int value) {
+      FocusScope.of(context).unfocus();
+      backwards.value = value < step.value;
       step.value = value;
       if (scroll.hasClients) scroll.jumpTo(0);
     }
@@ -247,212 +255,225 @@ class _OnboardingForm extends HookConsumerWidget {
             child: Column(
               children: [
                 Expanded(
-                  child: ListView(
-                    controller: scroll,
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                    children: [
-                      if (step.value < 3) ...[
-                        Row(
-                          children: List.generate(
-                            3,
-                            (index) => Padding(
-                              padding: const EdgeInsets.only(right: 7),
-                              child: Container(
-                                width: 28,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: index <= step.value
-                                      ? AppColors.accent
-                                      : AppColors.line,
-                                  borderRadius: BorderRadius.circular(4),
+                  child: WelcomeMotion(
+                    motionKey: step.value,
+                    horizontal: true,
+                    reverse: backwards.value,
+                    child: ListView(
+                      controller: scroll,
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                      children: [
+                        if (step.value < 3) ...[
+                          Row(
+                            children: List.generate(
+                              3,
+                              (index) => Padding(
+                                padding: const EdgeInsets.only(right: 7),
+                                child: AnimatedContainer(
+                                  duration: reducedMotion
+                                      ? Duration.zero
+                                      : const Duration(milliseconds: 240),
+                                  curve: Curves.easeOutCubic,
+                                  width: 28,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: index <= step.value
+                                        ? AppColors.accent
+                                        : AppColors.line,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 30),
-                      ],
-                      if (step.value == 0) ...[
-                        const _Heading(
-                          '어떻게 시작하고 싶으세요?',
-                          '선택에 맞춰 첫 사용을 안내해 드릴게요.',
-                        ),
-                        const SizedBox(height: 26),
-                        _PurposeChoices(
-                          value: profile.value.purpose,
-                          onChanged: busy
-                              ? null
-                              : (value) =>
-                                    profile.value = profile.value.copyWith(
-                                      purpose: value,
-                                      undecidedName: value == 'operating'
-                                          ? false
-                                          : profile.value.undecidedName,
-                                      undecidedRegion: value == 'operating'
-                                          ? false
-                                          : profile.value.undecidedRegion,
+                          const SizedBox(height: 30),
+                        ],
+                        if (step.value == 0) ...[
+                          const _Heading(
+                            '어떻게 시작하고 싶으세요?',
+                            '선택에 맞춰 첫 사용을 안내해 드릴게요.',
+                          ),
+                          const SizedBox(height: 26),
+                          _PurposeChoices(
+                            value: profile.value.purpose,
+                            onChanged: busy
+                                ? null
+                                : (value) =>
+                                      profile.value = profile.value.copyWith(
+                                        purpose: value,
+                                        undecidedName: value == 'operating'
+                                            ? false
+                                            : profile.value.undecidedName,
+                                        undecidedRegion: value == 'operating'
+                                            ? false
+                                            : profile.value.undecidedRegion,
+                                      ),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            '선택은 나중에 바꿀 수 있어요.',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        ] else if (step.value == 1) ...[
+                          _Heading(
+                            editing ? '센터 정보를 수정해요' : '센터를 조금 알려주세요',
+                            profile.value.purpose == 'operating'
+                                ? '첫 수업을 준비하는 데 필요한 정보만 받아요.'
+                                : '준비 중인 정보는 미정으로 남겨도 괜찮아요.',
+                          ),
+                          const SizedBox(height: 24),
+                          _CenterFields(
+                            profile: profile.value,
+                            onChanged: (value) => profile.value = value,
+                            enabled: !busy,
+                          ),
+                        ] else if (step.value == 2) ...[
+                          _Heading(
+                            latest.hasAccess
+                                ? '이미 이용 중인 권한이 있어요'
+                                : latest.trialEligible
+                                ? '우리 센터에서\n1개월 무료로 시작해요'
+                                : '기존 이용 내역을 확인했어요',
+                            latest.trialEligible && !latest.hasAccess
+                                ? '카드 등록 없이 준비하고, 내 기기로 먼저 살펴보세요.'
+                                : '기존 이용 기간은 그대로 유지해요. 센터 설정을 마치고 시작해 보세요.',
+                          ),
+                          const SizedBox(height: 26),
+                          for (final item in [
+                            '워크아웃과 슬라이드 만들기',
+                            '타이머·효과음과 원격 수업 제어',
+                            '디스플레이·즐겨찾기 수 제한 없는 프리미엄',
+                          ])
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.check_circle_outline_rounded,
+                                color: AppColors.accent,
+                              ),
+                              title: Text(item),
+                            ),
+                          const SizedBox(height: 20),
+                          if (latest.trialStartedAtMs > 0 ||
+                              (latest.trialEligible && !latest.hasAccess))
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    latest.trialStartedAtMs > 0
+                                        ? '기존 체험 기간'
+                                        : '지금 시작하면',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
                                     ),
-                        ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          '선택은 나중에 바꿀 수 있어요.',
-                          style: TextStyle(color: AppColors.muted),
-                        ),
-                      ] else if (step.value == 1) ...[
-                        _Heading(
-                          editing ? '센터 정보를 수정해요' : '센터를 조금 알려주세요',
-                          profile.value.purpose == 'operating'
-                              ? '첫 수업을 준비하는 데 필요한 정보만 받아요.'
-                              : '준비 중인 정보는 미정으로 남겨도 괜찮아요.',
-                        ),
-                        const SizedBox(height: 24),
-                        _CenterFields(
-                          profile: profile.value,
-                          onChanged: (value) => profile.value = value,
-                          enabled: !busy,
-                        ),
-                      ] else if (step.value == 2) ...[
-                        _Heading(
-                          latest.hasAccess
-                              ? '이미 이용 중인 권한이 있어요'
-                              : latest.trialEligible
-                              ? '우리 센터에서\n1개월 무료로 시작해요'
-                              : '기존 이용 내역을 확인했어요',
-                          latest.trialEligible && !latest.hasAccess
-                              ? '카드 등록 없이 준비하고, 내 기기로 먼저 살펴보세요.'
-                              : '기존 이용 기간은 그대로 유지해요. 센터 설정을 마치고 시작해 보세요.',
-                        ),
-                        const SizedBox(height: 26),
-                        for (final item in [
-                          '워크아웃과 슬라이드 만들기',
-                          '타이머·효과음과 원격 수업 제어',
-                          '디스플레이·즐겨찾기 수 제한 없는 프리미엄',
-                        ])
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(
-                              Icons.check_circle_outline_rounded,
-                              color: AppColors.accent,
-                            ),
-                            title: Text(item),
-                          ),
-                        const SizedBox(height: 20),
-                        if (latest.trialStartedAtMs > 0 ||
-                            (latest.trialEligible && !latest.hasAccess))
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  latest.trialStartedAtMs > 0
-                                      ? '기존 체험 기간'
-                                      : '지금 시작하면',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_date(latest.trialStartedAtMs > 0 ? latest.trialStartedAtMs : latest.serverNowMs)} →\n${_date(latest.trialEndsAtMs > 0 ? latest.trialEndsAtMs : latest.suggestedTrialEndsAtMs)} (한국 시간)',
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  '시작 버튼을 누른 서버 시각부터 달력 기준 1개월이에요. 기존 체험·유료 이용 기간은 변경하지 않아요.',
-                                  style: TextStyle(
-                                    color: AppColors.muted,
-                                    height: 1.5,
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${_date(latest.trialStartedAtMs > 0 ? latest.trialStartedAtMs : latest.serverNowMs)} →\n${_date(latest.trialEndsAtMs > 0 ? latest.trialEndsAtMs : latest.suggestedTrialEndsAtMs)} (한국 시간)',
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          '체험이 끝나도 자동 결제되지 않아요. 만든 워크아웃은 그대로 남고 편집·미리보기를 계속할 수 있어요. 새 수업 송출에는 유효한 이용권이 필요해요.',
-                          style: TextStyle(color: AppColors.muted, height: 1.6),
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 35),
-                        const Icon(
-                          Icons.check_circle_outline_rounded,
-                          color: AppColors.accent,
-                          size: 58,
-                        ),
-                        const SizedBox(height: 24),
-                        _Heading(
-                          profile.value.purpose == 'preparing'
-                              ? '센터의 첫 수업을 준비해요!'
-                              : '이제 시작할 준비가 됐어요!',
-                          '센터 정보는 프로필에서 언제든 수정할 수 있어요.',
-                        ),
-                        const SizedBox(height: 28),
-                        OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => SlideRehearsalScreen(
-                                module:
-                                    WorkoutModule.empty('onboarding-example')
-                                        .copyWith(
-                                          name: '첫 수업 · 스쿼트',
-                                          text: '발을 어깨너비로 벌리고\n천천히 앉았다 일어나세요.',
-                                          workSeconds: 30,
-                                          restSeconds: 10,
-                                          sets: 3,
-                                          beep: false,
-                                        ),
-                                brandL: profile.value.centerName.isEmpty
-                                    ? 'CloudBoard'
-                                    : profile.value.centerName,
-                                brandR: '예시 수업',
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    '시작 버튼을 누른 서버 시각부터 달력 기준 1개월이에요. 기존 체험·유료 이용 기간은 변경하지 않아요.',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            '체험이 끝나도 자동 결제되지 않아요. 만든 워크아웃은 그대로 남고 편집·미리보기를 계속할 수 있어요. 새 수업 송출에는 유효한 이용권이 필요해요.',
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              height: 1.6,
+                            ),
                           ),
-                          icon: const Icon(Icons.play_circle_outline_rounded),
-                          label: const Text('예시 수업 미리보기'),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            context.go('/');
-                            context.push('/displays');
-                          },
-                          icon: const Icon(Icons.connected_tv_rounded),
-                          label: const Text('디스플레이 연결하기'),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          latest.trialStartedAtMs > 0
-                              ? '체험 종료: ${_date(latest.trialEndsAtMs)} (한국 시간)'
-                              : latest.trialEligible && !latest.hasAccess
-                              ? '체험은 프로필에서 나중에 시작할 수 있어요.'
-                              : '이용 상태는 프로필에서 확인할 수 있어요.',
-                          style: const TextStyle(color: AppColors.muted),
-                        ),
+                        ] else ...[
+                          const SizedBox(height: 35),
+                          const Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: AppColors.accent,
+                            size: 58,
+                          ),
+                          const SizedBox(height: 24),
+                          _Heading(
+                            profile.value.purpose == 'preparing'
+                                ? '센터의 첫 수업을 준비해요!'
+                                : '이제 시작할 준비가 됐어요!',
+                            '센터 정보는 프로필에서 언제든 수정할 수 있어요.',
+                          ),
+                          const SizedBox(height: 28),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => SlideRehearsalScreen(
+                                  module:
+                                      WorkoutModule.empty(
+                                        'onboarding-example',
+                                      ).copyWith(
+                                        name: '첫 수업 · 스쿼트',
+                                        text: '발을 어깨너비로 벌리고\n천천히 앉았다 일어나세요.',
+                                        workSeconds: 30,
+                                        restSeconds: 10,
+                                        sets: 3,
+                                        beep: false,
+                                      ),
+                                  brandL: profile.value.centerName.isEmpty
+                                      ? 'CloudBoard'
+                                      : profile.value.centerName,
+                                  brandR: '예시 수업',
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.play_circle_outline_rounded),
+                            label: const Text('예시 수업 미리보기'),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              context.go('/');
+                              context.push('/displays');
+                            },
+                            icon: const Icon(Icons.connected_tv_rounded),
+                            label: const Text('디스플레이 연결하기'),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            latest.trialStartedAtMs > 0
+                                ? '체험 종료: ${_date(latest.trialEndsAtMs)} (한국 시간)'
+                                : latest.trialEligible && !latest.hasAccess
+                                ? '체험은 프로필에서 나중에 시작할 수 있어요.'
+                                : '이용 상태는 프로필에서 확인할 수 있어요.',
+                            style: const TextStyle(color: AppColors.muted),
+                          ),
+                        ],
+                        if (action.hasError) ...[
+                          _ErrorText(action.error),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () async {
+                                    if (await actions.reload() &&
+                                        context.mounted) {
+                                      final loaded = ref
+                                          .read(onboardingControllerProvider)
+                                          .requireValue;
+                                      profile.value = loaded.profile;
+                                      move(loaded.step.clamp(0, 3));
+                                    }
+                                  },
+                            child: const Text('저장된 정보 다시 불러오기'),
+                          ),
+                        ],
                       ],
-                      if (action.hasError) ...[
-                        _ErrorText(action.error),
-                        TextButton(
-                          onPressed: busy
-                              ? null
-                              : () async {
-                                  if (await actions.reload() &&
-                                      context.mounted) {
-                                    final loaded = ref
-                                        .read(onboardingControllerProvider)
-                                        .requireValue;
-                                    profile.value = loaded.profile;
-                                    move(loaded.step.clamp(0, 3));
-                                  }
-                                },
-                          child: const Text('저장된 정보 다시 불러오기'),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
                 SafeArea(

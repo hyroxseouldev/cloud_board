@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -85,25 +86,30 @@ class LoginScreen extends HookConsumerWidget {
                             ),
                           ),
                           SizedBox(height: compactHeight ? 16 : 24),
-                          ExcludeSemantics(
-                            child: Image.asset(
-                              'assets/images/login_welcome.png',
-                              height: artworkHeight,
-                              fit: BoxFit.contain,
-                              // The decorative image must never block sign-in.
-                              errorBuilder: (_, _, _) =>
-                                  SizedBox(height: artworkHeight),
+                          WelcomeMotion(
+                            child: ExcludeSemantics(
+                              child: Image.asset(
+                                'assets/images/login_welcome.png',
+                                height: artworkHeight,
+                                fit: BoxFit.contain,
+                                // The decorative image must never block sign-in.
+                                errorBuilder: (_, _, _) =>
+                                    SizedBox(height: artworkHeight),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Text(
-                            isTv ? '우리 센터의 화면을 준비해요.' : '반가워요,',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w700,
-                              height: 1.3,
-                              color: AppColors.ink,
+                          WelcomeMotion(
+                            delayFraction: .12,
+                            child: Text(
+                              isTv ? '우리 센터의 화면을 준비해요.' : '반가워요,',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w700,
+                                height: 1.3,
+                                color: AppColors.ink,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -145,27 +151,33 @@ class LoginScreen extends HookConsumerWidget {
                           ),
                           const SizedBox(height: 16),
                           if (showApple) ...[
-                            _SignInButton(
-                              provider: 'Apple',
-                              dark: true,
-                              loading: signingInWith.value == 'apple',
-                              icon: const Icon(Icons.apple, size: 25),
-                              onPressed: busy ? null : () => signIn('apple'),
+                            WelcomeMotion(
+                              delayFraction: .22,
+                              child: _SignInButton(
+                                provider: 'Apple',
+                                dark: true,
+                                loading: signingInWith.value == 'apple',
+                                icon: const Icon(Icons.apple, size: 25),
+                                onPressed: busy ? null : () => signIn('apple'),
+                              ),
                             ),
                             const SizedBox(height: 12),
                           ],
-                          _SignInButton(
-                            provider: 'Google',
-                            loading: signingInWith.value == 'google',
-                            focusNode: loginFocusNode,
-                            autofocus: isTv,
-                            icon: Image.asset(
-                              'assets/images/google_g.png',
-                              width: 22,
-                              height: 22,
-                              excludeFromSemantics: true,
+                          WelcomeMotion(
+                            delayFraction: .28,
+                            child: _SignInButton(
+                              provider: 'Google',
+                              loading: signingInWith.value == 'google',
+                              focusNode: loginFocusNode,
+                              autofocus: isTv,
+                              icon: Image.asset(
+                                'assets/images/google_g.png',
+                                width: 22,
+                                height: 22,
+                                excludeFromSemantics: true,
+                              ),
+                              onPressed: busy ? null : () => signIn('google'),
                             ),
-                            onPressed: busy ? null : () => signIn('google'),
                           ),
                           const SizedBox(height: 22),
                           const Text(

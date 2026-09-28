@@ -1,12 +1,12 @@
 import {prunePlaybackSnapshots} from './playback-snapshots.js';
-import {onDocumentWritten} from 'firebase-functions/v2/firestore';
+import {onDocumentWritten, onDocumentCreated} from 'firebase-functions/v2/firestore';
 import {syncWorkoutSummary, backfillCatalog} from './workout-catalog.js';
 import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getDatabase} from 'firebase-admin/database';
 import {getFirestore, Timestamp} from 'firebase-admin/firestore';
 import {getStorage} from 'firebase-admin/storage';
-import {onCall, HttpsError} from 'firebase-functions/v2/https';
+import {onCall, onRequest, HttpsError} from 'firebase-functions/v2/https';
 import {onSchedule} from 'firebase-functions/v2/scheduler';
 import {eraseAccount, requireDeletionIdentity} from './delete-account.js';
 
@@ -45,13 +45,15 @@ const services={
   },
   async deleteFiles(uid) { await bucket.deleteFiles({prefix:`users/${uid}/`}); },
   async deleteDocuments(uid) {
+    const {deleteBillingData}=await import('./billing.js');
+    await deleteBillingData(db,uid);
     const {deleteOnboardingData}=await import('./onboarding.js');
     await deleteOnboardingData(db,uid);
     await db.recursiveDelete(db.doc(`users/${uid}`));
   },
   async deleteRealtime(uid) {
     await userRef(uid).remove();
-    await realtime.ref(`subscriptionAccess/${uid}`).transaction(value=>value?.source==='app_trial'?null:undefined);
+    await realtime.ref(`subscriptionAccess/${uid}`).remove();
   },
   async verifyEmpty(uid) {
     const [files, user, live, access, codes]=await Promise.all([
@@ -118,6 +120,8 @@ export const retryAccountDeletions=onSchedule({region,schedule:'every 15 minutes
   for(const job of completed.docs) {
     if(job.data().completedAt.toMillis()<Date.now()-30*86400000) {
       await realtime.ref(`accountDeletions/${job.id}`).remove();
+      const billing = db.doc(`billingAccounts/${job.id}`);
+      if ((await billing.get()).data()?.deleted === true) await billing.delete();
       await job.ref.delete();
     }
   }
@@ -192,6 +196,60 @@ export const syncAppTrialAccess = onDocumentWritten({
 }, async event => {
   const {syncNativeTrial}=await import('./onboarding.js');
   await syncNativeTrial(db,realtime,event.params.uid);
+  const {refreshEntitlements}=await import('./billing.js');
+  if ((await db.doc(`billingAccounts/${event.params.uid}`).get()).exists) {
+    await refreshEntitlements(db,realtime,event.params.uid);
+  }
+});
+
+const appleSecrets = ['APPLE_IAP_PRIVATE_KEY', 'APPLE_IAP_KEY_ID', 'APPLE_IAP_ISSUER_ID'];
+export const cloudboardBilling = onCall({region, secrets: appleSecrets, timeoutSeconds: 120, maxInstances: 5}, async request => {
+  if (!request.auth) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+  const bearer = request.rawRequest.headers.authorization?.replace(/^Bearer /i, '');
+  try {
+    const token = await auth.verifyIdToken(bearer || '', true);
+    if (token.uid !== request.auth.uid) throw new Error();
+  } catch { throw new HttpsError('unauthenticated', '다시 로그인해 주세요.'); }
+  const {handleBilling} = await import('./billing.js');
+  return handleBilling(db, realtime, request.auth.uid, request.data);
+});
+
+export const appStoreNotifications = onRequest({region, timeoutSeconds: 60, maxInstances: 5}, async (request, response) => {
+  if (request.method !== 'POST') { response.sendStatus(405); return; }
+  const {acceptAppleNotification} = await import('./billing.js');
+  try {
+    await acceptAppleNotification(db, request.body?.signedPayload);
+    response.sendStatus(200); // Acknowledge only after durable, verified enqueue.
+  } catch (error) {
+    const invalid = ['apple-signature-invalid', 'invalid-signed-payload', 'invalid-notification-id', 'environment-mismatch'].includes(error.message);
+    response.sendStatus(invalid ? 400 : 503);
+  }
+});
+
+export const processAppStoreNotification = onDocumentCreated({region,
+  document: 'appStoreEvents/{eventId}', secrets: appleSecrets, retry: true,
+  timeoutSeconds: 120, maxInstances: 5,
+}, async event => {
+  const {processAppleEvent} = await import('./billing.js');
+  await processAppleEvent(db, realtime, event.data.ref);
+});
+
+export const reconcileAppStoreBilling = onSchedule({region, schedule: 'every 5 minutes',
+  secrets: appleSecrets, timeoutSeconds: 540, maxInstances: 1,
+}, async () => {
+  const {refreshSubscription, refreshEntitlements, processAppleEvent} = await import('./billing.js');
+  const now = Date.now();
+  const events = await db.collection('appStoreEvents').where('nextAttemptAtMs', '<=', now).limit(50).get();
+  for (const event of events.docs) await processAppleEvent(db, realtime, event.ref);
+  const subscriptions = await db.collection('appStoreSubscriptions').where('nextCheckAtMs', '<=', now).limit(50).get();
+  for (const sub of subscriptions.docs) {
+    try { await refreshSubscription(db, realtime, sub.ref); }
+    catch (_) { /* Keep the last VERIFIED expiry; never extend on network failure. */ }
+  }
+  const accounts = await db.collection('billingAccounts').where('nextCheckAtMs', '<=', now).limit(100).get();
+  for (const account of accounts.docs) await refreshEntitlements(db, realtime, account.id);
+  const finished = await db.collection('appStoreEvents').where('processedAtMs', '<', now - 30 * 86400000).limit(200).get();
+  const batch = db.batch(); for (const event of finished.docs) batch.delete(event.ref); await batch.commit();
 });
 
 export const cleanupOnboardingVerification = onSchedule({region,schedule:'every 24 hours',maxInstances:1},async()=>{

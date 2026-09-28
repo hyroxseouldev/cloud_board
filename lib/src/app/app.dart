@@ -1,4 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:cloud_board/src/app/feature/app_update/presentation/widgets/app_update_gate.dart';
+import 'package:cloud_board/src/app/feature/billing/presentation/controllers/billing_controller.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
 import 'package:cloud_board/src/app/core/services/ios_class_controls.dart';
@@ -21,6 +23,7 @@ class XonBoardApp extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(billingPurchaseControllerProvider);
     ref.watch(storeEntitlementProvider);
     useOnAppLifecycleStateChange((previous, next) {
       if (next == AppLifecycleState.resumed) {
@@ -96,7 +99,9 @@ class XonBoardApp extends HookConsumerWidget {
       theme: XonTheme.light,
       builder: (context, child) => XonTheme.responsiveBuilder(
         context,
-        KeyboardDismissRegion(child: child ?? const SizedBox.shrink()),
+        AppUpdateGate(
+          child: KeyboardDismissRegion(child: child ?? const SizedBox.shrink()),
+        ),
       ),
       routerConfig: ref.watch(appRouterProvider),
     );
