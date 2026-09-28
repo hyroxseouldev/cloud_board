@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:cloud_board/src/app/feature/app_update/presentation/controllers/app_update_controller.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Reads the installed build metadata, including CI's platform build number.
-class AppVersionTile extends HookWidget {
+class AppVersionTile extends HookConsumerWidget {
   const AppVersionTile({super.key});
 
   static Future<PackageInfo> _readBuildInfo() {
@@ -27,7 +29,7 @@ class AppVersionTile extends HookWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final attempt = useState(0);
     final request = useMemoized(_readBuildInfo, [attempt.value]);
     final info = useFuture(request);
@@ -53,27 +55,56 @@ class AppVersionTile extends HookWidget {
       }
     }
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.info_outline_rounded),
-      title: const Text('앱 버전'),
-      subtitle: Text(
-        version ?? (info.hasError ? '버전 정보를 불러오지 못했습니다.' : '확인 중…'),
-      ),
-      onTap: value == null ? null : copyVersion,
-      trailing: info.hasError
-          ? IconButton(
-              tooltip: '버전 정보 다시 확인',
-              onPressed: () => attempt.value++,
-              icon: const Icon(Icons.refresh_rounded),
-            )
-          : value == null
-          ? null
-          : IconButton(
-              tooltip: '버전 정보 복사',
-              onPressed: copyVersion,
-              icon: const Icon(Icons.copy_rounded, size: 20),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.info_outline_rounded),
+          title: const Text('앱 버전'),
+          subtitle: Text(
+            version ?? (info.hasError ? '버전 정보를 불러오지 못했습니다.' : '확인 중…'),
+          ),
+          onTap: value == null ? null : copyVersion,
+          trailing: info.hasError
+              ? IconButton(
+                  tooltip: '버전 정보 다시 확인',
+                  onPressed: () => attempt.value++,
+                  icon: const Icon(Icons.refresh_rounded),
+                )
+              : value == null
+              ? null
+              : IconButton(
+                  tooltip: '버전 정보 복사',
+                  onPressed: copyVersion,
+                  icon: const Icon(Icons.copy_rounded, size: 20),
+                ),
+        ),
+        if (!kIsWeb &&
+            [
+              TargetPlatform.iOS,
+              TargetPlatform.android,
+            ].contains(defaultTargetPlatform))
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: ref.watch(appUpdateControllerProvider).isLoading
+                  ? null
+                  : () async {
+                      await ref
+                          .read(appUpdateControllerProvider.notifier)
+                          .checkNow();
+                      if (!context.mounted) return;
+                      if (ref.read(appUpdateControllerProvider).value == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('현재 업데이트 안내가 없어요.')),
+                        );
+                      }
+                    },
+              child: const Text('업데이트 확인'),
             ),
+          ),
+      ],
     );
   }
 }

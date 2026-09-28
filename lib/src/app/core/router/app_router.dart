@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboarding_screen.dart';
+import 'package:cloud_board/src/app/feature/billing/presentation/views/subscription_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_edit_gate.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/active_class_shell.dart';
@@ -105,6 +106,10 @@ GoRouter appRouter(Ref ref) {
           ),
         ),
         routes: [
+          GoRoute(
+            path: '/subscription',
+            builder: (_, _) => const SubscriptionScreen(),
+          ),
           GoRoute(
             path: '/slides',
             builder: (_, state) => SlideLibraryScreen(

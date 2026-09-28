@@ -12,6 +12,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Public, non-sensitive release policy; all mutations are Admin SDK only.
+    match /appReleases/{platform} {
+      allow read: if platform in ['ios', 'android'];
+      allow write: if false;
+    }
+
     function settingsPath(userId) {
       return /databases/$(database)/documents/users/$(userId)/settings/workout;
     }
@@ -74,6 +80,10 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
 
       // Cloud Function validates item conflicts and account-wide favorite limits.
+      match /billing/summary {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
       match /{collection}/{itemId} {
         allow read: if collection in ['slideTemplates', 'slideStyles', 'libraryState'] && isOwner(userId);
         allow write: if false;

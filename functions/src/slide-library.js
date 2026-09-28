@@ -92,6 +92,9 @@ export async function reconcileSlideLibraryFavorites(db, uid) {
       const [lock, entitlement, counter] = await tx.getAll(
         db.doc(`accountDeletions/${uid}`), db.doc(`subscriptionEntitlements/${uid}`), index);
       const limit = favoriteLimit(entitlement.data());
+      // App Store expiry/downgrade preserves saved selections and content.
+      // mutateSlideLibrary still blocks ADDING beyond the new plan's limit.
+      if (entitlement.data()?.source === 'firebase_billing') return 0;
       if (lock.exists || limit === null) return 0;
       const favorites = await tx.get(db.collection(`users/${uid}/slideTemplates`)
         .where('value.favorite', '==', true).limit(limit + 400).select('value.favorite'));
