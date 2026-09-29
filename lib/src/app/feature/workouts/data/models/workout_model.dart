@@ -146,6 +146,7 @@ class WorkoutModuleModel {
     required this.workSeconds,
     required this.sets,
     required this.restSeconds,
+    this.includeFinalRest = true,
     required this.text,
     required this.imageUrl,
     required this.showTimer,
@@ -165,6 +166,7 @@ class WorkoutModuleModel {
   });
   final String id, name, text, imageUrl;
   final int workSeconds, sets, restSeconds;
+  final bool includeFinalRest;
   @JsonKey(defaultValue: true)
   final bool showTimer;
   final SlideAppearanceModel appearance;
@@ -187,6 +189,7 @@ class WorkoutModuleModel {
     workSeconds: workSeconds,
     sets: sets,
     restSeconds: restSeconds,
+    includeFinalRest: includeFinalRest,
     text: text,
     imageSource: imageUrl,
     showTimer: showTimer,
@@ -211,6 +214,7 @@ class WorkoutModuleModel {
         workSeconds: value.workSeconds,
         sets: value.sets,
         restSeconds: value.restSeconds,
+        includeFinalRest: value.includeFinalRest,
         text: value.text,
         imageUrl: value.imageSource,
         showTimer: value.showTimer,

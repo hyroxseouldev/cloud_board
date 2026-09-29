@@ -107,14 +107,14 @@ void main() {
   });
 
   test(
-    'rehearsal follows actual work/rest boundaries and omits final rest',
+    'rehearsal follows actual work/rest boundaries and includes final rest',
     () {
-      expect(workoutModuleDuration(original), 12);
+      expect(workoutModuleDuration(original), 14);
       expect(rehearsalFrame(original, 4999).secondsLeft, 1);
       expect(rehearsalFrame(original, 5000).isRest, isTrue);
       expect(rehearsalFrame(original, 7000).set, 2);
       expect(rehearsalFrame(original, 7000).isRest, isFalse);
-      expect(rehearsalFrame(original, 12000).remainingMs, 0);
+      expect(rehearsalFrame(original, 12000).isRest, isTrue);
       final multiple = original.copyWith(
         intervalBlocks: const [
           WorkoutIntervalBlock(
@@ -131,8 +131,8 @@ void main() {
           ),
         ],
       );
-      expect(rehearsalFrame(multiple, 12000).blockIndex, 1);
-      expect(rehearsalFrame(multiple, 15000).remainingMs, 0);
+      expect(rehearsalFrame(multiple, 14000).blockIndex, 1);
+      expect(rehearsalFrame(multiple, 17000).remainingMs, 0);
     },
   );
 
@@ -432,7 +432,7 @@ void main() {
           .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
           .module;
       expect(applied.workTextColor, '#000000');
-      expect(workoutModuleDuration(applied), 12);
+      expect(workoutModuleDuration(applied), 14);
       expect(applied.name, original.name);
       expect(find.byTooltip('실행 취소'), findsNothing);
       expect(find.byTooltip('다시 실행'), findsNothing);

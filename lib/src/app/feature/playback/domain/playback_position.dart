@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
+
 import 'dart:math';
 
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -9,7 +11,9 @@ List<int> playbackDurations(Workout workout) => [
     for (final block in effectiveIntervalBlocks(module))
       for (var set = 1; set <= max<int>(1, block.sets); set++) ...[
         max<int>(1, block.workSeconds) * 1000,
-        if (set < block.sets && block.restSeconds > 0) block.restSeconds * 1000,
+        if ((module.includeFinalRest || set < block.sets) &&
+            block.restSeconds > 0)
+          block.restSeconds * 1000,
       ],
 ];
 
@@ -20,12 +24,23 @@ List<int> playbackDurations(Workout workout) => [
   List<int> durationsMs,
   int serverNowMs,
 ) {
-  var index = session.stepIndex.clamp(0, durationsMs.length);
+  var index = session.stepIndex;
+  if (session.status != PlaybackStatus.completed &&
+      (index < 0 || index >= durationsMs.length || session.remainingMs < 0)) {
+    throw const PlaybackFailure(
+      'invalid_position',
+      '수업의 재생 위치와 슬라이드 데이터가 일치하지 않습니다.',
+    );
+  }
   if (session.status == PlaybackStatus.completed) {
     return (index: durationsMs.length, remainingMs: 0, countdownMs: 0);
   }
   if (session.status != PlaybackStatus.playing || session.briefing) {
-    return (index: index, remainingMs: session.remainingMs, countdownMs: 0);
+    return (
+      index: index,
+      remainingMs: session.remainingMs,
+      countdownMs: session.briefing ? 0 : session.startDelayMs,
+    );
   }
   final elapsed = max<int>(0, serverNowMs - session.anchorServerMs);
   final countdown = max<int>(0, session.startDelayMs - elapsed);

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -6,7 +8,6 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter/foundation.dart';
 
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_session_local_data_source.dart';
@@ -21,11 +22,33 @@ part 'playback_repository_impl.g.dart';
 const realtimeDatabaseUrl = cloudBoardRealtimeDatabaseUrl;
 
 class PlaybackRepositoryImpl implements PlaybackRepository {
-  const PlaybackRepositoryImpl(this._dataSource, this._local, this._ownerId);
+  PlaybackRepositoryImpl(this._dataSource, this._local, this._ownerId);
 
   final PlaybackRealtimeDataSource _dataSource;
   final PlaybackSessionLocalDataSource _local;
   final String? _ownerId;
+  PlaybackSessionModel? _latest;
+  bool _received = false;
+
+  bool _accept(PlaybackSessionModel? value) {
+    final previous = _latest;
+    if (previous != null &&
+        value != null &&
+        previous.id == value.id &&
+        previous.revision > value.revision) {
+      return false;
+    }
+    _latest = value;
+    _received = true;
+    return true;
+  }
+
+  Future<PlaybackSessionModel?> _expected() async {
+    if (_received) return _latest;
+    final cached = await _local.load();
+    if (_received) return _latest;
+    return cached?.ownerId == _ownerId ? cached : null;
+  }
 
   @override
   Stream<PlaybackSession?> watchActive() async* {
@@ -40,12 +63,20 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       cached = null;
       await _local.clear();
     }
-    if (cached != null) yield cached.toEntity();
+    if (cached != null && !_received) {
+      _latest = cached;
+      yield cached.toEntity();
+    }
 
     await for (final remote in _dataSource.watchActive()) {
+      if (!_accept(remote)) continue;
       if (remote == null) {
         cached = null;
-        await _local.clear();
+        unawaited(
+          _local.clear().catchError((Object error, StackTrace stack) {
+            _dataSource.onAncillaryFailure?.call(error, stack);
+          }),
+        );
         yield null;
         continue;
       }
@@ -54,7 +85,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       // delivery of a remote pause/seek to the display.
       unawaited(
         _local.save(remote).catchError((Object error, StackTrace stack) {
-          debugPrint('Playback checkpoint failed: $error\n$stack');
+          _dataSource.onAncillaryFailure?.call(error, stack);
         }),
       );
       yield remote.toEntity();
@@ -70,6 +101,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   @override
   Future<void> recover({required bool restartTransport}) async {
     final fresh = await _dataSource.recover(restartTransport: restartTransport);
+    _accept(fresh);
     if (fresh == null) {
       await _local.clear();
     } else {
@@ -111,6 +143,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       scheduled: scheduled,
       scheduledAtMs: scheduledAtMs,
     );
+    _accept(started);
     await _local.save(started);
     return started.toEntity();
   }
@@ -129,7 +162,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 
   @override
   Future<void> begin({required String deviceId}) async {
-    final session = await _local.load();
+    final session = await _expected();
     if (session == null) throw StateError('진행 중인 수업이 없습니다.');
     await _update(
       status: PlaybackStatus.playing.name,
@@ -167,9 +200,9 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     int startDelayMs = 0,
     bool requireBriefing = false,
   }) async {
-    final expected = await _local.load();
+    final expected = await _expected();
     if (expected == null) throw StateError('진행 중인 수업이 없습니다.');
-    await _dataSource.update(
+    final committed = await _dataSource.update(
       status: status,
       deviceId: deviceId,
       stepIndex: stepIndex,
@@ -179,6 +212,13 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       expectedSessionId: expected.id,
       expectedRevision: expected.revision,
     );
+    // Keep the command baseline current even if disk persistence/stream delivery
+    // trails the ACK. Never resurrect an already replaced or cleared session.
+    if (!_received ||
+        (_latest?.id == expected.id &&
+            _latest!.revision <= committed.revision)) {
+      _accept(committed);
+    }
     // The confirmed stream owns checkpoints; a late response must not restore
     // a session that was replaced or ended while this command was in flight.
   }
@@ -195,9 +235,16 @@ PlaybackRepository playbackRepository(Ref ref) {
   final source = PlaybackRealtimeDataSource(
     database,
     ownerId,
+    onAncillaryFailure: (error, stack) {
+      if (ref.mounted) {
+        ref
+            .read(errorReporterProvider)
+            .capture(error, stack, action: 'playback.start_metadata');
+      }
+    },
     serverRead: (path) async {
       final user = auth.currentUser;
-      if (user == null || user.uid != ownerId) {
+      if (user == null || ownerId == null) {
         throw StateError('로그인 계정을 확인해 주세요.');
       }
       final token = await user.getIdToken().timeout(const Duration(seconds: 6));

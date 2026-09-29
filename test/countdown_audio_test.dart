@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +24,32 @@ Workout workout(int delay, {bool beep = true}) =>
     );
 
 void main() {
+  testWidgets(
+    'TV visibility stops its ticker before a background frame can unmount the player',
+    (tester) async {
+      var now = DateTime(2026, 9, 30);
+      final container = ProviderContainer(
+        overrides: [
+          serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+          beepPlayerProvider.overrideWith((ref) => _Audio()),
+          playerClockProvider.overrideWith(
+            (ref) =>
+                () => now,
+          ),
+        ],
+      );
+      final provider = playerControllerProvider(workout(30), canControl: false);
+      container.listen(provider, (_, _) {});
+      await tester.pump();
+      container.read(tvPlaybackVisibleProvider.notifier).setVisible(false);
+      final before = container.read(provider).countdownMs;
+      now = now.add(const Duration(seconds: 40));
+      await tester.pump(const Duration(seconds: 1));
+      expect(container.read(provider).countdownMs, before);
+      container.dispose();
+    },
+  );
+
   for (final delay in [0, 1, 2, 3, 10, 60]) {
     testWidgets(
       'preparation $delay seconds only sounds at 3/2/1 and starts once',
@@ -183,6 +211,11 @@ void main() {
 }
 
 class _Audio implements BeepPlayer {
+  @override
+  Future<void> stop() async {}
+  @override
+  Future<void> setEnabled(bool enabled) async {}
+
   final ticks = <WorkoutSound>[];
   final starts = <WorkoutSound>[];
   @override

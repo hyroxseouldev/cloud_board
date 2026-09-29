@@ -9,10 +9,12 @@ internal object ClassCommand {
 
     fun position(state: JSONObject, config: JSONObject, now: Long): Position {
         val steps = config.getJSONArray("steps")
-        var index = state.getInt("stepIndex").coerceIn(0, steps.length())
+        var index = state.getInt("stepIndex")
         if (state.getString("status") == "completed") return Position(steps.length(), 0, 0)
+        require(index >= 0 && index < steps.length()) { "재생 위치가 올바르지 않습니다" }
         var remaining = state.getLong("remainingMs")
-        if (state.getString("status") != "playing") return Position(index, remaining, 0)
+        require(remaining >= 0) { "남은 시간이 올바르지 않습니다" }
+        if (state.getString("status") != "playing") return Position(index, remaining, if (state.optBoolean("briefing")) 0 else state.optLong("startDelayMs"))
         val elapsed = max(0, now - state.getLong("anchorServerMs"))
         val delay = state.optLong("startDelayMs")
         remaining -= max(0, elapsed - delay)
@@ -30,7 +32,7 @@ internal object ClassCommand {
         val position = position(state, config, now)
         val steps = config.getJSONArray("steps")
         require(position.index < steps.length()) { "종료된 수업입니다" }
-        require(position.countdown == 0L) { "시작 카운트다운 중입니다" }
+        require(position.countdown == 0L || action in listOf("pause", "play", "stop")) { "시작 카운트다운 중입니다" }
         var index = position.index
         var remaining = position.remaining
         var status = state.getString("status")
@@ -49,7 +51,7 @@ internal object ClassCommand {
         if (index == steps.length()) status = "completed"
         return JSONObject(state.toString()).apply {
             put("status", status); put("stepIndex", index); put("remainingMs", remaining)
-            put("startDelayMs", 0); put("briefing", false)
+            put("startDelayMs", if (action in listOf("pause", "play")) position.countdown else 0); put("briefing", false)
             put("revision", state.getLong("revision") + 1)
             put("updatedByDeviceId", config.getString("deviceId"))
             put("anchorServerMs", JSONObject().put(".sv", "timestamp"))

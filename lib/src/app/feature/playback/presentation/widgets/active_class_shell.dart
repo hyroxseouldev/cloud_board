@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -29,6 +33,27 @@ class ActiveClassShell extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(playbackActionControllerProvider, (previous, next) {
+      if (next.hasError && next.error != previous?.error) {
+        final error = next.error!;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(diagnosticMessage(error)),
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: '상세',
+              onPressed: () => showErrorDetails(
+                context,
+                ref.read(errorReporterProvider),
+                error,
+                next.stackTrace,
+                'playback.action',
+              ),
+            ),
+          ),
+        );
+      }
+    });
     final mode = ref.watch(deviceModeControllerProvider).value;
     final session = ref.watch(activePlaybackSessionProvider).value;
     final recovery = ref.watch(playbackRecoveryControllerProvider);
@@ -90,6 +115,12 @@ class ActiveClassShell extends HookConsumerWidget {
                                 : '최신 수업 상태를 확인하고 있습니다…',
                             textAlign: TextAlign.center,
                           ),
+                          if (recovery.hasError)
+                            ErrorDetailsButton(
+                              error: recovery.error,
+                              stack: recovery.stackTrace,
+                              action: 'playback.recover',
+                            ),
                           if (recovery.hasError)
                             TextButton(
                               onPressed: () => unawaited(

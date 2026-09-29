@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -14,8 +17,15 @@ import 'package:cloud_board/src/app/feature/playback/domain/usecases/playback_ac
 part 'playback_session_controller.g.dart';
 
 @Riverpod(keepAlive: true)
-Stream<PlaybackSession?> activePlaybackSession(Ref ref) =>
-    ref.watch(playbackRepositoryProvider).watchActive();
+Stream<PlaybackSession?> activePlaybackSession(Ref ref) => ref
+    .watch(playbackRepositoryProvider)
+    .watchActive()
+    .handleError((Object error, StackTrace stack) {
+      ref
+          .read(errorReporterProvider)
+          .capture(error, stack, action: 'playback.stream');
+      Error.throwWithStackTrace(error, stack);
+    });
 
 @Riverpod(keepAlive: true)
 Stream<int> serverTimeOffset(Ref ref) =>
@@ -47,7 +57,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     if (state.isLoading) return null;
     state = const AsyncLoading();
     PlaybackSession? session;
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       final uid = ref.read(firebaseAccountUserProvider).value?.uid;
       final entitlement = ref.read(storeEntitlementProvider).value;
       final serverNow =
@@ -70,11 +80,25 @@ class PlaybackActionController extends _$PlaybackActionController {
           );
       return '재생을 시작했습니다.';
     });
-    return state.hasError ? null : session?.id;
+    if (!ref.mounted) return null;
+    state = result;
+    _reportResult(
+      'playback.start',
+      result,
+      context: {
+        'role': 'controller',
+        'workoutId': workout.id,
+        'stepIndex': stepIndex,
+        'moduleCount': workout.modules.length,
+        'connected': ref.read(playbackConnectionProvider).value,
+      },
+    );
+    return result.hasError ? null : session?.id;
   }
 
   Future<bool> pause(int remainingMs) => _run(
     '일시정지했습니다.',
+    'playback.pause',
     (actions, deviceId) =>
         actions.pause(remainingMs: remainingMs, deviceId: deviceId),
     throttle: true,
@@ -82,17 +106,20 @@ class PlaybackActionController extends _$PlaybackActionController {
 
   Future<bool> resume() => _run(
     '재생을 계속합니다.',
+    'playback.resume',
     (actions, deviceId) => actions.resume(deviceId: deviceId),
     throttle: true,
   );
 
   Future<bool> begin() => _run(
     '수업을 시작합니다.',
+    'playback.begin',
     (actions, deviceId) => actions.begin(deviceId: deviceId),
   );
 
   Future<bool> seek({required int stepIndex, required int durationMs}) => _run(
     '재생 위치를 이동했습니다.',
+    'playback.seek',
     (actions, deviceId) => actions.seek(
       stepIndex: stepIndex,
       durationMs: durationMs,
@@ -105,6 +132,7 @@ class PlaybackActionController extends _$PlaybackActionController {
   // Natural completion and the screen exit can arrive in the same frame.
   Future<bool> complete() => _completion ??= _run(
     '재생을 종료했습니다.',
+    'playback.complete',
     (actions, deviceId) => actions.complete(deviceId: deviceId),
   ).whenComplete(() => _completion = null);
 
@@ -112,24 +140,14 @@ class PlaybackActionController extends _$PlaybackActionController {
     required int stepIndex,
     required int durationMs,
   }) async {
-    try {
-      await ref
-          .read(playbackActionsProvider)
-          .seek(
-            stepIndex: stepIndex,
-            durationMs: durationMs,
-            deviceId: await ref.read(deviceIdProvider.future),
-          );
-      return true;
-    } catch (_) {
-      return false;
-    }
+    return seek(stepIndex: stepIndex, durationMs: durationMs);
   }
 
   Future<bool> syncComplete() => complete();
 
   Future<bool> _run(
     String successMessage,
+    String actionName,
     Future<void> Function(PlaybackActions actions, String deviceId) action, {
     bool throttle = false,
   }) async {
@@ -144,16 +162,80 @@ class PlaybackActionController extends _$PlaybackActionController {
       _transportCooldown?.cancel();
       _transportCooldown = Timer(const Duration(milliseconds: 350), () {});
     }
+    final expectedSession = ref.read(activePlaybackSessionProvider).value;
+    final reporter = ref.read(errorReporterProvider);
+    final context = _context();
+    final elapsed = Stopwatch()..start();
+    context['expectedRevision'] = expectedSession?.revision;
+    reporter.breadcrumb(actionName, context);
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      await action(
-        ref.read(playbackActionsProvider),
-        await ref.read(deviceIdProvider.future),
-      );
+    final result = await AsyncValue.guard(() async {
+      final actions = ref.read(playbackActionsProvider);
+      final deviceId = await ref.read(deviceIdProvider.future);
+      if (!ref.mounted) {
+        throw const PlaybackFailure('session_changed', '계정 연결이 변경되었습니다.');
+      }
+      final current = ref.read(activePlaybackSessionProvider).value;
+      if (expectedSession?.id != current?.id ||
+          expectedSession?.revision != current?.revision) {
+        throw PlaybackFailure(
+          'revision_conflict',
+          '수업 상태가 변경되었습니다. 최신 상태를 확인해 주세요.',
+          expectedRevision: expectedSession?.revision,
+          observedRevision: current?.revision,
+        );
+      }
+      await action(actions, deviceId);
       return successMessage;
     });
-    if (state.hasError && throttle) _transportCooldown?.cancel();
-    return !state.hasError;
+    if (!ref.mounted) return false;
+    state = result;
+    _reportResult(
+      actionName,
+      result,
+      context: {...context, 'elapsedMs': elapsed.elapsedMilliseconds},
+    );
+    if (result.hasError && throttle) _transportCooldown?.cancel();
+    if (result.error case final PlaybackFailure failure
+        when failure.needsRefresh) {
+      // Refresh only. Replaying an obsolete seek/pause can undo the other operator.
+      await ref
+          .read(playbackRecoveryControllerProvider.notifier)
+          .recover(restartTransport: false);
+    }
+    return !result.hasError;
+  }
+
+  Map<String, Object?> _context() {
+    final session = ref.read(activePlaybackSessionProvider).value;
+    return {
+      'role': 'controller',
+      'sessionId': session?.id,
+      'workoutId': session?.workout.id,
+      'observedRevision': session?.revision,
+      'stepIndex': session?.stepIndex,
+      'moduleCount': session?.workout.modules.length,
+      'status': session?.status.name,
+      'remainingMs': session?.remainingMs,
+      'connected': ref.read(playbackConnectionProvider).value,
+    };
+  }
+
+  void _reportResult(
+    String action,
+    AsyncValue<String?> result, {
+    Map<String, Object?>? context,
+  }) {
+    if (result.hasError) {
+      ref
+          .read(errorReporterProvider)
+          .capture(
+            result.error!,
+            result.stackTrace ?? StackTrace.current,
+            action: action,
+            context: context ?? _context(),
+          );
+    }
   }
 }
 
@@ -172,7 +254,7 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
     state = const AsyncLoading();
   }
 
-  Future<void> recover() async {
+  Future<void> recover({bool restartTransport = true}) async {
     if (_running) {
       _retryQueued = true;
       return;
@@ -184,7 +266,7 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
     final actionsSubscription = ref.listen(playbackActionsProvider, (_, _) {});
     try {
       final actions = ref.read(playbackActionsProvider);
-      await actions.recover(restartTransport: true);
+      await actions.recover(restartTransport: restartTransport);
       debugPrint(
         'Playback recovery: server confirmed in ${elapsed.elapsedMilliseconds}ms',
       );
@@ -213,7 +295,17 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
       }
       if (ref.mounted && epoch == _epoch) state = const AsyncData(null);
     } catch (error, stack) {
-      if (ref.mounted && epoch == _epoch) state = AsyncError(error, stack);
+      if (ref.mounted && epoch == _epoch) {
+        state = AsyncError(error, stack);
+        ref
+            .read(errorReporterProvider)
+            .capture(
+              error,
+              stack,
+              action: 'playback.recover',
+              context: {'elapsedMs': elapsed.elapsedMilliseconds},
+            );
+      }
     } finally {
       actionsSubscription.close();
       _running = false;

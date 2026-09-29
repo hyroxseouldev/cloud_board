@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
+
 import 'dart:convert';
 
 import 'package:firebase_database/firebase_database.dart';
@@ -94,7 +97,7 @@ void main() {
         expectedSessionId: 's',
         expectedRevision: 1,
       ),
-      throwsStateError,
+      throwsA(isA<PlaybackFailure>()),
     );
     db.beforeTransaction = () =>
         db.values['users/u/activeSession'] = {...split(session), 'revision': 9};
@@ -105,7 +108,7 @@ void main() {
         expectedSessionId: 's',
         expectedRevision: 2,
       ),
-      throwsStateError,
+      throwsA(isA<PlaybackFailure>()),
     );
   });
 
@@ -118,22 +121,26 @@ void main() {
     db.values['users/u/devices'] = {
       'tv': {'id': 'tv', 'mode': 'display', 'paired': true, 'online': false},
     };
+    (db.values['users/u/activeSession'] as Map)['status'] = 'paused';
+    await expectLater(
+      source.start(model('old-tv')),
+      throwsA(isA<PlaybackFailure>()),
+    );
+    (db.values['users/u/activeSession'] as Map)['status'] = 'completed';
     await source.start(model('old-tv'));
     expect(
       (db.values['users/u/activeSession'] as Map)['workoutSnapshot'],
       isNotNull,
     );
     (db.values['users/u/devices'] as Map)['tv']['playbackProtocol'] = 2;
+    (db.values['users/u/activeSession'] as Map)['status'] = 'completed';
     await source.start(model('new-tv'));
     expect(
       (db.values['users/u/activeSession'] as Map)['workoutSnapshot'],
       isNull,
     );
     expect(db.values['users/u/playbackSnapshots/new-tv'], isNotNull);
-    expect(
-      db.updates.last.keys,
-      containsAll(['activeSession', 'playbackSnapshots/new-tv']),
-    );
+    expect(db.updates.last.keys, isNot(contains('activeSession')));
   });
 
   test('missing or mismatched snapshot fails instead of mixing data from another session', () async {

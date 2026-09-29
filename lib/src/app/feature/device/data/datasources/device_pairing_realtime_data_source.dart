@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:cloud_board/src/app/core/services/realtime_connection.dart'
+    show waitForPlaybackConnection;
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -23,6 +27,13 @@ class DevicePairingRealtimeDataSource {
     if (ownerId == null) throw StateError('연결된 매장을 찾을 수 없습니다.');
     return _database.ref('users/$ownerId');
   }
+
+  Future<void> _connected() => waitForPlaybackConnection(
+    _database
+        .ref('.info/connected')
+        .onValue
+        .map((event) => event.snapshot.value == true),
+  );
 
   Future<DevicePairing> issue({required String deviceId}) async {
     final user = _auth.currentUser;
@@ -149,6 +160,7 @@ class DevicePairingRealtimeDataSource {
     required String name,
     required String zoneName,
   }) async {
+    await _connected();
     final owner = _auth.currentUser;
     if (owner == null || owner.isAnonymous) {
       throw StateError('매장 계정 로그인이 필요합니다.');
@@ -161,14 +173,19 @@ class DevicePairingRealtimeDataSource {
     if (access.value is Map && (access.value! as Map)['managed'] == true) {
       try {
         await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
-            .httpsCallable('cloudboardPairDisplay')
+            .httpsCallable(
+              'cloudboardPairDisplay',
+              options: HttpsCallableOptions(
+                timeout: const Duration(seconds: 15),
+              ),
+            )
             .call<void>({
               'code': normalizedCode,
               'name': name.trim(),
               'zoneName': zoneName.trim(),
             });
-      } on FirebaseFunctionsException catch (error) {
-        throw StateError(error.message ?? '디스플레이 연결을 완료하지 못했습니다.');
+      } on FirebaseFunctionsException {
+        rethrow;
       }
       return;
     }
@@ -220,6 +237,7 @@ class DevicePairingRealtimeDataSource {
   }
 
   Future<void> unpair(String deviceId) async {
+    await _connected();
     final deviceRef = _ownerRef.child('devices/$deviceId');
     final snapshot = await deviceRef.get();
     final value = snapshot.value;
@@ -274,6 +292,7 @@ class DevicePairingRealtimeDataSource {
     required String deviceId,
     required String displayState,
   }) async {
+    await _connected();
     if (!const {'auto', 'standby', 'black'}.contains(displayState)) {
       throw ArgumentError.value(displayState, 'displayState');
     }
@@ -283,10 +302,15 @@ class DevicePairingRealtimeDataSource {
         (access['plan'] == 'plus' || access['plan'] == 'premium')) {
       try {
         await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
-            .httpsCallable('cloudboardSetDisplayState')
+            .httpsCallable(
+              'cloudboardSetDisplayState',
+              options: HttpsCallableOptions(
+                timeout: const Duration(seconds: 15),
+              ),
+            )
             .call<void>({'deviceId': deviceId, 'displayState': displayState});
-      } on FirebaseFunctionsException catch (error) {
-        throw StateError(error.message ?? '디스플레이 상태를 변경하지 못했습니다.');
+      } on FirebaseFunctionsException {
+        rethrow;
       }
       return;
     }
@@ -317,6 +341,9 @@ class DevicePairingRealtimeDataSource {
     final previousData = previousDevice.value is Map
         ? Map<String, dynamic>.from(previousDevice.value! as Map)
         : const <String, dynamic>{};
+    if (!isRegisteredDisplay(previousData)) {
+      throw StateError('디스플레이 연결이 해제되었습니다. 새 연결 코드를 확인해 주세요.');
+    }
     final wasOnline = previousData['online'] == true;
     final previousOfflineEventKey =
         previousData['pendingOfflineEventKey'] as String?;
@@ -331,10 +358,21 @@ class DevicePairingRealtimeDataSource {
       'online': true,
       'lastSeenAtMs': ServerValue.timestamp,
       'pendingOfflineEventKey': offlineEvent.key,
-      'playbackProtocol': 2,
+      'playbackProtocol': 3,
     };
     if (!wasOnline) updates['onlineSinceMs'] = ServerValue.timestamp;
-    await deviceRef.update(updates);
+    final result = await deviceRef.runTransaction((current) {
+      if (current == null) return Transaction.success(null);
+      if (current is! Map ||
+          !isRegisteredDisplay(current) ||
+          current['pairingCode'] != pairingCode) {
+        return Transaction.abort();
+      }
+      return Transaction.success({...current, ...updates});
+    }, applyLocally: false);
+    if (!result.committed || !result.snapshot.exists) {
+      throw StateError('디스플레이 연결이 변경되었습니다. 새 연결 코드를 확인해 주세요.');
+    }
     if (!wasOnline) {
       await onlineEvent.set({
         'id': onlineEvent.key,
@@ -399,7 +437,7 @@ class DevicePairingRealtimeDataSource {
         'devices/$deviceId/online': true,
         'devices/$deviceId/lastSeenAtMs': ServerValue.timestamp,
         'devices/$deviceId/pendingOfflineEventKey': offlineEvent.key,
-        'devices/$deviceId/playbackProtocol': 2,
+        'devices/$deviceId/playbackProtocol': 3,
       };
       if (!wasOnline) {
         updates['devices/$deviceId/onlineSinceMs'] = ServerValue.timestamp;

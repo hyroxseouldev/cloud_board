@@ -43,7 +43,7 @@ class _MemorySource extends SlideEditorLocalDataSource {
 
 void main() {
   testWidgets(
-    'library distinguishes loading failure, empty results and favorite search',
+    'library distinguishes loading failure, empty results and searches all saved slides',
     (tester) async {
       final source = _MemorySource();
       final repository = LocalSlideEditorRepository(source);
@@ -77,11 +77,10 @@ void main() {
       source.failReads = false;
       await tester.tap(find.text('다시 불러오기'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('즐겨찾기'));
-      await tester.pumpAndSettle();
-      expect(find.text('푸시업'), findsNothing);
+      expect(find.text('즐겨찾기'), findsNothing);
+      expect(find.text('푸시업'), findsWidgets);
       final search = find.widgetWithText(TextField, '슬라이드 검색');
-      await tester.enterText(search, '상체');
+      await tester.enterText(search, '없는 분류');
       await tester.pumpAndSettle();
       expect(find.text('조건에 맞는 슬라이드가 없습니다.'), findsOneWidget);
       await tester.enterText(search, '하체');

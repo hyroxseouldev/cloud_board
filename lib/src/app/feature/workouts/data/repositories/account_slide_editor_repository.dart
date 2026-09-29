@@ -134,6 +134,7 @@ class AccountSlideEditorRepository extends LocalSlideEditorRepository {
     } on FirebaseFunctionsException catch (error) {
       throw LibraryFailure(
         error.message ?? '동기화하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.',
+        cause: error,
       );
     }
   }

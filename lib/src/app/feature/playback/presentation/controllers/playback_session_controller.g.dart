@@ -47,7 +47,7 @@ final class ActivePlaybackSessionProvider
 }
 
 String _$activePlaybackSessionHash() =>
-    r'50b7456a76e0a3005e7cc53337d64ddd3904a9b1';
+    r'f372e90d932a4884e9c7a7545929d9c196860ce7';
 
 @ProviderFor(serverTimeOffset)
 final serverTimeOffsetProvider = ServerTimeOffsetProvider._();
@@ -149,7 +149,7 @@ final class PlaybackActionControllerProvider
 }
 
 String _$playbackActionControllerHash() =>
-    r'ff02419d06ec4875932e07a0a0d14c5af0dc3f6f';
+    r'545b638060fba078b350f8710e9e3eb282a762e1';
 
 abstract class _$PlaybackActionController
     extends $Notifier<AsyncValue<String?>> {
@@ -208,7 +208,7 @@ final class PlaybackRecoveryControllerProvider
 }
 
 String _$playbackRecoveryControllerHash() =>
-    r'3ede6b4ad71ec1a244bd0640b7f66c41aec005fc';
+    r'0af01ab0d20993e70dd2db2f62bfdeaf87cd8a4b';
 
 /// Blocks controller commands until a foreground server handshake completes.
 

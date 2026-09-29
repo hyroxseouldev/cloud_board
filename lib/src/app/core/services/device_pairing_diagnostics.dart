@@ -1,6 +1,4 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 
 /// Do not send raw SDK messages: they may include database paths or account IDs.
 String pairingFailureKind(Object error) {
@@ -23,23 +21,4 @@ String pairingFailureKind(Object error) {
     return 'state_error';
   }
   return 'unexpected_error';
-}
-
-Future<void> recordPairingFailure(
-  Object error,
-  StackTrace stack, {
-  required String phase,
-}) async {
-  if (kIsWeb || !kReleaseMode) return;
-  try {
-    await FirebaseCrashlytics.instance.recordError(
-      Exception('Display pairing: ${pairingFailureKind(error)}'),
-      stack,
-      reason: 'display_pairing.$phase',
-      fatal: false,
-      printDetails: false,
-    );
-  } catch (_) {
-    // Reporting must never prevent retrying the original pairing action.
-  }
 }

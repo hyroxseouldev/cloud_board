@@ -44,7 +44,7 @@ void main() {
       expect(paused.revision, started.revision + 1);
       expect(paused.remainingMs, inInclusiveRange(58000, 60000));
       expect(database.metadataGets, 0);
-      expect(database.transactions, 1);
+      expect(database.transactions, 2);
     },
   );
 

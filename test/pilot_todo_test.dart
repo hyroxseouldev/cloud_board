@@ -276,7 +276,7 @@ void main() {
     },
   );
   testWidgets(
-    'library searches, favorites, renames, duplicates and inserts account templates',
+    'library searches all saved items, renames, duplicates and inserts account templates',
     (tester) async {
       final source = _MemorySource();
       final repo = LocalSlideEditorRepository(source);
@@ -313,14 +313,13 @@ void main() {
       await tester.enterText(find.widgetWithText(TextField, '슬라이드 검색'), '스쿼트');
       await tester.pumpAndSettle();
       expect(find.text('푸시업'), findsNothing);
-      await tester.tap(find.byTooltip('즐겨찾기 추가'));
-      await tester.pumpAndSettle();
-      expect((await repo.loadTemplates('u')).first.favorite, isTrue);
+      expect(find.byTooltip('즐겨찾기 추가'), findsNothing);
+      expect((await repo.loadTemplates('u')).first.favorite, isFalse);
       await tester.tap(find.text('삽입'));
       expect(inserted?.id, 'a');
       await tester.tap(find.byTooltip('슬라이드 관리'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('이름·분류 수정'));
+      await tester.tap(find.text('이름·폴더 수정'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextFormField, '이름'),

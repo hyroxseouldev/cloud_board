@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -105,14 +109,10 @@ class _SlideTemplateNameDialog extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final name = useTextEditingController(text: initialName);
-    final favorite = useState(true);
     final form = useMemoized(() => GlobalKey<FormState>());
     void submit() {
       if (form.currentState!.validate()) {
-        Navigator.pop(context, (
-          name: name.text.trim(),
-          favorite: favorite.value,
-        ));
+        Navigator.pop(context, (name: name.text.trim(), favorite: true));
       }
     }
 
@@ -124,7 +124,7 @@ class _SlideTemplateNameDialog extends HookWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('내용과 타이머·화면 설정을 계정에 저장합니다. 즐겨찾기는 빠른 삽입 칩으로 표시됩니다.'),
+            const Text('내용과 타이머·화면 설정을 저장합니다. 라이브러리의 모든 슬라이드를 빠르게 추가할 수 있어요.'),
             const SizedBox(height: 16),
             TextFormField(
               controller: name,
@@ -134,13 +134,6 @@ class _SlideTemplateNameDialog extends HookWidget {
               validator: (value) =>
                   value == null || value.trim().isEmpty ? '이름을 입력해 주세요.' : null,
               onFieldSubmitted: (_) => submit(),
-            ),
-            CheckboxListTile(
-              value: favorite.value,
-              onChanged: (value) => favorite.value = value ?? false,
-              title: const Text('즐겨찾기에 추가'),
-              subtitle: const Text('플러스 3개 · 프리미엄 무제한'),
-              contentPadding: EdgeInsets.zero,
             ),
           ],
         ),
@@ -184,13 +177,13 @@ class _EditorBody extends HookConsumerWidget {
       ref.watch(authStateProvider).value?.id ?? initial.ownerId,
     );
     final templates = ref.watch(templatesProvider);
-    final favoriteTemplates = (templates.value ?? <WorkoutModule>[])
-        .where((item) => item.favorite)
-        .toList();
+    final favoriteTemplates = templates.value ?? <WorkoutModule>[];
+    final launching = useState(false);
     final action = ref.watch(workoutActionControllerProvider);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final playbackAction = ref.watch(playbackActionControllerProvider);
-    final isBusy = action.isLoading || playbackAction.isLoading;
+    final isBusy =
+        launching.value || action.isLoading || playbackAction.isLoading;
     final hasUnsavedChanges =
         draft.value != savedBaseline.value ||
         name.text.trim() != savedBaseline.value.name ||
@@ -222,7 +215,7 @@ class _EditorBody extends HookConsumerWidget {
       final saved = await ref
           .read(workoutActionControllerProvider.notifier)
           .save(value);
-      if (saved != null) {
+      if (saved != null && context.mounted) {
         hasPersisted.value = true;
         draft.value = saved;
         savedBaseline.value = saved;
@@ -299,34 +292,35 @@ class _EditorBody extends HookConsumerWidget {
       );
     }
 
-    Future<void> removeTemplate(WorkoutModule template) async {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AppAlertDialog(
-          title: const Text('즐겨찾기를 해제할까요?'),
-          content: Text(
-            '“${template.name}” 칩을 숨깁니다. 라이브러리와 워크아웃의 슬라이드는 유지됩니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('삭제'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true || !context.mounted) return;
-      final removed = await ref
-          .read(templatesProvider.notifier)
-          .updateTemplate(template.copyWith(favorite: false));
-      if (!removed && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('칩을 삭제하지 못했습니다. 다시 시도해 주세요.')),
-        );
+    Future<void> playSlides() async {
+      if (launching.value || isBusy || draft.value.modules.isEmpty) return;
+      launching.value = true;
+      try {
+        final saved = (!hasPersisted.value || hasUnsavedChanges)
+            ? await persist()
+            : draft.value;
+        if (saved == null || !context.mounted) return;
+        final selection = await showWorkoutPreflight(context, saved);
+        if (selection == null || !context.mounted) return;
+        final steps = buildPlayerSteps(saved);
+        if (steps.isEmpty) return;
+        final id = await ref
+            .read(playbackActionControllerProvider.notifier)
+            .start(
+              workout: saved,
+              stepIndex: 0,
+              durationMs: steps.first.duration * 1000,
+              targetDeviceIds: selection.targetDeviceIds,
+            );
+        if (id != null && context.mounted) {
+          launching.value = false;
+          await WidgetsBinding.instance.endOfFrame;
+          if (context.mounted) {
+            await context.push('/player/${saved.id}?session=$id');
+          }
+        }
+      } finally {
+        if (context.mounted) launching.value = false;
       }
     }
 
@@ -338,16 +332,14 @@ class _EditorBody extends HookConsumerWidget {
         // A mini-controller command must not obscure the editor.
         isLoading: false,
         child: Scaffold(
-          floatingActionButtonLocation:
-              FloatingActionButtonLocation.centerFloat,
-          floatingActionButton: FloatingActionButton.extended(
-            tooltip: '슬라이드 추가',
-            onPressed: isBusy ? null : () => addSlide(),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('슬라이드 추가'),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          floatingActionButton: FloatingActionButton(
+            key: const ValueKey('workout-play-button'),
+            tooltip: '슬라이드 실행',
+            onPressed: isBusy || draft.value.modules.isEmpty
+                ? null
+                : playSlides,
+            child: const Icon(Icons.play_arrow_rounded),
           ),
           appBar: AppBar(
             title: const Text(
@@ -437,6 +429,9 @@ class _EditorBody extends HookConsumerWidget {
                                           .value
                                           ?.map((w) => w.folder)
                                           .where((f) => f.isNotEmpty),
+                                      ...?ref
+                                          .watch(libraryFoldersProvider)
+                                          .value,
                                       if (folder.text.isNotEmpty) folder.text,
                                     },
                                     onChanged: (value) => folder.text = value,
@@ -472,6 +467,12 @@ class _EditorBody extends HookConsumerWidget {
                               ],
                             ),
                             if (action.hasError)
+                              ErrorDetailsButton(
+                                error: action.error,
+                                stack: action.stackTrace,
+                                action: 'workout.save',
+                              ),
+                            if (action.hasError)
                               Text(
                                 '저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.',
                                 style: TextStyle(
@@ -506,7 +507,7 @@ class _EditorBody extends HookConsumerWidget {
                                           )
                                         : favoriteTemplates.isEmpty
                                         ? const Text(
-                                            '라이브러리의 즐겨찾기를 칩으로 표시합니다',
+                                            '저장한 슬라이드를 여기에서 빠르게 추가할 수 있어요',
                                             style: TextStyle(
                                               color: XonColors.muted,
                                               fontSize: 12,
@@ -560,15 +561,6 @@ class _EditorBody extends HookConsumerWidget {
                                                           : () => addSlide(
                                                               template,
                                                             ),
-                                                      onDeleted:
-                                                          isBusy ||
-                                                              templates
-                                                                  .isLoading
-                                                          ? null
-                                                          : () =>
-                                                                removeTemplate(
-                                                                  template,
-                                                                ),
                                                     ),
                                                   ),
                                                 );
@@ -588,10 +580,29 @@ class _EditorBody extends HookConsumerWidget {
                           key: const ValueKey('workout-slide-list'),
                           scrollController: slideScroll,
                           itemExtent: rowExtent,
+                          footer: Padding(
+                            padding: const EdgeInsets.only(top: 8, bottom: 8),
+                            child: Tooltip(
+                              message: '슬라이드 추가',
+                              child: OutlinedButton.icon(
+                                key: const ValueKey('add-slide-at-end'),
+                                onPressed: isBusy ? null : () => addSlide(),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('슬라이드 추가'),
+                              ),
+                            ),
+                          ),
                           padding: slideListPadding,
                           buildDefaultDragHandles: false,
                           itemCount: draft.value.modules.length,
                           onReorderItem: (oldIndex, newIndex) {
+                            if (isBusy ||
+                                oldIndex < 0 ||
+                                oldIndex >= draft.value.modules.length ||
+                                newIndex < 0 ||
+                                newIndex >= draft.value.modules.length) {
+                              return;
+                            }
                             final list = [...draft.value.modules];
                             final item = list.removeAt(oldIndex);
                             list.insert(newIndex, item);
@@ -702,7 +713,7 @@ class _EditorBody extends HookConsumerWidget {
                                           enabled:
                                               templates.hasValue &&
                                               !templates.isLoading,
-                                          child: const Text('자주 쓰는 슬라이드로 저장'),
+                                          child: const Text('라이브러리에 저장'),
                                         ),
                                         PopupMenuItem(
                                           value: 'delete',

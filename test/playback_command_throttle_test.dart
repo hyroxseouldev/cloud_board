@@ -15,6 +15,8 @@ void main() {
     actions = _Actions();
     container = ProviderContainer(
       overrides: [
+        activePlaybackSessionProvider.overrideWith((ref) => Stream.value(null)),
+        playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),
         playbackActionsProvider.overrideWith((ref) => actions),
         deviceIdProvider.overrideWith((ref) async => 'controller'),
       ],
@@ -54,19 +56,22 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
   });
 
-  testWidgets('failure permits retry and automatic sync bypasses cooldown', (
-    tester,
-  ) async {
-    actions.fail = true;
-    expect(await commands.pause(1000), isFalse);
-    expect(container.read(playbackActionControllerProvider).hasError, isTrue);
-    actions.fail = false;
-    expect(await commands.pause(1000), isTrue);
-    expect(await commands.syncStep(stepIndex: 1, durationMs: 1000), isTrue);
-    expect(await commands.complete(), isTrue);
-    expect(actions.calls, ['pause', 'pause', 'seek', 'complete']);
-    await tester.pump(const Duration(milliseconds: 350));
-  });
+  testWidgets(
+    'failure permits retry and automatic sync shares single-flight throttle',
+    (tester) async {
+      actions.fail = true;
+      expect(await commands.pause(1000), isFalse);
+      expect(container.read(playbackActionControllerProvider).hasError, isTrue);
+      actions.fail = false;
+      expect(await commands.pause(1000), isTrue);
+      expect(await commands.syncStep(stepIndex: 1, durationMs: 1000), isFalse);
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(await commands.syncStep(stepIndex: 1, durationMs: 1000), isTrue);
+      expect(await commands.complete(), isTrue);
+      expect(actions.calls, ['pause', 'pause', 'seek', 'complete']);
+      await tester.pump(const Duration(milliseconds: 350));
+    },
+  );
 }
 
 class _Actions extends Fake implements PlaybackActions {

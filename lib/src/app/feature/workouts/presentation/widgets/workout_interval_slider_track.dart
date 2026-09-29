@@ -21,7 +21,9 @@ List<WorkoutIntervalSegment> workoutIntervalSegments(WorkoutModule module) {
   for (final block in effectiveIntervalBlocks(module)) {
     for (var set = 0; set < block.sets; set++) {
       add(block.workSeconds, false);
-      if (set < block.sets - 1) add(block.restSeconds, true);
+      if (module.includeFinalRest || set < block.sets - 1) {
+        add(block.restSeconds, true);
+      }
     }
   }
   return segments;

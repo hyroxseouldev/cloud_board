@@ -26,7 +26,7 @@ test('stored imageUrl survives projection and server sync of an app-written summ
   const db = database(source, summary);
   assert.equal(await syncWorkoutSummary(db, 'u', 'w'), false);
   assert.deepEqual(db.writes, []);
-  assert.equal(summary.durationSeconds, 70);
+  assert.equal(summary.durationSeconds, 80);
 });
 
 test('legacy alias is supported, but an explicitly removed first image stays empty', () => {

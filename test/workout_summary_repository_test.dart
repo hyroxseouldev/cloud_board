@@ -71,7 +71,7 @@ void main() {
     final result = await repo.watchSummaries().toList();
     expect(result.last.length, 30);
     expect(result.last.any((w) => w.name.contains('w29')), isTrue);
-    expect(result.last.first.durationSeconds, 110);
+    expect(result.last.first.durationSeconds, 120);
     expect(source.detailReads, 0);
     expect(source.offlineChecks, lessThanOrEqualTo(2));
     expect((await repo.loadOne('w29'))?.id, 'w29');

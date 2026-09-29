@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_pairing_error_message.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
@@ -115,6 +116,11 @@ class AddDisplayDialog extends HookConsumerWidget {
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),
+                  ),
+                  ErrorDetailsButton(
+                    error: action.error!,
+                    stack: action.stackTrace,
+                    action: 'device.claim',
                   ),
                 ],
               ],

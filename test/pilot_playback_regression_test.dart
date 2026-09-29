@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
+
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
@@ -43,9 +45,9 @@ void main() {
     'sleeping controller resolves across work/rest/slides, paused stays frozen',
     () {
       final durations = playbackDurations(workout);
-      expect(durations, [10000, 5000, 10000, 20000]);
+      expect(durations, [10000, 5000, 10000, 5000, 20000]);
       final position = playbackPosition(session(), durations, 31000);
-      expect(position, (index: 3, remainingMs: 15000, countdownMs: 0));
+      expect(position, (index: 4, remainingMs: 20000, countdownMs: 0));
       expect(
         playbackPosition(session(), durations, 901000).index,
         durations.length,
@@ -77,7 +79,7 @@ void main() {
         status: 'paused',
         remainingMs: 9999,
       );
-      expect(paused, (status: 'paused', stepIndex: 3, remainingMs: 15000));
+      expect(paused, (status: 'paused', stepIndex: 4, remainingMs: 20000));
       final seek = resolvePlaybackCommand(
         session: session().copyWith(status: PlaybackStatus.paused),
         expectedSessionId: 's',
@@ -109,7 +111,7 @@ void main() {
           stepIndex: 1,
           remainingMs: 5000,
         ),
-        throwsStateError,
+        throwsA(isA<PlaybackFailure>()),
       );
     }
     expect(
@@ -121,7 +123,7 @@ void main() {
         expiresAtMs: 11000,
         status: null,
       ),
-      throwsStateError,
+      throwsA(isA<PlaybackFailure>()),
     );
     expect(
       () => resolvePlaybackCommand(
@@ -132,7 +134,7 @@ void main() {
         expiresAtMs: 11000,
         status: 'playing',
       ),
-      throwsStateError,
+      throwsA(isA<PlaybackFailure>()),
     );
   });
 
@@ -202,8 +204,8 @@ void main() {
       await tester.pump();
       now = now.add(const Duration(seconds: 30));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(container.read(provider).index, 3);
-      expect(container.read(provider).remainingMs, 15000);
+      expect(container.read(provider).index, 4);
+      expect(container.read(provider).remainingMs, 20000);
       expect(audio.sounds, isEmpty);
       expect(commands.seeks, 0);
       sub.close();
@@ -260,6 +262,11 @@ void main() {
 }
 
 class _Audio implements BeepPlayer {
+  @override
+  Future<void> stop() async {}
+  @override
+  Future<void> setEnabled(bool enabled) async {}
+
   @override
   Future<void> playCountdown(WorkoutSound sound, double volume) =>
       play(sound, volume);

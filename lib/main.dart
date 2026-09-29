@@ -1,4 +1,5 @@
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -17,7 +18,7 @@ void main() {
       initialize: _initialize,
       builder: (isTv) => ProviderScope(
         overrides: [androidTvProvider.overrideWith((ref) async => isTv)],
-        child: const XonBoardApp(),
+        child: TvPlaybackLifecycle(isTv: isTv, child: const XonBoardApp()),
       ),
     ),
   );
@@ -30,12 +31,21 @@ Future<bool> _initialize() async {
     const DeviceFormFactorDataSource().isAndroidTv(),
   ]);
   final isTv = results[1] as bool;
+  final reporter = await initializeDiagnostics(isTv: isTv);
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    reporter.capture(
+      details.exception,
+      details.stack ?? StackTrace.current,
+      action: 'global.flutter',
+      fatal: true,
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    reporter.capture(error, stack, action: 'global.platform', fatal: true);
+    return true;
+  };
   if (!kIsWeb) {
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
     if (isTv && FirebaseAuth.instance.currentUser == null) {
       try {
         await FirebaseAuth.instance.signInAnonymously().timeout(
@@ -43,7 +53,7 @@ Future<bool> _initialize() async {
         );
       } catch (error, stack) {
         // Keep the login screen available if automatic TV authentication fails.
-        FirebaseCrashlytics.instance.recordError(error, stack);
+        reporter.capture(error, stack, action: 'tv.authentication');
       }
     }
   }
