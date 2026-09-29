@@ -26,7 +26,11 @@ ID가 없으면 UTC 시각을 좁힌 뒤 `jsonPayload.context.sessionId` 또는 
 
 ## 웹 소스맵
 
-main 배포 CI가 `cloudboard-web-symbols-<run_number>-<attempt>` private artifact에 main.dart.js, 소스맵, version.json을 90일 보관한다. 공개 Hosting 출력에서는 `.map` 파일과 sourceMappingURL을 제거한다. 오류의 build 값과 version.json이 일치하는 artifact만 사용한다. 이후 빌드의 소스맵으로 과거 스택을 해석하지 않는다. `main.dart.js:행:열` 위치는 마스킹 후에도 남는다. 해당 artifact를 권한 있는 환경에 내려받아 source-map 도구로 원본 위치를 해석한다.
+저장소가 공개 상태이므로 GitHub Actions artifact 자체를 비공개 저장소로 간주하지 않는다. main 배포 CI는 main.dart.js, 소스맵, version.json을 tar로 묶고 **AES-256-GCM 인증 암호화** 후 `cloudboard-web-symbols-<run_number>-<attempt>` artifact에 90일 보관한다. artifact에는 `web-symbols-v1.tgz.enc`만 포함한다. 32바이트 키는 GitHub Actions secret `WEB_SYMBOLS_ENCRYPTION_KEY`와 운영자의 보호된 키 파일로 분리 보관한다. 키가 없으면 배포를 실패시키며 원문을 대신 업로드하지 않는다. PR 빌드는 심볼 artifact를 업로드하지 않는다.
+
+공개 Hosting 출력에서는 `.map` 파일과 sourceMappingURL을 제거한다. 오류의 build 값과 복호화한 version.json이 일치하는 artifact만 사용한다. 이후 빌드의 소스맵으로 과거 스택을 해석하지 않는다. `main.dart.js:행:열` 위치는 마스킹 후에도 남는다. `tool/web_symbols.mjs open INPUT OUTPUT`으로 권한 있는 환경에서 복호화하고 source-map 도구로 원본 위치를 해석한다. 키는 `WEB_SYMBOLS_ENCRYPTION_KEY` 환경 변수로만 전달하고 로그/명령 인자에 넣지 않는다. 도구는 인증 태그 검증을 마친 뒤에만 원문 파일을 쓰며 기존 파일을 덮어쓰지 않는다. 키를 교체하면 기존 v1 키도 해당 artifact 보관 기간 동안 보호해서 유지해야 한다.
+
+2026-09-30 배포 확인 중 공개 저장소 설정을 발견해 최초 72.1/73.1 평문 artifact를 삭제했다. 두 빌드의 심볼은 운영자 로컬 `$HOME/.config/cloudboard/private-web-symbols`에 암호화 보관했고 복호화 일치 검증을 마쳤다. 같은 보호된 디렉터리의 `key-v1.hex`는 권한 600, 디렉터리는 700이며 Git에 포함하지 않는다. 이후 CI 보관은 암호화 파일만 허용한다.
 
 ## iOS dSYM 조사
 

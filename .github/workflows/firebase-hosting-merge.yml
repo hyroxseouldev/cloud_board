@@ -47,6 +47,7 @@ jobs:
         run: |
           npm ci --prefix functions
           npm test --prefix functions
+          node --test tool/web_symbols.test.mjs
 
       - name: Set up Java for Firestore rules tests
         uses: actions/setup-java@v4
@@ -113,14 +114,23 @@ jobs:
           PY
           echo "Web build: $build_name ($build_number)" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Retain private web symbols
+      - name: Encrypt web symbols
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          WEB_SYMBOLS_ENCRYPTION_KEY: ${{ secrets.WEB_SYMBOLS_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          tar -czf "$RUNNER_TEMP/web-symbols.tgz" -C build/web main.dart.js main.dart.js.map version.json
+          node tool/web_symbols.mjs seal "$RUNNER_TEMP/web-symbols.tgz" "$RUNNER_TEMP/web-symbols-v1.tgz.enc"
+
+      - name: Retain encrypted web symbols
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-web-symbols-${{ github.run_number }}-${{ github.run_attempt }}
-          path: |
-            build/web/*.map
-            build/web/main.dart.js
-            build/web/version.json
+          path: ${{ runner.temp }}/web-symbols-v1.tgz.enc
+          if-no-files-found: error
           retention-days: 90
 
       - name: Remove source maps from public bundle
