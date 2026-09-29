@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:math';
+
+import 'package:cloud_board/src/app/core/services/event_id.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/library_failure.dart';
@@ -91,7 +92,8 @@ String diagnosticCode(Object error) => switch (error) {
   ),
   PlaybackFailure failure => failure.code,
   FirebaseException failure => '${failure.plugin}/${failure.code}',
-  RangeError _ => 'invalid_index',
+  IndexError _ => 'invalid_index',
+  RangeError _ => 'invalid_range',
   FormatException _ => 'invalid_data',
   TimeoutException _ => 'network_timeout',
   StateError _ => 'invalid_state',
@@ -109,7 +111,8 @@ String diagnosticMessage(Object error) => switch (error) {
     '접근 권한을 확인하지 못했습니다. 로그인 상태를 확인해 주세요.',
   FirebaseException _ ||
   TimeoutException _ => '서버 응답을 확인하지 못했습니다. 연결 상태를 확인해 주세요.',
-  RangeError _ || FormatException _ => '수업 데이터가 일치하지 않습니다. 최신 상태를 다시 불러와 주세요.',
+  IndexError _ || FormatException _ => '수업 데이터가 일치하지 않습니다. 최신 상태를 다시 불러와 주세요.',
+  RangeError _ => '수업 제어 값이 올바르지 않습니다. 오류 상세에서 원인을 확인해 주세요.',
   StateError failure => redactDiagnostic(failure.message),
   _ => '작업을 완료하지 못했습니다. 오류 상세에서 원인을 확인해 주세요.',
 };
@@ -199,7 +202,7 @@ class ErrorReporter {
     if (existing != null) return existing;
     final now = _clock().toUtc();
     final event = DiagnosticEvent(
-      id: '${now.microsecondsSinceEpoch.toRadixString(36)}-${Random.secure().nextInt(1 << 32).toRadixString(36)}',
+      id: createEventId(now: now),
       occurredAt: now,
       error: error,
       stack: stack,
