@@ -22,6 +22,16 @@ Crashlytics에서 `com.sunmkim.cloudboard` Android의 해당 날짜 이슈는 �
 
 ## 코드에서 확인해 수정한 경로
 
+### 추가 확인: STA-43의 웹 난수 범위 오류
+
+프로젝트가 지정되지 않았던 [STA-43](https://linear.app/clyrdev/issue/STA-43)을 전체 팀 조회에서 추가 확인했다. 첨부 화면의 원문은 `RangeError: max must be in range 0 < max ≤ 2^32, was 0`으로, 슬라이드 인덱스 오류와 다르다.
+
+수업 명령 ID의 `Random.secure().nextInt(1 << 32)`에서 **Dart 웹의 32비트 비트 연산 결과가 0**이 되어 요청 전 ID 생성이 실패하는 경로를 확인했다. 새 진단 ID에도 동일한 표현이 있었으며, 기존 ErrorReporter 테스트를 Chrome에서 실행하자 같은 메시지와 `nextInt → capture` 스택으로 실패했다. VM 테스트만으로는 이 웹 차이를 잡지 못했다.
+
+두 경로를 공통 `createEventId`로 연결하고 상한을 비트 시프트 대신 정수 리터럴 `0x100000000`으로 지정했다. 숫자 범위 오류는 `invalid_range`, 실제 목록 인덱스 오류는 `invalid_index`로 구분한다. 수정 후 Chrome에서 ID 생성·오류 보고·동시 명령·복구 회귀 테스트를 통과했으며 CI에도 Chrome 검증을 추가했다. 이 재현은 해당 난수 범위 오류의 원인 근거이며, 모든 Bad state/통신 오류가 같은 원인이라는 의미는 아니다.
+
+### 연결·상태·자료 경로
+
 - RTDB 연결 스트림은 건강한 연결에서도 처음 `false`를 보낼 수 있다. 첫 값만 검사하던 시작/명령 경로를 최대 6초 동안 `true`를 기다리도록 수정했다. 통신 실패는 `connection_timeout`으로 식별한다.
 - 제어 명령의 expected revision이 느린 디스크 체크포인트에 의존했다. 수신 상태와 서버 ACK를 메모리에 즉시 반영하며, 오래된 revision 수신·늦은 ACK가 새 세션을 되돌리지 않게 했다.
 - 여러 컨트롤러가 같은 revision을 조작하면 트랜잭션이 거절되는 것이 정상이다. 이를 일반 `Bad state`로 합치지 않고 `revision_conflict`, `session_changed`, `command_expired`, `status_changed`, `invalid_position` 등으로 구분한다. 충돌 후 서버 상태만 다시 확인하며, 오래된 조작은 자동 재전송하지 않는다.

@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/core/services/realtime_connection.dart';
+import 'package:cloud_board/src/app/core/services/event_id.dart';
 export 'package:cloud_board/src/app/core/services/realtime_connection.dart'
     show waitForPlaybackConnection;
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -8,7 +9,6 @@ import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairi
 import 'package:cloud_board/src/app/feature/playback/domain/playback_command.dart';
 
 import 'dart:async';
-import 'dart:math';
 
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -409,8 +409,7 @@ class PlaybackRealtimeDataSource {
     await _ensureSnapshot(observed);
     final offset = await _serverOffset();
     final expiresAt = DateTime.now().millisecondsSinceEpoch + offset + 6000;
-    final commandId =
-        '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    final commandId = createEventId();
     var workoutId = '';
     var workoutName = '';
     var shouldRecordCompletion = false;

@@ -16,6 +16,24 @@ class _Sink implements DiagnosticSink {
 }
 
 void main() {
+  test('numeric range failures are distinct from list index failures', () {
+    final reporter = ErrorReporter(_Sink());
+    final range = reporter.capture(
+      RangeError.range(0, 1, 0x100000000, 'max'),
+      StackTrace.current,
+      action: 'playback.pause',
+    );
+    final index = reporter.capture(
+      RangeError.index(2, [1]),
+      StackTrace.current,
+      action: 'playback.seek',
+    );
+    expect(range.code, 'invalid_range');
+    expect(index.code, 'invalid_index');
+    expect(range.context.containsKey('stepIndex'), isFalse);
+    expect(index.context['stepIndex'], 2);
+  });
+
   test('handled errors preserve object/stack, deduplicate, isolate context and redact private values', () async {
     final sink = _Sink();
     final reporter = ErrorReporter(
