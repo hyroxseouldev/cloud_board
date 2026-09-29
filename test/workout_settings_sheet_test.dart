@@ -121,6 +121,11 @@ void main() {
 
 class _RecordingPlayer implements BeepPlayer {
   @override
+  Future<void> stop() async {}
+  @override
+  Future<void> setEnabled(bool enabled) async {}
+
+  @override
   Future<void> playCountdown(WorkoutSound sound, double volume) =>
       play(sound, volume);
 

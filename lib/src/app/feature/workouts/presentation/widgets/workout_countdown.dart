@@ -25,13 +25,17 @@ class WorkoutCountdown extends StatelessWidget {
     this.slideName,
     this.slide,
     this.onSkip,
+    this.onPause,
+    this.onStartNow,
+    this.isPaused = false,
     this.skipEnabled = true,
   });
   final Workout workout;
   final int seconds;
   final String? slideName;
   final WorkoutModule? slide;
-  final VoidCallback? onSkip;
+  final VoidCallback? onSkip, onPause, onStartNow;
+  final bool isPaused;
   final bool skipEnabled;
 
   @override
@@ -133,23 +137,40 @@ class WorkoutCountdown extends StatelessWidget {
                 ),
               ),
             ),
-            if (onSkip != null)
+            if (onSkip != null || onPause != null || onStartNow != null)
               SafeArea(
                 minimum: const EdgeInsets.all(20),
                 child: Align(
-                  alignment: Alignment.bottomRight,
-                  child: TextButton.icon(
-                    key: const ValueKey('skip-countdown'),
-                    onPressed: skipEnabled ? onSkip : null,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white54,
-                      backgroundColor: Colors.black54,
-                      minimumSize: const Size(48, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    icon: const Icon(Icons.skip_next_rounded, size: 20),
-                    label: const Text('건너뛰기'),
+                  alignment: Alignment.bottomCenter,
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (onSkip != null)
+                        _CountdownAction(
+                          key: const ValueKey('skip-countdown'),
+                          label: onStartNow == null ? '건너뛰기' : '슬라이드 건너뛰기',
+                          icon: Icons.skip_next_rounded,
+                          onPressed: skipEnabled ? onSkip : null,
+                        ),
+                      if (onPause != null)
+                        _CountdownAction(
+                          key: const ValueKey('pause-countdown'),
+                          label: isPaused ? '계속' : '일시정지',
+                          icon: isPaused
+                              ? Icons.play_arrow_rounded
+                              : Icons.pause_rounded,
+                          onPressed: skipEnabled ? onPause : null,
+                        ),
+                      if (onStartNow != null)
+                        _CountdownAction(
+                          key: const ValueKey('start-countdown-now'),
+                          label: '바로 시작',
+                          icon: Icons.play_arrow_rounded,
+                          onPressed: skipEnabled ? onStartNow : null,
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -158,6 +179,31 @@ class WorkoutCountdown extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CountdownAction extends StatelessWidget {
+  const _CountdownAction({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+    onPressed: onPressed,
+    style: TextButton.styleFrom(
+      foregroundColor: Colors.white,
+      disabledForegroundColor: Colors.white54,
+      backgroundColor: Colors.black54,
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+    ),
+    icon: Icon(icon, size: 20),
+    label: Text(label),
+  );
 }
 
 class CountdownSettings extends HookConsumerWidget {

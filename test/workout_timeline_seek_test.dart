@@ -27,34 +27,22 @@ final _workout =
     );
 
 void main() {
-  test(
-    'interval track follows timing across blocks without trailing rests',
-    () {
-      final module = _workout.modules.first.copyWith(
-        intervalBlocks: const [
-          WorkoutIntervalBlock(
-            id: 'a',
-            workSeconds: 10,
-            restSeconds: 5,
-            sets: 2,
-          ),
-          WorkoutIntervalBlock(
-            id: 'b',
-            workSeconds: 3,
-            restSeconds: 0,
-            sets: 2,
-          ),
-        ],
-      );
-      expect(workoutIntervalSegments(module), [
-        (startMs: 0, endMs: 10000, isRest: false),
-        (startMs: 10000, endMs: 15000, isRest: true),
-        (startMs: 15000, endMs: 25000, isRest: false),
-        (startMs: 25000, endMs: 28000, isRest: false),
-        (startMs: 28000, endMs: 31000, isRest: false),
-      ]);
-    },
-  );
+  test('interval track follows timing across blocks including final rests', () {
+    final module = _workout.modules.first.copyWith(
+      intervalBlocks: const [
+        WorkoutIntervalBlock(id: 'a', workSeconds: 10, restSeconds: 5, sets: 2),
+        WorkoutIntervalBlock(id: 'b', workSeconds: 3, restSeconds: 0, sets: 2),
+      ],
+    );
+    expect(workoutIntervalSegments(module), [
+      (startMs: 0, endMs: 10000, isRest: false),
+      (startMs: 10000, endMs: 15000, isRest: true),
+      (startMs: 15000, endMs: 25000, isRest: false),
+      (startMs: 25000, endMs: 30000, isRest: true),
+      (startMs: 30000, endMs: 33000, isRest: false),
+      (startMs: 33000, endMs: 36000, isRest: false),
+    ]);
+  });
   testWidgets('local seek maps work/rest/set boundaries and clamps endpoints', (
     tester,
   ) async {
@@ -78,9 +66,9 @@ void main() {
       (module: 0, elapsed: 12000, index: 1, remaining: 3000),
       (module: 0, elapsed: 15000, index: 2, remaining: 10000),
       (module: 0, elapsed: 18000, index: 2, remaining: 7000),
-      (module: 0, elapsed: 25000, index: 2, remaining: 1000),
-      (module: 1, elapsed: 30000, index: 3, remaining: 30000),
-      (module: 1, elapsed: 999999, index: 3, remaining: 1000),
+      (module: 0, elapsed: 25000, index: 3, remaining: 5000),
+      (module: 1, elapsed: 30000, index: 4, remaining: 30000),
+      (module: 1, elapsed: 999999, index: 4, remaining: 1000),
     ]) {
       await controller.seekModulePosition(target.module, target.elapsed);
       await tester.pump(const Duration(milliseconds: 200));
@@ -145,7 +133,7 @@ void main() {
         expect(container.read(provider).isPaused, paused);
         commands.success = false;
         await controller.seekModulePosition(1, 45000);
-        expect(commands.calls.last, (index: 3, remaining: 15000));
+        expect(commands.calls.last, (index: 4, remaining: 15000));
         expect(container.read(provider).index, 0);
         expect(container.read(provider).remainingMs, 10000);
         expect(container.read(provider).isPaused, paused);
@@ -230,7 +218,7 @@ void main() {
               body: Padding(
                 padding: const EdgeInsets.all(16),
                 child: WorkoutControlTimeline(
-                  durations: const [25, 60],
+                  durations: const [30, 60],
                   modules: modules,
                   currentModule: 0,
                   elapsedMs: 12000,
@@ -242,7 +230,7 @@ void main() {
           ),
         );
         expect(find.text('1/2'), findsOneWidget);
-        expect(find.text('0:12 / 1:25'), findsOneWidget);
+        expect(find.text('0:12 / 1:30'), findsOneWidget);
         expect(find.text('1/2 · 휴식'), findsOneWidget);
         expect(find.text('0:03 남음'), findsOneWidget);
         final rect = tester.getRect(
@@ -271,14 +259,14 @@ void main() {
                   ),
                 ).trackShape!
                 as WorkoutIntervalSliderTrack;
-        expect(intervalTrack().segments, hasLength(3));
+        expect(intervalTrack().segments, hasLength(4));
         expect(intervalTrack().positionMs, 12000);
         expect(slider.semanticFormatterCallback!(12000), contains('1세트 휴식'));
         slider.onChangeStart!(18000);
         slider.onChanged!(18000);
         await tester.pump();
         expect(find.text('2/2 · 운동'), findsOneWidget);
-        expect(find.text('0:18 / 0:25'), findsOneWidget);
+        expect(find.text('0:18 / 0:30'), findsOneWidget);
         expect(intervalTrack().positionMs, 18000);
         expect(calls, hasLength(1));
         slider.onChangeEnd!(18000);
@@ -299,7 +287,7 @@ void main() {
           home: Scaffold(
             body: WorkoutControlTimeline(
               section: WorkoutTimelineSection.detail,
-              durations: const [25, 60],
+              durations: const [30, 60],
               modules: _workout.modules,
               currentModule: 0,
               elapsedMs: 12000,
@@ -376,6 +364,11 @@ void main() {
 }
 
 class _Audio implements BeepPlayer {
+  @override
+  Future<void> stop() async {}
+  @override
+  Future<void> setEnabled(bool enabled) async {}
+
   @override
   Future<void> playCountdown(WorkoutSound sound, double volume) =>
       play(sound, volume);

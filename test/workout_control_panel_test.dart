@@ -50,12 +50,12 @@ void main() {
       );
       await actions.selectModule(1);
       var state = container.read(provider);
-      expect(state.index, 3);
+      expect(state.index, 4);
       expect(state.remainingMs, 60000);
       expect(state.isPaused, isFalse);
       await actions.selectModule(-1);
       await actions.selectModule(3);
-      expect(container.read(provider).index, 3);
+      expect(container.read(provider).index, 4);
       await actions.selectModule(0);
       expect(container.read(provider).index, 0);
       sub.close();
@@ -105,7 +105,7 @@ void main() {
       final before = container.read(provider);
       final pending = actions.selectModule(1);
       await actions.selectModule(2);
-      expect(fake.calls, [(3, 60000)]);
+      expect(fake.calls, [(4, 60000)]);
       fake.result.complete(false);
       await pending;
       expect(container.read(provider).index, before.index);

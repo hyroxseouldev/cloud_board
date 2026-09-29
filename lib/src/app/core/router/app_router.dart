@@ -111,6 +111,14 @@ GoRouter appRouter(Ref ref) {
             builder: (_, _) => const SubscriptionScreen(),
           ),
           GoRoute(
+            path: '/library/editor/:id',
+            builder: (_, state) => SavedSlideEditorScreen(
+              id: state.pathParameters['id']!,
+              guard: slideGuard,
+            ),
+            onExit: (_, _) => slideGuard.confirm(),
+          ),
+          GoRoute(
             path: '/slides',
             builder: (_, state) => SlideLibraryScreen(
               initialFavoritesOnly:

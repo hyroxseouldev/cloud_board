@@ -21,7 +21,6 @@ class SlideLibraryPicker extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final search = useTextEditingController();
     useListenable(search);
-    final favorites = useState(false);
     final provider = slideTemplatesControllerProvider(scope);
     final templates = ref.watch(provider);
     final query = search.text.trim().toLowerCase();
@@ -29,18 +28,12 @@ class SlideLibraryPicker extends HookConsumerWidget {
     final items =
         all
             .where(
-              (item) =>
-                  (!favorites.value || item.favorite) &&
-                  '${item.name} ${item.text} ${item.category}'
-                      .toLowerCase()
-                      .contains(query),
+              (item) => '${item.name} ${item.text} ${item.category}'
+                  .toLowerCase()
+                  .contains(query),
             )
             .toList()
-          ..sort(
-            (a, b) => a.favorite != b.favorite
-                ? (a.favorite ? -1 : 1)
-                : a.name.compareTo(b.name),
-          );
+          ..sort((a, b) => a.name.compareTo(b.name));
     return CustomScrollView(
       key: const ValueKey('slide-library-picker'),
       slivers: [
@@ -51,7 +44,7 @@ class SlideLibraryPicker extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '자주 쓰는 슬라이드',
+                  '저장한 슬라이드',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -64,16 +57,11 @@ class SlideLibraryPicker extends HookConsumerWidget {
                   controller: search,
                   decoration: const InputDecoration(
                     labelText: '슬라이드 검색',
-                    hintText: '제목, 본문, 분류',
+                    hintText: '제목, 본문, 폴더',
                     prefixIcon: Icon(Icons.search),
                   ),
                 ),
                 const SizedBox(height: 8),
-                FilterChip(
-                  label: const Text('즐겨찾기'),
-                  selected: favorites.value,
-                  onSelected: (value) => favorites.value = value,
-                ),
               ],
             ),
           ),
@@ -160,12 +148,6 @@ class SlideLibraryPicker extends HookConsumerWidget {
                                 ],
                               ),
                             ),
-                            if (item.favorite)
-                              const Icon(
-                                Icons.star_rounded,
-                                size: 18,
-                                color: SlideEditorStyle.accent,
-                              ),
                             const Icon(
                               Icons.chevron_right,
                               size: 20,

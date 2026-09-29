@@ -52,6 +52,7 @@ const services={
     const {deleteOnboardingData}=await import('./onboarding.js');
     await deleteOnboardingData(db,uid);
     await db.recursiveDelete(db.doc(`users/${uid}`));
+    await db.doc(`clientDiagnosticLimits/${uid}`).delete();
   },
   async deleteRealtime(uid) {
     await userRef(uid).remove();
@@ -315,4 +316,21 @@ export const cleanupOnboardingVerification = onSchedule({region,schedule:'every 
       const batch=db.batch(); for(const document of page.docs) batch.delete(document.ref); await batch.commit();
     } while(page.size===400);
   }
+});
+
+// Web has no Crashlytics SDK. Keep handled errors in authenticated structured logs.
+export const reportClientDiagnostic = onCall({region, timeoutSeconds: 15, maxInstances: 3}, async request => {
+  const {recordClientDiagnostic} = await import('./client-diagnostics.js');
+  const logger = await import('firebase-functions/logger');
+  return recordClientDiagnostic({db, realtime, auth: request.auth, payload: request.data, emit: logger.error});
+});
+
+export const manageLibraryFolder = onCall({region, timeoutSeconds: 30, maxInstances: 3}, async request => {
+  const {manageLibraryFolder} = await import('./library-folders.js');
+  return manageLibraryFolder(db, request.auth?.uid, request.data);
+});
+
+export const cleanupClientDiagnostics = onSchedule({region, schedule: 'every 24 hours', timeoutSeconds: 120, maxInstances: 1}, async () => {
+  const {cleanupDiagnosticLimits} = await import('./client-diagnostics.js');
+  await cleanupDiagnosticLimits(db);
 });

@@ -54,9 +54,19 @@ class PlaybackSessionModel {
     ownerId: ownerId,
     zoneId: zoneId,
     targetDeviceIds: targetDeviceIds,
-    workout: _workoutEntities[workoutSnapshot] ??= WorkoutModel.fromJson(
-      workoutSnapshot,
-    ).toEntity(),
+    workout: _workoutEntities[workoutSnapshot] ??= WorkoutModel.fromJson({
+      ...workoutSnapshot,
+      'modules': [
+        for (final module in (workoutSnapshot['modules'] as List? ?? const []))
+          if (module is Map)
+            <String, dynamic>{
+              ...Map<String, dynamic>.from(module),
+              'includeFinalRest': module['includeFinalRest'] ?? false,
+            }
+          else
+            throw const FormatException('수업 슬라이드 데이터가 올바르지 않습니다.'),
+      ],
+    }).toEntity(),
     status: PlaybackStatus.values.firstWhere(
       (value) => value.name == status,
       orElse: () => PlaybackStatus.completed,

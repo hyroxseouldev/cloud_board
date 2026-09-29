@@ -67,6 +67,7 @@ abstract class WorkoutModule with _$WorkoutModule {
     required int workSeconds,
     required int sets,
     required int restSeconds,
+    @Default(true) bool includeFinalRest,
     required String text,
     required String imageSource,
     required bool showTimer,

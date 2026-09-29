@@ -39,6 +39,26 @@ void main() {
     },
   );
 
+  test(
+    'background cancels queued sounds; resume never replays cancelled cues',
+    () async {
+      final native = _NativeAudio()..configuration = Completer<void>();
+      final player = BeepPlayer(player: native);
+      final cue = player.playCountdown(WorkoutSound.videoBeep, 1);
+      await Future<void>.delayed(Duration.zero);
+      final stop = player.setEnabled(false);
+      native.configuration!.complete();
+      await Future.wait([cue, stop]);
+      await player.play(WorkoutSound.videoBeep);
+      expect(native.sources, isEmpty);
+      await player.setEnabled(true);
+      expect(native.sources, isEmpty);
+      await player.play(WorkoutSound.videoBeep);
+      expect(native.sources, ['sounds/video_beep.wav']);
+      await player.dispose();
+    },
+  );
+
   test('failed native request does not block following playback', () async {
     final native = _NativeAudio()..failNextStop = true;
     final player = BeepPlayer(player: native);

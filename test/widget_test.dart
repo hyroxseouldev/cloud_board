@@ -22,7 +22,7 @@ void main() {
                 .copyWith(workSeconds: 60, sets: 3, restSeconds: 20),
           ],
         );
-    expect(workoutDuration(workout), 220);
+    expect(workoutDuration(workout), 240);
   });
 
   test('player steps use a static workout snapshot', () {
@@ -36,8 +36,8 @@ void main() {
 
     final steps = buildPlayerSteps(workout);
 
-    expect(steps.map((step) => step.duration), [60, 15, 60, 30]);
-    expect(playerStepIndexForModule(workout, 1), 3);
+    expect(steps.map((step) => step.duration), [60, 15, 60, 15, 30]);
+    expect(playerStepIndexForModule(workout, 1), 4);
   });
 
   test('running session derives remaining time from server clock', () {

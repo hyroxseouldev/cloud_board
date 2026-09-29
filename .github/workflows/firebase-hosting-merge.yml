@@ -101,7 +101,7 @@ jobs:
           test -n "$build_name"
           # Include the attempt so rerunning a deployment remains identifiable.
           build_number="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
-          flutter build web --release \
+          flutter build web --release --source-maps \
             --build-name "$build_name" \
             --build-number "$build_number" \
             --dart-define="APP_BUILD_NAME=$build_name" \
@@ -112,6 +112,27 @@ jobs:
               assert json.load(file)['build_number'] == sys.argv[1]
           PY
           echo "Web build: $build_name ($build_number)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain private web symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudboard-web-symbols-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            build/web/*.map
+            build/web/main.dart.js
+            build/web/version.json
+          retention-days: 90
+
+      - name: Remove source maps from public bundle
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          import re
+          for path in Path('build/web').rglob('*.map'):
+              path.unlink()
+          for path in Path('build/web').rglob('*.js'):
+              path.write_text(re.sub(r'(?m)^//# sourceMappingURL=.*$', '', path.read_text()))
+          PYTHON
 
       - name: Deploy to Firebase Hosting
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

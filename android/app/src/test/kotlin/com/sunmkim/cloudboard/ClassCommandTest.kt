@@ -49,8 +49,16 @@ class ClassCommandTest {
         }
     }
     @Test fun countdownAndWrongAccountRejectCommands() {
-        assertThrows(IllegalArgumentException::class.java) { ClassCommand.apply(state().put("startDelayMs", 3000), config(), "pause", 2000) }
+        assertThrows(IllegalArgumentException::class.java) { ClassCommand.apply(state().put("startDelayMs", 3000), config(), "next", 2000) }
         assertThrows(IllegalArgumentException::class.java) { ClassCommand.apply(state().put("ownerId", "other"), config(), "stop", 1000) }
+    }
+    @Test fun pausedCountdownFreezesAndResumesRemainingDelay() {
+        val paused = ClassCommand.apply(state().put("startDelayMs", 3000), config(), "pause", 2000)
+        assertEquals(2000L, paused.getLong("startDelayMs"))
+        assertEquals(2000L, ClassCommand.position(paused, config(), 50000).countdown)
+        val resumed = ClassCommand.apply(paused, config(), "play", 50000)
+        assertEquals(2000L, resumed.getLong("startDelayMs"))
+        assertEquals(10000L, resumed.getLong("remainingMs"))
     }
     @Test fun commandHasFiniteServerDeadlineAndUniqueIdentity() {
         val first = ClassCommand.apply(state(), config(), "stop", 1000).getJSONObject("notificationCommand")

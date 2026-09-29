@@ -282,7 +282,7 @@ class _PlanCard extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          Text(premium ? '센터 디스플레이·즐겨찾기 제한 없이' : '디스플레이 1대 · 즐겨찾기 3개'),
+          Text(premium ? '센터 디스플레이·저장 슬라이드 제한 없이' : '디스플레이 1대 · 저장 슬라이드 3개'),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: enabled && offer != null

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
+
 import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_countdown.dart';
@@ -89,8 +91,21 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     if (sessionId != null && remoteSession?.id != sessionId) {
       return Scaffold(
         body: Center(
-          child: Text(
-            remote?.hasError == true ? '수업 연결을 확인해 주세요.' : '수업 화면을 준비하고 있습니다…',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                remote?.hasError == true
+                    ? '수업 연결을 확인해 주세요.'
+                    : '수업 화면을 준비하고 있습니다…',
+              ),
+              if (remote?.hasError == true)
+                ErrorDetailsButton(
+                  error: remote!.error,
+                  stack: remote.stackTrace,
+                  action: 'playback.stream',
+                ),
+            ],
           ),
         ),
       );
@@ -300,7 +315,9 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     }, [displayMode, mediaController, actions]);
 
     final hasCurrentStep =
-        state.steps.isNotEmpty && state.index < state.steps.length;
+        state.steps.isNotEmpty &&
+        state.index >= 0 &&
+        state.index < state.steps.length;
     final currentMediaStep = hasCurrentStep ? state.steps[state.index] : null;
     final isPreparing = state.briefing || state.countdownMs > 0;
     final imageSize = playbackImageSize(context);
@@ -443,14 +460,21 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             slide: currentMediaStep?.module,
             onSkip: displayMode
                 ? null
+                : () => unawaited(actions.skipPreparedSlide()),
+            onPause: displayMode ? null : () => unawaited(actions.toggle()),
+            onStartNow: displayMode
+                ? null
                 : () => unawaited(actions.skipCountdown()),
+            isPaused: state.isPaused,
             skipEnabled:
                 !playbackAction.isLoading && (sessionId == null || isConnected),
           ),
         ),
       );
     }
-    if (state.steps.isEmpty || state.index >= state.steps.length) {
+    if (state.steps.isEmpty ||
+        state.index < 0 ||
+        state.index >= state.steps.length) {
       return Scaffold(
         body: Center(
           child: exitFailed.value
@@ -473,6 +497,9 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
           var elapsed = 0;
           for (var i = 0; i < live.steps.length; i++) {
             final item = live.steps[i];
+            if (item.moduleIndex < 0 || item.moduleIndex >= durations.length) {
+              continue;
+            }
             durations[item.moduleIndex] += item.duration;
             if (item.moduleIndex == step.moduleIndex) {
               if (i < live.index) elapsed += item.duration * 1000;

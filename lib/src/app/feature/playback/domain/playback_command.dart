@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
+
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
 
@@ -14,31 +16,53 @@ import 'package:cloud_board/src/app/feature/playback/domain/playback_position.da
   int? remainingMs,
   bool requireBriefing = false,
 }) {
-  if (session.id != expectedSessionId ||
-      session.revision != expectedRevision ||
-      session.status == PlaybackStatus.completed ||
-      serverNowMs >= expiresAtMs) {
-    throw StateError('수업 상태가 변경되었거나 명령이 만료됐습니다.');
+  if (session.id != expectedSessionId) {
+    throw const PlaybackFailure(
+      'session_changed',
+      '다른 수업으로 변경되었습니다. 최신 수업을 확인해 주세요.',
+    );
   }
-  if (requireBriefing && !session.briefing) throw StateError('이미 시작한 수업입니다.');
+  if (session.revision != expectedRevision) {
+    throw PlaybackFailure(
+      'revision_conflict',
+      '다른 컨트롤러의 조작이 먼저 반영되었습니다. 최신 상태를 확인해 주세요.',
+      expectedRevision: expectedRevision,
+      observedRevision: session.revision,
+    );
+  }
+  if (session.status == PlaybackStatus.completed) {
+    throw const PlaybackFailure('session_completed', '이미 종료된 수업입니다.');
+  }
+  if (serverNowMs >= expiresAtMs) {
+    throw const PlaybackFailure(
+      'command_expired',
+      '명령의 유효 시간이 지났습니다. 최신 상태를 확인해 주세요.',
+    );
+  }
+  if (requireBriefing && !session.briefing) {
+    throw const PlaybackFailure('already_started', '이미 시작한 수업입니다.');
+  }
   final durations = playbackDurations(session.workout);
   final position = playbackPosition(session, durations, serverNowMs);
   if (status != 'completed' &&
       (position.index >= durations.length ||
-          (!requireBriefing &&
-              (session.briefing || position.countdownMs > 0)))) {
-    throw StateError('종료되었거나 시작 준비 중인 수업입니다.');
+          (!requireBriefing && session.briefing))) {
+    throw const PlaybackFailure('status_changed', '종료되었거나 시작 준비 중인 수업입니다.');
   }
   if (!requireBriefing &&
       ((status == 'playing' && session.status != PlaybackStatus.paused) ||
           (status == 'paused' && session.status != PlaybackStatus.playing))) {
-    throw StateError('재생 상태가 변경되었습니다.');
+    throw const PlaybackFailure('status_changed', '다른 컨트롤러에서 재생 상태를 변경했습니다.');
   }
   if (stepIndex != null && (stepIndex < 0 || stepIndex >= durations.length)) {
-    throw StateError('이동할 슬라이드를 찾을 수 없습니다.');
+    throw const PlaybackFailure('invalid_position', '이동할 슬라이드를 찾을 수 없습니다.');
   }
   return (
-    status: status ?? session.status.name,
+    status:
+        status ??
+        (stepIndex != null && position.countdownMs > 0
+            ? 'playing'
+            : session.status.name),
     stepIndex: stepIndex ?? position.index,
     remainingMs: status == 'completed'
         ? 0

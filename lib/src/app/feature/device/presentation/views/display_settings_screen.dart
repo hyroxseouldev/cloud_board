@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/animated_display_list.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_preferences_dialog.dart';
@@ -34,6 +37,25 @@ class DisplaySettingsScreen extends HookConsumerWidget {
       if (retained.length != removed.value.length) removed.value = retained;
     });
     final action = ref.watch(deviceClaimControllerProvider);
+    ref.listen(deviceClaimControllerProvider, (previous, next) {
+      if (next.hasError && next.error != previous?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(diagnosticMessage(next.error!)),
+            action: SnackBarAction(
+              label: '상세',
+              onPressed: () => showErrorDetails(
+                context,
+                ref.read(errorReporterProvider),
+                next.error!,
+                next.stackTrace,
+                'pairing.action',
+              ),
+            ),
+          ),
+        );
+      }
+    });
     final modeState = ref.watch(deviceModeControllerProvider);
     final busy = action.isLoading || modeState.isLoading;
     final modeControl = DeviceModeToggle(

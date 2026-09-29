@@ -261,7 +261,7 @@ class _Media implements WorkoutMediaController {
 class _Recovery extends PlaybackRecoveryController {
   int resumes = 0;
   @override
-  Future<void> recover() async {
+  Future<void> recover({bool restartTransport = true}) async {
     resumes++;
     state = const AsyncLoading();
   }

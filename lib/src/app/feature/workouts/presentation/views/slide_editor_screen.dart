@@ -511,10 +511,7 @@ class _SlideEditorBody extends HookConsumerWidget {
       ),
     );
     final workTotal = blocks.fold(0, (sum, b) => sum + b.workSeconds * b.sets);
-    final restTotal = blocks.fold(
-      0,
-      (sum, b) => sum + b.restSeconds * (b.sets - 1),
-    );
+    final restTotal = blocks.fold(0, (sum, b) => sum + b.restSeconds * b.sets);
     final summary = Material(
       color: Theme.of(context).colorScheme.surface,
       child: InkWell(

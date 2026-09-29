@@ -79,13 +79,13 @@ service cloud.firestore {
         && compatibleProfileWrite(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
 
-      // Cloud Function validates item conflicts and account-wide favorite limits.
+      // Cloud Function validates item conflicts and account-wide saved-slide limits.
       match /billing/summary {
         allow read: if isOwner(userId);
         allow write: if false;
       }
       match /{collection}/{itemId} {
-        allow read: if collection in ['slideTemplates', 'slideStyles', 'libraryState'] && isOwner(userId);
+        allow read: if collection in ['slideTemplates', 'slideStyles', 'libraryState', 'libraryFolders'] && isOwner(userId);
         allow write: if false;
       }
       match /settings/workout {

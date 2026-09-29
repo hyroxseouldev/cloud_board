@@ -5,7 +5,7 @@ export function summarizeWorkout(data, id = data.id) {
   const durationSeconds = modules.reduce((total, module) => {
     const blocks = module.intervalBlocks?.length ? module.intervalBlocks : [module];
     return total + blocks.reduce((sum, block) => sum +
-      block.workSeconds * block.sets + block.restSeconds * (block.sets - 1), 0);
+      block.workSeconds * block.sets + block.restSeconds * (module.includeFinalRest === false ? block.sets - 1 : block.sets), 0);
   }, 0);
   const summary = {
     id, name: data.name || '', folder: data.folder || '',
@@ -73,7 +73,7 @@ export async function backfillCatalog(db, uid) {
   } while (cursor);
   await db.runTransaction(async tx => {
     if (!(await tx.get(db.doc(`accountDeletions/${uid}`))).exists) {
-      tx.set(marker, {version: 2});
+      tx.set(marker, {version: 2, restPolicyVersion: 1});
     }
   });
   return checked;

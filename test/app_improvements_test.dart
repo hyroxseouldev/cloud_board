@@ -500,10 +500,10 @@ void main() {
 
     final multiBlockWorkout = workout.copyWith(modules: [restored]);
     final steps = buildPlayerSteps(multiBlockWorkout);
-    expect(steps.map((step) => step.duration), [30, 10, 30, 45]);
-    expect(steps.map((step) => step.isRest), [false, true, false, false]);
-    expect(steps.map((step) => step.totalSets), [2, 2, 2, 1]);
-    expect(workoutDuration(multiBlockWorkout), 115);
+    expect(steps.map((step) => step.duration), [30, 10, 30, 10, 45]);
+    expect(steps.map((step) => step.isRest), [false, true, false, true, false]);
+    expect(steps.map((step) => step.totalSets), [2, 2, 2, 2, 1]);
+    expect(workoutDuration(multiBlockWorkout), 125);
   });
   test('hidden timer progresses on server time and remaining sets recover', () {
     final hidden = workout.copyWith(

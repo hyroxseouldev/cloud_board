@@ -1,3 +1,9 @@
+import 'package:cloud_board/src/app/core/services/realtime_connection.dart';
+export 'package:cloud_board/src/app/core/services/realtime_connection.dart'
+    show waitForPlaybackConnection;
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
+
 import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_command.dart';
 
@@ -12,9 +18,15 @@ import 'package:collection/collection.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 
 class PlaybackRealtimeDataSource {
-  PlaybackRealtimeDataSource(this._database, this._ownerId, {this.serverRead});
+  PlaybackRealtimeDataSource(
+    this._database,
+    this._ownerId, {
+    this.serverRead,
+    this.onAncillaryFailure,
+  });
 
   final Future<Object?> Function(String path)? serverRead;
+  final void Function(Object error, StackTrace stack)? onAncillaryFailure;
   final _refreshes = StreamController<PlaybackSessionModel?>.broadcast();
   bool _recovering = false;
   int _generation = 0;
@@ -219,13 +231,32 @@ class PlaybackRealtimeDataSource {
     bool scheduled = false,
     int? scheduledAtMs,
   }) async {
-    if (!await watchConnected().first.timeout(const Duration(seconds: 3))) {
-      throw StateError('컨트롤러의 서버 연결을 확인해 주세요.');
-    }
+    await waitForPlaybackConnection(watchConnected());
     final devices = (await _user.child('devices').get()).value;
     for (final id in model.targetDeviceIds) {
       if (devices is! Map || !isRegisteredDisplay(devices[id])) {
         throw StateError('연결이 완료된 디스플레이만 재생할 수 있습니다.');
+      }
+    }
+    final hasFinalRest = model.toEntity().workout.modules.any(
+      (m) =>
+          m.includeFinalRest &&
+          (m.restSeconds > 0 || m.intervalBlocks.any((b) => b.restSeconds > 0)),
+    );
+    if (hasFinalRest && devices is Map) {
+      final targets = model.targetDeviceIds.isEmpty
+          ? devices.keys
+          : model.targetDeviceIds;
+      for (final id in targets) {
+        final device = devices[id];
+        if (isRegisteredDisplay(device) &&
+            device is Map &&
+            (device['playbackProtocol'] as num? ?? 1) < 3) {
+          throw const PlaybackFailure(
+            'display_update_required',
+            '마지막 세트의 휴식을 동일하게 재생하려면 연결된 디스플레이 앱을 업데이트해 주세요.',
+          );
+        }
       }
     }
     final json = model.toJson()..['anchorServerMs'] = ServerValue.timestamp;
@@ -266,10 +297,82 @@ class PlaybackRealtimeDataSource {
       updates['devices/$deviceId/displayState'] = 'auto';
       updates['devices/$deviceId/lastCommandAtMs'] = ServerValue.timestamp;
     }
-    await _user.update(updates);
-    final snapshot = await _active.get();
-    await _ensureSnapshot(snapshot.value);
-    return _decode(snapshot.value);
+    // Snapshot creation is immutable. Acquire the active slot transactionally;
+    // two controllers starting together must never silently replace each other.
+    final offset = await _serverOffset();
+    final previous = (await _active.get()).value;
+    if (previous != null) await _ensureSnapshot(previous);
+    if (split) {
+      await _user
+          .child('playbackSnapshots/${model.id}')
+          .set(updates.remove('playbackSnapshots/${model.id}'));
+    }
+    updates.remove('activeSession');
+    final startExpiresAt =
+        DateTime.now().millisecondsSinceEpoch + offset + 6000;
+    json['notificationCommand'] = {
+      'id': model.id,
+      'expiresAtMs': startExpiresAt,
+    };
+    Object? rejection;
+    StackTrace? rejectionStack;
+    final result = await _active
+        .runTransaction((current) {
+          rejection = null;
+          rejectionStack = null;
+          if (DateTime.now().millisecondsSinceEpoch + offset >=
+              startExpiresAt) {
+            rejection = const PlaybackFailure(
+              'command_expired',
+              '수업 시작 요청이 만료됐습니다. 최신 상태를 확인해 주세요.',
+            );
+            return Transaction.abort();
+          }
+          if (current is Map && current['status'] != 'completed') {
+            try {
+              final session = _decode(current).toEntity();
+              // Use the server clock offset already observed by this connection.
+              final running = playbackPosition(
+                session,
+                playbackDurations(session.workout),
+                DateTime.now().millisecondsSinceEpoch + offset,
+              );
+              if (session.briefing ||
+                  session.status == PlaybackStatus.paused ||
+                  running.index < playbackDurations(session.workout).length) {
+                rejection = const PlaybackFailure(
+                  'session_changed',
+                  '이미 진행 중인 수업이 있습니다. 현재 수업을 종료한 뒤 시작해 주세요.',
+                );
+                return Transaction.abort();
+              }
+            } catch (error, stack) {
+              rejection = error;
+              rejectionStack = stack;
+              return Transaction.abort();
+            }
+          }
+          return Transaction.success(json);
+        }, applyLocally: false)
+        .timeout(const Duration(seconds: 8));
+    if (!result.committed || result.snapshot.value == null) {
+      Error.throwWithStackTrace(
+        rejection ??
+            const PlaybackFailure(
+              'session_changed',
+              '수업 시작 상태가 변경되었습니다. 다시 확인해 주세요.',
+            ),
+        rejectionStack ?? StackTrace.current,
+      );
+    }
+    // Ancillary display/event writes must not turn an acknowledged start into
+    // an apparent failure (and provoke a duplicate start).
+    unawaited(
+      _user.update(updates).catchError((Object error, StackTrace stack) {
+        onAncillaryFailure?.call(error, stack);
+      }),
+    );
+    return _decode(result.snapshot.value);
   }
 
   Future<PlaybackSessionModel> update({
@@ -282,9 +385,7 @@ class PlaybackRealtimeDataSource {
     required String expectedSessionId,
     required int expectedRevision,
   }) async {
-    if (!await watchConnected().first.timeout(const Duration(seconds: 3))) {
-      throw StateError('컨트롤러의 서버 연결을 확인해 주세요.');
-    }
+    await waitForPlaybackConnection(watchConnected());
     // Fetch only the small state in v2; the immutable workout is loaded once.
     final cached = _lastWireState;
     final observed =
@@ -296,7 +397,14 @@ class PlaybackRealtimeDataSource {
     if (observed is! Map ||
         observed['id'] != expectedSessionId ||
         observed['revision'] != expectedRevision) {
-      throw StateError('수업 상태가 변경되었습니다. 현재 상태를 확인해 주세요.');
+      throw PlaybackFailure(
+        'revision_conflict',
+        '다른 컨트롤러의 조작이 먼저 반영되었습니다. 최신 상태를 확인해 주세요.',
+        expectedRevision: expectedRevision,
+        observedRevision: observed is Map
+            ? (observed['revision'] as num?)?.toInt()
+            : null,
+      );
     }
     await _ensureSnapshot(observed);
     final offset = await _serverOffset();
@@ -307,12 +415,28 @@ class PlaybackRealtimeDataSource {
     var workoutName = '';
     var shouldRecordCompletion = false;
     var shouldRecordStart = false;
+    Object? rejection;
+    StackTrace? rejectionStack;
     final result = await _active
         .runTransaction((current) {
+          rejection = null;
+          rejectionStack = null;
+          shouldRecordStart = false;
+          shouldRecordCompletion = false;
           if (current is! Map ||
               current['id'] != expectedSessionId ||
               current['revision'] != expectedRevision ||
               current['schemaVersion'] != observed['schemaVersion']) {
+            rejection = PlaybackFailure(
+              'revision_conflict',
+              '다른 컨트롤러의 조작이 먼저 반영되었습니다. 최신 상태를 확인해 주세요.',
+              expectedRevision: expectedRevision,
+              observedRevision: current is Map
+                  ? (current['revision'] as num?)?.toInt()
+                  : null,
+              commandId: commandId,
+            );
+            rejectionStack = StackTrace.current;
             return Transaction.abort();
           }
           final json = Map<String, dynamic>.from(current);
@@ -329,7 +453,9 @@ class PlaybackRealtimeDataSource {
               remainingMs: remainingMs,
               requireBriefing: requireBriefing,
             );
-          } on StateError {
+          } catch (error, stack) {
+            rejection = error;
+            rejectionStack = stack;
             return Transaction.abort();
           }
           shouldRecordStart = requireBriefing;
@@ -354,7 +480,17 @@ class PlaybackRealtimeDataSource {
             'expiresAtMs': expiresAt,
           };
           json['briefing'] = false;
-          json['startDelayMs'] = startDelayMs;
+          final currentSession = _decode(current).toEntity();
+          final position = playbackPosition(
+            currentSession,
+            playbackDurations(currentSession.workout),
+            DateTime.now().millisecondsSinceEpoch + offset,
+          );
+          json['startDelayMs'] = requireBriefing
+              ? startDelayMs
+              : (status == 'paused' || status == 'playing')
+              ? position.countdownMs
+              : 0;
           json['updatedByDeviceId'] = deviceId;
           json['revision'] = ((json['revision'] as num?)?.round() ?? 0) + 1;
           json['anchorServerMs'] = ServerValue.timestamp;
@@ -368,7 +504,14 @@ class PlaybackRealtimeDataSource {
           },
         );
     if (!result.committed || result.snapshot.value == null) {
-      throw StateError('수업 상태가 변경되었거나 명령이 만료됐습니다. 현재 상태를 확인하고 다시 시도해 주세요.');
+      Error.throwWithStackTrace(
+        rejection ??
+            const PlaybackFailure(
+              'revision_conflict',
+              '수업 상태가 변경되었습니다. 최신 상태를 확인해 주세요.',
+            ),
+        rejectionStack ?? StackTrace.current,
+      );
     }
     if (shouldRecordCompletion || shouldRecordStart) {
       final event = _user.child('operations/events').push();

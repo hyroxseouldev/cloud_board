@@ -64,7 +64,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tapAt(tester.getTopRight(seek) - const Offset(1, -24));
         await tester.pump();
-        expect(container.read(provider).positionMs, 12000);
+        expect(container.read(provider).positionMs, 14000);
         expect(find.text('재생 완료'), findsOneWidget);
         await tap('재생');
         expect(container.read(provider).positionMs, 0);

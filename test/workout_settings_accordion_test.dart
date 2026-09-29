@@ -54,7 +54,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final plus = find.byTooltip('슬라이드 추가');
+      final plus = find.byTooltip('슬라이드 실행');
       final position = tester.getRect(plus);
       final list = find.byKey(const ValueKey('workout-slide-list'));
       final before = tester.widget<ReorderableListView>(list).itemCount;
@@ -110,75 +110,77 @@ void main() {
     expect(find.text('수업 사운드'), findsNothing);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('header stays fixed and chips and extended FAB add slides', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          slideEditorRepositoryProvider.overrideWithValue(
-            LocalSlideEditorRepository(SlideEditorLocalDataSource()),
-          ),
+  testWidgets(
+    'header stays fixed and chips and footer add slides; FAB runs playback',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
 
-          fixtureWorkoutDetails,
-          workoutControllerProvider.overrideWith(_LongWorkouts.new),
-          authStateProvider.overrideWith((ref) => Stream.value(null)),
-        ],
-        child: const MaterialApp(
-          home: WorkoutEditorScreen(workoutId: 'workout'),
+            fixtureWorkoutDetails,
+            workoutControllerProvider.overrideWith(_LongWorkouts.new),
+            authStateProvider.overrideWith((ref) => Stream.value(null)),
+          ],
+          child: const MaterialApp(
+            home: WorkoutEditorScreen(workoutId: 'workout'),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final header = tester.getTopLeft(find.text('워크아웃 편집'));
-    final list = find.byKey(const ValueKey('workout-slide-list'));
-    await tester.drag(list, const Offset(0, -420));
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('워크아웃 편집')), header);
-    expect(find.byTooltip('저장').hitTestable(), findsOneWidget);
-    await tester.drag(list, const Offset(0, 1200));
-    await tester.pumpAndSettle();
-    expect(
-      find.widgetWithText(FloatingActionButton, '슬라이드 추가').hitTestable(),
-      findsOneWidget,
-    );
-    expect(find.text('휴식 60초'), findsNothing);
-    expect(find.byTooltip('슬라이드 추가'), findsOneWidget);
-    await tester.tap(find.byType(PopupMenuButton<String>).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('자주 쓰는 슬라이드로 저장'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, '이름'), '나의 워밍업');
-    await tester.tap(find.text('저장'));
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
-    final chip = find.widgetWithText(InputChip, '나의 워밍업');
-    expect(chip, findsOneWidget);
-    await tester.tap(find.text('나의 워밍업'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<ReorderableListView>(list).itemCount, 13);
-    expect(
-      find.widgetWithText(ListTile, '나의 워밍업').hitTestable(),
-      findsOneWidget,
-    );
-    await tester.tap(find.byTooltip('슬라이드 추가'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<ReorderableListView>(list).itemCount, 14);
-    expect(find.text('새 운동 1').hitTestable(), findsOneWidget);
-    await tester.tap(find.byTooltip('나의 워밍업 칩 삭제'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '삭제'));
-    await tester.pumpAndSettle();
-    expect(chip, findsNothing);
-    expect(tester.widget<ReorderableListView>(list).itemCount, 14);
-    expect(tester.getTopLeft(find.text('워크아웃 편집')), header);
-    expect(tester.takeException(), isNull);
-  });
+      );
+      await tester.pumpAndSettle();
+      final header = tester.getTopLeft(find.text('워크아웃 편집'));
+      final list = find.byKey(const ValueKey('workout-slide-list'));
+      await tester.drag(list, const Offset(0, -420));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('워크아웃 편집')), header);
+      expect(find.byTooltip('저장').hitTestable(), findsOneWidget);
+      await tester.drag(list, const Offset(0, 1200));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('슬라이드 실행').hitTestable(), findsOneWidget);
+      expect(find.text('휴식 60초'), findsNothing);
+      expect(find.byTooltip('슬라이드 실행'), findsOneWidget);
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('라이브러리에 저장'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, '이름'),
+        '나의 워밍업',
+      );
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      final chip = find.widgetWithText(InputChip, '나의 워밍업');
+      expect(chip, findsOneWidget);
+      await tester.tap(find.text('나의 워밍업'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<ReorderableListView>(list).itemCount, 13);
+      expect(
+        find.widgetWithText(ListTile, '나의 워밍업').hitTestable(),
+        findsOneWidget,
+      );
+      await tester.drag(list, const Offset(0, -5000));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('add-slide-at-end')),
+      );
+      await tester.tap(find.byTooltip('슬라이드 추가'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<ReorderableListView>(list).itemCount, 14);
+      expect(find.text('새 운동 1').hitTestable(), findsOneWidget);
+      expect(find.byTooltip('나의 워밍업 칩 삭제'), findsNothing);
+      expect(tester.widget<ReorderableListView>(list).itemCount, 14);
+      expect(tester.getTopLeft(find.text('워크아웃 편집')), header);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _TestWorkouts extends FixtureWorkoutController {

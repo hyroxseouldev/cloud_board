@@ -25,7 +25,8 @@ class WorkoutFirestoreDataSource {
   // cached installs can safely fall back to full documents during rollout.
   Future<bool> hasSummaryCatalog(String userId) async {
     final marker = await _firestore.doc('users/$userId/catalog/schema').get();
-    return marker.data()?['version'] == 2;
+    return marker.data()?['version'] == 2 &&
+        marker.data()?['restPolicyVersion'] == 1;
   }
 
   Future<List<WorkoutSummaryModel>> loadCachedSummaries(String userId) async {

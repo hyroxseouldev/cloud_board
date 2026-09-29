@@ -12,6 +12,7 @@ function validId(id) { return typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/
 function validateValue(value, id) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.id !== id ||
       typeof value.name !== 'string' || value.name.length > 200 ||
+      (value.includeFinalRest !== undefined && typeof value.includeFinalRest !== 'boolean') ||
       typeof value.favorite !== 'boolean' || typeof value.category !== 'string' ||
       typeof value.text !== 'string' || typeof value.imageUrl !== 'string' ||
       (value.imageUrl !== '' && !/^https?:\/\//.test(value.imageUrl)) ||
@@ -23,8 +24,22 @@ function validateValue(value, id) {
   }
 }
 
+// Compare serialized DTO defaults consistently with old stored documents.
+// New optional fields must not make every legacy edit look like a conflict.
+export function normalizeLibraryValue(value) {
+  if (!value) return null;
+  return {showTimerGauge: true, favorite: false, category: '', timerColorValue: null,
+    workGaugeColor: null, restGaugeColor: null, workTextColor: null, restTextColor: null,
+    intervalBlocks: [], includeFinalRest: true, ...value,
+    showSets: value.showSets ?? value.showTimer,
+    appearance: {timerX: .84, timerY: .5, timerSize: 1, ringWidth: 30, setsSize: 1, setsOffsetY: .07,
+      showTitle: true, showBody: true, showBrand: true, titleColor: 0xFFFFFFFF, bodyColor: 0xFFFFFFFF,
+      setsColor: 0xB3FFFFFF, brandColor: 0xFFFFFFFF, ...value.appearance},
+  };
+}
+
 // Item patches avoid overwriting unrelated changes from another controller.
-// The shared counter serializes favorites across concurrent device requests.
+// The shared counter serializes saved-slide quota across concurrent device requests.
 export async function mutateSlideLibrary(db, uid, data) {
   if (!uid) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   if (data?.ownerId !== uid) throw new HttpsError('permission-denied', '로그인 계정이 변경되었습니다.');
@@ -51,6 +66,12 @@ export async function mutateSlideLibrary(db, uid, data) {
     if (lock.exists) throw new HttpsError('permission-denied', '탈퇴 처리 중인 계정입니다.');
     const limit = favoriteLimit(entitlement.data());
     let favorites = count.data()?.favoriteCount ?? 0;
+    // Saved slides are the bookmark library. Keep legacy records and flags
+    // intact; initialize the new count once under the shared transaction lock.
+    let saved = count.data()?.savedCount;
+    if (kind === 'templates' && !Number.isSafeInteger(saved)) {
+      saved = (await tx.get(collection)).docs.filter(doc => !doc.data().deleted && doc.data().value).length;
+    }
     let demoted = 0;
     const writes = [];
     for (let i = 0; i < changes.length; i++) {
@@ -60,53 +81,28 @@ export async function mutateSlideLibrary(db, uid, data) {
       if (migration && snapshots[i].exists) continue;
       const current = stored?.deleted ? null : stored?.value ?? null;
       let next = change.value;
-      if (isDeepStrictEqual(current, next)) continue; // Retry after lost response.
-      if (!migration && (!isDeepStrictEqual(current, change.base) || (stored?.deleted && change.base === null))) {
+      if (isDeepStrictEqual(normalizeLibraryValue(current), normalizeLibraryValue(next))) continue; // Retry after lost response.
+      if (!migration && (!isDeepStrictEqual(normalizeLibraryValue(current), normalizeLibraryValue(change.base)) || (stored?.deleted && change.base === null))) {
         throw new HttpsError('aborted', '다른 기기에서 변경한 항목입니다. 새로 불러온 뒤 다시 시도해 주세요.');
       }
       if (kind === 'templates') {
-        const adding = next?.favorite === true && current?.favorite !== true;
-        if (adding && limit !== null && favorites >= limit) {
-          if (!migration) throw new HttpsError('resource-exhausted', '플러스는 즐겨찾기를 3개까지 등록할 수 있어요. 기존 즐겨찾기를 해제하거나 프리미엄을 이용해 주세요.');
-          next = {...next, favorite: false};
-          demoted++;
+        if (!migration && next !== null && current === null && limit !== null && saved >= limit) {
+          throw new HttpsError('resource-exhausted', '플러스는 슬라이드를 3개까지 저장할 수 있어요. 기존 자료는 유지됩니다.');
         }
+        saved += Number(next !== null) - Number(current !== null);
         favorites += Number(next?.favorite === true) - Number(current?.favorite === true);
       }
       writes.push([refs[i], {schemaVersion: 1, deleted: next === null, value: next,
         updatedAt: FieldValue.serverTimestamp()}]);
     }
     for (const [ref, value] of writes) tx.set(ref, value);
-    if (writes.length) tx.set(index, {favoriteCount: favorites, updatedAt: FieldValue.serverTimestamp()});
+    if (writes.length) tx.set(index, {favoriteCount: favorites, ...(kind === 'templates' ? {savedCount: saved} : {}), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
     return {changed: writes.length, demoted};
   });
 }
 
-// A downgrade must also enforce the registration limit for existing favorites.
-// Re-read the current entitlement: delayed/retried events must not undo a newer upgrade.
+// Compatibility entry point retained for existing entitlement triggers.
 export async function reconcileSlideLibraryFavorites(db, uid) {
-  let demoted = 0;
-  for (;;) {
-    const changed = await db.runTransaction(async tx => {
-      const index = db.doc(`users/${uid}/libraryState/index`);
-      const [lock, entitlement, counter] = await tx.getAll(
-        db.doc(`accountDeletions/${uid}`), db.doc(`subscriptionEntitlements/${uid}`), index);
-      const limit = favoriteLimit(entitlement.data());
-      // App Store expiry/downgrade preserves saved selections and content.
-      // mutateSlideLibrary still blocks ADDING beyond the new plan's limit.
-      if (entitlement.data()?.source === 'firebase_billing') return 0;
-      if (lock.exists || limit === null) return 0;
-      const favorites = await tx.get(db.collection(`users/${uid}/slideTemplates`)
-        .where('value.favorite', '==', true).limit(limit + 400).select('value.favorite'));
-      const excess = favorites.docs.slice(limit);
-      for (const item of excess) tx.update(item.ref, {'value.favorite': false, updatedAt: FieldValue.serverTimestamp()});
-      if (excess.length) tx.set(index, {
-        favoriteCount: Math.max(limit, (counter.data()?.favoriteCount ?? favorites.size) - excess.length),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      return excess.length;
-    });
-    demoted += changed;
-    if (changed < 400) return demoted;
-  }
+  // Plan changes never demote or delete saved content. New saves enforce quota.
+  return 0;
 }

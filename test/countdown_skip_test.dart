@@ -22,6 +22,85 @@ final workout =
 
 void main() {
   testWidgets(
+    'pause retains preparation, resume continues and paused skip advances a whole slide',
+    (tester) async {
+      var now = DateTime(2026, 9, 30);
+      final audio = _Audio();
+      final w = workout.copyWith(
+        modules: [
+          ...workout.modules,
+          WorkoutModule.empty('next').copyWith(workSeconds: 10),
+        ],
+      );
+      final container = ProviderContainer(
+        overrides: [
+          serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+          playerClockProvider.overrideWith(
+            (ref) =>
+                () => now,
+          ),
+          beepPlayerProvider.overrideWith((ref) => audio),
+        ],
+      );
+      final provider = playerControllerProvider(w);
+      container.listen(provider, (_, _) {});
+      await tester.pump();
+      final controller = container.read(provider.notifier);
+      now = now.add(const Duration(seconds: 5));
+      await tester.pump(const Duration(milliseconds: 100));
+      await controller.pause();
+      final paused = container.read(provider).countdownMs;
+      expect(paused, 25000);
+      now = now.add(const Duration(seconds: 40));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(provider).countdownMs, paused);
+      expect(audio.starts, 0);
+      await controller.play();
+      now = now.add(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(provider).countdownMs, 23000);
+      await controller.pause();
+      await controller.skipPreparedSlide();
+      expect(container.read(provider).countdownMs, 0);
+      expect(controller.currentStep!.module.id, 'next');
+      expect(container.read(provider).isPaused, isFalse);
+      expect(audio.starts, 1);
+      container.dispose();
+    },
+  );
+  for (final size in [const Size(320, 568), const Size(1280, 720)]) {
+    testWidgets('countdown actions remain distinct and reachable at $size', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final calls = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WorkoutCountdown(
+              workout: workout,
+              seconds: 3,
+              isPaused: true,
+              onSkip: () => calls.add('skip'),
+              onPause: () => calls.add('resume'),
+              onStartNow: () => calls.add('start'),
+            ),
+          ),
+        ),
+      );
+      for (final label in ['슬라이드 건너뛰기', '계속', '바로 시작']) {
+        expect(find.text(label).hitTestable(), findsOneWidget);
+        await tester.tap(find.text(label));
+      }
+      expect(calls, ['skip', 'resume', 'start']);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
     'skip starts full first interval once and cancels preparation deadline',
     (tester) async {
       var now = DateTime(2026, 9, 25);
@@ -165,6 +244,11 @@ class _Commands extends PlaybackActionController {
 }
 
 class _Audio implements BeepPlayer {
+  @override
+  Future<void> stop() async {}
+  @override
+  Future<void> setEnabled(bool enabled) async {}
+
   int starts = 0;
   @override
   Future<void> play([

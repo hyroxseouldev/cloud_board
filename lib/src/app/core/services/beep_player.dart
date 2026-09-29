@@ -15,6 +15,7 @@ class BeepPlayer {
   final Map<(WorkoutSound, bool), Source> _sources = {};
   bool _configured = false;
   bool _disposed = false;
+  bool _enabled = true;
   int _request = 0;
   Future<void> _pending = Future.value();
 
@@ -28,14 +29,14 @@ class BeepPlayer {
       _enqueue(sound, volume, true);
 
   Future<void> _enqueue(WorkoutSound sound, double volume, bool countdown) {
-    if (_disposed || sound == WorkoutSound.silent || volume <= 0) {
+    if (_disposed || !_enabled || sound == WorkoutSound.silent || volume <= 0) {
       return Future.value();
     }
     final request = ++_request;
     final task = _pending.then((_) async {
-      if (_disposed || request != _request) return;
+      if (_disposed || !_enabled || request != _request) return;
       await _configure();
-      if (_disposed || request != _request) return;
+      if (_disposed || !_enabled || request != _request) return;
       final source = _sources.putIfAbsent(
         (sound, countdown),
         () => sound == WorkoutSound.videoBeep
@@ -47,7 +48,7 @@ class BeepPlayer {
             : BytesSource(_createWave(sound), mimeType: 'audio/wav'),
       );
       await _player.stop();
-      if (_disposed || request != _request) return;
+      if (_disposed || !_enabled || request != _request) return;
       await _player.play(
         source,
         volume: volume.clamp(0, 1),
@@ -78,6 +79,20 @@ class BeepPlayer {
       await _player.setReleaseMode(ReleaseMode.stop);
       _configured = true;
     }
+  }
+
+  Future<void> stop() {
+    ++_request;
+    final task = _pending.then((_) async {
+      if (!_disposed) await _player.stop();
+    });
+    _pending = task.catchError((Object _) {});
+    return task;
+  }
+
+  Future<void> setEnabled(bool enabled) {
+    _enabled = enabled;
+    return enabled ? Future.value() : stop();
   }
 
   Future<void> dispose() async {

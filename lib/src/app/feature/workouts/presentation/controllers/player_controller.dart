@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -61,7 +63,8 @@ List<PlayerStep> buildPlayerSteps(Workout workout) {
             isRest: false,
           ),
         );
-        if (set < block.sets && block.restSeconds > 0) {
+        if ((module.includeFinalRest || set < block.sets) &&
+            block.restSeconds > 0) {
           steps.add(
             PlayerStep(
               module: module,
@@ -193,9 +196,26 @@ class PlayerController extends _$PlayerController {
       timelineVersion: ++_timelineVersion,
     );
     _setDeadline(initial);
-    _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) => _tick());
+    if (canControl || ref.read(tvPlaybackVisibleProvider)) {
+      _ticker = Timer.periodic(
+        const Duration(milliseconds: 100),
+        (_) => _tick(),
+      );
+    }
+    if (!canControl) {
+      ref.listen(tvPlaybackVisibleProvider, (_, visible) {
+        if (!visible) {
+          _ticker?.cancel();
+        } else {
+          // Foreground handshake has completed; rebuild from the current session.
+          ref.invalidateSelf();
+        }
+      });
+    }
     Future.microtask(() {
-      if (!ref.mounted || state.timelineVersion != initial.timelineVersion) {
+      if (!ref.mounted ||
+          (!canControl && !ref.read(tvPlaybackVisibleProvider)) ||
+          state.timelineVersion != initial.timelineVersion) {
         return;
       }
       if (index >= steps.length) {
@@ -217,7 +237,9 @@ class PlayerController extends _$PlayerController {
   DateTime _now() => ref.read(playerClockProvider)();
 
   PlayerStep? get currentStep =>
-      state.steps.isEmpty || state.index >= state.steps.length
+      state.steps.isEmpty ||
+          state.index < 0 ||
+          state.index >= state.steps.length
       ? null
       : state.steps[state.index];
 
@@ -313,7 +335,7 @@ class PlayerController extends _$PlayerController {
   }
 
   Future<void> toggle() async {
-    if (!_canCommand || state.briefing || state.countdownMs > 0) return;
+    if (!_canCommand || state.briefing) return;
     if (sessionId == null) {
       _toggleLocal();
       return;
@@ -332,6 +354,7 @@ class PlayerController extends _$PlayerController {
     } else {
       state = state.copyWith(isPaused: true);
       _endsAt = null;
+      unawaited(ref.read(beepPlayerProvider).stop());
       final success = await ref
           .read(playbackActionControllerProvider.notifier)
           .pause(state.remainingMs);
@@ -363,9 +386,26 @@ class PlayerController extends _$PlayerController {
   Future<void> skipCountdown() async {
     if (!_canCommand || state.briefing || state.countdownMs <= 0) return;
     if (sessionId == null) {
+      state = state.copyWith(isPaused: false);
       _goLocal(state.index);
     } else {
       await _seekRemote(state.index);
+    }
+  }
+
+  /// Skip the current slide (including all its sets), not only preparation.
+  Future<void> skipPreparedSlide() async {
+    if (!_canCommand || state.briefing || state.countdownMs <= 0) return;
+    final moduleIndex = currentStep!.moduleIndex;
+    final next = state.steps.indexWhere(
+      (step) => step.moduleIndex > moduleIndex,
+    );
+    final target = next < 0 ? state.steps.length : next;
+    if (sessionId == null) {
+      state = state.copyWith(isPaused: false);
+      _goLocal(target);
+    } else {
+      await _seekRemote(target);
     }
   }
 
@@ -438,6 +478,7 @@ class PlayerController extends _$PlayerController {
     } else {
       state = state.copyWith(isPaused: true);
       _endsAt = null;
+      unawaited(ref.read(beepPlayerProvider).stop());
     }
   }
 
@@ -501,7 +542,12 @@ class PlayerController extends _$PlayerController {
         isPaused: remote.status != PlaybackStatus.playing,
       );
     } else {
-      state = previous;
+      state = previous.copyWith(
+        index: previous.steps.length,
+        remainingMs: 0,
+        countdownMs: 0,
+        isPaused: true,
+      );
     }
     _setDeadline(state);
   }
@@ -509,7 +555,13 @@ class PlayerController extends _$PlayerController {
   void _goLocal(int index, {int? remainingMs}) {
     if (index >= state.steps.length) {
       _ticker?.cancel();
-      state = state.copyWith(index: state.steps.length, remainingMs: 0);
+      _startsAt = null;
+      _endsAt = null;
+      state = state.copyWith(
+        index: state.steps.length,
+        remainingMs: 0,
+        countdownMs: 0,
+      );
       return;
     }
     final safeIndex = max(0, index);

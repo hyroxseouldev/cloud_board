@@ -749,7 +749,7 @@ class _HomeDrawer extends HookWidget {
                     ),
                     onTap: () => Navigator.of(context).pop(),
                   ),
-                  destination('즐겨찾기', Icons.star_outline_rounded, '/slides'),
+                  destination('라이브러리', Icons.star_outline_rounded, '/slides'),
                   const Divider(height: 32),
                   if (user != null)
                     destination(
@@ -1082,6 +1082,7 @@ class _WorkoutActions extends ConsumerWidget {
     final selection = await showWorkoutPreflight(context, detail);
     if (selection == null || !context.mounted) return;
     final steps = buildPlayerSteps(detail);
+    if (steps.isEmpty) return;
     final sessionId = await ref
         .read(playbackActionControllerProvider.notifier)
         .start(

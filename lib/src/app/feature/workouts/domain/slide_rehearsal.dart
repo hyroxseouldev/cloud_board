@@ -27,10 +27,15 @@ SlideRehearsalFrame rehearsalFrame(WorkoutModule module, int positionMs) {
     for (var set = 1; set <= block.sets; set++) {
       for (final rest in [
         false,
-        if (set < block.sets && block.restSeconds > 0) true,
+        if ((module.includeFinalRest || set < block.sets) &&
+            block.restSeconds > 0)
+          true,
       ]) {
         final duration = (rest ? block.restSeconds : block.workSeconds) * 1000;
-        final last = i == blocks.length - 1 && set == block.sets;
+        final last =
+            i == blocks.length - 1 &&
+            set == block.sets &&
+            (rest || !module.includeFinalRest || block.restSeconds == 0);
         if (position < duration || last) {
           return SlideRehearsalFrame(
             blockIndex: i,
