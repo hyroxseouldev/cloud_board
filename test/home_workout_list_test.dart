@@ -229,12 +229,12 @@ void main() {
   ) async {
     for (final (width, columns) in [
       (320.0, 1),
-      (390.0, 2),
-      (640.0, 3),
-      (768.0, 3),
-      (834.0, 3),
-      (960.0, 3),
-      (1600.0, 3),
+      (390.0, 1),
+      (640.0, 1),
+      (768.0, 1),
+      (834.0, 1),
+      (960.0, 1),
+      (1600.0, 1),
     ]) {
       await _mount(
         tester,
@@ -257,11 +257,8 @@ void main() {
       final thumbnail = tester.getSize(
         find.byKey(const ValueKey('workout-thumbnail-w1')),
       );
-      expect(thumbnail.width, lessThanOrEqualTo(kIsWeb ? 400 : 360));
-      expect(
-        thumbnail.width / thumbnail.height,
-        closeTo(width < 600 ? 1 : 16 / 9, .001),
-      );
+      expect(thumbnail.width, lessThanOrEqualTo(72));
+      expect(thumbnail.width / thumbnail.height, closeTo(1, .001));
       await tester.ensureVisible(find.byTooltip('재생'));
       await tester.pumpAndSettle();
       expect(find.byTooltip('재생').hitTestable(), findsOneWidget);
@@ -372,9 +369,9 @@ void main() {
   );
 
   for (final (size, columns) in [
-    (const Size(390, 844), 2),
-    (const Size(834, 1194), 3),
-    (const Size(1194, 834), 3),
+    (const Size(390, 844), 1),
+    (const Size(834, 1194), 1),
+    (const Size(1194, 834), 2),
   ]) {
     testWidgets(
       'continuous lazy scrolling reaches every item and retains filters at $size',

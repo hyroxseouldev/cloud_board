@@ -15,6 +15,8 @@ import 'package:cloud_board/src/app/feature/operations/presentation/views/standb
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/views/login_screen.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/views/email_login_screen.dart';
+import 'package:cloud_board/src/app/feature/update_news/presentation/views/update_news_screen.dart';
+import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/views/device_mode_home_screen.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/views/user_profile_screen.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/views/store_operations_screen.dart';
@@ -81,8 +83,7 @@ GoRouter appRouter(Ref ref) {
     routes: [
       GoRoute(
         path: '/auth-loading',
-        builder: (_, _) =>
-            const Scaffold(body: Center(child: CircularProgressIndicator())),
+        builder: (_, _) => const AppStartupScreen(),
       ),
       GoRoute(
         path: '/onboarding',
@@ -169,6 +170,17 @@ GoRouter appRouter(Ref ref) {
             path: '/profile',
             builder: (_, _) => const UserProfileScreen(),
             routes: [
+              GoRoute(
+                path: 'updates',
+                builder: (_, _) => const UpdateNewsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, state) =>
+                        UpdateNewsDetailScreen(id: state.pathParameters['id']!),
+                  ),
+                ],
+              ),
               GoRoute(
                 path: 'edit',
                 builder: (_, _) => EditUserProfileScreen(guard: profileGuard),

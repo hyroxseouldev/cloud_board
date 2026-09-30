@@ -4,6 +4,7 @@ import 'package:cloud_board/src/app/feature/billing/presentation/views/subscript
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/update_news/presentation/widgets/update_news_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -210,6 +211,7 @@ class AccountManagementSection extends HookConsumerWidget {
                   enabled: !opening.value,
                   onTap: () => open('privacy'),
                 ),
+                const UpdateNewsTile(),
                 const AppVersionTile(),
               ],
             ),

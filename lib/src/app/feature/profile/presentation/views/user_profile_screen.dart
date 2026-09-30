@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/user_profile_controller.dart';
@@ -31,6 +32,15 @@ class UserProfileScreen extends HookConsumerWidget {
     final uid = ref.watch(authStateProvider).value?.id;
     final authAction = ref.watch(authControllerProvider);
     final deletion = ref.watch(accountDeletionControllerProvider);
+    final phoneVerified = ref.watch(
+      onboardingControllerProvider.select(
+        (state) =>
+            !state.isLoading &&
+            !state.hasError &&
+            state.value?.phoneRequired == false &&
+            (state.value?.storeId.isNotEmpty ?? false),
+      ),
+    );
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -88,8 +98,27 @@ class UserProfileScreen extends HookConsumerWidget {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.storefront_outlined),
-                    title: const Text('센터 정보 · 온보딩'),
-                    subtitle: const Text('센터 정보 수정과 1개월 무료 체험'),
+                    title: Wrap(
+                      spacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text('센터 정보 · 온보딩'),
+                        if (phoneVerified)
+                          const Tooltip(
+                            message: '휴대폰 인증 완료',
+                            child: Icon(
+                              Icons.verified_rounded,
+                              size: 20,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      phoneVerified
+                          ? '휴대폰 인증 완료 · 센터 정보 수정'
+                          : '센터 정보 수정과 1개월 무료 체험',
+                    ),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/onboarding?edit=true'),
                   ),

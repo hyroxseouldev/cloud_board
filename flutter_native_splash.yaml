@@ -1,0 +1,20 @@
+# Regenerate with: bash tool/generate_native_splash.sh
+flutter_native_splash:
+  android: true
+  ios: true
+  web: false
+  color: "#FFFFFF"
+  color_dark: "#FFFFFF"
+  # 512 px @4x = 128 logical pixels on phones, tablets and TV.
+  image: assets/splash/mark.png
+  image_dark: assets/splash/mark.png
+  android_gravity: center
+  ios_content_mode: center
+  fullscreen: false
+  android_12:
+    color: "#FFFFFF"
+    color_dark: "#FFFFFF"
+    # 1152 px canvas / 288 dp; the 512 px mark stays inside the 768 px
+    # circular safe area, including its corners, without an icon background.
+    image: assets/splash/mark_android12.png
+    image_dark: assets/splash/mark_android12.png

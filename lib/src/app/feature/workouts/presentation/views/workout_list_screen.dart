@@ -580,9 +580,14 @@ class _WorkoutList extends StatelessWidget {
 }
 
 class _WorkoutRow extends ConsumerWidget {
-  const _WorkoutRow({required this.workout, required this.isBusy});
+  const _WorkoutRow({
+    required this.workout,
+    required this.isBusy,
+    this.framed = false,
+  });
   final WorkoutSummary workout;
   final bool isBusy;
+  final bool framed;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editBlocked = workoutEditBlockReason(
@@ -590,7 +595,10 @@ class _WorkoutRow extends ConsumerWidget {
       workout.id,
     );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: framed ? 16 : 0,
+        vertical: framed ? 16 : 14,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -612,7 +620,7 @@ class _WorkoutRow extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: SizedBox.square(
                       key: ValueKey('workout-thumbnail-${workout.id}'),
-                      dimension: 60,
+                      dimension: framed ? 72 : 60,
                       child: workout.imageSource.isEmpty
                           ? const ColoredBox(
                               color: AppColors.surface,
@@ -630,6 +638,7 @@ class _WorkoutRow extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -650,6 +659,7 @@ class _WorkoutRow extends ConsumerWidget {
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.muted,
+                            height: 1.3,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -658,6 +668,7 @@ class _WorkoutRow extends ConsumerWidget {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
+                            height: 1.3,
                           ),
                         ),
                       ],
@@ -683,27 +694,26 @@ class _WorkoutGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SliverLayoutBuilder(
     builder: (context, constraints) {
-      const gap = 12.0;
-      final columns = !AppStyle.of(context).compact ? 3 : 2;
-      final cardWidth =
-          (constraints.crossAxisExtent - (columns - 1) * gap) / columns;
+      const gap = 16.0;
       final textScaler = MediaQuery.textScalerOf(context);
-      final detailsHeight =
-          12 +
-          (textScaler.scale(18) * 1.25).ceilToDouble() +
+      // Keep room for a two-line title and both 44px actions. Large text or
+      // split view falls back to one column instead of squeezing card content.
+      final minCardWidth = 440 + math.max(0, textScaler.scale(16) - 16) * 10;
+      final columns =
+          ((constraints.crossAxisExtent + gap) / (minCardWidth + gap))
+              .floor()
+              .clamp(1, 2);
+      final textHeight =
+          (textScaler.scale(16) * 1.3).ceilToDouble() * 2 +
           4 +
-          (textScaler.scale(12) * 1.25).ceilToDouble() +
-          12 +
-          math.max(
-            AppStyle.of(context).buttonHeight,
-            textScaler.scale(12) * 1.25,
-          ) +
-          8;
+          (textScaler.scale(12) * 1.3).ceilToDouble() +
+          4 +
+          (textScaler.scale(13) * 1.3).ceilToDouble();
       return SliverGrid.builder(
         key: const ValueKey('workout-grid'),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,
-          mainAxisExtent: cardWidth * 9 / 16 + detailsHeight,
+          mainAxisExtent: 32 + math.max(72, textHeight),
           crossAxisSpacing: gap,
           mainAxisSpacing: gap,
         ),
@@ -888,121 +898,23 @@ class _EmptyWorkouts extends StatelessWidget {
 
 enum _WorkoutAction { edit, duplicate, delete }
 
-class _WorkoutCard extends ConsumerWidget {
+/// Tablet cards share the phone row so both layouts keep the same controls.
+class _WorkoutCard extends StatelessWidget {
   const _WorkoutCard({required this.workout, required this.isBusy});
 
   final WorkoutSummary workout;
   final bool isBusy;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final editBlocked = workoutEditBlockReason(
-      ref.watch(activePlaybackSessionProvider),
-      workout.id,
-    );
-    final folder = workout.folder.isEmpty ? '폴더 없음' : workout.folder;
-    final imageSource = workout.imageSource;
-    const thumbnailRadius = BorderRadius.all(Radius.circular(16));
-    return Material(
-      color: Colors.transparent,
-      borderRadius: thumbnailRadius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: isBusy
-            ? null
-            : () {
-                if (editBlocked != null) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(editBlocked)));
-                  return;
-                }
-                context.push('/editor/${workout.id}');
-              },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AspectRatio(
-              key: ValueKey('workout-thumbnail-${workout.id}'),
-              aspectRatio: 16 / 9,
-              child: ExcludeSemantics(
-                child: imageSource.isEmpty
-                    ? const DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: SlideEditorStyle.surface,
-                          borderRadius: thumbnailRadius,
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.view_carousel_outlined,
-                            size: 36,
-                            color: AppColors.selected,
-                          ),
-                        ),
-                      )
-                    : ClipRRect(
-                        borderRadius: thumbnailRadius,
-                        child: WorkoutImage(
-                          source: imageSource,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    workout.name.isEmpty ? '이름 없음' : workout.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      height: 1.25,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$folder · ${workout.moduleCount}개 슬라이드',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: XonColors.muted,
-                      fontSize: 12,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      durationLabel(workout.durationSeconds),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.25,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  _WorkoutActions(workout: workout, isBusy: isBusy),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+      side: const BorderSide(color: AppColors.line),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: _WorkoutRow(workout: workout, isBusy: isBusy, framed: true),
+  );
 }
 
 class _WorkoutActions extends ConsumerWidget {

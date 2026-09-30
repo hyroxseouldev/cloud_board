@@ -83,5 +83,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 </dict>
 </plist>

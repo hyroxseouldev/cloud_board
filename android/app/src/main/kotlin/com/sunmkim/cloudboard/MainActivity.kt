@@ -4,11 +4,26 @@ import android.app.UiModeManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
+import androidx.core.view.WindowCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var startupViewportConfigured = false
+
+    override fun onPostResume() {
+        super.onPostResume()
+        if (!startupViewportConfigured && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Android 12's system splash is centered across the whole window.
+            // Apply after Flutter restores its default system-bar flags, before
+            // the first draw. Later resumes keep the player's own UI mode.
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            startupViewportConfigured = true
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         ClassNotifications.install(this, flutterEngine.dartExecutor.binaryMessenger)

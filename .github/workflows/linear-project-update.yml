@@ -18,11 +18,17 @@ on:
     paths:
       - .github/workflows/linear-project-update.yml
       - tool/linear-deploy/**
+      - tool/update-news/**
+      - release-notes/**
+      - functions/tools/publish-update-news.mjs
   push:
     branches: [develop]
     paths:
       - .github/workflows/linear-project-update.yml
       - tool/linear-deploy/**
+      - tool/update-news/**
+      - release-notes/**
+      - functions/tools/publish-update-news.mjs
 
 permissions:
   contents: read
@@ -37,7 +43,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tool/linear-deploy/*.test.mjs
+      - run: node --test tool/linear-deploy/*.test.mjs tool/update-news/*.test.mjs
 
   publish:
     if: >-
@@ -47,7 +53,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository &&
       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     # A later notification re-reads all three pipelines, including reruns.
     concurrency:
       group: linear-deployment-publisher
@@ -63,10 +69,28 @@ jobs:
         with:
           node-version: '22'
       - name: Test update publisher
-        run: node --test tool/linear-deploy/*.test.mjs
+        run: node --test tool/linear-deploy/*.test.mjs tool/update-news/*.test.mjs
       - name: Publish or refresh the commit's project update
         env:
           GITHUB_TOKEN: ${{ github.token }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_PROJECT_ID: 00a512bb-598c-4967-b435-e78cadc4e8f2
+          UPDATE_NEWS_OUTPUT_PATH: ${{ runner.temp }}/update-news.json
         run: node tool/linear-deploy/publish.mjs
+      - name: Check for publishable update news
+        id: news
+        run: |
+          if test -f "$RUNNER_TEMP/update-news.json"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Authenticate update news publisher
+        if: steps.news.outputs.exists == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
+      - name: Install update news publisher dependencies
+        if: steps.news.outputs.exists == 'true'
+        run: npm ci --prefix functions
+      - name: Publish app update news
+        if: steps.news.outputs.exists == 'true'
+        run: node functions/tools/publish-update-news.mjs "$RUNNER_TEMP/update-news.json" --apply
