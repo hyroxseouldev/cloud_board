@@ -23,6 +23,14 @@ Future<void> iosClassControls(Ref ref) async {
   final mode = ref.watch(deviceModeControllerProvider);
   final active = ref.watch(activePlaybackSessionProvider);
   final device = ref.watch(deviceIdProvider);
+  final serverOffset = ref.watch(serverTimeOffsetProvider).value ?? 0;
+  final connected = ref.watch(playbackConnectionProvider).value ?? false;
+  if (!auth.isLoading &&
+      !auth.hasError &&
+      (auth.value == null || auth.value!.isAnonymous)) {
+    await channel.invokeMethod<void>('clear');
+    return;
+  }
   // Don't erase a binding while a cold background invocation initializes Flutter.
   if (auth.isLoading ||
       mode.isLoading ||
@@ -52,6 +60,16 @@ Future<void> iosClassControls(Ref ref) async {
       'ownerId': user.uid,
       'sessionId': session.id,
       'deviceId': device.value,
+      'workoutName': session.workout.name,
+      'status': session.status.name,
+      'briefing': session.briefing,
+      'stepIndex': session.stepIndex,
+      'remainingMs': session.remainingMs,
+      'startDelayMs': session.startDelayMs,
+      'anchorServerMs': session.anchorServerMs,
+      'serverOffsetMs': serverOffset,
+      'revision': session.revision,
+      'connected': connected,
       'steps': [
         for (final step in buildPlayerSteps(session.workout))
           {'durationMs': step.duration * 1000, 'moduleIndex': step.moduleIndex},

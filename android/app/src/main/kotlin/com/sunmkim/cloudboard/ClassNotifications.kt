@@ -30,10 +30,11 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Ordinary notifications: no media session, foreground service, audio or offline queue. */
+/** Class notifications, promoted on Android 16+: no media session or foreground service. */
 internal object ClassNotifications {
     private const val CHANNEL = "class_controls_v1"
     private const val ID = 4601
+    internal const val DISMISS = "com.sunmkim.cloudboard.DISMISS_CLASS_NOTIFICATION"
     private const val DATABASE = "https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app"
     private val busy = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor()
@@ -85,7 +86,7 @@ internal object ClassNotifications {
     }
 
     @Synchronized fun clear(context: Context) {
-        prefs(context).edit().remove("config").remove("token").apply()
+        prefs(context).edit().remove("config").remove("token").remove("dismissedSession").apply()
         boundary?.let { main.removeCallbacks(it) }
         boundary = null
         manager(context).cancel(ID)
@@ -93,11 +94,21 @@ internal object ClassNotifications {
 
     private fun load(context: Context): JSONObject? = prefs(context).getString("config", null)?.let { JSONObject(it) }
 
+    @Synchronized fun dismiss(context: Context, sessionId: String?) {
+        if (sessionId == null || load(context)?.optString("sessionId") != sessionId) return
+        // Dismissing the card only hides this session; it never stops the class.
+        prefs(context).edit().putString("dismissedSession", sessionId).remove("token").apply()
+        boundary?.let { main.removeCallbacks(it) }
+        boundary = null
+        manager(context).cancel(ID)
+    }
+
     @Synchronized private fun show(context: Context, config: JSONObject, error: String? = null) {
         val now = System.currentTimeMillis() + config.optLong("serverOffsetMs")
         val position = ClassCommand.position(config, config, now)
         val steps = config.getJSONArray("steps")
         if (position.index >= steps.length() || config.getString("status") == "completed") { clear(context); return }
+        if (prefs(context).getString("dismissedSession", null) == config.getString("sessionId")) return
         if (Build.VERSION.SDK_INT >= 26) {
             val channel = NotificationChannel(CHANNEL, "진행 중인 수업 제어", NotificationManager.IMPORTANCE_LOW)
             channel.description = "연결된 디스플레이 수업의 상태 확인 및 제어"
@@ -108,14 +119,26 @@ internal object ClassNotifications {
         val open = PendingIntent.getActivity(context, ID, Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val step = steps.getJSONObject(position.index)
-        val label = if (config.getString("status") == "paused") "일시정지" else step.getString("label")
-        val text = error ?: if (!config.optBoolean("connected", true)) "연결 확인 필요 · 버튼을 누르면 서버 상태를 확인합니다" else "${step.getString("name")} · $label"
+        val paused = config.getString("status") == "paused"
+        val connected = config.optBoolean("connected", true)
+        val useLiveUpdate = Build.VERSION.SDK_INT >= 36
+        var untilEnd = position.remaining + position.countdown
+        for (i in position.index + 1 until steps.length()) untilEnd += steps.getJSONObject(i).getLong("durationMs")
+        val label = if (paused) "일시정지" else step.getString("label")
+        val text = error ?: if (!connected) "연결 확인 필요 · 버튼을 누르면 서버 상태를 확인합니다"
+            else if (useLiveUpdate) if (paused) "일시정지 · 남은 시간 ${ClassLiveUpdate.remainingText(untilEnd)}" else "예상 남은 시간 · 제어 시 최신 상태 확인"
+            else "${step.getString("name")} · $label"
         val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(config.getString("workoutName"))
             .setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setSubText("최근 확인한 수업 · 제어 시 최신 상태 확인")
             .setContentIntent(open).setOnlyAlertOnce(true).setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOngoing(false)
+        val dismiss = Intent(context, ClassControlReceiver::class.java).setAction(DISMISS)
+            .setData(Uri.parse("cloudboard-control://${config.getString("sessionId")}/dismiss"))
+            .putExtra("sessionId", config.getString("sessionId"))
+        builder.setDeleteIntent(PendingIntent.getBroadcast(context, 0, dismiss,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         val expanded = RemoteViews(context.packageName, R.layout.class_notification)
         expanded.setTextViewText(R.id.class_title, config.getString("workoutName"))
         expanded.setTextViewText(R.id.class_status, text)
@@ -136,15 +159,15 @@ internal object ClassNotifications {
             if (config.getString("status") == "paused") action("play", "재개", android.R.drawable.ic_media_play)
             else action("pause", "일시정지", android.R.drawable.ic_media_pause)
             action("next", "다음", android.R.drawable.ic_media_next)
-            action("stop", "종료", android.R.drawable.ic_menu_close_clear_cancel)
+            if (!useLiveUpdate) action("stop", "종료", android.R.drawable.ic_menu_close_clear_cancel)
         }
-        if (error == null) builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
+        if (useLiveUpdate) {
+            ClassLiveUpdate.apply(builder, untilEnd, paused, connected && error == null)
+        } else if (error == null) builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomBigContentView(expanded)
         // Bound stale notifications after process eviction; paused sessions require reopening
         // after 15 minutes. No periodic service is kept alive just to refresh the clock.
-        var untilEnd = position.remaining + position.countdown
-        for (i in position.index + 1 until steps.length()) untilEnd += steps.getJSONObject(i).getLong("durationMs")
-        val lease = if (config.getString("status") == "paused") 900000L else untilEnd.coerceIn(1L, 900000L)
+        val lease = if (paused) 900000L else untilEnd.coerceIn(1L, 900000L)
         builder.setTimeoutAfter(lease)
         if (manager(context).areNotificationsEnabled()) {
             try { manager(context).notify(ID, builder.build()) } catch (_: SecurityException) { /* App controls remain available. */ }
@@ -257,6 +280,10 @@ internal object ClassNotifications {
 
 class ClassControlReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ClassNotifications.DISMISS) {
+            ClassNotifications.dismiss(context, intent.getStringExtra("sessionId"))
+            return
+        }
         val pending = goAsync()
         ClassNotifications.receive(context, intent) { pending.finish() }
     }
