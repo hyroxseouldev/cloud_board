@@ -20,12 +20,34 @@ part 'android_class_notifications.g.dart';
 Future<bool> androidClassNotifications(Ref ref) async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
   const channel = MethodChannel('com.sunmkim.cloudboard/class_controls');
-  final user = ref.watch(firebaseAccountUserProvider).value;
-  final mode = ref.watch(deviceModeControllerProvider).value;
-  final session = ref.watch(activePlaybackSessionProvider).value;
+  final auth = ref.watch(firebaseAccountUserProvider);
+  final modeState = ref.watch(deviceModeControllerProvider);
+  final sessionState = ref.watch(activePlaybackSessionProvider);
   final connected = ref.watch(playbackConnectionProvider).value ?? false;
   final offset = ref.watch(serverTimeOffsetProvider).value ?? 0;
-  final deviceId = ref.watch(deviceIdProvider).value;
+  final deviceState = ref.watch(deviceIdProvider);
+  if (!auth.isLoading &&
+      !auth.hasError &&
+      (auth.value == null || auth.value!.isAnonymous)) {
+    await channel.invokeMethod<void>('clear');
+    return true;
+  }
+  // A cold engine must not erase the native binding or a user's dismissal
+  // while Firebase/provider state is still loading.
+  if (auth.isLoading ||
+      modeState.isLoading ||
+      sessionState.isLoading ||
+      deviceState.isLoading ||
+      auth.hasError ||
+      modeState.hasError ||
+      sessionState.hasError ||
+      deviceState.hasError) {
+    return true;
+  }
+  final user = auth.value;
+  final mode = modeState.value;
+  final session = sessionState.value;
+  final deviceId = deviceState.value;
   if (user == null ||
       user.isAnonymous ||
       mode != DeviceMode.controller ||

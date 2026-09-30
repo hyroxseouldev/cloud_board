@@ -11,6 +11,12 @@ final class ClassControlsPlugin: NSObject, FlutterPlugin {
         registrar.addMethodCallDelegate(ClassControlsPlugin(), channel: channel)
     }
     func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--class-activity-preview") {
+            result(nil)
+            return
+        }
+        #endif
         switch call.method {
         case "configure":
             guard let json = call.arguments as? String, let data = json.data(using: .utf8),
@@ -18,9 +24,21 @@ final class ClassControlsPlugin: NSObject, FlutterPlugin {
                   value["ownerId"] is String, value["sessionId"] is String else {
                 result(FlutterError(code: "invalid-binding", message: "잘못된 수업 정보입니다.", details: nil)); return
             }
+            if let stored = UserDefaults.standard.data(forKey: Self.bindingKey),
+               let current = try? JSONSerialization.jsonObject(with: stored) as? [String: Any],
+               current["sessionId"] as? String == value["sessionId"] as? String,
+               current["ownerId"] as? String == value["ownerId"] as? String,
+               ((current["revision"] as? NSNumber)?.int64Value ?? 0) > ((value["revision"] as? NSNumber)?.int64Value ?? 0) {
+                result(nil)
+                return
+            }
             UserDefaults.standard.set(data, forKey: Self.bindingKey)
+            Task { @MainActor in ClassLiveActivityCoordinator.shared.project(value) }
             result(nil)
-        case "clear": UserDefaults.standard.removeObject(forKey: Self.bindingKey); result(nil)
+        case "clear":
+            UserDefaults.standard.removeObject(forKey: Self.bindingKey)
+            Task { @MainActor in ClassLiveActivityCoordinator.shared.project(nil) }
+            result(nil)
         default: result(FlutterMethodNotImplemented)
         }
     }
@@ -30,7 +48,7 @@ final class ClassControlsPlugin: NSObject, FlutterPlugin {
 actor ClassControlsService {
     static let shared = ClassControlsService()
     private var busy = false
-    func execute(_ action: String) async throws {
+    func execute(_ action: String, expectedSessionID: String? = nil) async throws {
         guard !busy else { throw ClassControlCommand.Failure(message: "앞선 명령을 처리 중입니다.") }
         busy = true
         let started = Date()
@@ -39,6 +57,9 @@ actor ClassControlsService {
               let config = try JSONSerialization.jsonObject(with: binding) as? [String: Any],
               let owner = config["ownerId"] as? String else {
             throw ClassControlCommand.Failure(message: "앱에서 연결 수업을 먼저 시작해 주세요.")
+        }
+        guard expectedSessionID == nil || expectedSessionID == config["sessionId"] as? String else {
+            throw ClassControlCommand.Failure(message: "이 카드는 이전 수업입니다. 앱에서 현재 수업을 확인해 주세요.")
         }
         if FirebaseApp.app() == nil { FirebaseApp.configure() }
         guard let user = Auth.auth().currentUser, !user.isAnonymous, user.uid == owner else {
@@ -60,9 +81,16 @@ actor ClassControlsService {
         let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
               let etag = http.value(forHTTPHeaderField: "ETag"),
-              let dateHeader = http.value(forHTTPHeaderField: "Date"),
-              let state = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+              let dateHeader = http.value(forHTTPHeaderField: "Date") else {
             throw ClassControlCommand.Failure(message: "수업 상태를 확인하지 못했습니다. 연결을 확인해 주세요.")
+        }
+        let payload = try JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
+        if payload is NSNull {
+            await endActivity(config: config)
+            throw ClassControlCommand.Failure(message: "수업이 종료되었습니다.")
+        }
+        guard let state = payload as? [String: Any] else {
+            throw ClassControlCommand.Failure(message: "수업 상태를 확인하지 못했습니다.")
         }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -71,20 +99,65 @@ actor ClassControlsService {
         guard let serverDate = formatter.date(from: dateHeader) else {
             throw ClassControlCommand.Failure(message: "서버 시간을 확인하지 못했습니다.")
         }
+        guard state["id"] as? String == config["sessionId"] as? String,
+              state["ownerId"] as? String == owner else {
+            await endActivity(config: config)
+            throw ClassControlCommand.Failure(message: "수업이 종료되었거나 변경됐습니다.")
+        }
+        guard bindingMatches(config), Auth.auth().currentUser?.uid == owner else {
+            throw ClassControlCommand.Failure(message: "계정 또는 수업이 변경되었습니다.")
+        }
+        await publish(state, config: config, serverDate: serverDate)
+        if action == "refresh" { return }
         let updated = try ClassControlCommand.apply(state, config: config, action: action,
             now: Int64(serverDate.timeIntervalSince1970 * 1000))
         guard Date().timeIntervalSince(started) < 6, Auth.auth().currentUser?.uid == owner,
-              UserDefaults.standard.data(forKey: ClassControlsPlugin.bindingKey) == binding else {
+              bindingMatches(config) else {
             throw ClassControlCommand.Failure(message: "계정 또는 수업이 변경되었습니다.")
         }
         request.httpMethod = "PUT"
         request.setValue(etag, forHTTPHeaderField: "if-match")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: updated)
-        let (_, result) = try await transport.data(for: request)
-        guard let committed = result as? HTTPURLResponse, committed.statusCode == 200 else {
+        let (committedData, result) = try await transport.data(for: request)
+        guard let committed = result as? HTTPURLResponse, committed.statusCode == 200,
+              let confirmed = try JSONSerialization.jsonObject(with: committedData) as? [String: Any] else {
             throw ClassControlCommand.Failure(message: "명령이 반영되지 않았습니다. 앱에서 현재 수업을 확인해 주세요.")
         }
+        if bindingMatches(config), Auth.auth().currentUser?.uid == owner {
+            let confirmedDate = committed.value(forHTTPHeaderField: "Date").flatMap(formatter.date(from:)) ?? serverDate
+            await publish(confirmed, config: config, serverDate: confirmedDate)
+        }
+    }
+
+    private func bindingMatches(_ config: [String: Any]) -> Bool {
+        guard let data = UserDefaults.standard.data(forKey: ClassControlsPlugin.bindingKey),
+              let current = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return ["ownerId", "sessionId", "deviceId"].allSatisfy { current[$0] as? String == config[$0] as? String }
+    }
+
+    private func publish(_ state: [String: Any], config: [String: Any], serverDate: Date) async {
+        guard bindingMatches(config) else { return }
+        var value = config
+        for key in ["status", "briefing", "stepIndex", "remainingMs", "startDelayMs", "anchorServerMs", "revision"] {
+            value[key] = state[key]
+        }
+        value["serverOffsetMs"] = Int64(serverDate.timeIntervalSince1970 * 1000 - Date().timeIntervalSince1970 * 1000)
+        value["connected"] = true
+        // A foreground stream may already have projected a later revision.
+        if let data = UserDefaults.standard.data(forKey: ClassControlsPlugin.bindingKey),
+           let current = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           ((current["revision"] as? NSNumber)?.int64Value ?? 0) > ((value["revision"] as? NSNumber)?.int64Value ?? 0) { return }
+        if let data = try? JSONSerialization.data(withJSONObject: value) {
+            UserDefaults.standard.set(data, forKey: ClassControlsPlugin.bindingKey)
+        }
+        await ClassLiveActivityCoordinator.shared.project(value).value
+    }
+
+    private func endActivity(config: [String: Any]) async {
+        guard bindingMatches(config) else { return }
+        UserDefaults.standard.removeObject(forKey: ClassControlsPlugin.bindingKey)
+        await ClassLiveActivityCoordinator.shared.project(nil).value
     }
 }
 
