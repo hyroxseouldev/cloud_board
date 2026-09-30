@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -23,6 +24,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 
@@ -46,13 +48,16 @@ class _WorkoutListBody extends HookConsumerWidget {
     useListenable(search);
     final searchOpen = useState(false);
     final searchFocus = useFocusNode();
-    final previousPage = useRef(0);
     final previousOffset = useRef(0.0);
+    final previousPage = useRef(0);
     final pendingDrawerRoute = useRef<String?>(null);
     final selectedFolder = useState<String?>(null);
-    final page = useState(0);
     final scroll = useScrollController();
     final refreshing = useState(false);
+    final page = useState(0);
+    final mode = ref.watch(workoutListModeControllerProvider);
+    final showModeSelector = ref.watch(workoutListModeSelectorEnabledProvider);
+    final paged = mode == WorkoutListMode.paged;
     final workouts = ref.watch(workoutControllerProvider);
     final items = workouts.value ?? const <WorkoutSummary>[];
     final folders = useMemoized(
@@ -84,12 +89,24 @@ class _WorkoutListBody extends HookConsumerWidget {
           }),
       [items, query, folder],
     );
-    final pageCount = (filtered.length / _pageSize).ceil().clamp(1, 1 << 30);
+    final pageCount = math.max(1, (filtered.length / _pageSize).ceil());
     final currentPage = page.value.clamp(0, pageCount - 1);
-    final pageItems = filtered
-        .skip(currentPage * _pageSize)
-        .take(_pageSize)
-        .toList();
+    final visibleItems = paged
+        ? filtered.skip(currentPage * _pageSize).take(_pageSize).toList()
+        : filtered;
+    // If refresh/deletion removes the last page, stay on the surviving page
+    // even if more items are added later.
+    useEffect(() {
+      final requestedPage = page.value;
+      if (requestedPage != currentPage) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted && page.value == requestedPage) {
+            page.value = currentPage;
+          }
+        });
+      }
+      return null;
+    }, [currentPage, page.value]);
     final user = ref.watch(authStateProvider).value;
     final authAction = ref.watch(authControllerProvider);
     final workoutAction = ref.watch(workoutActionControllerProvider);
@@ -106,10 +123,20 @@ class _WorkoutListBody extends HookConsumerWidget {
         workoutAction.isLoading ||
         playbackAction.isLoading;
 
-    void changePage(int value) {
-      page.value = value;
+    void resetScroll() {
       if (scroll.hasClients) scroll.jumpTo(0);
     }
+
+    void changePage(int value) {
+      page.value = value;
+      resetScroll();
+    }
+
+    ref.listen(workoutListModeControllerProvider, (_, _) {
+      previousPage.value = 0;
+      previousOffset.value = 0;
+      changePage(0);
+    });
 
     Future<void> refresh() async {
       if (refreshing.value || isBusy) return;
@@ -232,6 +259,39 @@ class _WorkoutListBody extends HookConsumerWidget {
                   },
                   icon: const Icon(Icons.search_rounded),
                 ),
+              if (showModeSelector)
+                PopupMenuButton<WorkoutListMode>(
+                  tooltip: '목록 표시 방식',
+                  enabled: !isBusy,
+                  icon: const Icon(Icons.view_agenda_outlined),
+                  initialValue: mode,
+                  onSelected: ref
+                      .read(workoutListModeControllerProvider.notifier)
+                      .select,
+                  itemBuilder: (_) => [
+                    CheckedPopupMenuItem(
+                      value: WorkoutListMode.continuous,
+                      checked: !paged,
+                      child: const Text('무한 스크롤'),
+                    ),
+                    CheckedPopupMenuItem(
+                      value: WorkoutListMode.paged,
+                      checked: paged,
+                      child: const Text('페이지 넘기기'),
+                    ),
+                  ],
+                ),
+              if (kIsWeb)
+                IconButton(
+                  tooltip: '새로고침',
+                  onPressed: refreshing.value || isBusy ? null : refresh,
+                  icon: refreshing.value
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
               const SizedBox(width: 8),
             ],
           ),
@@ -240,139 +300,161 @@ class _WorkoutListBody extends HookConsumerWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final mobile = constraints.maxWidth < 600;
-                return Column(
-                  children: [
-                    _HomeWidth(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (!searchOpen.value &&
-                                constraints.maxHeight > 440) ...[
-                              Text(
-                                user == null || user.displayName.trim().isEmpty
-                                    ? '반가워요.'
-                                    : '${user.displayName}님, 반가워요.',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.3,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              _DisplayStatus(
-                                onPressed: isBusy
-                                    ? null
-                                    : () => context.push('/displays'),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            Row(
+                final maxWidth = kIsWeb
+                    ? AppStyle.webPageMaxWidth
+                    : AppStyle.cardWidth * 2 + 60;
+                final inset =
+                    24.0 + math.max(0, constraints.maxWidth - maxWidth) / 2;
+                // Keep the header, empty state and rows in one scrollable, so a
+                // pull can start anywhere and short lists can still overscroll.
+                return ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    dragDevices: {
+                      ...ScrollConfiguration.of(context).dragDevices,
+                      PointerDeviceKind.mouse,
+                    },
+                  ),
+                  child: RefreshIndicator(
+                    onRefresh: refresh,
+                    child: CustomScrollView(
+                      key: const ValueKey('workout-scroll'),
+                      controller: scroll,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      slivers: [
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(inset, 16, inset, 4),
+                          sliver: SliverToBoxAdapter(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    '워크아웃 ${filtered.length}개',
+                                if (!searchOpen.value &&
+                                    constraints.maxHeight > 440) ...[
+                                  Text(
+                                    user == null ||
+                                            user.displayName.trim().isEmpty
+                                        ? '반가워요.'
+                                        : '${user.displayName}님, 반가워요.',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 24,
                                       fontWeight: FontWeight.w700,
+                                      height: 1.3,
                                     ),
                                   ),
-                                ),
-                                Flexible(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: _FolderMenu(
-                                      folders: folders,
-                                      selected: folder,
-                                      onChanged: (value) {
-                                        selectedFolder.value = value;
-                                        changePage(0);
-                                      },
-                                    ),
+                                  const SizedBox(height: 4),
+                                  _DisplayStatus(
+                                    onPressed: isBusy
+                                        ? null
+                                        : () => context.push('/displays'),
                                   ),
-                                ),
-                              ],
-                            ),
-                            if (pageCount > 1)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  IconButton(
-                                    tooltip: '이전 페이지',
-                                    onPressed: currentPage > 0
-                                        ? () => changePage(currentPage - 1)
-                                        : null,
-                                    icon: const Icon(
-                                      Icons.chevron_left_rounded,
-                                    ),
-                                  ),
-                                  Semantics(
-                                    label:
-                                        '전체 $pageCount페이지 중 ${currentPage + 1}페이지',
-                                    liveRegion: true,
-                                    child: Text(
-                                      '${currentPage + 1} / $pageCount',
-                                      key: const ValueKey(
-                                        'workout-page-indicator',
-                                      ),
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: '다음 페이지',
-                                    onPressed: currentPage + 1 < pageCount
-                                        ? () => changePage(currentPage + 1)
-                                        : null,
-                                    icon: const Icon(
-                                      Icons.chevron_right_rounded,
-                                    ),
-                                  ),
+                                  const SizedBox(height: 12),
                                 ],
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: AsyncValueWidget<List<WorkoutSummary>>(
-                        value: workouts,
-                        onRetry: refreshing.value ? null : refresh,
-                        data: (items) => RefreshIndicator(
-                          onRefresh: refresh,
-                          child: items.isEmpty || filtered.isEmpty
-                              ? CustomScrollView(
-                                  key: const ValueKey('workout-empty-scroll'),
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  slivers: [
-                                    SliverFillRemaining(
-                                      hasScrollBody: false,
-                                      child: items.isEmpty
-                                          ? const _EmptyWorkouts()
-                                          : const Center(
-                                              child: Text('검색 결과가 없습니다.'),
-                                            ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '워크아웃 ${filtered.length}개',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    Flexible(
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: _FolderMenu(
+                                          folders: folders,
+                                          selected: folder,
+                                          onChanged: (value) {
+                                            selectedFolder.value = value;
+                                            changePage(0);
+                                          },
+                                        ),
+                                      ),
                                     ),
                                   ],
-                                )
-                              : mobile
-                              ? _WorkoutList(
-                                  items: pageItems,
-                                  isBusy: isBusy,
-                                  controller: scroll,
-                                )
-                              : _WorkoutGrid(
-                                  items: pageItems,
-                                  isBusy: isBusy,
-                                  controller: scroll,
                                 ),
+                                if (paged && filtered.isNotEmpty)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        tooltip: '이전 페이지',
+                                        onPressed: currentPage > 0
+                                            ? () => changePage(currentPage - 1)
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.chevron_left_rounded,
+                                        ),
+                                      ),
+                                      Semantics(
+                                        label:
+                                            '전체 $pageCount페이지 중 ${currentPage + 1}페이지',
+                                        liveRegion: true,
+                                        child: Text(
+                                          '${currentPage + 1} / $pageCount',
+                                          key: const ValueKey(
+                                            'workout-page-indicator',
+                                          ),
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: '다음 페이지',
+                                        onPressed: currentPage + 1 < pageCount
+                                            ? () => changePage(currentPage + 1)
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.chevron_right_rounded,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+                        if (!workouts.hasValue)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: AsyncValueWidget<List<WorkoutSummary>>(
+                              value: workouts,
+                              onRetry: refreshing.value ? null : refresh,
+                              data: (_) => const SizedBox.shrink(),
+                            ),
+                          )
+                        else if (filtered.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: items.isEmpty
+                                ? const _EmptyWorkouts()
+                                : const Center(child: Text('검색 결과가 없습니다.')),
+                          )
+                        else
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(
+                              inset,
+                              mobile ? 8 : 24,
+                              inset,
+                              AppStyle.of(context).floatingSize + 40,
+                            ),
+                            sliver: mobile
+                                ? _WorkoutList(
+                                    items: visibleItems,
+                                    isBusy: isBusy,
+                                  )
+                                : _WorkoutGrid(
+                                    items: visibleItems,
+                                    isBusy: isBusy,
+                                  ),
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
                 );
               },
             ),
@@ -389,22 +471,6 @@ class _WorkoutListBody extends HookConsumerWidget {
       ),
     );
   }
-}
-
-class _HomeWidth extends StatelessWidget {
-  const _HomeWidth({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxWidth: kIsWeb
-            ? AppStyle.webPageMaxWidth
-            : AppStyle.cardWidth * 2 + 60,
-      ),
-      child: child,
-    ),
-  );
 }
 
 class _FolderMenu extends StatelessWidget {
@@ -492,26 +558,22 @@ class _DisplayStatus extends ConsumerWidget {
 }
 
 class _WorkoutList extends StatelessWidget {
-  const _WorkoutList({
-    required this.items,
-    required this.isBusy,
-    required this.controller,
-  });
+  const _WorkoutList({required this.items, required this.isBusy});
   final List<WorkoutSummary> items;
   final bool isBusy;
-  final ScrollController controller;
   @override
-  Widget build(BuildContext context) => ListView.separated(
+  Widget build(BuildContext context) => SliverList.builder(
     key: const ValueKey('workout-list'),
-    controller: controller,
-    physics: const AlwaysScrollableScrollPhysics(),
-    padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
     itemCount: items.length,
-    separatorBuilder: (_, _) => const Divider(height: 1),
+    findChildIndexCallback: (key) {
+      final index = items.indexWhere((item) => ValueKey(item.id) == key);
+      return index < 0 ? null : index;
+    },
     itemBuilder: (_, index) => Column(
+      key: ValueKey(items[index].id),
       children: [
         _WorkoutRow(workout: items[index], isBusy: isBusy),
-        if (index == items.length - 1) const Divider(height: 1),
+        const Divider(height: 1),
       ],
     ),
   );
@@ -614,32 +676,17 @@ class _WorkoutRow extends ConsumerWidget {
 }
 
 class _WorkoutGrid extends StatelessWidget {
-  const _WorkoutGrid({
-    required this.items,
-    required this.isBusy,
-    required this.controller,
-  });
-
+  const _WorkoutGrid({required this.items, required this.isBusy});
   final List<WorkoutSummary> items;
   final bool isBusy;
-  final ScrollController controller;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) => SliverLayoutBuilder(
     builder: (context, constraints) {
-      const horizontalPadding = 24.0;
       const gap = 12.0;
-      final gridWidth = math.min(
-        constraints.maxWidth,
-        kIsWeb ? AppStyle.webPageMaxWidth : AppStyle.cardWidth * 2 + 60,
-      );
-      final columns = !AppStyle.of(context).compact
-          ? 3
-          : gridWidth < 360
-          ? 1
-          : 2;
+      final columns = !AppStyle.of(context).compact ? 3 : 2;
       final cardWidth =
-          (gridWidth - horizontalPadding * 2 - (columns - 1) * gap) / columns;
+          (constraints.crossAxisExtent - (columns - 1) * gap) / columns;
       final textScaler = MediaQuery.textScalerOf(context);
       final detailsHeight =
           12 +
@@ -652,29 +699,22 @@ class _WorkoutGrid extends StatelessWidget {
             textScaler.scale(12) * 1.25,
           ) +
           8;
-      return Center(
-        child: SizedBox(
-          width: gridWidth,
-          child: GridView.builder(
-            key: const ValueKey('workout-grid'),
-            controller: controller,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              24,
-              horizontalPadding,
-              AppStyle.of(context).floatingSize + 40,
-            ),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisExtent: cardWidth * 9 / 16 + detailsHeight,
-              crossAxisSpacing: gap,
-              mainAxisSpacing: gap,
-            ),
-            itemCount: items.length,
-            itemBuilder: (context, index) =>
-                _WorkoutCard(workout: items[index], isBusy: isBusy),
-          ),
+      return SliverGrid.builder(
+        key: const ValueKey('workout-grid'),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisExtent: cardWidth * 9 / 16 + detailsHeight,
+          crossAxisSpacing: gap,
+          mainAxisSpacing: gap,
+        ),
+        itemCount: items.length,
+        findChildIndexCallback: (key) {
+          final index = items.indexWhere((item) => ValueKey(item.id) == key);
+          return index < 0 ? null : index;
+        },
+        itemBuilder: (_, index) => KeyedSubtree(
+          key: ValueKey(items[index].id),
+          child: _WorkoutCard(workout: items[index], isBusy: isBusy),
         ),
       );
     },

@@ -65,5 +65,7 @@ class _User implements User {
   @override
   bool get isAnonymous => false;
   @override
+  List<UserInfo> get providerData => [];
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
@@ -7,6 +8,9 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
@@ -20,6 +24,143 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'mode selector is hidden by default but can enable both browsing modes',
+    (tester) async {
+      final container = await _mount(tester, _CatalogRepository(_catalog(25)));
+      expect(find.byTooltip('목록 표시 방식'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('workout-page-indicator')),
+        findsNothing,
+      );
+      expect(
+        container.read(workoutListModeControllerProvider),
+        WorkoutListMode.continuous,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+
+      await _mount(
+        tester,
+        _CatalogRepository(_catalog(25)),
+        showModeSelector: true,
+      );
+      await tester.tap(find.byTooltip('목록 표시 방식'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.ancestor(
+          of: find.text('페이지 넘기기'),
+          matching: find.byType(CheckedPopupMenuItem<WorkoutListMode>),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('1 / 3'), findsOneWidget);
+      expect(
+        tester
+            .widget<SliverList>(find.byKey(const ValueKey('workout-list')))
+            .delegate
+            .estimatedChildCount,
+        12,
+      );
+      await tester.tap(find.byTooltip('다음 페이지'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 3'), findsOneWidget);
+      await tester.tap(find.byTooltip('목록 표시 방식'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.ancestor(
+          of: find.text('무한 스크롤'),
+          matching: find.byType(CheckedPopupMenuItem<WorkoutListMode>),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('workout-page-indicator')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<SliverList>(find.byKey(const ValueKey('workout-list')))
+            .delegate
+            .estimatedChildCount,
+        25,
+      );
+      expect(_title('수업 01').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final size in [const Size(390, 844), const Size(834, 1194)]) {
+    testWidgets(
+      'paged browsing restores search, resets filters, clamps deleted pages and refreshes at $size',
+      (tester) async {
+        final repository = _CatalogRepository(_catalog(25));
+        final container = await _mount(tester, repository, size: size);
+        container
+            .read(workoutListModeControllerProvider.notifier)
+            .select(WorkoutListMode.paged);
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('목록 표시 방식'), findsNothing);
+        expect(find.text('1 / 3'), findsOneWidget);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byWidgetPredicate(
+                  (w) => w is IconButton && w.tooltip == '이전 페이지',
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+        await tester.tap(find.byTooltip('다음 페이지'));
+        await tester.pumpAndSettle();
+        expect(_title('수업 13').hitTestable(), findsOneWidget);
+        await _openSearch(tester);
+        await tester.enterText(find.byType(TextField), '수업 25');
+        await tester.pumpAndSettle();
+        expect(find.text('1 / 1'), findsOneWidget);
+        expect(_title('수업 25'), findsOneWidget);
+        await tester.tap(find.byTooltip('검색 닫기'));
+        await tester.pumpAndSettle();
+        expect(find.text('2 / 3'), findsOneWidget);
+        expect(_title('수업 13').hitTestable(), findsOneWidget);
+        await _folder(tester, 'Stationd');
+        expect(find.text('1 / 2'), findsOneWidget);
+        await tester.tap(find.byTooltip('다음 페이지'));
+        await tester.pumpAndSettle();
+        expect(find.text('2 / 2'), findsOneWidget);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byWidgetPredicate(
+                  (w) => w is IconButton && w.tooltip == '다음 페이지',
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+        container.read(workoutControllerProvider.notifier).remove('w13');
+        await tester.pumpAndSettle();
+        expect(find.text('1 / 1'), findsOneWidget);
+        container
+            .read(workoutControllerProvider.notifier)
+            .upsert(_catalog(13).last);
+        await tester.pumpAndSettle();
+        expect(find.text('1 / 2'), findsOneWidget);
+        await tester.tap(find.byTooltip('다음 페이지'));
+        await tester.pumpAndSettle();
+        final refresh = tester
+            .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+            .onRefresh();
+        await tester.pumpAndSettle();
+        await refresh;
+        expect(find.text('2 / 2'), findsOneWidget);
+        expect(repository.loads, 2);
+        expect(find.text('Stationd'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('drawer closes before navigating and stays closed on return', (
     tester,
   ) async {
@@ -53,48 +194,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('closing search restores folder, page and scroll position', (
+  testWidgets('closing search restores folder and continuous scroll position', (
     tester,
   ) async {
     await _mount(tester, _CatalogRepository(_catalog(25)));
     await _folder(tester, 'Stationd');
-    await tester.tap(find.byTooltip('다음 페이지'));
-    await tester.pumpAndSettle();
-    await _openSearch(tester);
-    await tester.enterText(find.byType(TextField), '수업 01');
-    await tester.pumpAndSettle();
-    expect(
-      find
-          .text('수업 01', findRichText: false)
-          .evaluate()
-          .where((e) => e.widget is Text)
-          .length,
-      1,
+    await tester.scrollUntilVisible(
+      _title('수업 13'),
+      350,
+      scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.byTooltip('검색 닫기'));
-    await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNothing);
-    expect(find.text('Stationd'), findsOneWidget);
-    expect(find.text('2 / 2'), findsOneWidget);
-    expect(find.text('수업 13'), findsOneWidget);
-  });
-
-  testWidgets('search close restores a scrolled list', (tester) async {
-    await _mount(tester, _CatalogRepository(_catalog(12)));
-    final list = find.byKey(const ValueKey('workout-list'));
-    await tester.drag(list, const Offset(0, -300));
-    await tester.pumpAndSettle();
-    final before = tester.widget<ListView>(list).controller!.offset;
+    final scroll = find.byKey(const ValueKey('workout-scroll'));
+    final before = tester.widget<CustomScrollView>(scroll).controller!.offset;
     expect(before, greaterThan(0));
     await _openSearch(tester);
     await tester.enterText(find.byType(TextField), '수업 01');
     await tester.pumpAndSettle();
+    expect(_title('수업 01'), findsOneWidget);
     await tester.tap(find.byTooltip('검색 닫기'));
     await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
     expect(
-      tester.widget<ListView>(list).controller!.offset,
+      tester.widget<CustomScrollView>(scroll).controller!.offset,
       closeTo(before, 1),
     );
+    expect(_title('수업 13').hitTestable(), findsOneWidget);
+    await tester.drag(scroll, const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    expect(find.text('Stationd'), findsOneWidget);
   });
 
   testWidgets('cards retain bounds and thumbnail ratio as the window resizes', (
@@ -116,7 +243,7 @@ void main() {
         textScale: 2,
       );
       if (width >= 600) {
-        final grid = tester.widget<GridView>(
+        final grid = tester.widget<SliverGrid>(
           find.byKey(const ValueKey('workout-grid')),
         );
         expect(
@@ -130,7 +257,7 @@ void main() {
       final thumbnail = tester.getSize(
         find.byKey(const ValueKey('workout-thumbnail-w1')),
       );
-      expect(thumbnail.width, lessThanOrEqualTo(360));
+      expect(thumbnail.width, lessThanOrEqualTo(kIsWeb ? 400 : 360));
       expect(
         thumbnail.width / thumbnail.height,
         closeTo(width < 600 ? 1 : 16 / 9, .001),
@@ -167,9 +294,13 @@ void main() {
     await _mount(tester, _CatalogRepository(_catalog(25)), commands: commands);
     await _openSearch(tester);
     await tester.enterText(find.byType(TextField), '수업');
-    await tester.tap(find.byTooltip('다음 페이지'));
+    await tester.drag(
+      find.byKey(const ValueKey('workout-scroll')),
+      const Offset(0, -300),
+    );
     await tester.pumpAndSettle();
-    final grid = find.byKey(const ValueKey('workout-list'));
+    final grid = find.byKey(const ValueKey('workout-scroll'));
+    final before = tester.widget<CustomScrollView>(grid).controller!.offset;
     final gridElement = tester.element(grid);
     for (final result in [
       const AsyncData<String?>(null),
@@ -185,7 +316,7 @@ void main() {
         findsNothing,
       );
       expect(tester.element(grid), same(gridElement));
-      expect(find.text('2 / 3'), findsOneWidget);
+      expect(tester.widget<CustomScrollView>(grid).controller!.offset, before);
       expect(
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
         '수업',
@@ -218,9 +349,9 @@ void main() {
           updatedByDeviceId: 'controller',
         ),
       );
-      await tester.ensureVisible(find.text('수업 01'));
+      await tester.ensureVisible(_title('수업 01'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('수업 01'));
+      await tester.tap(_title('수업 01'));
       await tester.pumpAndSettle();
       expect(find.text(workoutPlayingEditMessage), findsOneWidget);
       await tester.ensureVisible(find.byTooltip('워크아웃 메뉴'));
@@ -245,164 +376,148 @@ void main() {
     (const Size(834, 1194), 3),
     (const Size(1194, 834), 3),
   ]) {
-    testWidgets('pagination and filters stay consistent at $size', (
-      tester,
-    ) async {
-      final repository = _CatalogRepository(_catalog(25));
-      final container = await _mount(tester, repository, size: size);
-      final mobile = size.width < 600;
-      int cardCount() => mobile
-          ? (tester
-                        .widget<ListView>(
-                          find.byKey(const ValueKey('workout-list')),
-                        )
-                        .childrenDelegate
-                        .estimatedChildCount! +
-                    1) ~/
-                2
-          : tester
-                .widget<GridView>(find.byKey(const ValueKey('workout-grid')))
-                .childrenDelegate
-                .estimatedChildCount!;
-      expect(find.text('1 / 3'), findsOneWidget);
-      expect(cardCount(), 12);
-      expect(find.byType(FloatingActionButton), findsOneWidget);
-      if (!mobile) {
-        final grid = tester.widget<GridView>(
-          find.byKey(const ValueKey('workout-grid')),
+    testWidgets(
+      'continuous lazy scrolling reaches every item and retains filters at $size',
+      (tester) async {
+        final repository = _CatalogRepository(_catalog(60));
+        final container = await _mount(tester, repository, size: size);
+        final mobile = size.width < 600;
+        expect(find.byTooltip('다음 페이지'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('workout-page-indicator')),
+          findsNothing,
         );
         expect(
-          (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
-              .crossAxisCount,
-          columns,
+          _title('수업 60'),
+          findsNothing,
+        ); // Offscreen rows are not built eagerly.
+        if (!mobile) {
+          final grid = tester.widget<SliverGrid>(
+            find.byKey(const ValueKey('workout-grid')),
+          );
+          expect(
+            (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+                .crossAxisCount,
+            columns,
+          );
+        }
+        await tester.scrollUntilVisible(
+          _title('수업 60'),
+          600,
+          scrollable: find.byType(Scrollable).first,
+          maxScrolls: 30,
         );
-      }
-      expect(
-        tester
-            .widget<IconButton>(
-              find.byWidgetPredicate(
-                (widget) => widget is IconButton && widget.tooltip == '이전 페이지',
-              ),
-            )
-            .onPressed,
-        isNull,
-      );
-      await tester.drag(
-        find.byKey(ValueKey(mobile ? 'workout-list' : 'workout-grid')),
-        const Offset(0, -350),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == '다음 페이지',
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('2 / 3'), findsOneWidget);
-      await tester.ensureVisible(find.text('수업 13'));
-      await tester.pumpAndSettle();
-      expect(find.text('수업 13').hitTestable(), findsOneWidget);
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == '다음 페이지',
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('3 / 3'), findsOneWidget);
-      expect(cardCount(), 1);
-      expect(
-        tester
-            .widget<IconButton>(
-              find.byWidgetPredicate(
-                (widget) => widget is IconButton && widget.tooltip == '다음 페이지',
-              ),
-            )
-            .onPressed,
-        isNull,
-      );
-
-      // Removing the only row on the last page clamps to the preceding page.
-      container.read(workoutControllerProvider.notifier).remove('w25');
-      await tester.pumpAndSettle();
-      expect(find.text('2 / 2'), findsOneWidget);
-      expect(cardCount(), 12);
-      await _openSearch(tester);
-      await tester.enterText(find.byType(TextField), '수업 01');
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('workout-page-indicator')),
-        findsNothing,
-      );
-      expect(cardCount(), 1);
-      await tester.tap(find.byTooltip('검색 지우기'));
-      await tester.pumpAndSettle();
-      expect(find.text('1 / 2'), findsOneWidget);
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == '다음 페이지',
-        ),
-      );
-      await tester.pumpAndSettle();
-      await _folder(tester, 'Stationd');
-      expect(find.text('1 / 2'), findsOneWidget);
-      expect(find.text('워크아웃 13개'), findsOneWidget);
-      await _openSearch(tester);
-      await tester.enterText(find.byType(TextField), '수업 14');
-      await tester.pumpAndSettle();
-      expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
-      await tester.tap(find.byTooltip('검색 지우기'));
-      await tester.pumpAndSettle();
-      await _folder(tester, '다른 폴더');
-      expect(find.text('워크아웃 11개'), findsOneWidget);
-      for (var i = 14; i <= 24; i++) {
-        container.read(workoutControllerProvider.notifier).remove('w$i');
-      }
-      await tester.pumpAndSettle();
-      // The selected folder disappeared; all remaining workouts are reachable.
-      expect(find.text('모든 폴더'), findsOneWidget);
-      expect(find.text('워크아웃 13개'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+        await tester.pumpAndSettle();
+        expect(_title('수업 60').hitTestable(), findsOneWidget);
+        expect(find.byType(FloatingActionButton).hitTestable(), findsOneWidget);
+        container.read(workoutControllerProvider.notifier).remove('w60');
+        await tester.pumpAndSettle();
+        expect(_title('수업 60'), findsNothing);
+        await _openSearch(tester);
+        await tester.enterText(find.byType(TextField), '수업 59');
+        await tester.pumpAndSettle();
+        expect(_title('수업 59').hitTestable(), findsOneWidget);
+        expect(find.text('워크아웃 1개'), findsOneWidget);
+        await tester.tap(find.byTooltip('검색 지우기'));
+        await tester.pumpAndSettle();
+        await _folder(tester, 'Stationd');
+        expect(find.text('워크아웃 13개'), findsOneWidget);
+        await tester.enterText(find.byType(TextField), '수업 59');
+        await tester.pumpAndSettle();
+        expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
+        await tester.tap(find.byTooltip('검색 지우기'));
+        await tester.pumpAndSettle();
+        await _folder(tester, '다른 폴더');
+        for (var i = 14; i <= 59; i++) {
+          container.read(workoutControllerProvider.notifier).remove('w$i');
+        }
+        await tester.pumpAndSettle();
+        expect(find.text('모든 폴더'), findsOneWidget);
+        expect(find.text('워크아웃 13개'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
-  testWidgets('refresh waits for all pages and retains the active filter', (
+  testWidgets(
+    'refresh waits for the server, preserves browsing, and coalesces requests',
+    (tester) async {
+      final repository = _CatalogRepository(_catalog(13));
+      final container = await _mount(tester, repository);
+      await _folder(tester, 'Stationd');
+      await _openSearch(tester);
+      await tester.enterText(find.byType(TextField), '수업');
+      await tester.pumpAndSettle();
+      final scroll = find.byKey(const ValueKey('workout-scroll'));
+      await tester.drag(scroll, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      final before = tester.widget<CustomScrollView>(scroll).controller!.offset;
+      final originalElement = tester.element(scroll);
+      repository.gate = Completer<void>();
+      repository.server = [
+        ...repository.cached,
+        _catalog(14).last.copyWith(folder: 'Stationd'),
+      ];
+      final controller = container.read(workoutControllerProvider.notifier);
+      final refresh = tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+          .onRefresh();
+      final duplicate = controller.refresh();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(repository.loads, 2);
+      expect(tester.element(scroll), same(originalElement));
+      expect(
+        tester.widget<CustomScrollView>(scroll).controller!.offset,
+        before,
+      );
+      repository.gate!.complete();
+      await refresh;
+      await duplicate;
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '수업',
+      );
+      expect(
+        tester.widget<CustomScrollView>(scroll).controller!.offset,
+        before,
+      );
+      controller.upsert(_catalog(1).single.copyWith(name: '새 제목'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
+    for (final count in [0, 1]) {
+      testWidgets('$kind pull refresh works over the header with $count rows', (
+        tester,
+      ) async {
+        final repository = _CatalogRepository(_catalog(count));
+        await _mount(tester, repository);
+        // The old fixed header was outside the refresh scrollable.
+        final point = tester.getCenter(find.text('워크아웃 $count개'));
+        final gesture = await tester.startGesture(point, kind: kind);
+        await gesture.moveBy(const Offset(0, 340));
+        await tester.pump();
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(repository.loads, 2);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets('desktop web offers an accessible refresh action', (
     tester,
   ) async {
-    final repository = _CatalogRepository(_catalog(13));
-    await _mount(tester, repository);
-    await _folder(tester, 'Stationd');
-    await _openSearch(tester);
-    await tester.enterText(find.byType(TextField), '수업');
+    if (!kIsWeb) return;
+    final repository = _CatalogRepository(_catalog(1));
+    await _mount(tester, repository, size: const Size(1280, 800));
+    await tester.tap(find.byTooltip('새로고침'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == '다음 페이지',
-      ),
-    );
-    await tester.pumpAndSettle();
-    repository.gate = Completer<void>();
-    repository.server = [
-      ...repository.cached,
-      _catalog(14).last.copyWith(folder: 'Stationd'),
-    ];
-    final refresh = tester
-        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
-        .onRefresh();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
     expect(repository.loads, 2);
-    expect(find.text('2 / 2'), findsOneWidget);
-    expect(find.text('워크아웃 13개'), findsOneWidget);
-    repository.gate!.complete();
-    await refresh;
-    await tester.pumpAndSettle();
-    expect(find.text('워크아웃 14개'), findsOneWidget);
-    expect(find.text('2 / 2'), findsOneWidget);
-    expect(find.text('Stationd'), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      '수업',
-    );
     expect(tester.takeException(), isNull);
   });
 
@@ -418,7 +533,7 @@ void main() {
           await tester.pumpAndSettle();
         }
         await tester.drag(
-          find.byKey(const ValueKey('workout-empty-scroll')),
+          find.byKey(const ValueKey('workout-scroll')),
           const Offset(0, 320),
         );
         await tester.pumpAndSettle();
@@ -429,7 +544,9 @@ void main() {
     );
   }
 
-  testWidgets('failed reload offers retry and can recover', (tester) async {
+  testWidgets('failed reload retains the list and the next pull can recover', (
+    tester,
+  ) async {
     final repository = _CatalogRepository(_catalog(1));
     await _mount(tester, repository);
     repository.fail = true;
@@ -438,9 +555,13 @@ void main() {
         .onRefresh();
     await tester.pumpAndSettle();
     expect(find.text('새로고침하지 못했습니다. 다시 시도해 주세요.'), findsOneWidget);
-    expect(find.text('다시 시도'), findsOneWidget);
+    expect(_title('수업 01'), findsOneWidget);
+    expect(find.text('다시 시도'), findsNothing);
     repository.fail = false;
-    await tester.tap(find.text('다시 시도'));
+    await tester.drag(
+      find.byKey(const ValueKey('workout-scroll')),
+      const Offset(0, 340),
+    );
     await tester.pumpAndSettle();
     expect(
       find
@@ -475,6 +596,7 @@ Future<ProviderContainer> _mount(
   PlaybackSession? activeSession,
   _Commands? commands,
   bool testProfileRoute = false,
+  bool? showModeSelector,
   double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
@@ -504,6 +626,10 @@ Future<ProviderContainer> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (showModeSelector != null)
+          workoutListModeSelectorEnabledProvider.overrideWithValue(
+            showModeSelector,
+          ),
         displayDevicesProvider.overrideWith((ref) => Stream.value([])),
         if (commands != null)
           playbackActionControllerProvider.overrideWith(() => commands),
@@ -564,7 +690,7 @@ class _CatalogRepository implements WorkoutRepository {
   bool fail = false;
   int loads = 0;
   @override
-  Stream<List<WorkoutSummary>> watchSummaries() =>
+  Stream<List<WorkoutSummary>> watchSummaries({bool requireServer = false}) =>
       watch().map((items) => items.map(summarizeWorkout).toList());
   @override
   Future<Workout?> loadOne(String id) async =>
@@ -595,3 +721,6 @@ Future<void> _openSearch(WidgetTester tester) async {
     await tester.pumpAndSettle();
   }
 }
+
+Finder _title(String text) =>
+    find.byWidgetPredicate((widget) => widget is Text && widget.data == text);

@@ -35,7 +35,9 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       (await _firestore.loadOne(_requireUser().uid, workoutId))?.toEntity();
 
   @override
-  Stream<List<WorkoutSummary>> watchSummaries() async* {
+  Stream<List<WorkoutSummary>> watchSummaries({
+    bool requireServer = false,
+  }) async* {
     final userId = _requireUser().uid;
     // Retain full cached details already used by earlier app versions for offline
     // playback. Do not download every detail just to construct this catalog.
@@ -44,7 +46,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     if (visible.isNotEmpty) yield _sortedSummaries(visible.values);
     try {
       if (!await _firestore.hasSummaryCatalog(userId)) {
-        await for (final items in watch()) {
+        await for (final items in _watch(requireServer: requireServer)) {
           yield items.map(summarizeWorkout).toList();
         }
         return;
@@ -65,6 +67,8 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
         }
       }
     } catch (_) {
+      // An explicit refresh must not report success after serving only cache.
+      if (requireServer) rethrow;
       if (visible.isNotEmpty) return;
       // Old detail caches remain usable even before the first summary sync.
       final legacyCache = await _firestore.loadCached(userId);
@@ -105,7 +109,9 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   Future<List<Workout>> load() => watch().last;
 
   @override
-  Stream<List<Workout>> watch() async* {
+  Stream<List<Workout>> watch() => _watch();
+
+  Stream<List<Workout>> _watch({bool requireServer = false}) async* {
     final user = _requireUser();
     final cached = await _firestore.loadCached(user.uid);
     final visible = {for (final item in cached) item.id: item.toEntity()};
@@ -141,6 +147,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
         yield _sorted(visible.values);
       }
     } catch (error, stack) {
+      if (requireServer) rethrow;
       if (visible.isEmpty) rethrow;
       // Cached workouts remain usable offline, including search and schedules.
       debugPrint(

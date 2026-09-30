@@ -3,6 +3,7 @@ import 'package:cloud_board/src/app/feature/billing/presentation/views/subscript
 
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -30,6 +31,10 @@ class AccountManagementSection extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isTv = ref.watch(androidTvProvider);
     final opening = useState(false);
+    final confirmingDeletion = useState(false);
+    final hasPassword = ref.watch(
+      authStateProvider.select((auth) => auth.value?.hasPassword ?? false),
+    );
     final deletion = ref.watch(accountDeletionControllerProvider);
     final processing = deletion.value == AccountDeletionResult.processing;
     final deleting = deletion.isLoading || processing;
@@ -89,40 +94,53 @@ class AccountManagementSection extends HookConsumerWidget {
     }
 
     Future<void> requestDeletion() async {
-      if (deleting) return;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AppAlertDialog(
-          title: const Text('클라우드보드 계정을 삭제할까요?'),
-          content: const Text(
-            '프로필, 워크아웃, 업로드 파일, 매장 설정과 연결 기기 정보를 삭제하고 진행 중인 수업을 종료합니다. 삭제한 콘텐츠는 복구할 수 없습니다.\n\n'
-            '계정을 삭제해도 Apple·Google Play 구독의 자동 갱신은 해지되지 않습니다. 구입한 스토어에서 별도로 해지해 주세요.\n\n'
-            'Google 또는 Apple 계정 자체는 삭제되지 않습니다. 본인 확인 후 실제 삭제가 시작됩니다. 백업과 삭제 처리 기록의 보관 기간은 개인정보처리방침을 따릅니다.',
+      if (deleting || confirmingDeletion.value) return;
+      confirmingDeletion.value = true;
+      try {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AppAlertDialog(
+            title: const Text('클라우드보드 계정을 삭제할까요?'),
+            content: const Text(
+              '프로필, 워크아웃, 업로드 파일, 매장 설정과 연결 기기 정보를 삭제하고 진행 중인 수업을 종료합니다. 삭제한 콘텐츠는 복구할 수 없습니다.\n\n'
+              '계정을 삭제해도 Apple·Google Play 구독의 자동 갱신은 해지되지 않습니다. 구입한 스토어에서 별도로 해지해 주세요.\n\n'
+              'Google 또는 Apple 계정 자체는 삭제되지 않습니다. 본인 확인 후 실제 삭제가 시작됩니다. 백업과 삭제 처리 기록의 보관 기간은 개인정보처리방침을 따릅니다.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => openLink(Uri.parse(googleSubscriptionsUrl)),
+                child: const Text('Google Play 구독 관리'),
+              ),
+              TextButton(
+                onPressed: () => openLink(Uri.parse(appleSubscriptionsUrl)),
+                child: const Text('Apple 구독 관리'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('본인 확인 후 삭제'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => openLink(Uri.parse(googleSubscriptionsUrl)),
-              child: const Text('Google Play 구독 관리'),
-            ),
-            TextButton(
-              onPressed: () => openLink(Uri.parse(appleSubscriptionsUrl)),
-              child: const Text('Apple 구독 관리'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('본인 확인 후 삭제'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed == true && context.mounted) {
-        await ref
-            .read(accountDeletionControllerProvider.notifier)
-            .deleteAccount();
+        );
+        if (confirmed == true && context.mounted) {
+          String? password;
+          if (hasPassword) {
+            password = await showDialog<String>(
+              context: context,
+              builder: (_) => const _DeletionPasswordDialog(),
+            );
+            if (password == null || !context.mounted) return;
+          }
+          await ref
+              .read(accountDeletionControllerProvider.notifier)
+              .deleteAccount(password: password);
+        }
+      } finally {
+        if (context.mounted) confirmingDeletion.value = false;
       }
     }
 
@@ -197,6 +215,46 @@ class AccountManagementSection extends HookConsumerWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _DeletionPasswordDialog extends HookWidget {
+  const _DeletionPasswordDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final password = useTextEditingController();
+    final form = useMemoized(() => GlobalKey<FormState>());
+    void confirm() {
+      if (form.currentState!.validate()) {
+        Navigator.of(context).pop(password.text);
+      }
+    }
+
+    return AppAlertDialog(
+      title: const Text('비밀번호로 본인 확인'),
+      content: Form(
+        key: form,
+        child: TextFormField(
+          controller: password,
+          autofocus: true,
+          obscureText: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(labelText: '현재 비밀번호'),
+          validator: (value) =>
+              value == null || value.isEmpty ? '비밀번호를 입력해 주세요.' : null,
+          onFieldSubmitted: (_) => confirm(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(onPressed: confirm, child: const Text('계정 삭제')),
       ],
     );
   }

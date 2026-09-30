@@ -22,7 +22,7 @@ final workout =
 
 void main() {
   testWidgets(
-    'pause retains preparation, resume continues and paused skip advances a whole slide',
+    'pause retains preparation, resume continues and start now keeps the prepared slide',
     (tester) async {
       var now = DateTime(2026, 9, 30);
       final audio = _Audio();
@@ -60,9 +60,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(container.read(provider).countdownMs, 23000);
       await controller.pause();
-      await controller.skipPreparedSlide();
+      await controller.skipCountdown();
       expect(container.read(provider).countdownMs, 0);
-      expect(controller.currentStep!.module.id, 'next');
+      expect(controller.currentStep!.module.id, 'first');
+      expect(container.read(provider).remainingMs, 60000);
       expect(container.read(provider).isPaused, isFalse);
       expect(audio.starts, 1);
       container.dispose();
@@ -84,18 +85,18 @@ void main() {
               workout: workout,
               seconds: 3,
               isPaused: true,
-              onSkip: () => calls.add('skip'),
               onPause: () => calls.add('resume'),
               onStartNow: () => calls.add('start'),
             ),
           ),
         ),
       );
-      for (final label in ['슬라이드 건너뛰기', '계속', '바로 시작']) {
+      expect(find.text('슬라이드 건너뛰기'), findsNothing);
+      for (final label in ['계속', '바로 시작']) {
         expect(find.text(label).hitTestable(), findsOneWidget);
         await tester.tap(find.text(label));
       }
-      expect(calls, ['skip', 'resume', 'start']);
+      expect(calls, ['resume', 'start']);
       expect(tester.takeException(), isNull);
     });
   }
@@ -201,24 +202,24 @@ void main() {
     );
   }
 
-  testWidgets('skip action is optional and supports disabled state', (
+  testWidgets('start now action is optional and supports disabled state', (
     tester,
   ) async {
     var calls = 0;
-    Future<void> render(VoidCallback? skip, {bool enabled = true}) =>
+    Future<void> render(VoidCallback? startNow, {bool enabled = true}) =>
         tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
               body: WorkoutCountdown(
                 workout: workout,
                 seconds: 3,
-                onSkip: skip,
-                skipEnabled: enabled,
+                onStartNow: startNow,
+                actionsEnabled: enabled,
               ),
             ),
           ),
         );
-    final button = find.byKey(const ValueKey('skip-countdown'));
+    final button = find.byKey(const ValueKey('start-countdown-now'));
     await render(null);
     expect(button, findsNothing);
     await render(() => calls++);

@@ -7,5 +7,5 @@ extension AccountDeletionResultMessage on AccountDeletionResult {
 }
 
 abstract interface class AccountDeletionRepository {
-  Future<AccountDeletionResult> deleteAccount();
+  Future<AccountDeletionResult> deleteAccount({String? password});
 }

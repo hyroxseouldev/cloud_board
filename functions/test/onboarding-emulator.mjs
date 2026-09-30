@@ -18,6 +18,16 @@ async function register(uid,phone) {await sendOnboardingCode(db,uid,phone,secret
 try {
   await env.clearFirestore();await realtime.ref().remove();
   await assert.rejects(handleOnboarding({db,realtime,auth:{uid:'anon',token:{firebase:{sign_in_provider:'anonymous'}}},input:{},secret,send}),{code:'unauthenticated'});
+  // Email/password identities follow the same SMS ownership and trial gates.
+  const emailRequest = input => handleOnboarding({db,realtime,auth:{uid:'email-owner',token:{firebase:{sign_in_provider:'password'}}},input,secret,send});
+  assert.equal((await emailRequest({action:'load'})).phoneRequired,true);
+  await assert.rejects(emailRequest({action:'startTrial'}));
+  await emailRequest({action:'sendCode',phone:'+821055556666'});
+  const emailState=await emailRequest({action:'verifyCode',code:codes.get('+821055556666')});
+  assert.equal(emailState.phoneRequired,false);
+  await emailRequest({action:'complete',profile,revision:0,step:3});
+  await emailRequest({action:'startTrial'});
+  assert.equal((await realtime.ref('subscriptionAccess/email-owner').get()).val().plan,'premium');
   await register('owner','+821011112222');
   let state=await readOnboarding(db,'owner');
   assert.equal(state.phoneRequired,false);assert.equal(state.step,0);

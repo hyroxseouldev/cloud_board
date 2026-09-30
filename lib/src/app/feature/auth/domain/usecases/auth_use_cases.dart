@@ -39,3 +39,21 @@ class SignInWithApple {
 @riverpod
 SignInWithApple signInWithApple(Ref ref) =>
     SignInWithApple(ref.watch(authRepositoryProvider));
+
+class EmailAuthActions {
+  const EmailAuthActions(this._repository);
+  final AuthRepository _repository;
+
+  Future<void> signIn(String email, String password) async =>
+      _repository.signInWithEmail(email.trim(), password);
+
+  Future<void> createAccount(String email, String password) async =>
+      _repository.createEmailAccount(email.trim(), password);
+
+  Future<void> resetPassword(String email) =>
+      _repository.sendPasswordReset(email.trim());
+}
+
+@riverpod
+EmailAuthActions emailAuthActions(Ref ref) =>
+    EmailAuthActions(ref.watch(authRepositoryProvider));

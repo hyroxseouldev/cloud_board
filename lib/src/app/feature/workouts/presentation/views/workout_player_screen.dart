@@ -458,15 +458,12 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             seconds: (state.countdownMs / 1000).ceil(),
             slideName: currentMediaStep?.module.name,
             slide: currentMediaStep?.module,
-            onSkip: displayMode
-                ? null
-                : () => unawaited(actions.skipPreparedSlide()),
             onPause: displayMode ? null : () => unawaited(actions.toggle()),
             onStartNow: displayMode
                 ? null
                 : () => unawaited(actions.skipCountdown()),
             isPaused: state.isPaused,
-            skipEnabled:
+            actionsEnabled:
                 !playbackAction.isLoading && (sessionId == null || isConnected),
           ),
         ),

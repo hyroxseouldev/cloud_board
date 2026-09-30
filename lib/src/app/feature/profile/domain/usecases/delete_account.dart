@@ -6,7 +6,8 @@ part 'delete_account.g.dart';
 class DeleteAccount {
   const DeleteAccount(this.repository);
   final AccountDeletionRepository repository;
-  Future<AccountDeletionResult> call() => repository.deleteAccount();
+  Future<AccountDeletionResult> call({String? password}) =>
+      repository.deleteAccount(password: password);
 }
 
 @riverpod

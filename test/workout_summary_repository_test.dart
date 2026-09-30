@@ -96,6 +96,11 @@ void main() {
     expect(result.last.single.id, 'cached');
     expect(source.detailReads, 0);
     expect(source.offlineChecks, 0);
+    await expectLater(
+      repo.watchSummaries(requireServer: true).toList(),
+      throwsA(isA<StateError>()),
+    );
+    expect(source.detailReads, 0);
   });
 }
 

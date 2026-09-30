@@ -15,6 +15,8 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 import 'package:cloud_board/src/app/feature/auth/presentation/views/login_screen.dart';
 
 class _Repository implements AuthRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   final result = Completer<AuthUser>();
   int calls = 0;
   @override

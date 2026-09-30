@@ -24,19 +24,18 @@ class WorkoutCountdown extends StatelessWidget {
     required this.seconds,
     this.slideName,
     this.slide,
-    this.onSkip,
     this.onPause,
     this.onStartNow,
     this.isPaused = false,
-    this.skipEnabled = true,
+    this.actionsEnabled = true,
   });
   final Workout workout;
   final int seconds;
   final String? slideName;
   final WorkoutModule? slide;
-  final VoidCallback? onSkip, onPause, onStartNow;
+  final VoidCallback? onPause, onStartNow;
   final bool isPaused;
-  final bool skipEnabled;
+  final bool actionsEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +136,7 @@ class WorkoutCountdown extends StatelessWidget {
                 ),
               ),
             ),
-            if (onSkip != null || onPause != null || onStartNow != null)
+            if (onPause != null || onStartNow != null)
               SafeArea(
                 minimum: const EdgeInsets.all(20),
                 child: Align(
@@ -147,13 +146,6 @@ class WorkoutCountdown extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      if (onSkip != null)
-                        _CountdownAction(
-                          key: const ValueKey('skip-countdown'),
-                          label: onStartNow == null ? '건너뛰기' : '슬라이드 건너뛰기',
-                          icon: Icons.skip_next_rounded,
-                          onPressed: skipEnabled ? onSkip : null,
-                        ),
                       if (onPause != null)
                         _CountdownAction(
                           key: const ValueKey('pause-countdown'),
@@ -161,14 +153,14 @@ class WorkoutCountdown extends StatelessWidget {
                           icon: isPaused
                               ? Icons.play_arrow_rounded
                               : Icons.pause_rounded,
-                          onPressed: skipEnabled ? onPause : null,
+                          onPressed: actionsEnabled ? onPause : null,
                         ),
                       if (onStartNow != null)
                         _CountdownAction(
                           key: const ValueKey('start-countdown-now'),
                           label: '바로 시작',
                           icon: Icons.play_arrow_rounded,
-                          onPressed: skipEnabled ? onStartNow : null,
+                          onPressed: actionsEnabled ? onStartNow : null,
                         ),
                     ],
                   ),

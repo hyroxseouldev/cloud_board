@@ -54,14 +54,42 @@ class FirebaseAuthDataSource {
   Future<UserCredential> signInWithApple() =>
       _auth.signInWithProvider(AppleAuthProvider());
 
+  Future<UserCredential> signInWithEmail(String email, String password) =>
+      _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
+
+  Future<UserCredential> createEmailAccount(String email, String password) =>
+      _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+  Future<void> sendPasswordReset(String email) async {
+    await _auth.setLanguageCode('ko');
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (error) {
+      // Keep the response identical even on projects without enumeration protection.
+      if (error.code != 'user-not-found') rethrow;
+    }
+  }
+
   /// Apple authorization codes stay in memory and are never persisted or logged.
-  Future<void> prepareAccountDeletion() async {
+  Future<void> prepareAccountDeletion({String? password}) async {
     final user = _auth.currentUser;
     if (user == null || user.isAnonymous) {
       throw StateError('계정 로그인이 필요합니다.');
     }
     final providers = user.providerData.map((item) => item.providerId).toSet();
-    if (providers.contains('apple.com')) {
+    if (providers.contains('password') && password != null) {
+      final email = user.email;
+      if (email == null || password.isEmpty) {
+        throw StateError('본인 확인을 위해 비밀번호를 입력해 주세요.');
+      }
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: password),
+      );
+      await user.getIdToken(true);
+    } else if (providers.contains('apple.com')) {
       final result = await user.reauthenticateWithProvider(AppleAuthProvider());
       final code = result.additionalUserInfo?.authorizationCode;
       if (code == null || code.isEmpty) {

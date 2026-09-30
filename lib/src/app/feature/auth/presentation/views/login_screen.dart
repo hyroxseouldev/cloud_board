@@ -3,6 +3,7 @@ import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -178,6 +179,17 @@ class LoginScreen extends HookConsumerWidget {
                               ),
                               onPressed: busy ? null : () => signIn('google'),
                             ),
+                          ),
+                          const SizedBox(height: 12),
+                          _SignInButton(
+                            provider: '이메일',
+                            icon: const Icon(
+                              Icons.mail_outline_rounded,
+                              size: 22,
+                            ),
+                            onPressed: busy
+                                ? null
+                                : () => context.push('/login/email'),
                           ),
                           const SizedBox(height: 22),
                           const Text(

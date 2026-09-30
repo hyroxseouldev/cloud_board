@@ -4,7 +4,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sum
 
 abstract interface class WorkoutRepository {
   Future<List<Workout>> load();
-  Stream<List<WorkoutSummary>> watchSummaries();
+  Stream<List<WorkoutSummary>> watchSummaries({bool requireServer = false});
   Future<Workout?> loadOne(String workoutId);
   Stream<List<Workout>> watch();
   Future<Workout> save(

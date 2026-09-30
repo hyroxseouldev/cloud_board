@@ -169,7 +169,7 @@ class _Storage implements WorkoutStorageDataSource {
 class _Repository implements WorkoutRepository {
   final source = StreamController<List<Workout>>();
   @override
-  Stream<List<WorkoutSummary>> watchSummaries() =>
+  Stream<List<WorkoutSummary>> watchSummaries({bool requireServer = false}) =>
       watch().map((items) => items.map(summarizeWorkout).toList());
 
   @override

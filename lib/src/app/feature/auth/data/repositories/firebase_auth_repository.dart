@@ -81,6 +81,25 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() => _dataSource.signOut();
 
+  Future<AuthUser> _emailResult(Future<UserCredential> operation) async {
+    final user = (await operation).user;
+    if (user == null) throw StateError('로그인한 사용자 정보를 불러오지 못했습니다.');
+    _syncProfile(user);
+    return _mapUser(user)!;
+  }
+
+  @override
+  Future<AuthUser> signInWithEmail(String email, String password) =>
+      _emailResult(_dataSource.signInWithEmail(email, password));
+
+  @override
+  Future<AuthUser> createEmailAccount(String email, String password) =>
+      _emailResult(_dataSource.createEmailAccount(email, password));
+
+  @override
+  Future<void> sendPasswordReset(String email) =>
+      _dataSource.sendPasswordReset(email);
+
   AuthUser? _mapUser(User? user) => user == null
       ? null
       : AuthUser(
@@ -90,6 +109,7 @@ class FirebaseAuthRepository implements AuthRepository {
               ? '매장 디스플레이'
               : user.displayName ?? '사용자',
           photoUrl: user.photoURL,
+          hasPassword: user.providerData.any((p) => p.providerId == 'password'),
           needsOnboarding:
               !user.isAnonymous &&
               (user.metadata.creationTime?.isAfter(

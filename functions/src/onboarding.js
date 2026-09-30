@@ -53,8 +53,8 @@ export function validateProfile(value, complete=false) {
   return p;
 }
 function requireAccount(auth) {
-  if(!auth?.uid || !['google.com','apple.com'].includes(auth.token?.firebase?.sign_in_provider))
-    throw fail('unauthenticated','Apple 또는 Google 계정으로 로그인해 주세요.');
+  if(!auth?.uid || !['google.com','apple.com','password'].includes(auth.token?.firebase?.sign_in_provider))
+    throw fail('unauthenticated','이메일, Apple 또는 Google 계정으로 로그인해 주세요.');
   return auth.uid;
 }
 const stateRef=(db,uid)=>db.doc(`users/${uid}/onboarding/progress`);
