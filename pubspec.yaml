@@ -68,6 +68,8 @@ dependencies:
   in_app_purchase_android: ^0.5.3
 
 dev_dependencies:
+  # Build-time resource generation only; no runtime splash hold.
+  flutter_native_splash: 2.4.8
   flutter_test:
     sdk: flutter
 

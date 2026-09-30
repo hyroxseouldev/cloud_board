@@ -22,7 +22,7 @@ class AppStyle extends ThemeExtension<AppStyle> {
   double get buttonHeight => compact ? 48 : 60;
   double get primaryButtonHeight => compact ? 60 : 80;
   double get iconSize => compact ? 24 : 30;
-  double get floatingSize => compact ? 60 : 100;
+  double get floatingSize => compact ? 60 : 80;
 
   TextStyle _bold(double tablet, double phone) {
     final size = compact ? phone : tablet;

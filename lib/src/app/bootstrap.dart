@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 /// Paints before platform/network initialization, and keeps failures retryable.
@@ -35,28 +36,13 @@ class AppBootstrap extends HookWidget {
     return MaterialApp(
       theme: XonTheme.light,
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('CloudBoard', style: TextStyle(fontSize: 28)),
-              const SizedBox(height: 24),
-              if (!failed.value) const CircularProgressIndicator(),
-              if (failed.value) ...[
-                const Text('앱을 준비하지 못했습니다. 연결을 확인해 주세요.'),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () {
-                    failed.value = false;
-                    attempt.value++;
-                  },
-                  child: const Text('다시 시도'),
-                ),
-              ],
-            ],
-          ),
-        ),
+      home: AppStartupScreen(
+        onRetry: failed.value
+            ? () {
+                failed.value = false;
+                attempt.value++;
+              }
+            : null,
       ),
     );
   }

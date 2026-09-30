@@ -18,6 +18,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Editorial release summaries only. No build logs, credentials or user data.
+    match /appContent/updateNews {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
     function settingsPath(userId) {
       return /databases/$(database)/documents/users/$(userId)/settings/workout;
     }

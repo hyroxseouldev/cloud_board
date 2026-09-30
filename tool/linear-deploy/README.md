@@ -2,6 +2,8 @@
 
 `.github/workflows/linear-project-update.yml`이 main의 웹 / Google Play / TestFlight 배포 워크플로 완료 이벤트를 받아 `cloudboard` 프로젝트에 업데이트 글을 남긴다. 별도 문서·이슈·댓글을 만들지 않는다.
 
+배포 커밋에 `release-notes/current.json`이 있으면 사용자용 요약도 같은 글에 포함하고, 확인된 플랫폼별 빌드와 함께 앱의 Firestore 소식 피드에 게시한다. 작성·버전 선택·재실행 정책은 [업데이트 소식 안내](../../release-notes/README.md)를 따른다.
+
 ## 동작
 
 - 저장소·프로젝트·배포 커밋 SHA로 고정 UUID를 계산한다. 첫 결과에 글을 생성하고 다른 플랫폼 결과와 재실행 결과는 같은 글을 갱신한다.

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, appendFileSync } from 'node:fs';
+import { readFileSync, appendFileSync, writeFileSync } from 'node:fs';
+import {validateNews, newsForDeployment} from '../update-news/news.mjs';
 import { pathToFileURL } from 'node:url';
 
 export const pipelines = [
@@ -58,7 +59,7 @@ function escapeMarkdown(text) {
   return text.replace(/[\r\n]+/g, ' ').replace(/([\\`*_[\]<>|])/g, '\\$1');
 }
 
-export function renderUpdate({ repository, sha, base, date, commits, results, version }) {
+export function renderUpdate({ repository, sha, base, date, commits, results, version, news }) {
   const root = `https://github.com/${repository}`;
   const issues = [...new Set(commits.flatMap(c => c.message.match(/\bSTA-\d+\b/g) ?? []))];
   const lines = [
@@ -67,6 +68,12 @@ export function renderUpdate({ repository, sha, base, date, commits, results, ve
     '', '### 변경사항', '',
     ...commits.slice(0, 40).map(c => `- ${escapeMarkdown(c.subject)} ([${c.sha.slice(0, 7)}](${root}/commit/${c.sha}))`),
   ];
+  if (news) {
+    validateNews(news);
+    lines.splice(4, 0, '### 사용자 업데이트 소식', '', `**${escapeMarkdown(news.title)}**`,
+      '', escapeMarkdown(news.summary), '',
+      ...news.items.flatMap(item => [`- **${escapeMarkdown(item.title)}**: ${escapeMarkdown(item.body)}`]), '');
+  }
   if (!commits.length) lines.push('- 변경사항은 아래 커밋 링크에서 확인해 주세요.');
   if (commits.length > 40) lines.push(`- 나머지 ${commits.length - 40}개 커밋은 전체 변경 내역에서 확인해 주세요.`);
   if (base) lines.push('', `[전체 변경 내역](${root}/compare/${base}...${sha})`);
@@ -217,12 +224,20 @@ export async function publish(env = process.env, fetchImpl = fetch) {
   const version = pubspec.match(/^version:\s*([^\s+#]+)/m)?.[1];
   const date = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' })
     .format(new Date(git('show', '-s', '--format=%cI', sha)));
-  const body = renderUpdate({ repository, sha, base, date, commits, results, version });
+  // Read the editorial copy from the deployed commit, not the publisher checkout.
+  const newsPath = 'release-notes/current.json';
+  const hasNews = git('ls-tree', '--name-only', sha, newsPath) === newsPath;
+  const news = hasNews ? validateNews(JSON.parse(git('show', `${sha}:${newsPath}`))) : undefined;
+  if (news && news.version !== version) throw new Error('Update news version must match the deployed app version');
+  const body = renderUpdate({ repository, sha, base, date, commits, results, version, news });
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${body}\n`);
   if (dryRun) { console.log(body); return { body }; }
   const result = await upsertUpdate(linearClient(env.LINEAR_API_KEY, fetchImpl), {
     id: updateId(env.LINEAR_PROJECT_ID, repository, sha), projectId: env.LINEAR_PROJECT_ID, body,
   });
+  if (news && env.UPDATE_NEWS_OUTPUT_PATH) {
+    writeFileSync(env.UPDATE_NEWS_OUTPUT_PATH, JSON.stringify(newsForDeployment(news, results)));
+  }
   console.log(`Linear project update ${result.operation}: ${result.url}`);
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `\n[Linear 업데이트 보기](${result.url})\n`);
   return result;

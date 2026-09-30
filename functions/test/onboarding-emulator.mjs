@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import {initializeApp,deleteApp} from 'firebase-admin/app';
 import {getFirestore} from 'firebase-admin/firestore';
 import {getDatabase} from 'firebase-admin/database';
-import {initializeTestEnvironment,assertFails} from '@firebase/rules-unit-testing';
+import {initializeTestEnvironment,assertFails,assertSucceeds} from '@firebase/rules-unit-testing';
+import {publishUpdateNews} from '../tools/publish-update-news.mjs';
 import {doc,getDoc,setDoc} from 'firebase/firestore';
 import {handleOnboarding,sendOnboardingCode,verifyOnboardingCode,readOnboarding,saveOnboarding,startOnboardingTrial,deleteOnboardingData} from '../src/onboarding.js';
 assert.match(process.env.FIRESTORE_EMULATOR_HOST||'',/^(127\.0\.0\.1|localhost):\d+$/);
@@ -17,6 +18,20 @@ const profile={purpose:'operating',role:'owner',centerName:'테스트 센터',ce
 async function register(uid,phone) {await sendOnboardingCode(db,uid,phone,secret,send);await verifyOnboardingCode(db,uid,codes.get(phone),secret);}
 try {
   await env.clearFirestore();await realtime.ref().remove();
+  const news=JSON.parse(fs.readFileSync(new URL('../../release-notes/current.json',import.meta.url),'utf8'));
+  await Promise.all([
+    publishUpdateNews(db,{...news,builds:{ios:'542'}}),
+    publishUpdateNews(db,{...news,builds:{web:'82.2'}}),
+  ]);
+  await publishUpdateNews(db,{...news,builds:{ios:'543',android:'52'}});
+  const feed=(await db.doc('appContent/updateNews').get()).data();
+  assert.equal(feed.entries.length,1);
+  assert.deepEqual(feed.entries[0].builds,{ios:'542',web:'82.2',android:'52'});
+  const publicClient=env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(publicClient,'appContent/updateNews')));
+  await assertFails(setDoc(doc(publicClient,'appContent/updateNews'),{schemaVersion:1,entries:[]}));
+  await assertFails(setDoc(doc(env.authenticatedContext('owner').firestore(),'appContent/updateNews'),feed));
+  await assertFails(getDoc(doc(publicClient,'appContent/internal')));
   await assert.rejects(handleOnboarding({db,realtime,auth:{uid:'anon',token:{firebase:{sign_in_provider:'anonymous'}}},input:{},secret,send}),{code:'unauthenticated'});
   // Email/password identities follow the same SMS ownership and trial gates.
   const emailRequest = input => handleOnboarding({db,realtime,auth:{uid:'email-owner',token:{firebase:{sign_in_provider:'password'}}},input,secret,send});

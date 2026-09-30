@@ -3,6 +3,7 @@ import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/router/app_router.dart';
+import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
@@ -73,6 +74,7 @@ void main() {
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(AppStartupScreen), findsOneWidget);
       expect(router.routeInformationProvider.value.uri.path, '/auth-loading');
 
       // Exercise the real redirect configuration without constructing feature

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_board/src/app/bootstrap.dart';
+import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
 import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,10 +22,13 @@ void main() {
               MaterialApp(home: Text(isTv ? 'TV ready' : 'Mobile ready')),
         ),
       );
-      expect(find.text('CloudBoard'), findsOneWidget);
+      expect(find.byType(AppStartupScreen), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('TV ready'), findsNothing);
       expect(calls, 1);
+      await tester.pump(const Duration(seconds: 30));
+      expect(calls, 1);
+      expect(find.byType(AppStartupScreen), findsOneWidget);
       initialization.completeError(StateError('offline'));
       await tester.pump();
       expect(find.text('다시 시도'), findsOneWidget);
@@ -35,6 +39,11 @@ void main() {
       initialization.complete(true);
       await tester.pumpAndSettle();
       expect(find.text('TV ready'), findsOneWidget);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(calls, 2);
+      expect(find.byType(AppStartupScreen), findsNothing);
     },
   );
 
