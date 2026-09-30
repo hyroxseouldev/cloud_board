@@ -7,5 +7,11 @@ abstract interface class AuthRepository {
 
   Future<AuthUser> signInWithApple();
 
+  Future<AuthUser> signInWithEmail(String email, String password);
+
+  Future<AuthUser> createEmailAccount(String email, String password);
+
+  Future<void> sendPasswordReset(String email);
+
   Future<void> signOut();
 }

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -34,6 +36,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authStateProvider.overrideWith((ref) => Stream.value(null)),
           androidTvProvider.overrideWith((ref) async => false),
           userProfileControllerProvider.overrideWith(_Profile.new),
           accountDeletionRepositoryProvider.overrideWith(
@@ -91,6 +94,6 @@ class _Profile extends UserProfileController {
 
 class _NeverDelete implements AccountDeletionRepository {
   @override
-  Future<AccountDeletionResult> deleteAccount() =>
+  Future<AccountDeletionResult> deleteAccount({String? password}) =>
       throw StateError('Screenshot tool cannot delete accounts');
 }

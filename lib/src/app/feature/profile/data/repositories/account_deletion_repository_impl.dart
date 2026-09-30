@@ -21,8 +21,8 @@ class FirebaseAccountDeletionRepository implements AccountDeletionRepository {
   final Future<void> Function() clearLocal;
 
   @override
-  Future<AccountDeletionResult> deleteAccount() async {
-    await auth.prepareAccountDeletion();
+  Future<AccountDeletionResult> deleteAccount({String? password}) async {
+    await auth.prepareAccountDeletion(password: password);
     try {
       final response = await functions
           .httpsCallable(

@@ -66,27 +66,66 @@ class WorkoutDetail extends _$WorkoutDetail {
 class WorkoutController extends _$WorkoutController {
   final _upserts = <String, WorkoutSummary>{};
   final _removed = <String>{};
+  final _mutationVersions = <String, int>{};
+  int _writeVersion = 0;
+  int _generation = 0;
   Future<void>? _loading;
+  Future<void>? _refreshing;
 
   @override
-  Stream<List<WorkoutSummary>> build() async* {
+  Stream<List<WorkoutSummary>> build() {
+    final generation = ++_generation;
     _upserts.clear();
     _removed.clear();
+    _mutationVersions.clear();
+    _refreshing = null;
     final complete = Completer<void>();
     _loading = complete.future;
-    try {
-      final user = await ref.watch(authStateProvider.future);
-      if (user == null) {
-        yield const [];
-        return;
-      }
-      final loader = await ref.watch(loadWorkoutsProvider.future);
-      await for (final items in loader.watch()) {
-        yield _merge(items);
-      }
-    } finally {
-      complete.complete();
+    final userFuture = ref.watch(authStateProvider.future);
+    final loaderFuture = ref.watch(loadWorkoutsProvider.future);
+    final output = StreamController<List<WorkoutSummary>>();
+    StreamSubscription<List<WorkoutSummary>>? subscription;
+    var disposed = false;
+
+    void finish() {
+      if (!complete.isCompleted) complete.complete();
+      unawaited(output.close());
     }
+
+    // The catalog's completion must not depend on the UI consuming the last
+    // async* yield. Riverpod can pause that stream on web while data is visible.
+    // Consume source pages independently, so refresh and schedules never wait
+    // indefinitely for an already-loaded catalog to finish.
+    output.onListen = () async {
+      try {
+        final user = await userFuture;
+        if (disposed) return;
+        if (user == null) {
+          output.add(const []);
+          finish();
+          return;
+        }
+        final loader = await loaderFuture;
+        if (disposed) return;
+        subscription = loader.watch().listen(
+          (items) => output.add(_merge(items)),
+          onError: (Object error, StackTrace stack) =>
+              output.addError(error, stack),
+          onDone: finish,
+        );
+      } catch (error, stack) {
+        if (disposed) return;
+        output.addError(error, stack);
+        finish();
+      }
+    };
+    ref.onDispose(() {
+      disposed = true;
+      if (_generation == generation) ++_generation;
+      unawaited(subscription?.cancel());
+      finish();
+    });
+    return output.stream;
   }
 
   // A scheduled start must not mistake the first page for the complete catalog.
@@ -96,12 +135,41 @@ class WorkoutController extends _$WorkoutController {
     return state.requireValue;
   }
 
-  /// Reload cache and server pages, completing only after the full catalog arrives.
-  Future<void> refresh() async {
-    ref.invalidateSelf();
-    await loadComplete();
-    if (state.hasError) {
-      Error.throwWithStackTrace(state.error!, state.stackTrace!);
+  /// Keep the usable list mounted until a complete server refresh succeeds.
+  /// Merge edits made during the request and discard responses for old accounts.
+  Future<void> refresh() {
+    final generation = _generation;
+    return _refreshing ??= _refresh(generation).whenComplete(() {
+      if (generation == _generation) _refreshing = null;
+    });
+  }
+
+  Future<void> _refresh(int generation) async {
+    try {
+      await loadComplete();
+    } catch (_) {
+      // Initial loading can fail too; refresh is also the retry action.
+    }
+    if (!ref.mounted || generation != _generation) return;
+    final baseline = _writeVersion;
+    try {
+      final loader = await ref.read(loadWorkoutsProvider.future);
+      final items = await loader.watch(requireServer: true).last;
+      if (!ref.mounted || generation != _generation) return;
+      final stale = _mutationVersions.entries
+          .where((entry) => entry.value <= baseline)
+          .map((entry) => entry.key)
+          .toList();
+      for (final id in stale) {
+        _upserts.remove(id);
+        _removed.remove(id);
+        _mutationVersions.remove(id);
+      }
+      state = AsyncData(_merge(items));
+    } catch (error, stack) {
+      if (!ref.mounted || generation != _generation) return;
+      if (!state.hasValue) state = AsyncError(error, stack);
+      Error.throwWithStackTrace(error, stack);
     }
   }
 
@@ -115,6 +183,7 @@ class WorkoutController extends _$WorkoutController {
   }
 
   void upsert(Workout workout) {
+    _mutationVersions[workout.id] = ++_writeVersion;
     final summary = summarizeWorkout(workout);
     _upserts[workout.id] = summary;
     _removed.remove(workout.id);
@@ -131,6 +200,7 @@ class WorkoutController extends _$WorkoutController {
   }
 
   void remove(String workoutId) {
+    _mutationVersions[workoutId] = ++_writeVersion;
     _upserts.remove(workoutId);
     _removed.add(workoutId);
     final items = state.value;

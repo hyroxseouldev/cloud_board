@@ -12,7 +12,8 @@ class LoadWorkouts {
   const LoadWorkouts(this._repository);
   final WorkoutRepository _repository;
   Future<List<WorkoutSummary>> call() => watch().last;
-  Stream<List<WorkoutSummary>> watch() => _repository.watchSummaries();
+  Stream<List<WorkoutSummary>> watch({bool requireServer = false}) =>
+      _repository.watchSummaries(requireServer: requireServer);
   // Always return persisted content/legacy fields, never account overrides.
   Future<Workout?> detail(String id) => _repository.loadOne(id);
 }

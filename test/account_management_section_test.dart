@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/data/repositories/account_deletion_repository_impl.dart';
@@ -28,11 +30,23 @@ void main() {
     WidgetTester tester,
     Future<bool> Function(Uri) launch, {
     bool tv = false,
+    bool hasPassword = false,
     AccountDeletionRepository? repository,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authStateProvider.overrideWith(
+            (ref) => Stream.value(
+              AuthUser(
+                id: 'u',
+                email: 'coach@example.com',
+                displayName: 'Coach',
+                photoUrl: null,
+                hasPassword: hasPassword,
+              ),
+            ),
+          ),
           androidTvProvider.overrideWith((ref) async => tv),
           if (repository != null)
             accountDeletionRepositoryProvider.overrideWith((ref) => repository),
@@ -187,6 +201,42 @@ void main() {
       );
     },
   );
+  testWidgets(
+    'email account deletion requires password and cancellation is non-destructive',
+    (tester) async {
+      final repository = _DeletionRepository();
+      await mount(
+        tester,
+        (_) async => true,
+        repository: repository,
+        hasPassword: true,
+      );
+      await tester.tap(find.text('계정 삭제'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('본인 확인 후 삭제'));
+      await tester.pumpAndSettle();
+      expect(find.text('비밀번호로 본인 확인'), findsOneWidget);
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(repository.calls, 0);
+      await tester.tap(find.text('계정 삭제'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('본인 확인 후 삭제'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, '현재 비밀번호'),
+        'test-password',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '계정 삭제'));
+      await tester.pump();
+      expect(repository.calls, 1);
+      expect(repository.password, 'test-password');
+      repository.pending.complete(AccountDeletionResult.processing);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('partial deletion is never presented as completed', (
     tester,
   ) async {
@@ -215,9 +265,11 @@ void main() {
 class _DeletionRepository implements AccountDeletionRepository {
   final pending = Completer<AccountDeletionResult>();
   int calls = 0;
+  String? password;
   @override
-  Future<AccountDeletionResult> deleteAccount() {
+  Future<AccountDeletionResult> deleteAccount({String? password}) {
     calls++;
+    this.password = password;
     return pending.future;
   }
 }

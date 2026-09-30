@@ -137,3 +137,49 @@ final class SignInWithAppleProvider
 }
 
 String _$signInWithAppleHash() => r'e41111fa70765ad2cab884b2b2c956b13eb8272d';
+
+@ProviderFor(emailAuthActions)
+final emailAuthActionsProvider = EmailAuthActionsProvider._();
+
+final class EmailAuthActionsProvider
+    extends
+        $FunctionalProvider<
+          EmailAuthActions,
+          EmailAuthActions,
+          EmailAuthActions
+        >
+    with $Provider<EmailAuthActions> {
+  EmailAuthActionsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'emailAuthActionsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$emailAuthActionsHash();
+
+  @$internal
+  @override
+  $ProviderElement<EmailAuthActions> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  EmailAuthActions create(Ref ref) {
+    return emailAuthActions(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(EmailAuthActions value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<EmailAuthActions>(value),
+    );
+  }
+}
+
+String _$emailAuthActionsHash() => r'178337c56d091d665a5649d801f420e4e5412757';

@@ -44,10 +44,12 @@ void main() {
         )).uri.path;
     expect(await redirected('/'), '/onboarding');
     expect(await redirected('/onboarding'), '/onboarding');
+    expect(await redirected('/login/email'), '/onboarding');
     gate.complete(false);
     await tester.pump();
     expect(await redirected('/profile'), '/profile');
     expect(await redirected('/login'), '/');
+    expect(await redirected('/login/email'), '/');
     await tester.pump();
   });
 
@@ -108,6 +110,7 @@ void main() {
       expect(container.read(appRouterProvider), same(router));
       expect((await redirect('/profile')).path, '/login');
       expect((await redirect('/login')).path, '/login');
+      expect((await redirect('/login/email')).path, '/login/email');
       expect((await redirect(pending.toString())).path, '/login');
       await tester.pump();
       await tester.pump();

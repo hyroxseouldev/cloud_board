@@ -10,5 +10,6 @@ abstract class AuthUser with _$AuthUser {
     required String displayName,
     required String? photoUrl,
     @Default(false) bool? needsOnboarding,
+    @Default(false) bool hasPassword,
   }) = _AuthUser;
 }

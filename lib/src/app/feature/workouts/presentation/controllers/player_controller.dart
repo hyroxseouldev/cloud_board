@@ -393,22 +393,6 @@ class PlayerController extends _$PlayerController {
     }
   }
 
-  /// Skip the current slide (including all its sets), not only preparation.
-  Future<void> skipPreparedSlide() async {
-    if (!_canCommand || state.briefing || state.countdownMs <= 0) return;
-    final moduleIndex = currentStep!.moduleIndex;
-    final next = state.steps.indexWhere(
-      (step) => step.moduleIndex > moduleIndex,
-    );
-    final target = next < 0 ? state.steps.length : next;
-    if (sessionId == null) {
-      state = state.copyWith(isPaused: false);
-      _goLocal(target);
-    } else {
-      await _seekRemote(target);
-    }
-  }
-
   Future<void> previous() async {
     if (!_canCommand || state.briefing || state.countdownMs > 0) return;
     final target =

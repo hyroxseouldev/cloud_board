@@ -30,8 +30,14 @@ test('retry starts with locks again and reaches completion only after all cleanu
 test('fresh Apple authentication is accepted while unsupported and stale identities are rejected',()=>{
  const apple={uid:'apple-owner',token:{auth_time:1000,firebase:{sign_in_provider:'apple.com'}}};
  assert.equal(requireDeletionIdentity(apple,1100),'apple-owner');
- for(const provider of ['anonymous','password','custom','facebook.com',undefined]) {
+ for(const provider of ['anonymous','custom','facebook.com',undefined]) {
   assert.throws(()=>requireDeletionIdentity({...apple,token:{...apple.token,firebase:{sign_in_provider:provider}}},1100));
  }
  assert.throws(()=>requireDeletionIdentity({...apple,token:{...apple.token,auth_time:0}},1100));
 });
+
+ test('password accounts require the same fresh authentication before deletion',()=>{
+ const password={uid:'email-owner',token:{auth_time:1000,firebase:{sign_in_provider:'password'}}};
+ assert.equal(requireDeletionIdentity(password,1100),'email-owner');
+ assert.throws(()=>requireDeletionIdentity({...password,token:{...password.token,auth_time:1}},1100));
+ });

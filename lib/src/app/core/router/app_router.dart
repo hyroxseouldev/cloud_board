@@ -14,6 +14,7 @@ import 'package:cloud_board/src/app/feature/operations/presentation/views/standb
 
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/views/login_screen.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/views/email_login_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/views/device_mode_home_screen.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/views/user_profile_screen.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/views/store_operations_screen.dart';
@@ -40,7 +41,9 @@ GoRouter appRouter(Ref ref) {
     refreshListenable: authRefresh,
     redirect: (context, state) {
       final auth = ref.read(authStateProvider);
-      final isLoginRoute = state.matchedLocation == '/login';
+      final isLoginRoute =
+          state.matchedLocation == '/login' ||
+          state.matchedLocation == '/login/email';
       final isLoadingRoute = state.matchedLocation == '/auth-loading';
       if (auth.isLoading) {
         if (isLoadingRoute) return null;
@@ -60,7 +63,8 @@ GoRouter appRouter(Ref ref) {
             destination.hasAuthority ||
             !destination.path.startsWith('/') ||
             destination.path == '/auth-loading' ||
-            destination.path == '/login') {
+            destination.path == '/login' ||
+            destination.path == '/login/email') {
           return '/';
         }
         return destination.toString();
@@ -91,6 +95,12 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/login',
         builder: (_, _) => const WebPageFrame(child: LoginScreen()),
+        routes: [
+          GoRoute(
+            path: 'email',
+            builder: (_, _) => const WebPageFrame(child: EmailLoginScreen()),
+          ),
+        ],
       ),
       ShellRoute(
         builder: (context, state, child) => ActiveClassShell(
