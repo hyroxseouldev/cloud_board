@@ -14,6 +14,7 @@ import 'package:cloud_board/src/app/core/widgets/web_page_frame.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/widgets/playback_recovery_view.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
@@ -97,46 +98,13 @@ class ActiveClassShell extends HookConsumerWidget {
               !recovery.hasValue &&
               playerVisible)
             Positioned.fill(
-              child: ColoredBox(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: SafeArea(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (recovery.isLoading)
-                            const CircularProgressIndicator(),
-                          const SizedBox(height: 16),
-                          Text(
-                            recovery.hasError
-                                ? '수업 상태를 확인하지 못했습니다. 네트워크를 확인해 주세요.'
-                                : '최신 수업 상태를 확인하고 있습니다…',
-                            textAlign: TextAlign.center,
-                          ),
-                          if (recovery.hasError)
-                            ErrorDetailsButton(
-                              error: recovery.error,
-                              stack: recovery.stackTrace,
-                              action: 'playback.recover',
-                            ),
-                          if (recovery.hasError)
-                            TextButton(
-                              onPressed: () => unawaited(
-                                ref
-                                    .read(
-                                      playbackRecoveryControllerProvider
-                                          .notifier,
-                                    )
-                                    .recover(),
-                              ),
-                              child: const Text('다시 연결'),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
+              child: PlaybackRecoveryView(
+                error: recovery.error,
+                stackTrace: recovery.stackTrace,
+                onRetry: () => unawaited(
+                  ref
+                      .read(playbackRecoveryControllerProvider.notifier)
+                      .recover(),
                 ),
               ),
             ),

@@ -1,5 +1,5 @@
 import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
-import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/widgets/playback_recovery_view.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
@@ -40,6 +40,7 @@ class DisplayModeScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isTv = ref.watch(androidTvProvider).value ?? false;
     final foreground = !isTv || ref.watch(tvPlaybackVisibleProvider);
+    final recovery = ref.watch(playbackRecoveryControllerProvider);
     final active = ref.watch(activePlaybackSessionProvider);
     final pairing = ref.watch(devicePairingControllerProvider);
     ref.listen(accountOwnerIdProvider, (previous, next) {
@@ -229,38 +230,14 @@ class DisplayModeScreen extends HookConsumerWidget {
           fit: StackFit.expand,
           children: [
             if (!foreground)
-              ColoredBox(
-                color: Colors.black,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        '최신 수업 상태를 확인하고 있습니다…',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      if (ref
-                          .watch(playbackRecoveryControllerProvider)
-                          .hasError) ...[
-                        ErrorDetailsButton(
-                          error: ref
-                              .watch(playbackRecoveryControllerProvider)
-                              .error,
-                          action: 'playback.recover',
-                        ),
-                        TextButton(
-                          onPressed: () => unawaited(
-                            ref
-                                .read(
-                                  playbackRecoveryControllerProvider.notifier,
-                                )
-                                .recover(restartTransport: false),
-                          ),
-                          child: const Text('다시 연결'),
-                        ),
-                      ],
-                    ],
-                  ),
+              PlaybackRecoveryView(
+                displayMode: true,
+                error: recovery.error,
+                stackTrace: recovery.stackTrace,
+                onRetry: () => unawaited(
+                  ref
+                      .read(playbackRecoveryControllerProvider.notifier)
+                      .recover(restartTransport: false),
                 ),
               )
             else if (showBlack)
