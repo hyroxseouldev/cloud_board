@@ -510,8 +510,8 @@ class _SlideEditorBody extends HookConsumerWidget {
         ),
       ),
     );
-    final workTotal = blocks.fold(0, (sum, b) => sum + b.workSeconds * b.sets);
-    final restTotal = blocks.fold(0, (sum, b) => sum + b.restSeconds * b.sets);
+    final workPerSet = _perSetTimeLabel(blocks.map((b) => b.workSeconds));
+    final restPerSet = _perSetTimeLabel(blocks.map((b) => b.restSeconds));
     final summary = Material(
       color: Theme.of(context).colorScheme.surface,
       child: InkWell(
@@ -567,8 +567,14 @@ class _SlideEditorBody extends HookConsumerWidget {
                   spacing: 10,
                   runSpacing: 4,
                   children: [
-                    Text('운동 ${durationLabel(workTotal)}'),
-                    Text('휴식 ${durationLabel(restTotal)}'),
+                    Text(
+                      '운동 $workPerSet',
+                      semanticsLabel: '세트당 운동 $workPerSet',
+                    ),
+                    Text(
+                      '휴식 $restPerSet',
+                      semanticsLabel: '세트당 휴식 $restPerSet',
+                    ),
                     Text('${blocks.fold(0, (sum, b) => sum + b.sets)}세트'),
                     if (blocks.length > 1) Text('${blocks.length}블록'),
                   ],
@@ -1162,4 +1168,12 @@ class _StyleNameDialog extends HookWidget {
       ],
     );
   }
+}
+
+// Effective interval blocks always contain at least one block. Different block
+// timings are a per-set range, never a sum or an invented average set duration.
+String _perSetTimeLabel(Iterable<int> seconds) {
+  final values = seconds.toSet().toList()..sort();
+  final first = durationLabel(values.first);
+  return values.length == 1 ? first : '$first–${durationLabel(values.last)}';
 }
