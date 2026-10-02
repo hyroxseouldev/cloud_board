@@ -15,7 +15,9 @@ class AppUpdateController extends _$AppUpdateController {
         ].contains(defaultTargetPlatform)) {
       return null;
     }
-    return ref.watch(checkAppUpdateProvider).call(defaultTargetPlatform.name);
+    return ref
+        .watch(checkAppUpdateProvider)
+        .call(defaultTargetPlatform.name.toLowerCase());
   }
 
   Future<void> checkNow() async {
@@ -31,7 +33,7 @@ class AppUpdateController extends _$AppUpdateController {
     state = await AsyncValue.guard(
       () => ref
           .read(checkAppUpdateProvider)
-          .call(defaultTargetPlatform.name, ignoreSnooze: true),
+          .call(defaultTargetPlatform.name.toLowerCase(), ignoreSnooze: true),
     );
   }
 

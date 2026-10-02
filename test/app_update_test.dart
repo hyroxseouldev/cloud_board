@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'dart:async';
@@ -35,10 +36,12 @@ const release = AppRelease(
 
 class FakeReleases implements AppReleaseRepository {
   AppRelease? value = release;
+  final requestedPlatforms = <String>[];
   int build = 540, snooze = 0;
   bool offline = false;
   @override
   Future<AppRelease?> load(String platform) async {
+    requestedPlatforms.add(platform);
     if (offline) throw StateError('offline');
     return value;
   }
@@ -65,6 +68,44 @@ class NoStore extends BillingDataSource {
 }
 
 void main() {
+  testWidgets(
+    'initial and manual native update checks use published platform keys',
+    (tester) async {
+      final platform = defaultTargetPlatform == TargetPlatform.iOS
+          ? 'ios'
+          : 'android';
+      final repository = FakeReleases();
+      if (platform == 'android') {
+        repository.value = release.copyWith(
+          storeUrl: 'https://play.google.com/store/apps/details?id=com.sunmkim.cloudboard',
+        );
+      }
+      final container = ProviderContainer(
+        overrides: [
+          checkAppUpdateProvider.overrideWithValue(CheckAppUpdate(repository)),
+        ],
+      );
+      addTearDown(container.dispose);
+      final initial = await container.read(appUpdateControllerProvider.future);
+      if (kIsWeb) {
+        expect(initial, isNull);
+        expect(repository.requestedPlatforms, isEmpty);
+        return;
+      }
+      expect(initial?.kind, UpdateKind.optional);
+      await container.read(appUpdateControllerProvider.notifier).checkNow();
+      expect(repository.requestedPlatforms, [platform, platform]);
+      expect(
+        container.read(appUpdateControllerProvider).requireValue?.kind,
+        UpdateKind.optional,
+      );
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   testWidgets(
     'required update waits for playback recovery and a paused class to end',
     (tester) async {
