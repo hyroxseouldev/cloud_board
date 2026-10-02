@@ -85,6 +85,9 @@ void main() {
             .read(provider.notifier)
             .update(original.copyWith(name: '수정 이름', text: '본문 초안'));
         await tester.pump();
+        expect(find.text('운동 1:30'), findsOneWidget);
+        expect(find.text('휴식 0:45'), findsOneWidget);
+        expect(find.text('5세트'), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
         await tester.pumpAndSettle();
         expect(find.byType(BottomSheet), findsOneWidget);
@@ -111,6 +114,9 @@ void main() {
         expect(container.read(provider).module.sets, 3);
         expect(container.read(provider).module.text, '본문 초안');
         expect(container.read(provider).dirty, isTrue);
+        expect(find.text('운동 2:10'), findsOneWidget);
+        expect(find.text('휴식 0:45'), findsOneWidget);
+        expect(find.text('3세트'), findsOneWidget);
         // Reopening sees the applied draft; closing an untouched sheet is clean.
         await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
         await tester.pumpAndSettle();
@@ -139,6 +145,85 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'summary shows per-set timings, keeping total and mixed blocks accurate',
+    (tester) async {
+      final container = await openEditor(tester, (_) async => true);
+      final summary = find.byKey(const ValueKey('slide-timer-summary'));
+      void expectSummary(String label) => expect(
+        find.descendant(of: summary, matching: find.text(label)),
+        findsOneWidget,
+      );
+      final single = original.copyWith(
+        workSeconds: 420,
+        restSeconds: 60,
+        sets: 3,
+      );
+      container.read(provider.notifier).update(single);
+      await tester.pump();
+      expectSummary('운동 7:00');
+      expectSummary('휴식 1:00');
+      expectSummary('3세트');
+      expectSummary('24:00');
+
+      // Older classes can omit the final rest. The total reflects playback, while
+      // the per-set setting remains one minute rather than showing an average.
+      container
+          .read(provider.notifier)
+          .update(single.copyWith(includeFinalRest: false));
+      await tester.pump();
+      expectSummary('휴식 1:00');
+      expectSummary('23:00');
+
+      const first = WorkoutIntervalBlock(
+        id: 'a',
+        workSeconds: 420,
+        restSeconds: 60,
+        sets: 3,
+      );
+      container
+          .read(provider.notifier)
+          .update(
+            single.copyWith(
+              intervalBlocks: [
+                first,
+                first.copyWith(id: 'b', sets: 2),
+              ],
+            ),
+          );
+      await tester.pump();
+      expectSummary('운동 7:00');
+      expectSummary('휴식 1:00');
+      expectSummary('5세트');
+      expectSummary('2블록');
+      expectSummary('40:00');
+
+      container
+          .read(provider.notifier)
+          .update(
+            single.copyWith(
+              intervalBlocks: [
+                first,
+                first.copyWith(
+                  id: 'b',
+                  workSeconds: 30,
+                  restSeconds: 0,
+                  sets: 2,
+                ),
+              ],
+            ),
+          );
+      await tester.pump();
+      expectSummary('운동 0:30–7:00');
+      expectSummary('휴식 0:00–1:00');
+      expectSummary('5세트');
+      expectSummary('25:00');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'discard returns to sheet entry timing, preserving applied draft',

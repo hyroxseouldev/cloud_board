@@ -125,13 +125,17 @@ internal object ClassNotifications {
         var untilEnd = position.remaining + position.countdown
         for (i in position.index + 1 until steps.length()) untilEnd += steps.getJSONObject(i).getLong("durationMs")
         val label = if (paused) "일시정지" else step.getString("label")
-        val text = error ?: if (!connected) "연결 확인 필요 · 버튼을 누르면 서버 상태를 확인합니다"
-            else if (useLiveUpdate) if (paused) "일시정지 · 남은 시간 ${ClassLiveUpdate.remainingText(untilEnd)}" else "예상 남은 시간 · 제어 시 최신 상태 확인"
-            else "${step.getString("name")} · $label"
+        val text = error ?: if (!connected) "연결 확인 필요 · 앱에서 다시 연결해 주세요"
+            else "${step.getString("name")} · $label" +
+                if (useLiveUpdate && paused) " · 남음 ${ClassLiveUpdate.remainingText(untilEnd)}" else ""
+        // A projected countdown is an estimate, not a continuous server confirmation.
+        val subText = if (error != null) "상태 확인 필요" else if (!connected) "연결 확인 필요"
+            else if (useLiveUpdate && !paused) "예상 남은 시간" else "최근 수업"
         val builder = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(config.getString("workoutName"))
+            .setSmallIcon(R.drawable.ic_class_notification).setColor(0xFF77729D.toInt())
+            .setContentTitle(config.getString("workoutName"))
             .setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setSubText("최근 확인한 수업 · 제어 시 최신 상태 확인")
+            .setSubText(subText)
             .setContentIntent(open).setOnlyAlertOnce(true).setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOngoing(false)
         val dismiss = Intent(context, ClassControlReceiver::class.java).setAction(DISMISS)
@@ -197,7 +201,7 @@ internal object ClassNotifications {
                 main.post {
                     val latest = load(app)
                     if (latest?.optString("sessionId") == config.optString("sessionId"))
-                        show(app, latest, "명령 결과를 확인하지 못했습니다. 상태를 확인한 뒤 다시 조작하세요.")
+                        show(app, latest, "명령 확인 실패 · 상태를 다시 확인해 주세요")
                 }
             } finally { busy.set(false); finish() }
         }

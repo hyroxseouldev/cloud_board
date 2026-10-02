@@ -37,7 +37,8 @@ class FirebaseUpdateNewsRepository implements UpdateNewsRepository {
   Future<InstalledRelease> installed() async {
     final info = await readInstalledAppInfo();
     return (
-      platform: kIsWeb ? 'web' : defaultTargetPlatform.name,
+      // Published feed keys are lowercase; Flutter spells this platform iOS.
+      platform: kIsWeb ? 'web' : defaultTargetPlatform.name.toLowerCase(),
       version: info.version,
       build: info.buildNumber,
     );

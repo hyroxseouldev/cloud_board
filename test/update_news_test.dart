@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
@@ -78,6 +80,62 @@ class FeedSource extends UpdateNewsDataSource {
 }
 
 void main() {
+  testWidgets(
+    'native platform metadata displays eligible published news',
+    (tester) async {
+      final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
+      SharedPreferences.setMockInitialValues({});
+      PackageInfo.setMockInitialValues(
+        appName: 'CloudBoard',
+        packageName: 'com.sunmkim.cloudboard',
+        version: '1.0.0',
+        buildNumber: kIsWeb ? '83.1' : (isIOS ? '542' : '52'),
+        buildSignature: '',
+      );
+      final repository = FirebaseUpdateNewsRepository(
+        FeedSource({
+          'schemaVersion': 1,
+          'entries': [
+            {
+              'id': 'native-class-cards',
+              'title': '앱 밖에서도 확인하는 수업 카드',
+              'summary': '진행 중인 수업을 확인하세요.',
+              'date': '2026-09-30',
+              'version': '1.0.0',
+              'builds': {'ios': '542', 'android': '52', 'web': '83.1'},
+              'items': [
+                {'title': '수업 카드', 'body': '남은 시간을 확인하세요.'},
+              ],
+            },
+            {
+              'id': 'future-release',
+              'title': '다음 빌드 소식',
+              'summary': '아직 설치하지 않은 기능입니다.',
+              'date': '2026-10-01',
+              'version': '1.0.0',
+              'builds': {'ios': '543', 'android': '53', 'web': '84.1'},
+              'items': [
+                {'title': '다음 기능', 'body': '다음 버전에서 이용할 수 있어요.'},
+              ],
+            },
+          ],
+        }),
+      );
+
+      await mount(tester, repository);
+      expect(find.byKey(const ValueKey('update-news-unread')), findsOneWidget);
+      await tester.tap(find.text('업데이트 소식'));
+      await tester.pumpAndSettle();
+      expect(find.text('앱 밖에서도 확인하는 수업 카드'), findsOneWidget);
+      expect(find.text('다음 빌드 소식'), findsNothing);
+      expect(find.text('아직 등록된 업데이트 소식이 없어요.'), findsNothing);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   test(
     'filters unavailable platform/version/build and sorts eligible history',
     () async {
@@ -287,7 +345,7 @@ void main() {
 
 Future<ProviderContainer> mount(
   WidgetTester tester,
-  NewsRepository repository, {
+  UpdateNewsRepository repository, {
   Size size = const Size(390, 844),
 }) async {
   tester.view.physicalSize = size;

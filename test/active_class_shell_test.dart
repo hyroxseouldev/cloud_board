@@ -185,11 +185,13 @@ void main() {
         );
         await tester.pump();
         expect(recovery.resumes, 1);
-        expect(find.text('최신 수업 상태를 확인하고 있습니다…'), findsOneWidget);
+        expect(find.byTooltip('다음 슬라이드').hitTestable(), findsNothing);
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text('수업 동기화 중'), findsOneWidget);
         expect(find.byTooltip('다음 슬라이드').hitTestable(), findsNothing);
         recovery.finish();
         await tester.pumpAndSettle();
-        expect(find.text('최신 수업 상태를 확인하고 있습니다…'), findsNothing);
+        expect(find.text('수업 동기화 중'), findsNothing);
         expect(find.byKey(const ValueKey('expand-class')), findsNothing);
         await tester.tap(find.byTooltip('최소화'));
         await tester.pumpAndSettle();

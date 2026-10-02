@@ -1,0 +1,15 @@
+<!-- Monochrome version of the existing CloudBoard monitor/pulse mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="384" android:viewportHeight="384">
+    <group android:translateX="-64" android:translateY="-64">
+        <path android:fillColor="@android:color/transparent"
+            android:strokeColor="@android:color/white" android:strokeWidth="22"
+            android:strokeLineJoin="round" android:strokeLineCap="round"
+            android:pathData="M136,123 H376 Q406,123 406,153 V307 Q406,337 376,337 H136 Q106,337 106,307 V153 Q106,123 136,123 Z" />
+        <path android:fillColor="@android:color/transparent"
+            android:strokeColor="@android:color/white" android:strokeWidth="20"
+            android:strokeLineJoin="round" android:strokeLineCap="round"
+            android:pathData="M130,236 H193 L220,189 L259,276 L293,224 H382 M256,341 V383 M208,385 H304" />
+    </group>
+</vector>

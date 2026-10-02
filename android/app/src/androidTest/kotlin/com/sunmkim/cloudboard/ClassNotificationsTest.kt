@@ -46,6 +46,10 @@ class ClassNotificationsTest {
             instrumentation.runOnMainSync { ClassNotifications.project(context, config) }
             eventually { manager.activeNotifications.any { it.id == 4601 } }
             val notification = manager.activeNotifications.single { it.id == 4601 }.notification
+            assertEquals(R.drawable.ic_class_notification, notification.smallIcon.resId)
+            assertEquals("알림 제어 자동 검증", notification.extras.getString(Notification.EXTRA_TITLE))
+            assertTrue(notification.extras.getString(Notification.EXTRA_TEXT)!!.startsWith("스쿼트 · 일시정지"))
+            assertEquals("최근 수업", notification.extras.getString(Notification.EXTRA_SUB_TEXT))
             assertEquals(3, notification.actions.size) // Previous/resume/next in compact standard actions.
             if (Build.VERSION.SDK_INT >= 36) {
                 assertNull(notification.bigContentView)
@@ -56,6 +60,14 @@ class ClassNotificationsTest {
                 assertNotNull(notification.bigContentView) // Legacy expanded layout includes stop.
             }
             assertTrue(notification.timeoutAfter in 1..900000)
+            instrumentation.runOnMainSync { ClassNotifications.project(context, config.put("connected", false)) }
+            eventually {
+                manager.activeNotifications.single { it.id == 4601 }.notification
+                    .extras.getString(Notification.EXTRA_SUB_TEXT) == "연결 확인 필요"
+            }
+            val offline = manager.activeNotifications.single { it.id == 4601 }.notification
+            assertFalse(offline.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
+            assertEquals(3, offline.actions.size) // Actions still confirm state before any write.
             // Old/forged action tokens terminate immediately without invoking any network command.
             val done = CountDownLatch(1)
             ClassNotifications.receive(context, Intent().putExtra("sessionId", "instrumentation-only").putExtra("token", "stale").putExtra("command", "next")) { done.countDown() }
