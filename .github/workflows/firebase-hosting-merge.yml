@@ -61,6 +61,9 @@ jobs:
       - name: Test account library concurrency and security rules
         run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-library 'node functions/test/slide-library-emulator.mjs'
 
+      - name: Test AI timer premium access, quotas, and concurrent requests
+        run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-ai 'node functions/test/ai-timer-emulator.mjs'
+
       - name: Test onboarding transactions and security rules
         run: npx --yes firebase-tools emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'
 
@@ -81,6 +84,7 @@ jobs:
         env:
           SOLAPI_FROM: ${{ secrets.SOLAPI_FROM }}
           APPLE_IAP_SECRETS_ENABLED: ${{ vars.APPLE_IAP_SECRETS_ENABLED || 'false' }}
+          AI_TIMER_SECRETS_ENABLED: ${{ vars.AI_TIMER_SECRETS_ENABLED || 'false' }}
         run: |
           set -euo pipefail
           test -n "$SOLAPI_FROM" || { echo 'Missing SMS sender configuration.' >&2; exit 1; }
@@ -94,6 +98,11 @@ jobs:
             *) echo 'Invalid Apple secret binding setting.' >&2; exit 1 ;;
           esac
           printf 'APPLE_IAP_SECRETS_ENABLED=%s\n' "$APPLE_IAP_SECRETS_ENABLED" >> "$sender_env"
+          case "$AI_TIMER_SECRETS_ENABLED" in
+            true|false) ;;
+            *) echo 'Invalid AI timer secret binding setting.' >&2; exit 1 ;;
+          esac
+          printf 'AI_TIMER_SECRETS_ENABLED=%s\n' "$AI_TIMER_SECRETS_ENABLED" >> "$sender_env"
           # Approve the declared retry policy for new event functions in CI.
           npx --yes firebase-tools deploy --only functions:account-deletion --project cloud-board-stationd --non-interactive --force
           npx --yes firebase-tools deploy --only firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive

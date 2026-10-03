@@ -1,4 +1,6 @@
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
+import 'package:cloud_board/src/app/feature/ai_timer/presentation/widgets/ai_timer_button.dart';
+import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_actions.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/prepare_workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
 
@@ -622,6 +624,28 @@ class _SlideEditorBody extends HookConsumerWidget {
               children: [
                 if (section.value == 1) ...[
                   summary,
+                  AiTimerButton(
+                    module: module,
+                    onApply: (recognized) {
+                      final current = ref.read(provider).module;
+                      if (!canApplyAiTimer(module, current)) return false;
+                      resetFields(
+                        () => update(
+                          applyAiTimer(
+                            current,
+                            workSeconds: recognized.workSeconds,
+                            restSeconds: recognized.restSeconds,
+                            sets: recognized.sets,
+                            name: recognized.name != module.name
+                                ? recognized.name
+                                : null,
+                          ),
+                        ),
+                      );
+                      selectedBlockId.value = null;
+                      return true;
+                    },
+                  ),
                   const Divider(height: 24),
                   LayoutBuilder(
                     builder: (context, constraints) {

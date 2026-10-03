@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {initializeApp, deleteApp} from 'firebase-admin/app';
+import {getFirestore} from 'firebase-admin/firestore';
+import {initializeTestEnvironment, assertFails} from '@firebase/rules-unit-testing';
+import {doc, getDoc, setDoc} from 'firebase/firestore';
+import {handleAiTimer, AI_TIMER_BUDGET, AI_TIMER_RESERVE, readAiTimerImage} from '../src/ai-timer.js';
+assert.match(process.env.FIRESTORE_EMULATOR_HOST||'', /^(127\.0\.0\.1|localhost):\d+$/);
+const projectId='demo-cloudboard-ai';
+const app=initializeApp({projectId}), db=getFirestore(app);
+const [host,port]=process.env.FIRESTORE_EMULATOR_HOST.split(':');
+const env=await initializeTestEnvironment({projectId,firestore:{host,port:Number(port),rules:fs.readFileSync(new URL('../../firestore.rules',import.meta.url),'utf8')}});
+const now=Date.parse('2026-10-02T00:00:00Z');
+const result={multipleTimers:false,name:'Squat',workSeconds:30,restSeconds:15,sets:4,warnings:[]};
+const image=Buffer.alloc(24); Buffer.from([137,80,78,71,13,10,26,10]).copy(image); image.write('IHDR',12); image.writeUInt32BE(1024,16); image.writeUInt32BE(768,20);
+const input={action:'analyze',imageBase64:image.toString('base64')};
+let calls=0;
+const recognize=async()=>{calls++;return {result,costMicros:450};};
+const call=(uid, extra={})=>handleAiTimer({db,uid,input,apiKey:'fake',now,recognize,...extra});
+const grant=uid=>db.doc(`subscriptionEntitlements/${uid}`).set({plan:'premium',status:'active',validUntilMs:now+3600000});
+try {
+  await env.clearFirestore();
+  await assert.rejects(call('free'), {code:'permission-denied'}); assert.equal(calls,0);
+  await grant('owner');
+  const concurrent=await Promise.allSettled([call('owner'),call('owner')]);
+  assert.equal(calls,1,'two devices must not pay for the same image twice');
+  assert(concurrent.some(r=>r.status==='fulfilled'));
+  const cached=await call('owner'); assert.equal(cached.cached,true); assert.equal(calls,1);
+  assert.equal((await db.doc('users/owner/aiTimerUsage/2026-10').get()).data().used,1);
+  assert.equal((await db.doc('aiTimerBudgets/2026-10').get()).data().spentMicros,450);
+  await db.doc('users/owner/aiTimerUsage/2026-10').update({used:100});
+  assert.equal((await call('owner')).cached,true,'cache stays free at quota limit');
+  image[23]=1;
+  await assert.rejects(call('owner',{now:now+10000,input:{...input,imageBase64:image.toString('base64')}}),{code:'resource-exhausted'});
+  await db.doc('subscriptionEntitlements/owner').update({plan:'plus'});
+  await assert.rejects(call('owner'),{code:'permission-denied'});
+  await grant('failed');
+  await assert.rejects(call('failed',{recognize:async()=>{throw new Error('secret-provider-body');}}),{code:'internal'});
+  assert.equal((await db.doc('users/failed/aiTimerUsage/2026-10').get()).data().used,0);
+  assert.equal((await db.doc('aiTimerBudgets/2026-10').get()).data().spentMicros,450+AI_TIMER_RESERVE,'unknown failures retain reservation');
+  await assert.rejects(call('failed'),{code:'resource-exhausted'});
+  await grant('attempts');
+  await db.doc('users/attempts/aiTimerUsage/2026-10').set({used:0,attempts:200});
+  await assert.rejects(call('attempts'),{code:'resource-exhausted'});
+  await grant('a'); await grant('b');
+  await db.doc('aiTimerBudgets/2026-10').set({spentMicros:AI_TIMER_BUDGET-AI_TIMER_RESERVE,calls:10});
+  let resolve; const pending=new Promise(r=>{resolve=r;});
+  const first=call('a',{recognize:async()=>{await pending;return {result,costMicros:450};}});
+  for(let i=0;i<50;i++){if((await db.doc('aiTimerBudgets/2026-10').get()).data().spentMicros===AI_TIMER_BUDGET)break;await new Promise(r=>setTimeout(r,20));}
+  await assert.rejects(call('b'),{code:'resource-exhausted'}); resolve(); await first;
+  await db.doc('appConfig/aiTimer').set({enabled:false});
+  await assert.rejects(call('a'),{code:'failed-precondition'});
+  await db.doc('appConfig/aiTimer').delete();
+  await db.doc('accountDeletions/a').set({status:'pending'});
+  await assert.rejects(call('a'),{code:'permission-denied'});
+  const client=env.authenticatedContext('owner').firestore();
+  for(const path of ['appConfig/aiTimer','aiTimerBudgets/2026-10','users/owner/aiTimerUsage/2026-10',`users/owner/aiTimerJobs/${readAiTimerImage(input).key}`]) {
+    await assertFails(getDoc(doc(client,path))); await assertFails(setDoc(doc(client,path),{used:0,enabled:true}));
+  }
+  console.log('PASS AI timer: premium, concurrent deduplication, quota/cache, cost reservation, failures, kill switch, deletion, rules');
+} finally {await env.cleanup();await deleteApp(app);}

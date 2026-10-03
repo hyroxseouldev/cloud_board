@@ -63,6 +63,7 @@
       "ignore": [
         "node_modules",
         ".git",
+        ".secret*",
         "*-debug.log",
         "test"
       ]
