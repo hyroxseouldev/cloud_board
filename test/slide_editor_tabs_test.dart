@@ -91,6 +91,18 @@ void main() {
       expect(find.byTooltip('실행 취소'), findsNothing);
       expect(find.byTooltip('다시 실행'), findsNothing);
       final modeToggle = find.byKey(const ValueKey('timer-display-toggle'));
+      // The AI action above this section may put it outside the lazy viewport
+      // on a short landscape screen. Scroll to build it before ensureVisible.
+      await tester.scrollUntilVisible(
+        modeToggle,
+        120,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('slide-editor-settings')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       for (final label in ['안 보임', '숫자만', '숫자 + 게이지']) {
         await tester.ensureVisible(modeToggle);
         await tester.pumpAndSettle();
