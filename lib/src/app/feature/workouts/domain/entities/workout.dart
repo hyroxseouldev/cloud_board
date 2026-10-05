@@ -70,6 +70,11 @@ abstract class WorkoutModule with _$WorkoutModule {
     @Default(true) bool includeFinalRest,
     required String text,
     required String imageSource,
+    // Versioned theme; content stays in name/text/timer fields.
+    String? designTemplate,
+    int? designBackgroundColor,
+    int? designTextColor,
+    int? designAccentColor,
     required bool showTimer,
     @Default(SlideAppearance()) SlideAppearance appearance,
     @Default(true) bool showTimerGauge,

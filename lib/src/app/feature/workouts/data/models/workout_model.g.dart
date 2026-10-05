@@ -85,6 +85,10 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
       includeFinalRest: json['includeFinalRest'] as bool? ?? true,
       text: json['text'] as String,
       imageUrl: json['imageUrl'] as String,
+      designTemplate: json['designTemplate'] as String?,
+      designBackgroundColor: (json['designBackgroundColor'] as num?)?.toInt(),
+      designTextColor: (json['designTextColor'] as num?)?.toInt(),
+      designAccentColor: (json['designAccentColor'] as num?)?.toInt(),
       showTimer: json['showTimer'] as bool? ?? true,
       appearance: json['appearance'] == null
           ? const SlideAppearanceModel()
@@ -119,6 +123,10 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'name': instance.name,
       'text': instance.text,
       'imageUrl': instance.imageUrl,
+      'designTemplate': ?instance.designTemplate,
+      'designBackgroundColor': ?instance.designBackgroundColor,
+      'designTextColor': ?instance.designTextColor,
+      'designAccentColor': ?instance.designAccentColor,
       'workSeconds': instance.workSeconds,
       'sets': instance.sets,
       'restSeconds': instance.restSeconds,

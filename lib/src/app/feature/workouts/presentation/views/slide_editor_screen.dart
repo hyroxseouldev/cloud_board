@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/feature/ai_timer/presentation/widgets/ai_timer_button.dart';
 import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_actions.dart';
@@ -11,6 +12,10 @@ import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -367,7 +372,10 @@ class _SlideEditorBody extends HookConsumerWidget {
         );
         if (context.mounted) {
           actions.update(
-            ref.read(provider).module.copyWith(imageSource: source),
+            ref
+                .read(provider)
+                .module
+                .copyWith(imageSource: source, designTemplate: null),
           );
         }
       } catch (_) {
@@ -482,7 +490,10 @@ class _SlideEditorBody extends HookConsumerWidget {
               FocusScope.of(context).unfocus();
               final edited = await showDialog<String>(
                 context: context,
-                builder: (_) => _SlideTitleDialog(initialValue: module.name),
+                builder: (_) => _SlideTitleDialog(
+                  initialValue: module.name,
+                  maxLength: hasSlideDesign(module) ? 60 : null,
+                ),
               );
               if (edited == null || !context.mounted) return;
               final latest = ref.read(provider).module;
@@ -833,6 +844,37 @@ class _SlideEditorBody extends HookConsumerWidget {
                   ),
                 ],
                 if (section.value == 2) ...[
+                  if (hasSlideDesign(module)) ...[
+                    const Row(
+                      children: [
+                        Text('슬라이드 테마'),
+                        SizedBox(width: 8),
+                        AiBetaBadge(),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: module.designTemplate,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: '슬라이드 배치'),
+                      items: [
+                        for (final entry in slideDesigns.entries)
+                          DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          update(module.copyWith(designTemplate: value)),
+                    ),
+                    const SizedBox(height: 12),
+                    SlideDesignColors(module: module, onChanged: update),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '제목·운동 목록·타이머를 바꾸면 이미지도 함께 바뀌어요. 다른 이미지를 선택하면 테마가 해제돼요.',
+                    ),
+                    const Divider(height: 24),
+                  ],
                   _SlideEditorMenuTile(
                     icon: Icons.image_outlined,
                     title: '이미지',
@@ -844,7 +886,12 @@ class _SlideEditorBody extends HookConsumerWidget {
                       if (action == 'change') {
                         unawaited(pickBackgroundImage());
                       } else if (action == 'remove') {
-                        update(module.copyWith(imageSource: ''));
+                        update(
+                          module.copyWith(
+                            imageSource: '',
+                            designTemplate: null,
+                          ),
+                        );
                       }
                     },
                     items: [
@@ -856,7 +903,9 @@ class _SlideEditorBody extends HookConsumerWidget {
                       ),
                       PopupMenuItem(
                         value: 'remove',
-                        enabled: module.imageSource.isNotEmpty,
+                        enabled:
+                            hasSlideDesign(module) ||
+                            module.imageSource.isNotEmpty,
                         child: const Text('이미지 제거'),
                       ),
                     ],
@@ -884,31 +933,42 @@ class _SlideEditorBody extends HookConsumerWidget {
                     value: module.coverImage,
                     onChanged: (v) => update(module.copyWith(coverImage: v)),
                   ),
-                  SlideAppearanceControls(
-                    section: SlideAppearanceSection.visibility,
-                    value: module.appearance,
-                    onChanged: (value, _) =>
-                        update(module.copyWith(appearance: value)),
-                  ),
+                  if (!hasSlideDesign(module))
+                    SlideAppearanceControls(
+                      section: SlideAppearanceSection.visibility,
+                      value: module.appearance,
+                      onChanged: (value, _) =>
+                          update(module.copyWith(appearance: value)),
+                    ),
                   const Divider(height: 24),
                   TextFormField(
                     controller: description,
                     maxLines: 4,
-                    decoration: const InputDecoration(labelText: '화면 텍스트'),
+                    maxLength: hasSlideDesign(module)
+                        ? slideDesignMaxTextLength
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: '화면 텍스트',
+                      helperText: hasSlideDesign(module)
+                          ? '최대 24줄 · 한 줄에 120자'
+                          : null,
+                    ),
                     onChanged: (v) => update(module.copyWith(text: v)),
                   ),
                   const Divider(height: 24),
-                  const Text(
-                    '색상',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SlideAppearanceControls(
-                    key: ValueKey('background-appearance-${revision.value}'),
-                    section: SlideAppearanceSection.background,
-                    value: module.appearance,
-                    onChanged: (value, _) =>
-                        update(module.copyWith(appearance: value)),
-                  ),
+                  if (!hasSlideDesign(module))
+                    const Text(
+                      '색상',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  if (!hasSlideDesign(module))
+                    SlideAppearanceControls(
+                      key: ValueKey('background-appearance-${revision.value}'),
+                      section: SlideAppearanceSection.background,
+                      value: module.appearance,
+                      onChanged: (value, _) =>
+                          update(module.copyWith(appearance: value)),
+                    ),
                 ],
                 if (section.value == 3) ...[
                   SwitchListTile(
@@ -1123,8 +1183,9 @@ class _SlideEditorMenuTile extends HookWidget {
 }
 
 class _SlideTitleDialog extends HookWidget {
-  const _SlideTitleDialog({required this.initialValue});
+  const _SlideTitleDialog({required this.initialValue, this.maxLength});
   final String initialValue;
+  final int? maxLength;
   @override
   Widget build(BuildContext context) {
     final controller = useTextEditingController(text: initialValue);
@@ -1144,6 +1205,7 @@ class _SlideTitleDialog extends HookWidget {
           autofocus: true,
           textInputAction: TextInputAction.done,
           decoration: const InputDecoration(labelText: '슬라이드 제목'),
+          maxLength: maxLength,
           validator: (value) => value == null || value.trim().isEmpty
               ? '슬라이드 제목을 입력해 주세요.'
               : null,

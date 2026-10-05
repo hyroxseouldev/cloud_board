@@ -1,5 +1,9 @@
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:flutter/material.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
+
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -49,7 +53,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
     builder: (context, constraints) => Stack(
       fit: StackFit.expand,
       children: [
-        if (module.imageSource.isNotEmpty)
+        if (hasSlideDesign(module) || module.imageSource.isNotEmpty)
           RepaintBoundary(
             child: ClipRect(
               child: Transform.translate(
@@ -59,17 +63,33 @@ class WorkoutSlideCanvas extends StatelessWidget {
                 ),
                 child: Transform.scale(
                   scale: preferences.zoom,
-                  child: WorkoutImage(
-                    source: module.imageSource,
-                    fit:
-                        (preferences.enabled
-                            ? preferences.cover
-                            : module.coverImage)
-                        ? BoxFit.cover
-                        : BoxFit.contain,
-                    resolutionScale: preferences.zoom,
-                    showLoadingIndicator: showLoadingIndicator,
-                  ),
+                  child: hasSlideDesign(module)
+                      ? FittedBox(
+                          fit:
+                              (preferences.enabled
+                                  ? preferences.cover
+                                  : module.coverImage)
+                              ? BoxFit.cover
+                              : BoxFit.contain,
+                          child: SizedBox(
+                            width: 1920,
+                            height: 1080,
+                            child: CustomPaint(
+                              painter: SlideDesignPainter(module),
+                            ),
+                          ),
+                        )
+                      : WorkoutImage(
+                          source: module.imageSource,
+                          fit:
+                              (preferences.enabled
+                                  ? preferences.cover
+                                  : module.coverImage)
+                              ? BoxFit.cover
+                              : BoxFit.contain,
+                          resolutionScale: preferences.zoom,
+                          showLoadingIndicator: showLoadingIndicator,
+                        ),
                 ),
               ),
             ),
@@ -93,7 +113,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (module.appearance.showTitle)
+                if (!hasSlideDesign(module) && module.appearance.showTitle)
                   Row(
                     children: [
                       Expanded(
@@ -118,7 +138,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                     Expanded(
                       flex: 3,
                       child: Text(
-                        !module.appearance.showBody
+                        hasSlideDesign(module) || !module.appearance.showBody
                             ? ''
                             : isRest
                             ? (module.showSets

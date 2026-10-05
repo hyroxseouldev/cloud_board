@@ -127,45 +127,53 @@ export async function requestAiTimer(image, apiKey, fetchImpl = fetch) {
   return {result, costMicros};
 }
 
-export async function handleAiTimer({db, uid, input, apiKey, now = Date.now(), recognize = requestAiTimer}) {
+export async function handleAiTimer(options) {
+  return handleMeteredAi({...options, feature: 'aiTimer', action: 'analyze', limit: AI_TIMER_USER_LIMIT,
+    parse: readAiTimerImage, validate: validateAiTimerResult, recognize: options.recognize ?? requestAiTimer});
+}
+
+// Timer recognition and themed slide generation share the same atomic budget.
+// Only server-owned callers select a feature, parser, validator, or quota.
+export async function handleMeteredAi({db, uid, input, apiKey, now = Date.now(),
+  feature, action, limit, parse, validate, recognize}) {
   if (!uid) throw fail('unauthenticated', '로그인 후 이용해 주세요.', 'signed-out');
-  if (!['status', 'analyze'].includes(input?.action)) throw fail('invalid-argument', '올바른 요청이 아닙니다.', 'invalid-action');
+  if (!['status', action].includes(input?.action)) throw fail('invalid-argument', '올바른 요청이 아닙니다.', 'invalid-action');
   const month = aiTimerMonth(now);
   const accessRef = db.doc(`subscriptionEntitlements/${uid}`);
   const lockRef = db.doc(`accountDeletions/${uid}`);
-  const configRef = db.doc('appConfig/aiTimer');
-  const usageRef = db.doc(`users/${uid}/aiTimerUsage/${month.id}`);
+  const configRef = db.doc(`appConfig/${feature}`);
+  const usageRef = db.doc(`users/${uid}/${feature}Usage/${month.id}`);
   const budgetRef = db.doc(`aiTimerBudgets/${month.id}`);
-  const image = input.action === 'analyze' ? readAiTimerImage(input) : null;
-  const jobRef = image ? db.doc(`users/${uid}/aiTimerJobs/${image.key}`) : null;
+  const image = input.action === action ? parse(input) : null;
+  const jobRef = image ? db.doc(`users/${uid}/${feature}Jobs/${image.key}`) : null;
   const claim = await db.runTransaction(async tx => {
     const [access, lock, config, usage, budget] = await tx.getAll(accessRef, lockRef, configRef, usageRef, budgetRef);
     if (lock.exists) throw fail('permission-denied', '이용할 수 없는 계정입니다.', 'account-deleted');
     const premium = isAiTimerPremium(access.data(), now);
     const enabled = Boolean(apiKey) && config.data()?.enabled !== false;
     const used = usage.data()?.used ?? 0;
-    const status = {premium, enabled, remaining: Math.max(0, AI_TIMER_USER_LIMIT - used),
-      limit: AI_TIMER_USER_LIMIT, resetsAtMs: month.resetsAtMs};
+    const status = {premium, enabled, remaining: Math.max(0, limit - used),
+      limit: limit, resetsAtMs: month.resetsAtMs};
     if (input.action === 'status') return {status};
-    if (!premium) throw fail('permission-denied', '프리미엄 이용자만 AI 타이머를 사용할 수 있어요.', 'premium-required');
+    if (!premium) throw fail('permission-denied', '프리미엄 이용자만 AI 기능을 사용할 수 있어요.', 'premium-required');
     if (!enabled) throw fail('failed-precondition', 'AI 기능을 준비 중입니다. 잠시 후 다시 이용해 주세요.', 'not-configured');
     const job = (await tx.get(jobRef)).data();
     // Always verify entitlement before returning an account-scoped cached result.
     if (job?.status === 'completed' && job.expiresAtMs > now) return {status, result: job.result, cached: true};
     if (job?.status === 'processing' && job.startedAtMs + 90000 > now) {
-      throw fail('aborted', '같은 이미지를 분석 중입니다. 잠시 후 다시 눌러 주세요.', 'in-progress');
+      throw fail('aborted', '같은 내용을 처리 중입니다. 잠시 후 다시 눌러 주세요.', 'in-progress');
     }
     if ((job?.retryAfterMs ?? 0) > now || (usage.data()?.lastAttemptMs ?? 0) + 5000 > now) {
       throw fail('resource-exhausted', '잠시 기다린 뒤 다시 시도해 주세요.', 'cooldown');
     }
-    if (used >= AI_TIMER_USER_LIMIT) throw fail('resource-exhausted', '이번 달 AI 분석을 모두 사용했어요. 다음 달에 다시 이용해 주세요.', 'user-limit');
+    if (used >= limit) throw fail('resource-exhausted', '이번 달 AI 요청을 모두 사용했어요. 다음 달에 다시 이용해 주세요.', 'user-limit');
     const spent = budget.data()?.spentMicros ?? 0, calls = budget.data()?.calls ?? 0;
     const attempts = usage.data()?.attempts ?? 0;
-    if (attempts >= AI_TIMER_USER_LIMIT * 2) {
-      throw fail('resource-exhausted', '반복 분석 요청이 많아 이번 달 분석을 잠시 제한했어요. 직접 타이머를 설정해 주세요.', 'attempt-limit');
+    if (attempts >= limit * 2) {
+      throw fail('resource-exhausted', '반복 요청이 많아 이번 달 요청을 잠시 제한했어요. 다음 달에 다시 이용해 주세요.', 'attempt-limit');
     }
     if (spent + AI_TIMER_RESERVE > AI_TIMER_BUDGET || calls >= AI_TIMER_GLOBAL_LIMIT) {
-      throw fail('resource-exhausted', '이번 달 AI 분석 제공 한도에 도달했어요. 직접 타이머를 설정해 주세요.', 'service-limit');
+      throw fail('resource-exhausted', '이번 달 AI 요청 제공 한도에 도달했어요. 다음 달에 다시 이용해 주세요.', 'service-limit');
     }
     // Charge a conservative reservation immediately. If the worker crashes, it
     // remains charged; a client retry cannot turn uncertain provider work free.
@@ -176,8 +184,8 @@ export async function handleAiTimer({db, uid, input, apiKey, now = Date.now(), r
   });
   if (!image || claim.cached) return {...claim.status, ...(claim.result ? {result: claim.result, cached: true} : {})};
   let answer, error;
-  try { answer = await recognize(image, apiKey); answer.result = validateAiTimerResult(answer.result); }
-  catch (e) { error = e instanceof HttpsError ? e : fail('internal', '분석을 완료하지 못했습니다. 다시 시도해 주세요.', 'analysis-failed'); }
+  try { answer = await recognize(image, apiKey); answer.result = validate(answer.result); }
+  catch (e) { error = e instanceof HttpsError ? e : fail('internal', '생성을 완료하지 못했습니다. 다시 시도해 주세요.', 'analysis-failed'); }
   await db.runTransaction(async tx => {
     const [job, usage, budget, lock] = await tx.getAll(jobRef, usageRef, budgetRef, lockRef);
     // Account deletion owns cleanup; never recreate its data after an API call.

@@ -181,6 +181,17 @@ export const cloudboardAiTimer = onCall({
   return handleAiTimer({db, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
 });
 
+export const cloudboardAiSlides = onCall({
+  region, timeoutSeconds: 60, memory: '512MiB', maxInstances: 3, concurrency: 10,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async request => {
+  if (!request.auth || request.auth.token.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
+  }
+  const {handleAiSlides} = await import('./ai-slides.js');
+  return handleAiSlides({db, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+});
+
 export const syncSlideLibraryPlan = onDocumentWritten({
   region, document: 'subscriptionEntitlements/{uid}', retry: true,
   timeoutSeconds: 120, maxInstances: 5,

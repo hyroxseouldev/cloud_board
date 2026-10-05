@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
+
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -82,15 +84,23 @@ class AccountSlideEditorRepository extends LocalSlideEditorRepository {
     String scope,
     String kind,
     WorkoutModule item,
-  ) async => kind == 'styles'
-      ? item.copyWith(imageSource: '', favorite: false)
-      : item.copyWith(
-          imageSource: await storage.uploadImage(
-            scope,
-            '_slide_library',
-            item.imageSource,
-          ),
-        );
+  ) async {
+    if (kind == 'styles') {
+      return item.copyWith(
+        imageSource: '',
+        designTemplate: null,
+        favorite: false,
+      );
+    }
+    final prepared = await prepareSlideDesign(item);
+    return prepared.copyWith(
+      imageSource: await storage.uploadImage(
+        scope,
+        '_slide_library',
+        prepared.imageSource,
+      ),
+    );
+  }
 
   Stream<List<WorkoutModule>> _watch(String scope, String kind) async* {
     await _migrate(scope, kind);
