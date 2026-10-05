@@ -94,6 +94,24 @@ try {
   assert.equal((await db.collection('users/owner/libraryFolders').get()).size,0);
   await assertFails(setDoc(doc(owner,'users/owner/libraryFolders/bypass'),{name:'bypass'}));
   await assertFails(getDoc(doc(other,'users/owner/libraryFolders/bypass')));
+  // New clients serialize these defaults even when the old document omitted
+  // them. Both library kinds must accept that base without hiding real edits.
+  for (const kind of ['templates','styles']) {
+    const id=`design-${kind}`, legacy=item(id,false);
+    await write([patch(id,null,legacy)],{kind});
+    const clientBase={...legacy,designLayout:'auto',designFontWeight:900,designItalic:true,designSpacing:1.0};
+    let current={...clientBase,name:'새 디자인 이름'};
+    assert.equal((await write([patch(id,clientBase,current)],{kind})).changed,1);
+    for (const change of [{designLayout:'columns'},{designFontWeight:700},{designItalic:false},{designSpacing:1.2}]) {
+      const base=current, remote={...current,...change};
+      await write([patch(id,base,remote)],{kind});
+      await assert.rejects(write([patch(id,base,{...base,name:'stale design name'})],{kind}),{code:'aborted'});
+      assert.equal((await write([patch(id,base,remote)],{kind})).changed,0);
+      const collection=kind==='templates'?'slideTemplates':'slideStyles';
+      assert.deepEqual((await db.doc(`users/owner/${collection}/${id}`).get()).data().value,remote);
+      current=remote;
+    }
+  }
   await db.doc('accountDeletions/owner').set({status:'pending'});
   await assert.rejects(write([patch('locked')]),{code:'permission-denied'});
   await assertFails(getDoc(doc(owner,'users/owner/slideTemplates/plain')));

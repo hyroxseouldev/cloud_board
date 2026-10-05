@@ -153,6 +153,10 @@ class WorkoutModuleModel {
     this.designBackgroundColor,
     this.designTextColor,
     this.designAccentColor,
+    this.designLayout = 'auto',
+    this.designFontWeight = 900,
+    this.designItalic = true,
+    this.designSpacing = 1.0,
     required this.showTimer,
     this.appearance = const SlideAppearanceModel(),
     this.showTimerGauge = true,
@@ -177,6 +181,10 @@ class WorkoutModuleModel {
   final int? designTextColor;
   @JsonKey(includeIfNull: false)
   final int? designAccentColor;
+  final String designLayout;
+  final int designFontWeight;
+  final bool designItalic;
+  final double designSpacing;
   final int workSeconds, sets, restSeconds;
   final bool includeFinalRest;
   @JsonKey(defaultValue: true)
@@ -208,6 +216,10 @@ class WorkoutModuleModel {
     designBackgroundColor: designBackgroundColor,
     designTextColor: designTextColor,
     designAccentColor: designAccentColor,
+    designLayout: designLayout,
+    designFontWeight: designFontWeight,
+    designItalic: designItalic,
+    designSpacing: designSpacing,
     showTimer: showTimer,
     appearance: appearance.toEntity(),
     showTimerGauge: showTimerGauge,
@@ -237,6 +249,10 @@ class WorkoutModuleModel {
         designBackgroundColor: value.designBackgroundColor,
         designTextColor: value.designTextColor,
         designAccentColor: value.designAccentColor,
+        designLayout: value.designLayout,
+        designFontWeight: value.designFontWeight,
+        designItalic: value.designItalic,
+        designSpacing: value.designSpacing,
         showTimer: value.showTimer,
         appearance: SlideAppearanceModel.fromEntity(value.appearance),
         showTimerGauge: value.showTimerGauge,

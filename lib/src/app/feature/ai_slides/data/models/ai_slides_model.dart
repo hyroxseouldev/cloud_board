@@ -27,9 +27,7 @@ class AiSlidesModel {
   );
   AiSlidesResult toResult() {
     final content = result;
-    if (content == null ||
-        content.slides.isEmpty ||
-        content.slides.length > 6) {
+    if (content == null || content.slides.length != 1) {
       throw const AiSlidesFailure('슬라이드 응답을 읽지 못했습니다. 다시 시도해 주세요.');
     }
     return AiSlidesResult(
@@ -51,18 +49,20 @@ class AiSlidesContentModel {
   Map<String, dynamic> toJson() => _$AiSlidesContentModelToJson(this);
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class AiSlideModel {
   const AiSlideModel({
     required this.title,
     required this.layout,
     required this.lines,
+    this.sections,
     this.workSeconds,
     this.restSeconds,
     this.sets,
   });
   final String title, layout;
   final List<String> lines;
+  final List<AiSlideSectionModel>? sections;
   final int? workSeconds, restSeconds, sets;
   factory AiSlideModel.fromJson(Map<String, dynamic> json) =>
       _$AiSlideModelFromJson(json);
@@ -70,9 +70,28 @@ class AiSlideModel {
   AiSlideDraft toEntity() => AiSlideDraft(
     title: title,
     layout: layout,
-    lines: lines,
+    lines: sections == null
+        ? lines
+        : [
+            for (final section in sections!) ...[
+              if (section.heading.trim().isNotEmpty)
+                '## ${section.heading.trim()}',
+              ...section.lines,
+            ],
+          ],
+    showTimer: workSeconds != null,
     workSeconds: workSeconds,
     restSeconds: restSeconds,
     sets: sets,
   );
+}
+
+@JsonSerializable()
+class AiSlideSectionModel {
+  const AiSlideSectionModel({required this.heading, required this.lines});
+  final String heading;
+  final List<String> lines;
+  factory AiSlideSectionModel.fromJson(Map<String, dynamic> json) =>
+      _$AiSlideSectionModelFromJson(json);
+  Map<String, dynamic> toJson() => _$AiSlideSectionModelToJson(this);
 }

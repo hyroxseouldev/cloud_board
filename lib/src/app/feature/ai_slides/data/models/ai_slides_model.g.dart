@@ -52,6 +52,9 @@ AiSlideModel _$AiSlideModelFromJson(Map<String, dynamic> json) => AiSlideModel(
   title: json['title'] as String,
   layout: json['layout'] as String,
   lines: (json['lines'] as List<dynamic>).map((e) => e as String).toList(),
+  sections: (json['sections'] as List<dynamic>?)
+      ?.map((e) => AiSlideSectionModel.fromJson(e as Map<String, dynamic>))
+      .toList(),
   workSeconds: (json['workSeconds'] as num?)?.toInt(),
   restSeconds: (json['restSeconds'] as num?)?.toInt(),
   sets: (json['sets'] as num?)?.toInt(),
@@ -62,7 +65,18 @@ Map<String, dynamic> _$AiSlideModelToJson(AiSlideModel instance) =>
       'title': instance.title,
       'layout': instance.layout,
       'lines': instance.lines,
+      'sections': instance.sections?.map((e) => e.toJson()).toList(),
       'workSeconds': instance.workSeconds,
       'restSeconds': instance.restSeconds,
       'sets': instance.sets,
     };
+
+AiSlideSectionModel _$AiSlideSectionModelFromJson(Map<String, dynamic> json) =>
+    AiSlideSectionModel(
+      heading: json['heading'] as String,
+      lines: (json['lines'] as List<dynamic>).map((e) => e as String).toList(),
+    );
+
+Map<String, dynamic> _$AiSlideSectionModelToJson(
+  AiSlideSectionModel instance,
+) => <String, dynamic>{'heading': instance.heading, 'lines': instance.lines};

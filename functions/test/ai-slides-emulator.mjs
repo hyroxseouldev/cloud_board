@@ -12,7 +12,8 @@ const app=initializeApp({projectId}), db=getFirestore(app);
 const [host,port]=process.env.FIRESTORE_EMULATOR_HOST.split(':');
 const env=await initializeTestEnvironment({projectId,firestore:{host,port:Number(port),rules:fs.readFileSync(new URL('../../firestore.rules',import.meta.url),'utf8')}});
 const now=Date.parse('2026-10-03T00:00:00Z');
-const result={complete:true,slides:[{title:'WARM UP',layout:'numbered',lines:['Squat 10 reps'],workSeconds:300,restSeconds:0,sets:1}],warnings:[]};
+const result={complete:true,slides:[{title:'WARM UP',layout:'numbered',sourceTitleLineIds:[1],
+  sections:[{heading:'',lines:['Squat 10 reps'],sourceLineIds:[1]}],workSeconds:300,restSeconds:0,sets:1}],warnings:[]};
 let calls=0;
 const recognize=async()=>{calls++;return {result,costMicros:500};};
 const input={action:'generate',prompt:'WARM UP: Squat 10 reps, 5 minutes, no rest, 1 set'};
@@ -35,6 +36,16 @@ try {
   await assert.rejects(call('failure',{recognize:async()=>{throw new Error('private');}}),{code:'internal'});
   assert.equal((await db.doc('users/failure/aiSlidesUsage/2026-10').get()).data().used,0);
   assert.equal((await db.doc('aiTimerBudgets/2026-10').get()).data().spentMicros,500+AI_TIMER_RESERVE);
+  await grant('invalid-input');
+  await assert.rejects(call('invalid-input',{input:{...input,prompt:'x'.repeat(6001)}}),{code:'invalid-argument'});
+  assert.equal((await db.doc('users/invalid-input/aiSlidesUsage/2026-10').get()).exists,false,
+    'invalid input must not reserve successful-use quota or contact the provider');
+  await grant('missing-quantity');
+  await assert.rejects(call('missing-quantity',{recognize:async()=>({result:{...result,slides:[{...result.slides[0],
+    sections:[{heading:'',lines:['Squat'],sourceLineIds:[1]}]}]},costMicros:500})}),
+  error=>error.details.reason==='changed-source-quantity');
+  assert.equal((await db.doc('users/missing-quantity/aiSlidesUsage/2026-10').get()).data().used,0,
+    'a source-preservation rejection must refund successful-use quota');
   await grant('deleting');
   await call('deleting',{recognize:async()=>{
     await db.doc('accountDeletions/deleting').set({status:'pending'});
