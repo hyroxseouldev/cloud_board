@@ -149,6 +149,10 @@ class WorkoutModuleModel {
     this.includeFinalRest = true,
     required this.text,
     required this.imageUrl,
+    this.designTemplate,
+    this.designBackgroundColor,
+    this.designTextColor,
+    this.designAccentColor,
     required this.showTimer,
     this.appearance = const SlideAppearanceModel(),
     this.showTimerGauge = true,
@@ -165,6 +169,14 @@ class WorkoutModuleModel {
     this.intervalBlocks = const [],
   });
   final String id, name, text, imageUrl;
+  @JsonKey(includeIfNull: false)
+  final String? designTemplate;
+  @JsonKey(includeIfNull: false)
+  final int? designBackgroundColor;
+  @JsonKey(includeIfNull: false)
+  final int? designTextColor;
+  @JsonKey(includeIfNull: false)
+  final int? designAccentColor;
   final int workSeconds, sets, restSeconds;
   final bool includeFinalRest;
   @JsonKey(defaultValue: true)
@@ -192,6 +204,10 @@ class WorkoutModuleModel {
     includeFinalRest: includeFinalRest,
     text: text,
     imageSource: imageUrl,
+    designTemplate: designTemplate,
+    designBackgroundColor: designBackgroundColor,
+    designTextColor: designTextColor,
+    designAccentColor: designAccentColor,
     showTimer: showTimer,
     appearance: appearance.toEntity(),
     showTimerGauge: showTimerGauge,
@@ -217,6 +233,10 @@ class WorkoutModuleModel {
         includeFinalRest: value.includeFinalRest,
         text: value.text,
         imageUrl: value.imageSource,
+        designTemplate: value.designTemplate,
+        designBackgroundColor: value.designBackgroundColor,
+        designTextColor: value.designTextColor,
+        designAccentColor: value.designAccentColor,
         showTimer: value.showTimer,
         appearance: SlideAppearanceModel.fromEntity(value.appearance),
         showTimerGauge: value.showTimerGauge,

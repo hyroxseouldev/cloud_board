@@ -1,4 +1,7 @@
 import 'package:crypto/crypto.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
+
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_board/src/app/core/utils/bounded_map.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -70,6 +73,11 @@ class WorkoutStorageDataSource {
     Workout workout, {
     void Function(int completed, int total)? onProgress,
   }) async {
+    final designed = <WorkoutModule>[];
+    for (final module in workout.modules) {
+      designed.add(await prepareSlideDesign(module));
+    }
+    workout = workout.copyWith(modules: designed);
     final sources = [
       ...workout.modules.map((module) => module.imageSource),
       workout.countdownImageSource,

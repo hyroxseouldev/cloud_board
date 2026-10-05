@@ -4,6 +4,9 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/li
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -268,6 +271,21 @@ class _EditorBody extends HookConsumerWidget {
         modules: [...draft.value.modules, module],
       );
       selectSlide(module.id);
+    }
+
+    Future<void> addAiSlides() async {
+      final owner = ref.read(authStateProvider).value?.id;
+      final modules = await showAiSlidesSheet(context);
+      if (!context.mounted ||
+          modules == null ||
+          modules.isEmpty ||
+          ref.read(authStateProvider).value?.id != owner) {
+        return;
+      }
+      draft.value = draft.value.copyWith(
+        modules: [...draft.value.modules, ...modules],
+      );
+      selectSlide(modules.first.id);
     }
 
     Future<void> saveTemplate(WorkoutModule module) async {
@@ -582,14 +600,37 @@ class _EditorBody extends HookConsumerWidget {
                           itemExtent: rowExtent,
                           footer: Padding(
                             padding: const EdgeInsets.only(top: 8, bottom: 8),
-                            child: Tooltip(
-                              message: '슬라이드 추가',
-                              child: OutlinedButton.icon(
-                                key: const ValueKey('add-slide-at-end'),
-                                onPressed: isBusy ? null : () => addSlide(),
-                                icon: const Icon(Icons.add_rounded),
-                                label: const Text('슬라이드 추가'),
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Tooltip(
+                                  message: '슬라이드 추가',
+                                  child: OutlinedButton.icon(
+                                    key: const ValueKey('add-slide-at-end'),
+                                    onPressed: isBusy ? null : () => addSlide(),
+                                    icon: const Icon(Icons.add_rounded),
+                                    label: const Text('슬라이드 추가'),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                OutlinedButton(
+                                  onPressed: isBusy ? null : addAiSlides,
+                                  child: const Wrap(
+                                    alignment: WrapAlignment.center,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    children: [
+                                      Icon(
+                                        Icons.auto_awesome_rounded,
+                                        size: 18,
+                                      ),
+                                      Text('AI 슬라이드 만들기'),
+                                      AiBetaBadge(),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           padding: slideListPadding,

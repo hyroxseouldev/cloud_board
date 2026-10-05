@@ -39,6 +39,9 @@ SlideEditorActions slideEditorActions(Ref ref) =>
 WorkoutModule applySlideStyle(WorkoutModule target, WorkoutModule style) =>
     target.copyWith(
       appearance: style.appearance,
+      designBackgroundColor: style.designBackgroundColor,
+      designTextColor: style.designTextColor,
+      designAccentColor: style.designAccentColor,
       showTimer: style.showTimer,
       showTimerGauge: style.showTimerGauge,
       showSets: style.showSets,

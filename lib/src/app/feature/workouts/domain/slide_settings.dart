@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/core/utils/hex_color.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 
 enum TimerDisplayMode { gaugeAndNumber, numberOnly, hidden }
 
@@ -70,6 +71,7 @@ int slideColor(
       ? (rest ? module.restTextColor : module.workTextColor)
       : (rest ? module.restGaugeColor : module.workGaugeColor);
   return parseHexColor(explicit) ??
+      (hasSlideDesign(module) ? module.designTextColor : null) ??
       ((secondsLeft != null && secondsLeft <= 3)
           ? 0xFFFF3B30
           : module.timerColorValue ?? (rest ? 0xFF0047FF : 0xFFFFFFFF));

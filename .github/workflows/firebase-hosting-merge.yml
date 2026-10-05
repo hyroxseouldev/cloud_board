@@ -61,8 +61,8 @@ jobs:
       - name: Test account library concurrency and security rules
         run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-library 'node functions/test/slide-library-emulator.mjs'
 
-      - name: Test AI timer premium access, quotas, and concurrent requests
-        run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-ai 'node functions/test/ai-timer-emulator.mjs'
+      - name: Test AI premium access, shared budget, and concurrent requests
+        run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-ai 'node functions/test/ai-timer-emulator.mjs && node functions/test/ai-slides-emulator.mjs'
 
       - name: Test onboarding transactions and security rules
         run: npx --yes firebase-tools emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'

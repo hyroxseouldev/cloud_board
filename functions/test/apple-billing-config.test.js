@@ -35,5 +35,6 @@ test('Firebase function metadata supports optional Apple and AI secrets but keep
     assert.deepEqual(functions.cloudboardAppOnboarding,
       ['CLOUDBOARD_ONBOARDING_SECRET', 'SOLAPI_API_KEY', 'SOLAPI_API_SECRET']);
     assert.deepEqual(functions.cloudboardAiTimer, flag === 'true' ? ['OPENAI_API_KEY'] : []);
+    assert.deepEqual(functions.cloudboardAiSlides, flag === 'true' ? ['OPENAI_API_KEY'] : []);
   }
 });
