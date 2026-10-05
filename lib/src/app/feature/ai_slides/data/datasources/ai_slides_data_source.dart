@@ -25,7 +25,12 @@ class AiSlidesDataSource {
       }
       return AiSlidesModel.fromJson(response.data);
     } on FirebaseFunctionsException catch (error) {
-      throw AiSlidesFailure(error.message ?? 'AI에 연결하지 못했습니다. 연결을 확인해 주세요.');
+      final details = error.details;
+      throw AiSlidesFailure(
+        error.message ?? 'AI에 연결하지 못했습니다. 연결을 확인해 주세요.',
+        code: error.code,
+        reason: details is Map ? details['reason'] as String? : null,
+      );
     }
   }
 }

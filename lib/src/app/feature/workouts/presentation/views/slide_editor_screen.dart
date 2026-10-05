@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_section_editor.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/feature/ai_timer/presentation/widgets/ai_timer_button.dart';
 import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_actions.dart';
@@ -163,6 +164,7 @@ class _SlideEditorBody extends HookConsumerWidget {
     final renderedBrandR = renderedWorkout?.brandR ?? request.brandR;
 
     final module = state.module;
+    final structuredDesign = slideDesigns.containsKey(module.designTemplate);
     final busy = useState(false);
     final needsInitialSave = useState(request.needsInitialSave);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
@@ -856,9 +858,9 @@ class _SlideEditorBody extends HookConsumerWidget {
                     DropdownButtonFormField<String>(
                       initialValue: module.designTemplate,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: '슬라이드 배치'),
+                      decoration: const InputDecoration(labelText: '운동 목록 형식'),
                       items: [
-                        for (final entry in slideDesigns.entries)
+                        for (final entry in slideDesignOptions(module).entries)
                           DropdownMenuItem(
                             value: entry.key,
                             child: Text(entry.value),
@@ -867,6 +869,29 @@ class _SlideEditorBody extends HookConsumerWidget {
                       onChanged: (value) =>
                           update(module.copyWith(designTemplate: value)),
                     ),
+                    if (structuredDesign) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(
+                          'slide-design-layout-${module.designLayout}',
+                        ),
+                        initialValue: module.designLayout,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: '슬라이드 배치'),
+                        items: [
+                          for (final entry in slideDesignLayouts.entries)
+                            DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            update(module.copyWith(designLayout: value));
+                          }
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     SlideDesignColors(module: module, onChanged: update),
                     const SizedBox(height: 12),
@@ -941,20 +966,27 @@ class _SlideEditorBody extends HookConsumerWidget {
                           update(module.copyWith(appearance: value)),
                     ),
                   const Divider(height: 24),
-                  TextFormField(
-                    controller: description,
-                    maxLines: 4,
-                    maxLength: hasSlideDesign(module)
-                        ? slideDesignMaxTextLength
-                        : null,
-                    decoration: InputDecoration(
-                      labelText: '화면 텍스트',
-                      helperText: hasSlideDesign(module)
-                          ? '최대 24줄 · 한 줄에 120자'
+                  if (structuredDesign)
+                    SlideDesignSectionEditor(
+                      text: module.text,
+                      onChanged: (value) =>
+                          update(module.copyWith(text: value)),
+                    )
+                  else
+                    TextFormField(
+                      controller: description,
+                      maxLines: 4,
+                      maxLength: hasSlideDesign(module)
+                          ? slideDesignMaxTextLength
                           : null,
+                      decoration: InputDecoration(
+                        labelText: '화면 텍스트',
+                        helperText: hasSlideDesign(module)
+                            ? '최대 24줄 · 한 줄에 120자'
+                            : null,
+                      ),
+                      onChanged: (v) => update(module.copyWith(text: v)),
                     ),
-                    onChanged: (v) => update(module.copyWith(text: v)),
-                  ),
                   const Divider(height: 24),
                   if (!hasSlideDesign(module))
                     const Text(

@@ -256,38 +256,18 @@ class _TimerGroup extends StatelessWidget {
   final Widget? timer, sets;
   @override
   Widget build(BuildContext context) {
-    final unit = scale * module.appearance.timerSize;
-    final width = 232 * unit;
-    final timerHeight = timer == null ? 0.0 : width;
-    final labelHeight = sets == null ? 0.0 : 40 * unit;
-    final scaledLabelHeight = labelHeight * module.appearance.setsSize;
-    final height = timerHeight + labelHeight;
-    final insetX = constraints.maxWidth * preferences.safeInset;
-    final insetY = constraints.maxHeight * preferences.safeInset;
-    final anchorX =
-        insetX + module.appearance.timerX * (constraints.maxWidth - 2 * insetX);
-    final anchorY =
-        insetY +
-        module.appearance.timerY * (constraints.maxHeight - 2 * insetY);
-    final left = (anchorX - width / 2).clamp(
-      insetX,
-      (constraints.maxWidth - insetX - width).clamp(insetX, double.infinity),
+    final geometry = slideTimerGeometry(
+      module,
+      Size(constraints.maxWidth, constraints.maxHeight),
+      scale: scale,
+      safeInset: preferences.safeInset,
     );
-    // Reserve the brand footer rather than allowing the set label to overlap it.
-    final maxTop = (constraints.maxHeight - insetY - height - 64 * scale).clamp(
-      insetY,
-      double.infinity,
-    );
-    final top = (anchorY - timerHeight / 2).clamp(insetY, maxTop);
-    final labelTop =
-        (top +
-                timerHeight +
-                module.appearance.setsOffsetY * constraints.maxHeight)
-            .clamp(
-              insetY,
-              (constraints.maxHeight - insetY - scaledLabelHeight - 64 * scale)
-                  .clamp(insetY, double.infinity),
-            );
+    final left = geometry.group.left;
+    final top = geometry.group.top;
+    final width = geometry.group.width;
+    final height = geometry.group.height;
+    final labelTop = geometry.sets?.top ?? top;
+    final scaledLabelHeight = geometry.sets?.height ?? 0;
     return Positioned(
       left: left,
       top: top,

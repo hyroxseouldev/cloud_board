@@ -89,6 +89,10 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
       designBackgroundColor: (json['designBackgroundColor'] as num?)?.toInt(),
       designTextColor: (json['designTextColor'] as num?)?.toInt(),
       designAccentColor: (json['designAccentColor'] as num?)?.toInt(),
+      designLayout: json['designLayout'] as String? ?? 'auto',
+      designFontWeight: (json['designFontWeight'] as num?)?.toInt() ?? 900,
+      designItalic: json['designItalic'] as bool? ?? true,
+      designSpacing: (json['designSpacing'] as num?)?.toDouble() ?? 1.0,
       showTimer: json['showTimer'] as bool? ?? true,
       appearance: json['appearance'] == null
           ? const SlideAppearanceModel()
@@ -127,6 +131,10 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'designBackgroundColor': ?instance.designBackgroundColor,
       'designTextColor': ?instance.designTextColor,
       'designAccentColor': ?instance.designAccentColor,
+      'designLayout': instance.designLayout,
+      'designFontWeight': instance.designFontWeight,
+      'designItalic': instance.designItalic,
+      'designSpacing': instance.designSpacing,
       'workSeconds': instance.workSeconds,
       'sets': instance.sets,
       'restSeconds': instance.restSeconds,

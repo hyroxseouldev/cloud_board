@@ -42,24 +42,40 @@ WorkoutModule confirmAiSlide(AiSlideDraft draft, String id) {
       sets > 100) {
     throw const AiSlidesFailure('타이머 정보를 읽지 못했어요. 다시 생성해 주세요.');
   }
-  final module = defaults.copyWith(
+  final module = previewAiSlide(draft, id);
+  if (!hasSlideDesign(module)) throw const AiSlidesFailure('슬라이드 배치를 선택해 주세요.');
+  final error = slideDesignError(module);
+  if (error != null) throw AiSlidesFailure(error);
+  return module;
+}
+
+/// Preview keeps incomplete edits visible; confirmation validates the draft.
+WorkoutModule previewAiSlide(AiSlideDraft draft, [String id = 'ai-preview']) {
+  final defaults = WorkoutModule.empty(id);
+  return defaults.copyWith(
     name: draft.title.trim(),
     text: draft.lines.join('\n'),
-    designTemplate: 'stationd-v1-${draft.layout}',
+    // Older clients use the exported PNG when they do not know this renderer.
+    designTemplate: 'stationd-v2-${draft.layout}',
     designBackgroundColor: draft.designBackgroundColor,
     designTextColor: draft.designTextColor,
     designAccentColor: draft.designAccentColor,
-    workSeconds: work,
-    restSeconds: rest,
-    sets: sets,
+    designLayout: draft.designLayout,
+    designFontWeight: draft.designFontWeight,
+    designItalic: draft.designItalic,
+    designSpacing: draft.designSpacing,
+    showTimer: draft.showTimer,
+    showSets: draft.showTimer,
+    workSeconds: draft.workSeconds ?? defaults.workSeconds,
+    restSeconds: draft.restSeconds ?? defaults.restSeconds,
+    sets: draft.sets ?? defaults.sets,
     appearance: SlideAppearance(
+      timerX: draft.timerX,
+      timerY: draft.timerY,
+      timerSize: draft.timerSize,
       showTitle: false,
       showBody: false,
       setsColor: draft.designTextColor ?? 0xB3FFFFFF,
     ),
   );
-  if (!hasSlideDesign(module)) throw const AiSlidesFailure('슬라이드 배치를 선택해 주세요.');
-  final error = slideDesignError(module);
-  if (error != null) throw AiSlidesFailure(error);
-  return module;
 }

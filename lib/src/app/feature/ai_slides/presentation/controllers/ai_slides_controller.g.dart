@@ -46,20 +46,66 @@ final class AiSlidesAccessProvider
   }
 }
 
-String _$aiSlidesAccessHash() => r'cd1c401044ff400596d5f1b9cc69f5be8eba3869';
+String _$aiSlidesAccessHash() => r'c098c37cfb43489ae5621500efb0f94fe5a85a48';
+
+/// An anonymous display must never share its linked account's editing cache.
+
+@ProviderFor(aiSlidesOwnerId)
+final aiSlidesOwnerIdProvider = AiSlidesOwnerIdProvider._();
+
+/// An anonymous display must never share its linked account's editing cache.
+
+final class AiSlidesOwnerIdProvider
+    extends $FunctionalProvider<String?, String?, String?>
+    with $Provider<String?> {
+  /// An anonymous display must never share its linked account's editing cache.
+  AiSlidesOwnerIdProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'aiSlidesOwnerIdProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$aiSlidesOwnerIdHash();
+
+  @$internal
+  @override
+  $ProviderElement<String?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  String? create(Ref ref) {
+    return aiSlidesOwnerId(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(String? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String?>(value),
+    );
+  }
+}
+
+String _$aiSlidesOwnerIdHash() => r'157df2d9212da6b9cf4e83120ad232e69efd6fc3';
 
 @ProviderFor(AiSlidesController)
 final aiSlidesControllerProvider = AiSlidesControllerProvider._();
 
 final class AiSlidesControllerProvider
-    extends $NotifierProvider<AiSlidesController, AsyncValue<AiSlidesResult?>> {
+    extends $NotifierProvider<AiSlidesController, AiSlidesEditorState> {
   AiSlidesControllerProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
         name: r'aiSlidesControllerProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -72,34 +118,28 @@ final class AiSlidesControllerProvider
   AiSlidesController create() => AiSlidesController();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(AsyncValue<AiSlidesResult?> value) {
+  Override overrideWithValue(AiSlidesEditorState value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<AsyncValue<AiSlidesResult?>>(value),
+      providerOverride: $SyncValueProvider<AiSlidesEditorState>(value),
     );
   }
 }
 
 String _$aiSlidesControllerHash() =>
-    r'c997c539a455d64ea153a5a5d44d61e4333c7844';
+    r'fd193ecd8691c1fce1009b92ab1419b7d9c40d66';
 
-abstract class _$AiSlidesController
-    extends $Notifier<AsyncValue<AiSlidesResult?>> {
-  AsyncValue<AiSlidesResult?> build();
+abstract class _$AiSlidesController extends $Notifier<AiSlidesEditorState> {
+  AiSlidesEditorState build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref =
-        this.ref
-            as $Ref<AsyncValue<AiSlidesResult?>, AsyncValue<AiSlidesResult?>>;
+    final ref = this.ref as $Ref<AiSlidesEditorState, AiSlidesEditorState>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<
-                AsyncValue<AiSlidesResult?>,
-                AsyncValue<AiSlidesResult?>
-              >,
-              AsyncValue<AiSlidesResult?>,
+              AnyNotifier<AiSlidesEditorState, AiSlidesEditorState>,
+              AiSlidesEditorState,
               Object?,
               Object?
             >;

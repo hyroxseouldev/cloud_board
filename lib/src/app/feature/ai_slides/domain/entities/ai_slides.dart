@@ -20,6 +20,14 @@ abstract class AiSlideDraft with _$AiSlideDraft {
     int? designBackgroundColor,
     int? designTextColor,
     int? designAccentColor,
+    @Default('auto') String designLayout,
+    @Default(900) int designFontWeight,
+    @Default(true) bool designItalic,
+    @Default(1.0) double designSpacing,
+    @Default(true) bool showTimer,
+    @Default(0.84) double timerX,
+    @Default(0.5) double timerY,
+    @Default(1.0) double timerSize,
     int? workSeconds,
     int? restSeconds,
     int? sets,
@@ -37,8 +45,9 @@ abstract class AiSlidesResult with _$AiSlidesResult {
 }
 
 class AiSlidesFailure implements Exception {
-  const AiSlidesFailure(this.message);
+  const AiSlidesFailure(this.message, {this.code, this.reason});
   final String message;
+  final String? code, reason;
   @override
   String toString() => message;
 }

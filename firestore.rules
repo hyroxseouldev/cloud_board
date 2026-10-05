@@ -76,6 +76,24 @@ service cloud.firestore {
       return !contentOnly(userId) || (request.resource.data.schemaVersion == 2
         && request.resource.data.keys().hasOnly(['schemaVersion', 'id', 'ownerId', 'author', 'name', 'folder', 'modules', 'createdAt', 'updatedAt']));
     }
+    function validAiSlideColor(color) {
+      return color == null || (color is int && color >= 0 && color <= 4294967295);
+    }
+    function validAiSlideTheme(d) {
+      return d.keys().hasOnly(['schemaVersion', 'designBackgroundColor', 'designTextColor',
+          'designAccentColor', 'designLayout', 'designFontWeight', 'designItalic',
+          'designSpacing', 'showTimer', 'timerX', 'timerY', 'timerSize', 'updatedAt'])
+        && d.schemaVersion == 1 && d.updatedAt == request.time
+        && validAiSlideColor(d.designBackgroundColor)
+        && validAiSlideColor(d.designTextColor) && validAiSlideColor(d.designAccentColor)
+        && d.designLayout in ['auto', 'columns', 'cards']
+        && d.designFontWeight in [400, 500, 600, 700, 800, 900]
+        && d.designItalic is bool && d.showTimer is bool
+        && d.designSpacing is number && d.designSpacing >= 0.8 && d.designSpacing <= 1.5
+        && d.timerX is number && d.timerX >= 0 && d.timerX <= 1
+        && d.timerY is number && d.timerY >= 0 && d.timerY <= 1
+        && d.timerSize is number && d.timerSize >= 0.5 && d.timerSize <= 1.8;
+    }
 
     match /users/{userId} {
       allow read, delete: if isOwner(userId);
@@ -103,6 +121,12 @@ service cloud.firestore {
           && request.resource.data.contentOnly == resource.data.contentOnly;
         // Only the migration tool may activate content-only writes or remove settings.
         allow delete: if false;
+      }
+      // A visual preset shared by this account's signed-in devices. Lesson
+      // content, subscription fields and generated prompts are never stored here.
+      match /settings/aiSlidesTheme {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validAiSlideTheme(request.resource.data);
       }
       match /catalog/{documentId} {
         allow read: if isOwner(userId);
