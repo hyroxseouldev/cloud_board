@@ -5,11 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Android TV distribution', () {
-    test('Play uploads target internal testing without submitting review', () {
+    test('Play automatic uploads are restricted to internal testing', () {
       final workflow = File('.github/workflows/google-play-main.yml')
           .readAsStringSync();
       expect(workflow, contains('track: internal'));
-      expect(workflow, contains('changesNotSentForReview: true'));
+      expect(workflow, isNot(contains('track: alpha')));
+      expect(workflow, isNot(contains('track: production')));
       expect(workflow, isNot(contains('tracks:')));
     });
     final manifest = File('android/app/src/main/AndroidManifest.xml')

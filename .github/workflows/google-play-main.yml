@@ -156,5 +156,6 @@ jobs:
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: internal
           status: completed
-          changesNotSentForReview: true
+          # Google rejects changesNotSentForReview=true for this internal track.
+          # Internal releases use the default commit behavior; no other track is edited.
           releaseName: "1.0.0 (${{ env.PLAY_BUILD_NUMBER }}) - Internal"
