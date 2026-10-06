@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/auth_error_message.dart';
 import 'package:cloud_board/src/app/feature/auth/data/datasources/firebase_auth_data_source.dart';
 import 'package:cloud_board/src/app/feature/auth/data/repositories/firebase_auth_repository.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
@@ -31,6 +35,12 @@ class _Repository implements AuthRepository {
   Future<void> signOut() async {}
   @override
   Future<AuthUser> signInWithGoogle() => throw UnimplementedError();
+}
+
+class _DiagnosticSink implements DiagnosticSink {
+  final events = <DiagnosticEvent>[];
+  @override
+  Future<void> send(DiagnosticEvent event) async => events.add(event);
 }
 
 class _Info implements UserInfo {
@@ -171,10 +181,118 @@ void main() {
     );
     await pending;
     expect(
-      container.read(authControllerProvider).error.toString(),
+      authErrorMessage(container.read(authControllerProvider).error),
       contains('가입한 로그인 방식'),
     );
   });
+  test(
+    'Apple failures retain the original error, native reason and stack',
+    () async {
+      final repo = _Repository();
+      final sink = _DiagnosticSink();
+      final reporter = ErrorReporter(sink);
+      final container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWith((ref) => repo),
+          errorReporterProvider.overrideWith((ref) => reporter),
+        ],
+      );
+      addTearDown(container.dispose);
+      final error = FirebaseAuthException(
+        code: 'unknown',
+        message:
+            'com.apple.AuthenticationServices.AuthorizationError error 1000',
+      );
+      final stack = StackTrace.fromString(
+        'native Apple authorization callback',
+      );
+      final pending = container
+          .read(authControllerProvider.notifier)
+          .signInWithApple();
+      repo.result.completeError(error, stack);
+      await pending;
+      final state = container.read(authControllerProvider);
+      expect(identical(state.error, error), isTrue);
+      expect(identical(state.stackTrace, stack), isTrue);
+      expect(sink.events.single.code, 'firebase_auth/unknown');
+      expect(sink.events.single.context['action'], 'auth.signInWithApple');
+      expect(sink.events.single.details, contains('error 1000'));
+      expect(sink.events.single.details, isNot(contains('Bad state')));
+    },
+  );
+  testWidgets(
+    'failed Apple login keeps details available and copies a redacted report',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repo = _Repository();
+      final sink = _DiagnosticSink();
+      final reporter = ErrorReporter(
+        sink,
+        defaults: {'platform': 'iOS', 'version': '1.0.0', 'build': '548'},
+      );
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            androidTvProvider.overrideWith((ref) async => false),
+            authRepositoryProvider.overrideWith((ref) => repo),
+            errorReporterProvider.overrideWith((ref) => reporter),
+          ],
+          child: const MaterialApp(home: LoginScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Apple로 계속하기'));
+      await tester.tap(find.text('Apple로 계속하기'));
+      await tester.pump();
+      repo.result.completeError(
+        FirebaseAuthException(
+          code: 'unknown',
+          message: 'AuthorizationError error 1000 coach@example.com token=private-token',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 20));
+      expect(find.text('오류 코드: firebase_auth/unknown'), findsOneWidget);
+      await tester.ensureVisible(find.text('오류 상세'));
+      await tester.tap(find.text('오류 상세'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('AuthorizationError error 1000'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('build: 548'), findsOneWidget);
+      await tester.tap(find.text('복사'));
+      await tester.pumpAndSettle();
+      expect(copied, contains('auth.signInWithApple'));
+      expect(copied, contains('firebase_auth/unknown'));
+      expect(copied, isNot(contains('coach@example.com')));
+      expect(copied, isNot(contains('private-token')));
+      expect(sink.events, hasLength(1));
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets('login options fit phone on $platform', (tester) async {
       debugDefaultTargetPlatformOverride = platform;

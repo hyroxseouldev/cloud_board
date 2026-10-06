@@ -8,6 +8,11 @@
 4. 아카이브의 dSYM을 Actions 아티팩트에 보관하고 Firebase Crashlytics에 업로드한다.
 5. App Store Connect API로 TestFlight에 업로드한다.
 
+내보낸 실제 IPA의 Apple 로그인 권한과 내장 프로비저닝 프로파일을 검사하고,
+`cloudboard-ios-signing-<빌드 번호>` 아티팩트에 진단 결과를 90일간 보관한다.
+로그인 장애 조사용으로 권한 누락은 경고하며, 진단용 빌드 업로드는 계속한다.
+인증서·프로비저닝 원문이나 비밀키는 보고서에 포함하지 않는다.
+
 `develop` 브랜치 및 Pull Request에서는 TestFlight 업로드가 실행되지 않는다. 필요할 때 GitHub Actions 화면에서 수동으로 실행할 수도 있다.
 
 ## Crashlytics 심볼 업로드

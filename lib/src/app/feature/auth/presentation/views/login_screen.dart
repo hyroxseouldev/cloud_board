@@ -9,6 +9,7 @@ import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/widgets/auth_error_notice.dart';
 
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
@@ -191,6 +192,13 @@ class LoginScreen extends HookConsumerWidget {
                                 ? null
                                 : () => context.push('/login/email'),
                           ),
+                          if (authState.hasError) ...[
+                            const SizedBox(height: 16),
+                            AuthErrorNotice(
+                              error: authState.error!,
+                              stack: authState.stackTrace,
+                            ),
+                          ],
                           const SizedBox(height: 22),
                           const Text(
                             '기존 회원은 이전 로그인 방법을 선택해 주세요.',
