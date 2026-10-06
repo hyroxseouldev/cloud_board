@@ -26,6 +26,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Test iOS signing checks
+        run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -275,6 +278,13 @@ jobs:
 
           "$upload_symbols" -gsp "$google_service_plist" -p ios "$dsym_directory"
 
+      - name: Preserve source entitlements in unsigned archive
+        run: |
+          set -euo pipefail
+          python3 tool/prepare_ios_entitlements.py \
+            "$IOS_ARCHIVE_PATH" ios/Runner/Runner.entitlements \
+            --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
+
       - name: Export signed IPA
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -292,6 +302,22 @@ jobs:
             -authenticationKeyPath "$APP_STORE_CONNECT_API_KEY_PATH" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Inspect exported Apple sign-in permissions
+        run: |
+          set -euo pipefail
+          ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
+          python3 tool/inspect_ios_signing.py "$ipa_path" "$RUNNER_TEMP/ios-signing.json" \
+            --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
+
+      - name: Keep signing diagnostics
+        if: ${{ !cancelled() && env.TESTFLIGHT_BUILD_NUMBER != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudboard-ios-signing-${{ env.TESTFLIGHT_BUILD_NUMBER }}
+          path: ${{ runner.temp }}/ios-signing.json
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Upload to TestFlight
         env:
