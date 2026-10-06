@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       upload_to_play:
-        description: Upload to the existing closed Alpha track (disable for the first manual package bootstrap)
+        description: Upload to internal testing (disable to build an AAB without publishing)
         required: true
         type: boolean
         default: false
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   upload:
-    name: Build and upload to closed Alpha testing
+    name: Build and upload to internal testing
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
@@ -77,7 +77,7 @@ jobs:
             exit 1
           fi
 
-      - name: Check Play closed-track credential
+      - name: Check Play internal-track credential
         if: >-
           vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
           (github.event_name == 'push' || inputs.upload_to_play)
@@ -138,12 +138,14 @@ jobs:
       - name: Keep signed bundle for first upload and diagnosis
         uses: actions/upload-artifact@v4
         with:
-          name: cloudboard-alpha-aab-${{ env.PLAY_BUILD_NUMBER }}
+          name: cloudboard-internal-aab-${{ env.PLAY_BUILD_NUMBER }}
           path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload mobile and TV bundle to closed Alpha testing
+      # Keep automatic releases on internal testing while the first production
+      # release is in review. Do not resubmit Alpha or production changes.
+      - name: Upload mobile and TV bundle to internal testing
         if: >-
           vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
           (github.event_name == 'push' || inputs.upload_to_play)
@@ -152,7 +154,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ env.ANDROID_PACKAGE_NAME }}
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: alpha
+          track: internal
           status: completed
-          changesNotSentForReview: false
-          releaseName: "1.0.0 (${{ env.PLAY_BUILD_NUMBER }}) - Closed Alpha"
+          changesNotSentForReview: true
+          releaseName: "1.0.0 (${{ env.PLAY_BUILD_NUMBER }}) - Internal"

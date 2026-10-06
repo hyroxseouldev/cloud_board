@@ -53,6 +53,22 @@ test('stable project/repo/SHA identity across platforms and retries', () => {
   assert.match(updateId(projectId, repository, sha), /^[a-f0-9-]{14}5[a-f0-9-]{21}$/);
 });
 
+test('Android reports the actual track for new and historical deployment runs', () => {
+  const android = pipelines.find(p => p.key === 'android');
+  const internalJobs = [{steps: [{name: 'Upload mobile and TV bundle to internal testing', conclusion: 'success'}]}];
+  const alphaJobs = [{steps: [{name: 'Upload mobile and TV bundle to closed Alpha testing', conclusion: 'success'}]}];
+  assert.equal(deploymentStatus(android, run(), internalJobs), '내부 테스트 트랙 업로드 완료');
+  assert.equal(deploymentStatus(android, run(), alphaJobs), '비공개 Alpha 트랙 제출 완료');
+  for (const [jobList, artifact, expected] of [
+    [internalJobs, 'cloudboard-internal-aab-59', '내부 테스트 트랙 업로드 완료 · 빌드 59'],
+    [alphaJobs, 'cloudboard-alpha-aab-58', '비공개 Alpha 트랙 제출 완료 · 빌드 58'],
+  ]) {
+    const body = renderUpdate({repository, sha, date: '2026-10-06', commits: [],
+      results: [{pipeline: android, run: run({path: android.path}), jobs: jobList, artifacts: [{name: artifact}]}]});
+    assert.ok(body.includes(expected));
+  }
+});
+
 test('markdown contains issue links, truthful per-platform results and build numbers', () => {
   const body = renderUpdate({repository, sha, base: 'b'.repeat(40), date: '2026-09-18', version: '1.0.0',
     commits: [{sha, subject: 'STA-5 시간 이동 [fix]', message: 'STA-5 시간 이동\nSTA-5 STA-4'}],

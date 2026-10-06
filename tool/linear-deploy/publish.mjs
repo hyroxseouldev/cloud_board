@@ -8,8 +8,9 @@ export const pipelines = [
   { key: 'web', label: '웹', path: '.github/workflows/firebase-hosting-merge.yml',
     step: 'Deploy to Firebase Hosting', success: '웹 반영 완료' },
   { key: 'android', label: 'Android / TV', path: '.github/workflows/google-play-main.yml',
-    step: 'Upload mobile and TV bundle to closed Alpha testing', success: '비공개 Alpha 트랙 제출 완료',
-    artifact: /^cloudboard-alpha-aab-(\d+)$/ },
+    step: 'Upload mobile and TV bundle to internal testing', success: '내부 테스트 트랙 업로드 완료',
+    previousSteps: {'Upload mobile and TV bundle to closed Alpha testing': '비공개 Alpha 트랙 제출 완료'},
+    artifact: /^cloudboard-(?:internal|alpha)-aab-(\d+)$/ },
   { key: 'ios', label: 'iOS', path: '.github/workflows/testflight-main.yml',
     step: 'Upload to TestFlight', success: 'TestFlight 업로드 완료',
     artifact: /^cloudboard-ios-dsyms-(\d+)$/ },
@@ -27,12 +28,13 @@ export function latestRuns(runs, sha, repository) {
 
 export function deploymentStatus(pipeline, run, jobs = []) {
   if (!run) return '실행 대기 / 실행 기록 없음';
-  const step = jobs.flatMap(j => j.steps ?? []).find(s => s.name === pipeline.step);
+  const step = jobs.flatMap(j => j.steps ?? []).find(s =>
+    s.name === pipeline.step || Object.hasOwn(pipeline.previousSteps ?? {}, s.name));
   // The upload may succeed even if a later cleanup/artifact step fails.
   if (step?.conclusion === 'success') {
     const warning = run.status === 'completed' && run.conclusion !== 'success'
       ? ' (후속 작업 실패·취소: 실행 로그 확인)' : '';
-    return pipeline.success + warning;
+    return (pipeline.previousSteps?.[step.name] ?? pipeline.success) + warning;
   }
   if (run.status !== 'completed') return ['queued', 'waiting', 'pending', 'requested'].includes(run.status)
     ? '대기 중' : '진행 중';
