@@ -55,18 +55,21 @@ class LocalSlideEditorRepository implements SlideEditorRepository {
   }
 
   @override
-  Future<void> saveTemplates(
+  Future<List<WorkoutModule>> saveTemplates(
     String scope,
     List<WorkoutModule> templates, {
     List<WorkoutModule>? previous,
-  }) => source.write(
-    'templates.$scope',
-    jsonEncode(
-      templates
-          .map((value) => WorkoutModuleModel.fromEntity(value).toJson())
-          .toList(),
-    ),
-  );
+  }) async {
+    await source.write(
+      'templates.$scope',
+      jsonEncode(
+        templates
+            .map((value) => WorkoutModuleModel.fromEntity(value).toJson())
+            .toList(),
+      ),
+    );
+    return templates;
+  }
 
   @override
   Future<List<WorkoutModule>> loadStyles(String scope) async {

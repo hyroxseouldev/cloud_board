@@ -7,7 +7,7 @@ abstract interface class SlideEditorRepository {
   Stream<List<WorkoutModule>> watchTemplates(String scope);
   Stream<List<WorkoutModule>> watchStyles(String scope);
   Future<List<WorkoutModule>> loadTemplates(String scope);
-  Future<void> saveTemplates(
+  Future<List<WorkoutModule>> saveTemplates(
     String scope,
     List<WorkoutModule> templates, {
     List<WorkoutModule>? previous,

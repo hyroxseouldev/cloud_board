@@ -170,7 +170,11 @@ class DisplayModeScreen extends HookConsumerWidget {
             unawaited(
               precacheWorkoutImages(
                 context,
-                session.workout.modules.map((module) => module.imageSource),
+                workoutImageWindow(
+                  session.workout,
+                  count: 2,
+                  includeCountdown: true,
+                ),
                 isCancelled: () => cancelled,
               ).catchError((Object error) {
                 debugPrint('Display image preparation failed: $error');

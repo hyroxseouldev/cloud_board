@@ -15,9 +15,11 @@ import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.d
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 
+import 'package:cloud_board/src/app/core/utils/async_value_cache.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_catalog_page.dart';
 part 'workout_repository_impl.g.dart';
 
-class WorkoutRepositoryImpl implements WorkoutRepository {
+class WorkoutRepositoryImpl implements WorkoutRepository, PagedWorkoutCatalog {
   WorkoutRepositoryImpl(
     this._auth,
     this._firestore,
@@ -30,24 +32,88 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   final WorkoutStorageDataSource _storage;
   final WorkoutLocalDataSource _local;
 
-  @override
-  Future<Workout?> loadOne(String workoutId) async =>
-      (await _firestore.loadOne(_requireUser().uid, workoutId))?.toEntity();
+  final _details = AsyncValueCache<({String owner, String id}), Workout?>();
+  final _versions = <String, DateTime>{};
+  String? _cacheOwner;
+
+  String _owner() {
+    final uid = _requireUser().uid;
+    if (_cacheOwner != uid) {
+      _cacheOwner = uid;
+      _details.clear();
+      _versions.clear();
+    }
+    return uid;
+  }
+
+  void _rememberVersions(
+    String uid,
+    List<WorkoutSummary> items, {
+    bool complete = false,
+  }) {
+    if (_cacheOwner != uid || _auth.currentUser?.uid != uid) return;
+    if (complete) {
+      final ids = items.map((item) => item.id).toSet();
+      // Include details opened before their first catalog read, and pending
+      // reads for records that have since been deleted.
+      for (final key in _details.keys) {
+        if (key.owner == uid && !ids.contains(key.id)) {
+          _details.invalidate(key);
+        }
+      }
+      _versions.removeWhere((id, _) => !ids.contains(id));
+    }
+    for (final item in items) {
+      if (_versions[item.id] != item.updatedAt) {
+        _details.invalidate((owner: uid, id: item.id));
+        _versions[item.id] = item.updatedAt;
+      }
+    }
+  }
 
   @override
-  Stream<List<WorkoutSummary>> watchSummaries({
-    bool requireServer = false,
-  }) async* {
-    final userId = _requireUser().uid;
+  Future<Workout?> loadOne(String workoutId) {
+    final uid = _owner();
+    return _details.load((
+      owner: uid,
+      id: workoutId,
+    ), () async => (await _firestore.loadOne(uid, workoutId))?.toEntity());
+  }
+
+  @override
+  Stream<List<WorkoutSummary>> watchSummaries({bool requireServer = false}) =>
+      watchCatalog(requireServer: requireServer).map((page) => page.items);
+
+  @override
+  Stream<WorkoutCatalogPage> watchCatalog({bool requireServer = false}) async* {
+    final userId = _owner();
     // Retain full cached details already used by earlier app versions for offline
     // playback. Do not download every detail just to construct this catalog.
     final cached = await _firestore.loadCachedSummaries(userId);
     final visible = {for (final item in cached) item.id: item.toEntity()};
-    if (visible.isNotEmpty) yield _sortedSummaries(visible.values);
+    if (visible.isNotEmpty) {
+      yield WorkoutCatalogPage(_sortedSummaries(visible.values), cached: true);
+    }
     try {
       if (!await _firestore.hasSummaryCatalog(userId)) {
-        await for (final items in _watch(requireServer: requireServer)) {
-          yield items.map(summarizeWorkout).toList();
+        var cached = true;
+        var complete = false;
+        await for (final items in _watch(
+          requireServer: requireServer,
+          onServerPage: (finished) {
+            cached = false;
+            complete = finished;
+          },
+        )) {
+          final summaries = items.map(summarizeWorkout).toList();
+          if (!cached) {
+            _rememberVersions(userId, summaries, complete: complete);
+          }
+          yield WorkoutCatalogPage(
+            summaries,
+            cached: cached,
+            complete: complete,
+          );
         }
         return;
       }
@@ -59,12 +125,13 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
         for (final item in page.items) {
           visible[item.id] = item.toEntity();
         }
-        yield _sortedSummaries(visible.values);
-        if (page.complete) {
-          // Preserve the previous offline catalog behavior without keeping every
-          // decoded workout in Riverpod or blocking the first usable list.
-          unawaited(_warmOfflineDetails(userId, visible.values.toList()));
+        final summaries = _sortedSummaries(visible.values);
+        _rememberVersions(userId, summaries, complete: page.complete);
+        // Warm only the two most recent details, not the entire library.
+        if (page.items.length <= WorkoutFirestoreDataSource.pageSize) {
+          unawaited(_warmOfflineDetails(userId, summaries.take(2).toList()));
         }
+        yield WorkoutCatalogPage(summaries, complete: page.complete);
       }
     } catch (_) {
       // An explicit refresh must not report success after serving only cache.
@@ -73,9 +140,10 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       // Old detail caches remain usable even before the first summary sync.
       final legacyCache = await _firestore.loadCached(userId);
       if (legacyCache.isEmpty) rethrow;
-      yield legacyCache
-          .map((item) => summarizeWorkout(item.toEntity()))
-          .toList();
+      yield WorkoutCatalogPage(
+        legacyCache.map((item) => summarizeWorkout(item.toEntity())).toList(),
+        cached: true,
+      );
     }
   }
 
@@ -92,7 +160,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
           _auth.currentUser?.uid == uid) {
         final item = items[next++];
         try {
-          await _firestore.ensureOfflineDetail(uid, item.id, item.updatedAt);
+          await loadOne(item.id);
         } catch (_) {
           return;
         } // Offline: existing cached details remain usable.
@@ -111,7 +179,10 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   @override
   Stream<List<Workout>> watch() => _watch();
 
-  Stream<List<Workout>> _watch({bool requireServer = false}) async* {
+  Stream<List<Workout>> _watch({
+    bool requireServer = false,
+    void Function(bool complete)? onServerPage,
+  }) async* {
     final user = _requireUser();
     final cached = await _firestore.loadCached(user.uid);
     final visible = {for (final item in cached) item.id: item.toEntity()};
@@ -125,6 +196,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
               await _saveForUser(workout.toEntity(), user);
             }
             await _local.clear();
+            onServerPage?.call(true);
             yield (await _firestore.load(user.uid))
                 .map((item) => item.toEntity())
                 .toList();
@@ -144,6 +216,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
               ? previous
               : item.toEntity();
         }
+        onServerPage?.call(page.complete);
         yield _sorted(visible.values);
       }
     } catch (error, stack) {
@@ -189,7 +262,12 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       user.uid,
       WorkoutModel.fromEntity(uploaded),
     );
-    return stored.toEntity();
+    final saved = stored.toEntity();
+    if (_auth.currentUser?.uid == user.uid && _cacheOwner == user.uid) {
+      _details.put((owner: user.uid, id: saved.id), saved);
+      _versions[saved.id] = saved.updatedAt;
+    }
+    return saved;
   }
 
   @override
@@ -198,6 +276,8 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     // Images may also belong to copied workouts or active playback snapshots.
     // Delete only the document; assets require reference-aware garbage collection.
     await _firestore.delete(user.uid, workoutId);
+    _details.invalidate((owner: user.uid, id: workoutId));
+    _versions.remove(workoutId);
   }
 
   User _requireUser() {

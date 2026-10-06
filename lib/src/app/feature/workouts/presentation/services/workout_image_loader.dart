@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 
 /// Bounded reuse also gives MemoryImage a stable key across preview and playback.
 class WorkoutImageBytesCache {
@@ -77,6 +79,24 @@ ImageProvider workoutImageProvider(String source, WorkoutImageSize size) {
     height: size.height,
     policy: ResizeImagePolicy.fit,
   );
+}
+
+/// Fetch the visible/next slides first. Generated artwork is painted locally,
+/// so its compatibility PNG does not need to delay native/web playback.
+Iterable<String> workoutImageWindow(
+  Workout workout, {
+  int start = 0,
+  int count = 3,
+  bool includeCountdown = false,
+}) sync* {
+  if (includeCountdown && workout.countdownImageSource.isNotEmpty) {
+    yield workout.countdownImageSource;
+  }
+  for (final module in workout.modules.skip(start).take(count)) {
+    if (!hasSlideDesign(module) && module.imageSource.isNotEmpty) {
+      yield module.imageSource;
+    }
+  }
 }
 
 /// Bounded concurrency avoids decoding an entire workout at once. Shared URLs

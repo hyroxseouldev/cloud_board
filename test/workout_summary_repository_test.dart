@@ -60,26 +60,29 @@ void main() {
     expect((await first)?.id, 'w');
     expect(container.read(workoutActionControllerProvider).hasError, isFalse);
   });
-  test('catalog streams lightweight summaries; details are requested by ID and offline preparation does not block', () async {
-    final source = _Source();
-    final repo = WorkoutRepositoryImpl(
-      _Auth(),
-      source,
-      _Storage(),
-      WorkoutLocalDataSource(await SharedPreferences.getInstance()),
-    );
-    final result = await repo.watchSummaries().toList();
-    expect(result.last.length, 30);
-    expect(result.last.any((w) => w.name.contains('w29')), isTrue);
-    expect(result.last.first.durationSeconds, 120);
-    expect(source.detailReads, 0);
-    expect(source.offlineChecks, lessThanOrEqualTo(2));
-    expect((await repo.loadOne('w29'))?.id, 'w29');
-    expect(source.detailReads, 1);
-    source.offlineGate.complete();
-    await Future<void>.delayed(Duration.zero);
-    expect(source.offlineChecks, 30);
-  });
+  test(
+    'catalog warms only recent details and repeated opens reuse those reads',
+    () async {
+      final source = _Source();
+      final repo = WorkoutRepositoryImpl(
+        _Auth(),
+        source,
+        _Storage(),
+        WorkoutLocalDataSource(await SharedPreferences.getInstance()),
+      );
+      final result = await repo.watchSummaries().toList();
+      expect(result.last.length, 30);
+      expect(result.last.any((w) => w.name.contains('w29')), isTrue);
+      expect(result.last.first.durationSeconds, 120);
+      await Future<void>.delayed(Duration.zero);
+      expect(source.detailReads, 2);
+      expect((await repo.loadOne('w29'))?.id, 'w29');
+      final reads = source.detailReads;
+      await repo.loadOne('w29');
+      expect(source.detailReads, reads);
+      expect(source.detailReads, lessThanOrEqualTo(3));
+    },
+  );
   test('summary cache survives failed refresh without querying full server documents', () async {
     final source = _Source()
       ..cached = [
@@ -102,11 +105,51 @@ void main() {
     );
     expect(source.detailReads, 0);
   });
+
+  test('warm and foreground reads share a request; changed versions and accounts invalidate details', () async {
+    final source = _Source()..detailGate = Completer<void>();
+    final auth = _Auth();
+    final repo = WorkoutRepositoryImpl(
+      auth,
+      source,
+      _Storage(),
+      WorkoutLocalDataSource(await SharedPreferences.getInstance()),
+    );
+    await repo.watchSummaries().toList();
+    await Future<void>.delayed(Duration.zero);
+    expect(source.detailReads, 2);
+    final opening = repo.loadOne('w0');
+    final secondOpening = repo.loadOne('w0');
+    expect(identical(opening, secondOpening), isTrue);
+    expect(source.detailReads, 2);
+    source.detailGate!.complete();
+    expect((await opening)?.ownerId, 'u');
+    source.server[0] = source.server[0].copyWith(
+      name: 'Updated elsewhere',
+      updatedAt: DateTime(2030),
+    );
+    await repo.watchSummaries().toList();
+    expect((await repo.loadOne('w0'))?.name, 'Updated elsewhere');
+    expect(source.detailReads, 3);
+    auth.uid = 'other';
+    expect((await repo.loadOne('w0'))?.ownerId, 'other');
+    expect(source.detailReads, 4);
+    source.server.removeAt(0);
+    await repo.watchSummaries().toList();
+    expect(await repo.loadOne('w0'), isNull);
+  });
 }
 
 class _Source extends WorkoutFirestoreDataSource {
   _Source() : super(_Firestore());
   List<WorkoutSummaryModel> cached = [];
+  final server = List.generate(
+    30,
+    (i) =>
+        workout('w$i')
+            .copyWith(updatedAt: DateTime(2026).subtract(Duration(minutes: i))),
+  );
+  Completer<void>? detailGate;
   bool fail = false;
   int detailReads = 0, offlineChecks = 0;
   final offlineGate = Completer<void>();
@@ -120,10 +163,9 @@ class _Source extends WorkoutFirestoreDataSource {
     String id,
   ) async* {
     if (fail) throw StateError('offline');
-    final items = List.generate(
-      30,
-      (i) => WorkoutSummaryModel.fromEntity(summarizeWorkout(workout('w$i'))),
-    );
+    final items = server
+        .map((w) => WorkoutSummaryModel.fromEntity(summarizeWorkout(w)))
+        .toList();
     yield (items: items.take(24).toList(), complete: false);
     yield (items: items, complete: true);
   }
@@ -141,7 +183,11 @@ class _Source extends WorkoutFirestoreDataSource {
   @override
   Future<WorkoutModel?> loadOne(String uid, String id) async {
     detailReads++;
-    return WorkoutModel.fromEntity(workout(id));
+    await detailGate?.future;
+    final detail = server.where((w) => w.id == id).firstOrNull;
+    return detail == null
+        ? null
+        : WorkoutModel.fromEntity(detail.copyWith(ownerId: uid));
   }
 
   @override
@@ -155,15 +201,17 @@ class _Firestore implements FirebaseFirestore {
 }
 
 class _Auth implements FirebaseAuth {
+  String uid = 'u';
   @override
-  User get currentUser => _User();
+  User get currentUser => _User(uid);
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
 class _User implements User {
+  _User(this.uid);
   @override
-  String get uid => 'u';
+  final String uid;
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }

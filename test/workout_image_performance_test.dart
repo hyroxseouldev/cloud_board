@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +69,37 @@ void main() {
       );
     });
     expect(tester.takeException(), isNull);
+  });
+
+  test('start preparation includes countdown and first two slides; playback moves its window', () {
+    final workout =
+        Workout.empty(
+          'w',
+          const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+        ).copyWith(
+          countdownImageSource: 'countdown',
+          modules: List.generate(
+            20,
+            (i) => WorkoutModule.empty('$i').copyWith(imageSource: 'image-$i'),
+          ),
+        );
+    expect(workoutImageWindow(workout, count: 2, includeCountdown: true), [
+      'countdown',
+      'image-0',
+      'image-1',
+    ]);
+    expect(workoutImageWindow(workout, start: 10), [
+      'image-10',
+      'image-11',
+      'image-12',
+    ]);
+    final designed = workout.copyWith(
+      modules: [
+        workout.modules.first.copyWith(designTemplate: 'stationd-v2-list'),
+        workout.modules[1],
+      ],
+    );
+    expect(workoutImageWindow(designed), ['image-1']);
   });
 
   test('decode resolution uses physical pixels and stays bounded', () {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -40,6 +42,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
     final provider = slideTemplatesControllerProvider(scope);
     final templates = ref.watch(provider);
     final actions = ref.read(provider.notifier);
+    final writingIds = ref.watch(slideTemplateWritesProvider(scope));
     final all = templates.value ?? const <WorkoutModule>[];
     final workouts = onSelect == null
         ? ref.watch(workoutControllerProvider)
@@ -53,33 +56,76 @@ class SlideLibraryScreen extends HookConsumerWidget {
     final workoutAction = onSelect == null
         ? ref.watch(workoutActionControllerProvider)
         : const AsyncData<String?>(null);
-    final names = {
-      ...?folders.value,
-      ...all.map((m) => m.category),
-      ...?workouts.value?.map((w) => w.folder),
-    }.where((v) => v.isNotEmpty).toList()..sort();
+    final names = useMemoized(
+      () => {
+        ...?folders.value,
+        ...all.map((m) => m.category),
+        ...?workouts.value?.map((w) => w.folder),
+      }.where((v) => v.isNotEmpty).toList()..sort(),
+      [folders.value, all, workouts.value],
+    );
     final query = search.text.trim().toLowerCase();
     final selected = filter.value == '' || names.contains(filter.value)
         ? filter.value
         : null;
-    final slides =
-        all
-            .where(
-              (m) =>
-                  (selected == null || m.category == selected) &&
-                  '${m.name} ${m.text} ${m.category}'.toLowerCase().contains(
-                    query,
-                  ),
-            )
-            .toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
-    final items = (workouts.value ?? const <WorkoutSummary>[])
-        .where(
-          (w) =>
-              (selected == null || w.folder == selected) &&
-              '${w.name} ${w.folder}'.toLowerCase().contains(query),
-        )
-        .toList();
+    final slides = useMemoized(
+      () =>
+          all
+              .where(
+                (m) =>
+                    (selected == null || m.category == selected) &&
+                    '${m.name} ${m.text} ${m.category}'.toLowerCase().contains(
+                      query,
+                    ),
+              )
+              .toList()
+            ..sort((a, b) => a.name.compareTo(b.name)),
+      [all, selected, query],
+    );
+    final items = useMemoized(
+      () => (workouts.value ?? const <WorkoutSummary>[])
+          .where(
+            (w) =>
+                (selected == null || w.folder == selected) &&
+                '${w.name} ${w.folder}'.toLowerCase().contains(query),
+          )
+          .toList(),
+      [workouts.value, selected, query],
+    );
+    final visibleFolders = useMemoized(
+      () => names.where((name) => name.toLowerCase().contains(query)).toList(),
+      [names, query],
+    );
+    final folderCounts = useMemoized(() {
+      final counts = <String, ({int workouts, int slides})>{};
+      for (final item in workouts.value ?? const <WorkoutSummary>[]) {
+        final count = counts[item.folder] ?? (workouts: 0, slides: 0);
+        counts[item.folder] = (
+          workouts: count.workouts + 1,
+          slides: count.slides,
+        );
+      }
+      for (final item in all) {
+        final count = counts[item.category] ?? (workouts: 0, slides: 0);
+        counts[item.category] = (
+          workouts: count.workouts,
+          slides: count.slides + 1,
+        );
+      }
+      return counts;
+    }, [workouts.value, all]);
+    // Library management/search needs the complete folder inventory.
+    useEffect(() {
+      if (onSelect == null) {
+        unawaited(
+          ref
+              .read(workoutControllerProvider.notifier)
+              .loadComplete()
+              .catchError((Object _) => const <WorkoutSummary>[]),
+        );
+      }
+      return null;
+    }, [scope, onSelect == null]);
     final busy =
         templates.isLoading ||
         folderAction.isLoading ||
@@ -133,12 +179,27 @@ class SlideLibraryScreen extends HookConsumerWidget {
         ref.invalidate(workoutControllerProvider);
         ref.invalidate(workoutDetailProvider);
         ref.invalidate(provider);
+        try {
+          await ref.read(workoutControllerProvider.notifier).loadComplete();
+        } catch (_) {
+          notice('폴더는 변경했지만 목록을 갱신하지 못했어요. 새로고침해 주세요.');
+        }
       } else {
         notice('폴더를 변경하지 못했습니다. 오류 상세를 확인해 주세요.');
       }
     }
 
     Future<void> addToWorkout(WorkoutModule slide) async {
+      final List<WorkoutSummary> choices;
+      try {
+        choices = await ref
+            .read(workoutControllerProvider.notifier)
+            .loadComplete();
+      } catch (_) {
+        notice('워크아웃 목록을 불러오지 못했어요. 다시 시도해 주세요.');
+        return;
+      }
+      if (!context.mounted) return;
       final selectedWorkout = await showDialog<WorkoutSummary>(
         context: context,
         builder: (c) => AppAlertDialog(
@@ -146,17 +207,19 @@ class SlideLibraryScreen extends HookConsumerWidget {
           content: SizedBox(
             width: 420,
             height: 320,
-            child: (workouts.value ?? []).isEmpty
+            child: choices.isEmpty
                 ? const Center(child: Text('먼저 워크아웃을 만들어 주세요.'))
-                : ListView(
-                    children: [
-                      for (final w in workouts.value!)
-                        ListTile(
-                          title: Text(w.name),
-                          subtitle: Text('${w.moduleCount}개 슬라이드'),
-                          onTap: () => Navigator.pop(c, w),
-                        ),
-                    ],
+                : ListView.builder(
+                    itemCount: choices.length,
+                    itemBuilder: (context, index) {
+                      final w = choices[index];
+                      return ListTile(
+                        key: ValueKey(w.id),
+                        title: Text(w.name),
+                        subtitle: Text('${w.moduleCount}개 슬라이드'),
+                        onTap: () => Navigator.pop(c, w),
+                      );
+                    },
                   ),
           ),
           actions: [
@@ -399,220 +462,239 @@ class SlideLibraryScreen extends HookConsumerWidget {
                   onRefresh: () async {
                     ref.invalidate(provider);
                     if (onSelect == null) {
-                      ref.invalidate(workoutControllerProvider);
+                      await ref
+                          .read(workoutControllerProvider.notifier)
+                          .refresh();
+                      await ref
+                          .read(workoutControllerProvider.notifier)
+                          .loadComplete();
                       ref.invalidate(workoutDetailProvider);
                       ref.invalidate(libraryFoldersProvider);
                     }
                   },
-                  child: ListView(
+                  child: ListView.builder(
+                    key: ValueKey('library-tab-${tab.value}'),
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      if (tab.value == 0) ...[
-                        if (items.isEmpty)
-                          const _Empty('워크아웃이 없습니다. + 버튼으로 만들어 보세요.'),
-                        for (final item in items)
-                          ListTile(
-                            leading: const Icon(Icons.view_list_outlined),
-                            title: Text(item.name),
-                            subtitle: Text(
-                              '${item.folder.isEmpty ? '폴더 없음' : item.folder} · ${item.moduleCount}개 · ${durationLabel(item.durationSeconds)}',
-                            ),
-                            onTap: busy
-                                ? null
-                                : () => workoutMenu(item, 'edit'),
-                            trailing: PopupMenuButton<String>(
-                              enabled: !busy,
-                              onSelected: (v) => workoutMenu(item, v),
-                              itemBuilder: (_) => [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  enabled:
-                                      workoutEditBlockReason(active, item.id) ==
-                                      null,
-                                  child: const Text('편집'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'duplicate',
-                                  child: Text('복제'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'move',
-                                  enabled:
-                                      workoutEditBlockReason(active, item.id) ==
-                                      null,
-                                  child: const Text('폴더 이동'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  enabled:
-                                      workoutEditBlockReason(active, item.id) ==
-                                      null,
-                                  child: const Text('삭제'),
-                                ),
-                              ],
-                            ),
+                    itemCount: switch (tab.value) {
+                      0 => items.isEmpty ? 1 : items.length,
+                      1 => slides.isEmpty ? 1 : slides.length,
+                      _ => visibleFolders.isEmpty ? 1 : visibleFolders.length,
+                    },
+                    itemBuilder: (context, index) {
+                      if (tab.value == 0) {
+                        if (items.isEmpty) {
+                          return const _Empty('워크아웃이 없습니다. + 버튼으로 만들어 보세요.');
+                        }
+                        final item = items[index];
+                        return ListTile(
+                          key: ValueKey(item.id),
+                          leading: const Icon(Icons.view_list_outlined),
+                          title: Text(item.name),
+                          subtitle: Text(
+                            '${item.folder.isEmpty ? '폴더 없음' : item.folder} · ${item.moduleCount}개 · ${durationLabel(item.durationSeconds)}',
                           ),
-                      ],
-                      if (tab.value == 1) ...[
-                        if (slides.isEmpty)
-                          _Empty(
+                          onTap: busy ? null : () => workoutMenu(item, 'edit'),
+                          trailing: PopupMenuButton<String>(
+                            enabled: !busy,
+                            onSelected: (v) => workoutMenu(item, v),
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                enabled:
+                                    workoutEditBlockReason(active, item.id) ==
+                                    null,
+                                child: const Text('편집'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'duplicate',
+                                child: Text('복제'),
+                              ),
+                              PopupMenuItem(
+                                value: 'move',
+                                enabled:
+                                    workoutEditBlockReason(active, item.id) ==
+                                    null,
+                                child: const Text('폴더 이동'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                enabled:
+                                    workoutEditBlockReason(active, item.id) ==
+                                    null,
+                                child: const Text('삭제'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      if (tab.value == 1) {
+                        if (slides.isEmpty) {
+                          return _Empty(
                             templates.hasError
                                 ? '불러오지 못했습니다. 아래로 당겨 다시 시도해 주세요.'
                                 : '저장한 슬라이드가 없습니다.',
-                          ),
-                        for (final item in slides)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Card(
-                              elevation: 0,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 72,
-                                      child: WorkoutSlidePreview(
-                                        module: item,
-                                        isRest: false,
-                                      ),
+                          );
+                        }
+                        final item = slides[index];
+                        return Padding(
+                          key: ValueKey(item.id),
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Card(
+                            elevation: 0,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 72,
+                                    child: WorkoutSlidePreview(
+                                      module: item,
+                                      isRest: false,
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: InkWell(
-                                        onTap: onSelect != null
-                                            ? () => onSelect!(item)
-                                            : () => context.push(
-                                                '/library/editor/${item.id}',
-                                              ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              item.name,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: onSelect != null
+                                          ? () => onSelect!(item)
+                                          : () => context.push(
+                                              '/library/editor/${item.id}',
                                             ),
-                                            Text(
-                                              '${item.category.isEmpty ? '폴더 없음' : item.category} · ${durationLabel(workoutModuleDuration(item))}',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                              ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
                                             ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    if (onSelect != null)
-                                      TextButton(
-                                        onPressed: busy
-                                            ? null
-                                            : () => onSelect!(item),
-                                        child: const Text('삽입'),
-                                      ),
-                                    PopupMenuButton<String>(
-                                      tooltip: '슬라이드 관리',
-                                      enabled: !busy,
-                                      itemBuilder: (_) => [
-                                        if (onSelect == null)
-                                          const PopupMenuItem(
-                                            value: 'edit',
-                                            child: Text('슬라이드 편집'),
                                           ),
-                                        const PopupMenuItem(
-                                          value: 'details',
-                                          child: Text('이름·폴더 수정'),
-                                        ),
-                                        if (onSelect == null)
-                                          const PopupMenuItem(
-                                            value: 'insert',
-                                            child: Text('워크아웃에 추가'),
-                                          ),
-                                        const PopupMenuItem(
-                                          value: 'duplicate',
-                                          child: Text('복제'),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'remove',
-                                          child: Text('저장 목록에서 삭제'),
-                                        ),
-                                      ],
-                                      onSelected: (v) async {
-                                        if (v == 'edit') {
-                                          await context.push(
-                                            '/library/editor/${item.id}',
-                                          );
-                                        }
-                                        if (v == 'details') {
-                                          await editDetails(item);
-                                        }
-                                        if (v == 'insert') {
-                                          await addToWorkout(item);
-                                        }
-                                        if (v == 'duplicate') {
-                                          await perform(
-                                            () => actions.save(
-                                              item,
-                                              '${item.name} 복사',
+                                          Text(
+                                            '${item.category.isEmpty ? '폴더 없음' : item.category} · ${durationLabel(workoutModuleDuration(item))}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
                                             ),
-                                          );
-                                        }
-                                        if (v == 'remove' &&
-                                            context.mounted &&
-                                            await _confirm(
-                                              context,
-                                              '저장 목록에서 삭제할까요?',
-                                              '워크아웃에 이미 추가한 슬라이드는 유지됩니다.',
-                                            )) {
-                                          await perform(
-                                            () => actions.remove(item.id),
-                                          );
-                                        }
-                                      },
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  if (onSelect != null)
+                                    TextButton(
+                                      onPressed: busy
+                                          ? null
+                                          : () => onSelect!(item),
+                                      child: const Text('삽입'),
+                                    ),
+                                  if (writingIds.contains(item.id))
+                                    const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  PopupMenuButton<String>(
+                                    tooltip: '슬라이드 관리',
+                                    enabled: !busy && writingIds.isEmpty,
+                                    itemBuilder: (_) => [
+                                      if (onSelect == null)
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('슬라이드 편집'),
+                                        ),
+                                      const PopupMenuItem(
+                                        value: 'details',
+                                        child: Text('이름·폴더 수정'),
+                                      ),
+                                      if (onSelect == null)
+                                        const PopupMenuItem(
+                                          value: 'insert',
+                                          child: Text('워크아웃에 추가'),
+                                        ),
+                                      const PopupMenuItem(
+                                        value: 'duplicate',
+                                        child: Text('복제'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'remove',
+                                        child: Text('저장 목록에서 삭제'),
+                                      ),
+                                    ],
+                                    onSelected: (v) async {
+                                      if (v == 'edit') {
+                                        await context.push(
+                                          '/library/editor/${item.id}',
+                                        );
+                                      }
+                                      if (v == 'details') {
+                                        await editDetails(item);
+                                      }
+                                      if (v == 'insert') {
+                                        await addToWorkout(item);
+                                      }
+                                      if (v == 'duplicate') {
+                                        await perform(
+                                          () => actions.save(
+                                            item,
+                                            '${item.name} 복사',
+                                          ),
+                                        );
+                                      }
+                                      if (v == 'remove' &&
+                                          context.mounted &&
+                                          await _confirm(
+                                            context,
+                                            '저장 목록에서 삭제할까요?',
+                                            '워크아웃에 이미 추가한 슬라이드는 유지됩니다.',
+                                          )) {
+                                        await perform(
+                                          () => actions.remove(item.id),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                      ],
-                      if (tab.value == 2) ...[
-                        if (names.isEmpty) const _Empty('폴더를 만들어 자료를 정리해 보세요.'),
-                        for (final name in names.where(
-                          (n) => n.toLowerCase().contains(query),
-                        ))
-                          ListTile(
-                            leading: const Icon(Icons.folder_outlined),
-                            title: Text(name),
-                            subtitle: Text(
-                              '워크아웃 ${workouts.value?.where((w) => w.folder == name).length ?? 0}개 · 슬라이드 ${all.where((m) => m.category == name).length}개',
+                        );
+                      }
+                      if (visibleFolders.isEmpty) {
+                        return const _Empty('폴더를 만들어 자료를 정리해 보세요.');
+                      }
+                      final name = visibleFolders[index];
+                      return ListTile(
+                        key: ValueKey(name),
+                        leading: const Icon(Icons.folder_outlined),
+                        title: Text(name),
+                        subtitle: Text(
+                          '워크아웃 ${folderCounts[name]?.workouts ?? 0}개 · 슬라이드 ${folderCounts[name]?.slides ?? 0}개',
+                        ),
+                        onTap: () {
+                          filter.value = name;
+                          tab.value = 1;
+                          search.clear();
+                        },
+                        trailing: PopupMenuButton<String>(
+                          enabled: !busy,
+                          onSelected: (v) => changeFolder(v, name),
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: 'rename',
+                              child: Text('이름 수정'),
                             ),
-                            onTap: () {
-                              filter.value = name;
-                              tab.value = 1;
-                              search.clear();
-                            },
-                            trailing: PopupMenuButton<String>(
-                              enabled: !busy,
-                              onSelected: (v) => changeFolder(v, name),
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                  value: 'rename',
-                                  child: Text('이름 수정'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'remove',
-                                  child: Text('폴더 삭제'),
-                                ),
-                              ],
+                            PopupMenuItem(
+                              value: 'remove',
+                              child: Text('폴더 삭제'),
                             ),
-                          ),
-                      ],
-                    ],
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

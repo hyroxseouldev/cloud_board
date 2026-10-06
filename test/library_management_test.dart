@@ -13,10 +13,60 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/li
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 import 'support/workout_catalog_fixture.dart';
 
 void main() {
+  testWidgets(
+    'a large library builds only visible previews and still searches every slide',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authStateProvider.overrideWith(
+              (ref) => Stream.value(
+                const AuthUser(
+                  id: 'owner',
+                  email: '',
+                  displayName: '',
+                  photoUrl: null,
+                ),
+              ),
+            ),
+            slideTemplatesControllerProvider('owner')
+                .overrideWith(_ManyTemplates.new),
+            activePlaybackSessionProvider.overrideWith(
+              (ref) => Stream.value(null),
+            ),
+          ],
+          child: MaterialApp(
+            theme: XonTheme.light,
+            home: SlideLibraryScreen(onSelect: (_) {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(WorkoutSlidePreview).evaluate().length,
+        inExclusiveRange(0, 20),
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '슬라이드 검색'),
+        'Slide 199',
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSlidePreview), findsOneWidget);
+      expect(
+        tester
+            .widget<WorkoutSlidePreview>(find.byType(WorkoutSlidePreview))
+            .module
+            .name,
+        'Slide 199',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final size in [
     const Size(320, 568),
     const Size(834, 1194),
@@ -133,6 +183,16 @@ class _Templates extends SlideTemplatesController {
         .copyWith(name: '운동 A', favorite: true, category: '하체'),
     WorkoutModule.empty('b').copyWith(name: '운동 B', favorite: false),
   ]);
+}
+
+class _ManyTemplates extends SlideTemplatesController {
+  @override
+  Stream<List<WorkoutModule>> build(String scope) => Stream.value(
+    List.generate(
+      200,
+      (i) => WorkoutModule.empty('s$i').copyWith(name: 'Slide $i'),
+    ),
+  );
 }
 
 class _Folders extends Fake implements LibraryFolderActions {

@@ -117,7 +117,7 @@ class AccountSlideEditorRepository extends LocalSlideEditorRepository {
     return _decode(items);
   }
 
-  Future<void> _save(
+  Future<List<WorkoutModule>> _save(
     String scope,
     String kind,
     List<WorkoutModule> items,
@@ -128,16 +128,18 @@ class AccountSlideEditorRepository extends LocalSlideEditorRepository {
     final before = {for (final item in previous) item.id: item};
     final after = {for (final item in items) item.id: item};
     final changes = <Map<String, dynamic>>[];
+    final prepared = Map<String, WorkoutModule>.from(after);
     for (final id in {...before.keys, ...after.keys}) {
       if (before[id] == after[id]) continue;
       final item = after[id];
+      if (item != null) prepared[id] = await _prepare(scope, kind, item);
       changes.add({
         'id': id,
         'base': before[id] == null ? null : _json(before[id]!),
-        'value': item == null ? null : _json(await _prepare(scope, kind, item)),
+        'value': item == null ? null : _json(prepared[id]!),
       });
     }
-    if (changes.isEmpty) return;
+    if (changes.isEmpty) return items;
     _requireAccount(scope);
     try {
       await remote.mutate(scope, kind, changes);
@@ -147,6 +149,7 @@ class AccountSlideEditorRepository extends LocalSlideEditorRepository {
         cause: error,
       );
     }
+    return prepared.values.toList();
   }
 
   @override
@@ -162,7 +165,7 @@ class AccountSlideEditorRepository extends LocalSlideEditorRepository {
   Future<List<WorkoutModule>> loadStyles(String scope) =>
       _load(scope, 'styles');
   @override
-  Future<void> saveTemplates(
+  Future<List<WorkoutModule>> saveTemplates(
     String scope,
     List<WorkoutModule> templates, {
     List<WorkoutModule>? previous,
@@ -172,5 +175,7 @@ class AccountSlideEditorRepository extends LocalSlideEditorRepository {
     String scope,
     List<WorkoutModule> styles, {
     List<WorkoutModule>? previous,
-  }) => _save(scope, 'styles', styles, previous);
+  }) async {
+    await _save(scope, 'styles', styles, previous);
+  }
 }

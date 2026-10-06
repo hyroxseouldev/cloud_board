@@ -331,10 +331,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         unawaited(
           precacheWorkoutImages(
             context,
-            workout.modules
-                .skip(moduleIndex)
-                .take(3)
-                .map((module) => module.imageSource),
+            workoutImageWindow(workout, start: moduleIndex),
             isCancelled: () => cancelled,
           ).catchError((Object error) {
             debugPrint('Playback image preparation failed: $error');

@@ -18,7 +18,7 @@ class SlideEditorActions {
       repository.watchStyles(scope);
   Future<List<WorkoutModule>> loadTemplates(String scope) =>
       repository.loadTemplates(scope);
-  Future<void> saveTemplates(
+  Future<List<WorkoutModule>> saveTemplates(
     String scope,
     List<WorkoutModule> templates, {
     List<WorkoutModule>? previous,
