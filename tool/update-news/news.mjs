@@ -43,7 +43,9 @@ export function newsForDeployment(note, results) {
   validateNews(note);
   const builds = {};
   for (const {pipeline, run, jobs, artifacts} of results) {
-    if (!run || !jobs.some(job => job.steps?.some(step => step.name === pipeline.step && step.conclusion === 'success'))) continue;
+    if (!run || !jobs.some(job => job.steps?.some(step =>
+      (step.name === pipeline.step || Object.hasOwn(pipeline.previousSteps ?? {}, step.name)) &&
+      step.conclusion === 'success'))) continue;
     if (pipeline.key === 'web') {
       builds.web = `${run.run_number}.${run.run_attempt}`;
     } else {

@@ -45,6 +45,19 @@ test('platform arrivals and reruns preserve earliest compatible build and one it
   assert.throws(() => mergeNewsFeed(feed, {...deployed({web: '84.1'}), title: 'different'}), /immutable/);
 });
 
+test('Android news keeps confirmed builds from both internal and historical Alpha uploads', () => {
+  const pipeline = pipelines.find(p => p.key === 'android');
+  for (const [step, artifact, build] of [
+    ['Upload mobile and TV bundle to internal testing', 'cloudboard-internal-aab-59', '59'],
+    ['Upload mobile and TV bundle to closed Alpha testing', 'cloudboard-alpha-aab-58', '58'],
+  ]) {
+    const result = {pipeline, run: {}, jobs: [{steps: [{name: step, conclusion: 'success'}]}], artifacts: [{name: artifact}]};
+    assert.deepEqual(newsForDeployment(note, [result]).builds, {android: build});
+    result.jobs[0].steps[0].conclusion = 'skipped';
+    assert.deepEqual(newsForDeployment(note, [result]).builds, {});
+  }
+});
+
 test('history stays newest first and bounded without exposing extra fields', () => {
   let feed;
   for (let i = 0; i < 110; i++) {
