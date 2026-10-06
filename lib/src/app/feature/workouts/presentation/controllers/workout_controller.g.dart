@@ -166,6 +166,59 @@ abstract class _$WorkoutDetail extends $AsyncNotifier<Workout?> {
   }
 }
 
+@ProviderFor(WorkoutCatalogStatus)
+final workoutCatalogStatusProvider = WorkoutCatalogStatusProvider._();
+
+final class WorkoutCatalogStatusProvider
+    extends $NotifierProvider<WorkoutCatalogStatus, CatalogLoadState> {
+  WorkoutCatalogStatusProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'workoutCatalogStatusProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$workoutCatalogStatusHash();
+
+  @$internal
+  @override
+  WorkoutCatalogStatus create() => WorkoutCatalogStatus();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(CatalogLoadState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<CatalogLoadState>(value),
+    );
+  }
+}
+
+String _$workoutCatalogStatusHash() =>
+    r'9745cbb67ae0496139660d9cb104f740393f6354';
+
+abstract class _$WorkoutCatalogStatus extends $Notifier<CatalogLoadState> {
+  CatalogLoadState build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<CatalogLoadState, CatalogLoadState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<CatalogLoadState, CatalogLoadState>,
+              CatalogLoadState,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(WorkoutController)
 final workoutControllerProvider = WorkoutControllerProvider._();
 
@@ -190,7 +243,7 @@ final class WorkoutControllerProvider
   WorkoutController create() => WorkoutController();
 }
 
-String _$workoutControllerHash() => r'657f75489d9b1591df8bbe30fbf5d21290b85d55';
+String _$workoutControllerHash() => r'ec7ca56583a384967f7ec98e4ee28c80987f33b3';
 
 abstract class _$WorkoutController
     extends $StreamNotifier<List<WorkoutSummary>> {

@@ -8,6 +8,35 @@ import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart
 part 'slide_templates_controller.g.dart';
 
 @riverpod
+class SlideTemplateWrites extends _$SlideTemplateWrites {
+  @override
+  Set<String> build(String scope) => const {};
+  void update(Set<String> ids) => state = ids;
+}
+
+/// Merge only our accepted changes. Preserve unrelated/newer stream updates.
+List<WorkoutModule> mergeSavedTemplates(
+  List<WorkoutModule> before,
+  List<WorkoutModule> saved,
+  List<WorkoutModule> latest,
+) {
+  final baseline = {for (final item in before) item.id: item};
+  final committed = {for (final item in saved) item.id: item};
+  final merged = {for (final item in latest) item.id: item};
+  for (final id in {...baseline.keys, ...committed.keys}) {
+    if (baseline[id] == committed[id]) continue;
+    if (merged[id] != baseline[id] && merged[id] != committed[id]) continue;
+    final item = committed[id];
+    if (item == null) {
+      merged.remove(id);
+    } else {
+      merged[id] = item;
+    }
+  }
+  return merged.values.toList();
+}
+
+@riverpod
 class SlideTemplatesController extends _$SlideTemplatesController {
   bool _writing = false;
   String? lastError;
@@ -72,16 +101,25 @@ class SlideTemplatesController extends _$SlideTemplatesController {
     lastFailure = null;
     final baseline = state;
     final actions = ref.read(slideEditorActionsProvider);
-    state = const AsyncLoading<List<WorkoutModule>>();
+    final lifetime = ref.keepAlive();
+    final before = previous ?? baseline.requireValue;
+    final oldItems = {for (final item in before) item.id: item};
+    final newItems = {for (final item in templates) item.id: item};
+    ref.read(slideTemplateWritesProvider(scope).notifier).update({
+      for (final id in {...oldItems.keys, ...newItems.keys})
+        if (oldItems[id] != newItems[id]) id,
+    });
     final result = await AsyncValue.guard(() async {
-      await actions.saveTemplates(
+      return actions.saveTemplates(
         scope,
         templates,
         previous: previous ?? baseline.requireValue,
       );
-      return actions.loadTemplates(scope);
     });
     _writing = false;
+    lifetime.close();
+    if (!ref.mounted) return !result.hasError;
+    ref.read(slideTemplateWritesProvider(scope).notifier).update(const {});
     if (result.hasError) {
       lastFailure = result.error;
       if (ref.mounted) {
@@ -104,9 +142,13 @@ class SlideTemplatesController extends _$SlideTemplatesController {
       final fresh = await AsyncValue.guard(() => actions.loadTemplates(scope));
       if (ref.mounted) state = fresh.hasValue ? fresh : baseline;
     } else if (ref.mounted) {
-      state = result.hasError
-          ? AsyncData(state.value ?? baseline.requireValue)
-          : result;
+      state = AsyncData(
+        mergeSavedTemplates(
+          before,
+          result.requireValue,
+          state.value ?? baseline.requireValue,
+        ),
+      );
     }
     return !result.hasError;
   }

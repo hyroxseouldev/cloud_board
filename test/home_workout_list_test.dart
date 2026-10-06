@@ -2,6 +2,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_catalog_page.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
@@ -24,6 +25,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'scroll loads the next page and search finds the last unrequested page',
+    (tester) async {
+      final repo = _PagedCatalogRepository(_catalog(60));
+      final container = await _mount(tester, repo);
+      expect(repo.loads, 1);
+      expect(container.read(workoutControllerProvider).requireValue.length, 24);
+      final scroll = tester
+          .widget<CustomScrollView>(
+            find.byKey(const ValueKey('workout-scroll')),
+          )
+          .controller!;
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(repo.loads, 2);
+      expect(container.read(workoutControllerProvider).requireValue.length, 48);
+      await _openSearch(tester);
+      await tester.enterText(find.byType(TextField), '수업 60');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(repo.loads, 3);
+      expect(container.read(workoutControllerProvider).requireValue.length, 60);
+      expect(_title('수업 60'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'mode selector is hidden by default but can enable both browsing modes',
     (tester) async {
@@ -710,6 +739,23 @@ class _Commands extends PlaybackActionController {
   @override
   AsyncValue<String?> build() => const AsyncData(null);
   void setStatus(AsyncValue<String?> value) => state = value;
+}
+
+class _PagedCatalogRepository extends _CatalogRepository
+    implements PagedWorkoutCatalog {
+  _PagedCatalogRepository(super.cached);
+  @override
+  Stream<WorkoutCatalogPage> watchCatalog({bool requireServer = false}) async* {
+    var offset = 0;
+    while (offset < cached.length) {
+      loads++;
+      offset = (offset + 24).clamp(0, cached.length);
+      yield WorkoutCatalogPage(
+        cached.take(offset).map(summarizeWorkout).toList(),
+        complete: offset == cached.length,
+      );
+    }
+  }
 }
 
 Future<void> _openSearch(WidgetTester tester) async {

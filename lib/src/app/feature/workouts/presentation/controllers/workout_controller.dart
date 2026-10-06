@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_act
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_catalog_page.dart';
 part 'workout_controller.g.dart';
 
 @riverpod
@@ -62,6 +63,24 @@ class WorkoutDetail extends _$WorkoutDetail {
   }
 }
 
+class CatalogLoadState {
+  const CatalogLoadState({
+    this.hasMore = false,
+    this.loading = false,
+    this.error,
+  });
+  final bool hasMore;
+  final bool loading;
+  final Object? error;
+}
+
+@Riverpod(keepAlive: true)
+class WorkoutCatalogStatus extends _$WorkoutCatalogStatus {
+  @override
+  CatalogLoadState build() => const CatalogLoadState();
+  void update(CatalogLoadState value) => state = value;
+}
+
 @Riverpod(keepAlive: true)
 class WorkoutController extends _$WorkoutController {
   final _upserts = <String, WorkoutSummary>{};
@@ -71,6 +90,18 @@ class WorkoutController extends _$WorkoutController {
   int _generation = 0;
   Future<void>? _loading;
   Future<void>? _refreshing;
+  StreamIterator<WorkoutCatalogPage>? _pages;
+  Future<void>? _nextPage;
+  bool _hasMore = false;
+  bool _pageFailed = false;
+
+  void _status({bool loading = false, Object? error}) {
+    ref
+        .read(workoutCatalogStatusProvider.notifier)
+        .update(
+          CatalogLoadState(hasMore: _hasMore, loading: loading, error: error),
+        );
+  }
 
   @override
   Stream<List<WorkoutSummary>> build() {
@@ -79,6 +110,10 @@ class WorkoutController extends _$WorkoutController {
     _removed.clear();
     _mutationVersions.clear();
     _refreshing = null;
+    _pages = null;
+    _nextPage = null;
+    _hasMore = false;
+    _pageFailed = false;
     final complete = Completer<void>();
     _loading = complete.future;
     final userFuture = ref.watch(authStateProvider.future);
@@ -86,27 +121,40 @@ class WorkoutController extends _$WorkoutController {
     final output = StreamController<List<WorkoutSummary>>();
     StreamSubscription<List<WorkoutSummary>>? subscription;
     var disposed = false;
+    StreamIterator<WorkoutCatalogPage>? catalogPages;
 
     void finish() {
       if (!complete.isCompleted) complete.complete();
       unawaited(output.close());
     }
 
-    // The catalog's completion must not depend on the UI consuming the last
-    // async* yield. Riverpod can pause that stream on web while data is visible.
-    // Consume source pages independently, so refresh and schedules never wait
-    // indefinitely for an already-loaded catalog to finish.
+    // Drive fetches independently of Riverpod's output stream, which may pause
+    // while hidden. The paged source advances only on explicit demand; legacy
+    // repositories still finish their stream for existing offline consumers.
     output.onListen = () async {
       try {
         final user = await userFuture;
         if (disposed) return;
         if (user == null) {
+          _status();
           output.add(const []);
           finish();
           return;
         }
         final loader = await loaderFuture;
         if (disposed) return;
+        _status();
+        if (loader.supportsPaging) {
+          catalogPages = StreamIterator(loader.pages(requireServer: true));
+          _pages = catalogPages;
+          _hasMore = true;
+          try {
+            await _readPage(generation, (items) => output.add(_merge(items)));
+          } finally {
+            if (!complete.isCompleted) complete.complete();
+          }
+          return;
+        }
         subscription = loader.watch().listen(
           (items) => output.add(_merge(items)),
           onError: (Object error, StackTrace stack) =>
@@ -115,7 +163,7 @@ class WorkoutController extends _$WorkoutController {
         );
       } catch (error, stack) {
         if (disposed) return;
-        output.addError(error, stack);
+        if (!state.hasValue) output.addError(error, stack);
         finish();
       }
     };
@@ -123,6 +171,8 @@ class WorkoutController extends _$WorkoutController {
       disposed = true;
       if (_generation == generation) ++_generation;
       unawaited(subscription?.cancel());
+      unawaited(catalogPages?.cancel());
+      if (_generation == generation + 1) unawaited(_pages?.cancel());
       finish();
     });
     return output.stream;
@@ -130,9 +180,68 @@ class WorkoutController extends _$WorkoutController {
 
   // A scheduled start must not mistake the first page for the complete catalog.
   Future<List<WorkoutSummary>> loadComplete() async {
-    await future;
-    await _loading;
+    final generation = _generation;
+    try {
+      await future;
+      await _loading;
+    } catch (_) {
+      if (!ref.mounted || generation != _generation) return const [];
+      await refresh();
+    }
+    while (ref.mounted && generation == _generation && _hasMore) {
+      if (_pageFailed) {
+        await refresh();
+      } else {
+        await loadMore();
+      }
+    }
+    if (!ref.mounted || generation != _generation) return const [];
     return state.requireValue;
+  }
+
+  Future<void> loadMore() {
+    if (_refreshing != null) return _refreshing!;
+    final generation = _generation;
+    return _nextPage ??=
+        () async {
+          // Cached rows can be visible while the first server page is still in
+          // flight. Never advance a StreamIterator twice at the same time.
+          await _loading;
+          if (!ref.mounted || generation != _generation) return;
+          await _readPage(generation, (items) {
+            state = AsyncData(_merge(items));
+          });
+        }().whenComplete(() {
+          if (generation == _generation) _nextPage = null;
+        });
+  }
+
+  Future<void> _readPage(
+    int generation,
+    void Function(List<WorkoutSummary>) emit,
+  ) async {
+    final pages = _pages;
+    if (pages == null || !_hasMore || _pageFailed) return;
+    _status(loading: true);
+    try {
+      while (await pages.moveNext()) {
+        if (!ref.mounted || generation != _generation) return;
+        final page = pages.current;
+        emit(page.items);
+        if (page.cached) continue;
+        _hasMore = !page.complete;
+        if (!_hasMore) unawaited(pages.cancel());
+        return;
+      }
+      if (ref.mounted && generation == _generation) _hasMore = false;
+    } catch (error, stack) {
+      if (!ref.mounted || generation != _generation) return;
+      _pageFailed = true;
+      _status(error: error);
+      Error.throwWithStackTrace(error, stack);
+    } finally {
+      if (ref.mounted && generation == _generation && !_pageFailed) _status();
+    }
   }
 
   /// Keep the usable list mounted until a complete server refresh succeeds.
@@ -146,7 +255,9 @@ class WorkoutController extends _$WorkoutController {
 
   Future<void> _refresh(int generation) async {
     try {
-      await loadComplete();
+      await future;
+      await _loading;
+      await _nextPage;
     } catch (_) {
       // Initial loading can fail too; refresh is also the retry action.
     }
@@ -154,7 +265,48 @@ class WorkoutController extends _$WorkoutController {
     final baseline = _writeVersion;
     try {
       final loader = await ref.read(loadWorkoutsProvider.future);
-      final items = await loader.watch(requireServer: true).last;
+      List<WorkoutSummary> items;
+      if (loader.supportsPaging) {
+        final pages = StreamIterator(loader.pages(requireServer: true));
+        final count = state.value?.length ?? 0;
+        final completeCatalog = !_hasMore && !_pageFailed;
+        var loaded = const <WorkoutSummary>[];
+        var hasMore = true;
+        _status(loading: true);
+        try {
+          while (true) {
+            if (!await pages.moveNext()) {
+              hasMore = false;
+              break;
+            }
+            if (!ref.mounted || generation != _generation) {
+              await pages.cancel();
+              return;
+            }
+            final page = pages.current;
+            if (page.cached) continue;
+            loaded = page.items;
+            hasMore = !page.complete;
+            if (!hasMore || (!completeCatalog && loaded.length >= count)) break;
+          }
+        } catch (_) {
+          await pages.cancel();
+          rethrow;
+        }
+        if (!ref.mounted || generation != _generation) {
+          await pages.cancel();
+          return;
+        }
+        unawaited(_pages?.cancel());
+        _pages = pages;
+        _hasMore = hasMore;
+        _pageFailed = false;
+        if (!hasMore) unawaited(pages.cancel());
+        _status();
+        items = loaded;
+      } else {
+        items = await loader.watch(requireServer: true).last;
+      }
       if (!ref.mounted || generation != _generation) return;
       final stale = _mutationVersions.entries
           .where((entry) => entry.value <= baseline)
@@ -168,6 +320,7 @@ class WorkoutController extends _$WorkoutController {
       state = AsyncData(_merge(items));
     } catch (error, stack) {
       if (!ref.mounted || generation != _generation) return;
+      _status(error: error);
       if (!state.hasValue) state = AsyncError(error, stack);
       Error.throwWithStackTrace(error, stack);
     }

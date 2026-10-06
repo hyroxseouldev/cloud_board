@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
@@ -18,6 +20,7 @@ import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
@@ -36,6 +39,18 @@ class WorkoutEditorScreen extends HookConsumerWidget {
         ? const AsyncData<Workout?>(null)
         : ref.watch(workoutDetailProvider(workoutId));
     final user = ref.watch(authStateProvider).value;
+    // Folder suggestions include older workouts without blocking the editor's
+    // detail request or first render.
+    useEffect(() {
+      if (user == null) return null;
+      unawaited(
+        ref
+            .read(workoutControllerProvider.notifier)
+            .loadComplete()
+            .catchError((Object _) => const <WorkoutSummary>[]),
+      );
+      return null;
+    }, [user?.id]);
     return values.when(
       data: (detail) {
         final workout = workoutId == 'new' && user != null

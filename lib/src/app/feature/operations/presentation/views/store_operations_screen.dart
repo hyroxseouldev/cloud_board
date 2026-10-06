@@ -356,11 +356,12 @@ class _BrandSettingsTab extends HookConsumerWidget {
   }
 }
 
-class _ScheduleTab extends ConsumerWidget {
+class _ScheduleTab extends HookConsumerWidget {
   const _ScheduleTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final preparing = useState(false);
     final schedules = ref.watch(workoutSchedulesProvider);
     final workouts =
         ref.watch(workoutControllerProvider).value ?? const <WorkoutSummary>[];
@@ -425,15 +426,39 @@ class _ScheduleTab extends ConsumerWidget {
               ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: workouts.isEmpty
+        onPressed: workouts.isEmpty || preparing.value
             ? null
-            : () => showDialog<void>(
-                context: context,
-                builder: (_) =>
-                    _ScheduleDialog(workouts: workouts, devices: devices),
-              ),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('예약 추가'),
+            : () async {
+                preparing.value = true;
+                try {
+                  final choices = await ref
+                      .read(workoutControllerProvider.notifier)
+                      .loadComplete();
+                  if (!context.mounted || choices.isEmpty) return;
+                  await showDialog<void>(
+                    context: context,
+                    builder: (_) =>
+                        _ScheduleDialog(workouts: choices, devices: devices),
+                  );
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('워크아웃 목록을 불러오지 못했어요. 다시 시도해 주세요.'),
+                      ),
+                    );
+                  }
+                } finally {
+                  if (context.mounted) preparing.value = false;
+                }
+              },
+        icon: preparing.value
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.add_rounded),
+        label: Text(preparing.value ? '목록 불러오는 중' : '예약 추가'),
       ),
     );
   }

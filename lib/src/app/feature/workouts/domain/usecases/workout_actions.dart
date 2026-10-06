@@ -6,11 +6,17 @@ import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_r
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_catalog_page.dart';
 part 'workout_actions.g.dart';
 
 class LoadWorkouts {
   const LoadWorkouts(this._repository);
   final WorkoutRepository _repository;
+  bool get supportsPaging => _repository is PagedWorkoutCatalog;
+  Stream<WorkoutCatalogPage> pages({bool requireServer = false}) =>
+      (_repository as PagedWorkoutCatalog).watchCatalog(
+        requireServer: requireServer,
+      );
   Future<List<WorkoutSummary>> call() => watch().last;
   Stream<List<WorkoutSummary>> watch({bool requireServer = false}) =>
       _repository.watchSummaries(requireServer: requireServer);

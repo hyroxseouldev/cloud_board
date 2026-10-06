@@ -52,7 +52,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
         try {
           final count = await precacheWorkoutImages(
             context,
-            workout.modules.map((module) => module.imageSource),
+            workoutImageWindow(workout, count: 2, includeCountdown: true),
             isCancelled: () => cancelled,
           );
           if (!cancelled && context.mounted) {
@@ -121,8 +121,8 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
               imageCheck.value.when(
                 loading: () => const _CheckTile(
                   ok: null,
-                  title: '이미지 준비 중',
-                  subtitle: '수업 이미지를 미리 불러오고 있습니다.',
+                  title: '시작 이미지 준비 중',
+                  subtitle: '시작 화면과 다음 슬라이드를 준비하고 있습니다.',
                 ),
                 error: (error, _) => _CheckTile(
                   ok: false,

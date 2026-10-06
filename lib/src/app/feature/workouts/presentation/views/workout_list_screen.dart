@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
@@ -59,6 +61,7 @@ class _WorkoutListBody extends HookConsumerWidget {
     final showModeSelector = ref.watch(workoutListModeSelectorEnabledProvider);
     final paged = mode == WorkoutListMode.paged;
     final workouts = ref.watch(workoutControllerProvider);
+    final catalog = ref.watch(workoutCatalogStatusProvider);
     final items = workouts.value ?? const <WorkoutSummary>[];
     final folders = useMemoized(
       () =>
@@ -89,6 +92,42 @@ class _WorkoutListBody extends HookConsumerWidget {
           }),
       [items, query, folder],
     );
+    useEffect(() {
+      if (query.isEmpty && folder == null && !paged) return null;
+      final debounce = Timer(const Duration(milliseconds: 250), () {
+        unawaited(
+          ref
+              .read(workoutControllerProvider.notifier)
+              .loadComplete()
+              .catchError((Object _) => const <WorkoutSummary>[]),
+        );
+      });
+      return debounce.cancel;
+    }, [query, folder, paged]);
+    useEffect(() {
+      void requestNext() {
+        if (!scroll.hasClients ||
+            scroll.position.extentAfter > 500 ||
+            !catalog.hasMore ||
+            catalog.loading ||
+            catalog.error != null ||
+            paged) {
+          return;
+        }
+        unawaited(
+          ref
+              .read(workoutControllerProvider.notifier)
+              .loadMore()
+              .catchError((Object _) {}),
+        );
+      }
+
+      scroll.addListener(requestNext);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) requestNext();
+      });
+      return () => scroll.removeListener(requestNext);
+    }, [scroll, catalog, paged, items.length]);
     final pageCount = math.max(1, (filtered.length / _pageSize).ceil());
     final currentPage = page.value.clamp(0, pageCount - 1);
     final visibleItems = paged
@@ -356,7 +395,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        '워크아웃 ${filtered.length}개',
+                                        '워크아웃 ${filtered.length}개${catalog.hasMore ? ' 이상' : ''}',
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
@@ -369,6 +408,22 @@ class _WorkoutListBody extends HookConsumerWidget {
                                         child: _FolderMenu(
                                           folders: folders,
                                           selected: folder,
+                                          loadFolders: () async {
+                                            final all = await ref
+                                                .read(
+                                                  workoutControllerProvider
+                                                      .notifier,
+                                                )
+                                                .loadComplete();
+                                            return all
+                                                .map((item) => item.folder)
+                                                .where(
+                                                  (name) => name.isNotEmpty,
+                                                )
+                                                .toSet()
+                                                .toList()
+                                              ..sort();
+                                          },
                                           onChanged: (value) {
                                             selectedFolder.value = value;
                                             changePage(0);
@@ -452,6 +507,56 @@ class _WorkoutListBody extends HookConsumerWidget {
                                     isBusy: isBusy,
                                   ),
                           ),
+                        if (catalog.loading ||
+                            catalog.hasMore ||
+                            catalog.error != null)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                0,
+                                16,
+                                100,
+                              ),
+                              child: Center(
+                                child: catalog.loading
+                                    ? const SizedBox.square(
+                                        dimension: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : TextButton(
+                                        key: const ValueKey(
+                                          'workout-load-more',
+                                        ),
+                                        onPressed: () async {
+                                          try {
+                                            final controller = ref.read(
+                                              workoutControllerProvider
+                                                  .notifier,
+                                            );
+                                            if (catalog.error != null) {
+                                              await controller.refresh();
+                                            } else {
+                                              await controller.loadMore();
+                                            }
+                                            if (query.isNotEmpty ||
+                                                folder != null ||
+                                                paged) {
+                                              await controller.loadComplete();
+                                            }
+                                          } catch (_) {}
+                                        },
+                                        child: Text(
+                                          catalog.error != null
+                                              ? '목록을 불러오지 못했어요. 다시 시도'
+                                              : '더 보기',
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -473,56 +578,103 @@ class _WorkoutListBody extends HookConsumerWidget {
   }
 }
 
-class _FolderMenu extends StatelessWidget {
+class _FolderMenu extends HookWidget {
   const _FolderMenu({
     required this.folders,
     required this.selected,
     required this.onChanged,
+    required this.loadFolders,
   });
+  final Future<List<String>> Function() loadFolders;
   final List<String> folders;
   final String? selected;
   final ValueChanged<String?> onChanged;
   @override
-  Widget build(BuildContext context) => PopupMenuButton<String>(
-    tooltip: '폴더 선택',
-    initialValue: selected ?? '',
-    onSelected: (value) => onChanged(value.isEmpty ? null : value),
-    itemBuilder: (_) => [
-      CheckedPopupMenuItem(
-        value: '',
-        checked: selected == null,
-        child: const Text('모든 폴더'),
-      ),
-      for (final folder in folders)
-        CheckedPopupMenuItem(
-          value: folder,
-          checked: selected == folder,
-          child: Text(folder),
-        ),
-    ],
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              selected ?? '모든 폴더',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, color: AppColors.accent),
+  Widget build(BuildContext context) {
+    final menuKey = useMemoized(
+      () => GlobalKey<PopupMenuButtonState<String>>(),
+    );
+    final resolved = useState(folders);
+    final loading = useState(false);
+    return Tooltip(
+      message: '폴더 선택',
+      child: InkWell(
+        onTap: loading.value
+            ? null
+            : () async {
+                loading.value = true;
+                try {
+                  final names = await loadFolders();
+                  if (!context.mounted) return;
+                  resolved.value = names;
+                  await WidgetsBinding.instance.endOfFrame;
+                  if (context.mounted) menuKey.currentState?.showButtonMenu();
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('폴더를 불러오지 못했어요. 다시 시도해 주세요.'),
+                      ),
+                    );
+                  }
+                } finally {
+                  if (context.mounted) loading.value = false;
+                }
+              },
+        child: ExcludeFocus(
+          child: IgnorePointer(
+            child: PopupMenuButton<String>(
+              key: menuKey,
+              tooltip: '',
+              initialValue: selected ?? '',
+              onSelected: (value) => onChanged(value.isEmpty ? null : value),
+              itemBuilder: (_) => [
+                CheckedPopupMenuItem(
+                  value: '',
+                  checked: selected == null,
+                  child: const Text('모든 폴더'),
+                ),
+                for (final folder in resolved.value)
+                  CheckedPopupMenuItem(
+                    value: folder,
+                    checked: selected == folder,
+                    child: Text(folder),
+                  ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 4,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        loading.value ? '불러오는 중…' : selected ?? '모든 폴더',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 20,
+                      color: AppColors.accent,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 6),
-          const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 20,
-            color: AppColors.accent,
-          ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DisplayStatus extends ConsumerWidget {
