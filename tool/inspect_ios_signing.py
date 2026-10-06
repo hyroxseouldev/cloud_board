@@ -1,9 +1,9 @@
-"""Record the entitlements of the actual exported IPA, without credentials."""
+"""Check the final IPA before upload and save non-secret signing diagnostics."""
 
+import argparse
 import json
 import plistlib
 import subprocess
-import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -45,13 +45,47 @@ def inspect(ipa):
             "signedTeam": entitlements.get("com.apple.developer.team-identifier"),
             "signedApplicationId": entitlements.get("application-identifier"),
             "signedKeychainGroups": entitlements.get("keychain-access-groups", []),
+            "signedDebuggable": entitlements.get("get-task-allow"),
+            "profileTeam": profile.get("com.apple.developer.team-identifier"),
+            "profileApplicationId": profile.get("application-identifier"),
         }
 
 
+def validate(report, team_id, bundle_id):
+    errors = []
+    for field in ["signedAppleSignIn", "profileAppleSignIn"]:
+        if "Default" not in report.get(field, []):
+            errors.append(f"{field}: Sign in with Apple entitlement is missing")
+    expected_id = team_id + "." + bundle_id
+    for field, expected in {
+        "bundleId": bundle_id,
+        "signedTeam": team_id,
+        "profileTeam": team_id,
+        "signedApplicationId": expected_id,
+        "profileApplicationId": expected_id,
+    }.items():
+        if report.get(field) != expected:
+            errors.append(f"{field}: release signing identity mismatch")
+    if expected_id not in report.get("signedKeychainGroups", []):
+        errors.append("The app's Firebase Auth keychain access group is missing")
+    if report.get("signedDebuggable") is not False:
+        errors.append("The IPA must have get-task-allow disabled for distribution")
+    return errors
+
+
 if __name__ == "__main__":
-    report = inspect(sys.argv[1])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("ipa")
+    parser.add_argument("output")
+    parser.add_argument("--team-id", required=True)
+    parser.add_argument("--bundle-id", required=True)
+    args = parser.parse_args()
+    report = inspect(args.ipa)
+    report["validationErrors"] = validate(report, args.team_id, args.bundle_id)
     text = json.dumps(report, ensure_ascii=False, indent=2)
-    Path(sys.argv[2]).write_text(text + "\n")
+    Path(args.output).write_text(text + "\n")
     print(text)
-    if "Default" not in report["signedAppleSignIn"]:
-        print("::warning::Exported IPA is missing the Sign in with Apple entitlement")
+    for error in report["validationErrors"]:
+        print("::error::" + error)
+    if report["validationErrors"]:
+        raise SystemExit(1)

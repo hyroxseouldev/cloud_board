@@ -3,15 +3,21 @@
 `main` 브랜치에 코드가 푸시되거나 병합되면 GitHub Actions가 다음 순서로 동작한다.
 
 1. 포맷, 정적 분석, 테스트를 실행한다.
-2. 검증에 성공한 경우에만 macOS에서 서명 없는 아카이브를 만든 뒤, 앱 배포 단계에서만 서명된 IPA로 내보낸다.
+2. 검증에 성공하면 macOS에서 서명 없는 아카이브를 만들고 원본 entitlements를 임시 ad-hoc 서명으로 보존한 뒤, Apple Distribution 서명된 IPA로 내보낸다.
 3. 실행 및 재실행마다 겹치지 않는 빌드 번호를 지정한다.
 4. 아카이브의 dSYM을 Actions 아티팩트에 보관하고 Firebase Crashlytics에 업로드한다.
 5. App Store Connect API로 TestFlight에 업로드한다.
 
 내보낸 실제 IPA의 Apple 로그인 권한과 내장 프로비저닝 프로파일을 검사하고,
 `cloudboard-ios-signing-<빌드 번호>` 아티팩트에 진단 결과를 90일간 보관한다.
-로그인 장애 조사용으로 권한 누락은 경고하며, 진단용 빌드 업로드는 계속한다.
+앱과 프로비저닝 프로파일의 Apple 로그인 권한, Team/Bundle ID, Firebase Auth 키체인 접근 그룹,
+배포용 `get-task-allow` 값을 검사한다. 누락·불일치 시 TestFlight 업로드를 중단한다.
 인증서·프로비저닝 원문이나 비밀키는 보고서에 포함하지 않는다.
+
+`flutter build ipa --no-codesign`으로 만든 아카이브에는 소스의 사용자 지정 권한이 서명에 포함되지 않는다.
+`xcodebuild -exportArchive`가 이를 누락하지 않도록 `tool/prepare_ios_entitlements.py`가 Runner에만
+원본 권한을 임시로 넣는다. 확장 앱에 Runner의 권한을 복사하지 않으며, 최종 배포 서명은 Xcode가 수행한다.
+Xcode 빌드 설정의 알 수 없는 변수가 남으면 실패한다. 새 권한·확장 타깃을 추가하면 이 단계도 함께 검토한다.
 
 `develop` 브랜치 및 Pull Request에서는 TestFlight 업로드가 실행되지 않는다. 필요할 때 GitHub Actions 화면에서 수동으로 실행할 수도 있다.
 
