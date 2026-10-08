@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
 
@@ -63,6 +65,94 @@ Future<void> select(WidgetTester tester, String key, int index) async {
 }
 
 void main() {
+  testWidgets(
+    'EMOM example stays a draft until applied and slide save preserves rounds',
+    (tester) async {
+      final saved = <WorkoutModule>[];
+      final container = await openEditor(tester, (module) async {
+        saved.add(module);
+        return true;
+      });
+      await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('open-emom-builder')),
+      );
+      await tester.tap(find.byKey(const ValueKey('open-emom-builder')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('emom-preset-rounds')));
+      await tester.pump();
+      expect(container.read(provider).module, original);
+      await tester.ensureVisible(find.byKey(const ValueKey('emom-total')));
+      expect(find.text('총 39:00'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('emom-final-rest')),
+        150,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('emom-builder')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('emom-final-rest')));
+      await tester.pump();
+      expect(find.text('총 38:30'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('apply-emom')));
+      await tester.pumpAndSettle();
+      expect(container.read(provider).module, original);
+      await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
+      await tester.pumpAndSettle();
+      expect(container.read(provider).module.rounds, 6);
+      expect(container.read(provider).module.includeFinalRoundRest, isFalse);
+      expect(workoutModuleDuration(container.read(provider).module), 2310);
+      expect(saved, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('slide-save-button')));
+      await tester.pumpAndSettle();
+      expect(saved.single.rounds, 6);
+      expect(saved.single.intervalBlocks, hasLength(3));
+      expect(saved.single.name, original.name);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('rest-only block is editable and survives apply', (tester) async {
+    final container = await openEditor(tester, (_) async => true);
+    await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('add-rest-block')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('timer-editor-settings')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(find.byKey(const ValueKey('add-rest-block')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const ValueKey('apply-timer-editor')))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
+    await tester.pumpAndSettle();
+    final module = container.read(provider).module;
+    expect(module.intervalBlocks.last.workSeconds, 0);
+    expect(module.intervalBlocks.last.restSeconds, 30);
+    expect(workoutModuleTimeline(module).last.isRest, isTrue);
+    expect(workoutModuleDuration(module), 705);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
   for (final size in [
     const Size(834, 1194),
     const Size(390, 844),

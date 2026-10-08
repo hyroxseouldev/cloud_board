@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$PlayerStep {
 
- WorkoutModule get module; int get moduleIndex; int get set; int get totalSets; int get duration; bool get isRest;
+ WorkoutModule get module; int get moduleIndex; int get set; int get totalSets; int get duration; bool get isRest; String? get positionLabel;
 /// Create a copy of PlayerStep
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $PlayerStepCopyWith<PlayerStep> get copyWith => _$PlayerStepCopyWithImpl<PlayerS
 @override
 bool operator ==(Object other) {
   final _this = this as PlayerStep;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerStep&&(identical(other.module, _this.module) || other.module == _this.module)&&(identical(other.moduleIndex, _this.moduleIndex) || other.moduleIndex == _this.moduleIndex)&&(identical(other.set, _this.set) || other.set == _this.set)&&(identical(other.totalSets, _this.totalSets) || other.totalSets == _this.totalSets)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.isRest, _this.isRest) || other.isRest == _this.isRest));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerStep&&(identical(other.module, _this.module) || other.module == _this.module)&&(identical(other.moduleIndex, _this.moduleIndex) || other.moduleIndex == _this.moduleIndex)&&(identical(other.set, _this.set) || other.set == _this.set)&&(identical(other.totalSets, _this.totalSets) || other.totalSets == _this.totalSets)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.isRest, _this.isRest) || other.isRest == _this.isRest)&&(identical(other.positionLabel, _this.positionLabel) || other.positionLabel == _this.positionLabel));
 }
 
 
 @override
 int get hashCode {
   final _this = this as PlayerStep;
-  return Object.hash(runtimeType,_this.module,_this.moduleIndex,_this.set,_this.totalSets,_this.duration,_this.isRest);
+  return Object.hash(runtimeType,_this.module,_this.moduleIndex,_this.set,_this.totalSets,_this.duration,_this.isRest,_this.positionLabel);
 }
 
 @override
 String toString() {
   final _this = this as PlayerStep;
-  return 'PlayerStep(module: ${_this.module}, moduleIndex: ${_this.moduleIndex}, set: ${_this.set}, totalSets: ${_this.totalSets}, duration: ${_this.duration}, isRest: ${_this.isRest})';
+  return 'PlayerStep(module: ${_this.module}, moduleIndex: ${_this.moduleIndex}, set: ${_this.set}, totalSets: ${_this.totalSets}, duration: ${_this.duration}, isRest: ${_this.isRest}, positionLabel: ${_this.positionLabel})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $PlayerStepCopyWith<$Res>  {
   factory $PlayerStepCopyWith(PlayerStep value, $Res Function(PlayerStep) _then) = _$PlayerStepCopyWithImpl;
 @useResult
 $Res call({
- WorkoutModule module, int moduleIndex, int set, int totalSets, int duration, bool isRest
+ WorkoutModule module, int moduleIndex, int set, int totalSets, int duration, bool isRest, String? positionLabel
 });
 
 
@@ -68,7 +68,7 @@ class _$PlayerStepCopyWithImpl<$Res>
 
 /// Create a copy of PlayerStep
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? module = null,Object? moduleIndex = null,Object? set = null,Object? totalSets = null,Object? duration = null,Object? isRest = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? module = null,Object? moduleIndex = null,Object? set = null,Object? totalSets = null,Object? duration = null,Object? isRest = null,Object? positionLabel = freezed,}) {
   return _then(PlayerStep(
 module: null == module ? _self.module : module // ignore: cast_nullable_to_non_nullable
 as WorkoutModule,moduleIndex: null == moduleIndex ? _self.moduleIndex : moduleIndex // ignore: cast_nullable_to_non_nullable
@@ -76,7 +76,8 @@ as int,set: null == set ? _self.set : set // ignore: cast_nullable_to_non_nullab
 as int,totalSets: null == totalSets ? _self.totalSets : totalSets // ignore: cast_nullable_to_non_nullable
 as int,duration: null == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as int,isRest: null == isRest ? _self.isRest : isRest // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,positionLabel: freezed == positionLabel ? _self.positionLabel : positionLabel // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 /// Create a copy of PlayerStep
@@ -170,10 +171,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( WorkoutModule module,  int moduleIndex,  int set,  int totalSets,  int duration,  bool isRest)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( WorkoutModule module,  int moduleIndex,  int set,  int totalSets,  int duration,  bool isRest,  String? positionLabel)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlayerStep() when $default != null:
-return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.duration,_that.isRest);case _:
+return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.duration,_that.isRest,_that.positionLabel);case _:
   return orElse();
 
 }
@@ -191,10 +192,10 @@ return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.d
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( WorkoutModule module,  int moduleIndex,  int set,  int totalSets,  int duration,  bool isRest)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( WorkoutModule module,  int moduleIndex,  int set,  int totalSets,  int duration,  bool isRest,  String? positionLabel)  $default,) {final _that = this;
 switch (_that) {
 case _PlayerStep():
-return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.duration,_that.isRest);case _:
+return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.duration,_that.isRest,_that.positionLabel);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -211,10 +212,10 @@ return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.d
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( WorkoutModule module,  int moduleIndex,  int set,  int totalSets,  int duration,  bool isRest)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( WorkoutModule module,  int moduleIndex,  int set,  int totalSets,  int duration,  bool isRest,  String? positionLabel)?  $default,) {final _that = this;
 switch (_that) {
 case _PlayerStep() when $default != null:
-return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.duration,_that.isRest);case _:
+return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.duration,_that.isRest,_that.positionLabel);case _:
   return null;
 
 }
@@ -226,7 +227,7 @@ return $default(_that.module,_that.moduleIndex,_that.set,_that.totalSets,_that.d
 
 
 class _PlayerStep implements PlayerStep {
-  const _PlayerStep({required this.module, required this.moduleIndex, required this.set, required this.totalSets, required this.duration, required this.isRest});
+  const _PlayerStep({required this.module, required this.moduleIndex, required this.set, required this.totalSets, required this.duration, required this.isRest, this.positionLabel});
   
 
 @override final  WorkoutModule module;
@@ -235,6 +236,7 @@ class _PlayerStep implements PlayerStep {
 @override final  int totalSets;
 @override final  int duration;
 @override final  bool isRest;
+@override final  String? positionLabel;
 
 /// Create a copy of PlayerStep
 /// with the given fields replaced by the non-null parameter values.
@@ -246,18 +248,18 @@ _$PlayerStepCopyWith<_PlayerStep> get copyWith => __$PlayerStepCopyWithImpl<_Pla
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerStep&&(identical(other.module, module) || other.module == module)&&(identical(other.moduleIndex, moduleIndex) || other.moduleIndex == moduleIndex)&&(identical(other.set, set) || other.set == set)&&(identical(other.totalSets, totalSets) || other.totalSets == totalSets)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.isRest, isRest) || other.isRest == isRest));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerStep&&(identical(other.module, module) || other.module == module)&&(identical(other.moduleIndex, moduleIndex) || other.moduleIndex == moduleIndex)&&(identical(other.set, set) || other.set == set)&&(identical(other.totalSets, totalSets) || other.totalSets == totalSets)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.isRest, isRest) || other.isRest == isRest)&&(identical(other.positionLabel, positionLabel) || other.positionLabel == positionLabel));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,module,moduleIndex,set,totalSets,duration,isRest);
+    return Object.hash(runtimeType,module,moduleIndex,set,totalSets,duration,isRest,positionLabel);
 }
 
 @override
 String toString() {
-    return 'PlayerStep(module: $module, moduleIndex: $moduleIndex, set: $set, totalSets: $totalSets, duration: $duration, isRest: $isRest)';
+    return 'PlayerStep(module: $module, moduleIndex: $moduleIndex, set: $set, totalSets: $totalSets, duration: $duration, isRest: $isRest, positionLabel: $positionLabel)';
 }
 
 
@@ -268,7 +270,7 @@ abstract mixin class _$PlayerStepCopyWith<$Res> implements $PlayerStepCopyWith<$
   factory _$PlayerStepCopyWith(_PlayerStep value, $Res Function(_PlayerStep) _then) = __$PlayerStepCopyWithImpl;
 @override @useResult
 $Res call({
- WorkoutModule module, int moduleIndex, int set, int totalSets, int duration, bool isRest
+ WorkoutModule module, int moduleIndex, int set, int totalSets, int duration, bool isRest, String? positionLabel
 });
 
 
@@ -285,7 +287,7 @@ class __$PlayerStepCopyWithImpl<$Res>
 
 /// Create a copy of PlayerStep
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? module = null,Object? moduleIndex = null,Object? set = null,Object? totalSets = null,Object? duration = null,Object? isRest = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? module = null,Object? moduleIndex = null,Object? set = null,Object? totalSets = null,Object? duration = null,Object? isRest = null,Object? positionLabel = freezed,}) {
   return _then(_PlayerStep(
 module: null == module ? _self.module : module // ignore: cast_nullable_to_non_nullable
 as WorkoutModule,moduleIndex: null == moduleIndex ? _self.moduleIndex : moduleIndex // ignore: cast_nullable_to_non_nullable
@@ -293,7 +295,8 @@ as int,set: null == set ? _self.set : set // ignore: cast_nullable_to_non_nullab
 as int,totalSets: null == totalSets ? _self.totalSets : totalSets // ignore: cast_nullable_to_non_nullable
 as int,duration: null == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as int,isRest: null == isRest ? _self.isRest : isRest // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,positionLabel: freezed == positionLabel ? _self.positionLabel : positionLabel // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

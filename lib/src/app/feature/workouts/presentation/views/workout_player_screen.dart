@@ -380,9 +380,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
               slideName: currentMediaStep.module.name.isEmpty
                   ? '슬라이드 ${currentMediaStep.moduleIndex + 1}'
                   : currentMediaStep.module.name,
-              statusLabel: currentMediaStep.isRest
-                  ? '휴식 · ${currentMediaStep.set}/${currentMediaStep.totalSets}세트'
-                  : '운동 · ${currentMediaStep.set}/${currentMediaStep.totalSets}세트',
+              statusLabel:
+                  currentMediaStep.positionLabel ??
+                  (currentMediaStep.isRest
+                      ? '휴식 · ${currentMediaStep.set}/${currentMediaStep.totalSets}세트'
+                      : '운동 · ${currentMediaStep.set}/${currentMediaStep.totalSets}세트'),
               durationMs: currentMediaStep.duration * 1000,
               remainingMs: state.remainingMs,
               stepIndex: state.index,
@@ -588,6 +590,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                       durationMs: step.duration * 1000,
                       set: step.set,
                       totalSets: step.totalSets,
+                      positionLabel: step.positionLabel,
                       isPaused: state.isPaused,
                       brandL: workout.brandL,
                       brandR: workout.brandR,
@@ -659,6 +662,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                                   durationMs: step.duration * 1000,
                                   set: step.set,
                                   totalSets: step.totalSets,
+                                  positionLabel: step.positionLabel,
                                   isPaused: state.isPaused,
                                   brandL: workout.brandL,
                                   brandR: workout.brandR,

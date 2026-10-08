@@ -67,6 +67,22 @@ try {
   assert.equal((await db.collection('users/bulk/slideTemplates').get()).size,405);
   await write([patch('plain',null,item('plain',false))]);
   await write([patch('style',null,item('style',false))],{kind:'styles'});
+  // New timing survives storage and rejects zero-length/oversized schedules.
+  const timed = {...item('emom', false), timingVersion: 2, rounds: 6, roundRestSeconds: 30,
+    includeFinalRoundRest: false, intervalBlocks: [
+      {id:'a', workSeconds:120, restSeconds:0, sets:3}]};
+  await write([patch('emom', null, timed)]);
+  assert.equal((await get('emom')).value.rounds, 6);
+  assert.equal((await get('emom')).value.includeFinalRoundRest, false);
+  await assert.rejects(write([patch('emom', timed, {...timed,
+    intervalBlocks:[{id:'zero',workSeconds:0,restSeconds:0,sets:1}]})]), {code:'invalid-argument'});
+  await assert.rejects(write([patch('emom', timed, {...timed, rounds:999,
+    intervalBlocks:[{id:'huge',workSeconds:120,restSeconds:0,sets:999}]})]), {code:'invalid-argument'});
+  const restOnly = {...timed, rounds:1, roundRestSeconds:0, workSeconds:0, restSeconds:30,
+    includeFinalRest:false, intervalBlocks:[]};
+  await write([patch('emom', timed, restOnly)]);
+  assert.equal((await get('emom')).value.workSeconds, 0);
+  await write([patch('emom', restOnly, null)]);
   const owner=env.authenticatedContext('owner').firestore(), other=env.authenticatedContext('other').firestore();
   await assertSucceeds(getDoc(doc(owner,'users/owner/slideTemplates/plain')));
   await assertFails(getDoc(doc(other,'users/owner/slideTemplates/plain')));

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_section_editor.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
@@ -210,6 +211,12 @@ class _SlideEditorBody extends HookConsumerWidget {
       if (module.name.trim().isEmpty) {
         section.value = 1;
         error.value = '슬라이드 제목을 입력해 주세요.';
+        return;
+      }
+      final timingError = timingValidationError(module);
+      if (timingError != null) {
+        section.value = 1;
+        error.value = timingError;
         return;
       }
       if (!form.currentState!.validate()) return;
@@ -590,7 +597,12 @@ class _SlideEditorBody extends HookConsumerWidget {
                       '휴식 $restPerSet',
                       semanticsLabel: '세트당 휴식 $restPerSet',
                     ),
-                    Text('${blocks.fold(0, (sum, b) => sum + b.sets)}세트'),
+                    Text(
+                      '${blocks.fold(0, (sum, b) => sum + b.sets)}${hasRoundTiming(module) ? '구간/라운드' : '세트'}',
+                    ),
+                    if (hasRoundTiming(module)) Text('${module.rounds}라운드'),
+                    if (module.roundRestSeconds > 0)
+                      Text('라운드 휴식 ${durationLabel(module.roundRestSeconds)}'),
                     if (blocks.length > 1) Text('${blocks.length}블록'),
                   ],
                 ),

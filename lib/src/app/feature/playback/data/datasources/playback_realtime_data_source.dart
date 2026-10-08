@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/core/services/realtime_connection.dart';
 import 'package:cloud_board/src/app/core/services/event_id.dart';
 export 'package:cloud_board/src/app/core/services/realtime_connection.dart'
@@ -238,12 +239,13 @@ class PlaybackRealtimeDataSource {
         throw StateError('연결이 완료된 디스플레이만 재생할 수 있습니다.');
       }
     }
-    final hasFinalRest = model.toEntity().workout.modules.any(
-      (m) =>
-          m.includeFinalRest &&
-          (m.restSeconds > 0 || m.intervalBlocks.any((b) => b.restSeconds > 0)),
-    );
-    if (hasFinalRest && devices is Map) {
+    final workout = model.toEntity().workout;
+    for (final module in workout.modules) {
+      final error = timingValidationError(module);
+      if (error != null) throw PlaybackFailure('invalid_timing', error);
+    }
+    final requiredProtocol = requiredTimingProtocol(workout);
+    if (requiredProtocol > 1 && devices is Map) {
       final targets = model.targetDeviceIds.isEmpty
           ? devices.keys
           : model.targetDeviceIds;
@@ -251,10 +253,12 @@ class PlaybackRealtimeDataSource {
         final device = devices[id];
         if (isRegisteredDisplay(device) &&
             device is Map &&
-            (device['playbackProtocol'] as num? ?? 1) < 3) {
-          throw const PlaybackFailure(
+            (device['playbackProtocol'] as num? ?? 1) < requiredProtocol) {
+          throw PlaybackFailure(
             'display_update_required',
-            '마지막 세트의 휴식을 동일하게 재생하려면 연결된 디스플레이 앱을 업데이트해 주세요.',
+            requiredProtocol >= 4
+                ? '라운드 반복과 독립 휴식을 재생하려면 연결된 디스플레이 앱을 업데이트해 주세요.'
+                : '마지막 세트의 휴식을 동일하게 재생하려면 연결된 디스플레이 앱을 업데이트해 주세요.',
           );
         }
       }

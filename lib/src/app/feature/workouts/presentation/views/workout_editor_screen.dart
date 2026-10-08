@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
@@ -736,8 +738,12 @@ class _EditorBody extends HookConsumerWidget {
                                 subtitle: Text(
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  intervalBlocks.length == 1
-                                      ? '${intervalBlocks.first.sets}세트 · ${formatSlideTime(intervalBlocks.first.workSeconds)} / 휴식 ${formatSlideTime(intervalBlocks.first.restSeconds)}'
+                                  hasRoundTiming(module)
+                                      ? '${module.rounds}라운드 · ${intervalBlocks.length}블록 · 라운드 휴식 ${formatSlideTime(module.roundRestSeconds)}'
+                                      : intervalBlocks.length == 1
+                                      ? intervalBlocks.first.workSeconds == 0
+                                            ? '휴식만 ${formatSlideTime(intervalBlocks.first.restSeconds)} · ${intervalBlocks.first.sets}회'
+                                            : '${intervalBlocks.first.sets}세트 · ${formatSlideTime(intervalBlocks.first.workSeconds)} / 휴식 ${formatSlideTime(intervalBlocks.first.restSeconds)}'
                                       : '${intervalBlocks.length}블록 · 총 ${durationLabel(workoutModuleDuration(module))}',
                                 ),
                                 trailing: Row(

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -243,6 +244,10 @@ class WorkoutRepositoryImpl implements WorkoutRepository, PagedWorkoutCatalog {
     User user, {
     void Function(int completed, int total)? onProgress,
   }) async {
+    for (final module in workout.modules) {
+      final error = timingValidationError(module);
+      if (error != null) throw FormatException(error);
+    }
     final author = WorkoutAuthor(
       id: user.uid,
       displayName: user.displayName ?? '사용자',

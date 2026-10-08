@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 
 typedef WorkoutIntervalSegment = ({int startMs, int endMs, bool isRest});
 
@@ -18,13 +18,8 @@ List<WorkoutIntervalSegment> workoutIntervalSegments(WorkoutModule module) {
     offset = end;
   }
 
-  for (final block in effectiveIntervalBlocks(module)) {
-    for (var set = 0; set < block.sets; set++) {
-      add(block.workSeconds, false);
-      if (module.includeFinalRest || set < block.sets - 1) {
-        add(block.restSeconds, true);
-      }
-    }
+  for (final phase in workoutModuleTimeline(module)) {
+    add(phase.seconds, phase.isRest);
   }
   return segments;
 }

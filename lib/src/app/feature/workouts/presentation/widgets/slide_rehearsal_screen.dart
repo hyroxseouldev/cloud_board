@@ -8,7 +8,7 @@ import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_rehearsal.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_rehearsal_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
@@ -95,6 +95,7 @@ class SlideRehearsalScreen extends HookConsumerWidget {
             durationMs: frame.durationMs,
             set: frame.set,
             totalSets: frame.totalSets,
+            positionLabel: frame.positionLabel,
             isPaused: !state.playing,
             brandL: brandL,
             brandR: brandR,
@@ -120,14 +121,13 @@ class SlideRehearsalScreen extends HookConsumerWidget {
         frame.startMs + (frame.durationMs - 3000).clamp(0, frame.durationMs),
       ),
       onRest: () {
-        final blocks = effectiveIntervalBlocks(module);
         var start = 0;
-        for (final block in blocks) {
-          if (block.restSeconds > 0 && block.sets > 1) {
-            actions.seek(start + block.workSeconds * 1000);
+        for (final phase in workoutModuleTimeline(module)) {
+          if (phase.isRest) {
+            actions.seek(start);
             return;
           }
-          start += intervalBlockDuration(block) * 1000;
+          start += phase.seconds * 1000;
         }
         ScaffoldMessenger.of(
           context,
@@ -328,7 +328,8 @@ class _RehearsalControls extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
-                  '블록 ${frame.blockIndex + 1} · ${frame.set}/${frame.totalSets}세트',
+                  frame.positionLabel ??
+                      '블록 ${frame.blockIndex + 1} · ${frame.set}/${frame.totalSets}세트',
                   textAlign: TextAlign.end,
                   style: const TextStyle(
                     color: SlideEditorStyle.muted,

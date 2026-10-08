@@ -1,12 +1,9 @@
+import {workoutTimingDuration} from './workout-timing.js';
 // The projection deliberately excludes modules, author and all editor content.
 // Keep duration semantics identical to Dart workout_metrics.dart.
 export function summarizeWorkout(data, id = data.id) {
   const modules = data.modules || [];
-  const durationSeconds = modules.reduce((total, module) => {
-    const blocks = module.intervalBlocks?.length ? module.intervalBlocks : [module];
-    return total + blocks.reduce((sum, block) => sum +
-      block.workSeconds * block.sets + block.restSeconds * (module.includeFinalRest === false ? block.sets - 1 : block.sets), 0);
-  }, 0);
+  const durationSeconds = modules.reduce((total, module) => total + workoutTimingDuration(module), 0);
   const summary = {
     id, name: data.name || '', folder: data.folder || '',
     // Firestore serializes WorkoutModuleModel.imageUrl. Preserve an explicit

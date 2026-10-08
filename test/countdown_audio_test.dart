@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
 
 import 'dart:async';
@@ -24,6 +25,70 @@ Workout workout(int delay, {bool beep = true}) =>
     );
 
 void main() {
+  testWidgets(
+    'EMOM boundaries, paused round rest and late ticks preserve one start cue',
+    (tester) async {
+      var now = DateTime(2026, 10, 9);
+      final audio = _Audio();
+      final module = createEmom(WorkoutModule.empty('emom'), (
+        seconds: 120,
+        intervals: 3,
+        rounds: 6,
+        restSeconds: 30,
+        includeFinalRest: true,
+      ));
+      final w = workout(0).copyWith(
+        modules: [module],
+        workStartSound: WorkoutSound.classicBeep,
+        restStartSound: WorkoutSound.gentleBeep,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+          beepPlayerProvider.overrideWith((ref) => audio),
+          playerClockProvider.overrideWith(
+            (ref) =>
+                () => now,
+          ),
+        ],
+      );
+      final provider = playerControllerProvider(w);
+      container.listen(provider, (_, _) {});
+      await tester.pump();
+      final controller = container.read(provider.notifier);
+      expect(audio.starts, [WorkoutSound.classicBeep]);
+      for (var i = 0; i < 3; i++) {
+        now = now.add(const Duration(seconds: 120));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(container.read(provider).index, 3);
+      expect(audio.starts, [
+        WorkoutSound.classicBeep,
+        WorkoutSound.classicBeep,
+        WorkoutSound.classicBeep,
+        WorkoutSound.gentleBeep,
+      ]);
+      await controller.pause();
+      now = now.add(const Duration(seconds: 60));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(provider).remainingMs, 30000);
+      await controller.play();
+      now = now.add(const Duration(seconds: 30));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(provider).index, 4);
+      expect(controller.currentStep!.positionLabel, '라운드 2/6 · 구간 1/3');
+      final count = audio.starts.length;
+      now = now.add(const Duration(seconds: 390));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(provider).index, 8);
+      expect(audio.starts.length, count + 1);
+      await controller.seekModulePosition(0, 2310000);
+      expect(controller.currentStep!.isRest, isTrue);
+      expect(controller.currentStep!.positionLabel, '라운드 6/6 · 휴식');
+      container.dispose();
+    },
+  );
+
   testWidgets(
     'TV visibility stops its ticker before a background frame can unmount the player',
     (tester) async {

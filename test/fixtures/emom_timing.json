@@ -1,0 +1,846 @@
+[
+  {
+    "name": "requested",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 120,
+      "restSeconds": 0,
+      "sets": 1,
+      "rounds": 6,
+      "roundRestSeconds": 30,
+      "includeFinalRoundRest": true,
+      "includeFinalRest": true,
+      "intervalBlocks": [
+        {
+          "id": "b0",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b1",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b2",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        }
+      ]
+    },
+    "phases": [
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 2,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 3,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 4,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 5,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 6,
+        "interval": 3
+      }
+    ],
+    "duration": 2340
+  },
+  {
+    "name": "no-final-rest",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 120,
+      "restSeconds": 0,
+      "sets": 1,
+      "rounds": 6,
+      "roundRestSeconds": 30,
+      "includeFinalRoundRest": false,
+      "includeFinalRest": true,
+      "intervalBlocks": [
+        {
+          "id": "b0",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b1",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b2",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        }
+      ]
+    },
+    "phases": [
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 2,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 3,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 4,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 5,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 3
+      }
+    ],
+    "duration": 2310
+  },
+  {
+    "name": "no-round-rest",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 120,
+      "restSeconds": 0,
+      "sets": 1,
+      "rounds": 6,
+      "roundRestSeconds": 0,
+      "includeFinalRoundRest": true,
+      "includeFinalRest": true,
+      "intervalBlocks": [
+        {
+          "id": "b0",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b1",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b2",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        }
+      ]
+    },
+    "phases": [
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 3,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 4,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 5,
+        "interval": 3
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 6,
+        "interval": 3
+      }
+    ],
+    "duration": 2160
+  },
+  {
+    "name": "one-round",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 120,
+      "restSeconds": 0,
+      "sets": 1,
+      "rounds": 1,
+      "roundRestSeconds": 30,
+      "includeFinalRoundRest": true,
+      "includeFinalRest": true,
+      "intervalBlocks": [
+        {
+          "id": "b0",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b1",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b2",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        }
+      ]
+    },
+    "phases": [
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 1,
+        "interval": 3
+      }
+    ],
+    "duration": 390
+  },
+  {
+    "name": "one-round-no-rest",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 120,
+      "restSeconds": 0,
+      "sets": 1,
+      "rounds": 1,
+      "roundRestSeconds": 30,
+      "includeFinalRoundRest": false,
+      "includeFinalRest": true,
+      "intervalBlocks": [
+        {
+          "id": "b0",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b1",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b2",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        }
+      ]
+    },
+    "phases": [
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 2
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 3
+      }
+    ],
+    "duration": 360
+  },
+  {
+    "name": "rest-only-1",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 0,
+      "restSeconds": 30,
+      "sets": 1,
+      "includeFinalRest": false
+    },
+    "phases": [
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 1,
+        "interval": 1
+      }
+    ],
+    "duration": 30
+  },
+  {
+    "name": "rest-only-2",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 0,
+      "restSeconds": 30,
+      "sets": 2,
+      "includeFinalRest": false
+    },
+    "phases": [
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 1,
+        "interval": 2
+      }
+    ],
+    "duration": 60
+  },
+  {
+    "name": "minute-ten",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 60,
+      "restSeconds": 0,
+      "sets": 1,
+      "rounds": 10
+    },
+    "phases": [
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 2,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 3,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 4,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 5,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 6,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 7,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 8,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 9,
+        "interval": 1
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 10,
+        "interval": 1
+      }
+    ],
+    "duration": 600
+  },
+  {
+    "name": "mixed",
+    "module": {
+      "timingVersion": 2,
+      "workSeconds": 120,
+      "restSeconds": 0,
+      "sets": 1,
+      "rounds": 2,
+      "roundRestSeconds": 30,
+      "includeFinalRoundRest": true,
+      "includeFinalRest": true,
+      "intervalBlocks": [
+        {
+          "id": "b0",
+          "workSeconds": 60,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b1",
+          "workSeconds": 120,
+          "restSeconds": 0,
+          "sets": 1
+        },
+        {
+          "id": "b2",
+          "workSeconds": 180,
+          "restSeconds": 0,
+          "sets": 1
+        }
+      ]
+    },
+    "phases": [
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 1,
+        "interval": 2
+      },
+      {
+        "seconds": 180,
+        "isRest": false,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 1,
+        "interval": 3
+      },
+      {
+        "seconds": 60,
+        "isRest": false,
+        "round": 2,
+        "interval": 1
+      },
+      {
+        "seconds": 120,
+        "isRest": false,
+        "round": 2,
+        "interval": 2
+      },
+      {
+        "seconds": 180,
+        "isRest": false,
+        "round": 2,
+        "interval": 3
+      },
+      {
+        "seconds": 30,
+        "isRest": true,
+        "round": 2,
+        "interval": 3
+      }
+    ],
+    "duration": 780
+  },
+  {
+    "name": "legacy",
+    "module": {
+      "workSeconds": 10,
+      "restSeconds": 5,
+      "sets": 2,
+      "includeFinalRest": false,
+      "timingVersion": 1
+    },
+    "phases": [
+      {
+        "seconds": 10,
+        "isRest": false,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 5,
+        "isRest": true,
+        "round": 1,
+        "interval": 1
+      },
+      {
+        "seconds": 10,
+        "isRest": false,
+        "round": 1,
+        "interval": 2
+      }
+    ],
+    "duration": 25
+  }
+]

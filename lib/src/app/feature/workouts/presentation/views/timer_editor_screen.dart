@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/emom_builder_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_round_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -34,9 +37,8 @@ class TimerEditorScreen extends HookConsumerWidget {
     final module = draft.value;
     final blocks = effectiveIntervalBlocks(module);
     final expanded = useState<String?>(blocks.first.id);
-    final valid = blocks.every(
-      (b) => b.workSeconds > 0 && b.restSeconds >= 0 && b.sets > 0,
-    );
+    final timingError = timingValidationError(module);
+    final valid = timingError == null;
     void apply() {
       if (applied.value || !valid) return;
       applied.value = true;
@@ -50,10 +52,7 @@ class TimerEditorScreen extends HookConsumerWidget {
     }
 
     final total = workoutModuleDuration(module);
-    final workTotal = blocks.fold<int>(
-      0,
-      (sum, block) => sum + block.workSeconds * block.sets,
-    );
+    final workTotal = workoutModuleWorkSeconds(module);
     void updateBlocks(List<WorkoutIntervalBlock> value) {
       draft.value = withIntervalBlocks(draft.value, value);
     }
@@ -144,7 +143,42 @@ class TimerEditorScreen extends HookConsumerWidget {
                         ),
                       ],
                     ),
-                    const Divider(height: 40),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      key: const ValueKey('open-emom-builder'),
+                      icon: const Icon(Icons.bolt_outlined),
+                      label: const Text('EMOM 간편 만들기'),
+                      onPressed: () async {
+                        final result = await Navigator.of(context)
+                            .push<WorkoutModule>(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    EmomBuilderScreen(module: draft.value),
+                              ),
+                            );
+                        if (result == null || !context.mounted) return;
+                        draft.value = result;
+                        expanded.value = effectiveIntervalBlocks(result)
+                            .first
+                            .id;
+                      },
+                    ),
+                    TimerRoundEditor(
+                      module: module,
+                      onChanged: (value) => draft.value = value,
+                    ),
+                    if (timingError != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          timingError,
+                          key: const ValueKey('timer-validation-error'),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    const Divider(height: 24),
                     ReorderableListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -203,7 +237,9 @@ class TimerEditorScreen extends HookConsumerWidget {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                '블록 ${index + 1}',
+                                                block.workSeconds == 0
+                                                    ? '휴식 ${index + 1}'
+                                                    : '블록 ${index + 1}',
                                                 style: const TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w600,
@@ -211,7 +247,9 @@ class TimerEditorScreen extends HookConsumerWidget {
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
-                                                '운동 ${formatSlideTime(block.workSeconds)} · 휴식 ${formatSlideTime(block.restSeconds)} · ${block.sets}세트',
+                                                block.workSeconds == 0
+                                                    ? '휴식만 ${formatSlideTime(block.restSeconds)} · ${block.sets}회'
+                                                    : '운동 ${formatSlideTime(block.workSeconds)} · 휴식 ${formatSlideTime(block.restSeconds)} · ${block.sets}세트',
                                                 style: const TextStyle(
                                                   fontSize: 13,
                                                   color: SlideEditorStyle.muted,
@@ -226,7 +264,24 @@ class TimerEditorScreen extends HookConsumerWidget {
                                       tooltip: '블록 메뉴',
                                       icon: const Icon(Icons.more_horiz),
                                       onSelected: (action) {
-                                        if (action == 'duplicate') {
+                                        if (action == 'type') {
+                                          updateBlocks([
+                                            for (final item in blocks)
+                                              if (item.id == block.id)
+                                                item.copyWith(
+                                                  workSeconds:
+                                                      block.workSeconds == 0
+                                                      ? 60
+                                                      : 0,
+                                                  restSeconds:
+                                                      block.restSeconds > 0
+                                                      ? block.restSeconds
+                                                      : 30,
+                                                )
+                                              else
+                                                item,
+                                          ]);
+                                        } else if (action == 'duplicate') {
                                           final copy = block.copyWith(
                                             id: newId(),
                                           );
@@ -242,7 +297,17 @@ class TimerEditorScreen extends HookConsumerWidget {
                                         }
                                       },
                                       itemBuilder: (_) => [
-                                        const PopupMenuItem(
+                                        PopupMenuItem(
+                                          value: 'type',
+                                          child: Text(
+                                            block.workSeconds == 0
+                                                ? '운동·휴식으로 변경'
+                                                : '휴식만으로 변경',
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          enabled:
+                                              blocks.length < maxTimingBlocks,
                                           value: 'duplicate',
                                           child: Text('복제'),
                                         ),
@@ -279,8 +344,13 @@ class TimerEditorScreen extends HookConsumerWidget {
                                     child: Divider(height: 1),
                                   ),
                                   SlideTimingEditor(
-                                    key: ValueKey(block.id),
+                                    key: ValueKey(
+                                      '${block.id}-${block.workSeconds == 0}',
+                                    ),
                                     embedded: true,
+                                    restOnly:
+                                        block.workSeconds == 0 &&
+                                        block.restSeconds > 0,
                                     initialWorkSeconds: block.workSeconds,
                                     initialRestSeconds: block.restSeconds,
                                     initialSets: block.sets,
@@ -309,22 +379,42 @@ class TimerEditorScreen extends HookConsumerWidget {
                     const SizedBox(height: 4),
                     OutlinedButton.icon(
                       key: const ValueKey('add-interval-block'),
-                      onPressed: () {
-                        final block = WorkoutIntervalBlock(
-                          id: newId(),
-                          workSeconds: 60,
-                          restSeconds: 0,
-                          sets: 1,
-                        );
-                        updateBlocks([...blocks, block]);
-                        expanded.value = block.id;
-                      },
+                      onPressed: blocks.length >= maxTimingBlocks
+                          ? null
+                          : () {
+                              final block = WorkoutIntervalBlock(
+                                id: newId(),
+                                workSeconds: 60,
+                                restSeconds: 0,
+                                sets: 1,
+                              );
+                              updateBlocks([...blocks, block]);
+                              expanded.value = block.id;
+                            },
                       icon: const Icon(Icons.add_rounded),
                       label: const Text('블록 추가'),
                     ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const ValueKey('add-rest-block'),
+                      onPressed: blocks.length >= maxTimingBlocks
+                          ? null
+                          : () {
+                              final block = WorkoutIntervalBlock(
+                                id: newId(),
+                                workSeconds: 0,
+                                restSeconds: 30,
+                                sets: 1,
+                              );
+                              updateBlocks([...blocks, block]);
+                              expanded.value = block.id;
+                            },
+                      icon: const Icon(Icons.pause_circle_outline),
+                      label: const Text('휴식만 추가'),
+                    ),
                     const SizedBox(height: 20),
-                    const Text(
-                      '각 블록의 마지막 세트 뒤에는 휴식이 없습니다. 배경 이미지에 적힌 시간은 설정과 자동으로 바뀌지 않습니다.',
+                    Text(
+                      '${module.includeFinalRest ? '각 블록의 마지막 세트 뒤에도 설정된 휴식을 포함합니다.' : '운동 블록의 마지막 세트 뒤 자동 휴식은 생략합니다.'} 직접 추가한 휴식은 유지됩니다. 배경 이미지에 적힌 시간은 자동으로 바뀌지 않습니다.',
                       style: TextStyle(
                         fontSize: 12,
                         color: SlideEditorStyle.muted,

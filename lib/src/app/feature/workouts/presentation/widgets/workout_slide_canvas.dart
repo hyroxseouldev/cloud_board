@@ -27,10 +27,12 @@ class WorkoutSlideCanvas extends StatelessWidget {
     required this.scale,
     this.showLoadingIndicator = false,
     this.timer,
+    this.positionLabel,
     this.displayPreferences = const DisplayPreferences(),
   });
 
   final Widget? timer;
+  final String? positionLabel;
   final DisplayPreferences displayPreferences;
   DisplayPreferences get preferences => displayPreferences.enabled
       ? displayPreferences
@@ -218,7 +220,8 @@ class WorkoutSlideCanvas extends StatelessWidget {
                 : null,
             sets: module.showSets
                 ? Text(
-                    '${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
+                    positionLabel ??
+                        '${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
                     key: const ValueKey('slide-sets'),
                     textAlign: TextAlign.center,
                     style: TextStyle(

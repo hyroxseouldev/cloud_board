@@ -506,7 +506,8 @@ class WorkoutControlTimeline extends HookWidget {
         : null;
     final stage = frame == null
         ? ''
-        : '${frame.set}/${frame.totalSets} · ${frame.isRest ? '휴식' : '운동'}';
+        : frame.positionLabel ??
+              '${frame.set}/${frame.totalSets} · ${frame.isRest ? '휴식' : '운동'}';
     final maxPosition = math.max(0, durations[active] * 1000 - 1000).toDouble();
     final detail = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -572,7 +573,8 @@ class WorkoutControlTimeline extends HookWidget {
             if (stage.isNotEmpty)
               Semantics(
                 label:
-                    '${frame!.totalSets}세트 중 ${frame.set}세트, ${frame.isRest ? '휴식' : '운동'}',
+                    frame!.positionLabel ??
+                    '${frame.totalSets}세트 중 ${frame.set}세트, ${frame.isRest ? '휴식' : '운동'}',
                 excludeSemantics: true,
                 child: Text(
                   stage,
