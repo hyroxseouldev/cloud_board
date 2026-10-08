@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
@@ -33,10 +35,10 @@ class AiTimerActions {
 bool canApplyAiTimer(WorkoutModule before, WorkoutModule current) =>
     before.id == current.id &&
     before.imageSource == current.imageSource &&
-    before.workSeconds == current.workSeconds &&
-    before.restSeconds == current.restSeconds &&
-    before.sets == current.sets &&
-    before.intervalBlocks == current.intervalBlocks;
+    sameSlideTiming(before, current);
+
+bool supportsAiTimerReplacement(WorkoutModule module) =>
+    !needsExtendedTiming(module) && effectiveIntervalBlocks(module).length == 1;
 
 WorkoutModule applyAiTimer(
   WorkoutModule module, {
@@ -45,6 +47,9 @@ WorkoutModule applyAiTimer(
   required int sets,
   String? name,
 }) {
+  if (!supportsAiTimerReplacement(module)) {
+    throw const AiTimerFailure('복합 타이머는 직접 편집하거나 EMOM 간편 만들기를 사용해 주세요.');
+  }
   if (workSeconds < 1 ||
       workSeconds > 3600 ||
       restSeconds < 0 ||
@@ -54,6 +59,7 @@ WorkoutModule applyAiTimer(
     throw const AiTimerFailure('운동·휴식 시간과 세트를 확인해 주세요.');
   }
   return module.copyWith(
+    timingVersion: 2,
     workSeconds: workSeconds,
     restSeconds: restSeconds,
     sets: sets,

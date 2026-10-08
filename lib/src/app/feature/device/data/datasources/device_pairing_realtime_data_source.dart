@@ -358,7 +358,7 @@ class DevicePairingRealtimeDataSource {
       'online': true,
       'lastSeenAtMs': ServerValue.timestamp,
       'pendingOfflineEventKey': offlineEvent.key,
-      'playbackProtocol': 3,
+      'playbackProtocol': 4,
     };
     if (!wasOnline) updates['onlineSinceMs'] = ServerValue.timestamp;
     final result = await deviceRef.runTransaction((current) {
@@ -437,7 +437,7 @@ class DevicePairingRealtimeDataSource {
         'devices/$deviceId/online': true,
         'devices/$deviceId/lastSeenAtMs': ServerValue.timestamp,
         'devices/$deviceId/pendingOfflineEventKey': offlineEvent.key,
-        'devices/$deviceId/playbackProtocol': 3,
+        'devices/$deviceId/playbackProtocol': 4,
       };
       if (!wasOnline) {
         updates['devices/$deviceId/onlineSinceMs'] = ServerValue.timestamp;

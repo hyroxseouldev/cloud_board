@@ -1,3 +1,4 @@
+import {validateWorkoutTiming} from './workout-timing.js';
 import {isDeepStrictEqual} from 'node:util';
 import {FieldValue} from 'firebase-admin/firestore';
 import {HttpsError} from 'firebase-functions/v2/https';
@@ -19,7 +20,10 @@ function validateValue(value, id) {
       !['workSeconds', 'restSeconds', 'sets'].every(key => Number.isSafeInteger(value[key]) && value[key] >= 0) ||
       !['showTimer', 'beep', 'coverImage'].every(key => typeof value[key] === 'boolean') ||
       !value.appearance || typeof value.appearance !== 'object' ||
-      !Array.isArray(value.intervalBlocks) || Buffer.byteLength(JSON.stringify(value)) > 200000) {
+      !Array.isArray(value.intervalBlocks) ||
+      (value.timingVersion !== undefined && (!Number.isSafeInteger(value.timingVersion) || ![1, 2].includes(value.timingVersion))) ||
+      ((value.timingVersion === 2 || (value.rounds ?? 1) !== 1 || (value.roundRestSeconds ?? 0) !== 0) && !validateWorkoutTiming(value)) ||
+      Buffer.byteLength(JSON.stringify(value)) > 200000) {
     throw new HttpsError('invalid-argument', '슬라이드 데이터 형식을 확인해 주세요.');
   }
 }
@@ -30,7 +34,8 @@ export function normalizeLibraryValue(value) {
   if (!value) return null;
   return {showTimerGauge: true, favorite: false, category: '', timerColorValue: null,
     workGaugeColor: null, restGaugeColor: null, workTextColor: null, restTextColor: null,
-    intervalBlocks: [], includeFinalRest: true, ...value,
+    intervalBlocks: [], includeFinalRest: true, timingVersion: 1, rounds: 1,
+    roundRestSeconds: 0, includeFinalRoundRest: true, ...value,
     designLayout: value.designLayout ?? 'auto',
     designFontWeight: value.designFontWeight ?? 900,
     designItalic: value.designItalic ?? true,

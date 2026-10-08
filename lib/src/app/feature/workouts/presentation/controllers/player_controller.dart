@@ -13,7 +13,7 @@ import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_se
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 
 part 'player_controller.freezed.dart';
 part 'player_controller.g.dart';
@@ -27,6 +27,7 @@ abstract class PlayerStep with _$PlayerStep {
     required int totalSets,
     required int duration,
     required bool isRest,
+    String? positionLabel,
   }) = _PlayerStep;
 }
 
@@ -47,40 +48,19 @@ extension PlayerStateTime on PlayerState {
   int get secondsLeft => (remainingMs / 1000).ceil();
 }
 
-List<PlayerStep> buildPlayerSteps(Workout workout) {
-  final steps = <PlayerStep>[];
-  for (var index = 0; index < workout.modules.length; index++) {
-    final module = workout.modules[index];
-    for (final block in effectiveIntervalBlocks(module)) {
-      for (var set = 1; set <= max(1, block.sets); set++) {
-        steps.add(
-          PlayerStep(
-            module: module,
-            moduleIndex: index,
-            set: set,
-            totalSets: max(1, block.sets),
-            duration: max(1, block.workSeconds),
-            isRest: false,
-          ),
-        );
-        if ((module.includeFinalRest || set < block.sets) &&
-            block.restSeconds > 0) {
-          steps.add(
-            PlayerStep(
-              module: module,
-              moduleIndex: index,
-              set: set,
-              totalSets: block.sets,
-              duration: block.restSeconds,
-              isRest: true,
-            ),
-          );
-        }
-      }
-    }
-  }
-  return steps;
-}
+List<PlayerStep> buildPlayerSteps(Workout workout) => [
+  for (var i = 0; i < workout.modules.length; i++)
+    for (final phase in workoutModuleTimeline(workout.modules[i]))
+      PlayerStep(
+        module: workout.modules[i],
+        moduleIndex: i,
+        set: phase.set,
+        totalSets: phase.totalSets,
+        duration: phase.seconds,
+        isRest: phase.isRest,
+        positionLabel: workoutPhaseLabel(workout.modules[i], phase),
+      ),
+];
 
 int playerStepIndexForModule(Workout workout, int moduleIndex) {
   final steps = buildPlayerSteps(workout);

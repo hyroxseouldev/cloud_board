@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -6,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
 import 'package:cloud_board/src/app/feature/ai_timer/domain/entities/ai_timer_result.dart';
-import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_timer/presentation/controllers/ai_timer_controller.dart';
 
 class AiTimerButton extends StatelessWidget {
@@ -20,7 +20,8 @@ class AiTimerButton extends StatelessWidget {
     children: [
       OutlinedButton.icon(
         key: const ValueKey('ai-timer-button'),
-        onPressed: module.imageSource.isEmpty
+        onPressed:
+            module.imageSource.isEmpty || !supportsAiTimerReplacement(module)
             ? null
             : () {
                 showModalBottomSheet<void>(
@@ -43,6 +44,15 @@ class AiTimerButton extends StatelessWidget {
           ],
         ),
       ),
+      if (!supportsAiTimerReplacement(module))
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text(
+            '복합 타이머는 직접 편집하거나 EMOM 간편 만들기를 사용해 주세요.',
+            style: TextStyle(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ),
       if (module.imageSource.isEmpty)
         const Padding(
           padding: EdgeInsets.only(top: 4),

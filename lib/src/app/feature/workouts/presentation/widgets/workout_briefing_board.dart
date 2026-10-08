@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -308,8 +309,14 @@ class _ModuleSummary extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '${durationLabel(module.workSeconds)} × ${module.sets}세트'
-              '${module.sets > 1 && module.restSeconds > 0 ? ' · 휴식 ${durationLabel(module.restSeconds)}' : ''}',
+              hasRoundTiming(module)
+                  ? '${module.rounds}라운드 · 총 ${durationLabel(workoutModuleDuration(module))}'
+                  : module.intervalBlocks.length > 1
+                  ? '${module.intervalBlocks.length}블록 · 총 ${durationLabel(workoutModuleDuration(module))}'
+                  : module.workSeconds == 0
+                  ? '휴식만 ${durationLabel(module.restSeconds)} × ${module.sets}회'
+                  : '${durationLabel(module.workSeconds)} × ${module.sets}세트'
+                        '${module.sets > 1 && module.restSeconds > 0 ? ' · 휴식 ${durationLabel(module.restSeconds)}' : ''}',
               style: TextStyle(
                 color: AppColors.accent,
                 fontSize: fit ? 20 : 16,

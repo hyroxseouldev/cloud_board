@@ -147,6 +147,10 @@ class WorkoutModuleModel {
     required this.sets,
     required this.restSeconds,
     this.includeFinalRest = true,
+    this.timingVersion = 1,
+    this.rounds = 1,
+    this.roundRestSeconds = 0,
+    this.includeFinalRoundRest = true,
     required this.text,
     required this.imageUrl,
     this.designTemplate,
@@ -187,6 +191,8 @@ class WorkoutModuleModel {
   final double designSpacing;
   final int workSeconds, sets, restSeconds;
   final bool includeFinalRest;
+  final int timingVersion, rounds, roundRestSeconds;
+  final bool includeFinalRoundRest;
   @JsonKey(defaultValue: true)
   final bool showTimer;
   final SlideAppearanceModel appearance;
@@ -210,6 +216,10 @@ class WorkoutModuleModel {
     sets: sets,
     restSeconds: restSeconds,
     includeFinalRest: includeFinalRest,
+    timingVersion: timingVersion,
+    rounds: rounds,
+    roundRestSeconds: roundRestSeconds,
+    includeFinalRoundRest: includeFinalRoundRest,
     text: text,
     imageSource: imageUrl,
     designTemplate: designTemplate,
@@ -243,6 +253,10 @@ class WorkoutModuleModel {
         sets: value.sets,
         restSeconds: value.restSeconds,
         includeFinalRest: value.includeFinalRest,
+        timingVersion: value.timingVersion,
+        rounds: value.rounds,
+        roundRestSeconds: value.roundRestSeconds,
+        includeFinalRoundRest: value.includeFinalRoundRest,
         text: value.text,
         imageUrl: value.imageSource,
         designTemplate: value.designTemplate,

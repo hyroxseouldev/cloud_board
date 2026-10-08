@@ -172,8 +172,10 @@ class SlideTimingEditor extends HookWidget {
     this.onApply,
     this.onCancel,
     this.onChanged,
+    this.restOnly = false,
   });
 
+  final bool restOnly;
   final int initialWorkSeconds;
   final int initialRestSeconds;
   final int initialSets;
@@ -184,7 +186,7 @@ class SlideTimingEditor extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final part = useState(_TimingPart.work);
+    final part = useState(restOnly ? _TimingPart.rest : _TimingPart.work);
     final workMinutes = useState(initialWorkSeconds ~/ 60);
     final workSeconds = useState(initialWorkSeconds.remainder(60));
     final restMinutes = useState(initialRestSeconds ~/ 60);
@@ -225,7 +227,7 @@ class SlideTimingEditor extends HookWidget {
     );
     final workTotal = workMinutes.value * 60 + workSeconds.value;
     final restTotal = restMinutes.value * 60 + restSeconds.value;
-    final valid = workTotal > 0;
+    final valid = workTotal > 0 || restTotal > 0;
     void changed() => onChanged?.call((
       workSeconds: workMinutes.value * 60 + workSeconds.value,
       restSeconds: restMinutes.value * 60 + restSeconds.value,
@@ -302,9 +304,16 @@ class SlideTimingEditor extends HookWidget {
                 Expanded(
                   flex: 2,
                   child: SegmentedButton<_TimingPart>(
-                    segments: const [
-                      ButtonSegment(value: _TimingPart.work, label: Text('운동')),
-                      ButtonSegment(value: _TimingPart.rest, label: Text('휴식')),
+                    segments: [
+                      ButtonSegment(
+                        value: _TimingPart.work,
+                        label: const Text('운동'),
+                        enabled: !restOnly,
+                      ),
+                      const ButtonSegment(
+                        value: _TimingPart.rest,
+                        label: Text('휴식'),
+                      ),
                     ],
                     selected: {part.value},
                     showSelectedIcon: false,
@@ -482,8 +491,11 @@ class SlideSetCountField extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     required this.validator,
+    this.label = '세트 수',
+    this.unit = '세트',
   });
 
+  final String label, unit;
   final TextEditingController controller;
   final ValueChanged<int> onChanged;
   final FormFieldValidator<String> validator;
@@ -493,9 +505,9 @@ class SlideSetCountField extends StatelessWidget {
     initialValue: controller.text,
     validator: validator,
     builder: (field) => _MetricBlock(
-      label: '세트 수',
+      label: label,
       value: controller.text,
-      unit: '세트',
+      unit: unit,
       icon: Icons.repeat_rounded,
       errorText: field.errorText,
       grouped: false,
@@ -506,6 +518,8 @@ class SlideSetCountField extends StatelessWidget {
           isScrollControlled: true,
           constraints: const BoxConstraints(maxWidth: 520),
           builder: (_) => _SetCountPickerSheet(
+            label: label,
+            unit: unit,
             initialCount: (int.tryParse(controller.text) ?? 1).clamp(1, 999),
           ),
         );
@@ -764,7 +778,13 @@ class _DurationPickerSheet extends HookWidget {
 }
 
 class _SetCountPickerSheet extends HookWidget {
-  const _SetCountPickerSheet({required this.initialCount});
+  const _SetCountPickerSheet({
+    required this.initialCount,
+    this.label = '세트 수',
+    this.unit = '세트',
+  });
+
+  final String label, unit;
 
   final int initialCount;
 
@@ -803,12 +823,12 @@ class _SetCountPickerSheet extends HookWidget {
                   child: Column(
                     children: [
                       Text(
-                        '세트 수 설정',
+                        '$label 설정',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${count.value}세트',
+                        '${count.value}$unit',
                         key: const ValueKey('selected-set-count'),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),

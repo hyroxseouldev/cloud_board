@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -21,7 +22,11 @@ class WorkoutSlidePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final seconds = isRest ? module.restSeconds : module.workSeconds;
+    final phases = workoutModuleTimeline(module);
+    final phase =
+        phases.where((p) => p.isRest == isRest).firstOrNull ??
+        phases.firstOrNull;
+    final seconds = phase?.seconds ?? 0;
     final durationMs = seconds * 1000;
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -40,12 +45,15 @@ class WorkoutSlidePreview extends StatelessWidget {
                 removeBottom: true,
                 child: WorkoutSlideCanvas(
                   module: module,
-                  isRest: isRest,
+                  isRest: phase?.isRest ?? isRest,
                   secondsLeft: seconds,
                   remainingMs: durationMs,
                   durationMs: durationMs,
-                  set: 1,
-                  totalSets: module.sets,
+                  set: phase?.set ?? 1,
+                  totalSets: phase?.totalSets ?? 1,
+                  positionLabel: phase == null
+                      ? null
+                      : workoutPhaseLabel(module, phase),
                   isPaused: true,
                   brandL: brandL,
                   brandR: brandR,

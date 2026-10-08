@@ -4,17 +4,11 @@ import 'dart:math';
 
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 
 List<int> playbackDurations(Workout workout) => [
   for (final module in workout.modules)
-    for (final block in effectiveIntervalBlocks(module))
-      for (var set = 1; set <= max<int>(1, block.sets); set++) ...[
-        max<int>(1, block.workSeconds) * 1000,
-        if ((module.includeFinalRest || set < block.sets) &&
-            block.restSeconds > 0)
-          block.restSeconds * 1000,
-      ],
+    for (final phase in workoutModuleTimeline(module)) phase.seconds * 1000,
 ];
 
 /// A session anchor stays unchanged as time crosses interval boundaries.
@@ -55,4 +49,18 @@ List<int> playbackDurations(Workout workout) => [
     remainingMs: max<int>(0, remaining),
     countdownMs: countdown,
   );
+}
+
+/// v4 understands explicit rests and round repetition; simple timers can still
+/// play on older displays with the same historical final-rest policy.
+int requiredTimingProtocol(Workout workout) {
+  if (workout.modules.any(needsExtendedTiming)) return 4;
+  if (workout.modules.any(
+    (m) =>
+        m.includeFinalRest &&
+        (m.restSeconds > 0 || m.intervalBlocks.any((b) => b.restSeconds > 0)),
+  )) {
+    return 3;
+  }
+  return 1;
 }

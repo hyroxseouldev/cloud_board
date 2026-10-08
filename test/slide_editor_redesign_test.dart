@@ -49,6 +49,16 @@ void main() {
     expect(find.byType(CupertinoPicker), findsNWidgets(3));
     await select('combined-minutes-picker', 0);
     await select('combined-seconds-picker', 0);
+    // Work 0 / rest 45 is now a valid independent rest. Only both-zero fails.
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, '완료'))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.text('휴식'));
+    await tester.pumpAndSettle();
+    await select('combined-seconds-picker', 0);
     expect(
       tester
           .widget<TextButton>(find.widgetWithText(TextButton, '완료'))

@@ -68,6 +68,10 @@ abstract class WorkoutModule with _$WorkoutModule {
     required int sets,
     required int restSeconds,
     @Default(true) bool includeFinalRest,
+    @Default(1) int timingVersion,
+    @Default(1) int rounds,
+    @Default(0) int roundRestSeconds,
+    @Default(true) bool includeFinalRoundRest,
     required String text,
     required String imageSource,
     // Versioned theme; content stays in name/text/timer fields.
@@ -99,6 +103,7 @@ abstract class WorkoutModule with _$WorkoutModule {
   factory WorkoutModule.empty(String id) => WorkoutModule(
     id: id,
     name: '',
+    timingVersion: 2,
     workSeconds: 60,
     sets: 1,
     restSeconds: 0,
