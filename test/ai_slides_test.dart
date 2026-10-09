@@ -43,6 +43,8 @@ const draft = AiSlideDraft(
 class FakeAiSlidesRepository implements AiSlidesRepository {
   bool premium = true;
   int calls = 0;
+  int accessCalls = 0;
+  Object? accessFailure;
   Completer<AiSlidesResult>? pending;
   Object? failure;
   AiSlidesResult result = const AiSlidesResult(
@@ -51,8 +53,17 @@ class FakeAiSlidesRepository implements AiSlidesRepository {
     remaining: 29,
   );
   @override
-  Future<AiSlidesAccess> access() async =>
-      AiSlidesAccess(premium: premium, enabled: true, remaining: 30, limit: 30);
+  Future<AiSlidesAccess> access() async {
+    accessCalls++;
+    if (accessFailure != null) throw accessFailure!;
+    return AiSlidesAccess(
+      premium: premium,
+      enabled: true,
+      remaining: 30,
+      limit: 30,
+    );
+  }
+
   @override
   Future<AiSlidesResult> generate(String prompt) async {
     calls++;
@@ -211,7 +222,7 @@ void main() {
   }
 
   Future<void> generate(WidgetTester tester) async {
-    await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
+    await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-slides-prompt')),
@@ -222,6 +233,31 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('ai-slides-generate')));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'shared usage recovers with retry and survives generation mode changes',
+    (tester) async {
+      final repository = FakeAiSlidesRepository()
+        ..accessFailure = const AiSlidesFailure('연결 실패');
+      await mount(tester, repository, (_) {});
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      expect(find.text('사용량을 불러오지 못했어요.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
+      repository.accessFailure = null;
+      await tester.tap(find.text('새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('30/30회 남음'), findsOneWidget);
+      final reads = repository.accessCalls;
+      for (final mode in ['스타일 제안', '이미지로 시작', '수업 메모']) {
+        await tester.tap(find.text(mode).first);
+        await tester.pumpAndSettle();
+        expect(find.text('30/30회 남음'), findsOneWidget);
+      }
+      expect(repository.accessCalls, reads);
+      expect(repository.calls, 0);
+    },
+  );
 
   for (final size in [
     const Size(320, 568),
@@ -330,7 +366,7 @@ void main() {
     (tester) async {
       final repository = FakeAiSlidesRepository()..premium = false;
       await mount(tester, repository, (_) {});
-      await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('ai-slides-prompt')),
@@ -354,7 +390,7 @@ void main() {
       await tester.pump();
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('ai-slides-prompt')),
@@ -436,7 +472,7 @@ void main() {
         tester.widget<TextField>(lines).controller!.text,
         contains('Run 200m'),
       );
-      await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
       await tester.pumpAndSettle();
       await reveal(tester, find.byKey(const ValueKey('ai-slides-generate')));
       expect(

@@ -101,46 +101,6 @@ final class AiSlideDesignStoreIdProvider
 String _$aiSlideDesignStoreIdHash() =>
     r'44b0176eaa7ad4a03ec3812c85d39b6579b1343d';
 
-@ProviderFor(aiSlideDesignAccess)
-final aiSlideDesignAccessProvider = AiSlideDesignAccessProvider._();
-
-final class AiSlideDesignAccessProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<AiSlidesAccess>,
-          AiSlidesAccess,
-          FutureOr<AiSlidesAccess>
-        >
-    with $FutureModifier<AiSlidesAccess>, $FutureProvider<AiSlidesAccess> {
-  AiSlideDesignAccessProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'aiSlideDesignAccessProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$aiSlideDesignAccessHash();
-
-  @$internal
-  @override
-  $FutureProviderElement<AiSlidesAccess> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
-
-  @override
-  FutureOr<AiSlidesAccess> create(Ref ref) {
-    return aiSlideDesignAccess(ref);
-  }
-}
-
-String _$aiSlideDesignAccessHash() =>
-    r'17324e3835891aa5afbe71c506935466d4880055';
-
 @ProviderFor(AiSlideDesignController)
 final aiSlideDesignControllerProvider = AiSlideDesignControllerProvider._();
 
@@ -175,7 +135,7 @@ final class AiSlideDesignControllerProvider
 }
 
 String _$aiSlideDesignControllerHash() =>
-    r'58adb03e3c0f655c59a1596d1c01fdf8e89bab37';
+    r'c2e84a468ef9103d6eb2f6bc68e3aa7d9e78d112';
 
 abstract class _$AiSlideDesignController
     extends $Notifier<AiSlideDesignStudioState> {

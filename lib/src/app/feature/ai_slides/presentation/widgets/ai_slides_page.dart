@@ -20,10 +20,14 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 
 class AiBetaBadge extends StatelessWidget {
-  const AiBetaBadge({super.key});
+  const AiBetaBadge({super.key, this.compact = false});
+  final bool compact;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    padding: EdgeInsets.symmetric(
+      horizontal: compact ? 4 : 7,
+      vertical: compact ? 1 : 3,
+    ),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
         colors: [Color(0xFF4F46E5), Color(0xFF9333EA), Color(0xFFDB2777)],
@@ -33,7 +37,7 @@ class AiBetaBadge extends StatelessWidget {
     child: Text(
       'beta',
       style: TextStyle(
-        fontSize: 11,
+        fontSize: compact ? 9 : 11,
         fontWeight: FontWeight.w800,
         letterSpacing: .4,
         color: Colors.white,
@@ -48,7 +52,7 @@ Future<List<WorkoutModule>?> showAiSlidesPage(BuildContext context) {
   return context.push<List<WorkoutModule>>('$parent/images/create');
 }
 
-enum _EditorTab { content, templates, source, create }
+enum _EditorTab { content, templates, create }
 
 /// A full route keeps creation, reference designs and editing in one workspace.
 class AiSlidesPage extends HookConsumerWidget {
@@ -66,6 +70,7 @@ class AiSlidesPage extends HookConsumerWidget {
       state.draft == null ? _EditorTab.templates : _EditorTab.content,
     );
     final visited = useState(<_EditorTab>{tab.value});
+    final creationPath = useState(AiSlideCreationPath.notes);
     void selectTab(_EditorTab value) {
       FocusScope.of(context).unfocus();
       visited.value = {...visited.value, value};
@@ -126,6 +131,22 @@ class AiSlidesPage extends HookConsumerWidget {
       key: ValueKey(section),
       section: section,
       draft: draft,
+      creationPath: creationPath.value,
+      onCreationPathChanged: (value) {
+        FocusScope.of(context).unfocus();
+        creationPath.value = value;
+      },
+      notesEditor: section == AiSlideDesignStudioSection.create
+          ? AiSlidesPromptEditor(
+              state: state,
+              allowed: allowed && !designState.generating,
+              onChanged: controller.setPrompt,
+              onGenerate: () {
+                FocusScope.of(context).unfocus();
+                controller.generate(state.prompt);
+              },
+            )
+          : null,
       onSelected: (design) {
         controller.applyDesign(
           design.theme,
@@ -154,7 +175,10 @@ class AiSlidesPage extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
-                    onPressed: () => selectTab(_EditorTab.source),
+                    onPressed: () {
+                      creationPath.value = AiSlideCreationPath.notes;
+                      selectTab(_EditorTab.create);
+                    },
                     icon: const Icon(Icons.edit_note_rounded),
                     label: const Text('메모로 시작하기'),
                   ),
@@ -192,17 +216,6 @@ class AiSlidesPage extends HookConsumerWidget {
           ],
         ],
       ),
-      _EditorTab.source => AiSlidesPromptEditor(
-        state: state,
-        access: access,
-        allowed: allowed,
-        onChanged: controller.setPrompt,
-        onRetryAccess: () => ref.invalidate(aiSlidesAccessProvider),
-        onGenerate: () {
-          FocusScope.of(context).unfocus();
-          controller.generate(state.prompt);
-        },
-      ),
       _EditorTab.create => studio(AiSlideDesignStudioSection.create),
     };
     Widget controls() => IndexedStack(
@@ -234,20 +247,11 @@ class AiSlidesPage extends HookConsumerWidget {
             icon: const Icon(Icons.arrow_back_rounded),
           ),
           titleSpacing: 0,
-          title: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  '수업 이미지 생성',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-                ),
-              ),
-              SizedBox(width: 8),
-              AiBetaBadge(),
-            ],
+          title: const Text(
+            '수업 이미지 생성',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
           ),
           actions: [
             Padding(
@@ -301,7 +305,7 @@ class AiSlidesPage extends HookConsumerWidget {
                                   child: AiSlidesPreview(module: module),
                                 ),
                               ),
-                            if (showPreview && !wide && bounds.maxHeight > 270)
+                            if (showPreview && !wide)
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -310,27 +314,16 @@ class AiSlidesPage extends HookConsumerWidget {
                                   8,
                                 ),
                                 child: SizedBox(
-                                  height: math.min(
-                                    (bounds.maxWidth - 32) * 9 / 16 + 24,
-                                    bounds.maxHeight * .46,
-                                  ),
+                                  height: bounds.maxHeight <= 270
+                                      ? math.min(72, bounds.maxHeight * .28)
+                                      : math.min(
+                                          (bounds.maxWidth - 32) * 9 / 16,
+                                          bounds.maxHeight * .46,
+                                        ),
                                   child: AiSlidesPreview(
                                     module: module,
                                     compact: true,
                                   ),
-                                ),
-                              ),
-                            if (showPreview && !wide && bounds.maxHeight <= 270)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  onPressed: () =>
-                                      showAiSlidesPreview(context, module),
-                                  icon: const Icon(
-                                    Icons.fullscreen_rounded,
-                                    size: 18,
-                                  ),
-                                  label: const Text('미리보기'),
                                 ),
                               ),
                             Expanded(
@@ -368,20 +361,29 @@ class AiSlidesPage extends HookConsumerWidget {
                     label: '템플릿',
                   ),
                   NavigationDestination(
-                    key: ValueKey('ai-nav-source'),
-                    icon: Icon(Icons.notes_outlined),
-                    selectedIcon: Icon(Icons.notes_rounded),
-                    label: '수업 메모',
-                  ),
-                  NavigationDestination(
                     key: ValueKey('ai-nav-create'),
-                    icon: Icon(Icons.auto_awesome_outlined),
-                    selectedIcon: Icon(Icons.auto_awesome_rounded),
-                    label: '디자인 만들기',
+                    icon: _GenerationTabIcon(),
+                    selectedIcon: _GenerationTabIcon(selected: true),
+                    label: '생성',
                   ),
                 ],
               ),
       ),
     );
   }
+}
+
+class _GenerationTabIcon extends StatelessWidget {
+  const _GenerationTabIcon({this.selected = false});
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(selected ? Icons.auto_awesome_rounded : Icons.auto_awesome_outlined),
+      const SizedBox(width: 4),
+      const AiBetaBadge(compact: true),
+    ],
+  );
 }

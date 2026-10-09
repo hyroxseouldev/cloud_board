@@ -35,6 +35,7 @@ class _DesignRepository implements AiSlideDesignRepository {
   Completer<AiSlideDesign?>? restoring;
   int calls = 0;
   int accessCalls = 0;
+  VoidCallback? onGenerated;
   String scope(String owner, String? store) => '$owner/${store ?? 'legacy'}';
   @override
   Future<AiSlidesAccess> access(String ownerId) async {
@@ -54,6 +55,7 @@ class _DesignRepository implements AiSlideDesignRepository {
     Uint8List? reference,
   }) async {
     calls++;
+    onGenerated?.call();
     return pending?.future ??
         AiSlideDesignResult(
           designs: aiSlideDesignCatalog
@@ -93,24 +95,73 @@ class _DesignRepository implements AiSlideDesignRepository {
 class _ContentRepository implements AiSlidesRepository {
   bool premium = false;
   int calls = 0;
+  int accessCalls = 0;
+  int remaining = 30;
   AiSlideDraft output = const AiSlideDraft(
     title: '새 수업',
     layout: 'list',
     lines: ['DV Press 8 + BTP 10', 'Run 250m + FMCTP 30'],
   );
   @override
-  Future<AiSlidesAccess> access() async =>
-      AiSlidesAccess(premium: premium, enabled: true, remaining: 30, limit: 30);
+  Future<AiSlidesAccess> access() async {
+    accessCalls++;
+    return AiSlidesAccess(
+      premium: premium,
+      enabled: true,
+      remaining: remaining,
+      limit: 30,
+    );
+  }
+
   @override
   Future<AiSlidesResult> generate(String prompt) async {
     calls++;
-    return AiSlidesResult(slides: [output], warnings: [], remaining: 29);
+    return AiSlidesResult(
+      slides: [output],
+      warnings: [],
+      remaining: --remaining,
+    );
   }
 }
 
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  test('content and design completion refresh the same quota', () async {
+    final content = _ContentRepository()..premium = true;
+    final designs = _DesignRepository()
+      ..onGenerated = () => content.remaining--;
+    final container = ProviderContainer(
+      overrides: [
+        aiSlidesOwnerIdProvider.overrideWithValue('alice'),
+        aiSlideDesignOwnerIdProvider.overrideWithValue('alice'),
+        aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
+        aiSlidesRepositoryProvider.overrideWithValue(content),
+        aiSlideDesignRepositoryProvider.overrideWithValue(designs),
+        aiSlidesEditorRepositoryProvider.overrideWithValue(
+          MemoryAiSlidesEditorRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(aiSlidesAccessProvider, (_, _) {});
+    expect((await container.read(aiSlidesAccessProvider.future)).remaining, 30);
+    final editor = container.read(aiSlidesControllerProvider.notifier);
+    await _settle();
+    await _settle();
+    await editor.generate('운동 메모');
+    expect((await container.read(aiSlidesAccessProvider.future)).remaining, 29);
+    await container
+        .read(aiSlideDesignControllerProvider.notifier)
+        .generate('새로운 스타일');
+    expect((await container.read(aiSlidesAccessProvider.future)).remaining, 28);
+    expect(
+      content.accessCalls,
+      4,
+      reason: 'Initial read, content preflight, and two completion refreshes',
+    );
+  });
+
   test(
     'WOD originals switch samples, preserve lesson edits and accept AI content',
     () async {
@@ -544,13 +595,34 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('스타일 제안'), findsOneWidget);
       expect(find.text('이미지로 시작'), findsOneWidget);
-      expect(find.byKey(const ValueKey('ai-design-usage')), findsOneWidget);
-      expect(designs.accessCalls, 1);
+      expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
+      expect(find.byType(NavigationDestination), findsNWidgets(3));
+      expect(find.byKey(const ValueKey('ai-nav-source')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byType(AiBetaBadge),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.byType(AiBetaBadge),
+        ),
+        findsWidgets,
+      );
+      expect(content.accessCalls, 1);
+      expect(designs.accessCalls, 0);
       expect(
         find.byKey(const ValueKey('ai-design-catalog-banner')),
         findsNothing,
       );
       final brief = find.byKey(const ValueKey('ai-design-brief'));
+      final notes = find.byKey(const ValueKey('ai-slides-prompt'));
+      await tester.enterText(notes, 'WARM UP 스쿼트 10회');
+      await tester.tap(find.text('스타일 제안'));
+      await tester.pumpAndSettle();
       await tester.enterText(brief, '짙은 배경에 라임색 포인트');
       await tester.tap(find.byKey(const ValueKey('ai-nav-templates')));
       await tester.pumpAndSettle();
@@ -565,15 +637,28 @@ void main() {
       await tester.tap(find.text('이미지로 시작'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-reference-pick')), findsOneWidget);
-      expect(find.byKey(const ValueKey('ai-design-usage')), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
       expect(
-        designs.accessCalls,
+        content.accessCalls,
         1,
-        reason: 'Both design modes share one access check',
+        reason: 'All three generation modes share one access check',
+      );
+      expect(designs.accessCalls, 0);
+      await tester.tap(find.text('수업 메모'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(notes).controller!.text,
+        'WARM UP 스쿼트 10회',
       );
       await tester.tap(find.byKey(const ValueKey('ai-nav-content')));
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(title).controller!.text, '오늘의 수업');
+      expect(find.text('크게 보기'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('ai-slides-preview-expand')));
+      await tester.pumpAndSettle();
+      expect(find.text('슬라이드 미리보기'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       expect(content.calls, 0);
       expect(
         designs.calls,

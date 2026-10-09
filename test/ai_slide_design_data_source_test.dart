@@ -64,7 +64,36 @@ class _Firestore extends Fake implements FirebaseFirestore {
   }
 }
 
-class _Functions extends Fake implements FirebaseFunctions {}
+class _CallableResult<T> extends Fake implements HttpsCallableResult<T> {
+  _CallableResult(this.data);
+  @override
+  final T data;
+}
+
+class _Callable extends Fake implements HttpsCallable {
+  _Callable(this.name, this.calls);
+  final String name;
+  final List<(String, dynamic)> calls;
+  @override
+  Future<HttpsCallableResult<T>> call<T>([dynamic parameters]) async {
+    calls.add((name, parameters));
+    return _CallableResult(
+      <String, dynamic>{
+        'premium': true,
+        'enabled': true,
+        'remaining': 27,
+        'limit': 30,
+      } as T,
+    );
+  }
+}
+
+class _Functions extends Fake implements FirebaseFunctions {
+  final calls = <(String, dynamic)>[];
+  @override
+  HttpsCallable httpsCallable(String name, {HttpsCallableOptions? options}) =>
+      _Callable(name, calls);
+}
 
 // ignore: must_be_immutable
 class _Preferences extends Fake implements SharedPreferencesAsync {
@@ -89,6 +118,7 @@ void main() {
   late _Firestore firestore;
   late _Preferences preferences;
   late AiSlideDesignDataSource source;
+  late _Functions functions;
   AiSlideDesignModel design(String? storeId, [int index = 0]) =>
       AiSlideDesignModel.fromEntity(
         aiSlideDesignCatalog[index].copyWith(storeId: storeId),
@@ -97,14 +127,25 @@ void main() {
     auth = _Auth();
     firestore = _Firestore();
     preferences = _Preferences();
-    source = AiSlideDesignDataSource(
-      firestore,
-      auth,
-      _Functions(),
-      preferences,
-    );
+    functions = _Functions();
+    source = AiSlideDesignDataSource(firestore, auth, functions, preferences);
   });
   tearDown(() => firestore.values.updates.close());
+
+  test('quota uses the deployed shared endpoint while generation uses the design endpoint', () async {
+    final usage = await source.call('alice', {'action': 'status'});
+    expect(usage['remaining'], 27);
+    expect(functions.calls.single.$1, 'cloudboardAiSlides');
+    expect(functions.calls.single.$2, {'action': 'status'});
+    await source.call('alice', {'action': 'generate', 'prompt': '밝은 스타일'});
+    expect(functions.calls.last.$1, 'cloudboardAiSlideDesigns');
+    auth.user = _User('bob');
+    await expectLater(
+      source.call('alice', {'action': 'status'}),
+      throwsA(isA<AiSlidesFailure>()),
+    );
+    expect(functions.calls, hasLength(2));
+  });
 
   test(
     'linking a center retains legacy templates and excludes other centers',

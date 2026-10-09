@@ -11,13 +11,14 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slides_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_editor_controls.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 enum AiSlideDesignStudioSection { templates, create }
 
-enum _StartPath { ai, reference }
+enum AiSlideCreationPath { notes, style, reference }
 
 class AiSlideDesignStudio extends HookConsumerWidget {
   const AiSlideDesignStudio({
@@ -25,10 +26,16 @@ class AiSlideDesignStudio extends HookConsumerWidget {
     this.draft,
     required this.section,
     required this.onSelected,
+    this.creationPath = AiSlideCreationPath.notes,
+    this.onCreationPathChanged,
+    this.notesEditor,
   });
   final AiSlideDesignStudioSection section;
   final AiSlideDraft? draft;
   final ValueChanged<AiSlideDesign> onSelected;
+  final AiSlideCreationPath creationPath;
+  final ValueChanged<AiSlideCreationPath>? onCreationPathChanged;
+  final Widget? notesEditor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,7 +44,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
     final state = ref.watch(aiSlideDesignControllerProvider);
     final controller = ref.read(aiSlideDesignControllerProvider.notifier);
     final catalog = section == AiSlideDesignStudioSection.templates;
-    final mode = useState(_StartPath.ai);
+    final mode = creationPath;
     final brief = useTextEditingController();
     final reference = useState<Uint8List?>(null);
     final referenceName = useState<String?>(null);
@@ -55,10 +62,15 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         context.mounted &&
         ref.read(aiSlideDesignOwnerIdProvider) == ownerId &&
         ref.read(aiSlideDesignStoreIdProvider) == storeId;
-    final access = catalog ? null : ref.watch(aiSlideDesignAccessProvider);
+    final access = catalog ? null : ref.watch(aiSlidesAccessProvider);
     final canGenerate =
         access?.value?.premium == true && access?.value?.enabled == true;
-    final busy = state.generating || picking.value;
+    final busy =
+        state.generating ||
+        picking.value ||
+        ref.watch(
+          aiSlidesControllerProvider.select((value) => value.generating),
+        );
 
     void choose(AiSlideDesign design) {
       controller.select(design);
@@ -261,7 +273,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    catalog ? '수업에 맞는 템플릿' : '새로운 디자인 만들기',
+                    catalog ? '수업에 맞는 템플릿' : '수업 내용과 디자인 만들기',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -271,7 +283,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                   Text(
                     catalog
                         ? '마음에 드는 틀을 고르고 운동 내용만 바꿔 보세요.'
-                        : '원하는 분위기를 설명하거나 참고 이미지로 시작해 보세요.',
+                        : '수업 메모를 정리하거나 원하는 스타일을 만들어 보세요.',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
@@ -328,7 +340,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         const SizedBox(height: 16),
         if (!catalog)
           Container(
-            key: const ValueKey('ai-design-usage'),
+            key: const ValueKey('ai-generation-usage'),
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             decoration: BoxDecoration(
@@ -339,7 +351,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  '디자인 만들기 사용량',
+                  '이번 달 생성 사용량',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
@@ -364,8 +376,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: () =>
-                            ref.invalidate(aiSlideDesignAccessProvider),
+                        onPressed: () => ref.invalidate(aiSlidesAccessProvider),
                         icon: const Icon(Icons.refresh_rounded, size: 16),
                         label: const Text('새로고침'),
                       ),
@@ -373,10 +384,10 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                   ),
                   data: (value) => Text(
                     !value.premium
-                        ? '새 디자인 만들기는 프리미엄 기능이에요.'
+                        ? '생성 기능은 프리미엄에서 이용할 수 있어요.'
                         : !value.enabled
-                        ? '새 디자인 만들기를 준비 중이에요.'
-                        : '이번 달 ${state.remaining ?? value.remaining}/${value.limit}회 남음',
+                        ? '생성 기능을 준비 중이에요.'
+                        : '${value.remaining}/${value.limit}회 남음',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -385,26 +396,33 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  '스타일 제안과 이미지로 시작에서 함께 사용해요.',
+                  '수업 메모 · 스타일 제안 · 이미지로 시작이 함께 사용해요.',
                   style: TextStyle(fontSize: 11),
                 ),
               ],
             ),
           ),
         if (!catalog)
-          SegmentedButton<_StartPath>(
+          SegmentedButton<AiSlideCreationPath>(
             showSelectedIcon: false,
             segments: const [
-              ButtonSegment(value: _StartPath.ai, label: Text('스타일 제안')),
               ButtonSegment(
-                value: _StartPath.reference,
+                value: AiSlideCreationPath.notes,
+                label: Text('수업 메모'),
+              ),
+              ButtonSegment(
+                value: AiSlideCreationPath.style,
+                label: Text('스타일 제안'),
+              ),
+              ButtonSegment(
+                value: AiSlideCreationPath.reference,
                 label: Text('이미지로 시작'),
               ),
             ],
-            selected: {mode.value},
+            selected: {mode},
             onSelectionChanged: busy
                 ? null
-                : (values) => mode.value = values.first,
+                : (values) => onCreationPathChanged?.call(values.first),
           ),
         const SizedBox(height: 14),
         if (catalog) ...[
@@ -435,8 +453,10 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           ),
           const SizedBox(height: 12),
           designGrid(aiSlideDesignCatalog),
+        ] else if (mode == AiSlideCreationPath.notes) ...[
+          ?notesEditor,
         ] else ...[
-          if (mode.value == _StartPath.reference) ...[
+          if (mode == AiSlideCreationPath.reference) ...[
             const Text(
               '이 이미지의 느낌으로',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
@@ -508,7 +528,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             maxLines: 4,
             maxLength: 1500,
             decoration: InputDecoration(
-              labelText: mode.value == _StartPath.reference
+              labelText: mode == AiSlideCreationPath.reference
                   ? '더 반영할 특징 (선택)'
                   : '원하는 디자인',
               hintText: '예: 짙은 배경, 라임색 포인트, 큰 제목과 여유 있는 운동행',
@@ -520,16 +540,16 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             onPressed:
                 !canGenerate ||
                     busy ||
-                    (mode.value == _StartPath.reference &&
+                    (mode == AiSlideCreationPath.reference &&
                         reference.value == null)
                 ? null
                 : () {
                     FocusScope.of(context).unfocus();
                     controller.generate(
-                      mode.value == _StartPath.reference
+                      mode == AiSlideCreationPath.reference
                           ? '${brief.text}\n중점적으로 반영할 특징: ${priorities.value.join(', ')}'
                           : brief.text,
-                      reference: mode.value == _StartPath.reference
+                      reference: mode == AiSlideCreationPath.reference
                           ? reference.value
                           : null,
                     );
@@ -538,12 +558,12 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             label: Text(
               state.generating
                   ? '디자인 준비 중…'
-                  : mode.value == _StartPath.reference
+                  : mode == AiSlideCreationPath.reference
                   ? '이 이미지로 디자인 만들기'
                   : '스타일 3가지 제안받기',
             ),
           ),
-          if (mode.value == _StartPath.reference)
+          if (mode == AiSlideCreationPath.reference)
             const Padding(
               padding: EdgeInsets.only(top: 6),
               child: Text(
@@ -567,9 +587,11 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           ],
           for (final warning in state.warnings) AiSlidesNotice(warning),
         ],
-        if (pickerError.value != null)
+        if (mode == AiSlideCreationPath.reference && pickerError.value != null)
           AiSlidesNotice(pickerError.value!, error: true),
-        if (state.error != null) AiSlidesNotice(state.error!, error: true),
+        if (state.error != null &&
+            (catalog || mode != AiSlideCreationPath.notes))
+          AiSlidesNotice(state.error!, error: true),
         if (state.saving) const LinearProgressIndicator(minHeight: 2),
       ],
     );

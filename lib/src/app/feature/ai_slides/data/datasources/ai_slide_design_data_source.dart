@@ -38,9 +38,13 @@ class AiSlideDesignDataSource {
   ) async {
     requireOwner(ownerId);
     try {
+      // Content and design generation share the aiSlides quota. Read it through
+      // the existing content endpoint, independently of design API deployment.
       final response = await functions
           .httpsCallable(
-            'cloudboardAiSlideDesigns',
+            input['action'] == 'status'
+                ? 'cloudboardAiSlides'
+                : 'cloudboardAiSlideDesigns',
             options: HttpsCallableOptions(timeout: const Duration(seconds: 90)),
           )
           .call<Map<String, dynamic>>(input);
@@ -49,7 +53,9 @@ class AiSlideDesignDataSource {
     } on FirebaseFunctionsException catch (error) {
       final details = error.details;
       throw AiSlidesFailure(
-        error.message ?? '디자인을 추천받지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+        error.code == 'not-found' && input['action'] == 'generate'
+            ? '디자인 생성 기능을 준비 중이에요. 수업 메모와 템플릿은 이용할 수 있어요.'
+            : error.message ?? '디자인을 추천받지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
         code: error.code,
         reason: details is Map ? details['reason'] as String? : null,
       );

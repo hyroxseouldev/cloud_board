@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_d
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slide_design_actions.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slides_controller.dart';
 
 part 'ai_slide_design_controller.g.dart';
 
@@ -28,22 +29,6 @@ String? aiSlideDesignStoreId(Ref ref) {
     onboardingControllerProvider.select((value) => value.value?.storeId),
   );
   return id == null || id.isEmpty ? null : id;
-}
-
-@riverpod
-Future<AiSlidesAccess> aiSlideDesignAccess(Ref ref) {
-  final owner = ref.watch(aiSlideDesignOwnerIdProvider);
-  if (owner == null) {
-    return Future.value(
-      const AiSlidesAccess(
-        premium: false,
-        enabled: false,
-        remaining: 0,
-        limit: 0,
-      ),
-    );
-  }
-  return ref.watch(aiSlideDesignActionsProvider).access(owner);
 }
 
 @Riverpod(keepAlive: true)
@@ -154,7 +139,7 @@ class AiSlideDesignController extends _$AiSlideDesignController {
       ),
     );
     if (!_current(session)) return;
-    ref.invalidate(aiSlideDesignAccessProvider);
+    ref.invalidate(aiSlidesAccessProvider);
     final value = result.asData?.value;
     state = value == null
         ? state.copyWith(

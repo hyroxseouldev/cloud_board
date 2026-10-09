@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-
-import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_editor_controls.dart';
 
@@ -9,17 +6,14 @@ class AiSlidesPromptEditor extends StatelessWidget {
   const AiSlidesPromptEditor({
     super.key,
     required this.state,
-    required this.access,
     required this.allowed,
     required this.onChanged,
     required this.onGenerate,
-    required this.onRetryAccess,
   });
   final AiSlidesEditorState state;
-  final AsyncValue<AiSlidesAccess> access;
   final bool allowed;
   final ValueChanged<String> onChanged;
-  final VoidCallback onGenerate, onRetryAccess;
+  final VoidCallback onGenerate;
   @override
   Widget build(BuildContext context) {
     final unchanged =
@@ -41,27 +35,6 @@ class AiSlidesPromptEditor extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (state.themeError != null) AiSlidesNotice(state.themeError!),
-        access.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (error, _) => Row(
-            children: [
-              Expanded(child: Text('$error')),
-              TextButton(onPressed: onRetryAccess, child: const Text('다시 확인')),
-            ],
-          ),
-          data: (value) => Text(
-            !value.premium
-                ? '수업 내용 자동 정리는 프리미엄 기능이에요.'
-                : !value.enabled
-                ? '내용 정리 기능을 준비 중이에요. 직접 입력해서 만들 수 있어요.'
-                : '이번 달 AI 사용 ${state.remaining ?? value.remaining}/${value.limit}회 남음',
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
         AiSlidesSyncedField(
           fieldKey: const ValueKey('ai-slides-prompt'),
           value: state.prompt,

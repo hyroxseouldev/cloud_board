@@ -13,47 +13,26 @@ class AiSlidesPreview extends StatelessWidget {
   final bool compact;
   @override
   Widget build(BuildContext context) {
-    final preview = WorkoutSlidePreview(module: module, isRest: false);
-    if (compact) {
-      return Tooltip(
-        message: '크게 보기',
-        child: InkWell(
-          onTap: () => showAiSlidesPreview(context, module),
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: AspectRatio(aspectRatio: 16 / 9, child: preview),
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Icon(Icons.fullscreen_rounded, size: 14),
-                  SizedBox(width: 4),
-                  Text('크게 보기', style: TextStyle(fontSize: 11)),
-                ],
-              ),
-            ],
-          ),
+    final preview = Semantics(
+      button: true,
+      label: '수업 이미지 확대',
+      child: InkWell(
+        key: const ValueKey('ai-slides-preview-expand'),
+        onTap: () => showAiSlidesPreview(context, module),
+        borderRadius: BorderRadius.circular(12),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: WorkoutSlidePreview(module: module, isRest: false),
         ),
-      );
-    }
+      ),
+    );
+    if (compact) return Center(child: preview);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         preview,
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () => showAiSlidesPreview(context, module),
-            icon: const Icon(Icons.fullscreen_rounded, size: 18),
-            label: const Text('크게 보기'),
-          ),
-        ),
+        const SizedBox(height: 8),
         Text(
           module.showTimer ? '실제 타이머 위치를 함께 확인할 수 있어요.' : '수업 내용과 배치를 확인해 주세요.',
           style: const TextStyle(fontSize: 12),

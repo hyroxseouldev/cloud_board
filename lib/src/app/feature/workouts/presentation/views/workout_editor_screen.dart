@@ -644,7 +644,6 @@ class _EditorBody extends HookConsumerWidget {
                                         size: 18,
                                       ),
                                       Text('수업 이미지 생성'),
-                                      AiBetaBadge(),
                                     ],
                                   ),
                                 ),
