@@ -14,6 +14,7 @@ WorkoutSummaryModel _$WorkoutSummaryModelFromJson(Map<String, dynamic> json) =>
       imageSource: json['imageSource'] as String,
       moduleCount: (json['moduleCount'] as num).toInt(),
       durationSeconds: (json['durationSeconds'] as num).toInt(),
+      durationKind: json['durationKind'] as String? ?? 'fixed',
       updatedAt: const FirestoreTimestampConverter().fromJson(
         json['updatedAt'],
       ),
@@ -28,5 +29,6 @@ Map<String, dynamic> _$WorkoutSummaryModelToJson(
   'imageSource': instance.imageSource,
   'moduleCount': instance.moduleCount,
   'durationSeconds': instance.durationSeconds,
+  'durationKind': instance.durationKind,
   'updatedAt': const FirestoreTimestampConverter().toJson(instance.updatedAt),
 };

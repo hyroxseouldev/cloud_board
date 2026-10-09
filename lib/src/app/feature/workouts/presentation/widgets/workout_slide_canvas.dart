@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:flutter/material.dart';
 
@@ -305,31 +306,37 @@ class WorkoutSlideTimer extends StatelessWidget {
     required this.durationMs,
     required this.isPaused,
     required this.scale,
+    this.finished = false,
   });
   final WorkoutModule module;
   final bool isRest;
   final int secondsLeft, remainingMs, durationMs;
-  final bool isPaused;
+  final bool isPaused, finished;
   final double scale;
 
   @override
   Widget build(BuildContext context) => _CircularTimer(
-    showGauge: module.showTimerGauge,
-    secondsLeft: secondsLeft,
-    remainingMs: remainingMs,
+    showGauge: module.showTimerGauge && !isOpenEndedTimer(module),
+    countsUp: !isRest && (timerCountsUp(module) || finished),
+    secondsLeft: !isRest && (timerCountsUp(module) || finished)
+        ? timerElapsedMs(module, durationMs, remainingMs) ~/ 1000
+        : secondsLeft,
+    remainingMs: !isRest && (timerCountsUp(module) || finished)
+        ? timerElapsedMs(module, durationMs, remainingMs)
+        : remainingMs,
     durationMs: durationMs,
     isPaused: isPaused,
     gaugeColor: slideColor(
       module,
       rest: isRest,
       text: false,
-      secondsLeft: secondsLeft,
+      secondsLeft: isOpenEndedTimer(module) ? null : secondsLeft,
     ),
     textColor: slideColor(
       module,
       rest: isRest,
       text: true,
-      secondsLeft: secondsLeft,
+      secondsLeft: isOpenEndedTimer(module) ? null : secondsLeft,
     ),
     scale: scale * module.appearance.timerSize,
     ringWidth: module.appearance.ringWidth,
@@ -339,6 +346,7 @@ class WorkoutSlideTimer extends StatelessWidget {
 class _CircularTimer extends HookWidget {
   const _CircularTimer({
     required this.showGauge,
+    this.countsUp = false,
     required this.secondsLeft,
     required this.remainingMs,
     required this.durationMs,
@@ -349,7 +357,7 @@ class _CircularTimer extends HookWidget {
     required this.ringWidth,
   });
 
-  final bool showGauge;
+  final bool showGauge, countsUp;
   final int secondsLeft;
   final int remainingMs;
   final int durationMs;
@@ -387,7 +395,7 @@ class _CircularTimer extends HookWidget {
         ? 0.0
         : (remainingMs / durationMs).clamp(0.0, 1.0);
     return Semantics(
-      label: '남은 시간 ${durationLabel(secondsLeft)}',
+      label: '${countsUp ? '경과 시간' : '남은 시간'} ${durationLabel(secondsLeft)}',
       child: SizedBox.square(
         key: const ValueKey('slide-timer'),
         dimension: 232 * scale,

@@ -5,6 +5,10 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sou
 
 part 'workout.freezed.dart';
 
+enum WorkoutTimerMode { custom, emom, amrap, forTime, tabata, interval }
+
+enum TimerDirection { down, up }
+
 @freezed
 abstract class Workout with _$Workout {
   const factory Workout({
@@ -69,6 +73,8 @@ abstract class WorkoutModule with _$WorkoutModule {
     required int restSeconds,
     @Default(true) bool includeFinalRest,
     @Default(1) int timingVersion,
+    @Default(WorkoutTimerMode.custom) WorkoutTimerMode timerMode,
+    @Default(TimerDirection.down) TimerDirection timerDirection,
     @Default(1) int rounds,
     @Default(0) int roundRestSeconds,
     @Default(true) bool includeFinalRoundRest,

@@ -60,7 +60,7 @@ class SlideRehearsalScreen extends HookConsumerWidget {
       if (previous == null || !previous.playing || !module.beep) return;
       final before = rehearsalFrame(module, previous.positionMs);
       final after = rehearsalFrame(module, next.positionMs);
-      if (next.positionMs >= total) {
+      if (total > 0 && next.positionMs >= total) {
         unawaited(sound(workout?.workoutEndSound ?? WorkoutSound.longFinish));
       } else if (before.startMs != after.startMs) {
         unawaited(
@@ -70,7 +70,8 @@ class SlideRehearsalScreen extends HookConsumerWidget {
                 : (workout?.workStartSound ?? WorkoutSound.sharpBeep),
           ),
         );
-      } else if (before.secondsLeft != after.secondsLeft &&
+      } else if (total > 0 &&
+          before.secondsLeft != after.secondsLeft &&
           after.secondsLeft > 0 &&
           after.secondsLeft <= 3 &&
           next.playing) {
@@ -350,7 +351,9 @@ class _RehearsalControls extends StatelessWidget {
                 style: TextStyle(color: SlideEditorStyle.muted, fontSize: 13),
               ),
               Text(
-                '${durationLabel(state.positionMs ~/ 1000)} / ${durationLabel(totalMs ~/ 1000)}',
+                totalMs == 0
+                    ? '경과 ${durationLabel(state.positionMs ~/ 1000)} · 제한시간 없음'
+                    : '${durationLabel(state.positionMs ~/ 1000)} / ${durationLabel(totalMs ~/ 1000)}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -358,15 +361,16 @@ class _RehearsalControls extends StatelessWidget {
               ),
             ],
           ),
-          Slider(
-            key: const ValueKey('rehearsal-seek'),
-            label: durationLabel(state.positionMs ~/ 1000),
-            semanticFormatterCallback: (value) =>
-                '재생 위치 ${durationLabel(value.round() ~/ 1000)}',
-            value: state.positionMs.toDouble(),
-            max: totalMs.toDouble(),
-            onChanged: (value) => onSeek(value.round()),
-          ),
+          if (totalMs > 0)
+            Slider(
+              key: const ValueKey('rehearsal-seek'),
+              label: durationLabel(state.positionMs ~/ 1000),
+              semanticFormatterCallback: (value) =>
+                  '재생 위치 ${durationLabel(value.round() ~/ 1000)}',
+              value: state.positionMs.toDouble(),
+              max: totalMs.toDouble(),
+              onChanged: (value) => onSeek(value.round()),
+            ),
           const SizedBox(height: 8),
           _ControlPair(
             children: [

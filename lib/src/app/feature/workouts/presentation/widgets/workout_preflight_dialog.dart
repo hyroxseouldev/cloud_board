@@ -115,7 +115,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                 ok: readiness.isReady,
                 title: '${workout.modules.length}개 슬라이드',
                 subtitle: readiness.isReady
-                    ? '총 수업 시간 ${durationLabel(workoutDuration(workout))}'
+                    ? '총 수업 시간 ${workoutDurationText(workout)}'
                     : readiness.issues.join('\n'),
               ),
               imageCheck.value.when(

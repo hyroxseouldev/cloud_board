@@ -12,10 +12,12 @@ class WorkoutSummaryModel {
     required this.imageSource,
     required this.moduleCount,
     required this.durationSeconds,
+    this.durationKind = 'fixed',
     required this.updatedAt,
   });
   final String id, name, folder, imageSource;
   final int moduleCount, durationSeconds;
+  final String durationKind;
   @FirestoreTimestampConverter()
   final DateTime updatedAt;
   factory WorkoutSummaryModel.fromJson(Map<String, dynamic> json) =>
@@ -29,6 +31,7 @@ class WorkoutSummaryModel {
         imageSource: value.imageSource,
         moduleCount: value.moduleCount,
         durationSeconds: value.durationSeconds,
+        durationKind: value.durationKind,
         updatedAt: value.updatedAt,
       );
   WorkoutSummary toEntity() => WorkoutSummary(
@@ -38,6 +41,7 @@ class WorkoutSummaryModel {
     imageSource: imageSource,
     moduleCount: moduleCount,
     durationSeconds: durationSeconds,
+    durationKind: durationKind,
     updatedAt: updatedAt,
   );
 }

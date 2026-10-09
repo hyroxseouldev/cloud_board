@@ -16,6 +16,7 @@ abstract class PlaybackSession with _$PlaybackSession {
     required Workout workout,
     required PlaybackStatus status,
     @Default(false) bool briefing,
+    @Default(false) bool timerCompleted,
     @Default(0) int startDelayMs,
     required int stepIndex,
     required int remainingMs,

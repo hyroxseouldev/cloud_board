@@ -41,8 +41,14 @@ class TimerRoundEditor extends HookWidget {
           label: '라운드 반복',
           unit: '회',
           validator: (_) => null,
-          onChanged: (value) =>
-              onChanged(module.copyWith(timingVersion: 2, rounds: value)),
+          onChanged: (value) => onChanged(
+            module.copyWith(
+              timingVersion: 2,
+              timerMode: WorkoutTimerMode.custom,
+              timerDirection: TimerDirection.down,
+              rounds: value,
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         SlideDurationField(
@@ -51,7 +57,12 @@ class TimerRoundEditor extends HookWidget {
           minimumSeconds: 0,
           validator: (_) => null,
           onChanged: (value) => onChanged(
-            module.copyWith(timingVersion: 2, roundRestSeconds: value),
+            module.copyWith(
+              timingVersion: 2,
+              timerMode: WorkoutTimerMode.custom,
+              timerDirection: TimerDirection.down,
+              roundRestSeconds: value,
+            ),
           ),
         ),
         SwitchListTile.adaptive(
@@ -60,7 +71,12 @@ class TimerRoundEditor extends HookWidget {
           title: const Text('마지막 라운드 뒤에도 휴식'),
           value: module.includeFinalRoundRest,
           onChanged: (value) => onChanged(
-            module.copyWith(timingVersion: 2, includeFinalRoundRest: value),
+            module.copyWith(
+              timingVersion: 2,
+              timerMode: WorkoutTimerMode.custom,
+              timerDirection: TimerDirection.down,
+              includeFinalRoundRest: value,
+            ),
           ),
         ),
       ],

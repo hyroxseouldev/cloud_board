@@ -18,6 +18,7 @@ class PlaybackSessionModel {
     required this.workoutSnapshot,
     required this.status,
     this.briefing = false,
+    this.timerCompleted = false,
     this.startDelayMs = 0,
     required this.stepIndex,
     required this.remainingMs,
@@ -36,6 +37,7 @@ class PlaybackSessionModel {
   final String status;
   @JsonKey(defaultValue: false)
   final bool briefing;
+  final bool timerCompleted;
   @JsonKey(defaultValue: 0)
   final int startDelayMs;
   final int stepIndex;
@@ -73,6 +75,7 @@ class PlaybackSessionModel {
     ),
     stepIndex: stepIndex,
     briefing: briefing,
+    timerCompleted: timerCompleted,
     startDelayMs: startDelayMs,
     remainingMs: remainingMs,
     anchorServerMs: anchorServerMs,

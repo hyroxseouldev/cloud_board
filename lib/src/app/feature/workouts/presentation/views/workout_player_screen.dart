@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 
 import 'dart:math' as math;
@@ -178,6 +180,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
           state.index,
           state.isPaused,
           state.briefing,
+          state.timerCompleted,
           (state.countdownMs / 1000).ceil(),
           state.timelineVersion,
         ),
@@ -500,12 +503,17 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             if (item.moduleIndex == step.moduleIndex) {
               if (i < live.index) elapsed += item.duration * 1000;
               if (i == live.index) {
-                elapsed += item.duration * 1000 - live.remainingMs;
+                elapsed += timerElapsedMs(
+                  item.module,
+                  item.duration * 1000,
+                  live.remainingMs,
+                );
               }
             }
           }
           return WorkoutControlTimeline(
             section: section,
+            timerFinished: actions.forTimeEnded,
             durations: durations,
             modules: workout.modules,
             currentModule: step.moduleIndex,
@@ -549,6 +557,15 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
               moduleCount: workout.modules.length,
               currentModule: step.moduleIndex,
               paused: state.isPaused,
+              timerFinished: actions.forTimeEnded,
+              onFinishTimer:
+                  module.timerMode == WorkoutTimerMode.forTime &&
+                      !actions.forTimeEnded
+                  ? () => unawaited(actions.finishTimer())
+                  : null,
+              timerResult: actions.forTimeEnded
+                  ? "${state.timerCompleted ? '운동 완료' : '제한시간 도달'} · ${durationLabel(timerElapsedMs(module, step.duration * 1000, state.remainingMs) ~/ 1000)}"
+                  : null,
               busy: playbackAction.isLoading,
               locked: touchLocked.value,
               onLockChanged: (value) => touchLocked.value = value,
@@ -683,7 +700,11 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                                   right: 34 * scale,
                                   child: Chip(
                                     label: Text(
-                                      '일시정지',
+                                      actions.forTimeEnded
+                                          ? (state.timerCompleted
+                                                ? '운동 완료'
+                                                : '제한시간 도달')
+                                          : '일시정지',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 16 * scale,
@@ -745,6 +766,10 @@ class _PlayerTimer extends ConsumerWidget {
     final step = state.steps[state.index];
     return WorkoutSlideTimer(
       module: step.module,
+      finished:
+          step.module.timerMode == WorkoutTimerMode.forTime &&
+          (state.timerCompleted ||
+              (step.duration > 0 && state.remainingMs == 0)),
       isRest: step.isRest,
       secondsLeft: state.secondsLeft,
       remainingMs: state.remainingMs,

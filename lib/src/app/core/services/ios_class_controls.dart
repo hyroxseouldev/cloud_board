@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -65,6 +68,7 @@ Future<void> iosClassControls(Ref ref) async {
       'briefing': session.briefing,
       'stepIndex': session.stepIndex,
       'remainingMs': session.remainingMs,
+      'timerCompleted': session.timerCompleted,
       'startDelayMs': session.startDelayMs,
       'anchorServerMs': session.anchorServerMs,
       'serverOffsetMs': serverOffset,
@@ -72,7 +76,12 @@ Future<void> iosClassControls(Ref ref) async {
       'connected': connected,
       'steps': [
         for (final step in buildPlayerSteps(session.workout))
-          {'durationMs': step.duration * 1000, 'moduleIndex': step.moduleIndex},
+          {
+            'durationMs': step.duration * 1000,
+            'forTime': step.module.timerMode == WorkoutTimerMode.forTime,
+            'countUp': timerCountsUp(step.module),
+            'moduleIndex': step.moduleIndex,
+          },
       ],
     }),
   );

@@ -55,6 +55,8 @@ WorkoutModule withIntervalBlocks(
   final first = blocks.first;
   return module.copyWith(
     timingVersion: 2,
+    timerMode: WorkoutTimerMode.custom,
+    timerDirection: TimerDirection.down,
     workSeconds: first.workSeconds,
     restSeconds: first.restSeconds,
     sets: first.sets,
@@ -82,6 +84,8 @@ int slideColor(
 WorkoutModule copySlideTiming(WorkoutModule target, WorkoutModule source) =>
     target.copyWith(
       timingVersion: source.timingVersion,
+      timerMode: source.timerMode,
+      timerDirection: source.timerDirection,
       rounds: source.rounds,
       roundRestSeconds: source.roundRestSeconds,
       includeFinalRoundRest: source.includeFinalRoundRest,

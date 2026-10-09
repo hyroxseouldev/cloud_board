@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 
 import 'dart:async';
@@ -491,7 +492,7 @@ class _EditorBody extends HookConsumerWidget {
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Text(
-                                    durationLabel(workoutDuration(draft.value)),
+                                    workoutDurationText(draft.value),
                                     textAlign: TextAlign.end,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
@@ -570,7 +571,7 @@ class _EditorBody extends HookConsumerWidget {
                                                 return Center(
                                                   child: Tooltip(
                                                     message:
-                                                        '${template.name} · ${durationLabel(workoutModuleDuration(template))} 추가',
+                                                        '${template.name} · ${moduleDurationText(template)} 추가',
                                                     child: InputChip(
                                                       label: ConstrainedBox(
                                                         constraints:
@@ -738,21 +739,21 @@ class _EditorBody extends HookConsumerWidget {
                                 subtitle: Text(
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  hasRoundTiming(module)
+                                  isContinuousTimer(module)
+                                      ? '${timerModeLabel(module.timerMode)} · ${moduleDurationText(module)}'
+                                      : hasRoundTiming(module)
                                       ? '${module.rounds}라운드 · ${intervalBlocks.length}블록 · 라운드 휴식 ${formatSlideTime(module.roundRestSeconds)}'
                                       : intervalBlocks.length == 1
                                       ? intervalBlocks.first.workSeconds == 0
                                             ? '휴식만 ${formatSlideTime(intervalBlocks.first.restSeconds)} · ${intervalBlocks.first.sets}회'
                                             : '${intervalBlocks.first.sets}세트 · ${formatSlideTime(intervalBlocks.first.workSeconds)} / 휴식 ${formatSlideTime(intervalBlocks.first.restSeconds)}'
-                                      : '${intervalBlocks.length}블록 · 총 ${durationLabel(workoutModuleDuration(module))}',
+                                      : '${intervalBlocks.length}블록 · 총 ${moduleDurationText(module)}',
                                 ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      durationLabel(
-                                        workoutModuleDuration(module),
-                                      ),
+                                      moduleDurationText(module),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         color: XonColors.muted,

@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -71,6 +74,7 @@ Future<bool> androidClassNotifications(Ref ref) async {
           'status': session.status.name,
           'stepIndex': session.stepIndex,
           'remainingMs': session.remainingMs,
+          'timerCompleted': session.timerCompleted,
           'anchorServerMs': session.anchorServerMs,
           'startDelayMs': session.startDelayMs,
           'serverOffsetMs': offset,
@@ -79,8 +83,11 @@ Future<bool> androidClassNotifications(Ref ref) async {
             for (final step in buildPlayerSteps(session.workout))
               {
                 'durationMs': step.duration * 1000,
+                'forTime': step.module.timerMode == WorkoutTimerMode.forTime,
+                'countUp': timerCountsUp(step.module),
                 'name': step.module.name,
                 'label':
+                    step.positionLabel ??
                     '${step.isRest ? '휴식' : '운동'} · ${step.set}/${step.totalSets}세트',
               },
           ],

@@ -139,7 +139,7 @@ class SlideLibraryPicker extends HookConsumerWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${durationLabel(workoutModuleDuration(item))}${item.category.isEmpty ? '' : ' · ${item.category}'}',
+                                    '${moduleDurationText(item)}${item.category.isEmpty ? '' : ' · ${item.category}'}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: SlideEditorStyle.muted,
@@ -206,7 +206,7 @@ class SlideLibraryReplacementDialog extends HookWidget {
             onSelectionChanged: (values) => rest.value = values.first,
           ),
           const SizedBox(height: 12),
-          Text('전체 시간 ${durationLabel(workoutModuleDuration(template))}'),
+          Text('전체 시간 ${moduleDurationText(template)}'),
           const SizedBox(height: 8),
           const Text(
             '현재 슬라이드의 제목·이미지·본문·시간·표시 옵션·전환음 설정이 교체됩니다. 워크아웃의 소리 종류와 볼륨은 유지됩니다.',

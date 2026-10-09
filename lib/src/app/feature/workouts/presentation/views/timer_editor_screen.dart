@@ -1,5 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/emom_builder_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_quick_builder_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_round_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
@@ -112,7 +113,7 @@ class TimerEditorScreen extends HookConsumerWidget {
                           ),
                         ),
                         Text(
-                          durationLabel(total),
+                          moduleDurationText(module),
                           key: const ValueKey('timer-editor-total'),
                           style: const TextStyle(
                             fontSize: 26,
@@ -123,37 +124,39 @@ class TimerEditorScreen extends HookConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 20,
-                      runSpacing: 8,
-                      children: [
-                        Text(
-                          '운동 ${formatSlideTime(workTotal)}',
-                          style: const TextStyle(
-                            color: SlideEditorStyle.accent,
-                            fontWeight: FontWeight.w600,
+                    if (!isOpenEndedTimer(module))
+                      Wrap(
+                        spacing: 20,
+                        runSpacing: 8,
+                        children: [
+                          Text(
+                            '운동 ${formatSlideTime(workTotal)}',
+                            style: const TextStyle(
+                              color: SlideEditorStyle.accent,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '휴식 ${formatSlideTime(total - workTotal)}',
-                          style: const TextStyle(
-                            color: SlideEditorStyle.muted,
-                            fontWeight: FontWeight.w600,
+                          Text(
+                            '휴식 ${formatSlideTime(total - workTotal)}',
+                            style: const TextStyle(
+                              color: SlideEditorStyle.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
-                      key: const ValueKey('open-emom-builder'),
+                      key: const ValueKey('open-timer-builder'),
                       icon: const Icon(Icons.bolt_outlined),
-                      label: const Text('EMOM 간편 만들기'),
+                      label: const Text('타이머 간편 만들기'),
                       onPressed: () async {
                         final result = await Navigator.of(context)
                             .push<WorkoutModule>(
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    EmomBuilderScreen(module: draft.value),
+                                builder: (_) => TimerQuickBuilderScreen(
+                                  module: draft.value,
+                                ),
                               ),
                             );
                         if (result == null || !context.mounted) return;
@@ -163,263 +166,287 @@ class TimerEditorScreen extends HookConsumerWidget {
                             .id;
                       },
                     ),
-                    TimerRoundEditor(
-                      module: module,
-                      onChanged: (value) => draft.value = value,
-                    ),
-                    if (timingError != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                          timingError,
-                          key: const ValueKey('timer-validation-error'),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
+                    if (isContinuousTimer(module)) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        '${timerModeLabel(module.timerMode)} · ${timerCountsUp(module) ? '경과 시간' : '남은 시간'}',
+                      ),
+                      const Text('시간과 표시 방식은 간편 만들기에서 수정할 수 있습니다.'),
+                      TextButton(
+                        onPressed: () {
+                          draft.value = withIntervalBlocks(module, [
+                            WorkoutIntervalBlock(
+                              id: '${module.id}-interval-1',
+                              workSeconds: module.workSeconds > 0
+                                  ? module.workSeconds
+                                  : 60,
+                              restSeconds: 0,
+                              sets: 1,
+                            ),
+                          ]);
+                        },
+                        child: const Text('인터벌로 바꾸어 직접 편집'),
+                      ),
+                    ] else ...[
+                      TimerRoundEditor(
+                        module: module,
+                        onChanged: (value) => draft.value = value,
+                      ),
+                      if (timingError != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            timingError,
+                            key: const ValueKey('timer-validation-error'),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
                         ),
-                      ),
-                    const Divider(height: 24),
-                    ReorderableListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      buildDefaultDragHandles: false,
-                      itemCount: blocks.length,
-                      onReorderItem: (oldIndex, newIndex) {
-                        final next = [...blocks];
-                        next.insert(newIndex, next.removeAt(oldIndex));
-                        updateBlocks(next);
-                      },
-                      itemBuilder: (context, index) {
-                        final block = blocks[index];
-                        final isOpen = expanded.value == block.id;
-                        void toggle() {
-                          expanded.value = isOpen ? null : block.id;
-                        }
+                      const Divider(height: 24),
+                      ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        buildDefaultDragHandles: false,
+                        itemCount: blocks.length,
+                        onReorderItem: (oldIndex, newIndex) {
+                          final next = [...blocks];
+                          next.insert(newIndex, next.removeAt(oldIndex));
+                          updateBlocks(next);
+                        },
+                        itemBuilder: (context, index) {
+                          final block = blocks[index];
+                          final isOpen = expanded.value == block.id;
+                          void toggle() {
+                            expanded.value = isOpen ? null : block.id;
+                          }
 
-                        return Padding(
-                          key: ValueKey(block.id),
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Material(
-                            color: SlideEditorStyle.surface,
-                            borderRadius: BorderRadius.circular(
-                              AppStyle.controlRadius,
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    ReorderableDragStartListener(
-                                      index: index,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Semantics(
-                                          label: '블록 ${index + 1} 순서 변경',
-                                          child: const Icon(
-                                            Icons.drag_handle_rounded,
-                                            color: SlideEditorStyle.muted,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: InkWell(
-                                        key: ValueKey(
-                                          'timer-block-${block.id}',
-                                        ),
-                                        onTap: toggle,
+                          return Padding(
+                            key: ValueKey(block.id),
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Material(
+                              color: SlideEditorStyle.surface,
+                              borderRadius: BorderRadius.circular(
+                                AppStyle.controlRadius,
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      ReorderableDragStartListener(
+                                        index: index,
                                         child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 20,
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                block.workSeconds == 0
-                                                    ? '휴식 ${index + 1}'
-                                                    : '블록 ${index + 1}',
-                                                style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                block.workSeconds == 0
-                                                    ? '휴식만 ${formatSlideTime(block.restSeconds)} · ${block.sets}회'
-                                                    : '운동 ${formatSlideTime(block.workSeconds)} · 휴식 ${formatSlideTime(block.restSeconds)} · ${block.sets}세트',
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: SlideEditorStyle.muted,
-                                                ),
-                                              ),
-                                            ],
+                                          padding: const EdgeInsets.all(16),
+                                          child: Semantics(
+                                            label: '블록 ${index + 1} 순서 변경',
+                                            child: const Icon(
+                                              Icons.drag_handle_rounded,
+                                              color: SlideEditorStyle.muted,
+                                            ),
                                           ),
                                         ),
                                       ),
+                                      Expanded(
+                                        child: InkWell(
+                                          key: ValueKey(
+                                            'timer-block-${block.id}',
+                                          ),
+                                          onTap: toggle,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 20,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  block.workSeconds == 0
+                                                      ? '휴식 ${index + 1}'
+                                                      : '블록 ${index + 1}',
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  block.workSeconds == 0
+                                                      ? '휴식만 ${formatSlideTime(block.restSeconds)} · ${block.sets}회'
+                                                      : '운동 ${formatSlideTime(block.workSeconds)} · 휴식 ${formatSlideTime(block.restSeconds)} · ${block.sets}세트',
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    color:
+                                                        SlideEditorStyle.muted,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      PopupMenuButton<String>(
+                                        tooltip: '블록 메뉴',
+                                        icon: const Icon(Icons.more_horiz),
+                                        onSelected: (action) {
+                                          if (action == 'type') {
+                                            updateBlocks([
+                                              for (final item in blocks)
+                                                if (item.id == block.id)
+                                                  item.copyWith(
+                                                    workSeconds:
+                                                        block.workSeconds == 0
+                                                        ? 60
+                                                        : 0,
+                                                    restSeconds:
+                                                        block.restSeconds > 0
+                                                        ? block.restSeconds
+                                                        : 30,
+                                                  )
+                                                else
+                                                  item,
+                                            ]);
+                                          } else if (action == 'duplicate') {
+                                            final copy = block.copyWith(
+                                              id: newId(),
+                                            );
+                                            updateBlocks(
+                                              [...blocks]
+                                                ..insert(index + 1, copy),
+                                            );
+                                          } else if (blocks.length > 1) {
+                                            updateBlocks(
+                                              [...blocks]..removeAt(index),
+                                            );
+                                            if (isOpen) expanded.value = null;
+                                          }
+                                        },
+                                        itemBuilder: (_) => [
+                                          PopupMenuItem(
+                                            value: 'type',
+                                            child: Text(
+                                              block.workSeconds == 0
+                                                  ? '운동·휴식으로 변경'
+                                                  : '휴식만으로 변경',
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            enabled:
+                                                blocks.length < maxTimingBlocks,
+                                            value: 'duplicate',
+                                            child: Text('복제'),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'delete',
+                                            enabled: blocks.length > 1,
+                                            child: Text(
+                                              blocks.length > 1
+                                                  ? '삭제'
+                                                  : '블록은 하나 이상 필요합니다',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      IconButton(
+                                        tooltip: isOpen
+                                            ? '시간 블록 접기'
+                                            : '시간 블록 펼치기',
+                                        onPressed: toggle,
+                                        icon: Icon(
+                                          isOpen
+                                              ? Icons.keyboard_arrow_up
+                                              : Icons.keyboard_arrow_down,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                    ],
+                                  ),
+                                  if (isOpen) ...[
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      child: Divider(height: 1),
                                     ),
-                                    PopupMenuButton<String>(
-                                      tooltip: '블록 메뉴',
-                                      icon: const Icon(Icons.more_horiz),
-                                      onSelected: (action) {
-                                        if (action == 'type') {
-                                          updateBlocks([
-                                            for (final item in blocks)
-                                              if (item.id == block.id)
-                                                item.copyWith(
-                                                  workSeconds:
-                                                      block.workSeconds == 0
-                                                      ? 60
-                                                      : 0,
-                                                  restSeconds:
-                                                      block.restSeconds > 0
-                                                      ? block.restSeconds
-                                                      : 30,
-                                                )
-                                              else
-                                                item,
-                                          ]);
-                                        } else if (action == 'duplicate') {
-                                          final copy = block.copyWith(
-                                            id: newId(),
-                                          );
-                                          updateBlocks(
-                                            [...blocks]
-                                              ..insert(index + 1, copy),
-                                          );
-                                        } else if (blocks.length > 1) {
-                                          updateBlocks(
-                                            [...blocks]..removeAt(index),
-                                          );
-                                          if (isOpen) expanded.value = null;
-                                        }
+                                    SlideTimingEditor(
+                                      key: ValueKey(
+                                        '${block.id}-${block.workSeconds == 0}',
+                                      ),
+                                      embedded: true,
+                                      restOnly:
+                                          block.workSeconds == 0 &&
+                                          block.restSeconds > 0,
+                                      initialWorkSeconds: block.workSeconds,
+                                      initialRestSeconds: block.restSeconds,
+                                      initialSets: block.sets,
+                                      onChanged: (value) {
+                                        final updated = block.copyWith(
+                                          workSeconds: value.workSeconds,
+                                          restSeconds: value.restSeconds,
+                                          sets: value.sets,
+                                        );
+                                        updateBlocks([
+                                          for (final item in blocks)
+                                            if (item.id == block.id)
+                                              updated
+                                            else
+                                              item,
+                                        ]);
                                       },
-                                      itemBuilder: (_) => [
-                                        PopupMenuItem(
-                                          value: 'type',
-                                          child: Text(
-                                            block.workSeconds == 0
-                                                ? '운동·휴식으로 변경'
-                                                : '휴식만으로 변경',
-                                          ),
-                                        ),
-                                        PopupMenuItem(
-                                          enabled:
-                                              blocks.length < maxTimingBlocks,
-                                          value: 'duplicate',
-                                          child: Text('복제'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          enabled: blocks.length > 1,
-                                          child: Text(
-                                            blocks.length > 1
-                                                ? '삭제'
-                                                : '블록은 하나 이상 필요합니다',
-                                          ),
-                                        ),
-                                      ],
                                     ),
-                                    IconButton(
-                                      tooltip: isOpen
-                                          ? '시간 블록 접기'
-                                          : '시간 블록 펼치기',
-                                      onPressed: toggle,
-                                      icon: Icon(
-                                        isOpen
-                                            ? Icons.keyboard_arrow_up
-                                            : Icons.keyboard_arrow_down,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
                                   ],
-                                ),
-                                if (isOpen) ...[
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                    ),
-                                    child: Divider(height: 1),
-                                  ),
-                                  SlideTimingEditor(
-                                    key: ValueKey(
-                                      '${block.id}-${block.workSeconds == 0}',
-                                    ),
-                                    embedded: true,
-                                    restOnly:
-                                        block.workSeconds == 0 &&
-                                        block.restSeconds > 0,
-                                    initialWorkSeconds: block.workSeconds,
-                                    initialRestSeconds: block.restSeconds,
-                                    initialSets: block.sets,
-                                    onChanged: (value) {
-                                      final updated = block.copyWith(
-                                        workSeconds: value.workSeconds,
-                                        restSeconds: value.restSeconds,
-                                        sets: value.sets,
-                                      );
-                                      updateBlocks([
-                                        for (final item in blocks)
-                                          if (item.id == block.id)
-                                            updated
-                                          else
-                                            item,
-                                      ]);
-                                    },
-                                  ),
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 4),
-                    OutlinedButton.icon(
-                      key: const ValueKey('add-interval-block'),
-                      onPressed: blocks.length >= maxTimingBlocks
-                          ? null
-                          : () {
-                              final block = WorkoutIntervalBlock(
-                                id: newId(),
-                                workSeconds: 60,
-                                restSeconds: 0,
-                                sets: 1,
-                              );
-                              updateBlocks([...blocks, block]);
-                              expanded.value = block.id;
-                            },
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('블록 추가'),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      key: const ValueKey('add-rest-block'),
-                      onPressed: blocks.length >= maxTimingBlocks
-                          ? null
-                          : () {
-                              final block = WorkoutIntervalBlock(
-                                id: newId(),
-                                workSeconds: 0,
-                                restSeconds: 30,
-                                sets: 1,
-                              );
-                              updateBlocks([...blocks, block]);
-                              expanded.value = block.id;
-                            },
-                      icon: const Icon(Icons.pause_circle_outline),
-                      label: const Text('휴식만 추가'),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      '${module.includeFinalRest ? '각 블록의 마지막 세트 뒤에도 설정된 휴식을 포함합니다.' : '운동 블록의 마지막 세트 뒤 자동 휴식은 생략합니다.'} 직접 추가한 휴식은 유지됩니다. 배경 이미지에 적힌 시간은 자동으로 바뀌지 않습니다.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: SlideEditorStyle.muted,
+                          );
+                        },
                       ),
-                    ),
+                      const SizedBox(height: 4),
+                      OutlinedButton.icon(
+                        key: const ValueKey('add-interval-block'),
+                        onPressed: blocks.length >= maxTimingBlocks
+                            ? null
+                            : () {
+                                final block = WorkoutIntervalBlock(
+                                  id: newId(),
+                                  workSeconds: 60,
+                                  restSeconds: 0,
+                                  sets: 1,
+                                );
+                                updateBlocks([...blocks, block]);
+                                expanded.value = block.id;
+                              },
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('블록 추가'),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        key: const ValueKey('add-rest-block'),
+                        onPressed: blocks.length >= maxTimingBlocks
+                            ? null
+                            : () {
+                                final block = WorkoutIntervalBlock(
+                                  id: newId(),
+                                  workSeconds: 0,
+                                  restSeconds: 30,
+                                  sets: 1,
+                                );
+                                updateBlocks([...blocks, block]);
+                                expanded.value = block.id;
+                              },
+                        icon: const Icon(Icons.pause_circle_outline),
+                        label: const Text('휴식만 추가'),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        '${module.includeFinalRest ? '각 블록의 마지막 세트 뒤에도 설정된 휴식을 포함합니다.' : '운동 블록의 마지막 세트 뒤 자동 휴식은 생략합니다.'} 직접 추가한 휴식은 유지됩니다. 배경 이미지에 적힌 시간은 자동으로 바뀌지 않습니다.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: SlideEditorStyle.muted,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     const Text(
                       '적용 후 슬라이드 상단의 저장 버튼을 눌러 변경사항을 저장해 주세요.',

@@ -119,18 +119,26 @@ internal object ClassNotifications {
         val open = PendingIntent.getActivity(context, ID, Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val step = steps.getJSONObject(position.index)
-        val paused = config.getString("status") == "paused"
+        val duration = step.getLong("durationMs")
+        val forTime = step.optBoolean("forTime")
+        val countUp = step.optBoolean("countUp") || duration == 0L
+        val finished = config.optBoolean("timerCompleted") || (forTime && duration > 0 && position.remaining == 0L)
+        val paused = config.getString("status") == "paused" || finished
+        val elapsedMs = if (duration == 0L) position.remaining else (duration - position.remaining).coerceAtLeast(0)
+        val flexibleClass = (0 until steps.length()).any { steps.getJSONObject(it).optBoolean("forTime") }
         val connected = config.optBoolean("connected", true)
         val useLiveUpdate = Build.VERSION.SDK_INT >= 36
         var untilEnd = position.remaining + position.countdown
         for (i in position.index + 1 until steps.length()) untilEnd += steps.getJSONObject(i).getLong("durationMs")
-        val label = if (paused) "일시정지" else step.getString("label")
+        val label = if (finished) (if (config.optBoolean("timerCompleted")) "운동 완료" else "제한시간 도달")
+            else if (paused) "일시정지" else step.getString("label")
         val text = error ?: if (!connected) "연결 확인 필요 · 앱에서 다시 연결해 주세요"
             else "${step.getString("name")} · $label" +
-                if (useLiveUpdate && paused) " · 남음 ${ClassLiveUpdate.remainingText(untilEnd)}" else ""
+                if (countUp && paused) " · 경과 ${ClassLiveUpdate.remainingText(elapsedMs)}"
+                else if (useLiveUpdate && paused && !flexibleClass) " · 남음 ${ClassLiveUpdate.remainingText(untilEnd)}" else ""
         // A projected countdown is an estimate, not a continuous server confirmation.
         val subText = if (error != null) "상태 확인 필요" else if (!connected) "연결 확인 필요"
-            else if (useLiveUpdate && !paused) "예상 남은 시간" else "최근 수업"
+            else if (countUp) "경과 시간" else if (useLiveUpdate && !paused && !flexibleClass) "예상 남은 시간" else "최근 수업"
         val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_class_notification).setColor(0xFF77729D.toInt())
             .setContentTitle(config.getString("workoutName"))
@@ -160,24 +168,29 @@ internal object ClassNotifications {
             action("refresh", "상태 확인", android.R.drawable.ic_popup_sync)
         } else {
             action("previous", "이전", android.R.drawable.ic_media_previous)
-            if (config.getString("status") == "paused") action("play", "재개", android.R.drawable.ic_media_play)
-            else action("pause", "일시정지", android.R.drawable.ic_media_pause)
+            if (!finished) {
+                if (config.getString("status") == "paused") action("play", "재개", android.R.drawable.ic_media_play)
+                else action("pause", "일시정지", android.R.drawable.ic_media_pause)
+            }
             action("next", "다음", android.R.drawable.ic_media_next)
             if (!useLiveUpdate) action("stop", "종료", android.R.drawable.ic_menu_close_clear_cancel)
         }
         if (useLiveUpdate) {
-            ClassLiveUpdate.apply(builder, untilEnd, paused, connected && error == null)
+            ClassLiveUpdate.apply(builder, if (forTime) position.remaining else untilEnd, paused, connected && error == null && !flexibleClass)
         } else if (error == null) builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomBigContentView(expanded)
         // Bound stale notifications after process eviction; paused sessions require reopening
         // after 15 minutes. No periodic service is kept alive just to refresh the clock.
-        val lease = if (paused) 900000L else untilEnd.coerceIn(1L, 900000L)
+        if (countUp && !paused && connected && error == null) {
+            builder.setWhen(System.currentTimeMillis() - elapsedMs).setUsesChronometer(true).setChronometerCountDown(false)
+        }
+        val lease = if (paused || duration == 0L) 900000L else untilEnd.coerceIn(1L, 900000L)
         builder.setTimeoutAfter(lease)
         if (manager(context).areNotificationsEnabled()) {
             try { manager(context).notify(ID, builder.build()) } catch (_: SecurityException) { /* App controls remain available. */ }
         }
         boundary?.let { main.removeCallbacks(it) }
-        if (error == null && config.getString("status") == "playing") {
+        if (error == null && config.getString("status") == "playing" && !finished && duration > 0) {
             boundary = Runnable {
                 val latest = load(context)
                 if (latest?.optString("sessionId") == config.getString("sessionId") && latest.optLong("revision") == config.optLong("revision")) show(context, latest)
@@ -274,7 +287,7 @@ internal object ClassNotifications {
     private fun update(context: Context, config: JSONObject, response: Response) {
         val latest = load(context) ?: return
         if (latest.optString("sessionId") != config.getString("sessionId") || latest.optLong("revision") > response.json.getLong("revision")) return
-        for (key in listOf("status", "stepIndex", "remainingMs", "anchorServerMs", "revision", "startDelayMs")) config.put(key, response.json.opt(key))
+        for (key in listOf("status", "stepIndex", "remainingMs", "anchorServerMs", "revision", "startDelayMs", "timerCompleted")) config.put(key, response.json.opt(key))
         config.put("connected", true)
         config.put("serverOffsetMs", response.serverNow - System.currentTimeMillis())
         prefs(context).edit().putString("config", config.toString()).apply()

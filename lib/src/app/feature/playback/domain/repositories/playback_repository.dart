@@ -18,6 +18,7 @@ abstract interface class PlaybackRepository {
     int? scheduledAtMs,
   });
   Future<void> pause({required int remainingMs, required String deviceId});
+  Future<void> finishTimer({required String deviceId});
   Future<void> resume({required String deviceId});
   Future<void> begin({required String deviceId});
   Future<void> seek({

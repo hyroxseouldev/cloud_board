@@ -104,6 +104,13 @@ class PlaybackActionController extends _$PlaybackActionController {
     throttle: true,
   );
 
+  Future<bool> finishTimer() => _run(
+    '운동을 완료했습니다.',
+    'playback.finishTimer',
+    (actions, deviceId) => actions.finishTimer(deviceId: deviceId),
+    throttle: true,
+  );
+
   Future<bool> resume() => _run(
     '재생을 계속합니다.',
     'playback.resume',

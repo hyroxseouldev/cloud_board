@@ -165,6 +165,7 @@ class _Remote implements PlaybackRealtimeDataSource {
     int? remainingMs,
     int startDelayMs = 0,
     bool requireBriefing = false,
+    bool finishTimer = false,
     required String expectedSessionId,
     required int expectedRevision,
   }) async {

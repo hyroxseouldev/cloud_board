@@ -15,6 +15,7 @@ import 'package:cloud_board/src/app/feature/playback/domain/playback_position.da
   int? stepIndex,
   int? remainingMs,
   bool requireBriefing = false,
+  bool finishTimer = false,
 }) {
   if (session.id != expectedSessionId) {
     throw const PlaybackFailure(
@@ -50,9 +51,34 @@ import 'package:cloud_board/src/app/feature/playback/domain/playback_position.da
     throw const PlaybackFailure('status_changed', '종료되었거나 시작 준비 중인 수업입니다.');
   }
   if (!requireBriefing &&
+      !finishTimer &&
       ((status == 'playing' && session.status != PlaybackStatus.paused) ||
           (status == 'paused' && session.status != PlaybackStatus.playing))) {
     throw const PlaybackFailure('status_changed', '다른 컨트롤러에서 재생 상태를 변경했습니다.');
+  }
+  final forTime = playbackForTimeFlags(session.workout);
+  final currentForTime =
+      position.index < forTime.length && forTime[position.index];
+  if (finishTimer &&
+      (!currentForTime ||
+          position.countdownMs > 0 ||
+          session.timerCompleted ||
+          (durations[position.index] > 0 && position.remainingMs == 0))) {
+    throw const PlaybackFailure(
+      'timer_finish_unavailable',
+      '운동 완료할 For Time 타이머가 없습니다.',
+    );
+  }
+  if (status == 'playing' &&
+      !requireBriefing &&
+      (session.timerCompleted ||
+          (currentForTime &&
+              durations[position.index] > 0 &&
+              position.remainingMs == 0))) {
+    throw const PlaybackFailure(
+      'timer_finished',
+      '완료된 타이머입니다. 다음 운동으로 이동하거나 처음부터 다시 시작해 주세요.',
+    );
   }
   if (stepIndex != null && (stepIndex < 0 || stepIndex >= durations.length)) {
     throw const PlaybackFailure('invalid_position', '이동할 슬라이드를 찾을 수 없습니다.');
@@ -60,7 +86,12 @@ import 'package:cloud_board/src/app/feature/playback/domain/playback_position.da
   return (
     status:
         status ??
-        (stepIndex != null && position.countdownMs > 0
+        (stepIndex != null &&
+                (position.countdownMs > 0 ||
+                    session.timerCompleted ||
+                    (currentForTime &&
+                        durations[position.index] > 0 &&
+                        position.remainingMs == 0))
             ? 'playing'
             : session.status.name),
     stepIndex: stepIndex ?? position.index,

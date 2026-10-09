@@ -148,6 +148,8 @@ class WorkoutModuleModel {
     required this.restSeconds,
     this.includeFinalRest = true,
     this.timingVersion = 1,
+    this.timerMode = WorkoutTimerMode.custom,
+    this.timerDirection = TimerDirection.down,
     this.rounds = 1,
     this.roundRestSeconds = 0,
     this.includeFinalRoundRest = true,
@@ -192,6 +194,8 @@ class WorkoutModuleModel {
   final int workSeconds, sets, restSeconds;
   final bool includeFinalRest;
   final int timingVersion, rounds, roundRestSeconds;
+  final WorkoutTimerMode timerMode;
+  final TimerDirection timerDirection;
   final bool includeFinalRoundRest;
   @JsonKey(defaultValue: true)
   final bool showTimer;
@@ -217,6 +221,8 @@ class WorkoutModuleModel {
     restSeconds: restSeconds,
     includeFinalRest: includeFinalRest,
     timingVersion: timingVersion,
+    timerMode: timerMode,
+    timerDirection: timerDirection,
     rounds: rounds,
     roundRestSeconds: roundRestSeconds,
     includeFinalRoundRest: includeFinalRoundRest,
@@ -254,6 +260,8 @@ class WorkoutModuleModel {
         restSeconds: value.restSeconds,
         includeFinalRest: value.includeFinalRest,
         timingVersion: value.timingVersion,
+        timerMode: value.timerMode,
+        timerDirection: value.timerDirection,
         rounds: value.rounds,
         roundRestSeconds: value.roundRestSeconds,
         includeFinalRoundRest: value.includeFinalRoundRest,

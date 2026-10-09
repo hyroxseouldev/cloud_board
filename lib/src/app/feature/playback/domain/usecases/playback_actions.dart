@@ -41,6 +41,9 @@ class PlaybackActions {
   Future<void> pause({required int remainingMs, required String deviceId}) =>
       _repository.pause(remainingMs: remainingMs, deviceId: deviceId);
 
+  Future<void> finishTimer({required String deviceId}) =>
+      _repository.finishTimer(deviceId: deviceId);
+
   Future<void> resume({required String deviceId}) =>
       _repository.resume(deviceId: deviceId);
 

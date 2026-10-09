@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
 
 import 'dart:async';
@@ -39,6 +40,7 @@ abstract class PlayerState with _$PlayerState {
     required int remainingMs,
     required bool isPaused,
     @Default(false) bool briefing,
+    @Default(false) bool timerCompleted,
     @Default(0) int countdownMs,
     @Default(0) int timelineVersion,
   }) = _PlayerState;
@@ -106,6 +108,7 @@ class PlayerController extends _$PlayerController {
   int _timelineVersion = 0;
   DateTime? _endsAt;
   DateTime? _startsAt;
+  DateTime? _elapsedAnchor;
   bool _transitioning = false;
   String? _announcedSessionId;
   int? _announcedStepIndex;
@@ -153,8 +156,14 @@ class PlayerController extends _$PlayerController {
           _now().millisecondsSinceEpoch + offset,
         );
         index = position.index;
-        isPaused = remote.status != PlaybackStatus.playing;
         remainingMs = position.remainingMs;
+        isPaused =
+            remote.status != PlaybackStatus.playing ||
+            remote.timerCompleted ||
+            (index < steps.length &&
+                steps[index].module.timerMode == WorkoutTimerMode.forTime &&
+                steps[index].duration > 0 &&
+                remainingMs == 0);
         countdownMs = position.countdownMs;
       }
     } else {
@@ -172,6 +181,7 @@ class PlayerController extends _$PlayerController {
       remainingMs: remainingMs,
       isPaused: isPaused,
       briefing: matchesSession && remote.briefing,
+      timerCompleted: matchesSession && remote.timerCompleted,
       countdownMs: countdownMs,
       timelineVersion: ++_timelineVersion,
     );
@@ -200,6 +210,8 @@ class PlayerController extends _$PlayerController {
       }
       if (index >= steps.length) {
         _announceCompletion();
+      } else if (forTimeEnded) {
+        _announceTimerEnd();
       } else if (initial.countdownMs > 0) {
         _announcePreparation();
       } else if (!initial.briefing &&
@@ -223,11 +235,26 @@ class PlayerController extends _$PlayerController {
       ? null
       : state.steps[state.index];
 
+  bool get forTimeEnded =>
+      currentStep?.module.timerMode == WorkoutTimerMode.forTime &&
+      (state.timerCompleted ||
+          (currentStep!.duration > 0 &&
+              state.remainingMs == 0 &&
+              state.countdownMs == 0));
+
   void _setDeadline(PlayerState value) {
+    final open =
+        value.index < value.steps.length &&
+        isOpenEndedTimer(value.steps[value.index].module);
+    _elapsedAnchor = open && !value.isPaused
+        ? _now()
+              .subtract(Duration(milliseconds: value.remainingMs))
+              .add(Duration(milliseconds: value.countdownMs))
+        : null;
     _startsAt = value.countdownMs > 0
         ? _now().add(Duration(milliseconds: value.countdownMs))
         : null;
-    _endsAt = value.isPaused
+    _endsAt = value.isPaused || open
         ? null
         : _now().add(
             Duration(milliseconds: value.remainingMs + value.countdownMs),
@@ -240,7 +267,11 @@ class PlayerController extends _$PlayerController {
         !ref.read(playbackRecoveryControllerProvider).hasValue) {
       return;
     }
-    if (state.isPaused || _endsAt == null || currentStep == null) return;
+    if (state.isPaused ||
+        currentStep == null ||
+        (_endsAt == null && _elapsedAnchor == null)) {
+      return;
+    }
     if (_startsAt != null) {
       final countdown = max(0, _startsAt!.difference(_now()).inMilliseconds);
       final previousSecond = (state.countdownMs / 1000).ceil();
@@ -255,7 +286,15 @@ class PlayerController extends _$PlayerController {
       _startsAt = null;
       // If the app resumed after this interval ended, announce only the
       // current interval selected below instead of replaying a past start.
-      if (_now().isBefore(_endsAt!)) _announceStep(state.index);
+      if (_elapsedAnchor != null || _now().isBefore(_endsAt!)) {
+        _announceStep(state.index);
+      }
+    }
+    if (_elapsedAnchor != null) {
+      state = state.copyWith(
+        remainingMs: max(0, _now().difference(_elapsedAnchor!).inMilliseconds),
+      );
+      return;
     }
     final left = max(0, _endsAt!.difference(_now()).inMilliseconds);
     final previousSecond = state.secondsLeft;
@@ -270,10 +309,29 @@ class PlayerController extends _$PlayerController {
       }
     }
     if (left <= 0 && !_transitioning) {
+      if (currentStep!.module.timerMode == WorkoutTimerMode.forTime) {
+        state = state.copyWith(isPaused: true, remainingMs: 0);
+        _endsAt = null;
+        _announceTimerEnd();
+        return;
+      }
       var nextIndex = state.index + 1;
       var nextRemaining = _endsAt!.difference(_now()).inMilliseconds;
       while (nextIndex < state.steps.length) {
+        if (isOpenEndedTimer(state.steps[nextIndex].module)) {
+          _goLocal(nextIndex, remainingMs: -nextRemaining);
+          return;
+        }
         nextRemaining += state.steps[nextIndex].duration * 1000;
+        if (state.steps[nextIndex].module.timerMode ==
+                WorkoutTimerMode.forTime &&
+            nextRemaining <= 0) {
+          _goLocal(nextIndex, remainingMs: 0);
+          state = state.copyWith(isPaused: true);
+          _endsAt = null;
+          _announceTimerEnd();
+          return;
+        }
         if (nextRemaining > 0) break;
         nextIndex++;
       }
@@ -315,7 +373,7 @@ class PlayerController extends _$PlayerController {
   }
 
   Future<void> toggle() async {
-    if (!_canCommand || state.briefing) return;
+    if (!_canCommand || state.briefing || forTimeEnded) return;
     if (sessionId == null) {
       _toggleLocal();
       return;
@@ -343,6 +401,38 @@ class PlayerController extends _$PlayerController {
         _restoreAfterFailure(previous);
       }
     }
+  }
+
+  Future<bool> finishTimer() async {
+    if (!_canCommand ||
+        state.briefing ||
+        state.countdownMs > 0 ||
+        forTimeEnded ||
+        currentStep?.module.timerMode != WorkoutTimerMode.forTime) {
+      return false;
+    }
+    if (sessionId != null) {
+      return ref.read(playbackActionControllerProvider.notifier).finishTimer();
+    }
+    _tick();
+    if (forTimeEnded) return false;
+    state = state.copyWith(isPaused: true, timerCompleted: true);
+    _endsAt = null;
+    _elapsedAnchor = null;
+    _announceTimerEnd();
+    return true;
+  }
+
+  void _announceTimerEnd() {
+    if (_announcedSessionId == sessionId &&
+        _announcedStepIndex == state.index &&
+        _announcedCompletion) {
+      return;
+    }
+    _announcedSessionId = sessionId;
+    _announcedStepIndex = state.index;
+    _announcedCompletion = true;
+    if (currentStep?.module.beep == true) _play(workout.workoutEndSound);
   }
 
   Future<void> play() async {
@@ -376,7 +466,12 @@ class PlayerController extends _$PlayerController {
   Future<void> previous() async {
     if (!_canCommand || state.briefing || state.countdownMs > 0) return;
     final target =
-        state.remainingMs < (currentStep?.duration ?? 0) * 1000 - 3000
+        timerElapsedMs(
+              currentStep!.module,
+              currentStep!.duration * 1000,
+              state.remainingMs,
+            ) >
+            3000
         ? state.index
         : state.index - 1;
     if (sessionId == null || !canControl) {
@@ -414,6 +509,14 @@ class PlayerController extends _$PlayerController {
         if (state.steps[i].moduleIndex == moduleIndex) i,
     ];
     if (indices.isEmpty) return;
+    if (isOpenEndedTimer(state.steps[indices.first].module)) {
+      if (sessionId == null) {
+        _goLocal(indices.first);
+      } else {
+        await _seekRemote(indices.first);
+      }
+      return;
+    }
     final totalMs = indices.fold<int>(
       0,
       (total, i) => total + state.steps[i].duration * 1000,
@@ -503,7 +606,15 @@ class PlayerController extends _$PlayerController {
         index: position.index,
         remainingMs: position.remainingMs,
         countdownMs: position.countdownMs,
-        isPaused: remote.status != PlaybackStatus.playing,
+        isPaused:
+            remote.status != PlaybackStatus.playing ||
+            remote.timerCompleted ||
+            (position.index < previous.steps.length &&
+                previous.steps[position.index].module.timerMode ==
+                    WorkoutTimerMode.forTime &&
+                previous.steps[position.index].duration > 0 &&
+                position.remainingMs == 0),
+        timerCompleted: remote.timerCompleted,
       );
     } else {
       state = previous.copyWith(
@@ -534,12 +645,18 @@ class PlayerController extends _$PlayerController {
       countdownMs: 0,
       index: safeIndex,
       remainingMs: remainingMs ?? state.steps[safeIndex].duration * 1000,
-      isPaused: state.isPaused,
+      isPaused: forTimeEnded ? false : state.isPaused,
+      timerCompleted: false,
     );
     state = next;
     _setDeadline(next);
     _announcedStepIndex = null;
-    if (!next.isPaused) _announceStep(safeIndex);
+    if (!next.isPaused &&
+        !(next.steps[safeIndex].module.timerMode == WorkoutTimerMode.forTime &&
+            next.steps[safeIndex].duration > 0 &&
+            next.remainingMs == 0)) {
+      _announceStep(safeIndex);
+    }
   }
 
   void _announceStep(int index) {

@@ -48,4 +48,4 @@ final class AndroidClassNotificationsProvider
 }
 
 String _$androidClassNotificationsHash() =>
-    r'3df5b2f880518517d90c2e65fb3c31980f64a15b';
+    r'47d54c881b64432d86147e744065182027559c2c';

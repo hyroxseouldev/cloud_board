@@ -14,13 +14,21 @@ internal object ClassCommand {
         require(index >= 0 && index < steps.length()) { "재생 위치가 올바르지 않습니다" }
         var remaining = state.getLong("remainingMs")
         require(remaining >= 0) { "남은 시간이 올바르지 않습니다" }
-        if (state.getString("status") != "playing") return Position(index, remaining, if (state.optBoolean("briefing")) 0 else state.optLong("startDelayMs"))
+        if (state.getString("status") != "playing" || state.optBoolean("timerCompleted")) return Position(index, remaining, if (state.optBoolean("briefing")) 0 else state.optLong("startDelayMs"))
         val elapsed = max(0, now - state.getLong("anchorServerMs"))
         val delay = state.optLong("startDelayMs")
+        if (steps.getJSONObject(index).getLong("durationMs") == 0L) {
+            return Position(index, remaining + max(0, elapsed - delay), max(0, delay - elapsed))
+        }
         remaining -= max(0, elapsed - delay)
         while (remaining <= 0 && index < steps.length()) {
+            if (steps.getJSONObject(index).optBoolean("forTime")) return Position(index, 0, max(0, delay - elapsed))
             index++
-            if (index < steps.length()) remaining += steps.getJSONObject(index).getLong("durationMs")
+            if (index < steps.length()) {
+                val duration = steps.getJSONObject(index).getLong("durationMs")
+                if (duration == 0L) return Position(index, -remaining, max(0, delay - elapsed))
+                remaining += duration
+            }
         }
         return Position(index, max(0, remaining), max(0, delay - elapsed))
     }
@@ -36,20 +44,24 @@ internal object ClassCommand {
         var index = position.index
         var remaining = position.remaining
         var status = state.getString("status")
+        val finished = state.optBoolean("timerCompleted") ||
+            (steps.getJSONObject(index).optBoolean("forTime") && steps.getJSONObject(index).getLong("durationMs") > 0 && remaining == 0L)
         when (action) {
             "pause" -> { require(status == "playing"); status = "paused" }
-            "play" -> { require(status == "paused"); status = "playing" }
+            "play" -> { require(status == "paused" && !finished); status = "playing" }
             "next" -> { index++; remaining = if (index < steps.length()) steps.getJSONObject(index).getLong("durationMs") else 0 }
             "previous" -> {
                 val duration = steps.getJSONObject(index).getLong("durationMs")
-                if (remaining >= duration - 3000) index = max(0, index - 1)
+                if ((if (duration == 0L) remaining else duration - remaining) <= 3000) index = max(0, index - 1)
                 remaining = steps.getJSONObject(index).getLong("durationMs")
             }
             "stop" -> { status = "completed"; remaining = 0 }
             else -> error("알 수 없는 명령입니다")
         }
         if (index == steps.length()) status = "completed"
+        if (finished && action in listOf("next", "previous") && index < steps.length()) status = "playing"
         return JSONObject(state.toString()).apply {
+            if (action in listOf("next", "previous", "stop")) put("timerCompleted", false)
             put("status", status); put("stepIndex", index); put("remainingMs", remaining)
             put("startDelayMs", if (action in listOf("pause", "play")) position.countdown else 0); put("briefing", false)
             put("revision", state.getLong("revision") + 1)

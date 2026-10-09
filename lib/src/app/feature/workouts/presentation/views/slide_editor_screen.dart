@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_section_editor.dart';
@@ -427,7 +428,6 @@ class _SlideEditorBody extends HookConsumerWidget {
     final selectedBlock =
         blocks.where((v) => v.id == selectedBlockId.value).firstOrNull ??
         blocks.first;
-    final total = workoutModuleDuration(module);
     final preview = Material(
       key: const ValueKey('slide-preview-card'),
       color: Theme.of(context).colorScheme.surface,
@@ -575,7 +575,7 @@ class _SlideEditorBody extends HookConsumerWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                durationLabel(total),
+                moduleDurationText(module),
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -590,7 +590,9 @@ class _SlideEditorBody extends HookConsumerWidget {
                   runSpacing: 4,
                   children: [
                     Text(
-                      '운동 $workPerSet',
+                      isContinuousTimer(module)
+                          ? timerModeLabel(module.timerMode)
+                          : '운동 $workPerSet',
                       semanticsLabel: '세트당 운동 $workPerSet',
                     ),
                     Text(

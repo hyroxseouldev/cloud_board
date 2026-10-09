@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -28,6 +30,9 @@ class WorkoutControlPanel extends HookWidget {
     this.progress,
     this.message,
     this.onMinimize,
+    this.onFinishTimer,
+    this.timerResult,
+    this.timerFinished = false,
     this.locked = false,
     this.onLockChanged,
   });
@@ -41,7 +46,9 @@ class WorkoutControlPanel extends HookWidget {
   final Widget timeline;
   final Widget? progress;
   final String? message;
-  final VoidCallback? onMinimize;
+  final VoidCallback? onMinimize, onFinishTimer;
+  final String? timerResult;
+  final bool timerFinished;
   final bool locked;
   final ValueChanged<bool>? onLockChanged;
 
@@ -201,7 +208,9 @@ class WorkoutControlPanel extends HookWidget {
                                   const SizedBox(width: 24),
                                   IconButton(
                                     tooltip: paused ? '재생' : '일시정지',
-                                    onPressed: disabled ? null : onToggle,
+                                    onPressed: disabled || timerFinished
+                                        ? null
+                                        : onToggle,
                                     iconSize: 40,
                                     color: AppColors.accent,
                                     icon: Icon(
@@ -222,6 +231,27 @@ class WorkoutControlPanel extends HookWidget {
                                   ),
                                 ],
                               ),
+                              if (onFinishTimer != null)
+                                FilledButton.icon(
+                                  key: const ValueKey('finish-for-time'),
+                                  onPressed: disabled ? null : onFinishTimer,
+                                  icon: const Icon(Icons.check),
+                                  label: const Text('운동 완료'),
+                                ),
+                              if (timerResult != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    timerResult!,
+                                    key: const ValueKey('for-time-result'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
                               if (message != null)
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
@@ -342,12 +372,14 @@ class WorkoutControlTimeline extends HookWidget {
     this.modules = const [],
     this.onSeek,
     this.section = WorkoutTimelineSection.all,
+    this.timerFinished = false,
   });
   final List<int> durations;
   final List<WorkoutModule> modules;
   final int currentModule, elapsedMs;
   final Future<void> Function(int moduleIndex, int elapsedMs)? onSeek;
   final WorkoutTimelineSection section;
+  final bool timerFinished;
 
   @override
   Widget build(BuildContext context) {
@@ -360,6 +392,33 @@ class WorkoutControlTimeline extends HookWidget {
     );
     if (durations.isEmpty) return const SizedBox.shrink();
     final current = currentModule.clamp(0, durations.length - 1);
+    final hasOpen = modules.any(isOpenEndedTimer);
+    final isOpen =
+        current < modules.length && isOpenEndedTimer(modules[current]);
+    if (hasOpen) {
+      if (section == WorkoutTimelineSection.progress) {
+        return Text('슬라이드 ${current + 1}/${durations.length} · 제한시간 없는 운동 포함');
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _title(current),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          Text(
+            isOpen
+                ? '경과 ${_time(elapsedMs)} · 제한시간 없음'
+                : '${_time(elapsedMs)} / ${_time(durations[current] * 1000)}',
+          ),
+          if (onSeek != null)
+            TextButton(
+              onPressed: () => onSeek!(current, 0),
+              child: const Text('현재 운동 처음부터 다시 시작'),
+            ),
+        ],
+      );
+    }
     final target = candidate.value;
     final active = (target?.moduleIndex ?? current).clamp(
       0,
@@ -416,7 +475,7 @@ class WorkoutControlTimeline extends HookWidget {
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             ),
             Text(
-              '${_time(classElapsed)} / ${_time(totalMs)}',
+              '${_time(classElapsed)} / ${modules.any((m) => m.timerMode == WorkoutTimerMode.forTime) ? '최대 ' : ''}${_time(totalMs)}',
               semanticsLabel:
                   '전체 수업 ${_time(classElapsed)} / ${_time(totalMs)}',
               style: const TextStyle(color: AppColors.muted, fontSize: 13),
@@ -582,7 +641,7 @@ class WorkoutControlTimeline extends HookWidget {
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
-            if (frame != null)
+            if (frame != null && !timerFinished)
               Text(
                 '${_time(frame.remainingMs, roundUp: true)} 남음',
                 style: const TextStyle(color: AppColors.muted, fontSize: 13),

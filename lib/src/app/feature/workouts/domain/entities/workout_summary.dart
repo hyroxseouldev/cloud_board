@@ -13,6 +13,7 @@ abstract class WorkoutSummary with _$WorkoutSummary {
     required String imageSource,
     required int moduleCount,
     required int durationSeconds,
+    @Default('fixed') String durationKind,
     required DateTime updatedAt,
   }) = _WorkoutSummary;
 }
@@ -24,5 +25,6 @@ WorkoutSummary summarizeWorkout(Workout workout) => WorkoutSummary(
   imageSource: workout.modules.firstOrNull?.imageSource ?? '',
   moduleCount: workout.modules.length,
   durationSeconds: workoutDuration(workout),
+  durationKind: workoutDurationKind(workout),
   updatedAt: workout.updatedAt,
 );

@@ -60,7 +60,7 @@ final class SlideRehearsalControllerProvider
 }
 
 String _$slideRehearsalControllerHash() =>
-    r'2c0949c10784f0f11fb5ba6d9d58acdec86c06a0';
+    r'c9083764cb706bbf9d9ff43c3e7aead09f68c16a';
 
 final class SlideRehearsalControllerFamily extends $Family
     with
