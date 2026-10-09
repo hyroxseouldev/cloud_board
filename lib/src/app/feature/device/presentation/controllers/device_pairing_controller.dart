@@ -108,7 +108,8 @@ class DeviceClaimController extends _$DeviceClaimController {
     final profile = values[0] as UserProfile;
     final devices = values[1] as List<DisplayDevice>;
     if (!profile.hasPlanDisplayPolicy &&
-        devices.where((item) => item.paired).length >= profile.displayLimit) {
+        devices.where((item) => item.paired).length >= profile.displayLimit &&
+        !devices.any((item) => item.paired && item.pairingCode == code)) {
       throw StateError(
         '현재 등급에서는 디스플레이를 ${profile.displayLimit}대까지 연결할 수 있습니다.',
       );

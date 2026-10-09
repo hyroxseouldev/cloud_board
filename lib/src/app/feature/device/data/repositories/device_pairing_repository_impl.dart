@@ -56,6 +56,14 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
   );
 
   @override
+  Future<void> identify(String deviceId, String nonce, int expiresAtMs) =>
+      _dataSource.identify(deviceId, nonce, expiresAtMs);
+
+  @override
+  Future<void> acknowledgeIdentification(String deviceId, String nonce) =>
+      _dataSource.acknowledgeIdentification(deviceId, nonce);
+
+  @override
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,

@@ -27,6 +27,10 @@ class DisplayDevice {
     required this.currentSessionId,
     required this.acknowledgedRevision,
     required this.paired,
+    this.pairingCode = '',
+    this.identificationId,
+    this.identificationExpiresAtMs = 0,
+    this.identificationAck,
     this.displayState = 'auto',
     this.preferences = const DisplayPreferences(),
     this.lastCommandAtMs = 0,
@@ -42,6 +46,10 @@ class DisplayDevice {
   final String? currentSessionId;
   final int acknowledgedRevision;
   final bool paired;
+  final String pairingCode;
+  final String? identificationId;
+  final int identificationExpiresAtMs;
+  final String? identificationAck;
   final String displayState;
   final DisplayPreferences preferences;
   final int lastCommandAtMs;

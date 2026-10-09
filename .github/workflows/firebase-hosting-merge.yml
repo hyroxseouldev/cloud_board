@@ -78,6 +78,11 @@ jobs:
       - name: Test AI premium access, shared budget, and concurrent requests
         run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-ai 'node functions/test/ai-timer-emulator.mjs && node functions/test/ai-slides-emulator.mjs && node functions/test/ai-slides-theme-emulator.mjs'
 
+      - name: Export starter pack and test first-class contracts
+        run: |
+          flutter test tool/export_starter_workout_fixtures_test.dart
+          npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-first-class 'node functions/test/first-class-emulator.mjs'
+
       - name: Test onboarding transactions and security rules
         run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'
 

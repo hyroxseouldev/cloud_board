@@ -86,9 +86,19 @@ class WorkoutFirestoreDataSource {
         .get(const GetOptions(source: Source.server));
   }
 
-  Future<WorkoutModel?> loadOne(String userId, String workoutId) async {
+  Future<WorkoutModel?> loadOne(
+    String userId,
+    String workoutId, {
+    bool requireServer = false,
+  }) async {
     // Default SDK source refreshes online and retains existing detail cache offline.
-    final snapshot = await _workouts(userId).doc(workoutId).get();
+    final snapshot = await _workouts(userId)
+        .doc(workoutId)
+        .get(
+          GetOptions(
+            source: requireServer ? Source.server : Source.serverAndCache,
+          ),
+        );
     return snapshot.exists
         ? WorkoutDocument.decode({...snapshot.data()!, 'id': snapshot.id})
         : null;
@@ -137,7 +147,11 @@ class WorkoutFirestoreDataSource {
           )
           .toList();
 
-  Future<WorkoutModel> save(String userId, WorkoutModel workout) async {
+  Future<WorkoutModel> save(
+    String userId,
+    WorkoutModel workout, {
+    bool ifAbsent = false,
+  }) async {
     // Never persist settings composed for a preview. Preserve existing legacy
     // values during rollout; switch to content-only only after admin activation.
     return _firestore.runTransaction((transaction) async {
@@ -146,6 +160,9 @@ class WorkoutFirestoreDataSource {
       )).data();
       final reference = _workouts(userId).doc(workout.id);
       final previous = (await transaction.get(reference)).data();
+      if (ifAbsent && previous != null) {
+        return WorkoutDocument.decode({...previous, 'id': workout.id});
+      }
       final documents = WorkoutSaveDocuments(
         workout,
         contentOnly: settings?['contentOnly'] == true,

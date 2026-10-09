@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/starter_workouts_screen.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboarding_screen.dart';
 import 'package:cloud_board/src/app/feature/billing/presentation/views/subscription_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
@@ -119,6 +122,18 @@ GoRouter appRouter(Ref ref) {
           ),
         ),
         routes: [
+          GoRoute(
+            path: '/first-class',
+            builder: (_, _) => const FirstClassScreen(),
+          ),
+          GoRoute(
+            path: '/starter-workouts',
+            builder: (_, _) => const StarterWorkoutsScreen(),
+          ),
+          GoRoute(
+            path: '/displays/connect',
+            builder: (_, _) => const FirstTvConnectionScreen(),
+          ),
           GoRoute(
             path: '/subscription',
             builder: (_, _) => const SubscriptionScreen(),

@@ -42,6 +42,12 @@ class DevicePairingActions {
     displayState: displayState,
   );
 
+  Future<void> identify(String deviceId, String nonce, int expiresAtMs) =>
+      _repository.identify(deviceId, nonce, expiresAtMs);
+
+  Future<void> acknowledgeIdentification(String deviceId, String nonce) =>
+      _repository.acknowledgeIdentification(deviceId, nonce);
+
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,
