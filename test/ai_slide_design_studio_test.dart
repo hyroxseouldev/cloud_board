@@ -34,14 +34,19 @@ class _DesignRepository implements AiSlideDesignRepository {
   Completer<AiSlideDesignResult>? pending;
   Completer<AiSlideDesign?>? restoring;
   int calls = 0;
+  int accessCalls = 0;
   String scope(String owner, String? store) => '$owner/${store ?? 'legacy'}';
   @override
-  Future<AiSlidesAccess> access(String ownerId) async => const AiSlidesAccess(
-    premium: true,
-    enabled: true,
-    remaining: 30,
-    limit: 30,
-  );
+  Future<AiSlidesAccess> access(String ownerId) async {
+    accessCalls++;
+    return const AiSlidesAccess(
+      premium: true,
+      enabled: true,
+      remaining: 30,
+      limit: 30,
+    );
+  }
+
   @override
   Future<AiSlideDesignResult> generate(
     String ownerId,
@@ -539,6 +544,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('스타일 제안'), findsOneWidget);
       expect(find.text('이미지로 시작'), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-design-usage')), findsOneWidget);
+      expect(designs.accessCalls, 1);
       expect(
         find.byKey(const ValueKey('ai-design-catalog-banner')),
         findsNothing,
@@ -558,6 +565,12 @@ void main() {
       await tester.tap(find.text('이미지로 시작'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-reference-pick')), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-design-usage')), findsOneWidget);
+      expect(
+        designs.accessCalls,
+        1,
+        reason: 'Both design modes share one access check',
+      );
       await tester.tap(find.byKey(const ValueKey('ai-nav-content')));
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(title).controller!.text, '오늘의 수업');

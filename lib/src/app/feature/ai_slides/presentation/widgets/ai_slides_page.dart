@@ -167,10 +167,11 @@ class AiSlidesPage extends HookConsumerWidget {
                     draft: draft,
                     warnings: state.warnings,
                     onChanged: controller.updateDraft,
+                    validationMessage: warning,
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    '오른쪽 위 +로 슬라이드를 추가한 뒤 워크아웃을 저장해 주세요.',
+                    '오른쪽 위 저장 아이콘으로 슬라이드를 추가한 뒤 워크아웃을 저장해 주세요.',
                     style: TextStyle(fontSize: 12),
                   ),
                 ],
@@ -249,19 +250,13 @@ class AiSlidesPage extends HookConsumerWidget {
             ],
           ),
           actions: [
-            if (draft != null)
-              IconButton(
-                tooltip: '되돌리기',
-                onPressed: state.canUndo && !busy ? controller.undo : null,
-                icon: const Icon(Icons.undo_rounded),
-              ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: IconButton.filledTonal(
+              child: IconButton(
                 key: const ValueKey('ai-slides-add'),
                 tooltip: '슬라이드 추가',
                 onPressed: canAdd ? add : null,
-                icon: const Icon(Icons.add_rounded),
+                icon: const Icon(Icons.save_outlined),
               ),
             ),
           ],
@@ -279,7 +274,6 @@ class AiSlidesPage extends HookConsumerWidget {
                     AiSlidesNotice(state.storageError!, error: true),
                   if (draft != null && state.error != null)
                     AiSlidesNotice(state.error!, error: true),
-                  if (warning != null) AiSlidesNotice(warning, error: true),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, bounds) {

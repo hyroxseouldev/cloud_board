@@ -327,6 +327,71 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           AiSlidesNotice(state.templateError!),
         const SizedBox(height: 16),
         if (!catalog)
+          Container(
+            key: const ValueKey('ai-design-usage'),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '디자인 만들기 사용량',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                access!.when(
+                  loading: () => const Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text('사용량 확인 중…', style: TextStyle(fontSize: 12)),
+                    ],
+                  ),
+                  error: (_, _) => Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '사용량을 불러오지 못했어요.',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            ref.invalidate(aiSlideDesignAccessProvider),
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('새로고침'),
+                      ),
+                    ],
+                  ),
+                  data: (value) => Text(
+                    !value.premium
+                        ? '새 디자인 만들기는 프리미엄 기능이에요.'
+                        : !value.enabled
+                        ? '새 디자인 만들기를 준비 중이에요.'
+                        : '이번 달 ${state.remaining ?? value.remaining}/${value.limit}회 남음',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '스타일 제안과 이미지로 시작에서 함께 사용해요.',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        if (!catalog)
           SegmentedButton<_StartPath>(
             showSelectedIcon: false,
             segments: const [
@@ -450,37 +515,6 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               border: const OutlineInputBorder(),
             ),
           ),
-          if (access?.isLoading == true)
-            const LinearProgressIndicator(minHeight: 2),
-          if (access?.hasError == true)
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '이용 가능 여부를 확인하지 못했어요.',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => ref.invalidate(aiSlideDesignAccessProvider),
-                  child: const Text('다시 확인'),
-                ),
-              ],
-            ),
-          if (access?.hasValue == true && !canGenerate)
-            AiSlidesNotice(
-              access!.value!.premium
-                  ? '새 디자인 만들기를 준비 중이에요. 템플릿으로 시작해 주세요.'
-                  : '스타일 제안과 이미지로 시작하기는 프리미엄 기능이에요.',
-            ),
-          if (canGenerate)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                '이번 달 AI 사용 가능 ${state.remaining ?? access!.value!.remaining}회',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
           FilledButton.icon(
             key: const ValueKey('ai-design-generate'),
             onPressed:

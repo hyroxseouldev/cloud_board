@@ -12,10 +12,11 @@ class AiSlidesSyncedField extends HookWidget {
     this.maxLines = 1,
     this.maxLength,
     this.hint,
+    this.errorText,
   });
   final Key fieldKey;
   final String value, label;
-  final String? hint;
+  final String? hint, errorText;
   final int minLines, maxLines;
   final int? maxLength;
   final ValueChanged<String> onChanged;
@@ -42,6 +43,8 @@ class AiSlidesSyncedField extends HookWidget {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        errorText: errorText,
+        errorMaxLines: 3,
         alignLabelWithHint: true,
       ),
       onChanged: onChanged,

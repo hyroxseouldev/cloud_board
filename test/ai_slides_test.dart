@@ -386,7 +386,7 @@ void main() {
     },
   );
   testWidgets(
-    'edited sections survive close, failed regeneration and undo without extra generation',
+    'edited sections survive close and failed regeneration without extra generation',
     (tester) async {
       final repository = FakeAiSlidesRepository()
         ..result = const AiSlidesResult(
@@ -467,10 +467,11 @@ void main() {
             .text,
         '수정한 수업',
       );
-      await tester.tap(find.byTooltip('되돌리기'));
-      await tester.pumpAndSettle();
       await reveal(tester, lines);
-      expect(tester.widget<TextField>(lines).controller!.text, 'Squat 10 reps');
+      expect(
+        tester.widget<TextField>(lines).controller!.text,
+        'Squat 10 reps\nRun 200m',
+      );
       expect(repository.calls, 2);
       expect(tester.takeException(), isNull);
     },
@@ -492,11 +493,32 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('ai-slide-title')));
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
+    final title = find.byKey(const ValueKey('ai-slide-title'));
+    await tester.enterText(title, '');
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(title).decoration!.errorText,
+      '제목을 입력해 주세요.',
+    );
+    expect(find.textContaining('1~60자'), findsNothing);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
+          .onPressed,
+      isNull,
+    );
     await tester.enterText(
       find.byKey(const ValueKey('ai-slide-title')),
       '휴대폰 편집',
     );
     await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(title).decoration!.errorText, isNull);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
+          .onPressed,
+      isNotNull,
+    );
     expect(tester.takeException(), isNull);
     tester.view.resetViewInsets();
     FocusManager.instance.primaryFocus?.unfocus();
