@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
@@ -162,10 +163,7 @@ void main() {
       await tester.tap(find.text('나의 워밍업'));
       await tester.pumpAndSettle();
       expect(tester.widget<ReorderableListView>(list).itemCount, 13);
-      expect(
-        find.widgetWithText(ListTile, '나의 워밍업').hitTestable(),
-        findsOneWidget,
-      );
+      expect(_slideListCard('나의 워밍업').hitTestable(), findsOneWidget);
       await tester.drag(list, const Offset(0, -5000));
       await tester.pumpAndSettle();
       await tester.ensureVisible(
@@ -174,7 +172,7 @@ void main() {
       await tester.tap(find.byTooltip('슬라이드 추가'));
       await tester.pumpAndSettle();
       expect(tester.widget<ReorderableListView>(list).itemCount, 14);
-      expect(find.text('새 운동 1').hitTestable(), findsOneWidget);
+      expect(_slideListCard('새 운동 1').hitTestable(), findsOneWidget);
       expect(find.byTooltip('나의 워밍업 칩 삭제'), findsNothing);
       expect(tester.widget<ReorderableListView>(list).itemCount, 14);
       expect(tester.getTopLeft(find.text('워크아웃 편집')), header);
@@ -217,3 +215,7 @@ class _ManyTemplates extends SlideTemplatesController {
     ),
   );
 }
+
+Finder _slideListCard(String name) => find.byWidgetPredicate(
+  (widget) => widget is WorkoutSlideListCard && widget.module.name == name,
+);
