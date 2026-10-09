@@ -152,15 +152,13 @@ void main() {
     FakeAiSlidesRepository repository,
     ValueChanged<List<WorkoutModule>?> onResult,
   ) async {
-    if (const bool.fromEnvironment('CLOUDBOARD_DOLPA_REFERENCE')) {
-      await tester.runAsync(
-        () => Future.wait(
-          originalSlideTemplates.map(
-            (template) => loadOriginalSlideImage(template.id),
-          ),
+    await tester.runAsync(
+      () => Future.wait(
+        originalSlideTemplates.map(
+          (template) => loadOriginalSlideImage(template.id),
         ),
-      );
-    }
+      ),
+    );
     final router = GoRouter(
       routes: [
         GoRoute(
