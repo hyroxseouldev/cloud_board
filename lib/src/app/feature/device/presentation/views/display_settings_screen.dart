@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -42,16 +43,18 @@ class DisplaySettingsScreen extends HookConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(diagnosticMessage(next.error!)),
-            action: SnackBarAction(
-              label: '상세',
-              onPressed: () => showErrorDetails(
-                context,
-                ref.read(errorReporterProvider),
-                next.error!,
-                next.stackTrace,
-                'pairing.action',
-              ),
-            ),
+            action: kDebugMode
+                ? SnackBarAction(
+                    label: '상세',
+                    onPressed: () => showErrorDetails(
+                      context,
+                      ref.read(errorReporterProvider),
+                      next.error!,
+                      next.stackTrace,
+                      'pairing.action',
+                    ),
+                  )
+                : null,
           ),
         );
       }

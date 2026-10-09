@@ -22,9 +22,7 @@ class AiSlidesContentEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final template = originalSlideTemplate(draft.designStyle?.originalTemplate);
     final title = draft.title.trim();
-    final titleError = template?.fixedTitle == true
-        ? null
-        : title.isEmpty
+    final titleError = title.isEmpty
         ? '제목을 입력해 주세요.'
         : title.length > 60
         ? '제목은 60자 이내로 적어 주세요.'
@@ -67,26 +65,14 @@ class AiSlidesContentEditor extends StatelessWidget {
                 onChanged(draft.copyWith(designHeaderLabel: value)),
           ),
         const SizedBox(height: 8),
-        if (template?.fixedTitle == true)
-          TextFormField(
-            key: const ValueKey('ai-slide-title'),
-            initialValue: template!.title,
-            readOnly: true,
-            enableInteractiveSelection: false,
-            decoration: const InputDecoration(
-              labelText: '원본 제목 (고정)',
-              helperText: '제목과 한자 장식은 원본 그대로 유지해요.',
-            ),
-          )
-        else
-          AiSlidesSyncedField(
-            fieldKey: const ValueKey('ai-slide-title'),
-            value: draft.title,
-            label: '슬라이드 제목',
-            maxLength: 60,
-            errorText: titleError,
-            onChanged: (value) => onChanged(draft.copyWith(title: value)),
-          ),
+        AiSlidesSyncedField(
+          fieldKey: const ValueKey('ai-slide-title'),
+          value: draft.title,
+          label: '슬라이드 제목',
+          maxLength: 60,
+          errorText: titleError,
+          onChanged: (value) => onChanged(draft.copyWith(title: value)),
+        ),
         const SizedBox(height: 8),
         AiSlidesSyncedField(
           fieldKey: const ValueKey('ai-slide-subtitle'),

@@ -33,6 +33,9 @@ String? aiSlideDesignStoreId(Ref ref) {
 
 @Riverpod(keepAlive: true)
 class AiSlideDesignController extends _$AiSlideDesignController {
+  AiSlideDesignController() : persistSelection = true;
+  AiSlideDesignController.fresh() : persistSelection = false;
+  final bool persistSelection;
   late _DesignSession _session;
   @override
   AiSlideDesignStudioState build() {
@@ -81,6 +84,7 @@ class AiSlideDesignController extends _$AiSlideDesignController {
               }
             },
           );
+      if (!persistSelection) return;
       final selected = await session.actions!.loadSelected(
         session.ownerId!,
         session.storeId,
@@ -107,7 +111,7 @@ class AiSlideDesignController extends _$AiSlideDesignController {
     session.selectedByUser = true;
     final selected = design.copyWith(storeId: session.storeId);
     state = state.copyWith(selected: selected, saved: false, error: null);
-    if (session.ownerId == null) return;
+    if (session.ownerId == null || !persistSelection) return;
     try {
       await session.actions!.saveSelected(
         session.ownerId!,

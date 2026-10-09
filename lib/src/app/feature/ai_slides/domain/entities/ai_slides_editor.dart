@@ -85,7 +85,7 @@ AiSlideDraft applyAiSlideTheme(AiSlideDraft draft, AiSlideTheme theme) =>
       designFontWeight: theme.designFontWeight,
       designItalic: theme.designItalic,
       designSpacing: theme.designSpacing,
-      showTimer: theme.designStyle?.originalTemplate == null && theme.showTimer,
+      showTimer: theme.showTimer,
       timerX: theme.timerX,
       timerY: theme.timerY,
       timerSize: theme.timerSize,

@@ -198,6 +198,39 @@ void main() {
     await storage.dispose();
   });
 
+  test('fresh creation ignores old drafts and presets and never autosaves its session', () async {
+    const oldDraft = AiSlidesSavedDraft(
+      prompt: 'previous class',
+      draft: example,
+    );
+    storage.drafts['alice'] = oldDraft;
+    storage.themes['alice'] = const AiSlideTheme(designAccentColor: 0xFF123456);
+    final fresh = ProviderContainer(
+      parent: container,
+      overrides: [
+        aiSlidesControllerProvider.overrideWith(AiSlidesController.fresh),
+      ],
+    );
+    addTearDown(fresh.dispose);
+    fresh.read(aiSlidesControllerProvider);
+    await settle(fresh);
+    expect(fresh.read(aiSlidesControllerProvider).draft, isNull);
+    expect(fresh.read(aiSlidesControllerProvider).prompt, isEmpty);
+    final controller = fresh.read(aiSlidesControllerProvider.notifier);
+    await controller.generate('new class');
+    expect(
+      fresh.read(aiSlidesControllerProvider).draft!.designAccentColor,
+      example.designAccentColor,
+    );
+    controller.setPrompt('unsaved notes');
+    await controller.flush();
+    fresh.invalidate(aiSlidesControllerProvider);
+    fresh.read(aiSlidesControllerProvider);
+    await settle(fresh);
+    expect(fresh.read(aiSlidesControllerProvider).draft, isNull);
+    expect(storage.drafts['alice'], oldDraft);
+  });
+
   test(
     'edited draft restores after flush and provider reconstruction',
     () async {

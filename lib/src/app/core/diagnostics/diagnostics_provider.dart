@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostic_queue.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
+import 'package:cloud_board/src/app/core/diagnostics/workout_diagnostic_sink.dart';
 
 part 'diagnostics_provider.g.dart';
 
@@ -35,7 +36,13 @@ Future<ErrorReporter> initializeDiagnostics({
       const Duration(seconds: 2),
     );
   } catch (_) {}
-  final sink = kIsWeb ? _WebSink() : _CrashlyticsSink();
+  final cloudLogging = _CloudLoggingSink();
+  final sink = kIsWeb
+      ? cloudLogging
+      : WorkoutDiagnosticSink(
+          primary: _CrashlyticsSink(),
+          alerts: cloudLogging,
+        );
   final reporter = _applicationReporter = ErrorReporter(
     sink,
     defaults: {
@@ -82,8 +89,8 @@ class _CrashlyticsSink implements DiagnosticSink {
   }
 }
 
-class _WebSink implements DiagnosticSink {
-  _WebSink() {
+class _CloudLoggingSink implements DiagnosticSink {
+  _CloudLoggingSink() {
     final auth = FirebaseAuth.instance;
     queue = DiagnosticQueue(
       read: () async => (await SharedPreferences.getInstance()).getString(_key),

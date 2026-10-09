@@ -14,13 +14,33 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: google-play-main
   cancel-in-progress: false
 
 jobs:
+  backend_ready:
+    name: Wait for verified backend deployment
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
+      !contains(github.event.head_commit.message, '[skip google-play]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require this commit's tested and deployed Firebase rules
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release_backend_gate.mjs
+
   upload:
+    needs: backend_ready
     name: Build and upload to internal testing
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -145,6 +165,12 @@ jobs:
 
       # Keep automatic releases on internal testing while the first production
       # release is in review. Do not resubmit Alpha or production changes.
+      - name: Recheck backend before publishing
+        if: vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' && (github.event_name == 'push' || inputs.upload_to_play)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release_backend_gate.mjs --check-only
+
       - name: Upload mobile and TV bundle to internal testing
         if: >-
           vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&

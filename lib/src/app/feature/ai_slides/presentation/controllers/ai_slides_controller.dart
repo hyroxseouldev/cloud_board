@@ -26,6 +26,9 @@ String? aiSlidesOwnerId(Ref ref) {
 
 @Riverpod(keepAlive: true)
 class AiSlidesController extends _$AiSlidesController {
+  AiSlidesController() : persistDraft = true;
+  AiSlidesController.fresh() : persistDraft = false;
+  final bool persistDraft;
   late _EditorSession _session;
 
   @override
@@ -39,7 +42,10 @@ class AiSlidesController extends _$AiSlidesController {
       session.finishThemeLoading();
       unawaited(session.themeSubscription?.cancel());
       // Use only the captured account/snapshot, never a new account's state.
-      if (session.ready && session.changed && session.ownerId != null) {
+      if (persistDraft &&
+          session.ready &&
+          session.changed &&
+          session.ownerId != null) {
         unawaited(
           session.actions!
               .saveDraft(session.ownerId!, session.snapshot)
@@ -98,7 +104,9 @@ class AiSlidesController extends _$AiSlidesController {
       session.finishThemeLoading();
     }
     try {
-      final saved = await actions.loadDraft(session.ownerId!);
+      final saved = persistDraft
+          ? await actions.loadDraft(session.ownerId!)
+          : null;
       if (!_current(session)) return;
       if (!session.changed && saved != null) {
         state = state.copyWith(
@@ -164,7 +172,7 @@ class AiSlidesController extends _$AiSlidesController {
   void applyDesign(AiSlideTheme theme, {String? classLabel}) {
     final template = originalSlideTemplate(theme.designStyle?.originalTemplate);
     final original = template != null;
-    final fixedTheme = original ? theme.copyWith(showTimer: false) : theme;
+    final fixedTheme = theme;
     _session.preferredTheme = fixedTheme;
     final draft = applyAiSlideTheme(
       state.draft == null || (original && isUneditedAiSlideSample(state.draft!))
@@ -174,10 +182,7 @@ class AiSlidesController extends _$AiSlidesController {
     );
     updateDraft(
       original
-          ? draft.copyWith(
-              title: template.fixedTitle ? template.title : draft.title,
-              designHeaderLabel: template.programLabel,
-            )
+          ? draft.copyWith(designHeaderLabel: template.programLabel)
           : classLabel == null
           ? draft
           : draft.copyWith(designHeaderLabel: classLabel),
@@ -187,11 +192,7 @@ class AiSlidesController extends _$AiSlidesController {
   void updateDraft(AiSlideDraft draft) {
     final template = originalSlideTemplate(draft.designStyle?.originalTemplate);
     if (template != null) {
-      draft = draft.copyWith(
-        title: template.fixedTitle ? template.title : draft.title,
-        designHeaderLabel: template.programLabel,
-        showTimer: false,
-      );
+      draft = draft.copyWith(designHeaderLabel: template.programLabel);
     }
     if (draft == state.draft) return;
     _remember();
@@ -275,7 +276,7 @@ class AiSlidesController extends _$AiSlidesController {
       return;
     }
     _remember();
-    final theme = session.preferredTheme ?? state.theme;
+    final theme = session.preferredTheme ?? (persistDraft ? state.theme : null);
     final template = originalSlideTemplate(
       theme?.designStyle?.originalTemplate,
     );
@@ -285,8 +286,6 @@ class AiSlidesController extends _$AiSlidesController {
     final draft = content.copyWith(
       title: template == null
           ? generated.slides.single.title
-          : template.fixedTitle
-          ? template.title
           : state.draft?.title ?? template.title,
       designHeaderLabel:
           template?.programLabel ??
@@ -313,6 +312,7 @@ class AiSlidesController extends _$AiSlidesController {
     session.snapshot = _snapshot();
     session.changed = true;
     session.debounce?.cancel();
+    if (!persistDraft) return;
     if (!session.ready || session.ownerId == null) return;
     session.debounce = Timer(
       const Duration(milliseconds: 350),
@@ -322,6 +322,7 @@ class AiSlidesController extends _$AiSlidesController {
 
   /// Call on sheet dismissal and app lifecycle changes to flush the debounce.
   Future<void> flush() async {
+    if (!persistDraft) return;
     final session = _session;
     session.debounce?.cancel();
     if (!session.ready || session.ownerId == null || !session.changed) return;
@@ -346,6 +347,8 @@ class AiSlidesController extends _$AiSlidesController {
     // A completion from an earlier request must not recreate a discarded draft.
     session.draftRevision++;
     session.history.clear();
+    session.preferredTheme = null;
+    session.preferredClassLabel = null;
     state = state.copyWith(
       prompt: '',
       generatedPrompt: null,

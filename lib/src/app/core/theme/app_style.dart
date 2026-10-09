@@ -12,7 +12,7 @@ class AppStyle extends ThemeExtension<AppStyle> {
   static const cardMinHeight = 280.0;
   static const popupWidth = 420.0;
   static const popupMinHeight = 240.0;
-  static const controlRadius = 14.0;
+  static const controlRadius = 12.0;
   static const cardRadius = 24.0;
   static const floatingRadius = 40.0;
 
@@ -30,7 +30,7 @@ class AppStyle extends ThemeExtension<AppStyle> {
       fontFamily: 'Pretendard',
       fontSize: size,
       fontWeight: FontWeight.w700,
-      letterSpacing: -size * .02,
+      letterSpacing: -size * .05,
       height: 1.25,
     );
   }
@@ -39,8 +39,7 @@ class AppStyle extends ThemeExtension<AppStyle> {
   TextStyle get subText1 => _bold(32, 24);
   TextStyle get subText2 => _bold(28, 20);
   TextStyle get subText3 => _bold(24, 18);
-  TextStyle get buttonText =>
-      _bold(24, 16).copyWith(fontWeight: FontWeight.w600, letterSpacing: -.2);
+  TextStyle get buttonText => _bold(24, 16);
 
   @override
   AppStyle copyWith({bool? compact}) =>

@@ -29,6 +29,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
     this.creationPath = AiSlideCreationPath.notes,
     this.onCreationPathChanged,
     this.notesEditor,
+    this.onEdited,
   });
   final AiSlideDesignStudioSection section;
   final AiSlideDraft? draft;
@@ -36,6 +37,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
   final AiSlideCreationPath creationPath;
   final ValueChanged<AiSlideCreationPath>? onCreationPathChanged;
   final Widget? notesEditor;
+  final VoidCallback? onEdited;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,6 +95,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         if (!sameScope()) return;
         reference.value = bytes;
         referenceName.value = image.name;
+        onEdited?.call();
       } catch (_) {
         if (context.mounted) {
           pickerError.value = '사진을 불러오지 못했어요. 사진 접근 권한을 확인해 주세요.';
@@ -262,6 +265,36 @@ class AiSlideDesignStudio extends HookConsumerWidget {
       },
     );
 
+    Widget templateHeading(String title, int count, {bool premium = false}) =>
+        Row(
+          children: [
+            if (premium) ...[
+              const Icon(
+                Icons.workspace_premium_rounded,
+                size: 18,
+                color: Color(0xFFB47A21),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '$count개',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -428,25 +461,21 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         if (catalog) ...[
           const AiSlidesNotice('템플릿 선택과 직접 수정은 AI 토큰·생성 횟수를 사용하지 않아요.'),
           const SizedBox(height: 12),
-          if (showDolpaReferenceDesign) ...[
-            const Text(
-              '센터 원본 템플릿',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              '원본 그대로 선택하고, 수업 메모로 운동 내용만 채워 보세요.',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 10),
-            designGrid(customerReferenceDesigns),
-            const Divider(height: 32),
-            const Text(
-              '기본 템플릿',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-          ],
+          templateHeading(
+            '프리미엄 템플릿',
+            customerReferenceDesigns.length,
+            premium: true,
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '원본 그대로 선택하고, 수업 메모로 운동 내용만 채워 보세요.',
+            style: TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          designGrid(customerReferenceDesigns),
+          const Divider(height: 32),
+          templateHeading('일반 템플릿', aiSlideDesignCatalog.length),
+          const SizedBox(height: 6),
           const Text(
             '예시 내용을 오늘의 운동으로 바꿔 시작해요.',
             style: TextStyle(fontSize: 12),
@@ -523,6 +552,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           TextField(
             key: const ValueKey('ai-design-brief'),
             controller: brief,
+            onChanged: (_) => onEdited?.call(),
             enabled: !busy,
             minLines: 2,
             maxLines: 4,

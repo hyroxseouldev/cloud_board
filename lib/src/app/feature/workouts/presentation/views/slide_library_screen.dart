@@ -139,7 +139,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
 
     Future<bool> perform(Future<bool> Function() action) async {
       final success = await action();
-      if (!success) notice(actions.lastError ?? '변경하지 못했습니다. 오류 상세를 확인해 주세요.');
+      if (!success) notice(actions.lastError ?? '변경하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       return success;
     }
 
@@ -185,7 +185,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
           notice('폴더는 변경했지만 목록을 갱신하지 못했어요. 새로고침해 주세요.');
         }
       } else {
-        notice('폴더를 변경하지 못했습니다. 오류 상세를 확인해 주세요.');
+        notice('폴더를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       }
     }
 

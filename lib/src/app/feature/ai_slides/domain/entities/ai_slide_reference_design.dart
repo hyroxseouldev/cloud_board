@@ -4,12 +4,6 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 
-/// A customer-owned reference is opt-in for this local verification build.
-/// It must never join the shared catalog used by other centers.
-const showDolpaReferenceDesign = bool.fromEnvironment(
-  'CLOUDBOARD_DOLPA_REFERENCE',
-);
-
 const dolpaReferenceDesign = AiSlideDesign(
   id: 'reference-dolpa-brick',
   name: '돌파 · Brick Session 원본',

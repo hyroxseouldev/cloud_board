@@ -95,6 +95,7 @@ flutter:
   assets:
     - assets/slide_templates/
     - assets/fonts/noto_serif_kr/OFL.txt
+    - assets/fonts/racing_sans_one/OFL.txt
     - assets/images/login_welcome.png
     - assets/images/google_g.png
     - assets/sounds/video_beep.wav
@@ -106,6 +107,9 @@ flutter:
   uses-material-design: true
 
   fonts:
+    - family: RacingSansOne
+      fonts:
+        - asset: assets/fonts/racing_sans_one/RacingSansOne-Regular.ttf
     - family: NotoSerifKR
       fonts:
         - asset: assets/fonts/noto_serif_kr/NotoSerifKR-Variable.ttf

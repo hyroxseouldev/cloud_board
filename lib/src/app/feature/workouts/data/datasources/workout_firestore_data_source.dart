@@ -1,12 +1,11 @@
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_document.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_content.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/models/workout_save_documents.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_summary_model.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 
 class WorkoutFirestoreDataSource {
   WorkoutFirestoreDataSource(this._firestore);
@@ -141,30 +140,21 @@ class WorkoutFirestoreDataSource {
   Future<WorkoutModel> save(String userId, WorkoutModel workout) async {
     // Never persist settings composed for a preview. Preserve existing legacy
     // values during rollout; switch to content-only only after admin activation.
-    final content = WorkoutContent.fromWorkout(workout.toEntity());
     return _firestore.runTransaction((transaction) async {
       final settings = (await transaction.get(
         _firestore.doc('users/$userId/settings/workout'),
       )).data();
       final reference = _workouts(userId).doc(workout.id);
       final previous = (await transaction.get(reference)).data();
-      final contentOnly = settings?['contentOnly'] == true;
-      final json = WorkoutDocument.encode(content);
-      if (!contentOnly) {
-        json.remove('schemaVersion');
-        final defaults = workout.toJson();
-        for (final key in WorkoutDocument.legacySettingKeys) {
-          json[key] = previous != null ? previous[key] : defaults[key];
-        }
-      }
-      // Return the actual persisted representation, not a composed caller value.
-      final stored = WorkoutDocument.decode(json);
-      transaction.set(reference, json);
-      transaction.set(
-        _summaries(userId).doc(workout.id),
-        WorkoutSummaryModel.fromEntity(summarizeWorkout(workout.toEntity()))
-            .toJson(),
+      final documents = WorkoutSaveDocuments(
+        workout,
+        contentOnly: settings?['contentOnly'] == true,
+        previous: previous,
       );
+      // Return the actual persisted representation, not a composed caller value.
+      final stored = WorkoutDocument.decode(documents.workout);
+      transaction.set(reference, documents.workout);
+      transaction.set(_summaries(userId).doc(workout.id), documents.summary);
       return stored;
     });
   }
