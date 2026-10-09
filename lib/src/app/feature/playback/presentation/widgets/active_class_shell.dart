@@ -41,16 +41,18 @@ class ActiveClassShell extends HookConsumerWidget {
           SnackBar(
             content: Text(diagnosticMessage(error)),
             duration: const Duration(seconds: 8),
-            action: SnackBarAction(
-              label: '상세',
-              onPressed: () => showErrorDetails(
-                context,
-                ref.read(errorReporterProvider),
-                error,
-                next.stackTrace,
-                'playback.action',
-              ),
-            ),
+            action: kDebugMode
+                ? SnackBarAction(
+                    label: '상세',
+                    onPressed: () => showErrorDetails(
+                      context,
+                      ref.read(errorReporterProvider),
+                      error,
+                      next.stackTrace,
+                      'playback.action',
+                    ),
+                  )
+                : null,
           ),
         );
       }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -17,7 +18,7 @@ class ErrorDetailsButton extends ConsumerWidget {
   final String action;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (error == null) return const SizedBox.shrink();
+    if (!kDebugMode || error == null) return const SizedBox.shrink();
     return TextButton.icon(
       icon: const Icon(Icons.info_outline, size: 18),
       label: const Text('오류 상세'),
@@ -38,10 +39,11 @@ Future<void> showErrorDetails(
   Object error,
   StackTrace? stack,
   String action,
-) {
+) async {
   final event =
       reporter.eventFor(error) ??
       reporter.capture(error, stack ?? StackTrace.current, action: action);
+  if (!kDebugMode) return;
   return showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
