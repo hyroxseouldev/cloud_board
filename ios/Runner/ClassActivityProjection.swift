@@ -19,6 +19,8 @@ struct ClassActivityProjection: Equatable {
         let index = Int(number("stepIndex"))
         guard steps.indices.contains(index), number("remainingMs") >= 0 else { return nil }
         let durations = steps.map { ($0["durationMs"] as? NSNumber)?.int64Value ?? 0 }
+        // For Time ends on a coach action. There is no projected class end date.
+        guard !steps.contains(where: { $0["forTime"] as? Bool == true }) else { return nil }
         guard durations.allSatisfy({ $0 > 0 && $0 <= 86_400_000 }) else { return nil }
         let total = number("remainingMs") + durations.dropFirst(index + 1).reduce(0, +)
         let paused = status == "paused"

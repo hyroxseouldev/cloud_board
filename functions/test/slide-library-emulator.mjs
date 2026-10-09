@@ -83,6 +83,13 @@ try {
   await write([patch('emom', timed, restOnly)]);
   assert.equal((await get('emom')).value.workSeconds, 0);
   await write([patch('emom', restOnly, null)]);
+  const forTime = {...item('fortime', false), timingVersion:3, timerMode:'forTime', timerDirection:'up', workSeconds:0};
+  await write([patch('fortime', null, forTime)]);
+  assert.equal((await get('fortime')).value.timerMode, 'forTime');
+  assert.equal((await get('fortime')).value.workSeconds, 0);
+  await assert.rejects(write([patch('fortime', forTime, {...forTime, timerMode:'amrap'})]), {code:'invalid-argument'});
+  await assert.rejects(write([patch('fortime', forTime, {...forTime, timingVersion:2})]), {code:'invalid-argument'});
+  await write([patch('fortime', forTime, null)]);
   const owner=env.authenticatedContext('owner').firestore(), other=env.authenticatedContext('other').firestore();
   await assertSucceeds(getDoc(doc(owner,'users/owner/slideTemplates/plain')));
   await assertFails(getDoc(doc(other,'users/owner/slideTemplates/plain')));

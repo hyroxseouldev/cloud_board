@@ -28,6 +28,9 @@ import Foundation
         config["stepIndex"] = 0
         config["status"] = "completed"
         precondition(ClassActivityProjection(config, now: now) == nil)
+        config["status"] = "playing"
+        config["steps"] = [["durationMs":10000, "forTime":true]]
+        precondition(ClassActivityProjection(config, now: now) == nil, "For Time has no projected class end")
         print("PASS: activity elapsed time, paused timer, server offset, countdown, briefing, completion and invalid position")
     }
 }

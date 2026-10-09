@@ -816,7 +816,10 @@ class _WorkoutRow extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          durationLabel(workout.durationSeconds),
+                          timingDurationLabel(
+                            workout.durationSeconds,
+                            workout.durationKind,
+                          ),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,

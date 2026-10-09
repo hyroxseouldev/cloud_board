@@ -157,6 +157,10 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       );
 
   @override
+  Future<void> finishTimer({required String deviceId}) =>
+      _update(status: 'paused', deviceId: deviceId, finishTimer: true);
+
+  @override
   Future<void> resume({required String deviceId}) =>
       _update(status: PlaybackStatus.playing.name, deviceId: deviceId);
 
@@ -199,6 +203,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     int? remainingMs,
     int startDelayMs = 0,
     bool requireBriefing = false,
+    bool finishTimer = false,
   }) async {
     final expected = await _expected();
     if (expected == null) throw StateError('진행 중인 수업이 없습니다.');
@@ -209,6 +214,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       remainingMs: remainingMs,
       startDelayMs: startDelayMs,
       requireBriefing: requireBriefing,
+      finishTimer: finishTimer,
       expectedSessionId: expected.id,
       expectedRevision: expected.revision,
     );

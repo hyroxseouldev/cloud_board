@@ -5,6 +5,26 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ClassCommandTest {
+    @Test fun forTimeOpenClockCapAndCompletedCommands() {
+        val c = config().put("steps", org.json.JSONArray("""[{"durationMs":0,"forTime":true},{"durationMs":10000}]"""))
+        val open = state().put("remainingMs", 0).put("startDelayMs", 3000)
+        assertEquals(0L, ClassCommand.position(open, c, 2000).remaining)
+        assertEquals(1500L, ClassCommand.position(open, c, 5500).remaining)
+        val paused = ClassCommand.apply(open, c, "pause", 5500)
+        assertEquals(1500L, ClassCommand.position(paused, c, 99000).remaining)
+        val finished = paused.put("timerCompleted", true)
+        assertThrows(IllegalArgumentException::class.java) { ClassCommand.apply(finished, c, "play", 99000) }
+        val next = ClassCommand.apply(finished, c, "next", 99000)
+        assertEquals(1, next.getInt("stepIndex"))
+        assertEquals("playing", next.getString("status"))
+        assertFalse(next.getBoolean("timerCompleted"))
+        c.getJSONArray("steps").getJSONObject(0).put("durationMs", 10000)
+        val atCap = ClassCommand.position(state(), c, 99999)
+        assertEquals(0, atCap.index)
+        assertEquals(0L, atCap.remaining)
+        val atCapNext = ClassCommand.apply(state(), c, "next", 99999)
+        assertEquals(1, atCapNext.getInt("stepIndex"))
+    }
     private fun config() = JSONObject("""{"ownerId":"owner","sessionId":"a","deviceId":"phone","steps":[{"durationMs":10000},{"durationMs":20000},{"durationMs":5000}]}""")
     private fun state() = JSONObject("""{"id":"a","ownerId":"owner","status":"playing","stepIndex":0,"remainingMs":10000,"anchorServerMs":1000,"revision":4} """)
     @Test fun splitSessionCommandsPreserveSnapshotReferenceWithoutLoadingContent() {

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+
 import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -30,21 +32,32 @@ class SlideRehearsalController extends _$SlideRehearsalController {
 
   void seek(int positionMs) {
     pause();
-    state = RehearsalState(positionMs: positionMs.clamp(0, totalMs));
+    state = RehearsalState(
+      positionMs: isOpenEndedTimer(module)
+          ? (positionMs < 0 ? 0 : positionMs)
+          : positionMs.clamp(0, totalMs),
+    );
   }
 
   void play() {
-    if (totalMs <= 0) return;
+    if (totalMs <= 0 && !isOpenEndedTimer(module)) return;
     _timer?.cancel();
-    _anchorPosition = state.positionMs >= totalMs ? 0 : state.positionMs;
+    _anchorPosition = !isOpenEndedTimer(module) && state.positionMs >= totalMs
+        ? 0
+        : state.positionMs;
     _anchor = DateTime.now();
     state = RehearsalState(positionMs: _anchorPosition, playing: true);
     _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      final position =
-          (_anchorPosition + DateTime.now().difference(_anchor!).inMilliseconds)
-              .clamp(0, totalMs);
-      state = RehearsalState(positionMs: position, playing: position < totalMs);
-      if (position >= totalMs) _timer?.cancel();
+      final elapsed =
+          _anchorPosition + DateTime.now().difference(_anchor!).inMilliseconds;
+      final position = isOpenEndedTimer(module)
+          ? elapsed
+          : elapsed.clamp(0, totalMs);
+      state = RehearsalState(
+        positionMs: position,
+        playing: isOpenEndedTimer(module) || position < totalMs,
+      );
+      if (!isOpenEndedTimer(module) && position >= totalMs) _timer?.cancel();
     });
   }
 }

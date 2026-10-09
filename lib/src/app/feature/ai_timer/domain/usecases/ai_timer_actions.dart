@@ -38,7 +38,10 @@ bool canApplyAiTimer(WorkoutModule before, WorkoutModule current) =>
     sameSlideTiming(before, current);
 
 bool supportsAiTimerReplacement(WorkoutModule module) =>
-    !needsExtendedTiming(module) && effectiveIntervalBlocks(module).length == 1;
+    !needsExtendedTiming(module) &&
+    module.timerMode == WorkoutTimerMode.custom &&
+    module.timerDirection == TimerDirection.down &&
+    effectiveIntervalBlocks(module).length == 1;
 
 WorkoutModule applyAiTimer(
   WorkoutModule module, {

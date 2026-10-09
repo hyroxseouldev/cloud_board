@@ -32,6 +32,25 @@ import Foundation
     precondition(splitPaused["snapshotId"] as? String == "s")
     precondition(splitPaused["workoutSnapshot"] == nil)
     precondition(splitPaused["status"] as? String == "paused")
+    let forTime: [String: Any] = ["ownerId":"u", "sessionId":"s", "deviceId":"c", "steps":[
+      ["durationMs":0, "moduleIndex":0, "forTime":true], ["durationMs":10000, "moduleIndex":1]]]
+    var open = state; open["remainingMs"] = 0
+    let openPause = try ClassControlCommand.apply(open, config:forTime, action:"pause", now:8432)
+    precondition(openPause["remainingMs"] as? Int64 == 7432)
+    var done = openPause; done["timerCompleted"] = true
+    do {
+      _ = try ClassControlCommand.apply(done, config:forTime, action:"resume", now:99000)
+      preconditionFailure("Completed For Time must not resume")
+    } catch {}
+    let afterDone = try ClassControlCommand.apply(done, config:forTime, action:"nextSlide", now:99000)
+    precondition(afterDone["stepIndex"] as? Int == 1)
+    precondition(afterDone["timerCompleted"] as? Bool == false)
+    precondition(afterDone["status"] as? String == "playing")
+    var capped = forTime
+    capped["steps"] = [["durationMs":10000, "moduleIndex":0, "forTime":true], ["durationMs":10000, "moduleIndex":1]]
+    let capPause = try ClassControlCommand.apply(state, config:capped, action:"pause", now:99000)
+    precondition(capPause["stepIndex"] as? Int == 0)
+    precondition(capPause["remainingMs"] as? Int64 == 0)
     print("PASS: iOS elapsed position, paused slide navigation, resume, replaced/ended/wrong-owner rejection")
   }
 }

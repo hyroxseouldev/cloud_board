@@ -1,4 +1,4 @@
-import {workoutTimingDuration} from './workout-timing.js';
+import {workoutTimingDuration, isOpenEndedTimer} from './workout-timing.js';
 // The projection deliberately excludes modules, author and all editor content.
 // Keep duration semantics identical to Dart workout_metrics.dart.
 export function summarizeWorkout(data, id = data.id) {
@@ -10,6 +10,7 @@ export function summarizeWorkout(data, id = data.id) {
     // empty imageUrl (image removed); imageSource is only a legacy fallback.
     imageSource: modules[0]?.imageUrl ?? modules[0]?.imageSource ?? '', moduleCount: modules.length,
     durationSeconds, updatedAt: data.updatedAt,
+    durationKind: modules.some(isOpenEndedTimer) ? 'open' : modules.some(m => m.timerMode === 'forTime') ? 'maximum' : 'fixed',
   };
   if (!summary.updatedAt || !Number.isFinite(durationSeconds)) {
     throw new Error('invalid-workout-projection');

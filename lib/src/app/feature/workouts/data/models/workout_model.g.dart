@@ -75,55 +75,61 @@ Map<String, dynamic> _$WorkoutAuthorModelToJson(WorkoutAuthorModel instance) =>
       'photoUrl': instance.photoUrl,
     };
 
-WorkoutModuleModel _$WorkoutModuleModelFromJson(Map<String, dynamic> json) =>
-    WorkoutModuleModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      workSeconds: (json['workSeconds'] as num).toInt(),
-      sets: (json['sets'] as num).toInt(),
-      restSeconds: (json['restSeconds'] as num).toInt(),
-      includeFinalRest: json['includeFinalRest'] as bool? ?? true,
-      timingVersion: (json['timingVersion'] as num?)?.toInt() ?? 1,
-      rounds: (json['rounds'] as num?)?.toInt() ?? 1,
-      roundRestSeconds: (json['roundRestSeconds'] as num?)?.toInt() ?? 0,
-      includeFinalRoundRest: json['includeFinalRoundRest'] as bool? ?? true,
-      text: json['text'] as String,
-      imageUrl: json['imageUrl'] as String,
-      designTemplate: json['designTemplate'] as String?,
-      designBackgroundColor: (json['designBackgroundColor'] as num?)?.toInt(),
-      designTextColor: (json['designTextColor'] as num?)?.toInt(),
-      designAccentColor: (json['designAccentColor'] as num?)?.toInt(),
-      designLayout: json['designLayout'] as String? ?? 'auto',
-      designFontWeight: (json['designFontWeight'] as num?)?.toInt() ?? 900,
-      designItalic: json['designItalic'] as bool? ?? true,
-      designSpacing: (json['designSpacing'] as num?)?.toDouble() ?? 1.0,
-      showTimer: json['showTimer'] as bool? ?? true,
-      appearance: json['appearance'] == null
-          ? const SlideAppearanceModel()
-          : SlideAppearanceModel.fromJson(
-              json['appearance'] as Map<String, dynamic>,
-            ),
-      showTimerGauge: json['showTimerGauge'] as bool? ?? true,
-      showSets: json['showSets'] as bool?,
-      beep: json['beep'] as bool,
-      coverImage: json['coverImage'] as bool,
-      favorite: json['favorite'] as bool? ?? false,
-      category: json['category'] as String? ?? '',
-      timerColorValue: (json['timerColorValue'] as num?)?.toInt(),
-      workGaugeColor: json['workGaugeColor'] as String?,
-      restGaugeColor: json['restGaugeColor'] as String?,
-      workTextColor: json['workTextColor'] as String?,
-      restTextColor: json['restTextColor'] as String?,
-      intervalBlocks:
-          (json['intervalBlocks'] as List<dynamic>?)
-              ?.map(
-                (e) => WorkoutIntervalBlockModel.fromJson(
-                  e as Map<String, dynamic>,
-                ),
-              )
-              .toList() ??
-          [],
-    );
+WorkoutModuleModel _$WorkoutModuleModelFromJson(
+  Map<String, dynamic> json,
+) => WorkoutModuleModel(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  workSeconds: (json['workSeconds'] as num).toInt(),
+  sets: (json['sets'] as num).toInt(),
+  restSeconds: (json['restSeconds'] as num).toInt(),
+  includeFinalRest: json['includeFinalRest'] as bool? ?? true,
+  timingVersion: (json['timingVersion'] as num?)?.toInt() ?? 1,
+  timerMode:
+      $enumDecodeNullable(_$WorkoutTimerModeEnumMap, json['timerMode']) ??
+      WorkoutTimerMode.custom,
+  timerDirection:
+      $enumDecodeNullable(_$TimerDirectionEnumMap, json['timerDirection']) ??
+      TimerDirection.down,
+  rounds: (json['rounds'] as num?)?.toInt() ?? 1,
+  roundRestSeconds: (json['roundRestSeconds'] as num?)?.toInt() ?? 0,
+  includeFinalRoundRest: json['includeFinalRoundRest'] as bool? ?? true,
+  text: json['text'] as String,
+  imageUrl: json['imageUrl'] as String,
+  designTemplate: json['designTemplate'] as String?,
+  designBackgroundColor: (json['designBackgroundColor'] as num?)?.toInt(),
+  designTextColor: (json['designTextColor'] as num?)?.toInt(),
+  designAccentColor: (json['designAccentColor'] as num?)?.toInt(),
+  designLayout: json['designLayout'] as String? ?? 'auto',
+  designFontWeight: (json['designFontWeight'] as num?)?.toInt() ?? 900,
+  designItalic: json['designItalic'] as bool? ?? true,
+  designSpacing: (json['designSpacing'] as num?)?.toDouble() ?? 1.0,
+  showTimer: json['showTimer'] as bool? ?? true,
+  appearance: json['appearance'] == null
+      ? const SlideAppearanceModel()
+      : SlideAppearanceModel.fromJson(
+          json['appearance'] as Map<String, dynamic>,
+        ),
+  showTimerGauge: json['showTimerGauge'] as bool? ?? true,
+  showSets: json['showSets'] as bool?,
+  beep: json['beep'] as bool,
+  coverImage: json['coverImage'] as bool,
+  favorite: json['favorite'] as bool? ?? false,
+  category: json['category'] as String? ?? '',
+  timerColorValue: (json['timerColorValue'] as num?)?.toInt(),
+  workGaugeColor: json['workGaugeColor'] as String?,
+  restGaugeColor: json['restGaugeColor'] as String?,
+  workTextColor: json['workTextColor'] as String?,
+  restTextColor: json['restTextColor'] as String?,
+  intervalBlocks:
+      (json['intervalBlocks'] as List<dynamic>?)
+          ?.map(
+            (e) =>
+                WorkoutIntervalBlockModel.fromJson(e as Map<String, dynamic>),
+          )
+          .toList() ??
+      [],
+);
 
 Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
     <String, dynamic>{
@@ -146,6 +152,8 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'timingVersion': instance.timingVersion,
       'rounds': instance.rounds,
       'roundRestSeconds': instance.roundRestSeconds,
+      'timerMode': _$WorkoutTimerModeEnumMap[instance.timerMode]!,
+      'timerDirection': _$TimerDirectionEnumMap[instance.timerDirection]!,
       'includeFinalRoundRest': instance.includeFinalRoundRest,
       'showTimer': instance.showTimer,
       'appearance': instance.appearance.toJson(),
@@ -162,6 +170,20 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'restTextColor': instance.restTextColor,
       'intervalBlocks': instance.intervalBlocks.map((e) => e.toJson()).toList(),
     };
+
+const _$WorkoutTimerModeEnumMap = {
+  WorkoutTimerMode.custom: 'custom',
+  WorkoutTimerMode.emom: 'emom',
+  WorkoutTimerMode.amrap: 'amrap',
+  WorkoutTimerMode.forTime: 'forTime',
+  WorkoutTimerMode.tabata: 'tabata',
+  WorkoutTimerMode.interval: 'interval',
+};
+
+const _$TimerDirectionEnumMap = {
+  TimerDirection.down: 'down',
+  TimerDirection.up: 'up',
+};
 
 WorkoutIntervalBlockModel _$WorkoutIntervalBlockModelFromJson(
   Map<String, dynamic> json,

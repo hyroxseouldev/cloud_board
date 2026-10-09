@@ -47,4 +47,4 @@ final class IosClassControlsProvider
   }
 }
 
-String _$iosClassControlsHash() => r'0770c439d9b743f3f21e74e4f702bb23eafad991';
+String _$iosClassControlsHash() => r'91bcaf47057e93474b6944bb935cab3d37810eb0';

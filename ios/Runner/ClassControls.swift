@@ -139,7 +139,7 @@ actor ClassControlsService {
     private func publish(_ state: [String: Any], config: [String: Any], serverDate: Date) async {
         guard bindingMatches(config) else { return }
         var value = config
-        for key in ["status", "briefing", "stepIndex", "remainingMs", "startDelayMs", "anchorServerMs", "revision"] {
+        for key in ["status", "briefing", "stepIndex", "remainingMs", "startDelayMs", "anchorServerMs", "revision", "timerCompleted"] {
             value[key] = state[key]
         }
         value["serverOffsetMs"] = Int64(serverDate.timeIntervalSince1970 * 1000 - Date().timeIntervalSince1970 * 1000)

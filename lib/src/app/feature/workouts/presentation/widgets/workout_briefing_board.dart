@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -118,7 +120,7 @@ class WorkoutBriefingBoard extends HookWidget {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              '${workout.modules.length}개 운동 · 총 ${durationLabel(workoutDuration(workout))}'
+                              '${workout.modules.length}개 운동 · 총 ${workoutDurationText(workout)}'
                               '${pageCount > 1 ? '  ·  ${page + 1}/$pageCount 페이지' : ''}',
                               style: guide.subText3.copyWith(
                                 color: AppColors.muted,
@@ -193,7 +195,7 @@ class WorkoutBriefingBoard extends HookWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${workout.modules.length}개 운동 · 총 ${durationLabel(workoutDuration(workout))}',
+                    '${workout.modules.length}개 운동 · 총 ${workoutDurationText(workout)}',
                     style: const TextStyle(
                       fontSize: 18,
                       color: AppColors.muted,
@@ -309,10 +311,12 @@ class _ModuleSummary extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              hasRoundTiming(module)
-                  ? '${module.rounds}라운드 · 총 ${durationLabel(workoutModuleDuration(module))}'
+              isContinuousTimer(module)
+                  ? '${timerModeLabel(module.timerMode)} · ${moduleDurationText(module)}'
+                  : hasRoundTiming(module)
+                  ? '${module.rounds}라운드 · 총 ${moduleDurationText(module)}'
                   : module.intervalBlocks.length > 1
-                  ? '${module.intervalBlocks.length}블록 · 총 ${durationLabel(workoutModuleDuration(module))}'
+                  ? '${module.intervalBlocks.length}블록 · 총 ${moduleDurationText(module)}'
                   : module.workSeconds == 0
                   ? '휴식만 ${durationLabel(module.restSeconds)} × ${module.sets}회'
                   : '${durationLabel(module.workSeconds)} × ${module.sets}세트'

@@ -256,7 +256,9 @@ class PlaybackRealtimeDataSource {
             (device['playbackProtocol'] as num? ?? 1) < requiredProtocol) {
           throw PlaybackFailure(
             'display_update_required',
-            requiredProtocol >= 4
+            requiredProtocol >= 5
+                ? '새 타이머 방식을 재생하려면 연결된 디스플레이 앱을 업데이트해 주세요.'
+                : requiredProtocol >= 4
                 ? '라운드 반복과 독립 휴식을 재생하려면 연결된 디스플레이 앱을 업데이트해 주세요.'
                 : '마지막 세트의 휴식을 동일하게 재생하려면 연결된 디스플레이 앱을 업데이트해 주세요.',
           );
@@ -386,6 +388,7 @@ class PlaybackRealtimeDataSource {
     int? remainingMs,
     int startDelayMs = 0,
     bool requireBriefing = false,
+    bool finishTimer = false,
     required String expectedSessionId,
     required int expectedRevision,
   }) async {
@@ -455,6 +458,7 @@ class PlaybackRealtimeDataSource {
               stepIndex: stepIndex,
               remainingMs: remainingMs,
               requireBriefing: requireBriefing,
+              finishTimer: finishTimer,
             );
           } catch (error, stack) {
             rejection = error;
@@ -477,6 +481,10 @@ class PlaybackRealtimeDataSource {
           json['status'] = command.status;
           json['stepIndex'] = command.stepIndex;
           json['remainingMs'] = command.remainingMs;
+          if (finishTimer) json['timerCompleted'] = true;
+          if (stepIndex != null || status == 'completed') {
+            json['timerCompleted'] = false;
+          }
           // Reuse the already deployed deadline rule used by native notifications.
           json['notificationCommand'] = {
             'id': commandId,

@@ -66,6 +66,48 @@ Future<void> select(WidgetTester tester, String key, int index) async {
 
 void main() {
   testWidgets(
+    'unlimited For Time survives builder, draft apply and slide save',
+    (tester) async {
+      final saved = <WorkoutModule>[];
+      final container = await openEditor(tester, (module) async {
+        saved.add(module);
+        return true;
+      });
+      await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('open-timer-builder')),
+      );
+      await tester.tap(find.byKey(const ValueKey('open-timer-builder')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('timer-mode-forTime')));
+      await tester.pumpAndSettle();
+      expect(container.read(provider).module, original);
+      await tester.tap(find.byKey(const ValueKey('apply-timer-preset')));
+      await tester.pumpAndSettle();
+      expect(container.read(provider).module, original);
+      await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(provider).module.timerMode,
+        WorkoutTimerMode.forTime,
+      );
+      expect(saved, isEmpty);
+      expect(find.textContaining('제한시간 없음'), findsWidgets);
+      await tester.tap(find.byKey(const ValueKey('slide-save-button')));
+      await tester.pumpAndSettle();
+      expect(saved.single.workSeconds, 0);
+      expect(saved.single.name, original.name);
+      expect(saved.single.timerDirection, TimerDirection.up);
+      expect(timingValidationError(saved.single), isNull);
+      expect(workoutModuleTimeline(saved.single), hasLength(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
     'EMOM example stays a draft until applied and slide save preserves rounds',
     (tester) async {
       final saved = <WorkoutModule>[];
@@ -76,9 +118,11 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(
-        find.byKey(const ValueKey('open-emom-builder')),
+        find.byKey(const ValueKey('open-timer-builder')),
       );
-      await tester.tap(find.byKey(const ValueKey('open-emom-builder')));
+      await tester.tap(find.byKey(const ValueKey('open-timer-builder')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('timer-mode-emom')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('emom-preset-rounds')));
       await tester.pump();

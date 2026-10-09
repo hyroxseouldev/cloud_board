@@ -1,6 +1,8 @@
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,6 +73,70 @@ void main() {
     await expectLater(source.start(model), throwsStateError);
     expect(database.writes, 0);
   });
+
+  test('For Time finish persists the frozen result, survives decode and clears on explicit seek', () async {
+    final module = createContinuousTimer(
+      WorkoutModule.empty('clock'),
+      mode: WorkoutTimerMode.forTime,
+      seconds: 0,
+      direction: TimerDirection.up,
+    );
+    final clock = PlaybackSessionModel.fromWorkout(
+      id: 'clock',
+      ownerId: 'coach',
+      zoneId: 'main',
+      targetDeviceIds: ['tv'],
+      workout: model.toEntity().workout.copyWith(
+        modules: [module, WorkoutModule.empty('next')],
+      ),
+      stepIndex: 0,
+      durationMs: 0,
+      deviceId: 'controller',
+    );
+    await expectLater(source.start(clock), throwsA(isA<PlaybackFailure>()));
+    database.values['users/coach/devices'] = {
+      'tv': {'paired': true, 'playbackProtocol': 5},
+    };
+    final started = await source.start(clock);
+    final wire = database.values['users/coach/activeSession'] as Map;
+    wire['anchorServerMs'] = DateTime.now().millisecondsSinceEpoch - 7500;
+    final finished = await source.update(
+      status: 'paused',
+      deviceId: 'controller',
+      finishTimer: true,
+      expectedSessionId: started.id,
+      expectedRevision: started.revision,
+    );
+    expect(finished.timerCompleted, isTrue);
+    expect(finished.status, 'paused');
+    expect(finished.remainingMs, inInclusiveRange(7500, 8500));
+    expect(
+      PlaybackSessionModel.fromJson(finished.toJson())
+          .toEntity()
+          .timerCompleted,
+      isTrue,
+    );
+    await expectLater(
+      source.update(
+        status: 'playing',
+        deviceId: 'controller',
+        expectedSessionId: finished.id,
+        expectedRevision: finished.revision,
+      ),
+      throwsA(isA<PlaybackFailure>()),
+    );
+    final next = await source.update(
+      status: null,
+      deviceId: 'controller',
+      stepIndex: 1,
+      remainingMs: 60000,
+      expectedSessionId: finished.id,
+      expectedRevision: finished.revision,
+    );
+    expect(next.timerCompleted, isFalse);
+    expect(next.status, 'playing');
+    expect(next.stepIndex, 1);
+  });
 }
 
 /// Models the Apple SDK distinction: .info values are delivered by listeners,
@@ -115,6 +181,12 @@ class _Reference extends Fake implements DatabaseReference {
       );
     }
     return _Snapshot(database.values[path]);
+  }
+
+  @override
+  Future<void> set(Object? value) async {
+    database.writes++;
+    database.values[path] = value;
   }
 
   @override

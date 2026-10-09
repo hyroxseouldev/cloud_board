@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 
@@ -25,7 +27,10 @@ bool blockHasRest(WorkoutModule module, WorkoutIntervalBlock block, int set) =>
 
 String? timingValidationError(WorkoutModule module) {
   final blocks = effectiveIntervalBlocks(module);
-  if (module.timingVersion != 1 && module.timingVersion != 2) {
+  final modeError = timerModeValidationError(module);
+  if (modeError != null) return modeError;
+  if (isOpenEndedTimer(module)) return null;
+  if (module.timingVersion < 1 || module.timingVersion > 3) {
     return '이 타이머를 사용하려면 앱을 업데이트해 주세요.';
   }
   if (module.timingVersion == 1 && hasRoundTiming(module)) {
@@ -91,6 +96,7 @@ class WorkoutPhase {
 }
 
 String? workoutPhaseLabel(WorkoutModule module, WorkoutPhase phase) {
+  if (isContinuousTimer(module)) return timerModeLabel(module.timerMode);
   if (hasRoundTiming(module)) return phase.positionLabel;
   if (module.timingVersion >= 2 &&
       phase.isRest &&
@@ -123,6 +129,21 @@ List<WorkoutPhase> _expand(WorkoutModule module) {
             maxModuleSteps) {
       return const [];
     }
+  }
+  if (isOpenEndedTimer(module)) {
+    return const [
+      WorkoutPhase(
+        blockIndex: 0,
+        set: 1,
+        totalSets: 1,
+        round: 1,
+        totalRounds: 1,
+        interval: 1,
+        totalIntervals: 1,
+        seconds: 0,
+        isRest: false,
+      ),
+    ];
   }
   final blocks = effectiveIntervalBlocks(module);
   final rounds = module.timingVersion == 1 ? 1 : module.rounds;

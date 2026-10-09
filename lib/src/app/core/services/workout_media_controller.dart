@@ -204,7 +204,7 @@ class _WorkoutAudioHandler extends BaseAudioHandler {
         album: value['workoutName'] as String? ?? 'CloudBoard',
         title: value['slideName'] as String? ?? '수업 진행 중',
         artist: value['statusLabel'] as String? ?? '',
-        duration: Duration(milliseconds: durationMs),
+        duration: durationMs == 0 ? null : Duration(milliseconds: durationMs),
       ),
     );
     playbackState.add(
@@ -219,7 +219,9 @@ class _WorkoutAudioHandler extends BaseAudioHandler {
         processingState: AudioProcessingState.ready,
         playing: !paused,
         updatePosition: Duration(
-          milliseconds: max(0, durationMs - remainingMs),
+          milliseconds: durationMs == 0
+              ? remainingMs
+              : max(0, durationMs - remainingMs),
         ),
         speed: 1,
         queueIndex: stepIndex,

@@ -492,7 +492,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                           leading: const Icon(Icons.view_list_outlined),
                           title: Text(item.name),
                           subtitle: Text(
-                            '${item.folder.isEmpty ? '폴더 없음' : item.folder} · ${item.moduleCount}개 · ${durationLabel(item.durationSeconds)}',
+                            '${item.folder.isEmpty ? '폴더 없음' : item.folder} · ${item.moduleCount}개 · ${timingDurationLabel(item.durationSeconds, item.durationKind)}',
                           ),
                           onTap: busy ? null : () => workoutMenu(item, 'edit'),
                           trailing: PopupMenuButton<String>(
@@ -574,7 +574,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                                             ),
                                           ),
                                           Text(
-                                            '${item.category.isEmpty ? '폴더 없음' : item.category} · ${durationLabel(workoutModuleDuration(item))}',
+                                            '${item.category.isEmpty ? '폴더 없음' : item.category} · ${moduleDurationText(item)}',
                                             style: const TextStyle(
                                               fontSize: 12,
                                             ),

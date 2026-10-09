@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
@@ -20,6 +21,18 @@ class SlideRehearsalFrame {
 }
 
 SlideRehearsalFrame rehearsalFrame(WorkoutModule module, int positionMs) {
+  if (isOpenEndedTimer(module)) {
+    return SlideRehearsalFrame(
+      blockIndex: 0,
+      set: 1,
+      totalSets: 1,
+      isRest: false,
+      durationMs: 0,
+      remainingMs: positionMs < 0 ? 0 : positionMs,
+      startMs: 0,
+      positionLabel: 'For Time',
+    );
+  }
   final phases = workoutModuleTimeline(module);
   final total = workoutModuleDuration(module) * 1000;
   var position = positionMs.clamp(0, total);
