@@ -26,6 +26,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart'
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder_selector.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_creation_sheet.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
@@ -304,6 +305,20 @@ class _EditorBody extends HookConsumerWidget {
         modules: [...draft.value.modules, ...modules],
       );
       selectSlide(modules.first.id);
+    }
+
+    Future<void> chooseSlideCreation() async {
+      if (isBusy) return;
+      final method = await showSlideCreationSheet(context);
+      if (!context.mounted) return;
+      switch (method) {
+        case SlideCreationMethod.blank:
+          addSlide();
+        case SlideCreationMethod.design:
+          await addAiSlides();
+        case null:
+          return;
+      }
     }
 
     Future<void> saveTemplate(WorkoutModule module) async {
@@ -618,36 +633,19 @@ class _EditorBody extends HookConsumerWidget {
                           itemExtent: rowExtent,
                           footer: Padding(
                             padding: const EdgeInsets.only(top: 8, bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Tooltip(
-                                  message: '슬라이드 추가',
-                                  child: OutlinedButton.icon(
-                                    key: const ValueKey('add-slide-at-end'),
-                                    onPressed: isBusy ? null : () => addSlide(),
-                                    icon: const Icon(Icons.add_rounded),
-                                    label: const Text('슬라이드 추가'),
-                                  ),
+                            child: Tooltip(
+                              message: '슬라이드 추가',
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  key: const ValueKey('add-slide-at-end'),
+                                  onPressed: isBusy
+                                      ? null
+                                      : chooseSlideCreation,
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('슬라이드 추가'),
                                 ),
-                                const SizedBox(height: 8),
-                                OutlinedButton(
-                                  onPressed: isBusy ? null : addAiSlides,
-                                  child: const Wrap(
-                                    alignment: WrapAlignment.center,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    spacing: 8,
-                                    children: [
-                                      Icon(
-                                        Icons.auto_awesome_rounded,
-                                        size: 18,
-                                      ),
-                                      Text('수업 이미지 생성'),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                           padding: slideListPadding,
