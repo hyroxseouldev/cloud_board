@@ -5,6 +5,7 @@ import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_edi
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_editor_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
@@ -176,15 +177,136 @@ void main() {
     expect(find.text('슬라이드 편집'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (width, height, scale) in [
+    (320.0, 568.0, 1.0),
+    (844.0, 390.0, 1.0),
+    (834.0, 1194.0, 1.0),
+    (390.0, 844.0, 2.0),
+  ]) {
+    testWidgets(
+      'blank creation opens its editor and saves back to the list at $width / $scale',
+      (tester) async {
+        final saved = <Workout>[];
+        SlideEditRequest? opened;
+        final router = await _pumpEditor(
+          tester,
+          width: width,
+          height: height,
+          scale: scale,
+          saved: saved,
+          onEdit: (request) => opened = request,
+        );
+        final list = find.byKey(const ValueKey('workout-slide-list'));
+        await _openCreationSheet(tester);
+        expect(find.text('빈 슬라이드 추가'), findsOneWidget);
+        expect(find.text('템플릿·AI로 만들기'), findsOneWidget);
+        expect(tester.widget<ReorderableListView>(list).itemCount, 3);
+        final design = find.byKey(const ValueKey('create-slide-design'));
+        await tester.ensureVisible(design);
+        await tester.pumpAndSettle();
+        expect(design.hitTestable(), findsOneWidget);
+        await tester.ensureVisible(find.byType(CloseButton));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(CloseButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(tester.widget<ReorderableListView>(list).itemCount, 3);
+
+        await _openCreationSheet(tester);
+        final blank = find.byKey(const ValueKey('create-slide-blank'));
+        await tester.ensureVisible(blank);
+        await tester.pumpAndSettle();
+        await tester.tap(blank);
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(find.text('슬라이드 편집'), findsOneWidget);
+        final request = opened!;
+        expect(request.module.name, '새 운동 1');
+        expect(request.module.imageSource, isEmpty);
+        expect(request.needsInitialSave, isTrue);
+        expect(request.workout!.modules, hasLength(4));
+        expect(request.workout!.modules.last.id, request.module.id);
+        expect(saved, isEmpty);
+        expect(await request.onSave(request.module), isTrue);
+        await tester.pumpAndSettle();
+        expect(saved.single.modules.last, request.module);
+        router.pop();
+        await tester.pumpAndSettle();
+        expect(tester.widget<ReorderableListView>(list).itemCount, 4);
+        final added = tester
+            .widgetList<WorkoutSlideListCard>(find.byType(WorkoutSlideListCard))
+            .singleWhere((card) => card.module.name == '새 운동 1');
+        expect(added.module.imageSource, isEmpty);
+        expect(added.selected, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'design creation only appends slides after the editor returns them',
+    (tester) async {
+      final saved = <Workout>[];
+      final router = await _pumpEditor(tester, saved: saved);
+      final list = find.byKey(const ValueKey('workout-slide-list'));
+      await _openCreationSheet(tester);
+      await tester.tap(find.byKey(const ValueKey('create-slide-design')));
+      await tester.pumpAndSettle();
+      expect(find.text('이미지 슬라이드 추가'), findsOneWidget);
+      expect(router.canPop(), isTrue);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(tester.widget<ReorderableListView>(list).itemCount, 3);
+
+      await _openCreationSheet(tester);
+      await tester.tap(find.byKey(const ValueKey('create-slide-design')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('이미지 슬라이드 추가'));
+      await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, '/editor/workout');
+      expect(tester.widget<ReorderableListView>(list).itemCount, 4);
+      final added = tester.widget<WorkoutSlideListCard>(
+        find.byKey(const ValueKey('created-image')),
+      );
+      expect(added.module.imageSource, _pixel);
+      expect(added.selected, isTrue);
+      expect(saved, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('workout-save-button')));
+      await tester.pumpAndSettle();
+      expect(saved.single.modules.last.id, 'created-image');
+      expect(saved.single.modules.last.imageSource, _pixel);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+Future<void> _openCreationSheet(WidgetTester tester) async {
+  final button = find.byKey(const ValueKey('add-slide-at-end'));
+  await tester.scrollUntilVisible(
+    button,
+    400,
+    scrollable: find
+        .descendant(
+          of: find.byKey(const ValueKey('workout-slide-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(button);
+  await tester.pumpAndSettle();
 }
 
 Future<GoRouter> _pumpEditor(
   WidgetTester tester, {
   double width = 390,
+  double height = 1000,
   double scale = 1,
   List<Workout>? saved,
+  ValueChanged<SlideEditRequest>? onEdit,
 }) async {
-  tester.view.physicalSize = Size(width, 1000);
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -197,7 +319,24 @@ Future<GoRouter> _pumpEditor(
         routes: [
           GoRoute(
             path: 'slides/:moduleId',
-            builder: (_, _) => const Scaffold(body: Text('슬라이드 편집')),
+            builder: (_, state) {
+              onEdit?.call(state.extra as SlideEditRequest);
+              return const Scaffold(body: Text('슬라이드 편집'));
+            },
+          ),
+          GoRoute(
+            path: 'images/create',
+            builder: (context, _) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => context.pop([
+                    WorkoutModule.empty('created-image')
+                        .copyWith(name: '템플릿 슬라이드', imageSource: _pixel),
+                  ]),
+                  child: const Text('이미지 슬라이드 추가'),
+                ),
+              ),
+            ),
           ),
         ],
       ),

@@ -229,7 +229,7 @@ void main() {
   test(
     'customer original template stays outside the shared design catalog',
     () {
-      expect(aiSlideDesignCatalog, hasLength(4));
+      expect(aiSlideDesignCatalog, hasLength(12));
       expect(
         aiSlideDesignCatalog.every(
           (design) => design.theme.designStyle?.originalTemplate == null,
@@ -562,7 +562,7 @@ void main() {
       expect(find.text('프리미엄 템플릿'), findsOneWidget);
       expect(find.text('7개'), findsOneWidget);
       expect(find.text('일반 템플릿'), findsOneWidget);
-      expect(find.text('4개'), findsOneWidget);
+      expect(find.text('12개'), findsOneWidget);
       for (final design in customerReferenceDesigns) {
         final premiumCard = find.byKey(ValueKey('ai-design-${design.id}'));
         await tester.ensureVisible(premiumCard);
@@ -601,7 +601,9 @@ void main() {
         await tester.runAsync(() => Future<void>.delayed(Duration.zero));
         await tester.pumpAndSettle();
       }
-      final card = find.byKey(const ValueKey('ai-design-catalog-banner'));
+      final card = find.byKey(
+        ValueKey('ai-design-${aiSlideDesignCatalog.last.id}'),
+      );
       await tester.ensureVisible(card);
       await tester.pumpAndSettle();
       await tester.tap(card);
