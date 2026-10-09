@@ -1,4 +1,7 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
+
+import 'timer_editor_test.dart' as timer_interaction;
+
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
 
@@ -894,25 +897,12 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
     await tester.pumpAndSettle();
-    final addBlock = find.byKey(const ValueKey('add-interval-block'));
-    final settingsRect = tester.getRect(
-      find.byKey(const ValueKey('timer-editor-settings')),
-    );
-    for (
-      var attempt = 0;
-      attempt < 20 && addBlock.hitTestable().evaluate().isEmpty;
-      attempt++
-    ) {
-      // Drag beside the duration wheels, which handle their own vertical swipes.
-      await tester.dragFrom(
-        Offset(settingsRect.left + 8, settingsRect.center.dy),
-        const Offset(0, -180),
-      );
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(addBlock);
+    await timer_interaction.tap(tester, 'timer-detail-toggle');
+    await tester.ensureVisible(find.text('구간 추가'));
+    await tester.tap(find.text('구간 추가'));
     await tester.pumpAndSettle();
-    expect(find.text('블록 2'), findsOneWidget);
+    await timer_interaction.tap(tester, 'add-interval-block');
+    expect(find.text('구간 2'), findsOneWidget);
     expect(saved, isEmpty);
     await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
     await tester.pumpAndSettle();
@@ -1293,12 +1283,10 @@ void main() {
       await renameSlide(tester, '저장하지 않은 슬라이드 이름');
       await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
       await tester.pumpAndSettle();
-      tester
-          .widget<CupertinoPicker>(
-            find.byKey(const ValueKey('combined-minutes-picker')),
-          )
-          .onSelectedItemChanged!(2);
-      await tester.pump();
+      if (find.text('운동 방식을 선택하세요').evaluate().isNotEmpty) {
+        await timer_interaction.tap(tester, 'timer-mode-interval');
+      }
+      await timer_interaction.input(tester, 'timer-work', '02:00');
       await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
       await tester.pumpAndSettle();
       expect(saved, isEmpty);

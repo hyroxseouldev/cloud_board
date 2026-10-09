@@ -1,4 +1,4 @@
-import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_section_editor.dart';
@@ -26,7 +26,6 @@ import 'package:cloud_board/src/app/core/utils/hex_color.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/timer_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
@@ -174,6 +173,7 @@ class _SlideEditorBody extends HookConsumerWidget {
         isStudioSlideDesign(module);
     final busy = useState(false);
     final needsInitialSave = useState(request.needsInitialSave);
+    final timerConfigured = useState(false);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final error = useState<String?>(null);
     final form = useMemoized(() => GlobalKey<FormState>());
@@ -559,91 +559,42 @@ class _SlideEditorBody extends HookConsumerWidget {
         ),
       ),
     );
-    final workPerSet = _perSetTimeLabel(blocks.map((b) => b.workSeconds));
-    final restPerSet = _perSetTimeLabel(blocks.map((b) => b.restSeconds));
-    final summary = Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: InkWell(
-        key: const ValueKey('slide-timer-summary'),
-        onTap: () {
-          FocusScope.of(context).unfocus();
-          showModalBottomSheet<void>(
-            context: context,
-            isScrollControlled: true,
-            useSafeArea: true,
-            // Dismiss through the close action so unsaved timing is guarded.
-            isDismissible: false,
-            enableDrag: false,
-            showDragHandle: false,
-            constraints: const BoxConstraints(maxWidth: 720),
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            builder: (_) => FractionallySizedBox(
-              heightFactor: .9,
-              child: TimerEditorScreen(
-                workoutId: workoutId,
-                original: original,
-                scope: request.workout?.ownerId ?? 'local',
-                onSelectBlock: (id) => selectedBlockId.value = id,
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.timer_outlined,
-                size: 22,
-                color: SlideEditorStyle.accent,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                moduleDurationText(module),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: SlideEditorStyle.accent,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 10,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      isContinuousTimer(module)
-                          ? timerModeLabel(module.timerMode)
-                          : '운동 $workPerSet',
-                      semanticsLabel: '세트당 운동 $workPerSet',
-                    ),
-                    Text(
-                      '휴식 $restPerSet',
-                      semanticsLabel: '세트당 휴식 $restPerSet',
-                    ),
-                    Text(
-                      '${blocks.fold(0, (sum, b) => sum + b.sets)}${hasRoundTiming(module) ? '구간/라운드' : '세트'}',
-                    ),
-                    if (hasRoundTiming(module)) Text('${module.rounds}라운드'),
-                    if (module.roundRestSeconds > 0)
-                      Text('라운드 휴식 ${durationLabel(module.roundRestSeconds)}'),
-                    if (blocks.length > 1) Text('${blocks.length}블록'),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.keyboard_arrow_up,
-                color: SlideEditorStyle.muted,
-              ),
-            ],
+    final summary = SlideTimerSummary(
+      module: module,
+      dirty: !sameSlideTiming(module, state.saved),
+      onEdit: () {
+        FocusScope.of(context).unfocus();
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          isDismissible: false,
+          enableDrag: false,
+          showDragHandle: false,
+          constraints: const BoxConstraints(maxWidth: 720),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        ),
-      ),
+          clipBehavior: Clip.antiAlias,
+          builder: (_) => FractionallySizedBox(
+            heightFactor: .98,
+            child: TimerEditorScreen(
+              workoutId: workoutId,
+              original: original,
+              scope: request.workout?.ownerId ?? 'local',
+              chooseModeInitially:
+                  needsInitialSave.value && !timerConfigured.value,
+              brandL: renderedBrandL,
+              brandR: renderedBrandR,
+              workout: renderedWorkout,
+              onSelectBlock: (id) {
+                selectedBlockId.value = id;
+                timerConfigured.value = true;
+              },
+            ),
+          ),
+        );
+      },
     );
 
     final settings = Form(
@@ -1349,12 +1300,4 @@ class _StyleNameDialog extends HookWidget {
       ],
     );
   }
-}
-
-// Effective interval blocks always contain at least one block. Different block
-// timings are a per-set range, never a sum or an invented average set duration.
-String _perSetTimeLabel(Iterable<int> seconds) {
-  final values = seconds.toSet().toList()..sort();
-  final first = durationLabel(values.first);
-  return values.length == 1 ? first : '$first–${durationLabel(values.last)}';
 }
