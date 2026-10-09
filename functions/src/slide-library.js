@@ -30,6 +30,22 @@ function validateValue(value, id) {
 
 // Compare serialized DTO defaults consistently with old stored documents.
 // New optional fields must not make every legacy edit look like a conflict.
+function normalizeLibraryDesignStyle(value) {
+  if (value == null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) return value;
+  // Match SlideDesignStyle.fromJson/toJson, including newly added nullable
+  // fields. Preserve unrecognized fields so a real/future edit still conflicts.
+  return {...value,
+    version: value.version ?? 1,
+    family: value.family ?? 'banner',
+    fontFamily: value.fontFamily ?? 'sans',
+    titleColor: value.titleColor ?? null,
+    titleWeight: value.titleWeight ?? 900,
+    motif: value.motif ?? '',
+    originalTemplate: value.originalTemplate ?? null,
+  };
+}
+
 export function normalizeLibraryValue(value) {
   if (!value) return null;
   return {showTimerGauge: true, favorite: false, category: '', timerColorValue: null,
@@ -40,6 +56,9 @@ export function normalizeLibraryValue(value) {
     designFontWeight: value.designFontWeight ?? 900,
     designItalic: value.designItalic ?? true,
     designSpacing: value.designSpacing ?? 1.0,
+    designStyle: normalizeLibraryDesignStyle(value.designStyle),
+    designHeaderLabel: value.designHeaderLabel ?? '',
+    designSubtitle: value.designSubtitle ?? '',
     showSets: value.showSets ?? value.showTimer,
     appearance: {timerX: .84, timerY: .5, timerSize: 1, ringWidth: 30, setsSize: 1, setsOffsetY: .07,
       showTitle: true, showBody: true, showBrand: true, titleColor: 0xFFFFFFFF, bodyColor: 0xFFFFFFFF,

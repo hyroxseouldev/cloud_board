@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -139,6 +141,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          aiSlideDesignOwnerIdProvider.overrideWithValue(null),
+          aiSlideDesignStoreIdProvider.overrideWithValue(null),
           aiSlidesRepositoryProvider.overrideWithValue(repository),
           aiSlidesOwnerIdProvider.overrideWithValue('test-owner'),
           aiSlidesEditorRepositoryProvider.overrideWithValue(
@@ -394,7 +398,7 @@ void main() {
         tester.widget<TextField>(lines).controller!.text,
         contains('Run 200m'),
       );
-      await tester.tap(find.text('원문'));
+      await tester.tap(find.text('수업 메모'));
       await tester.pumpAndSettle();
       await reveal(tester, find.byKey(const ValueKey('ai-slides-generate')));
       expect(

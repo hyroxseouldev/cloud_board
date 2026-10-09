@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
@@ -8,6 +9,7 @@ part 'ai_slides_editor.freezed.dart';
 @freezed
 abstract class AiSlideTheme with _$AiSlideTheme {
   const factory AiSlideTheme({
+    SlideDesignStyle? designStyle,
     int? designBackgroundColor,
     int? designTextColor,
     int? designAccentColor,
@@ -54,6 +56,7 @@ abstract class AiSlidesEditorState with _$AiSlidesEditorState {
 }
 
 AiSlideTheme aiSlideThemeFromDraft(AiSlideDraft draft) => AiSlideTheme(
+  designStyle: draft.designStyle,
   designBackgroundColor: draft.designBackgroundColor,
   designTextColor: draft.designTextColor,
   designAccentColor: draft.designAccentColor,
@@ -69,6 +72,12 @@ AiSlideTheme aiSlideThemeFromDraft(AiSlideDraft draft) => AiSlideTheme(
 
 AiSlideDraft applyAiSlideTheme(AiSlideDraft draft, AiSlideTheme theme) =>
     draft.copyWith(
+      layout: theme.designStyle == null
+          ? draft.layout
+          : theme.designStyle!.family == 'editorial'
+          ? 'list'
+          : 'numbered',
+      designStyle: theme.designStyle,
       designBackgroundColor: theme.designBackgroundColor,
       designTextColor: theme.designTextColor,
       designAccentColor: theme.designAccentColor,
@@ -76,7 +85,7 @@ AiSlideDraft applyAiSlideTheme(AiSlideDraft draft, AiSlideTheme theme) =>
       designFontWeight: theme.designFontWeight,
       designItalic: theme.designItalic,
       designSpacing: theme.designSpacing,
-      showTimer: theme.showTimer,
+      showTimer: theme.designStyle?.originalTemplate == null && theme.showTimer,
       timerX: theme.timerX,
       timerY: theme.timerY,
       timerSize: theme.timerSize,

@@ -12,10 +12,21 @@ import 'package:cloud_board/src/app/bootstrap.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 
 void main() {
+  runCloudBoard();
+}
+
+/// The separate local-preview entry point configures emulators before providers
+/// can read Firebase. Normal builds always use the production configuration.
+void runCloudBoard({
+  FirebaseOptions? firebaseOptions,
+  Future<void> Function()? configureFirebase,
+  bool localPreview = false,
+}) {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     AppBootstrap(
-      initialize: _initialize,
+      initialize: () =>
+          _initialize(firebaseOptions, configureFirebase, localPreview),
       builder: (isTv) => ProviderScope(
         overrides: [androidTvProvider.overrideWith((ref) async => isTv)],
         child: TvPlaybackLifecycle(isTv: isTv, child: const XonBoardApp()),
@@ -24,14 +35,24 @@ void main() {
   );
 }
 
-Future<bool> _initialize() async {
+Future<bool> _initialize(
+  FirebaseOptions? firebaseOptions,
+  Future<void> Function()? configureFirebase,
+  bool localPreview,
+) async {
   // Neither operation depends on the other. The bootstrap has already painted.
   final results = await Future.wait<Object>([
-    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    Firebase.initializeApp(
+      options: firebaseOptions ?? DefaultFirebaseOptions.currentPlatform,
+    ),
     const DeviceFormFactorDataSource().isAndroidTv(),
   ]);
+  await configureFirebase?.call();
   final isTv = results[1] as bool;
-  final reporter = await initializeDiagnostics(isTv: isTv);
+  final reporter = await initializeDiagnostics(
+    isTv: isTv,
+    localOnly: localPreview,
+  );
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     reporter.capture(

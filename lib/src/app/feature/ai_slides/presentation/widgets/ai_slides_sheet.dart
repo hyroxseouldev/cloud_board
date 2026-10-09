@@ -6,6 +6,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slide_design_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slides_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_content_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_design_editor.dart';
@@ -58,6 +60,18 @@ class AiSlidesSheet extends HookConsumerWidget {
     });
     final access = ref.watch(aiSlidesAccessProvider);
     final tab = useState(_EditorTab.content);
+    final designState = ref.watch(aiSlideDesignControllerProvider);
+    useEffect(() {
+      if (designState.selected != null) {
+        controller.setPreferredTheme(
+          designState.selected!.theme,
+          classLabel: designState.selected!.id.startsWith('ai-design-')
+              ? designState.selected!.name
+              : null,
+        );
+      }
+      return null;
+    }, [designState.selected]);
     final draft = state.draft;
     final module = draft == null ? null : previewAiSlide(draft);
     final metrics = module == null ? null : measureSlideDesign(module);
@@ -68,8 +82,7 @@ class AiSlidesSheet extends HookConsumerWidget {
     final warning = validation ?? metrics?.warning;
     final canAdd =
         module != null &&
-        !busy &&
-        allowed &&
+        !state.generating &&
         validation == null &&
         metrics!.readable;
     ref.listen(aiSlidesControllerProvider, (previous, next) {
@@ -109,15 +122,35 @@ class AiSlidesSheet extends HookConsumerWidget {
         controller.generate(state.prompt);
       },
     );
+    final studio = AiSlideDesignStudio(
+      draft: draft,
+      onSelected: (design) {
+        controller.applyDesign(
+          design.theme,
+          classLabel: design.id.startsWith('ai-design-') ? design.name : null,
+        );
+        tab.value = _EditorTab.content;
+      },
+    );
     final editor = draft == null
-        ? input
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [studio, const Divider(height: 32), input],
+          )
         : switch (tab.value) {
-            _EditorTab.design => AiSlidesDesignEditor(
-              draft: draft,
-              state: state,
-              onChanged: controller.updateDraft,
-              onSaveTheme: controller.saveTheme,
-              onApplyTheme: controller.applyTheme,
+            _EditorTab.design => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                studio,
+                const Divider(height: 32),
+                AiSlidesDesignEditor(
+                  draft: draft,
+                  state: state,
+                  onChanged: controller.updateDraft,
+                  onSaveTheme: controller.saveTheme,
+                  onApplyTheme: controller.applyTheme,
+                ),
+              ],
             ),
             _EditorTab.source => input,
             _EditorTab.content => AiSlidesContentEditor(
@@ -144,7 +177,7 @@ class AiSlidesSheet extends HookConsumerWidget {
                   children: [
                     const Expanded(
                       child: Text(
-                        'AI 슬라이드 만들기',
+                        '수업 슬라이드',
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w700,
@@ -201,7 +234,7 @@ class AiSlidesSheet extends HookConsumerWidget {
                                   ),
                                   ButtonSegment(
                                     value: _EditorTab.source,
-                                    label: Text('원문'),
+                                    label: Text('수업 메모'),
                                   ),
                                 ],
                                 selected: {tab.value},
@@ -212,7 +245,7 @@ class AiSlidesSheet extends HookConsumerWidget {
                           ),
                         Expanded(
                           child: AbsorbPointer(
-                            absorbing: busy,
+                            absorbing: state.generating,
                             child: ListView(
                               key: ValueKey(
                                 'ai-slides-editor-${tab.value.index}',

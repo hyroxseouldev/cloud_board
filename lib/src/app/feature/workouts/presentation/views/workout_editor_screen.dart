@@ -643,7 +643,7 @@ class _EditorBody extends HookConsumerWidget {
                                         Icons.auto_awesome_rounded,
                                         size: 18,
                                       ),
-                                      Text('AI 슬라이드 만들기'),
+                                      Text('수업 슬라이드 만들기'),
                                       AiBetaBadge(),
                                     ],
                                   ),

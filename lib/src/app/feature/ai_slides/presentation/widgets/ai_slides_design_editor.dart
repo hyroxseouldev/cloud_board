@@ -5,6 +5,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_editor_controls.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 class AiSlidesDesignEditor extends StatelessWidget {
@@ -22,6 +23,22 @@ class AiSlidesDesignEditor extends StatelessWidget {
   final VoidCallback onSaveTheme, onApplyTheme;
   @override
   Widget build(BuildContext context) {
+    if (draft.designStyle?.originalTemplate != null) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '원본 배치 유지 · 운동 문구만 수정',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          SizedBox(height: 8),
+          Text(
+            '배경과 한자 장식은 원본을 그대로 사용해요. 내용 탭에서 수업 문구를 바꿔 주세요.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      );
+    }
     final module = previewAiSlide(draft);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,6 +112,42 @@ class AiSlidesDesignEditor extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text('글씨', style: TextStyle(fontWeight: FontWeight.w700)),
+        if (draft.designStyle != null) ...[
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final option in const {
+                'sans': '또렷한 고딕',
+                'serif': '클래식 세리프',
+              }.entries)
+                ChoiceChip(
+                  label: Text(option.value),
+                  selected: draft.designStyle!.fontFamily == option.key,
+                  onSelected: (_) => onChanged(
+                    draft.copyWith(
+                      designStyle: draft.designStyle!.copyWith(
+                        fontFamily: option.key,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          AiSlidesSyncedField(
+            fieldKey: const ValueKey('ai-design-motif'),
+            value: draft.designStyle!.motif,
+            label: '장식 문구 (운동 내용과 별개)',
+            maxLength: 12,
+            onChanged: (value) => onChanged(
+              draft.copyWith(
+                designStyle: (draft.designStyle ?? const SlideDesignStyle())
+                    .copyWith(motif: value),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         Wrap(
           spacing: 8,
           children: [

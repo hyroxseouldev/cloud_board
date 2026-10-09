@@ -24,7 +24,11 @@ class _NoopSink implements DiagnosticSink {
   Future<void> send(DiagnosticEvent event) async {}
 }
 
-Future<ErrorReporter> initializeDiagnostics({required bool isTv}) async {
+Future<ErrorReporter> initializeDiagnostics({
+  required bool isTv,
+  bool localOnly = false,
+}) async {
+  if (localOnly) return _applicationReporter = ErrorReporter(_NoopSink());
   PackageInfo? package;
   try {
     package = await PackageInfo.fromPlatform().timeout(

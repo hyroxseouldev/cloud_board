@@ -1,0 +1,468 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/data/models/ai_slide_design_model.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/data/repositories/ai_slide_design_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/data/repositories/ai_slides_editor_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/data/repositories/ai_slides_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_slide_design_repository.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_slides_repository.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slides_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_content_editor.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_design_editor.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/original_slide_renderer.dart';
+
+import 'support/ai_slides_editor_fakes.dart';
+
+class _DesignRepository implements AiSlideDesignRepository {
+  final saved = <String, AiSlideDesign>{};
+  final selected = <String, AiSlideDesign>{};
+  final streams = <String, StreamController<List<AiSlideDesign>>>{};
+  Completer<AiSlideDesignResult>? pending;
+  Completer<AiSlideDesign?>? restoring;
+  int calls = 0;
+  String scope(String owner, String? store) => '$owner/${store ?? 'legacy'}';
+  @override
+  Future<AiSlidesAccess> access(String ownerId) async => const AiSlidesAccess(
+    premium: true,
+    enabled: true,
+    remaining: 30,
+    limit: 30,
+  );
+  @override
+  Future<AiSlideDesignResult> generate(
+    String ownerId,
+    String prompt, {
+    Uint8List? reference,
+  }) async {
+    calls++;
+    return pending?.future ??
+        AiSlideDesignResult(
+          designs: aiSlideDesignCatalog
+              .take(reference == null ? 3 : 1)
+              .toList(),
+          remaining: 29,
+        );
+  }
+
+  @override
+  Future<AiSlideDesign?> loadSelected(String ownerId, String? storeId) async =>
+      restoring?.future ?? selected[scope(ownerId, storeId)];
+  @override
+  Future<void> saveSelected(
+    String ownerId,
+    String? storeId,
+    AiSlideDesign design,
+  ) async {
+    selected[scope(ownerId, storeId)] = design;
+  }
+
+  @override
+  Future<void> saveTemplate(String ownerId, AiSlideDesign design) async {
+    saved[design.id] = design;
+    streams[scope(ownerId, design.storeId)]?.add(
+      saved.values.where((value) => value.storeId == design.storeId).toList(),
+    );
+  }
+
+  @override
+  Stream<List<AiSlideDesign>> watchTemplates(String ownerId, String? storeId) =>
+      (streams[scope(ownerId, storeId)] ??=
+              StreamController<List<AiSlideDesign>>.broadcast())
+          .stream;
+}
+
+class _ContentRepository implements AiSlidesRepository {
+  bool premium = false;
+  int calls = 0;
+  @override
+  Future<AiSlidesAccess> access() async =>
+      AiSlidesAccess(premium: premium, enabled: true, remaining: 30, limit: 30);
+  @override
+  Future<AiSlidesResult> generate(String prompt) async {
+    calls++;
+    return const AiSlidesResult(
+      slides: [
+        AiSlideDraft(
+          title: '새 수업',
+          layout: 'list',
+          lines: ['DV Press 8 + BTP 10', 'Run 250m + FMCTP 30'],
+        ),
+      ],
+      warnings: [],
+      remaining: 29,
+    );
+  }
+}
+
+Future<void> _settle() => Future<void>.delayed(Duration.zero);
+
+void main() {
+  test(
+    'customer original template stays outside the shared design catalog',
+    () {
+      expect(aiSlideDesignCatalog, hasLength(4));
+      expect(
+        aiSlideDesignCatalog.every(
+          (design) => design.theme.designStyle?.originalTemplate == null,
+        ),
+        isTrue,
+      );
+      final original = initialAiSlideDesignDraft(dolpaReferenceDesign.theme);
+      expect(original.title, 'Brick Session');
+      expect(original.designSubtitle, '6mins On / 90s Off');
+      expect(original.designHeaderLabel, isEmpty);
+      final saved = dolpaReferenceDesign.copyWith(
+        id: 'ai-design-owner-class',
+        name: '돌파',
+        storeId: 'center-a',
+      );
+      expect(
+        AiSlideDesignModel.fromJson(
+          AiSlideDesignModel.fromEntity(saved).toJson(),
+        ).toEntity(saved.id),
+        saved,
+      );
+      expect(original.lines, [
+        'Ski 250m + Sled Pull 1 Way',
+        'Run 250m + FMCTP 30',
+        'Ski 250m + Wall Ball 30',
+        'DV Press 8 + BTP 10',
+      ]);
+    },
+  );
+
+  test(
+    'original selection keeps edited content and never injects class metadata',
+    () async {
+      final content = _ContentRepository()..premium = true;
+      final container = ProviderContainer(
+        overrides: [
+          aiSlidesOwnerIdProvider.overrideWithValue('alice'),
+          aiSlidesEditorRepositoryProvider.overrideWithValue(
+            MemoryAiSlidesEditorRepository(),
+          ),
+          aiSlidesRepositoryProvider.overrideWithValue(content),
+        ],
+      );
+      addTearDown(container.dispose);
+      final editor = container.read(aiSlidesControllerProvider.notifier);
+      await _settle();
+      await _settle();
+      editor.applyDesign(dolpaReferenceDesign.theme, classLabel: '돌파');
+      var draft = container.read(aiSlidesControllerProvider).draft!;
+      expect(draft.title, 'Brick Session');
+      expect(draft.designHeaderLabel, isEmpty);
+      expect(draft.showTimer, isFalse);
+      expect(draft.lines, hasLength(4));
+      editor.updateDraft(
+        draft.copyWith(
+          title: '수정한 수업',
+          designSubtitle: '8mins On',
+          lines: ['DV Press 12 + BTP 15'],
+        ),
+      );
+      editor.applyDesign(dolpaReferenceDesign.theme, classLabel: '저장한 클래스 이름');
+      draft = container.read(aiSlidesControllerProvider).draft!;
+      expect(draft.title, dolpaBrickOriginalTitle);
+      expect(draft.designSubtitle, '8mins On');
+      expect(draft.lines, ['DV Press 12 + BTP 15']);
+      expect(draft.designHeaderLabel, isEmpty);
+      await editor.generate(
+        '새 수업 제목\nDV Press 8 + BTP 10\nRun 250m + FMCTP 30',
+      );
+      final generated = container.read(aiSlidesControllerProvider).draft!;
+      expect(generated.title, dolpaBrickOriginalTitle);
+      expect(generated.lines, ['DV Press 8 + BTP 10', 'Run 250m + FMCTP 30']);
+      expect(generated.showTimer, isFalse);
+    },
+  );
+
+  testWidgets(
+    'fixed original exposes lesson fields and hides unrelated styling',
+    (tester) async {
+      final original = applyAiSlideTheme(
+        initialAiSlideDesignDraft(dolpaReferenceDesign.theme),
+        dolpaReferenceDesign.theme,
+      );
+      AiSlideDraft? changed;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AiSlidesContentEditor(
+                draft: original,
+                warnings: const [],
+                onChanged: (value) => changed = value,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.byKey(const ValueKey('ai-slide-header')), findsNothing);
+      expect(find.byKey(const ValueKey('ai-slide-title')), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(
+                of: find.byKey(const ValueKey('ai-slide-title')),
+                matching: find.byType(TextField),
+              ),
+            )
+            .readOnly,
+        isTrue,
+      );
+      expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);
+      expect(find.text('운동 문구 (최대 4행)'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('ai-original-lines')),
+        'Ski 300m + Sled Pull 1 Way\nRun 250m + FMCTP 30\nSki 250m + Wall Ball 30\nDV Press 8 + BTP 10',
+      );
+      expect(changed!.title, original.title);
+      expect(changed!.designSubtitle, original.designSubtitle);
+      expect(changed!.lines.first, 'Ski 300m + Sled Pull 1 Way');
+      expect(changed!.designStyle, original.designStyle);
+      expect(
+        slideDesignError(
+          previewAiSlide(
+            original.copyWith(lines: [...original.lines, 'Extra row']),
+          ),
+        ),
+        isNotNull,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AiSlidesDesignEditor(
+              draft: original,
+              state: const AiSlidesEditorState(),
+              onChanged: (_) {},
+              onSaveTheme: () {},
+              onApplyTheme: () {},
+            ),
+          ),
+        ),
+      );
+      expect(find.text('원본 배치 유지 · 운동 문구만 수정'), findsOneWidget);
+      expect(find.text('배치'), findsNothing);
+      expect(find.text('글씨'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test('stored class style is content-free and keeps the real center ID', () {
+    final design = aiSlideDesignCatalog[2].copyWith(
+      id: 'class-a',
+      name: '돌파',
+      storeId: 'center-42',
+    );
+    final json = AiSlideDesignModel.fromEntity(design).toJson();
+    expect(json['storeId'], 'center-42');
+    final theme = json['theme'] as Map;
+    expect(theme.keys, isNot(contains('lines')));
+    expect(theme.keys, isNot(contains('designHeaderLabel')));
+    expect(AiSlideDesignModel.fromJson(json).toEntity(design.id), design);
+    expect(
+      () =>
+          AiSlideDesignModel.fromJson({...json, 'schemaVersion': 2})
+              .toEntity(design.id),
+      throwsFormatException,
+    );
+    expect(
+      () =>
+          AiSlideDesignModel.fromJson({...json, 'storeId': ''})
+              .toEntity(design.id),
+      throwsFormatException,
+    );
+  });
+
+  test('design response requires the requested count and opaque colors', () {
+    Map<String, dynamic> candidate() => {
+      'name': '포스터',
+      'description': '정돈된 제목',
+      'family': 'editorial',
+      'fontFamily': 'serif',
+      'backgroundColor': 0xff111111,
+      'textColor': 0xffffffff,
+      'accentColor': 0xffdd4422,
+      'titleColor': 0xffffffff,
+      'titleWeight': 800,
+      'bodyWeight': 600,
+      'italic': false,
+      'spacing': 1.1,
+      'motif': 'CLASS',
+    };
+    Map<String, dynamic> response(List<Map<String, dynamic>> values) => {
+      'result': {'designs': values, 'warnings': <String>[]},
+      'remaining': 27,
+      'cached': false,
+    };
+    expect(
+      parseAiSlideDesignResult(
+        response([candidate()]),
+        reference: true,
+      ).designs.single.theme.designStyle!.family,
+      'editorial',
+    );
+    expect(
+      () => parseAiSlideDesignResult(response([candidate()]), reference: false),
+      throwsA(isA<AiSlidesFailure>()),
+    );
+    expect(
+      () => parseAiSlideDesignResult(
+        response([candidate()..['textColor'] = 0x00ffffff]),
+        reference: true,
+      ),
+      throwsA(isA<AiSlidesFailure>()),
+    );
+  });
+
+  test('late restore cannot replace a design selected by the user', () async {
+    final repository = _DesignRepository()
+      ..restoring = Completer<AiSlideDesign?>();
+    final container = ProviderContainer(
+      overrides: [
+        aiSlideDesignOwnerIdProvider.overrideWithValue('alice'),
+        aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
+        aiSlideDesignRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(aiSlideDesignControllerProvider.notifier);
+    await _settle();
+    await controller.select(aiSlideDesignCatalog[1]);
+    repository.restoring!.complete(aiSlideDesignCatalog[0]);
+    await _settle();
+    expect(
+      container.read(aiSlideDesignControllerProvider).selected!.id,
+      'catalog-focus',
+    );
+    expect(repository.selected['alice/center-a']!.storeId, 'center-a');
+  });
+
+  test('late AI result cannot cross account or center scope', () async {
+    var owner = 'alice';
+    var store = 'center-a';
+    final repository = _DesignRepository()
+      ..pending = Completer<AiSlideDesignResult>();
+    final container = ProviderContainer(
+      overrides: [
+        aiSlideDesignOwnerIdProvider.overrideWith((ref) => owner),
+        aiSlideDesignStoreIdProvider.overrideWith((ref) => store),
+        aiSlideDesignRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(aiSlideDesignControllerProvider.notifier);
+    await _settle();
+    final pending = controller.generate('강렬한 디자인');
+    await _settle();
+    owner = 'bob';
+    store = 'center-b';
+    container.invalidate(aiSlideDesignOwnerIdProvider);
+    container.invalidate(aiSlideDesignStoreIdProvider);
+    container.read(aiSlideDesignControllerProvider);
+    repository.pending!.complete(
+      AiSlideDesignResult(
+        designs: aiSlideDesignCatalog.take(3).toList(),
+        remaining: 29,
+      ),
+    );
+    await pending;
+    expect(container.read(aiSlideDesignControllerProvider).proposals, isEmpty);
+    expect(container.read(aiSlideDesignControllerProvider).generating, isFalse);
+  });
+
+  test('selected design survives daily content generation and undo', () async {
+    final content = _ContentRepository()..premium = true;
+    final container = ProviderContainer(
+      overrides: [
+        aiSlidesOwnerIdProvider.overrideWithValue('alice'),
+        aiSlidesEditorRepositoryProvider.overrideWithValue(
+          MemoryAiSlidesEditorRepository(),
+        ),
+        aiSlidesRepositoryProvider.overrideWithValue(content),
+      ],
+    );
+    addTearDown(container.dispose);
+    final editor = container.read(aiSlidesControllerProvider.notifier);
+    await _settle();
+    await _settle();
+    editor.applyDesign(aiSlideDesignCatalog[2].theme, classLabel: 'HYROX');
+    final before = container.read(aiSlidesControllerProvider).draft!;
+    await editor.generate('DV Press 8 + BTP 10\nRun 250m + FMCTP 30');
+    final draft = container.read(aiSlidesControllerProvider).draft!;
+    expect(draft.lines, ['DV Press 8 + BTP 10', 'Run 250m + FMCTP 30']);
+    expect(draft.designHeaderLabel, 'HYROX');
+    expect(draft.designSubtitle, isEmpty);
+    expect(aiSlideThemeFromDraft(draft), aiSlideDesignCatalog[2].theme);
+    editor.undo();
+    expect(container.read(aiSlidesControllerProvider).draft, before);
+  });
+
+  testWidgets(
+    'free user can choose a catalog design and add editable content',
+    (tester) async {
+      tester.view.physicalSize = const Size(834, 1194);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final content = _ContentRepository();
+      if (showDolpaReferenceDesign) {
+        await tester.runAsync(
+          () => loadOriginalSlideImage(dolpaBrickOriginalTemplateId),
+        );
+      }
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            aiSlidesOwnerIdProvider.overrideWithValue('alice'),
+            aiSlidesEditorRepositoryProvider.overrideWithValue(
+              MemoryAiSlidesEditorRepository(),
+            ),
+            aiSlidesRepositoryProvider.overrideWithValue(content),
+            aiSlideDesignOwnerIdProvider.overrideWithValue(null),
+            aiSlideDesignStoreIdProvider.overrideWithValue(null),
+          ],
+          child: const MaterialApp(home: Scaffold(body: AiSlidesSheet())),
+        ),
+      );
+      if (showDolpaReferenceDesign) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('기본'), findsOneWidget);
+      expect(find.text('디자인 추천'), findsOneWidget);
+      expect(find.text('이미지 스타일'), findsOneWidget);
+      expect(
+        find.text('참고 템플릿'),
+        showDolpaReferenceDesign ? findsOneWidget : findsNothing,
+      );
+      await tester.tap(find.byKey(const ValueKey('ai-design-catalog-banner')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-slide-header')), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const ValueKey('ai-slides-add')))
+            .onPressed,
+        isNotNull,
+      );
+      expect(content.calls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}

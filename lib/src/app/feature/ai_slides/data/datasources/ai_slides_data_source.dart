@@ -27,7 +27,7 @@ class AiSlidesDataSource {
     } on FirebaseFunctionsException catch (error) {
       final details = error.details;
       throw AiSlidesFailure(
-        error.message ?? 'AI에 연결하지 못했습니다. 연결을 확인해 주세요.',
+        error.message ?? '수업 내용을 정리하지 못했어요. 연결을 확인해 주세요.',
         code: error.code,
         reason: details is Map ? details['reason'] as String? : null,
       );

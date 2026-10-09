@@ -4,8 +4,10 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'firebase_account_scope.g.dart';
 
-const cloudBoardRealtimeDatabaseUrl =
-    'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app';
+const cloudBoardRealtimeDatabaseUrl = String.fromEnvironment(
+  'CLOUDBOARD_DATABASE_URL',
+  defaultValue: 'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app',
+);
 
 @Riverpod(keepAlive: true)
 Stream<User?> firebaseAccountUser(Ref ref) =>

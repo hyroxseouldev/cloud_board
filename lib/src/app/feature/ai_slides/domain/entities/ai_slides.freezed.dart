@@ -288,7 +288,7 @@ as int,
 /// @nodoc
 mixin _$AiSlideDraft {
 
- String get title; String get layout; List<String> get lines; int? get designBackgroundColor; int? get designTextColor; int? get designAccentColor; String get designLayout; int get designFontWeight; bool get designItalic; double get designSpacing; bool get showTimer; double get timerX; double get timerY; double get timerSize; int? get workSeconds; int? get restSeconds; int? get sets;
+ String get title; String get layout; List<String> get lines; SlideDesignStyle? get designStyle; String get designHeaderLabel; String get designSubtitle; int? get designBackgroundColor; int? get designTextColor; int? get designAccentColor; String get designLayout; int get designFontWeight; bool get designItalic; double get designSpacing; bool get showTimer; double get timerX; double get timerY; double get timerSize; int? get workSeconds; int? get restSeconds; int? get sets;
 /// Create a copy of AiSlideDraft
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -300,20 +300,20 @@ $AiSlideDraftCopyWith<AiSlideDraft> get copyWith => _$AiSlideDraftCopyWithImpl<A
 @override
 bool operator ==(Object other) {
   final _this = this as AiSlideDraft;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlideDraft&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.layout, _this.layout) || other.layout == _this.layout)&&const DeepCollectionEquality().equals(other.lines, _this.lines)&&(identical(other.designBackgroundColor, _this.designBackgroundColor) || other.designBackgroundColor == _this.designBackgroundColor)&&(identical(other.designTextColor, _this.designTextColor) || other.designTextColor == _this.designTextColor)&&(identical(other.designAccentColor, _this.designAccentColor) || other.designAccentColor == _this.designAccentColor)&&(identical(other.designLayout, _this.designLayout) || other.designLayout == _this.designLayout)&&(identical(other.designFontWeight, _this.designFontWeight) || other.designFontWeight == _this.designFontWeight)&&(identical(other.designItalic, _this.designItalic) || other.designItalic == _this.designItalic)&&(identical(other.designSpacing, _this.designSpacing) || other.designSpacing == _this.designSpacing)&&(identical(other.showTimer, _this.showTimer) || other.showTimer == _this.showTimer)&&(identical(other.timerX, _this.timerX) || other.timerX == _this.timerX)&&(identical(other.timerY, _this.timerY) || other.timerY == _this.timerY)&&(identical(other.timerSize, _this.timerSize) || other.timerSize == _this.timerSize)&&(identical(other.workSeconds, _this.workSeconds) || other.workSeconds == _this.workSeconds)&&(identical(other.restSeconds, _this.restSeconds) || other.restSeconds == _this.restSeconds)&&(identical(other.sets, _this.sets) || other.sets == _this.sets));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlideDraft&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.layout, _this.layout) || other.layout == _this.layout)&&const DeepCollectionEquality().equals(other.lines, _this.lines)&&(identical(other.designStyle, _this.designStyle) || other.designStyle == _this.designStyle)&&(identical(other.designHeaderLabel, _this.designHeaderLabel) || other.designHeaderLabel == _this.designHeaderLabel)&&(identical(other.designSubtitle, _this.designSubtitle) || other.designSubtitle == _this.designSubtitle)&&(identical(other.designBackgroundColor, _this.designBackgroundColor) || other.designBackgroundColor == _this.designBackgroundColor)&&(identical(other.designTextColor, _this.designTextColor) || other.designTextColor == _this.designTextColor)&&(identical(other.designAccentColor, _this.designAccentColor) || other.designAccentColor == _this.designAccentColor)&&(identical(other.designLayout, _this.designLayout) || other.designLayout == _this.designLayout)&&(identical(other.designFontWeight, _this.designFontWeight) || other.designFontWeight == _this.designFontWeight)&&(identical(other.designItalic, _this.designItalic) || other.designItalic == _this.designItalic)&&(identical(other.designSpacing, _this.designSpacing) || other.designSpacing == _this.designSpacing)&&(identical(other.showTimer, _this.showTimer) || other.showTimer == _this.showTimer)&&(identical(other.timerX, _this.timerX) || other.timerX == _this.timerX)&&(identical(other.timerY, _this.timerY) || other.timerY == _this.timerY)&&(identical(other.timerSize, _this.timerSize) || other.timerSize == _this.timerSize)&&(identical(other.workSeconds, _this.workSeconds) || other.workSeconds == _this.workSeconds)&&(identical(other.restSeconds, _this.restSeconds) || other.restSeconds == _this.restSeconds)&&(identical(other.sets, _this.sets) || other.sets == _this.sets));
 }
 
 
 @override
 int get hashCode {
   final _this = this as AiSlideDraft;
-  return Object.hash(runtimeType,_this.title,_this.layout,const DeepCollectionEquality().hash(_this.lines),_this.designBackgroundColor,_this.designTextColor,_this.designAccentColor,_this.designLayout,_this.designFontWeight,_this.designItalic,_this.designSpacing,_this.showTimer,_this.timerX,_this.timerY,_this.timerSize,_this.workSeconds,_this.restSeconds,_this.sets);
+  return Object.hashAll([runtimeType,_this.title,_this.layout,const DeepCollectionEquality().hash(_this.lines),_this.designStyle,_this.designHeaderLabel,_this.designSubtitle,_this.designBackgroundColor,_this.designTextColor,_this.designAccentColor,_this.designLayout,_this.designFontWeight,_this.designItalic,_this.designSpacing,_this.showTimer,_this.timerX,_this.timerY,_this.timerSize,_this.workSeconds,_this.restSeconds,_this.sets]);
 }
 
 @override
 String toString() {
   final _this = this as AiSlideDraft;
-  return 'AiSlideDraft(title: ${_this.title}, layout: ${_this.layout}, lines: ${_this.lines}, designBackgroundColor: ${_this.designBackgroundColor}, designTextColor: ${_this.designTextColor}, designAccentColor: ${_this.designAccentColor}, designLayout: ${_this.designLayout}, designFontWeight: ${_this.designFontWeight}, designItalic: ${_this.designItalic}, designSpacing: ${_this.designSpacing}, showTimer: ${_this.showTimer}, timerX: ${_this.timerX}, timerY: ${_this.timerY}, timerSize: ${_this.timerSize}, workSeconds: ${_this.workSeconds}, restSeconds: ${_this.restSeconds}, sets: ${_this.sets})';
+  return 'AiSlideDraft(title: ${_this.title}, layout: ${_this.layout}, lines: ${_this.lines}, designStyle: ${_this.designStyle}, designHeaderLabel: ${_this.designHeaderLabel}, designSubtitle: ${_this.designSubtitle}, designBackgroundColor: ${_this.designBackgroundColor}, designTextColor: ${_this.designTextColor}, designAccentColor: ${_this.designAccentColor}, designLayout: ${_this.designLayout}, designFontWeight: ${_this.designFontWeight}, designItalic: ${_this.designItalic}, designSpacing: ${_this.designSpacing}, showTimer: ${_this.showTimer}, timerX: ${_this.timerX}, timerY: ${_this.timerY}, timerSize: ${_this.timerSize}, workSeconds: ${_this.workSeconds}, restSeconds: ${_this.restSeconds}, sets: ${_this.sets})';
 }
 
 
@@ -324,11 +324,11 @@ abstract mixin class $AiSlideDraftCopyWith<$Res>  {
   factory $AiSlideDraftCopyWith(AiSlideDraft value, $Res Function(AiSlideDraft) _then) = _$AiSlideDraftCopyWithImpl;
 @useResult
 $Res call({
- String title, String layout, List<String> lines, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize, int? workSeconds, int? restSeconds, int? sets
+ String title, String layout, List<String> lines, SlideDesignStyle? designStyle, String designHeaderLabel, String designSubtitle, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize, int? workSeconds, int? restSeconds, int? sets
 });
 
 
-
+$SlideDesignStyleCopyWith<$Res>? get designStyle;
 
 }
 /// @nodoc
@@ -341,12 +341,15 @@ class _$AiSlideDraftCopyWithImpl<$Res>
 
 /// Create a copy of AiSlideDraft
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? title = null,Object? layout = null,Object? lines = null,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? workSeconds = freezed,Object? restSeconds = freezed,Object? sets = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? title = null,Object? layout = null,Object? lines = null,Object? designStyle = freezed,Object? designHeaderLabel = null,Object? designSubtitle = null,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? workSeconds = freezed,Object? restSeconds = freezed,Object? sets = freezed,}) {
   return _then(AiSlideDraft(
 title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,layout: null == layout ? _self.layout : layout // ignore: cast_nullable_to_non_nullable
 as String,lines: null == lines ? _self.lines : lines // ignore: cast_nullable_to_non_nullable
-as List<String>,designBackgroundColor: freezed == designBackgroundColor ? _self.designBackgroundColor : designBackgroundColor // ignore: cast_nullable_to_non_nullable
+as List<String>,designStyle: freezed == designStyle ? _self.designStyle : designStyle // ignore: cast_nullable_to_non_nullable
+as SlideDesignStyle?,designHeaderLabel: null == designHeaderLabel ? _self.designHeaderLabel : designHeaderLabel // ignore: cast_nullable_to_non_nullable
+as String,designSubtitle: null == designSubtitle ? _self.designSubtitle : designSubtitle // ignore: cast_nullable_to_non_nullable
+as String,designBackgroundColor: freezed == designBackgroundColor ? _self.designBackgroundColor : designBackgroundColor // ignore: cast_nullable_to_non_nullable
 as int?,designTextColor: freezed == designTextColor ? _self.designTextColor : designTextColor // ignore: cast_nullable_to_non_nullable
 as int?,designAccentColor: freezed == designAccentColor ? _self.designAccentColor : designAccentColor // ignore: cast_nullable_to_non_nullable
 as int?,designLayout: null == designLayout ? _self.designLayout : designLayout // ignore: cast_nullable_to_non_nullable
@@ -363,7 +366,19 @@ as int?,sets: freezed == sets ? _self.sets : sets // ignore: cast_nullable_to_no
 as int?,
   ));
 }
+/// Create a copy of AiSlideDraft
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$SlideDesignStyleCopyWith<$Res>? get designStyle {
+    if (_self.designStyle == null) {
+    return null;
+  }
 
+  return $SlideDesignStyleCopyWith<$Res>(_self.designStyle!, (value) {
+    return _then(_self.copyWith(designStyle: value));
+  });
+}
 }
 
 
@@ -445,10 +460,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String title,  String layout,  List<String> lines,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize,  int? workSeconds,  int? restSeconds,  int? sets)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String title,  String layout,  List<String> lines,  SlideDesignStyle? designStyle,  String designHeaderLabel,  String designSubtitle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize,  int? workSeconds,  int? restSeconds,  int? sets)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AiSlideDraft() when $default != null:
-return $default(_that.title,_that.layout,_that.lines,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize,_that.workSeconds,_that.restSeconds,_that.sets);case _:
+return $default(_that.title,_that.layout,_that.lines,_that.designStyle,_that.designHeaderLabel,_that.designSubtitle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize,_that.workSeconds,_that.restSeconds,_that.sets);case _:
   return orElse();
 
 }
@@ -466,10 +481,10 @@ return $default(_that.title,_that.layout,_that.lines,_that.designBackgroundColor
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String title,  String layout,  List<String> lines,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize,  int? workSeconds,  int? restSeconds,  int? sets)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String title,  String layout,  List<String> lines,  SlideDesignStyle? designStyle,  String designHeaderLabel,  String designSubtitle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize,  int? workSeconds,  int? restSeconds,  int? sets)  $default,) {final _that = this;
 switch (_that) {
 case _AiSlideDraft():
-return $default(_that.title,_that.layout,_that.lines,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize,_that.workSeconds,_that.restSeconds,_that.sets);case _:
+return $default(_that.title,_that.layout,_that.lines,_that.designStyle,_that.designHeaderLabel,_that.designSubtitle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize,_that.workSeconds,_that.restSeconds,_that.sets);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -486,10 +501,10 @@ return $default(_that.title,_that.layout,_that.lines,_that.designBackgroundColor
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String title,  String layout,  List<String> lines,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize,  int? workSeconds,  int? restSeconds,  int? sets)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String title,  String layout,  List<String> lines,  SlideDesignStyle? designStyle,  String designHeaderLabel,  String designSubtitle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize,  int? workSeconds,  int? restSeconds,  int? sets)?  $default,) {final _that = this;
 switch (_that) {
 case _AiSlideDraft() when $default != null:
-return $default(_that.title,_that.layout,_that.lines,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize,_that.workSeconds,_that.restSeconds,_that.sets);case _:
+return $default(_that.title,_that.layout,_that.lines,_that.designStyle,_that.designHeaderLabel,_that.designSubtitle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize,_that.workSeconds,_that.restSeconds,_that.sets);case _:
   return null;
 
 }
@@ -501,7 +516,7 @@ return $default(_that.title,_that.layout,_that.lines,_that.designBackgroundColor
 
 
 class _AiSlideDraft implements AiSlideDraft {
-  const _AiSlideDraft({required this.title, required this.layout, required  List<String> lines, this.designBackgroundColor, this.designTextColor, this.designAccentColor, this.designLayout = 'auto', this.designFontWeight = 900, this.designItalic = true, this.designSpacing = 1.0, this.showTimer = true, this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1.0, this.workSeconds, this.restSeconds, this.sets}): _lines = lines;
+  const _AiSlideDraft({required this.title, required this.layout, required  List<String> lines, this.designStyle, this.designHeaderLabel = '', this.designSubtitle = '', this.designBackgroundColor, this.designTextColor, this.designAccentColor, this.designLayout = 'auto', this.designFontWeight = 900, this.designItalic = true, this.designSpacing = 1.0, this.showTimer = true, this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1.0, this.workSeconds, this.restSeconds, this.sets}): _lines = lines;
   
 
 @override final  String title;
@@ -513,6 +528,9 @@ class _AiSlideDraft implements AiSlideDraft {
   return EqualUnmodifiableListView(_lines);
 }
 
+@override final  SlideDesignStyle? designStyle;
+@override@JsonKey() final  String designHeaderLabel;
+@override@JsonKey() final  String designSubtitle;
 @override final  int? designBackgroundColor;
 @override final  int? designTextColor;
 @override final  int? designAccentColor;
@@ -538,18 +556,18 @@ _$AiSlideDraftCopyWith<_AiSlideDraft> get copyWith => __$AiSlideDraftCopyWithImp
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlideDraft&&(identical(other.title, title) || other.title == title)&&(identical(other.layout, layout) || other.layout == layout)&&const DeepCollectionEquality().equals(other.lines, _lines)&&(identical(other.designBackgroundColor, designBackgroundColor) || other.designBackgroundColor == designBackgroundColor)&&(identical(other.designTextColor, designTextColor) || other.designTextColor == designTextColor)&&(identical(other.designAccentColor, designAccentColor) || other.designAccentColor == designAccentColor)&&(identical(other.designLayout, designLayout) || other.designLayout == designLayout)&&(identical(other.designFontWeight, designFontWeight) || other.designFontWeight == designFontWeight)&&(identical(other.designItalic, designItalic) || other.designItalic == designItalic)&&(identical(other.designSpacing, designSpacing) || other.designSpacing == designSpacing)&&(identical(other.showTimer, showTimer) || other.showTimer == showTimer)&&(identical(other.timerX, timerX) || other.timerX == timerX)&&(identical(other.timerY, timerY) || other.timerY == timerY)&&(identical(other.timerSize, timerSize) || other.timerSize == timerSize)&&(identical(other.workSeconds, workSeconds) || other.workSeconds == workSeconds)&&(identical(other.restSeconds, restSeconds) || other.restSeconds == restSeconds)&&(identical(other.sets, sets) || other.sets == sets));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlideDraft&&(identical(other.title, title) || other.title == title)&&(identical(other.layout, layout) || other.layout == layout)&&const DeepCollectionEquality().equals(other.lines, _lines)&&(identical(other.designStyle, designStyle) || other.designStyle == designStyle)&&(identical(other.designHeaderLabel, designHeaderLabel) || other.designHeaderLabel == designHeaderLabel)&&(identical(other.designSubtitle, designSubtitle) || other.designSubtitle == designSubtitle)&&(identical(other.designBackgroundColor, designBackgroundColor) || other.designBackgroundColor == designBackgroundColor)&&(identical(other.designTextColor, designTextColor) || other.designTextColor == designTextColor)&&(identical(other.designAccentColor, designAccentColor) || other.designAccentColor == designAccentColor)&&(identical(other.designLayout, designLayout) || other.designLayout == designLayout)&&(identical(other.designFontWeight, designFontWeight) || other.designFontWeight == designFontWeight)&&(identical(other.designItalic, designItalic) || other.designItalic == designItalic)&&(identical(other.designSpacing, designSpacing) || other.designSpacing == designSpacing)&&(identical(other.showTimer, showTimer) || other.showTimer == showTimer)&&(identical(other.timerX, timerX) || other.timerX == timerX)&&(identical(other.timerY, timerY) || other.timerY == timerY)&&(identical(other.timerSize, timerSize) || other.timerSize == timerSize)&&(identical(other.workSeconds, workSeconds) || other.workSeconds == workSeconds)&&(identical(other.restSeconds, restSeconds) || other.restSeconds == restSeconds)&&(identical(other.sets, sets) || other.sets == sets));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,title,layout,const DeepCollectionEquality().hash(_lines),designBackgroundColor,designTextColor,designAccentColor,designLayout,designFontWeight,designItalic,designSpacing,showTimer,timerX,timerY,timerSize,workSeconds,restSeconds,sets);
+    return Object.hashAll([runtimeType,title,layout,const DeepCollectionEquality().hash(_lines),designStyle,designHeaderLabel,designSubtitle,designBackgroundColor,designTextColor,designAccentColor,designLayout,designFontWeight,designItalic,designSpacing,showTimer,timerX,timerY,timerSize,workSeconds,restSeconds,sets]);
 }
 
 @override
 String toString() {
-    return 'AiSlideDraft(title: $title, layout: $layout, lines: $lines, designBackgroundColor: $designBackgroundColor, designTextColor: $designTextColor, designAccentColor: $designAccentColor, designLayout: $designLayout, designFontWeight: $designFontWeight, designItalic: $designItalic, designSpacing: $designSpacing, showTimer: $showTimer, timerX: $timerX, timerY: $timerY, timerSize: $timerSize, workSeconds: $workSeconds, restSeconds: $restSeconds, sets: $sets)';
+    return 'AiSlideDraft(title: $title, layout: $layout, lines: $lines, designStyle: $designStyle, designHeaderLabel: $designHeaderLabel, designSubtitle: $designSubtitle, designBackgroundColor: $designBackgroundColor, designTextColor: $designTextColor, designAccentColor: $designAccentColor, designLayout: $designLayout, designFontWeight: $designFontWeight, designItalic: $designItalic, designSpacing: $designSpacing, showTimer: $showTimer, timerX: $timerX, timerY: $timerY, timerSize: $timerSize, workSeconds: $workSeconds, restSeconds: $restSeconds, sets: $sets)';
 }
 
 
@@ -560,11 +578,11 @@ abstract mixin class _$AiSlideDraftCopyWith<$Res> implements $AiSlideDraftCopyWi
   factory _$AiSlideDraftCopyWith(_AiSlideDraft value, $Res Function(_AiSlideDraft) _then) = __$AiSlideDraftCopyWithImpl;
 @override @useResult
 $Res call({
- String title, String layout, List<String> lines, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize, int? workSeconds, int? restSeconds, int? sets
+ String title, String layout, List<String> lines, SlideDesignStyle? designStyle, String designHeaderLabel, String designSubtitle, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize, int? workSeconds, int? restSeconds, int? sets
 });
 
 
-
+@override $SlideDesignStyleCopyWith<$Res>? get designStyle;
 
 }
 /// @nodoc
@@ -577,12 +595,15 @@ class __$AiSlideDraftCopyWithImpl<$Res>
 
 /// Create a copy of AiSlideDraft
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? title = null,Object? layout = null,Object? lines = null,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? workSeconds = freezed,Object? restSeconds = freezed,Object? sets = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? title = null,Object? layout = null,Object? lines = null,Object? designStyle = freezed,Object? designHeaderLabel = null,Object? designSubtitle = null,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,Object? workSeconds = freezed,Object? restSeconds = freezed,Object? sets = freezed,}) {
   return _then(_AiSlideDraft(
 title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,layout: null == layout ? _self.layout : layout // ignore: cast_nullable_to_non_nullable
 as String,lines: null == lines ? _self._lines : lines // ignore: cast_nullable_to_non_nullable
-as List<String>,designBackgroundColor: freezed == designBackgroundColor ? _self.designBackgroundColor : designBackgroundColor // ignore: cast_nullable_to_non_nullable
+as List<String>,designStyle: freezed == designStyle ? _self.designStyle : designStyle // ignore: cast_nullable_to_non_nullable
+as SlideDesignStyle?,designHeaderLabel: null == designHeaderLabel ? _self.designHeaderLabel : designHeaderLabel // ignore: cast_nullable_to_non_nullable
+as String,designSubtitle: null == designSubtitle ? _self.designSubtitle : designSubtitle // ignore: cast_nullable_to_non_nullable
+as String,designBackgroundColor: freezed == designBackgroundColor ? _self.designBackgroundColor : designBackgroundColor // ignore: cast_nullable_to_non_nullable
 as int?,designTextColor: freezed == designTextColor ? _self.designTextColor : designTextColor // ignore: cast_nullable_to_non_nullable
 as int?,designAccentColor: freezed == designAccentColor ? _self.designAccentColor : designAccentColor // ignore: cast_nullable_to_non_nullable
 as int?,designLayout: null == designLayout ? _self.designLayout : designLayout // ignore: cast_nullable_to_non_nullable
@@ -600,7 +621,19 @@ as int?,
   ));
 }
 
+/// Create a copy of AiSlideDraft
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$SlideDesignStyleCopyWith<$Res>? get designStyle {
+    if (_self.designStyle == null) {
+    return null;
+  }
 
+  return $SlideDesignStyleCopyWith<$Res>(_self.designStyle!, (value) {
+    return _then(_self.copyWith(designStyle: value));
+  });
+}
 }
 
 /// @nodoc

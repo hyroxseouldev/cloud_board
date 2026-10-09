@@ -17,6 +17,7 @@ import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -166,13 +167,23 @@ class _SlideEditorBody extends HookConsumerWidget {
     final renderedBrandR = renderedWorkout?.brandR ?? request.brandR;
 
     final module = state.module;
-    final structuredDesign = slideDesigns.containsKey(module.designTemplate);
+    final originalDesign = module.designStyle?.originalTemplate != null;
+    final structuredDesign =
+        slideDesigns.containsKey(module.designTemplate) ||
+        isStudioSlideDesign(module);
     final busy = useState(false);
     final needsInitialSave = useState(request.needsInitialSave);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final error = useState<String?>(null);
     final form = useMemoized(() => GlobalKey<FormState>());
     final description = useTextEditingController(text: module.text);
+    final originalTitle = useTextEditingController(text: module.name);
+    final designHeader = useTextEditingController(
+      text: module.designHeaderLabel,
+    );
+    final designSubtitle = useTextEditingController(
+      text: module.designSubtitle,
+    );
     final section = useState(1);
     final sectionTransition = useAnimationController(
       duration: const Duration(milliseconds: 180),
@@ -185,22 +196,43 @@ class _SlideEditorBody extends HookConsumerWidget {
     final revision = useState(0);
     final selectedBlockId = useState<String?>(null);
     final blocks = effectiveIntervalBlocks(module);
-    useEffect(() {
-      for (final item in [(description, module.text)]) {
-        if (item.$1.text != item.$2) {
-          item.$1.value = TextEditingValue(
-            text: item.$2,
-            selection: TextSelection.collapsed(offset: item.$2.length),
-          );
+    useEffect(
+      () {
+        for (final item in [
+          (description, module.text),
+          (originalTitle, module.name),
+          (designHeader, module.designHeaderLabel),
+          (designSubtitle, module.designSubtitle),
+        ]) {
+          if (item.$1.text != item.$2) {
+            item.$1.value = TextEditingValue(
+              text: item.$2,
+              selection: TextSelection.collapsed(offset: item.$2.length),
+            );
+          }
         }
-      }
-      return null;
-    }, [module.text]);
+        return null;
+      },
+      [
+        module.name,
+        module.text,
+        module.designHeaderLabel,
+        module.designSubtitle,
+      ],
+    );
     useOnAppLifecycleStateChange((previous, next) {
       if (next != AppLifecycleState.resumed) unawaited(actions.flush());
     });
 
-    void update(WorkoutModule value) => actions.update(value);
+    void update(WorkoutModule value) => actions.update(
+      value.designStyle?.originalTemplate != null
+          ? value.copyWith(
+              name: dolpaBrickOriginalTitle,
+              showTimer: false,
+              showSets: false,
+            )
+          : value,
+    );
     void resetFields(VoidCallback change) {
       FocusScope.of(context).unfocus();
       change();
@@ -493,7 +525,7 @@ class _SlideEditorBody extends HookConsumerWidget {
         minimumSize: const Size(44, 44),
         alignment: Alignment.centerLeft,
       ),
-      onPressed: busy.value
+      onPressed: busy.value || originalDesign
           ? null
           : () async {
               FocusScope.of(context).unfocus();
@@ -509,7 +541,7 @@ class _SlideEditorBody extends HookConsumerWidget {
               if (edited != latest.name) update(latest.copyWith(name: edited));
             },
       child: Tooltip(
-        message: '슬라이드 제목 수정',
+        message: originalDesign ? '원본 제목 (고정)' : '슬라이드 제목 수정',
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -643,6 +675,54 @@ class _SlideEditorBody extends HookConsumerWidget {
                   ),
                 );
               },
+            )
+          : originalDesign
+          ? ListView(
+              controller: settingsScroll,
+              key: const ValueKey('original-slide-editor-settings'),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              children: [
+                const Text(
+                  '원본 배치 유지 · 운동 문구만 수정',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const ValueKey('original-slide-title'),
+                  controller: originalTitle,
+                  readOnly: true,
+                  enableInteractiveSelection: false,
+                  decoration: const InputDecoration(
+                    labelText: '원본 제목 (고정)',
+                    helperText: '제목과 한자 장식은 원본 그대로 유지해요.',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('original-slide-subtitle'),
+                  controller: designSubtitle,
+                  maxLength: 120,
+                  decoration: const InputDecoration(labelText: '운동 안내 · 시간 문구'),
+                  onChanged: (value) =>
+                      update(module.copyWith(designSubtitle: value)),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('original-slide-lines'),
+                  controller: description,
+                  minLines: 4,
+                  maxLines: 4,
+                  maxLength: 483,
+                  decoration: const InputDecoration(labelText: '운동 문구 (최대 4행)'),
+                  onChanged: (value) => update(module.copyWith(text: value)),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: loadStyle,
+                  icon: const Icon(Icons.style_outlined),
+                  label: const Text('다른 스타일 불러오기'),
+                ),
+              ],
             )
           : ListView(
               controller: settingsScroll,
@@ -980,6 +1060,30 @@ class _SlideEditorBody extends HookConsumerWidget {
                           update(module.copyWith(appearance: value)),
                     ),
                   const Divider(height: 24),
+                  if (isStudioSlideDesign(module)) ...[
+                    TextFormField(
+                      key: const ValueKey('studio-class-label'),
+                      controller: designHeader,
+                      maxLength: 60,
+                      decoration: const InputDecoration(
+                        labelText: '클래스 이름 · 분류',
+                      ),
+                      onChanged: (value) =>
+                          update(module.copyWith(designHeaderLabel: value)),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const ValueKey('studio-subtitle'),
+                      controller: designSubtitle,
+                      maxLength: 120,
+                      decoration: const InputDecoration(
+                        labelText: '운동 안내 · 시간 문구',
+                      ),
+                      onChanged: (value) =>
+                          update(module.copyWith(designSubtitle: value)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (structuredDesign)
                     SlideDesignSectionEditor(
                       text: module.text,
@@ -1107,26 +1211,47 @@ class _SlideEditorBody extends HookConsumerWidget {
         ),
         bottomNavigationBar: AbsorbPointer(
           absorbing: busy.value,
-          child: AppBottomTabBar(
-            key: const ValueKey('slide-editor-tabs'),
-            indicatorKey: const ValueKey('slide-tab-indicator'),
-            selected: section.value - 1,
-            onSelected: (index) => selectSection(index + 1),
-            items: const [
-              AppBottomTab(label: '타이머', icon: Icons.timer_outlined, flex: 4),
-              AppBottomTab(label: '배경', icon: Icons.image_outlined, flex: 4),
-              AppBottomTab(
-                label: '소리',
-                icon: Icons.volume_up_outlined,
-                flex: 4,
-              ),
-              AppBottomTab(
-                label: '라이브러리',
-                icon: Icons.filter_none_rounded,
-                flex: 5,
-              ),
-            ],
-          ),
+          child: originalDesign
+              ? AppBottomTabBar(
+                  key: const ValueKey('original-slide-editor-tabs'),
+                  selected: section.value == 4 ? 1 : 0,
+                  onSelected: (index) => selectSection(index == 0 ? 2 : 4),
+                  items: const [
+                    AppBottomTab(label: '내용', icon: Icons.edit_note_rounded),
+                    AppBottomTab(
+                      label: '라이브러리',
+                      icon: Icons.filter_none_rounded,
+                    ),
+                  ],
+                )
+              : AppBottomTabBar(
+                  key: const ValueKey('slide-editor-tabs'),
+                  indicatorKey: const ValueKey('slide-tab-indicator'),
+                  selected: section.value - 1,
+                  onSelected: (index) => selectSection(index + 1),
+                  items: const [
+                    AppBottomTab(
+                      label: '타이머',
+                      icon: Icons.timer_outlined,
+                      flex: 4,
+                    ),
+                    AppBottomTab(
+                      label: '배경',
+                      icon: Icons.image_outlined,
+                      flex: 4,
+                    ),
+                    AppBottomTab(
+                      label: '소리',
+                      icon: Icons.volume_up_outlined,
+                      flex: 4,
+                    ),
+                    AppBottomTab(
+                      label: '라이브러리',
+                      icon: Icons.filter_none_rounded,
+                      flex: 5,
+                    ),
+                  ],
+                ),
         ),
         body: AbsorbPointer(
           absorbing: busy.value,

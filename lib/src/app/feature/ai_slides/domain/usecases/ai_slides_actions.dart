@@ -20,8 +20,12 @@ class AiSlidesActions {
       throw const AiSlidesFailure('수업 내용을 1~6,000자로 입력해 주세요.');
     }
     final access = await repository.access();
-    if (!access.premium) throw const AiSlidesFailure('프리미엄 이용자만 사용할 수 있어요.');
-    if (!access.enabled) throw const AiSlidesFailure('AI 기능을 준비 중입니다.');
+    if (!access.premium) {
+      throw const AiSlidesFailure('수업 내용 자동 정리는 프리미엄 기능이에요.');
+    }
+    if (!access.enabled) {
+      throw const AiSlidesFailure('내용 정리 기능을 준비 중이에요. 직접 입력해서 만들 수 있어요.');
+    }
     // A server cache hit remains free even after the monthly quota is exhausted.
     return repository.generate(prompt.trim());
   }
@@ -40,7 +44,7 @@ WorkoutModule confirmAiSlide(AiSlideDraft draft, String id) {
       rest > 3600 ||
       sets < 1 ||
       sets > 100) {
-    throw const AiSlidesFailure('타이머 정보를 읽지 못했어요. 다시 생성해 주세요.');
+    throw const AiSlidesFailure('타이머 정보를 읽지 못했어요. 수업 내용을 다시 정리해 주세요.');
   }
   final module = previewAiSlide(draft, id);
   if (!hasSlideDesign(module)) throw const AiSlidesFailure('슬라이드 배치를 선택해 주세요.');
@@ -56,7 +60,11 @@ WorkoutModule previewAiSlide(AiSlideDraft draft, [String id = 'ai-preview']) {
     name: draft.title.trim(),
     text: draft.lines.join('\n'),
     // Older clients use the exported PNG when they do not know this renderer.
-    designTemplate: 'stationd-v2-${draft.layout}',
+    designTemplate:
+        '${draft.designStyle == null ? 'stationd-v2' : 'studio-v1'}-${draft.layout}',
+    designStyle: draft.designStyle,
+    designHeaderLabel: draft.designHeaderLabel,
+    designSubtitle: draft.designSubtitle,
     designBackgroundColor: draft.designBackgroundColor,
     designTextColor: draft.designTextColor,
     designAccentColor: draft.designAccentColor,
@@ -64,8 +72,8 @@ WorkoutModule previewAiSlide(AiSlideDraft draft, [String id = 'ai-preview']) {
     designFontWeight: draft.designFontWeight,
     designItalic: draft.designItalic,
     designSpacing: draft.designSpacing,
-    showTimer: draft.showTimer,
-    showSets: draft.showTimer,
+    showTimer: draft.designStyle?.originalTemplate == null && draft.showTimer,
+    showSets: draft.designStyle?.originalTemplate == null && draft.showTimer,
     workSeconds: draft.workSeconds ?? defaults.workSeconds,
     restSeconds: draft.restSeconds ?? defaults.restSeconds,
     sets: draft.sets ?? defaults.sets,

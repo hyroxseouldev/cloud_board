@@ -4,6 +4,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_editor_actions.dart';
@@ -106,6 +108,12 @@ class AiSlidesController extends _$AiSlidesController {
           warnings: saved.warnings,
         );
         session.snapshot = saved;
+        if (saved.draft != null) {
+          session.preferredClassLabel = saved.draft!.designHeaderLabel;
+          if (saved.draft!.designStyle != null) {
+            session.preferredTheme = aiSlideThemeFromDraft(saved.draft!);
+          }
+        }
       }
     } catch (_) {
       if (_current(session)) {
@@ -141,10 +149,51 @@ class AiSlidesController extends _$AiSlidesController {
     if (_session.history.length > 20) _session.history.removeAt(0);
   }
 
+  /// The chosen visual style also applies to the next daily generation.
+  void setPreferredTheme(AiSlideTheme? theme, {String? classLabel}) {
+    final current = state.draft;
+    _session.preferredTheme = current?.designStyle == null
+        ? theme
+        : aiSlideThemeFromDraft(current!);
+    _session.preferredClassLabel =
+        _session.preferredTheme?.designStyle?.originalTemplate != null
+        ? ''
+        : current?.designHeaderLabel ?? classLabel;
+  }
+
+  void applyDesign(AiSlideTheme theme, {String? classLabel}) {
+    final original = theme.designStyle?.originalTemplate != null;
+    final fixedTheme = original ? theme.copyWith(showTimer: false) : theme;
+    _session.preferredTheme = fixedTheme;
+    final draft = applyAiSlideTheme(
+      state.draft ?? initialAiSlideDesignDraft(fixedTheme),
+      fixedTheme,
+    );
+    updateDraft(
+      original
+          ? draft.copyWith(
+              title: dolpaBrickOriginalTitle,
+              designHeaderLabel: '',
+            )
+          : classLabel == null
+          ? draft
+          : draft.copyWith(designHeaderLabel: classLabel),
+    );
+  }
+
   void updateDraft(AiSlideDraft draft) {
+    if (draft.designStyle?.originalTemplate != null) {
+      draft = draft.copyWith(
+        title: dolpaBrickOriginalTitle,
+        designHeaderLabel: '',
+        showTimer: false,
+      );
+    }
     if (draft == state.draft) return;
     _remember();
     _session.draftRevision++;
+    _session.preferredTheme = aiSlideThemeFromDraft(draft);
+    _session.preferredClassLabel = draft.designHeaderLabel;
     state = state.copyWith(
       draft: draft,
       canUndo: true,
@@ -157,6 +206,10 @@ class AiSlidesController extends _$AiSlidesController {
   void undo() {
     if (_session.history.isEmpty) return;
     final previous = _session.history.removeLast();
+    _session.preferredClassLabel = previous.draft?.designHeaderLabel;
+    _session.preferredTheme = previous.draft == null
+        ? null
+        : aiSlideThemeFromDraft(previous.draft!);
     _session.draftRevision++;
     state = state.copyWith(
       prompt: previous.prompt,
@@ -198,7 +251,7 @@ class AiSlidesController extends _$AiSlidesController {
         generating: false,
         error: error is AiSlidesFailure
             ? error.message
-            : '초안을 만들지 못했어요. 잠시 후 다시 시도해 주세요.',
+            : '수업 내용을 정리하지 못했어요. 잠시 후 다시 시도해 주세요.',
       );
       return;
     }
@@ -213,13 +266,20 @@ class AiSlidesController extends _$AiSlidesController {
       state = state.copyWith(
         generating: false,
         remaining: generated.remaining,
-        error: '생성 중 수정한 내용이 있어 현재 초안을 유지했어요.',
+        error: '수업 내용을 정리하는 동안 수정한 부분이 있어 현재 내용을 유지했어요.',
       );
       return;
     }
     _remember();
-    final theme = state.theme;
-    final draft = generated.slides.single;
+    final theme = session.preferredTheme ?? state.theme;
+    final draft = generated.slides.single.copyWith(
+      title: theme?.designStyle?.originalTemplate != null
+          ? dolpaBrickOriginalTitle
+          : generated.slides.single.title,
+      designHeaderLabel:
+          session.preferredClassLabel ??
+          generated.slides.single.designHeaderLabel,
+    );
     state = state.copyWith(
       generatedPrompt: normalized,
       draft: theme == null ? draft : applyAiSlideTheme(draft, theme),
@@ -327,6 +387,8 @@ class _EditorSession {
   _EditorSession(this.ownerId);
   final String? ownerId;
   AiSlidesEditorActions? actions;
+  AiSlideTheme? preferredTheme;
+  String? preferredClassLabel;
   AiSlidesSavedDraft? snapshot;
   bool ready = false, changed = false, disposed = false;
   int draftRevision = 0;

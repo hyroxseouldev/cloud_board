@@ -93,6 +93,8 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - assets/slide_templates/dolpa_brick_original.png
+    - assets/fonts/noto_serif_kr/OFL.txt
     - assets/images/login_welcome.png
     - assets/images/google_g.png
     - assets/sounds/video_beep.wav
@@ -104,6 +106,9 @@ flutter:
   uses-material-design: true
 
   fonts:
+    - family: NotoSerifKR
+      fonts:
+        - asset: assets/fonts/noto_serif_kr/NotoSerifKR-Variable.ttf
     - family: Pretendard
       fonts:
         - asset: assets/fonts/pretendard/Pretendard-Thin.otf

@@ -54,7 +54,10 @@ class AiSlidesPreview extends StatelessWidget {
             label: const Text('크게 보기'),
           ),
         ),
-        const Text('실제 타이머 위치를 함께 확인할 수 있어요.', style: TextStyle(fontSize: 12)),
+        Text(
+          module.showTimer ? '실제 타이머 위치를 함께 확인할 수 있어요.' : '수업 내용과 배치를 확인해 주세요.',
+          style: const TextStyle(fontSize: 12),
+        ),
       ],
     );
   }
