@@ -1281,6 +1281,8 @@ void main() {
       if (id == 'new') {
         await tester.tap(find.byTooltip('슬라이드 추가'));
         await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
+        await tester.pumpAndSettle();
       }
       await scrollTo(tester, _slideListCard('새 운동 1'));
       await tester.tap(_slideListCard('새 운동 1'));
@@ -1410,6 +1412,8 @@ void main() {
         await tester.pumpAndSettle();
         if (id == 'new') {
           await tester.tap(find.byTooltip('슬라이드 추가'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
           await tester.pumpAndSettle();
         }
         await scrollTo(tester, _slideListCard('새 운동 1'));

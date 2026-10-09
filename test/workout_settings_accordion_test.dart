@@ -171,6 +171,8 @@ void main() {
       );
       await tester.tap(find.byTooltip('슬라이드 추가'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
+      await tester.pumpAndSettle();
       expect(tester.widget<ReorderableListView>(list).itemCount, 14);
       expect(_slideListCard('새 운동 1').hitTestable(), findsOneWidget);
       expect(find.byTooltip('나의 워밍업 칩 삭제'), findsNothing);
