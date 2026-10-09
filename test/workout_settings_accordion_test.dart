@@ -16,6 +16,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 final _workout = Workout.empty(
   'workout',
@@ -118,6 +119,22 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+      final router = GoRouter(
+        initialLocation: '/editor/workout',
+        routes: [
+          GoRoute(
+            path: '/editor/:id',
+            builder: (_, _) => const WorkoutEditorScreen(workoutId: 'workout'),
+            routes: [
+              GoRoute(
+                path: 'slides/:moduleId',
+                builder: (_, _) => const Scaffold(body: Text('슬라이드 편집')),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -129,9 +146,7 @@ void main() {
             workoutControllerProvider.overrideWith(_LongWorkouts.new),
             authStateProvider.overrideWith((ref) => Stream.value(null)),
           ],
-          child: const MaterialApp(
-            home: WorkoutEditorScreen(workoutId: 'workout'),
-          ),
+          child: MaterialApp.router(routerConfig: router),
         ),
       );
       await tester.pumpAndSettle();
@@ -172,6 +187,9 @@ void main() {
       await tester.tap(find.byTooltip('슬라이드 추가'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
+      await tester.pumpAndSettle();
+      expect(find.text('슬라이드 편집'), findsOneWidget);
+      router.pop();
       await tester.pumpAndSettle();
       expect(tester.widget<ReorderableListView>(list).itemCount, 14);
       expect(_slideListCard('새 운동 1').hitTestable(), findsOneWidget);

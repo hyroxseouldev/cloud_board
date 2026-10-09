@@ -1283,10 +1283,11 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
         await tester.pumpAndSettle();
+      } else {
+        await scrollTo(tester, _slideListCard('새 운동 1'));
+        await tester.tap(_slideListCard('새 운동 1'));
+        await tester.pumpAndSettle();
       }
-      await scrollTo(tester, _slideListCard('새 운동 1'));
-      await tester.tap(_slideListCard('새 운동 1'));
-      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
       expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
       await renameSlide(tester, '저장하지 않은 슬라이드 이름');
@@ -1415,10 +1416,11 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
           await tester.pumpAndSettle();
+        } else {
+          await scrollTo(tester, _slideListCard('새 운동 1'));
+          await tester.tap(_slideListCard('새 운동 1'));
+          await tester.pumpAndSettle();
         }
-        await scrollTo(tester, _slideListCard('새 운동 1'));
-        await tester.tap(_slideListCard('새 운동 1'));
-        await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
         expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
         await renameSlide(tester, '하위 페이지에서 수정');

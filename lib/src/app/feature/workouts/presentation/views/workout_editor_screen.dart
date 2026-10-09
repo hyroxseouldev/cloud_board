@@ -206,7 +206,7 @@ class _EditorBody extends HookConsumerWidget {
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isBusy =
         launching.value || action.isLoading || playbackAction.isLoading;
-    final hasUnsavedChanges =
+    bool hasUnsavedChanges() =>
         draft.value != savedBaseline.value ||
         name.text.trim() != savedBaseline.value.name ||
         folder.text.trim() != savedBaseline.value.folder;
@@ -246,7 +246,7 @@ class _EditorBody extends HookConsumerWidget {
     }
 
     Future<void> saveInPlace() async {
-      if (isBusy || (hasPersisted.value && !hasUnsavedChanges)) return;
+      if (isBusy || (hasPersisted.value && !hasUnsavedChanges())) return;
       final saved = await persist();
       if (saved == null || !context.mounted || !isNew) return;
       // Give the dirty-state guard a frame to observe the saved baseline.
@@ -275,7 +275,28 @@ class _EditorBody extends HookConsumerWidget {
       });
     }
 
-    void addSlide([WorkoutModule? template]) {
+    Future<void> editSlide(WorkoutModule module) async {
+      await context.push(
+        '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
+        extra: SlideEditRequest(
+          module: module,
+          needsInitialSave: !hasPersisted.value || hasUnsavedChanges(),
+          workout: draft.value.copyWith(name: name.text, folder: folder.text),
+          brandL: draft.value.brandL,
+          brandR: draft.value.brandR,
+          onSave: (updated) async {
+            final candidate = draft.value.copyWith(
+              modules: draft.value.modules
+                  .map((m) => m.id == updated.id ? updated : m)
+                  .toList(),
+            );
+            return await persist(edited: candidate) != null;
+          },
+        ),
+      );
+    }
+
+    WorkoutModule addSlide([WorkoutModule? template]) {
       final module = template == null
           ? WorkoutModule.empty(newId())
                 .copyWith(name: nextSlideName(draft.value.modules))
@@ -290,6 +311,7 @@ class _EditorBody extends HookConsumerWidget {
         modules: [...draft.value.modules, module],
       );
       selectSlide(module.id);
+      return module;
     }
 
     Future<void> addAiSlides() async {
@@ -313,7 +335,7 @@ class _EditorBody extends HookConsumerWidget {
       if (!context.mounted) return;
       switch (method) {
         case SlideCreationMethod.blank:
-          addSlide();
+          await editSlide(addSlide());
         case SlideCreationMethod.design:
           await addAiSlides();
         case null:
@@ -347,7 +369,7 @@ class _EditorBody extends HookConsumerWidget {
       if (launching.value || isBusy || draft.value.modules.isEmpty) return;
       launching.value = true;
       try {
-        final saved = (!hasPersisted.value || hasUnsavedChanges)
+        final saved = (!hasPersisted.value || hasUnsavedChanges())
             ? await persist()
             : draft.value;
         if (saved == null || !context.mounted) return;
@@ -377,7 +399,7 @@ class _EditorBody extends HookConsumerWidget {
 
     return UnsavedChangesGuard(
       guard: guard,
-      dirty: hasUnsavedChanges,
+      dirty: hasUnsavedChanges(),
       blocked: isBusy,
       child: AsyncActionOverlay(
         // A mini-controller command must not obscure the editor.
@@ -416,7 +438,8 @@ class _EditorBody extends HookConsumerWidget {
                 tooltip: action.isLoading
                     ? workoutSaveProgressLabel(uploadProgress)
                     : '저장',
-                onPressed: isBusy || (hasPersisted.value && !hasUnsavedChanges)
+                onPressed:
+                    isBusy || (hasPersisted.value && !hasUnsavedChanges())
                     ? null
                     : saveInPlace,
                 icon: action.isLoading
@@ -672,36 +695,6 @@ class _EditorBody extends HookConsumerWidget {
                           ),
                           itemBuilder: (context, index) {
                             final module = draft.value.modules[index];
-                            Future<void> edit() async {
-                              await context.push(
-                                '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
-                                extra: SlideEditRequest(
-                                  module: module,
-                                  needsInitialSave:
-                                      !hasPersisted.value || hasUnsavedChanges,
-                                  workout: draft.value.copyWith(
-                                    name: name.text,
-                                    folder: folder.text,
-                                  ),
-                                  brandL: draft.value.brandL,
-                                  brandR: draft.value.brandR,
-                                  onSave: (updated) async {
-                                    final candidate = draft.value.copyWith(
-                                      modules: draft.value.modules
-                                          .map(
-                                            (m) => m.id == updated.id
-                                                ? updated
-                                                : m,
-                                          )
-                                          .toList(),
-                                    );
-                                    return await persist(edited: candidate) !=
-                                        null;
-                                  },
-                                ),
-                              );
-                            }
-
                             return WorkoutSlideListCard(
                               key: ValueKey(module.id),
                               module: module,
@@ -709,7 +702,7 @@ class _EditorBody extends HookConsumerWidget {
                               brandL: draft.value.brandL,
                               brandR: draft.value.brandR,
                               enabled: !isBusy,
-                              onTap: isBusy ? null : edit,
+                              onTap: isBusy ? null : () => editSlide(module),
                               selected: selectedSlide.value == module.id,
                               menu: PopupMenuButton<String>(
                                 enabled: !isBusy,
@@ -737,7 +730,7 @@ class _EditorBody extends HookConsumerWidget {
                                 ],
                                 onSelected: (action) async {
                                   if (action == 'edit') {
-                                    await edit();
+                                    await editSlide(module);
                                     return;
                                   }
                                   if (action == 'template') {
