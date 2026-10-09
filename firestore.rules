@@ -175,7 +175,7 @@ service cloud.firestore {
       match /workoutSummaries/{workoutId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId)
-          && request.resource.data.keys().hasOnly(['id', 'name', 'folder', 'imageSource', 'moduleCount', 'durationSeconds', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['id', 'name', 'folder', 'imageSource', 'moduleCount', 'durationSeconds', 'durationKind', 'updatedAt'])
           && request.resource.data.id == workoutId
           && request.resource.data.name is string
           && request.resource.data.folder is string
@@ -183,6 +183,7 @@ service cloud.firestore {
           && request.resource.data.moduleCount is int
           && request.resource.data.moduleCount >= 0
           && request.resource.data.durationSeconds is int
+          && request.resource.data.get('durationKind', 'fixed') in ['fixed', 'maximum', 'open']
           && request.resource.data.updatedAt is timestamp
           && getAfter(/databases/$(database)/documents/users/$(userId)/workouts/$(workoutId)).data.ownerId == userId;
       }
