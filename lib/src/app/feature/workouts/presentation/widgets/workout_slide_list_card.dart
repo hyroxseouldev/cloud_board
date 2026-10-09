@@ -30,7 +30,7 @@ class WorkoutSlideListCard extends StatelessWidget {
   final String brandL;
   final String brandR;
 
-  static double extent(TextScaler textScaler) => 168 * textScaler.scale(1);
+  static double extent(TextScaler textScaler) => 100 * textScaler.scale(1);
 
   String get _timingLabel {
     final blocks = effectiveIntervalBlocks(module);
@@ -64,74 +64,63 @@ class WorkoutSlideListCard extends StatelessWidget {
       child: InkWell(
         onTap: enabled ? onTap : null,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(0, 10, 4, 10),
           child: LayoutBuilder(
             builder: (context, bounds) => Row(
               children: [
-                SizedBox(
-                  width: (bounds.maxWidth * .36).clamp(84.0, 144.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      RepaintBoundary(
-                        child: ExcludeSemantics(
-                          child: IgnorePointer(
-                            child: MediaQuery.withClampedTextScaling(
-                              minScaleFactor: 1,
-                              maxScaleFactor: 1,
-                              child: WorkoutSlidePreview(
-                                module: module,
-                                isRest: false,
-                                brandL: brandL,
-                                brandR: brandR,
-                                borderRadius: 10,
-                              ),
-                            ),
-                          ),
+                ReorderableDragStartListener(
+                  key: ValueKey('slide-drag-${module.id}'),
+                  index: index,
+                  enabled: enabled,
+                  child: Tooltip(
+                    message: '드래그하여 순서 변경',
+                    child: MouseRegion(
+                      cursor: enabled
+                          ? SystemMouseCursors.grab
+                          : SystemMouseCursors.basic,
+                      child: Container(
+                        color: Colors.transparent,
+                        width: 44,
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.drag_handle,
+                          size: 20,
+                          color: AppColors.muted,
                         ),
                       ),
-                      ReorderableDragStartListener(
-                        key: ValueKey('slide-drag-${module.id}'),
-                        index: index,
-                        enabled: enabled,
-                        child: Tooltip(
-                          message: '드래그하여 순서 변경',
-                          child: MouseRegion(
-                            cursor: enabled
-                                ? SystemMouseCursors.grab
-                                : SystemMouseCursors.basic,
-                            child: Container(
-                              color: Colors.transparent,
-                              height: 48,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.drag_handle, size: 20),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      color: AppColors.muted,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(
+                  width: (bounds.maxWidth * .21).clamp(56.0, 112.0),
+                  child: RepaintBoundary(
+                    child: ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: MediaQuery.withClampedTextScaling(
+                          minScaleFactor: 1,
+                          maxScaleFactor: 1,
+                          child: WorkoutSlidePreview(
+                            module: module,
+                            isRest: false,
+                            brandL: brandL,
+                            brandR: brandR,
+                            borderRadius: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         module.name.isEmpty ? '슬라이드 ${index + 1}' : module.name,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 15,
@@ -139,10 +128,10 @@ class WorkoutSlideListCard extends StatelessWidget {
                           height: 1.3,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         _timingLabel,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.muted,
@@ -150,27 +139,24 @@ class WorkoutSlideListCard extends StatelessWidget {
                           height: 1.4,
                         ),
                       ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              moduleDurationText(module),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ),
-                          menu,
-                        ],
-                      ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: bounds.maxWidth * .3),
+                  child: Text(
+                    moduleDurationText(module),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+                menu,
               ],
             ),
           ),

@@ -59,7 +59,7 @@ void main() {
     (834.0, 1.0),
     (390.0, 2.0),
   ]) {
-    testWidgets('slide artwork stays beside its details at $width / $scale', (
+    testWidgets('slide content and controls share one row at $width / $scale', (
       tester,
     ) async {
       await _pumpEditor(tester, width: width, scale: scale);
@@ -67,6 +67,23 @@ void main() {
       final preview = find.descendant(
         of: card,
         matching: find.byType(WorkoutSlidePreview),
+      );
+      final handle = find.byKey(const ValueKey('slide-drag-wave'));
+      final menu = find.descendant(
+        of: card,
+        matching: find.byTooltip('슬라이드 메뉴'),
+      );
+      expect(
+        tester.getCenter(handle).dy,
+        closeTo(tester.getCenter(preview).dy, 1),
+      );
+      expect(
+        tester.getCenter(menu).dy,
+        closeTo(tester.getCenter(preview).dy, 1),
+      );
+      expect(
+        tester.getRect(handle).right,
+        lessThanOrEqualTo(tester.getRect(preview).left),
       );
       expect(
         tester.getRect(preview).right,
