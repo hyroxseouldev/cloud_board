@@ -355,6 +355,9 @@ void main() {
       await generate(tester);
       await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
+      expect(find.text('작성 중인 내용을 버릴까요?'), findsOneWidget);
+      await tester.tap(find.text('버리고 나가기'));
+      await tester.pumpAndSettle();
       expect(added, isNull);
       expect(tester.takeException(), isNull);
     },
@@ -381,6 +384,9 @@ void main() {
       );
       expect(repository.calls, 0);
       await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      expect(find.text('작성 중인 내용을 버릴까요?'), findsOneWidget);
+      await tester.tap(find.text('버리고 나가기'));
       await tester.pumpAndSettle();
       repository.premium = true;
       repository.pending = Completer<AiSlidesResult>();
@@ -414,13 +420,15 @@ void main() {
       expect(repository.calls, 1);
       await tester.tap(find.byTooltip('뒤로'));
       await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.text('버리고 나가기'));
+      await tester.pump(const Duration(seconds: 1));
       repository.pending!.complete(repository.result);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     },
   );
   testWidgets(
-    'edited sections survive close and failed regeneration without extra generation',
+    'cancel keeps edits; confirmed discard opens a fresh creation session',
     (tester) async {
       final repository = FakeAiSlidesRepository()
         ..result = const AiSlidesResult(
@@ -454,9 +462,8 @@ void main() {
       );
       await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('open'));
-      await tester.pump();
-      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      expect(find.text('작성 중인 내용을 버릴까요?'), findsOneWidget);
+      await tester.tap(find.text('계속 편집'));
       await tester.pumpAndSettle();
       expect(
         tester
@@ -505,6 +512,26 @@ void main() {
       expect(
         tester.widget<TextField>(lines).controller!.text,
         'Squat 10 reps\nRun 200m',
+      );
+      expect(repository.calls, 2);
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('버리고 나가기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-slide-title')), findsNothing);
+      expect(find.text('프리미엄 템플릿'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('ai-slides-prompt')))
+            .controller!
+            .text,
+        isEmpty,
       );
       expect(repository.calls, 2);
       expect(tester.takeException(), isNull);

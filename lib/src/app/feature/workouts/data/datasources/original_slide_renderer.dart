@@ -77,14 +77,12 @@ class _Field {
     this.weight,
     this.color,
     this.fontFamily,
-    this.clearColor, {
-    this.italic = false,
-  });
+    this.clearColor,
+  );
   final String role, value, original, fontFamily;
   final Rect bounds;
   final double fontSize;
   final int weight, color, clearColor;
-  final bool italic;
   bool get changed => value.trim() != original;
 }
 
@@ -94,15 +92,16 @@ List<_Field> _fields(WorkoutModule module) {
   return [
     _Field(
       'title',
-      template.fixedTitle ? template.title : module.name.trim(),
+      template.fixedTitle
+          ? module.name.trim()
+          : module.name.trim().toUpperCase(),
       template.title,
       template.titleBounds,
       template.titleFontSize,
-      template.fixedTitle ? 700 : 900,
+      template.fixedTitle ? 700 : 400,
       template.fixedTitle ? template.accentColor : 0xFFFFFFFF,
-      template.fontFamily,
+      template.fixedTitle ? template.fontFamily : 'RacingSansOne',
       template.fixedTitle ? template.backgroundColor : template.accentColor,
-      italic: !template.fixedTitle,
     ),
     _Field(
       'subtitle',
@@ -135,7 +134,6 @@ TextPainter _text(_Field field, double size) => TextPainter(
     text: field.value,
     style: TextStyle(
       fontFamily: field.fontFamily,
-      fontStyle: field.italic ? FontStyle.italic : FontStyle.normal,
       fontSize: size,
       fontWeight: FontWeight.values[field.weight ~/ 100 - 1],
       color: Color(field.color),

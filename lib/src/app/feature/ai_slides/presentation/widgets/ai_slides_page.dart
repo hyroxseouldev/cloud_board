@@ -1,10 +1,10 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
@@ -55,16 +55,36 @@ Future<List<WorkoutModule>?> showAiSlidesPage(BuildContext context) {
 enum _EditorTab { content, templates, create }
 
 /// A full route keeps creation, reference designs and editing in one workspace.
-class AiSlidesPage extends HookConsumerWidget {
-  const AiSlidesPage({super.key});
+class AiSlidesPage extends HookWidget {
+  const AiSlidesPage({super.key, this.guard});
+  final ExitGuard? guard;
+  @override
+  Widget build(BuildContext context) {
+    final exitGuard = useMemoized(() => guard ?? ExitGuard(), [guard]);
+    // A route owns its creation session. Saved template libraries stay shared,
+    // while previous prompts, generated results and selections never leak in.
+    return ProviderScope(
+      overrides: [
+        aiSlidesControllerProvider.overrideWith(AiSlidesController.fresh),
+        aiSlideDesignControllerProvider.overrideWith(
+          AiSlideDesignController.fresh,
+        ),
+      ],
+      child: _AiSlidesEditorPage(guard: exitGuard),
+    );
+  }
+}
+
+class _AiSlidesEditorPage extends HookConsumerWidget {
+  const _AiSlidesEditorPage({required this.guard});
+  final ExitGuard guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     final state = ref.watch(aiSlidesControllerProvider);
     final controller = ref.read(aiSlidesControllerProvider.notifier);
-    useOnAppLifecycleStateChange((previous, next) {
-      if (next != AppLifecycleState.resumed) unawaited(controller.flush());
-    });
+    final adding = useState(false);
+    final designEdited = useState(false);
     final access = ref.watch(aiSlidesAccessProvider);
     final tab = useState(
       state.draft == null ? _EditorTab.templates : _EditorTab.content,
@@ -110,8 +130,11 @@ class AiSlidesPage extends HookConsumerWidget {
       }
     });
     Future<void> close() async {
-      await controller.flush();
-      if (context.mounted) Navigator.pop(context);
+      if (await guard.confirm() && context.mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) Navigator.pop(context);
+        });
+      }
     }
 
     Future<void> add() async {
@@ -121,15 +144,19 @@ class AiSlidesPage extends HookConsumerWidget {
         draft,
         'ai-${DateTime.now().microsecondsSinceEpoch}',
       );
+      adding.value = true;
       await controller.clearDraft();
       if (context.mounted && ref.read(aiSlidesOwnerIdProvider) == ownerId) {
-        Navigator.pop(context, [value]);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) Navigator.pop(context, [value]);
+        });
       }
     }
 
     Widget studio(AiSlideDesignStudioSection section) => AiSlideDesignStudio(
       key: ValueKey(section),
       section: section,
+      onEdited: () => designEdited.value = true,
       draft: draft,
       creationPath: creationPath.value,
       onCreationPathChanged: (value) {
@@ -234,10 +261,20 @@ class AiSlidesPage extends HookConsumerWidget {
               : const SizedBox.shrink(),
       ],
     );
-    return PopScope(
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) unawaited(controller.flush());
-      },
+    return UnsavedChangesGuard(
+      guard: guard,
+      dirty:
+          !adding.value &&
+          (state.prompt.trim().isNotEmpty ||
+              draft != null ||
+              state.generating ||
+              designState.generating ||
+              designState.proposals.isNotEmpty ||
+              designEdited.value),
+      confirmTitle: '작성 중인 내용을 버릴까요?',
+      confirmMessage: '아직 추가하지 않은 수업 이미지와 입력 내용이 사라집니다.',
+      discardLabel: '버리고 나가기',
+      onDiscard: controller.clearDraft,
       child: Scaffold(
         appBar: AppBar(
           centerTitle: false,

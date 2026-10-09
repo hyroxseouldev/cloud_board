@@ -105,12 +105,6 @@ String? originalSlideValidationError(WorkoutModule module) {
   if (template == null) {
     return '이 원본 템플릿을 편집하려면 앱을 업데이트해 주세요.';
   }
-  if (module.showTimer || module.showSets) {
-    return '원본 그림을 보존하려면 타이머와 세트 표시를 꺼 주세요.';
-  }
-  if (template.fixedTitle && module.name.trim() != template.title) {
-    return '이 원본 템플릿의 제목은 ${template.title}으로 고정되어 있어요. 시간과 운동 문구를 수정해 주세요.';
-  }
   if (module.name.trim().isEmpty || module.name.length > 60) {
     return '슬라이드 제목은 1~60자로 입력해 주세요.';
   }

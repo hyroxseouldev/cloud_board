@@ -29,6 +29,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
     this.creationPath = AiSlideCreationPath.notes,
     this.onCreationPathChanged,
     this.notesEditor,
+    this.onEdited,
   });
   final AiSlideDesignStudioSection section;
   final AiSlideDraft? draft;
@@ -36,6 +37,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
   final AiSlideCreationPath creationPath;
   final ValueChanged<AiSlideCreationPath>? onCreationPathChanged;
   final Widget? notesEditor;
+  final VoidCallback? onEdited;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,6 +95,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         if (!sameScope()) return;
         reference.value = bytes;
         referenceName.value = image.name;
+        onEdited?.call();
       } catch (_) {
         if (context.mounted) {
           pickerError.value = '사진을 불러오지 못했어요. 사진 접근 권한을 확인해 주세요.';
@@ -549,6 +552,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           TextField(
             key: const ValueKey('ai-design-brief'),
             controller: brief,
+            onChanged: (_) => onEdited?.call(),
             enabled: !busy,
             minLines: 2,
             maxLines: 4,

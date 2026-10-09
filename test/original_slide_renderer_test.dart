@@ -172,17 +172,17 @@ void main() {
   });
 
   test(
-    'title is fixed and an invalid edited draft preserves the exact original',
+    'title edits are allowed while the source artwork remains available',
     () async {
       final module = baseline().copyWith(name: 'Run');
-      expect(originalSlideValidationError(module), contains('Brick Session'));
-      expect(measureOriginalSlide(module).readable, false);
-      await expectLater(renderSlideDesign(module), throwsFormatException);
+      expect(originalSlideValidationError(module), isNull);
+      expect(measureOriginalSlide(module).readable, true);
+      await renderSlideDesign(module);
       final painted = await render(module, source);
       final reference = await drawSource(source, originalSlideSourceSize);
       expect(
         sha256.convert(await rgba(painted)),
-        sha256.convert(await rgba(reference)),
+        isNot(sha256.convert(await rgba(reference))),
       );
       final png = (await painted.toByteData(format: ui.ImageByteFormat.png))!;
       File('/tmp/cloudboard-dolpa-original-edited-title.png')
@@ -192,40 +192,44 @@ void main() {
     },
   );
 
-  test('fixed recipe rejects overflow and timer overlays instead of dropping content', () async {
-    final overflow = baseline().copyWith(text: '${baseline().text}\nRun 1km');
-    expect(originalSlideValidationError(overflow), contains('4줄'));
-    expect(measureOriginalSlide(overflow).readable, false);
-    await expectLater(renderSlideDesign(overflow), throwsFormatException);
-    // Partial editing still previews safely; applying/exporting remains blocked.
-    final draft = await render(overflow, source);
-    draft.dispose();
-    final untitled = await render(baseline().copyWith(name: ''), source);
-    untitled.dispose();
-    expect(overflow.text, endsWith('Run 1km'));
-    expect(
-      originalSlideValidationError(baseline().copyWith(showTimer: true)),
-      contains('타이머'),
-    );
-    expect(
-      originalSlideValidationError(baseline().copyWith(showSets: true)),
-      contains('세트'),
-    );
-    expect(
-      originalSlideValidationError(
-        baseline().copyWith(text: '## Main\nRun 1km'),
-      ),
-      contains('섹션'),
-    );
-    expect(
-      measureOriginalSlide(baseline().copyWith(text: '매우긴운동설명' * 18)).readable,
-      false,
-    );
-    expect(measureOriginalSlide(baseline()).readable, true);
-    expect(measureOriginalSlide(baseline()).textRuns.map((r) => r.value), [
-      dolpaBrickOriginalTitle,
-      dolpaBrickOriginalSubtitle,
-      ...dolpaBrickOriginalLines,
-    ]);
-  });
+  test(
+    'fixed recipe rejects overflow but permits live timer overlays',
+    () async {
+      final overflow = baseline().copyWith(text: '${baseline().text}\nRun 1km');
+      expect(originalSlideValidationError(overflow), contains('4줄'));
+      expect(measureOriginalSlide(overflow).readable, false);
+      await expectLater(renderSlideDesign(overflow), throwsFormatException);
+      // Partial editing still previews safely; applying/exporting remains blocked.
+      final draft = await render(overflow, source);
+      draft.dispose();
+      final untitled = await render(baseline().copyWith(name: ''), source);
+      untitled.dispose();
+      expect(overflow.text, endsWith('Run 1km'));
+      expect(
+        originalSlideValidationError(baseline().copyWith(showTimer: true)),
+        isNull,
+      );
+      expect(
+        originalSlideValidationError(baseline().copyWith(showSets: true)),
+        isNull,
+      );
+      expect(
+        originalSlideValidationError(
+          baseline().copyWith(text: '## Main\nRun 1km'),
+        ),
+        contains('섹션'),
+      );
+      expect(
+        measureOriginalSlide(baseline().copyWith(text: '매우긴운동설명' * 18))
+            .readable,
+        false,
+      );
+      expect(measureOriginalSlide(baseline()).readable, true);
+      expect(measureOriginalSlide(baseline()).textRuns.map((r) => r.value), [
+        dolpaBrickOriginalTitle,
+        dolpaBrickOriginalSubtitle,
+        ...dolpaBrickOriginalLines,
+      ]);
+    },
+  );
 }

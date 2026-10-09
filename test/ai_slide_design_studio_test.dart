@@ -292,7 +292,7 @@ void main() {
       );
       editor.applyDesign(dolpaReferenceDesign.theme, classLabel: '저장한 클래스 이름');
       draft = container.read(aiSlidesControllerProvider).draft!;
-      expect(draft.title, dolpaBrickOriginalTitle);
+      expect(draft.title, '수정한 수업');
       expect(draft.designSubtitle, '8mins On');
       expect(draft.lines, ['DV Press 12 + BTP 15']);
       expect(draft.designHeaderLabel, isEmpty);
@@ -300,83 +300,76 @@ void main() {
         '새 수업 제목\nDV Press 8 + BTP 10\nRun 250m + FMCTP 30',
       );
       final generated = container.read(aiSlidesControllerProvider).draft!;
-      expect(generated.title, dolpaBrickOriginalTitle);
+      expect(generated.title, '수정한 수업');
       expect(generated.lines, ['DV Press 8 + BTP 10', 'Run 250m + FMCTP 30']);
       expect(generated.showTimer, isFalse);
     },
   );
 
-  testWidgets(
-    'fixed original exposes lesson fields and hides unrelated styling',
-    (tester) async {
-      final original = applyAiSlideTheme(
-        initialAiSlideDesignDraft(dolpaReferenceDesign.theme),
-        dolpaReferenceDesign.theme,
-      );
-      AiSlideDraft? changed;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: AiSlidesContentEditor(
-                draft: original,
-                warnings: const [],
-                onChanged: (value) => changed = value,
-              ),
-            ),
-          ),
-        ),
-      );
-      expect(find.byKey(const ValueKey('ai-slide-header')), findsNothing);
-      expect(find.byKey(const ValueKey('ai-slide-title')), findsOneWidget);
-      expect(
-        tester
-            .widget<TextField>(
-              find.descendant(
-                of: find.byKey(const ValueKey('ai-slide-title')),
-                matching: find.byType(TextField),
-              ),
-            )
-            .readOnly,
-        isTrue,
-      );
-      expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);
-      expect(find.text('운동 문구 (최대 4행)'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const ValueKey('ai-original-lines')),
-        'Ski 300m + Sled Pull 1 Way\nRun 250m + FMCTP 30\nSki 250m + Wall Ball 30\nDV Press 8 + BTP 10',
-      );
-      expect(changed!.title, original.title);
-      expect(changed!.designSubtitle, original.designSubtitle);
-      expect(changed!.lines.first, 'Ski 300m + Sled Pull 1 Way');
-      expect(changed!.designStyle, original.designStyle);
-      expect(
-        slideDesignError(
-          previewAiSlide(
-            original.copyWith(lines: [...original.lines, 'Extra row']),
-          ),
-        ),
-        isNotNull,
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: AiSlidesDesignEditor(
+  testWidgets('original exposes an editable title and lesson fields', (
+    tester,
+  ) async {
+    final original = applyAiSlideTheme(
+      initialAiSlideDesignDraft(dolpaReferenceDesign.theme),
+      dolpaReferenceDesign.theme,
+    );
+    AiSlideDraft? changed;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: AiSlidesContentEditor(
               draft: original,
-              state: const AiSlidesEditorState(),
-              onChanged: (_) {},
-              onSaveTheme: () {},
-              onApplyTheme: () {},
+              warnings: const [],
+              onChanged: (value) => changed = value,
             ),
           ),
         ),
-      );
-      expect(find.text('원본 배치 유지 · 운동 문구만 수정'), findsOneWidget);
-      expect(find.text('배치'), findsNothing);
-      expect(find.text('글씨'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    expect(find.byKey(const ValueKey('ai-slide-header')), findsNothing);
+    expect(find.byKey(const ValueKey('ai-slide-title')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('ai-slide-title')),
+      '새 제목',
+    );
+    expect(changed!.title, '새 제목');
+    expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);
+    expect(find.text('운동 문구 (최대 4행)'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('ai-original-lines')),
+      'Ski 300m + Sled Pull 1 Way\nRun 250m + FMCTP 30\nSki 250m + Wall Ball 30\nDV Press 8 + BTP 10',
+    );
+    expect(changed!.title, original.title);
+    expect(changed!.designSubtitle, original.designSubtitle);
+    expect(changed!.lines.first, 'Ski 300m + Sled Pull 1 Way');
+    expect(changed!.designStyle, original.designStyle);
+    expect(
+      slideDesignError(
+        previewAiSlide(
+          original.copyWith(lines: [...original.lines, 'Extra row']),
+        ),
+      ),
+      isNotNull,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiSlidesDesignEditor(
+            draft: original,
+            state: const AiSlidesEditorState(),
+            onChanged: (_) {},
+            onSaveTheme: () {},
+            onApplyTheme: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('원본 배치 유지 · 운동 문구만 수정'), findsOneWidget);
+    expect(find.text('배치'), findsNothing);
+    expect(find.text('글씨'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   test('stored class style is content-free and keeps the real center ID', () {
     final design = aiSlideDesignCatalog[2].copyWith(
@@ -578,14 +571,19 @@ void main() {
         await tester.pump();
         await tester.runAsync(() => Future<void>.delayed(Duration.zero));
         await tester.pumpAndSettle();
+        final pageScope = ProviderScope.containerOf(
+          tester.element(find.byType(AiSlidesContentEditor)),
+        );
         expect(
-          designs
-              .selected['alice/center-a']
+          pageScope
+              .read(aiSlideDesignControllerProvider)
+              .selected
               ?.theme
               .designStyle
               ?.originalTemplate,
           design.theme.designStyle?.originalTemplate,
         );
+        expect(designs.selected['alice/center-a'], isNull);
         expect(
           tester
               .widget<EditableText>(

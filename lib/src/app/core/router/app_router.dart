@@ -35,6 +35,7 @@ GoRouter appRouter(Ref ref) {
   ref.listen(onboardingRequiredProvider, (_, _) => authRefresh.value++);
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
+  final imageCreationGuard = ExitGuard();
   final standbyGuard = ExitGuard();
   final operationsGuard = ExitGuard();
   final profileGuard = ExitGuard();
@@ -151,7 +152,8 @@ GoRouter appRouter(Ref ref) {
             routes: [
               GoRoute(
                 path: 'images/create',
-                builder: (_, _) => const AiSlidesPage(),
+                builder: (_, _) => AiSlidesPage(guard: imageCreationGuard),
+                onExit: (_, _) => imageCreationGuard.confirm(),
               ),
               GoRoute(
                 path: 'slides/:moduleId',

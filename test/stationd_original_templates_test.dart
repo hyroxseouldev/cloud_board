@@ -55,11 +55,35 @@ void main() {
   ];
 
   setUpAll(() async {
+    await (FontLoader('RacingSansOne')..addFont(
+          rootBundle.load(
+            'assets/fonts/racing_sans_one/RacingSansOne-Regular.ttf',
+          ),
+        ))
+        .load();
     await (FontLoader('Pretendard')..addFont(
           rootBundle.load('assets/fonts/pretendard/Pretendard-Bold.otf'),
         ))
         .load();
   });
+
+  test(
+    'edited title keeps a sports display face in preview and exported artwork',
+    () async {
+      final theme = stationDReferenceDesigns.first.theme;
+      final module = previewAiSlide(
+        applyAiSlideTheme(initialAiSlideDesignDraft(theme), theme),
+      ).copyWith(name: 'Brick Session');
+      final title = measureOriginalSlide(module).textRuns
+          .firstWhere((run) => run.role == 'title');
+      expect(title.fontFamily, 'RacingSansOne');
+      expect(title.value, 'BRICK SESSION');
+      final png = base64Decode(
+        (await renderSlideDesign(module)).split(',').last,
+      );
+      File('/tmp/cloudboard-edited-sports-title.png').writeAsBytesSync(png);
+    },
+  );
 
   for (var index = 0; index < stationDOriginalTemplates.length; index++) {
     final template = stationDOriginalTemplates[index];
