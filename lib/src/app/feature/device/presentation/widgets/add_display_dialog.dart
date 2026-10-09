@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
+
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_pairing_error_message.dart';
 import 'package:flutter/foundation.dart';
@@ -26,6 +28,7 @@ class AddDisplayDialog extends HookConsumerWidget {
     final zone = useTextEditingController(text: '메인 구역');
     final action = ref.watch(deviceClaimControllerProvider);
     final submitted = useState(false);
+    final claimedCode = useState<String?>(null);
     final codeError = useState<String?>(null);
 
     Future<void> connect() async {
@@ -38,7 +41,28 @@ class AddDisplayDialog extends HookConsumerWidget {
       final success = await ref
           .read(deviceClaimControllerProvider.notifier)
           .claim(code: code.text, name: name.text, zoneName: zone.text);
-      if (success && context.mounted) Navigator.of(context).pop(true);
+      if (success && context.mounted) claimedCode.value = code.text;
+    }
+
+    if (claimedCode.value != null) {
+      return AppAlertDialog(
+        title: const Text('등록 완료 · TV 응답 확인'),
+        content: SizedBox(
+          width: 360,
+          child: SingleChildScrollView(
+            child: DisplayVerification(
+              pairingCode: claimedCode.value,
+              onDone: () => Navigator.of(context).pop(true),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('나중에 확인'),
+          ),
+        ],
+      );
     }
 
     return PopScope(
@@ -52,7 +76,9 @@ class AddDisplayDialog extends HookConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('연결할 디스플레이의 코드를 입력해 주세요.'),
+                const Text(
+                  'TV에서 CloudBoard 앱을 열고 화면의 QR을 스캔하거나 6자리 코드를 입력하세요. 코드는 10분 동안 유효합니다.',
+                ),
                 const SizedBox(height: 16),
                 _PairingCodeInput(controller: code, enabled: !action.isLoading),
                 if (codeError.value != null)

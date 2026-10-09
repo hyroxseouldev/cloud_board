@@ -44,6 +44,12 @@ class _Pair extends DevicePairingController {
 }
 
 class _PairActions implements DevicePairingActions {
+  final identificationAcks = <String>[];
+  @override
+  Future<void> acknowledgeIdentification(String deviceId, String nonce) async {
+    identificationAcks.add('$deviceId:$nonce');
+  }
+
   @override
   Future<void> acknowledge({
     required String deviceId,
@@ -86,6 +92,84 @@ PlaybackSession running() => PlaybackSessionModel.fromWorkout(
 ).toEntity().copyWith(anchorServerMs: DateTime.now().millisecondsSinceEpoch);
 
 void main() {
+  testWidgets(
+    'TV paints a silent identification card and ACKs only while idle and connected',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final devices = StreamController<List<DisplayDevice>>.broadcast();
+      final sessions = StreamController<PlaybackSession?>.broadcast();
+      final connection = StreamController<bool>.broadcast();
+      final actions = _PairActions();
+      DisplayDevice identifying(String nonce, {bool expired = false}) =>
+          DisplayDevice(
+            id: 'tv',
+            name: '메인 TV',
+            zoneId: 'main',
+            zoneName: 'main',
+            online: true,
+            lastSeenAtMs: 0,
+            currentSessionId: null,
+            acknowledgedRevision: 0,
+            paired: true,
+            identificationId: nonce,
+            identificationExpiresAtMs:
+                DateTime.now().millisecondsSinceEpoch + (expired ? -1 : 30000),
+          );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            androidTvProvider.overrideWith((_) async => true),
+            accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
+            deviceIdProvider.overrideWith((_) async => 'tv'),
+            deviceModeControllerProvider.overrideWith(_Mode.new),
+            devicePairingControllerProvider.overrideWith(_Pair.new),
+            devicePairingActionsProvider.overrideWithValue(actions),
+            displayDevicesProvider.overrideWith((_) => devices.stream),
+            activePlaybackSessionProvider.overrideWith((_) => sessions.stream),
+            playbackConnectionProvider.overrideWith((_) => connection.stream),
+            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+            brandTemplateProvider.overrideWith(
+              (_) => Stream.value(BrandTemplate.initial()),
+            ),
+            workoutSchedulesProvider.overrideWith((_) => Stream.value([])),
+          ],
+          child: const MaterialApp(home: DisplayModeScreen()),
+        ),
+      );
+      await tester.pump();
+      connection.add(true);
+      sessions.add(null);
+      devices.add([identifying('nonce-4321')]);
+      await tester.pumpAndSettle();
+      expect(find.text('TV 연결 확인'), findsOneWidget);
+      expect(find.text('4321'), findsOneWidget);
+      expect(actions.identificationAcks, ['tv:nonce-4321']);
+      sessions.add(running());
+      devices.add([identifying('nonce-9999')]);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('TV 연결 확인'), findsNothing);
+      expect(actions.identificationAcks, ['tv:nonce-4321']);
+      sessions.add(null);
+      devices.add([identifying('nonce-0000', expired: true)]);
+      await tester.pumpAndSettle();
+      expect(find.text('TV 연결 확인'), findsNothing);
+      connection.add(false);
+      devices.add([identifying('nonce-1111')]);
+      await tester.pumpAndSettle();
+      expect(find.text('TV 연결 확인'), findsNothing);
+      expect(actions.identificationAcks, ['tv:nonce-4321']);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await devices.close();
+      await sessions.close();
+      await connection.close();
+    },
+  );
+
   for (final size in [const Size(390, 844), const Size(834, 1194)]) {
     testWidgets(
       'Display to Control replaces route and retains device at $size',

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -58,6 +59,7 @@ class ActiveClassShell extends HookConsumerWidget {
       }
     });
     final mode = ref.watch(deviceModeControllerProvider).value;
+    if (mode == DeviceMode.controller) ref.watch(firstClassControllerProvider);
     final session = ref.watch(activePlaybackSessionProvider).value;
     final recovery = ref.watch(playbackRecoveryControllerProvider);
     final suspended = useRef(false);

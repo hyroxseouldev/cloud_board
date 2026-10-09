@@ -161,6 +161,51 @@ class DisplayModeScreen extends HookConsumerWidget {
         foreground &&
         currentDevice?.paired == true &&
         remoteState == RemoteDisplayState.auto.name;
+    final identify =
+        foreground &&
+        connected &&
+        recovery.hasValue &&
+        !isActive &&
+        currentDevice?.paired == true &&
+        currentDevice?.identificationId != null &&
+        currentDevice!.identificationId!.length >= 4 &&
+        currentDevice.identificationExpiresAtMs >
+            DateTime.now().millisecondsSinceEpoch + serverOffset;
+    useEffect(
+      () {
+        if (!identify ||
+            deviceId == null ||
+            currentDevice.identificationAck == currentDevice.identificationId) {
+          return null;
+        }
+        var cancelled = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!cancelled &&
+              context.mounted &&
+              DateTime.now().millisecondsSinceEpoch + serverOffset <
+                  currentDevice.identificationExpiresAtMs) {
+            unawaited(
+              ref
+                  .read(devicePairingActionsProvider)
+                  .acknowledgeIdentification(
+                    deviceId,
+                    currentDevice.identificationId!,
+                  )
+                  .catchError((Object _) {}),
+            );
+          }
+        });
+        return () => cancelled = true;
+      },
+      [
+        identify,
+        deviceId,
+        currentDevice?.identificationId,
+        currentDevice?.identificationAck,
+        now.value.second,
+      ],
+    );
+
     useEffect(
       () {
         var cancelled = false;
@@ -194,20 +239,40 @@ class DisplayModeScreen extends HookConsumerWidget {
       ],
     );
 
-    useEffect(() {
-      if (!isActive || !allowPlayback || deviceId == null) return null;
-      unawaited(
-        ref
-            .read(devicePairingActionsProvider)
-            .acknowledge(
-              deviceId: deviceId,
-              sessionId: session.id,
-              revision: session.revision,
-            )
-            .catchError((_) {}),
-      );
-      return null;
-    }, [deviceId, session?.id, session?.revision, isActive, allowPlayback]);
+    useEffect(
+      () {
+        if (!isActive || !allowPlayback || deviceId == null) return null;
+        var cancelled = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (cancelled ||
+              !context.mounted ||
+              !connected ||
+              !recovery.hasValue) {
+            return;
+          }
+          unawaited(
+            ref
+                .read(devicePairingActionsProvider)
+                .acknowledge(
+                  deviceId: deviceId,
+                  sessionId: session.id,
+                  revision: session.revision,
+                )
+                .catchError((Object _) {}),
+          );
+        });
+        return () => cancelled = true;
+      },
+      [
+        deviceId,
+        session?.id,
+        session?.revision,
+        isActive,
+        allowPlayback,
+        connected,
+        recovery.hasValue,
+      ],
+    );
 
     // The standby clock continues to enforce scheduled black-screen periods,
     // but must not rebuild a playing slide each second.
@@ -268,6 +333,52 @@ class DisplayModeScreen extends HookConsumerWidget {
                     await ref.read(beepPlayerProvider).play();
                   } catch (_) {}
                 },
+              ),
+            if (identify)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: SafeArea(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.tv_rounded, size: 64),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'TV 연결 확인',
+                              style: TextStyle(fontSize: 28),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              currentDevice.name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              currentDevice.identificationId!.substring(
+                                currentDevice.identificationId!.length - 4,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 64,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Text(
+                              '관리 기기에서 이 TV가 맞는지 확인해 주세요. 소리는 재생되지 않습니다.',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             if (!showBlack && !isTv)
               Positioned(

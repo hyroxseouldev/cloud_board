@@ -83,6 +83,14 @@ class DisplaySettingsScreen extends HookConsumerWidget {
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
             children: [
               Text('디스플레이 설정', style: AppStyle.of(context).mainText),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => context.push('/displays/connect'),
+                  icon: const Icon(Icons.help_outline),
+                  label: const Text('처음 연결하나요? TV 연결 안내'),
+                ),
+              ),
               const SizedBox(height: 32),
               Row(
                 children: [

@@ -119,6 +119,11 @@ class DevicePairingRealtimeDataSource {
               acknowledgedRevision:
                   (item['acknowledgedRevision'] as num?)?.round() ?? 0,
               paired: isRegisteredDisplay(item),
+              pairingCode: (item['pairingCode'] as String?) ?? '',
+              identificationId: item['identificationId'] as String?,
+              identificationExpiresAtMs:
+                  (item['identificationExpiresAtMs'] as num?)?.round() ?? 0,
+              identificationAck: item['identificationAck'] as String?,
               displayState: (item['displayState'] as String?) ?? 'auto',
               preferences: decodeDisplayPreferences(item['preferences']),
               lastCommandAtMs: (item['lastCommandAtMs'] as num?)?.round() ?? 0,
@@ -168,6 +173,17 @@ class DevicePairingRealtimeDataSource {
     final normalizedCode = code.replaceAll(RegExp(r'\D'), '');
     if (normalizedCode.length != 6) {
       throw const FormatException('6자리 연결 코드를 입력해 주세요.');
+    }
+    // Retrying a claim whose response was lost must not register a second TV
+    // or overwrite the name of an already registered device.
+    final existing = await _ownerRef.child('devices').get();
+    if (existing.value is Map &&
+        (existing.value as Map).values.any(
+          (item) =>
+              isRegisteredDisplay(item) &&
+              (item as Map)['pairingCode'] == normalizedCode,
+        )) {
+      return;
     }
     final access = await _database.ref('subscriptionAccess/${owner.uid}').get();
     if (access.value is Map && (access.value! as Map)['managed'] == true) {
@@ -318,6 +334,44 @@ class DevicePairingRealtimeDataSource {
       'displayState': displayState,
       'lastCommandAtMs': ServerValue.timestamp,
     });
+  }
+
+  Future<void> identify(String deviceId, String nonce, int expiresAtMs) async {
+    await _connected();
+    final result = await _ownerRef.child('devices/$deviceId').runTransaction((
+      value,
+    ) {
+      if (value == null) return Transaction.success(null);
+      if (!isRegisteredDisplay(value)) return Transaction.abort();
+      return Transaction.success({
+        ...value as Map,
+        'identificationId': nonce,
+        'identificationExpiresAtMs': expiresAtMs,
+        'identificationAck': null,
+      });
+    }, applyLocally: false);
+    if (!result.committed || !result.snapshot.exists) {
+      throw StateError('디스플레이 연결이 해제되었습니다. 목록을 새로 확인해 주세요.');
+    }
+  }
+
+  Future<void> acknowledgeIdentification(String deviceId, String nonce) async {
+    final result = await _ownerRef.child('devices/$deviceId').runTransaction((
+      value,
+    ) {
+      if (value == null) return Transaction.success(null);
+      if (!isRegisteredDisplay(value) ||
+          (value as Map)['identificationId'] != nonce) {
+        return Transaction.abort();
+      }
+      return Transaction.success({
+        ...value,
+        'identificationAck': nonce,
+        'online': true,
+        'lastSeenAtMs': ServerValue.timestamp,
+      });
+    }, applyLocally: false);
+    if (!result.committed) throw StateError('TV 확인 요청이 변경되었습니다.');
   }
 
   Future<void> acknowledge({

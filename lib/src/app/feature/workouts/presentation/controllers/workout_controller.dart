@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 
@@ -413,6 +414,12 @@ class WorkoutActionController extends _$WorkoutActionController {
       );
       ref.read(workoutDetailProvider(saved!.id).notifier).replace(saved);
       ref.read(workoutControllerProvider.notifier).upsert(saved!);
+      unawaited(
+        ref
+            .read(firstClassControllerProvider.notifier)
+            .saved(saved!.id, ownerId: saved!.ownerId)
+            .catchError((Object _) {}),
+      );
       return '워크아웃을 저장했습니다.';
     });
     return state.hasError ? null : saved;

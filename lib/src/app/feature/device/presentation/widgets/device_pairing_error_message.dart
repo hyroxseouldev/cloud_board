@@ -10,7 +10,24 @@ String devicePairingErrorMessage(Object? error) {
     return '연결 확인이 지연되고 있습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.';
   }
   if (error is FirebaseException) {
+    final message = (error.message ?? '').toLowerCase();
+    if (error.code == 'failed-precondition' &&
+        (message.contains('code') || message.contains('코드'))) {
+      if (message.contains('expired') || message.contains('만료')) {
+        return '만료된 연결 코드입니다. TV에서 새 코드를 만들어 주세요.';
+      }
+      if (message.contains('claimed') ||
+          message.contains('already') ||
+          message.contains('사용')) {
+        return '이미 사용된 연결 코드입니다. 등록 목록을 확인하거나 TV에서 새 코드를 만들어 주세요.';
+      }
+    }
     return switch (error.code) {
+      'deadline-exceeded' => 'TV 응답이 늦어지고 있습니다. 등록 목록을 확인한 뒤 다시 시도해 주세요.',
+      'already-exists' => '이미 등록된 TV입니다. 등록 목록에서 해당 TV를 선택해 확인해 주세요.',
+      'not-found' => '연결 코드를 찾을 수 없습니다. TV에 표시된 최신 코드를 입력해 주세요.',
+      'failed-precondition' =>
+        '연결 조건을 확인하지 못했습니다. 센터 이용 상태와 TV의 최신 코드를 확인해 주세요.',
       'permission-denied' => '연결 요청이 거부되었습니다. 로그인 상태와 디스플레이의 최신 코드를 확인해 주세요.',
       'network-request-failed' ||
       'disconnected' ||

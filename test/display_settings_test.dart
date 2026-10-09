@@ -213,13 +213,14 @@ void main() {
   );
 
   testWidgets(
-    'add display validates code, preserves failed input and closes after retry',
+    'add display preserves failed input and waits for TV confirmation after claim',
     (tester) async {
       final controller = _Claim();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             deviceClaimControllerProvider.overrideWith(() => controller),
+            displayDevicesProvider.overrideWith((_) => Stream.value([])),
           ],
           child: MaterialApp(
             theme: XonTheme.light,
@@ -284,6 +285,11 @@ void main() {
         '123456',
       );
       await tester.tap(find.text('연결하기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AddDisplayDialog), findsOneWidget);
+      expect(find.text('등록 완료 · TV 응답 확인'), findsOneWidget);
+      expect(find.text('이 TV가 맞아요'), findsNothing);
+      await tester.tap(find.text('나중에 확인'));
       await tester.pumpAndSettle();
       expect(find.byType(AddDisplayDialog), findsNothing);
       expect(controller.calls.length, 2);

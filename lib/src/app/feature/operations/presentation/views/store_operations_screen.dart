@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 
@@ -743,9 +744,16 @@ class _ReportTab extends ConsumerWidget {
         events.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Text('운영 기록을 불러오지 못했습니다. $error'),
-          data: (items) => items.isEmpty
-              ? const Text('아직 기록이 없습니다. 수업을 시작하면 자동으로 쌓입니다.')
-              : Column(children: items.take(30).map(_EventTile.new).toList()),
+          data: (items) {
+            final visible = items
+                .where((e) => !e.type.startsWith('onboarding_'))
+                .toList();
+            return visible.isEmpty
+                ? const Text('아직 기록이 없습니다. 수업을 시작하면 자동으로 쌓입니다.')
+                : Column(
+                    children: visible.take(30).map(_EventTile.new).toList(),
+                  );
+          },
         ),
       ],
     );
@@ -760,7 +768,8 @@ class _EventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateTime.fromMillisecondsSinceEpoch(event.occurredAtMs);
     final title = switch (event.type) {
-      'playback_started' => '${event.workoutName ?? '워크아웃'} 재생 시작',
+      'playback_started' =>
+        '${isStarterWorkout(event.workoutId) ? '예시 · ' : ''}${event.workoutName ?? '워크아웃'} 재생 시작',
       'playback_completed' => '${event.workoutName ?? '워크아웃'} 재생 종료',
       'device_online' => '디스플레이 연결됨',
       'device_offline' => '디스플레이 연결 끊김',
