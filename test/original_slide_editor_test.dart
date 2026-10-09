@@ -103,7 +103,11 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('timer-mode-forTime')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('apply-timer-preset')));
+        final confirmReplacement = find.byKey(
+          const ValueKey('confirm-timer-replacement'),
+        );
+        await tester.ensureVisible(confirmReplacement);
+        await tester.tap(confirmReplacement);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
         await tester.pumpAndSettle();
