@@ -225,7 +225,8 @@ void main() {
           isTrue,
           reason: '${design.id} should remain legible in a catalog thumbnail',
         );
-        if (module.designStyle!.family == 'cards') {
+        if (module.designStyle!.family == 'cards' ||
+            module.designLayout == 'cards') {
           final cards = metrics.sections;
           expect(cards, hasLength(4));
           expect(cards[0].rect.top, closeTo(cards[1].rect.top, .01));
@@ -238,6 +239,25 @@ void main() {
                   (card.rect.height - cards.first.rect.height).abs() < .01,
             ),
             isTrue,
+          );
+        } else if (module.designLayout == 'columns') {
+          expect(metrics.columns, 2);
+          expect(metrics.sections, hasLength(2));
+          expect(
+            metrics.sections.first.lines,
+            aiSlideDesignSample.lines.take(2),
+          );
+          expect(
+            metrics.sections.last.lines,
+            aiSlideDesignSample.lines.skip(2),
+          );
+          expect(
+            metrics.sections.first.rect.right,
+            lessThan(metrics.sections.last.rect.left),
+          );
+          expect(
+            metrics.sections.first.rect.top,
+            closeTo(metrics.sections.last.rect.top, .01),
           );
         } else {
           expect(body.last.rect.bottom, greaterThan(950));
