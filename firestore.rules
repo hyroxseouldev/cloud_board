@@ -82,7 +82,7 @@ service cloud.firestore {
     function validAiSlideDesignStyle(s) {
       return s == null || (s is map
         && s.keys().hasOnly(['version', 'family', 'fontFamily', 'titleColor', 'titleWeight', 'motif', 'originalTemplate'])
-        && s.get('originalTemplate', null) in [null, 'dolpa-brick-v1']
+        && s.get('originalTemplate', null) in [null, 'dolpa-brick-v1', 'stationd-mon-v1', 'stationd-tue-v1', 'stationd-wed-v1', 'stationd-thu-v1', 'stationd-fri-v1', 'stationd-sat-v1']
         && s.get('version', 1) == 1
         && s.get('family', 'banner') in ['banner', 'focus', 'editorial', 'cards']
         && s.get('fontFamily', 'sans') in ['sans', 'serif']

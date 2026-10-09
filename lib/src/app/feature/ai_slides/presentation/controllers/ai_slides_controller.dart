@@ -162,18 +162,21 @@ class AiSlidesController extends _$AiSlidesController {
   }
 
   void applyDesign(AiSlideTheme theme, {String? classLabel}) {
-    final original = theme.designStyle?.originalTemplate != null;
+    final template = originalSlideTemplate(theme.designStyle?.originalTemplate);
+    final original = template != null;
     final fixedTheme = original ? theme.copyWith(showTimer: false) : theme;
     _session.preferredTheme = fixedTheme;
     final draft = applyAiSlideTheme(
-      state.draft ?? initialAiSlideDesignDraft(fixedTheme),
+      state.draft == null || (original && isUneditedAiSlideSample(state.draft!))
+          ? initialAiSlideDesignDraft(fixedTheme)
+          : state.draft!,
       fixedTheme,
     );
     updateDraft(
       original
           ? draft.copyWith(
-              title: dolpaBrickOriginalTitle,
-              designHeaderLabel: '',
+              title: template.fixedTitle ? template.title : draft.title,
+              designHeaderLabel: template.programLabel,
             )
           : classLabel == null
           ? draft
@@ -182,10 +185,11 @@ class AiSlidesController extends _$AiSlidesController {
   }
 
   void updateDraft(AiSlideDraft draft) {
-    if (draft.designStyle?.originalTemplate != null) {
+    final template = originalSlideTemplate(draft.designStyle?.originalTemplate);
+    if (template != null) {
       draft = draft.copyWith(
-        title: dolpaBrickOriginalTitle,
-        designHeaderLabel: '',
+        title: template.fixedTitle ? template.title : draft.title,
+        designHeaderLabel: template.programLabel,
         showTimer: false,
       );
     }
@@ -272,11 +276,20 @@ class AiSlidesController extends _$AiSlidesController {
     }
     _remember();
     final theme = session.preferredTheme ?? state.theme;
-    final draft = generated.slides.single.copyWith(
-      title: theme?.designStyle?.originalTemplate != null
-          ? dolpaBrickOriginalTitle
-          : generated.slides.single.title,
+    final template = originalSlideTemplate(
+      theme?.designStyle?.originalTemplate,
+    );
+    final content = template == null
+        ? generated.slides.single
+        : originalSlideGeneratedContent(generated.slides.single);
+    final draft = content.copyWith(
+      title: template == null
+          ? generated.slides.single.title
+          : template.fixedTitle
+          ? template.title
+          : state.draft?.title ?? template.title,
       designHeaderLabel:
+          template?.programLabel ??
           session.preferredClassLabel ??
           generated.slides.single.designHeaderLabel,
     );

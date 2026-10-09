@@ -18,7 +18,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -167,7 +167,10 @@ class _SlideEditorBody extends HookConsumerWidget {
     final renderedBrandR = renderedWorkout?.brandR ?? request.brandR;
 
     final module = state.module;
-    final originalDesign = module.designStyle?.originalTemplate != null;
+    final originalTemplate = originalSlideTemplate(
+      module.designStyle?.originalTemplate,
+    );
+    final originalDesign = originalTemplate != null;
     final structuredDesign =
         slideDesigns.containsKey(module.designTemplate) ||
         isStudioSlideDesign(module);
@@ -227,7 +230,13 @@ class _SlideEditorBody extends HookConsumerWidget {
     void update(WorkoutModule value) => actions.update(
       value.designStyle?.originalTemplate != null
           ? value.copyWith(
-              name: dolpaBrickOriginalTitle,
+              name:
+                  originalSlideTemplate(value.designStyle?.originalTemplate)
+                          ?.fixedTitle ==
+                      true
+                  ? originalSlideTemplate(value.designStyle?.originalTemplate)!
+                        .title
+                  : value.name,
               showTimer: false,
               showSets: false,
             )
@@ -525,7 +534,7 @@ class _SlideEditorBody extends HookConsumerWidget {
         minimumSize: const Size(44, 44),
         alignment: Alignment.centerLeft,
       ),
-      onPressed: busy.value || originalDesign
+      onPressed: busy.value || originalTemplate?.fixedTitle == true
           ? null
           : () async {
               FocusScope.of(context).unfocus();
@@ -541,7 +550,9 @@ class _SlideEditorBody extends HookConsumerWidget {
               if (edited != latest.name) update(latest.copyWith(name: edited));
             },
       child: Tooltip(
-        message: originalDesign ? '원본 제목 (고정)' : '슬라이드 제목 수정',
+        message: originalTemplate?.fixedTitle == true
+            ? '원본 제목 (고정)'
+            : '슬라이드 제목 수정',
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -690,11 +701,16 @@ class _SlideEditorBody extends HookConsumerWidget {
                 TextFormField(
                   key: const ValueKey('original-slide-title'),
                   controller: originalTitle,
-                  readOnly: true,
-                  enableInteractiveSelection: false,
-                  decoration: const InputDecoration(
-                    labelText: '원본 제목 (고정)',
-                    helperText: '제목과 한자 장식은 원본 그대로 유지해요.',
+                  readOnly: originalTemplate.fixedTitle,
+                  enableInteractiveSelection: !originalTemplate.fixedTitle,
+                  onChanged: (value) => update(module.copyWith(name: value)),
+                  decoration: InputDecoration(
+                    labelText: originalTemplate.fixedTitle
+                        ? '원본 제목 (고정)'
+                        : '슬라이드 제목',
+                    helperText: originalTemplate.fixedTitle
+                        ? '제목과 한자 장식은 원본 그대로 유지해요.'
+                        : '분류와 번호·배치는 원본 그대로 유지해요.',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -710,10 +726,12 @@ class _SlideEditorBody extends HookConsumerWidget {
                 TextFormField(
                   key: const ValueKey('original-slide-lines'),
                   controller: description,
-                  minLines: 4,
-                  maxLines: 4,
-                  maxLength: 483,
-                  decoration: const InputDecoration(labelText: '운동 문구 (최대 4행)'),
+                  minLines: originalTemplate.maxLines,
+                  maxLines: originalTemplate.maxLines,
+                  maxLength: originalTemplate.maxLines * 121 - 1,
+                  decoration: InputDecoration(
+                    labelText: '운동 문구 (최대 ${originalTemplate.maxLines}행)',
+                  ),
                   onChanged: (value) => update(module.copyWith(text: value)),
                 ),
                 const SizedBox(height: 12),

@@ -93,7 +93,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
-    - assets/slide_templates/dolpa_brick_original.png
+    - assets/slide_templates/
     - assets/fonts/noto_serif_kr/OFL.txt
     - assets/images/login_welcome.png
     - assets/images/google_g.png

@@ -17,6 +17,7 @@ class AiSlidesContentEditor extends StatelessWidget {
   final ValueChanged<AiSlideDraft> onChanged;
   @override
   Widget build(BuildContext context) {
+    final template = originalSlideTemplate(draft.designStyle?.originalTemplate);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -31,10 +32,10 @@ class AiSlidesContentEditor extends StatelessWidget {
                 onChanged(draft.copyWith(designHeaderLabel: value)),
           ),
         const SizedBox(height: 8),
-        if (draft.designStyle?.originalTemplate != null)
+        if (template?.fixedTitle == true)
           TextFormField(
             key: const ValueKey('ai-slide-title'),
-            initialValue: dolpaBrickOriginalTitle,
+            initialValue: template!.title,
             readOnly: true,
             enableInteractiveSelection: false,
             decoration: const InputDecoration(
@@ -64,10 +65,10 @@ class AiSlidesContentEditor extends StatelessWidget {
           AiSlidesSyncedField(
             fieldKey: const ValueKey('ai-original-lines'),
             value: draft.lines.join('\n'),
-            label: '운동 문구 (최대 4행)',
-            minLines: 4,
-            maxLines: 4,
-            maxLength: 483,
+            label: '운동 문구 (최대 ${template!.maxLines}행)',
+            minLines: template.maxLines,
+            maxLines: template.maxLines,
+            maxLength: template.maxLines * 121 - 1,
             onChanged: (value) =>
                 onChanged(draft.copyWith(lines: value.split('\n'))),
           )

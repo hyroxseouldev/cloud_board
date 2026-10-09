@@ -230,7 +230,7 @@ void _validateStudioStyle(SlideDesignStyle? style) {
       ![400, 500, 600, 700, 800, 900].contains(style.titleWeight) ||
       style.motif.length > 12 ||
       (style.originalTemplate != null &&
-          style.originalTemplate != dolpaBrickOriginalTemplateId) ||
+          originalSlideTemplate(style.originalTemplate) == null) ||
       (style.titleColor != null &&
           (style.titleColor! < 0xFF000000 || style.titleColor! > 0xFFFFFFFF))) {
     throw const FormatException('Invalid studio style');

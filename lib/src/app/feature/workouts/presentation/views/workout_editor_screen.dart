@@ -10,7 +10,7 @@ import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -293,7 +293,7 @@ class _EditorBody extends HookConsumerWidget {
 
     Future<void> addAiSlides() async {
       final owner = ref.read(authStateProvider).value?.id;
-      final modules = await showAiSlidesSheet(context);
+      final modules = await showAiSlidesPage(context);
       if (!context.mounted ||
           modules == null ||
           modules.isEmpty ||
@@ -643,7 +643,7 @@ class _EditorBody extends HookConsumerWidget {
                                         Icons.auto_awesome_rounded,
                                         size: 18,
                                       ),
-                                      Text('수업 슬라이드 만들기'),
+                                      Text('수업 이미지 생성'),
                                       AiBetaBadge(),
                                     ],
                                   ),

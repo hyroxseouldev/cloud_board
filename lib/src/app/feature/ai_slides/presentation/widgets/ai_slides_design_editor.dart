@@ -33,7 +33,7 @@ class AiSlidesDesignEditor extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            '배경과 한자 장식은 원본을 그대로 사용해요. 내용 탭에서 수업 문구를 바꿔 주세요.',
+            '색상·분류·번호·장식과 배치는 원본을 그대로 사용해요. 내용 탭에서 수업 문구를 바꿔 주세요.',
             style: TextStyle(fontSize: 12),
           ),
         ],

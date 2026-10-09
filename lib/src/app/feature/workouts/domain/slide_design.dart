@@ -37,7 +37,7 @@ bool _supportsStudioStyle(WorkoutModule module) {
           slideDesignFamilies.containsKey(style.family) &&
           slideDesignFontFamilies.containsKey(style.fontFamily) &&
           (style.originalTemplate == null ||
-              style.originalTemplate == dolpaBrickOriginalTemplateId));
+              originalSlideTemplate(style.originalTemplate) != null));
 }
 
 const legacySlideDesigns = <String, String>{

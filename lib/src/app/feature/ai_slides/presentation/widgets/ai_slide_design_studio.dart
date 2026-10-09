@@ -179,7 +179,9 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                   child: WorkoutSlidePreview(
                     module: previewAiSlide(
                       applyAiSlideTheme(
-                        draft ?? initialAiSlideDesignDraft(design.theme),
+                        design.theme.designStyle?.originalTemplate != null
+                            ? initialAiSlideDesignDraft(design.theme)
+                            : draft ?? initialAiSlideDesignDraft(design.theme),
                         design.theme,
                       ),
                     ),
@@ -325,23 +327,31 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         if (mode.value == _StartPath.catalog) ...[
+          if (showDolpaReferenceDesign) ...[
+            const Text(
+              '센터 원본 템플릿',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '원본 그대로 선택하고, 수업 메모로 운동 내용만 채워 보세요.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            designGrid(customerReferenceDesigns),
+            const Divider(height: 32),
+            const Text(
+              '기본 디자인',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+          ],
           const Text(
-            '예시 내용을 오늘의 운동으로 바꿔 시작해요. AI 사용량 차감은 없어요.',
+            '예시 내용을 오늘의 운동으로 바꿔 시작해요. 사용량 차감은 없어요.',
             style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 12),
           designGrid(aiSlideDesignCatalog),
-          if (showDolpaReferenceDesign) ...[
-            const SizedBox(height: 22),
-            const Text(
-              '참고 템플릿',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            const Text('원본 배치 유지 · 운동 문구만 수정', style: TextStyle(fontSize: 12)),
-            const SizedBox(height: 10),
-            designGrid(const [dolpaReferenceDesign]),
-          ],
         ] else ...[
           if (mode.value == _StartPath.reference) ...[
             const Text(

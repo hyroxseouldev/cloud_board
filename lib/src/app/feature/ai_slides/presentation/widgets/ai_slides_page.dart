@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -24,33 +25,53 @@ class AiBetaBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.secondaryContainer,
-      borderRadius: BorderRadius.circular(6),
+      gradient: const LinearGradient(
+        colors: [Color(0xFF4F46E5), Color(0xFF9333EA), Color(0xFFDB2777)],
+      ),
+      borderRadius: BorderRadius.circular(20),
     ),
     child: Text(
-      '베타',
+      'beta',
       style: TextStyle(
         fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.onSecondaryContainer,
+        fontWeight: FontWeight.w800,
+        letterSpacing: .4,
+        color: Colors.white,
       ),
     ),
   );
 }
 
-Future<List<WorkoutModule>?> showAiSlidesSheet(BuildContext context) =>
-    showModalBottomSheet<List<WorkoutModule>>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      constraints: const BoxConstraints(maxWidth: 1120),
-      builder: (_) => const AiSlidesSheet(),
+Future<List<WorkoutModule>?> showAiSlidesPage(BuildContext context) {
+  final parent = GoRouterState.of(context).uri.path
+      .replaceFirst(RegExp(r'/$'), '');
+  return context.push<List<WorkoutModule>>('$parent/images/create');
+}
+
+/// A full route keeps creation, reference designs and editing in one workspace.
+class AiSlidesPage extends StatelessWidget {
+  const AiSlidesPage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1120),
+            child: _AiSlidesEditor(keyboardVisible: keyboardVisible),
+          ),
+        ),
+      ),
     );
+  }
+}
 
 enum _EditorTab { content, design, source }
 
-class AiSlidesSheet extends HookConsumerWidget {
-  const AiSlidesSheet({super.key});
+class _AiSlidesEditor extends HookConsumerWidget {
+  const _AiSlidesEditor({required this.keyboardVisible});
+  final bool keyboardVisible;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(aiSlidesControllerProvider);
@@ -164,20 +185,23 @@ class AiSlidesSheet extends HookConsumerWidget {
         if (didPop) unawaited(controller.flush());
       },
       child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .93,
+        height: double.infinity,
         child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
-          ),
+          padding: EdgeInsets.only(bottom: 0),
           child: Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 4, 4),
                 child: Row(
                   children: [
+                    IconButton(
+                      tooltip: '뒤로',
+                      onPressed: close,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
                     const Expanded(
                       child: Text(
-                        '수업 슬라이드',
+                        '수업 이미지 생성',
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w700,
@@ -193,11 +217,6 @@ class AiSlidesSheet extends HookConsumerWidget {
                             : null,
                         icon: const Icon(Icons.undo_rounded),
                       ),
-                    IconButton(
-                      tooltip: '닫기',
-                      onPressed: close,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
                   ],
                 ),
               ),
@@ -273,7 +292,9 @@ class AiSlidesSheet extends HookConsumerWidget {
                     }
                     return Column(
                       children: [
-                        if (module != null && bounds.maxHeight > 270)
+                        if (module != null &&
+                            !keyboardVisible &&
+                            bounds.maxHeight > 270)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                             child: SizedBox(
@@ -287,7 +308,9 @@ class AiSlidesSheet extends HookConsumerWidget {
                               ),
                             ),
                           ),
-                        if (module != null && bounds.maxHeight <= 270)
+                        if (module != null &&
+                            !keyboardVisible &&
+                            bounds.maxHeight <= 270)
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
@@ -306,7 +329,7 @@ class AiSlidesSheet extends HookConsumerWidget {
                   },
                 ),
               ),
-              if (draft != null && MediaQuery.viewInsetsOf(context).bottom == 0)
+              if (draft != null && !keyboardVisible)
                 SafeArea(
                   top: false,
                   minimum: const EdgeInsets.fromLTRB(16, 6, 16, 10),

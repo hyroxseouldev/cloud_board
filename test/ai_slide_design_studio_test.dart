@@ -17,7 +17,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_sli
 import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_slides_repository.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slides_controller.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_content_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_design_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
@@ -88,29 +88,88 @@ class _DesignRepository implements AiSlideDesignRepository {
 class _ContentRepository implements AiSlidesRepository {
   bool premium = false;
   int calls = 0;
+  AiSlideDraft output = const AiSlideDraft(
+    title: '새 수업',
+    layout: 'list',
+    lines: ['DV Press 8 + BTP 10', 'Run 250m + FMCTP 30'],
+  );
   @override
   Future<AiSlidesAccess> access() async =>
       AiSlidesAccess(premium: premium, enabled: true, remaining: 30, limit: 30);
   @override
   Future<AiSlidesResult> generate(String prompt) async {
     calls++;
-    return const AiSlidesResult(
-      slides: [
-        AiSlideDraft(
-          title: '새 수업',
-          layout: 'list',
-          lines: ['DV Press 8 + BTP 10', 'Run 250m + FMCTP 30'],
-        ),
-      ],
-      warnings: [],
-      remaining: 29,
-    );
+    return AiSlidesResult(slides: [output], warnings: [], remaining: 29);
   }
 }
 
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  test(
+    'WOD originals switch samples, preserve lesson edits and accept AI content',
+    () async {
+      final content = _ContentRepository()..premium = true;
+      content.output = content.output.copyWith(
+        workSeconds: 480,
+        restSeconds: 60,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          aiSlidesOwnerIdProvider.overrideWithValue('alice'),
+          aiSlidesEditorRepositoryProvider.overrideWithValue(
+            MemoryAiSlidesEditorRepository(),
+          ),
+          aiSlidesRepositoryProvider.overrideWithValue(content),
+        ],
+      );
+      addTearDown(container.dispose);
+      final editor = container.read(aiSlidesControllerProvider.notifier);
+      await _settle();
+      await _settle();
+      for (final design in stationDReferenceDesigns) {
+        final template = originalSlideTemplate(
+          design.theme.designStyle!.originalTemplate,
+        )!;
+        editor.applyDesign(design.theme);
+        final draft = container.read(aiSlidesControllerProvider).draft!;
+        expect(draft.title, template.title);
+        expect(draft.lines, template.lines);
+        expect(draft.designSubtitle, template.subtitle);
+        expect(draft.designHeaderLabel, template.programLabel);
+        expect(
+          AiSlideDesignModel.fromJson(
+            AiSlideDesignModel.fromEntity(design).toJson(),
+          ).toEntity(design.id),
+          design,
+        );
+      }
+      final edited = container
+          .read(aiSlidesControllerProvider)
+          .draft!
+          .copyWith(lines: ['Ski 400m'], designSubtitle: '10mins On');
+      editor.updateDraft(edited);
+      editor.applyDesign(stationDReferenceDesigns.first.theme);
+      expect(container.read(aiSlidesControllerProvider).draft!.lines, [
+        'Ski 400m',
+      ]);
+      expect(
+        container.read(aiSlidesControllerProvider).draft!.designSubtitle,
+        '10mins On',
+      );
+      await editor.generate(
+        '운동 8분 휴식 1분, DV Press 8 + BTP 10, Run 250m + FMCTP 30',
+      );
+      final generated = container.read(aiSlidesControllerProvider).draft!;
+      expect(content.calls, 1);
+      expect(generated.lines, content.output.lines);
+      expect(generated.designSubtitle, '8mins On / 1min Off');
+      expect(generated.designStyle!.originalTemplate, 'stationd-mon-v1');
+      expect(generated.designHeaderLabel, 'UNBROKEN');
+      expect(generated.showTimer, false);
+    },
+  );
+
   test(
     'customer original template stays outside the shared design catalog',
     () {
@@ -423,7 +482,11 @@ void main() {
       final content = _ContentRepository();
       if (showDolpaReferenceDesign) {
         await tester.runAsync(
-          () => loadOriginalSlideImage(dolpaBrickOriginalTemplateId),
+          () => Future.wait(
+            originalSlideTemplates.map(
+              (template) => loadOriginalSlideImage(template.id),
+            ),
+          ),
         );
       }
       await tester.pumpWidget(
@@ -437,7 +500,7 @@ void main() {
             aiSlideDesignOwnerIdProvider.overrideWithValue(null),
             aiSlideDesignStoreIdProvider.overrideWithValue(null),
           ],
-          child: const MaterialApp(home: Scaffold(body: AiSlidesSheet())),
+          child: const MaterialApp(home: Scaffold(body: AiSlidesPage())),
         ),
       );
       if (showDolpaReferenceDesign) {
@@ -448,10 +511,13 @@ void main() {
       expect(find.text('디자인 추천'), findsOneWidget);
       expect(find.text('이미지 스타일'), findsOneWidget);
       expect(
-        find.text('참고 템플릿'),
+        find.text('센터 원본 템플릿'),
         showDolpaReferenceDesign ? findsOneWidget : findsNothing,
       );
-      await tester.tap(find.byKey(const ValueKey('ai-design-catalog-banner')));
+      final card = find.byKey(const ValueKey('ai-design-catalog-banner'));
+      await tester.ensureVisible(card);
+      await tester.pumpAndSettle();
+      await tester.tap(card);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-slide-header')), findsOneWidget);
       expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);

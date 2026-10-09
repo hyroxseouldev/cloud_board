@@ -11,20 +11,21 @@ final _images = <String, Future<ui.Image>>{};
 
 /// Shared asset cache. Callers must not dispose the returned image.
 Future<ui.Image> loadOriginalSlideImage(String id) {
-  if (id != dolpaBrickOriginalTemplateId) {
+  final template = originalSlideTemplate(id);
+  if (template == null) {
     return Future.error(
       ArgumentError.value(id, 'id', 'Unknown original slide'),
     );
   }
   return _images.putIfAbsent(id, () async {
-    final bytes = await rootBundle.load(dolpaBrickOriginalAsset);
+    final bytes = await rootBundle.load(template.asset);
     final codec = await ui.instantiateImageCodec(
       bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
     );
     final image = (await codec.getNextFrame()).image;
     codec.dispose();
-    if (image.width != originalSlideSourceSize.width ||
-        image.height != originalSlideSourceSize.height) {
+    if (image.width != template.sourceSize.width ||
+        image.height != template.sourceSize.height) {
       image.dispose();
       throw StateError('Original slide dimensions changed');
     }
@@ -40,6 +41,7 @@ class OriginalSlideTextBounds {
     required this.fontSize,
     required this.color,
     required this.fontWeight,
+    required this.fontFamily,
   });
   final String role, value;
   final Rect rect;
@@ -48,7 +50,7 @@ class OriginalSlideTextBounds {
 
   /// Changed fields use a bundled substitute; the original source font is
   /// unknown. Unchanged fields remain the exact source bitmap glyphs.
-  String get fontFamily => 'NotoSerifKR';
+  final String fontFamily;
 }
 
 class OriginalSlideMetrics {
@@ -74,44 +76,56 @@ class _Field {
     this.fontSize,
     this.weight,
     this.color,
-  );
-  final String role, value, original;
+    this.fontFamily,
+    this.clearColor, {
+    this.italic = false,
+  });
+  final String role, value, original, fontFamily;
   final Rect bounds;
   final double fontSize;
-  final int weight, color;
+  final int weight, color, clearColor;
+  final bool italic;
   bool get changed => value.trim() != original;
 }
 
 List<_Field> _fields(WorkoutModule module) {
+  final template = originalSlideTemplate(module.designStyle?.originalTemplate)!;
   final rows = originalSlideLines(module.text);
   return [
     _Field(
       'title',
-      dolpaBrickOriginalTitle,
-      dolpaBrickOriginalTitle,
-      originalSlideTitleBounds,
-      110,
-      700,
-      0xFFEA3458,
+      template.fixedTitle ? template.title : module.name.trim(),
+      template.title,
+      template.titleBounds,
+      template.titleFontSize,
+      template.fixedTitle ? 700 : 900,
+      template.fixedTitle ? template.accentColor : 0xFFFFFFFF,
+      template.fontFamily,
+      template.fixedTitle ? template.backgroundColor : template.accentColor,
+      italic: !template.fixedTitle,
     ),
     _Field(
       'subtitle',
       module.designSubtitle.trim(),
-      dolpaBrickOriginalSubtitle,
-      originalSlideSubtitleBounds,
-      65,
-      400,
-      0xFFFFFFFF,
+      template.subtitle,
+      template.subtitleBounds,
+      template.subtitleFontSize,
+      template.fixedTitle ? 400 : 800,
+      template.fixedTitle ? template.textColor : template.accentColor,
+      template.fontFamily,
+      template.backgroundColor,
     ),
-    for (var i = 0; i < 4; i++)
+    for (var i = 0; i < template.maxLines; i++)
       _Field(
         'body',
         i < rows.length ? rows[i] : '',
-        dolpaBrickOriginalLines[i],
-        originalSlideExerciseBounds[i],
-        60,
-        400,
-        0xFFFFFFFF,
+        template.lines[i],
+        template.exerciseBounds[i],
+        template.bodyFontSize,
+        template.bodyWeight,
+        template.textColor,
+        template.fontFamily,
+        template.backgroundColor,
       ),
   ];
 }
@@ -120,7 +134,8 @@ TextPainter _text(_Field field, double size) => TextPainter(
   text: TextSpan(
     text: field.value,
     style: TextStyle(
-      fontFamily: 'NotoSerifKR',
+      fontFamily: field.fontFamily,
+      fontStyle: field.italic ? FontStyle.italic : FontStyle.normal,
       fontSize: size,
       fontWeight: FontWeight.values[field.weight ~/ 100 - 1],
       color: Color(field.color),
@@ -151,8 +166,12 @@ TextPainter _text(_Field field, double size) => TextPainter(
 
 /// Synchronous geometry, in the standard 1920×1080 output coordinate space.
 OriginalSlideMetrics measureOriginalSlide(WorkoutModule module) {
-  final target = originalSlideImageRect(originalSlideOutputSize);
-  final scale = target.width / originalSlideSourceSize.width;
+  final template = originalSlideTemplate(module.designStyle?.originalTemplate)!;
+  final target = originalSlideImageRect(
+    originalSlideOutputSize,
+    sourceSize: template.sourceSize,
+  );
+  final scale = target.width / template.sourceSize.width;
   final runs = <OriginalSlideTextBounds>[];
   var warning = originalSlideValidationError(module);
   for (final field in _fields(module)) {
@@ -176,6 +195,7 @@ OriginalSlideMetrics measureOriginalSlide(WorkoutModule module) {
         fontSize: fontSize,
         color: field.color,
         fontWeight: field.weight,
+        fontFamily: field.fontFamily,
       ),
     );
     fitted.painter.dispose();
@@ -207,21 +227,36 @@ void paintOriginalSlide(
   if (!isOriginalSlideTemplate(module)) {
     throw ArgumentError('Unknown original slide template');
   }
-  final target = originalSlideImageRect(size);
-  canvas.drawRect(Offset.zero & size, Paint()..color = Colors.black);
+  final template = originalSlideTemplate(module.designStyle?.originalTemplate)!;
+  final target = originalSlideImageRect(size, sourceSize: template.sourceSize);
+  canvas.drawRect(
+    Offset.zero & size,
+    Paint()..color = Color(template.backgroundColor),
+  );
   canvas.save();
   canvas.translate(target.left, target.top);
-  final scale = target.width / originalSlideSourceSize.width;
+  final scale = target.width / template.sourceSize.width;
   canvas.scale(scale);
   canvas.drawImage(
     image,
     Offset.zero,
     Paint()..filterQuality = FilterQuality.medium,
   );
+  // Empty slots also remove their baked number. Every remaining number and
+  // class mark is still painted directly from the original image.
+  final lines = originalSlideLines(module.text);
+  for (var i = lines.length; i < template.numberBounds.length; i++) {
+    canvas.drawRect(
+      template.numberBounds[i],
+      Paint()
+        ..color = Color(template.backgroundColor)
+        ..isAntiAlias = false,
+    );
+  }
   for (final field in _fields(module)) {
     if (!field.changed) continue;
     final clear = Paint()
-      ..color = Colors.black
+      ..color = Color(field.clearColor)
       ..isAntiAlias = false;
     canvas.drawRect(field.bounds, clear);
     if (field.value.isEmpty) continue;

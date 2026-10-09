@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,7 +24,7 @@ import 'support/ai_slides_editor_fakes.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_slides_repository.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
@@ -138,6 +139,26 @@ void main() {
     FakeAiSlidesRepository repository,
     ValueChanged<List<WorkoutModule>?> onResult,
   ) async {
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => Scaffold(
+            body: TextButton(
+              onPressed: () async => onResult(await showAiSlidesPage(context)),
+              child: const Text('open'),
+            ),
+          ),
+          routes: [
+            GoRoute(
+              path: 'images/create',
+              builder: (_, _) => const AiSlidesPage(),
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -151,18 +172,10 @@ void main() {
         ],
         child: RepaintBoundary(
           key: const ValueKey('capture'),
-          child: MaterialApp(
+          child: MaterialApp.router(
+            routerConfig: router,
             debugShowCheckedModeBanner: false,
             theme: XonTheme.light,
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () async =>
-                      onResult(await showAiSlidesSheet(context)),
-                  child: const Text('open'),
-                ),
-              ),
-            ),
           ),
         ),
       ),
@@ -218,7 +231,9 @@ void main() {
       List<WorkoutModule>? added;
       await mount(tester, repository, (value) => added = value);
       expect(repository.calls, 0);
-      expect(find.text('베타'), findsOneWidget);
+      expect(find.text('beta'), findsOneWidget);
+      expect(find.text('수업 이미지 생성'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
       await generate(tester);
       expect(repository.calls, 1);
       expect(added, isNull);
@@ -289,7 +304,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       await generate(tester);
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       expect(added, isNull);
       expect(tester.takeException(), isNull);
@@ -314,7 +329,7 @@ void main() {
         isNull,
       );
       expect(repository.calls, 0);
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       repository.premium = true;
       repository.pending = Completer<AiSlidesResult>();
@@ -342,7 +357,7 @@ void main() {
       );
       await tester.pump();
       expect(repository.calls, 1);
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump(const Duration(seconds: 1));
       repository.pending!.complete(repository.result);
       await tester.pumpAndSettle();
@@ -382,7 +397,7 @@ void main() {
         tester.widget<TextField>(lines).controller!.text,
         'Squat 10 reps\nRun 200m',
       );
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
