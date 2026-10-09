@@ -1,21 +1,21 @@
-import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_quick_builder_screen.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_round_editor.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
-import 'package:cloud_board/src/app/core/theme/app_style.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-
+import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_editing.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_duration_field.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/timer_editor_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_rehearsal_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_editor_fields.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_summary.dart';
 
-/// A child of the slide editor. All applied changes share its draft.
+/// One editing transaction; only the final action updates the slide draft.
 class TimerEditorScreen extends HookConsumerWidget {
   const TimerEditorScreen({
     super.key,
@@ -23,439 +23,315 @@ class TimerEditorScreen extends HookConsumerWidget {
     required this.original,
     required this.scope,
     required this.onSelectBlock,
+    this.chooseModeInitially = false,
+    this.brandL = '',
+    this.brandR = '',
+    this.workout,
   });
-  final String workoutId, scope;
+  final String workoutId, scope, brandL, brandR;
   final WorkoutModule original;
   final ValueChanged<String> onSelectBlock;
+  final bool chooseModeInitially;
+  final Workout? workout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final provider = slideEditorControllerProvider(workoutId, original, scope);
-    final initial = useMemoized(() => ref.read(provider).module);
-    final draft = useState(initial);
-    final applied = useState(false);
+    final slide = slideEditorControllerProvider(workoutId, original, scope);
+    final initial = useMemoized(() => ref.read(slide).module);
+    final provider = timerEditorControllerProvider(initial);
+    final state = ref.watch(provider);
     final actions = ref.read(provider.notifier);
-    final module = draft.value;
-    final blocks = effectiveIntervalBlocks(module);
-    final expanded = useState<String?>(blocks.first.id);
-    final timingError = timingValidationError(module);
-    final valid = timingError == null;
+    final applied = useState(false);
+    final selecting = useState(false);
+    final module = state.module;
+    final error = timingValidationError(module);
+
+    Future<void> chooseMode({bool creating = false}) async {
+      if (selecting.value) return;
+      selecting.value = true;
+      FocusScope.of(context).unfocus();
+      try {
+        final mode = await showTimerModePicker(
+          context,
+          current: timerInputMode(module),
+          creating: creating,
+        );
+        if (mode == null || !context.mounted) return;
+        if (mode == WorkoutTimerMode.custom && !isContinuousTimer(module)) {
+          actions.showDetails(true);
+          return;
+        }
+        final candidate = timerModeCandidate(
+          module,
+          mode == WorkoutTimerMode.custom ? WorkoutTimerMode.interval : mode,
+        );
+        if (!creating && !sameSlideTiming(module, candidate)) {
+          if (!await confirmTimerReplacement(context, module, candidate) ||
+              !context.mounted) {
+            return;
+          }
+        }
+        actions.replace(candidate);
+        if (mode == WorkoutTimerMode.custom) actions.showDetails(true);
+      } finally {
+        if (context.mounted) selecting.value = false;
+      }
+    }
+
+    useEffect(() {
+      if (chooseModeInitially) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) chooseMode(creating: true);
+        });
+      }
+      return null;
+    }, const []);
+
     void apply() {
-      if (applied.value || !valid) return;
+      if (applied.value || !state.valid) return;
       applied.value = true;
-      actions.update(copySlideTiming(ref.read(provider).module, module));
-      onSelectBlock(
-        blocks.any((block) => block.id == expanded.value)
-            ? expanded.value!
-            : blocks.first.id,
-      );
-      Navigator.of(context).pop();
+      final current = ref.read(slide).module;
+      ref.read(slide.notifier).update(copySlideTiming(current, module));
+      onSelectBlock(effectiveIntervalBlocks(module).first.id);
+      Navigator.pop(context);
     }
 
-    final total = workoutModuleDuration(module);
-    final workTotal = workoutModuleWorkSeconds(module);
-    void updateBlocks(List<WorkoutIntervalBlock> value) {
-      draft.value = withIntervalBlocks(draft.value, value);
-    }
-
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     return Theme(
       data: SlideEditorStyle.theme(Theme.of(context)),
-      child: UnsavedChangesGuard(
-        dirty: !applied.value && !sameSlideTiming(module, initial),
-        confirmTitle: '적용하지 않고 닫을까요?',
-        confirmMessage: '이번에 변경한 시간과 세트는 적용되지 않습니다.',
-        discardLabel: '적용 안 하고 닫기',
-        child: Scaffold(
-          key: const ValueKey('timer-editor-sheet'),
-          appBar: AppBar(
-            leading: CloseButton(
-              key: const ValueKey('close-timer-editor'),
-              onPressed: () => Navigator.maybePop(context),
-            ),
-            title: const Text('타이머 편집'),
-            actions: [
-              TextButton(
-                key: const ValueKey('apply-timer-editor'),
-                onPressed: applied.value || !valid ? null : apply,
-                child: const Text('적용'),
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              Navigator.maybePop(context),
+        },
+        child: UnsavedChangesGuard(
+          dirty: !applied.value && actions.dirty,
+          confirmTitle: '반영하지 않고 닫을까요?',
+          confirmMessage: '이번에 변경한 타이머 설정은 슬라이드에 반영되지 않습니다.',
+          discardLabel: '반영 안 하고 닫기',
+          child: Scaffold(
+            key: const ValueKey('timer-editor-sheet'),
+            resizeToAvoidBottomInset: false,
+            appBar: AppBar(
+              leading: CloseButton(
+                key: const ValueKey('close-timer-editor'),
+                onPressed: () => Navigator.maybePop(context),
               ),
-              const SizedBox(width: 16),
-            ],
-          ),
-          body: SafeArea(
-            top: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 960),
-                child: ListView(
-                  key: const ValueKey('timer-editor-settings'),
-                  padding: EdgeInsets.fromLTRB(
-                    MediaQuery.sizeOf(context).width >= 700 ? 40 : 24,
-                    20,
-                    MediaQuery.sizeOf(context).width >= 700 ? 40 : 24,
-                    40,
-                  ),
-                  children: [
-                    Text(
-                      module.name,
-                      style: const TextStyle(color: SlideEditorStyle.muted),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            '전체 운동 시간',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+              title: const Text('타이머 편집'),
+            ),
+            body: SafeArea(
+              top: false,
+              bottom: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 660),
+                  child: ListView(
+                    key: const ValueKey('timer-editor-settings'),
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    children: [
+                      Text(
+                        module.name,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: SlideEditorStyle.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              timerEditorLabel(module),
+                              key: const ValueKey('timer-current-mode'),
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
+                          TextButton.icon(
+                            key: const ValueKey('open-timer-builder'),
+                            onPressed:
+                                selecting.value || state.errors.isNotEmpty
+                                ? null
+                                : chooseMode,
+                            label: const Text('방식 변경'),
+                            icon: const Icon(Icons.chevron_right, size: 18),
+                            iconAlignment: IconAlignment.end,
+                          ),
+                        ],
+                      ),
+                      Text(
+                        timerModeDescription(timerInputMode(module)),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: SlideEditorStyle.muted,
                         ),
-                        Text(
-                          moduleDurationText(module),
-                          key: const ValueKey('timer-editor-total'),
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
+                      ),
+                      if (initial.timerMode != WorkoutTimerMode.custom &&
+                          module.timerMode == WorkoutTimerMode.custom) ...[
+                        const SizedBox(height: 8),
+                        const Text(
+                          '구간을 변경해 사용자 지정 구성으로 전환했어요.',
+                          key: ValueKey('timer-custom-notice'),
+                          style: TextStyle(
+                            fontSize: 13,
                             color: SlideEditorStyle.accent,
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (!isOpenEndedTimer(module))
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 8,
-                        children: [
-                          Text(
-                            '운동 ${formatSlideTime(workTotal)}',
-                            style: const TextStyle(
-                              color: SlideEditorStyle.accent,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '휴식 ${formatSlideTime(total - workTotal)}',
-                            style: const TextStyle(
-                              color: SlideEditorStyle.muted,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      key: const ValueKey('open-timer-builder'),
-                      icon: const Icon(Icons.bolt_outlined),
-                      label: const Text('타이머 간편 만들기'),
-                      onPressed: () async {
-                        final result = await Navigator.of(context)
-                            .push<WorkoutModule>(
-                              MaterialPageRoute(
-                                builder: (_) => TimerQuickBuilderScreen(
-                                  module: draft.value,
-                                ),
-                              ),
-                            );
-                        if (result == null || !context.mounted) return;
-                        draft.value = result;
-                        expanded.value = effectiveIntervalBlocks(result)
-                            .first
-                            .id;
-                      },
-                    ),
-                    if (isContinuousTimer(module)) ...[
+                      if (initial.timerMode == WorkoutTimerMode.tabata &&
+                          module.timerMode == WorkoutTimerMode.interval) ...[
+                        const SizedBox(height: 8),
+                        const Text('시간·반복을 바꾼 구성은 인터벌로 저장해요.'),
+                      ],
                       const SizedBox(height: 16),
-                      Text(
-                        '${timerModeLabel(module.timerMode)} · ${timerCountsUp(module) ? '경과 시간' : '남은 시간'}',
+                      KeyedSubtree(
+                        key: ValueKey(state.formRevision),
+                        child: state.detailed
+                            ? TimerDetailedFields(
+                                state: state,
+                                actions: actions,
+                              )
+                            : TimerCompactFields(
+                                state: state,
+                                actions: actions,
+                              ),
                       ),
-                      const Text('시간과 표시 방식은 간편 만들기에서 수정할 수 있습니다.'),
-                      TextButton(
-                        onPressed: () {
-                          draft.value = withIntervalBlocks(module, [
-                            WorkoutIntervalBlock(
-                              id: '${module.id}-interval-1',
-                              workSeconds: module.workSeconds > 0
-                                  ? module.workSeconds
-                                  : 60,
-                              restSeconds: 0,
-                              sets: 1,
+                      if (!isContinuousTimer(module) &&
+                          (!state.detailed ||
+                              timerInputMode(module) !=
+                                  WorkoutTimerMode.custom)) ...[
+                        const Divider(height: 16),
+                        ListTile(
+                          key: const ValueKey('timer-detail-toggle'),
+                          visualDensity: VisualDensity.compact,
+                          minTileHeight: 44,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            state.detailed ? '간단한 설정으로 돌아가기' : '구간별로 직접 편집',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          enabled: state.valid,
+                          onTap: () => actions.showDetails(!state.detailed),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      if (state.valid)
+                        TimerResultSummary(
+                          module: module,
+                          onRehearse: () => Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SlideRehearsalScreen(
+                                module: module,
+                                brandL: brandL,
+                                brandR: brandR,
+                                workout: workout,
+                              ),
                             ),
-                          ]);
-                        },
-                        child: const Text('인터벌로 바꾸어 직접 편집'),
-                      ),
-                    ] else ...[
-                      TimerRoundEditor(
-                        module: module,
-                        onChanged: (value) => draft.value = value,
-                      ),
-                      if (timingError != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            timingError,
-                            key: const ValueKey('timer-validation-error'),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          error ?? '입력을 완료하면 총시간과 진행 순서를 확인할 수 있어요.',
+                          key: const ValueKey('timer-validation-error'),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
                           ),
                         ),
-                      const Divider(height: 24),
-                      ReorderableListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        buildDefaultDragHandles: false,
-                        itemCount: blocks.length,
-                        onReorderItem: (oldIndex, newIndex) {
-                          final next = [...blocks];
-                          next.insert(newIndex, next.removeAt(oldIndex));
-                          updateBlocks(next);
-                        },
-                        itemBuilder: (context, index) {
-                          final block = blocks[index];
-                          final isOpen = expanded.value == block.id;
-                          void toggle() {
-                            expanded.value = isOpen ? null : block.id;
-                          }
-
-                          return Padding(
-                            key: ValueKey(block.id),
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Material(
-                              color: SlideEditorStyle.surface,
-                              borderRadius: BorderRadius.circular(
-                                AppStyle.controlRadius,
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      ReorderableDragStartListener(
-                                        index: index,
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Semantics(
-                                            label: '블록 ${index + 1} 순서 변경',
-                                            child: const Icon(
-                                              Icons.drag_handle_rounded,
-                                              color: SlideEditorStyle.muted,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: InkWell(
-                                          key: ValueKey(
-                                            'timer-block-${block.id}',
-                                          ),
-                                          onTap: toggle,
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 20,
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  block.workSeconds == 0
-                                                      ? '휴식 ${index + 1}'
-                                                      : '블록 ${index + 1}',
-                                                  style: const TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  block.workSeconds == 0
-                                                      ? '휴식만 ${formatSlideTime(block.restSeconds)} · ${block.sets}회'
-                                                      : '운동 ${formatSlideTime(block.workSeconds)} · 휴식 ${formatSlideTime(block.restSeconds)} · ${block.sets}세트',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color:
-                                                        SlideEditorStyle.muted,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      PopupMenuButton<String>(
-                                        tooltip: '블록 메뉴',
-                                        icon: const Icon(Icons.more_horiz),
-                                        onSelected: (action) {
-                                          if (action == 'type') {
-                                            updateBlocks([
-                                              for (final item in blocks)
-                                                if (item.id == block.id)
-                                                  item.copyWith(
-                                                    workSeconds:
-                                                        block.workSeconds == 0
-                                                        ? 60
-                                                        : 0,
-                                                    restSeconds:
-                                                        block.restSeconds > 0
-                                                        ? block.restSeconds
-                                                        : 30,
-                                                  )
-                                                else
-                                                  item,
-                                            ]);
-                                          } else if (action == 'duplicate') {
-                                            final copy = block.copyWith(
-                                              id: newId(),
-                                            );
-                                            updateBlocks(
-                                              [...blocks]
-                                                ..insert(index + 1, copy),
-                                            );
-                                          } else if (blocks.length > 1) {
-                                            updateBlocks(
-                                              [...blocks]..removeAt(index),
-                                            );
-                                            if (isOpen) expanded.value = null;
-                                          }
-                                        },
-                                        itemBuilder: (_) => [
-                                          PopupMenuItem(
-                                            value: 'type',
-                                            child: Text(
-                                              block.workSeconds == 0
-                                                  ? '운동·휴식으로 변경'
-                                                  : '휴식만으로 변경',
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            enabled:
-                                                blocks.length < maxTimingBlocks,
-                                            value: 'duplicate',
-                                            child: Text('복제'),
-                                          ),
-                                          PopupMenuItem(
-                                            value: 'delete',
-                                            enabled: blocks.length > 1,
-                                            child: Text(
-                                              blocks.length > 1
-                                                  ? '삭제'
-                                                  : '블록은 하나 이상 필요합니다',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      IconButton(
-                                        tooltip: isOpen
-                                            ? '시간 블록 접기'
-                                            : '시간 블록 펼치기',
-                                        onPressed: toggle,
-                                        icon: Icon(
-                                          isOpen
-                                              ? Icons.keyboard_arrow_up
-                                              : Icons.keyboard_arrow_down,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                    ],
-                                  ),
-                                  if (isOpen) ...[
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                      ),
-                                      child: Divider(height: 1),
-                                    ),
-                                    SlideTimingEditor(
-                                      key: ValueKey(
-                                        '${block.id}-${block.workSeconds == 0}',
-                                      ),
-                                      embedded: true,
-                                      restOnly:
-                                          block.workSeconds == 0 &&
-                                          block.restSeconds > 0,
-                                      initialWorkSeconds: block.workSeconds,
-                                      initialRestSeconds: block.restSeconds,
-                                      initialSets: block.sets,
-                                      onChanged: (value) {
-                                        final updated = block.copyWith(
-                                          workSeconds: value.workSeconds,
-                                          restSeconds: value.restSeconds,
-                                          sets: value.sets,
-                                        );
-                                        updateBlocks([
-                                          for (final item in blocks)
-                                            if (item.id == block.id)
-                                              updated
-                                            else
-                                              item,
-                                        ]);
-                                      },
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      OutlinedButton.icon(
-                        key: const ValueKey('add-interval-block'),
-                        onPressed: blocks.length >= maxTimingBlocks
-                            ? null
-                            : () {
-                                final block = WorkoutIntervalBlock(
-                                  id: newId(),
-                                  workSeconds: 60,
-                                  restSeconds: 0,
-                                  sets: 1,
-                                );
-                                updateBlocks([...blocks, block]);
-                                expanded.value = block.id;
-                              },
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('블록 추가'),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        key: const ValueKey('add-rest-block'),
-                        onPressed: blocks.length >= maxTimingBlocks
-                            ? null
-                            : () {
-                                final block = WorkoutIntervalBlock(
-                                  id: newId(),
-                                  workSeconds: 0,
-                                  restSeconds: 30,
-                                  sets: 1,
-                                );
-                                updateBlocks([...blocks, block]);
-                                expanded.value = block.id;
-                              },
-                        icon: const Icon(Icons.pause_circle_outline),
-                        label: const Text('휴식만 추가'),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        '${module.includeFinalRest ? '각 블록의 마지막 세트 뒤에도 설정된 휴식을 포함합니다.' : '운동 블록의 마지막 세트 뒤 자동 휴식은 생략합니다.'} 직접 추가한 휴식은 유지됩니다. 배경 이미지에 적힌 시간은 자동으로 바뀌지 않습니다.',
+                      if (state.inputMode == WorkoutTimerMode.emom &&
+                          !state.detailed)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            key: const ValueKey('emom-preset-rounds'),
+                            onPressed: () async {
+                              final candidate = editEmom(module, (
+                                seconds: 120,
+                                intervals: 3,
+                                rounds: 6,
+                                restSeconds: 30,
+                                includeFinalRest: true,
+                              ));
+                              if (sameSlideTiming(module, candidate)) return;
+                              if (await confirmTimerReplacement(
+                                    context,
+                                    module,
+                                    candidate,
+                                  ) &&
+                                  context.mounted) {
+                                actions.replace(candidate);
+                              }
+                            },
+                            child: const Text('예시 · 2분 × 3구간 · 6라운드'),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      if (module.imageSource.isNotEmpty) ...[
+                        const Text(
+                          '배경 이미지에 적힌 시간은 자동으로 바뀌지 않아요.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: SlideEditorStyle.muted,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      const Text(
+                        '준비 카운트다운은 별도예요.',
                         style: TextStyle(
                           fontSize: 12,
                           color: SlideEditorStyle.muted,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    const Text(
-                      '적용 후 슬라이드 상단의 저장 버튼을 눌러 변경사항을 저장해 주세요.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: SlideEditorStyle.muted,
-                      ),
+                  ),
+                ),
+              ),
+            ),
+            bottomNavigationBar: Padding(
+              padding: EdgeInsets.only(bottom: keyboard),
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: SlideEditorStyle.line),
                     ),
-                  ],
+                  ),
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          key: const ValueKey('apply-timer-editor'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 48),
+                          ),
+                          onPressed: applied.value || !state.valid
+                              ? null
+                              : apply,
+                          child: const Text('타이머 반영'),
+                        ),
+                      ),
+                      if (keyboard == 0) ...[
+                        const SizedBox(height: 8),
+                        const Text(
+                          '슬라이드에 반영한 뒤 저장해 주세요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: SlideEditorStyle.muted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
