@@ -15,10 +15,18 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_sl
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
-enum _StartPath { catalog, ai, reference }
+enum AiSlideDesignStudioSection { templates, create }
+
+enum _StartPath { ai, reference }
 
 class AiSlideDesignStudio extends HookConsumerWidget {
-  const AiSlideDesignStudio({super.key, this.draft, required this.onSelected});
+  const AiSlideDesignStudio({
+    super.key,
+    this.draft,
+    required this.section,
+    required this.onSelected,
+  });
+  final AiSlideDesignStudioSection section;
   final AiSlideDraft? draft;
   final ValueChanged<AiSlideDesign> onSelected;
 
@@ -28,7 +36,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
     final storeId = ref.watch(aiSlideDesignStoreIdProvider);
     final state = ref.watch(aiSlideDesignControllerProvider);
     final controller = ref.read(aiSlideDesignControllerProvider.notifier);
-    final mode = useState(_StartPath.catalog);
+    final catalog = section == AiSlideDesignStudioSection.templates;
+    final mode = useState(_StartPath.ai);
     final brief = useTextEditingController();
     final reference = useState<Uint8List?>(null);
     final referenceName = useState<String?>(null);
@@ -46,9 +55,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         context.mounted &&
         ref.read(aiSlideDesignOwnerIdProvider) == ownerId &&
         ref.read(aiSlideDesignStoreIdProvider) == storeId;
-    final access = mode.value == _StartPath.catalog
-        ? null
-        : ref.watch(aiSlideDesignAccessProvider);
+    final access = catalog ? null : ref.watch(aiSlideDesignAccessProvider);
     final canGenerate =
         access?.value?.premium == true && access?.value?.enabled == true;
     final busy = state.generating || picking.value;
@@ -249,23 +256,28 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '클래스에 어울리는 디자인',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    catalog ? '수업에 맞는 템플릿' : '새로운 디자인 만들기',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  SizedBox(height: 5),
+                  const SizedBox(height: 5),
                   Text(
-                    '디자인을 고르고, 매일 운동 내용만 바꿔 보세요.',
-                    style: TextStyle(fontSize: 12),
+                    catalog
+                        ? '마음에 드는 틀을 고르고 운동 내용만 바꿔 보세요.'
+                        : '원하는 분위기를 설명하거나 참고 이미지로 시작해 보세요.',
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ],
               ),
             ),
-            if (draft != null || state.selected != null)
+            if (catalog && (draft != null || state.selected != null))
               IconButton(
                 key: const ValueKey('ai-save-class'),
                 onPressed: state.saving ? null : saveClass,
@@ -278,7 +290,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               ),
           ],
         ),
-        if (state.selected != null)
+        if (catalog && state.selected != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Text(
@@ -290,7 +302,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               ),
             ),
           ),
-        if (state.templates.isNotEmpty) ...[
+        if (catalog && state.templates.isNotEmpty) ...[
           const SizedBox(height: 14),
           const Text(
             '저장한 클래스',
@@ -311,22 +323,28 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             ],
           ),
         ],
-        if (state.templateError != null) AiSlidesNotice(state.templateError!),
+        if (catalog && state.templateError != null)
+          AiSlidesNotice(state.templateError!),
         const SizedBox(height: 16),
-        SegmentedButton<_StartPath>(
-          showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(value: _StartPath.catalog, label: Text('기본')),
-            ButtonSegment(value: _StartPath.ai, label: Text('디자인 추천')),
-            ButtonSegment(value: _StartPath.reference, label: Text('이미지 스타일')),
-          ],
-          selected: {mode.value},
-          onSelectionChanged: busy
-              ? null
-              : (values) => mode.value = values.first,
-        ),
+        if (!catalog)
+          SegmentedButton<_StartPath>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: _StartPath.ai, label: Text('스타일 제안')),
+              ButtonSegment(
+                value: _StartPath.reference,
+                label: Text('이미지로 시작'),
+              ),
+            ],
+            selected: {mode.value},
+            onSelectionChanged: busy
+                ? null
+                : (values) => mode.value = values.first,
+          ),
         const SizedBox(height: 14),
-        if (mode.value == _StartPath.catalog) ...[
+        if (catalog) ...[
+          const AiSlidesNotice('템플릿 선택과 직접 수정은 AI 토큰·생성 횟수를 사용하지 않아요.'),
+          const SizedBox(height: 12),
           if (showDolpaReferenceDesign) ...[
             const Text(
               '센터 원본 템플릿',
@@ -341,13 +359,13 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             designGrid(customerReferenceDesigns),
             const Divider(height: 32),
             const Text(
-              '기본 디자인',
+              '기본 템플릿',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
           ],
           const Text(
-            '예시 내용을 오늘의 운동으로 바꿔 시작해요. 사용량 차감은 없어요.',
+            '예시 내용을 오늘의 운동으로 바꿔 시작해요.',
             style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -355,7 +373,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         ] else ...[
           if (mode.value == _StartPath.reference) ...[
             const Text(
-              '이미지에서 스타일 가져오기',
+              '이 이미지의 느낌으로',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
@@ -452,8 +470,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           if (access?.hasValue == true && !canGenerate)
             AiSlidesNotice(
               access!.value!.premium
-                  ? '디자인 추천을 준비 중이에요. 기본 디자인으로 시작해 주세요.'
-                  : '디자인 추천과 이미지 스타일 가져오기는 프리미엄 기능이에요.',
+                  ? '새 디자인 만들기를 준비 중이에요. 템플릿으로 시작해 주세요.'
+                  : '스타일 제안과 이미지로 시작하기는 프리미엄 기능이에요.',
             ),
           if (canGenerate)
             Padding(
@@ -487,8 +505,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               state.generating
                   ? '디자인 준비 중…'
                   : mode.value == _StartPath.reference
-                  ? '이미지에서 스타일 가져오기'
-                  : '새 디자인 추천받기',
+                  ? '이 이미지로 디자인 만들기'
+                  : '스타일 3가지 제안받기',
             ),
           ),
           if (mode.value == _StartPath.reference)

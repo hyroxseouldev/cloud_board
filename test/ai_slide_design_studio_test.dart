@@ -480,6 +480,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final content = _ContentRepository();
+      final designs = _DesignRepository();
       if (showDolpaReferenceDesign) {
         await tester.runAsync(
           () => Future.wait(
@@ -497,8 +498,9 @@ void main() {
               MemoryAiSlidesEditorRepository(),
             ),
             aiSlidesRepositoryProvider.overrideWithValue(content),
-            aiSlideDesignOwnerIdProvider.overrideWithValue(null),
-            aiSlideDesignStoreIdProvider.overrideWithValue(null),
+            aiSlideDesignOwnerIdProvider.overrideWithValue('alice'),
+            aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
+            aiSlideDesignRepositoryProvider.overrideWithValue(designs),
           ],
           child: const MaterialApp(home: Scaffold(body: AiSlidesPage())),
         ),
@@ -507,9 +509,11 @@ void main() {
         await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       }
       await tester.pumpAndSettle();
-      expect(find.text('기본'), findsOneWidget);
-      expect(find.text('디자인 추천'), findsOneWidget);
-      expect(find.text('이미지 스타일'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.text('템플릿'), findsOneWidget);
+      expect(find.text('스타일 제안'), findsNothing);
+      expect(find.text('이미지로 시작'), findsNothing);
+      expect(find.textContaining('AI 토큰·생성 횟수를 사용하지 않아요'), findsOneWidget);
       expect(
         find.text('센터 원본 템플릿'),
         showDolpaReferenceDesign ? findsOneWidget : findsNothing,
@@ -523,11 +527,47 @@ void main() {
       expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);
       expect(
         tester
-            .widget<FilledButton>(find.byKey(const ValueKey('ai-slides-add')))
+            .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
             .onPressed,
         isNotNull,
       );
       expect(content.calls, 0);
+      expect(designs.calls, 0);
+      final title = find.byKey(const ValueKey('ai-slide-title'));
+      await tester.enterText(title, '오늘의 수업');
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      expect(find.text('스타일 제안'), findsOneWidget);
+      expect(find.text('이미지로 시작'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('ai-design-catalog-banner')),
+        findsNothing,
+      );
+      final brief = find.byKey(const ValueKey('ai-design-brief'));
+      await tester.enterText(brief, '짙은 배경에 라임색 포인트');
+      await tester.tap(find.byKey(const ValueKey('ai-nav-templates')));
+      await tester.pumpAndSettle();
+      expect(find.text('스타일 제안'), findsNothing);
+      expect(designs.calls, 0);
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(brief).controller!.text,
+        '짙은 배경에 라임색 포인트',
+      );
+      await tester.tap(find.text('이미지로 시작'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-reference-pick')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('ai-nav-content')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(title).controller!.text, '오늘의 수업');
+      expect(content.calls, 0);
+      expect(
+        designs.calls,
+        0,
+        reason:
+            'Opening design tools and changing tabs must not generate anything',
+      );
       expect(tester.takeException(), isNull);
     },
   );

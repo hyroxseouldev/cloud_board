@@ -48,39 +48,30 @@ Future<List<WorkoutModule>?> showAiSlidesPage(BuildContext context) {
   return context.push<List<WorkoutModule>>('$parent/images/create');
 }
 
+enum _EditorTab { content, templates, source, create }
+
 /// A full route keeps creation, reference designs and editing in one workspace.
-class AiSlidesPage extends StatelessWidget {
+class AiSlidesPage extends HookConsumerWidget {
   const AiSlidesPage({super.key});
   @override
-  Widget build(BuildContext context) {
-    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1120),
-            child: _AiSlidesEditor(keyboardVisible: keyboardVisible),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-enum _EditorTab { content, design, source }
-
-class _AiSlidesEditor extends HookConsumerWidget {
-  const _AiSlidesEditor({required this.keyboardVisible});
-  final bool keyboardVisible;
-  @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     final state = ref.watch(aiSlidesControllerProvider);
     final controller = ref.read(aiSlidesControllerProvider.notifier);
     useOnAppLifecycleStateChange((previous, next) {
       if (next != AppLifecycleState.resumed) unawaited(controller.flush());
     });
     final access = ref.watch(aiSlidesAccessProvider);
-    final tab = useState(_EditorTab.content);
+    final tab = useState(
+      state.draft == null ? _EditorTab.templates : _EditorTab.content,
+    );
+    final visited = useState(<_EditorTab>{tab.value});
+    void selectTab(_EditorTab value) {
+      FocusScope.of(context).unfocus();
+      visited.value = {...visited.value, value};
+      tab.value = value;
+    }
+
     final designState = ref.watch(aiSlideDesignControllerProvider);
     useEffect(() {
       if (designState.selected != null) {
@@ -102,16 +93,15 @@ class _AiSlidesEditor extends HookConsumerWidget {
         access.value?.premium == true && access.value?.enabled == true;
     final warning = validation ?? metrics?.warning;
     final canAdd =
-        module != null &&
-        !state.generating &&
-        validation == null &&
-        metrics!.readable;
+        module != null && !busy && validation == null && metrics!.readable;
     ref.listen(aiSlidesControllerProvider, (previous, next) {
-      if (previous?.generating == true &&
+      final restored = previous?.loading == true && !next.loading;
+      final generated =
+          previous?.generating == true &&
           !next.generating &&
-          next.error == null &&
-          next.draft != null) {
-        tab.value = _EditorTab.content;
+          next.error == null;
+      if ((restored || generated) && next.draft != null) {
+        selectTab(_EditorTab.content);
       }
     });
     Future<void> close() async {
@@ -132,243 +122,271 @@ class _AiSlidesEditor extends HookConsumerWidget {
       }
     }
 
-    final input = AiSlidesPromptEditor(
-      state: state,
-      access: access,
-      allowed: allowed,
-      onChanged: controller.setPrompt,
-      onRetryAccess: () => ref.invalidate(aiSlidesAccessProvider),
-      onGenerate: () {
-        FocusScope.of(context).unfocus();
-        controller.generate(state.prompt);
-      },
-    );
-    final studio = AiSlideDesignStudio(
+    Widget studio(AiSlideDesignStudioSection section) => AiSlideDesignStudio(
+      key: ValueKey(section),
+      section: section,
       draft: draft,
       onSelected: (design) {
         controller.applyDesign(
           design.theme,
           classLabel: design.id.startsWith('ai-design-') ? design.name : null,
         );
-        tab.value = _EditorTab.content;
+        selectTab(_EditorTab.content);
       },
     );
-    final editor = draft == null
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [studio, const Divider(height: 32), input],
-          )
-        : switch (tab.value) {
-            _EditorTab.design => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                studio,
-                const Divider(height: 32),
-                AiSlidesDesignEditor(
-                  draft: draft,
-                  state: state,
-                  onChanged: controller.updateDraft,
-                  onSaveTheme: controller.saveTheme,
-                  onApplyTheme: controller.applyTheme,
-                ),
-              ],
-            ),
-            _EditorTab.source => input,
-            _EditorTab.content => AiSlidesContentEditor(
+    Widget panel(_EditorTab value) => switch (value) {
+      _EditorTab.content =>
+        draft == null
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '오늘 수업, 한 장으로',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('템플릿을 골라 직접 입력하거나, 수업 메모로 운동 내용을 정리해 보세요.'),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () => selectTab(_EditorTab.templates),
+                    icon: const Icon(Icons.grid_view_rounded),
+                    label: const Text('템플릿 고르기'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => selectTab(_EditorTab.source),
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: const Text('메모로 시작하기'),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AiSlidesContentEditor(
+                    draft: draft,
+                    warnings: state.warnings,
+                    onChanged: controller.updateDraft,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '오른쪽 위 +로 슬라이드를 추가한 뒤 워크아웃을 저장해 주세요.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+      _EditorTab.templates => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          studio(AiSlideDesignStudioSection.templates),
+          if (draft != null) ...[
+            const Divider(height: 32),
+            AiSlidesDesignEditor(
               draft: draft,
-              warnings: state.warnings,
+              state: state,
               onChanged: controller.updateDraft,
+              onSaveTheme: controller.saveTheme,
+              onApplyTheme: controller.applyTheme,
             ),
-          };
+          ],
+        ],
+      ),
+      _EditorTab.source => AiSlidesPromptEditor(
+        state: state,
+        access: access,
+        allowed: allowed,
+        onChanged: controller.setPrompt,
+        onRetryAccess: () => ref.invalidate(aiSlidesAccessProvider),
+        onGenerate: () {
+          FocusScope.of(context).unfocus();
+          controller.generate(state.prompt);
+        },
+      ),
+      _EditorTab.create => studio(AiSlideDesignStudioSection.create),
+    };
+    Widget controls() => IndexedStack(
+      index: tab.value.index,
+      children: [
+        for (final value in _EditorTab.values)
+          visited.value.contains(value)
+              ? AbsorbPointer(
+                  absorbing: state.generating,
+                  child: ListView(
+                    key: PageStorageKey('ai-slides-editor-${value.name}'),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [panel(value)],
+                  ),
+                )
+              : const SizedBox.shrink(),
+      ],
+    );
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) unawaited(controller.flush());
       },
-      child: SizedBox(
-        height: double.infinity,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: 0),
-          child: Column(
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: false,
+          leading: IconButton(
+            tooltip: '뒤로',
+            onPressed: close,
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          titleSpacing: 0,
+          title: const Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 4, 4),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: '뒤로',
-                      onPressed: close,
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        '수업 이미지 생성',
-                        style: TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const AiBetaBadge(),
-                    if (draft != null)
-                      IconButton(
-                        tooltip: '되돌리기',
-                        onPressed: state.canUndo && !busy
-                            ? controller.undo
-                            : null,
-                        icon: const Icon(Icons.undo_rounded),
-                      ),
-                  ],
+              Flexible(
+                child: Text(
+                  '수업 이미지 생성',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
                 ),
               ),
-              if (state.loading || state.generating)
-                const LinearProgressIndicator(minHeight: 2),
-              if (state.storageError != null)
-                AiSlidesNotice(state.storageError!, error: true),
-              if (draft != null && state.error != null)
-                AiSlidesNotice(state.error!, error: true),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, bounds) {
-                    final wide =
-                        draft != null &&
-                        bounds.maxWidth >= 700 &&
-                        bounds.maxHeight >= 270;
-                    Widget controls() => Column(
-                      children: [
-                        if (draft != null)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: SegmentedButton<_EditorTab>(
-                                showSelectedIcon: false,
-                                segments: const [
-                                  ButtonSegment(
-                                    value: _EditorTab.content,
-                                    label: Text('내용'),
-                                  ),
-                                  ButtonSegment(
-                                    value: _EditorTab.design,
-                                    label: Text('디자인'),
-                                  ),
-                                  ButtonSegment(
-                                    value: _EditorTab.source,
-                                    label: Text('수업 메모'),
-                                  ),
-                                ],
-                                selected: {tab.value},
-                                onSelectionChanged: (value) =>
-                                    tab.value = value.first,
-                              ),
-                            ),
-                          ),
-                        Expanded(
-                          child: AbsorbPointer(
-                            absorbing: state.generating,
-                            child: ListView(
-                              key: ValueKey(
-                                'ai-slides-editor-${tab.value.index}',
-                              ),
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                              children: [editor],
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                    if (wide) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 0, 12),
-                              child: AiSlidesPreview(module: module!),
-                            ),
-                          ),
-                          Expanded(child: controls()),
-                        ],
-                      );
-                    }
-                    return Column(
-                      children: [
-                        if (module != null &&
-                            !keyboardVisible &&
-                            bounds.maxHeight > 270)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                            child: SizedBox(
-                              height: math.min(
-                                (bounds.maxWidth - 32) * 9 / 16 + 24,
-                                bounds.maxHeight * .46,
-                              ),
-                              child: AiSlidesPreview(
-                                module: module,
-                                compact: true,
-                              ),
-                            ),
-                          ),
-                        if (module != null &&
-                            !keyboardVisible &&
-                            bounds.maxHeight <= 270)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () =>
-                                  showAiSlidesPreview(context, module),
-                              icon: const Icon(
-                                Icons.fullscreen_rounded,
-                                size: 18,
-                              ),
-                              label: const Text('미리보기'),
-                            ),
-                          ),
-                        Expanded(child: controls()),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              if (draft != null && !keyboardVisible)
-                SafeArea(
-                  top: false,
-                  minimum: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (warning != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Text(
-                            warning,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                        ),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          key: const ValueKey('ai-slides-add'),
-                          onPressed: canAdd ? add : null,
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('슬라이드 추가'),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          '워크아웃을 저장하면 반영돼요.',
-                          style: TextStyle(fontSize: 11),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              SizedBox(width: 8),
+              AiBetaBadge(),
             ],
           ),
+          actions: [
+            if (draft != null)
+              IconButton(
+                tooltip: '되돌리기',
+                onPressed: state.canUndo && !busy ? controller.undo : null,
+                icon: const Icon(Icons.undo_rounded),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton.filledTonal(
+                key: const ValueKey('ai-slides-add'),
+                tooltip: '슬라이드 추가',
+                onPressed: canAdd ? add : null,
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ),
+          ],
         ),
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1120),
+              child: Column(
+                children: [
+                  if (busy) const LinearProgressIndicator(minHeight: 2),
+                  if (state.storageError != null)
+                    AiSlidesNotice(state.storageError!, error: true),
+                  if (draft != null && state.error != null)
+                    AiSlidesNotice(state.error!, error: true),
+                  if (warning != null) AiSlidesNotice(warning, error: true),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, bounds) {
+                        final showPreview =
+                            module != null &&
+                            !keyboardVisible &&
+                            tab.value != _EditorTab.create;
+                        final wide =
+                            bounds.maxWidth >= 700 && bounds.maxHeight >= 270;
+                        return Flex(
+                          direction: wide ? Axis.horizontal : Axis.vertical,
+                          crossAxisAlignment: wide
+                              ? CrossAxisAlignment.start
+                              : CrossAxisAlignment.center,
+                          children: [
+                            if (showPreview && wide)
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    0,
+                                    12,
+                                  ),
+                                  child: AiSlidesPreview(module: module),
+                                ),
+                              ),
+                            if (showPreview && !wide && bounds.maxHeight > 270)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  8,
+                                ),
+                                child: SizedBox(
+                                  height: math.min(
+                                    (bounds.maxWidth - 32) * 9 / 16 + 24,
+                                    bounds.maxHeight * .46,
+                                  ),
+                                  child: AiSlidesPreview(
+                                    module: module,
+                                    compact: true,
+                                  ),
+                                ),
+                              ),
+                            if (showPreview && !wide && bounds.maxHeight <= 270)
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  onPressed: () =>
+                                      showAiSlidesPreview(context, module),
+                                  icon: const Icon(
+                                    Icons.fullscreen_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('미리보기'),
+                                ),
+                              ),
+                            Expanded(
+                              key: const ValueKey('ai-slides-controls'),
+                              child: controls(),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        bottomNavigationBar: keyboardVisible
+            ? null
+            : NavigationBar(
+                height: 72,
+                selectedIndex: tab.value.index,
+                onDestinationSelected: (index) =>
+                    selectTab(_EditorTab.values[index]),
+                destinations: const [
+                  NavigationDestination(
+                    key: ValueKey('ai-nav-content'),
+                    icon: Icon(Icons.edit_note_outlined),
+                    selectedIcon: Icon(Icons.edit_note_rounded),
+                    label: '내용',
+                  ),
+                  NavigationDestination(
+                    key: ValueKey('ai-nav-templates'),
+                    icon: Icon(Icons.grid_view_outlined),
+                    selectedIcon: Icon(Icons.grid_view_rounded),
+                    label: '템플릿',
+                  ),
+                  NavigationDestination(
+                    key: ValueKey('ai-nav-source'),
+                    icon: Icon(Icons.notes_outlined),
+                    selectedIcon: Icon(Icons.notes_rounded),
+                    label: '수업 메모',
+                  ),
+                  NavigationDestination(
+                    key: ValueKey('ai-nav-create'),
+                    icon: Icon(Icons.auto_awesome_outlined),
+                    selectedIcon: Icon(Icons.auto_awesome_rounded),
+                    label: '디자인 만들기',
+                  ),
+                ],
+              ),
       ),
     );
   }

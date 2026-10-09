@@ -28,6 +28,8 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_sl
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/original_slide_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 
 const draft = AiSlideDraft(
   title: 'WARM UP',
@@ -139,6 +141,15 @@ void main() {
     FakeAiSlidesRepository repository,
     ValueChanged<List<WorkoutModule>?> onResult,
   ) async {
+    if (const bool.fromEnvironment('CLOUDBOARD_DOLPA_REFERENCE')) {
+      await tester.runAsync(
+        () => Future.wait(
+          originalSlideTemplates.map(
+            (template) => loadOriginalSlideImage(template.id),
+          ),
+        ),
+      );
+    }
     final router = GoRouter(
       routes: [
         GoRoute(
@@ -181,6 +192,8 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
   }
 
@@ -198,6 +211,8 @@ void main() {
   }
 
   Future<void> generate(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-slides-prompt')),
       'WARM UP 스쿼트 10회, 운동 5분, 휴식 없음, 1세트',
@@ -237,7 +252,7 @@ void main() {
       await generate(tester);
       expect(repository.calls, 1);
       expect(added, isNull);
-      await tester.tap(find.text('디자인'));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-templates')));
       await tester.pumpAndSettle();
       final palette = find.byType(SlideDesignColors);
       await reveal(tester, palette);
@@ -267,7 +282,6 @@ void main() {
         });
       }
       final add = find.byKey(const ValueKey('ai-slides-add'));
-      await reveal(tester, add);
       await tester.tap(add);
       await tester.pumpAndSettle();
       expect(added?.single.workSeconds, 300);
@@ -293,7 +307,6 @@ void main() {
       await generate(tester);
       expect(find.textContaining('시간 · 세트 확인 필요'), findsNothing);
       final add = find.byKey(const ValueKey('ai-slides-add'));
-      await reveal(tester, add);
       await tester.tap(add);
       await tester.pumpAndSettle();
       final defaults = WorkoutModule.empty('defaults');
@@ -302,6 +315,8 @@ void main() {
       expect(added?.single.sets, defaults.sets);
       added = null;
       await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
       await generate(tester);
       await tester.tap(find.byTooltip('뒤로'));
@@ -315,6 +330,8 @@ void main() {
     (tester) async {
       final repository = FakeAiSlidesRepository()..premium = false;
       await mount(tester, repository, (_) {});
+      await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('ai-slides-prompt')),
         'notes',
@@ -334,6 +351,10 @@ void main() {
       repository.premium = true;
       repository.pending = Completer<AiSlidesResult>();
       await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('ai-slides-prompt')),
@@ -400,6 +421,8 @@ void main() {
       await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
       expect(
         tester
@@ -413,7 +436,7 @@ void main() {
         tester.widget<TextField>(lines).controller!.text,
         contains('Run 200m'),
       );
-      await tester.tap(find.text('수업 메모'));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-source')));
       await tester.pumpAndSettle();
       await reveal(tester, find.byKey(const ValueKey('ai-slides-generate')));
       expect(
@@ -435,7 +458,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.calls, 2);
       expect(find.text('연결을 확인해 주세요.'), findsOneWidget);
-      await tester.tap(find.text('내용'));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-content')));
       await tester.pumpAndSettle();
       expect(
         tester
