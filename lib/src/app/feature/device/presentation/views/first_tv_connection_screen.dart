@@ -86,20 +86,20 @@ class FirstTvConnectionScreen extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => showDialog<void>(
                     context: context,
-                    builder: (_) => AppAlertDialog(
+                    builder: (dialogContext) => AppAlertDialog(
                       title: const Text('TV 응답 확인'),
                       content: SizedBox(
                         width: 360,
                         child: SingleChildScrollView(
                           child: DisplayVerification(
                             deviceId: device.id,
-                            onDone: () => Navigator.of(context).pop(),
+                            onDone: () => Navigator.of(dialogContext).pop(),
                           ),
                         ),
                       ),
                       actions: [
                         TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: () => Navigator.of(dialogContext).pop(),
                           child: const Text('닫기'),
                         ),
                       ],

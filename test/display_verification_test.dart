@@ -1,3 +1,6 @@
+import 'package:go_router/go_router.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -114,6 +117,68 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await devices.close();
+    },
+  );
+
+  testWidgets(
+    'confirming an existing TV closes the root dialog, not the shell route',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/guide',
+        routes: [
+          ShellRoute(
+            builder: (_, _, child) => child,
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (_, _) => const Scaffold(body: Text('Home')),
+              ),
+              GoRoute(
+                path: '/guide',
+                builder: (_, _) => const FirstTvConnectionScreen(),
+              ),
+            ],
+          ),
+        ],
+      );
+      final attempt = _Identification(false);
+      final progress = _Progress();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            firstClassScopeProvider.overrideWith(
+              (_) async =>
+                  (userId: 'owner', centerId: 'center', centerReady: true),
+            ),
+            displayDevicesProvider.overrideWith(
+              (_) => Stream.value([tv('attempt-4321')]),
+            ),
+            displayIdentificationControllerProvider.overrideWith2(
+              (_) => attempt,
+            ),
+            firstClassControllerProvider.overrideWith(() => progress),
+            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+          ],
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('메인 TV'));
+      await tester.tap(find.text('메인 TV'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DisplayVerification), findsOneWidget);
+      await tester.tap(find.text('이 TV가 맞아요'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DisplayVerification), findsNothing);
+      expect(find.byType(FirstTvConnectionScreen), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.path, '/guide');
+      expect(progress.confirmed, ['tv']);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      router.dispose();
     },
   );
 
