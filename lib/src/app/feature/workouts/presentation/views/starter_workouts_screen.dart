@@ -14,6 +14,19 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = useState(StarterWorkout.basics);
     final action = ref.watch(starterWorkoutControllerProvider);
+    ref.listen(starterWorkoutControllerProvider, (previous, next) {
+      if (next.hasError && previous?.error != next.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              next.error is StateError
+                  ? (next.error! as StateError).message
+                  : '가져오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.',
+            ),
+          ),
+        );
+      }
+    });
     final workout = selected.value.create(
       const WorkoutAuthor(id: 'preview', displayName: '', photoUrl: null),
     );

@@ -121,8 +121,9 @@ class FirstClassController extends _$FirstClassController {
       final pendingEvents = events
           .where((event) => !next.events.contains(event))
           .toSet();
-      if (pendingEvents.isNotEmpty)
+      if (pendingEvents.isNotEmpty) {
         next = next.copyWith(events: [...next.events, ...pendingEvents]);
+      }
       if (next == previous) return;
       await repository.save(scope.userId, scope.centerId, next);
       if (ref.mounted && generation == _generation) state = AsyncData(next);

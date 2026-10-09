@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+
 import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -19,6 +21,7 @@ class StarterWorkoutController extends _$StarterWorkoutController {
   Future<Workout?> import(StarterWorkout template) async {
     if (state.isLoading) return null;
     final keepAlive = ref.keepAlive();
+    final reporter = ref.read(errorReporterProvider);
     state = const AsyncLoading();
     Workout? saved;
     final result = await AsyncValue.guard(() async {
@@ -49,6 +52,14 @@ class StarterWorkoutController extends _$StarterWorkoutController {
       );
       return saved!.id;
     });
+    if (result.hasError) {
+      reporter.capture(
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+        action: 'workout.save',
+        context: {'workoutId': template.workoutId, 'source': 'starter_import'},
+      );
+    }
     if (ref.mounted) state = result;
     keepAlive.close();
     return result.hasError || result.value == null ? null : saved;

@@ -18,6 +18,22 @@ class _PendingProfile extends UserProfileController {
 
 void main() {
   test(
+    'pairing expiry and consumed code are distinct from entitlement conditions',
+    () {
+      String message(String detail) => devicePairingErrorMessage(
+        FirebaseException(
+          plugin: 'cloud_functions',
+          code: 'failed-precondition',
+          message: detail,
+        ),
+      );
+      expect(message('Pairing code expired'), contains('만료된 연결 코드'));
+      expect(message('Pairing code already claimed'), contains('이미 사용된 연결 코드'));
+      expect(message('Trial expired'), contains('센터 이용 상태'));
+      expect(message('Trial expired'), isNot(contains('만료된 연결 코드')));
+    },
+  );
+  test(
     'diagnostics categorize without exposing code, account, or SDK messages',
     () {
       expect(

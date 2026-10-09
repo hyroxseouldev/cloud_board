@@ -42,7 +42,7 @@ final class StarterWorkoutControllerProvider
 }
 
 String _$starterWorkoutControllerHash() =>
-    r'b119e0efc6a122fbc6ec44102e07df53f608929f';
+    r'3cbd3f3379f3a86be51e22d8d3dabbeda1d7e28f';
 
 abstract class _$StarterWorkoutController
     extends $Notifier<AsyncValue<String?>> {

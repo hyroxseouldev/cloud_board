@@ -73,7 +73,7 @@ final class FirstClassControllerProvider
 }
 
 String _$firstClassControllerHash() =>
-    r'f18bad28dd1650836644ef77e2fa664ef3b17e52';
+    r'e46b01273e96f68c8bc9bd344c3e3152b9a92674';
 
 abstract class _$FirstClassController
     extends $AsyncNotifier<FirstClassProgress?> {
