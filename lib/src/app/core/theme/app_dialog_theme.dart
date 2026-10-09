@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
-/// Shared modal styling, matching the quiet lavender editing surfaces.
+/// Shared modal styling with white surfaces and cool gray outlines.
 abstract final class AppDialogTheme {
   static const surface = AppColors.dialog;
   static const ink = AppColors.ink;
@@ -11,6 +11,7 @@ abstract final class AppDialogTheme {
   static const line = AppColors.line;
   static const shape = RoundedRectangleBorder(
     borderRadius: BorderRadius.all(Radius.circular(AppStyle.cardRadius)),
+    side: BorderSide(color: line),
   );
   static const insetPadding = EdgeInsets.symmetric(
     horizontal: 20,
@@ -55,7 +56,9 @@ abstract final class AppDialogTheme {
       ),
       shape: const WidgetStatePropertyAll(
         RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderRadius: BorderRadius.all(
+            Radius.circular(AppStyle.controlRadius),
+          ),
         ),
       ),
       side: const WidgetStatePropertyAll(BorderSide.none),
@@ -93,12 +96,10 @@ abstract final class AppDialogTheme {
   /// Scoped to dialogs so playback colors and page actions keep their meaning.
   static ThemeData of(ThemeData base) {
     final guide = base.extension<AppStyle>() ?? const AppStyle();
-    const buttonShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(AppStyle.controlRadius)),
-    );
+    const buttonShape = StadiumBorder();
     const border = OutlineInputBorder(
       borderRadius: BorderRadius.all(Radius.circular(AppStyle.controlRadius)),
-      borderSide: BorderSide(color: line),
+      borderSide: BorderSide(color: AppColors.outline),
     );
     return base.copyWith(
       dialogTheme: data.copyWith(
@@ -112,7 +113,7 @@ abstract final class AppDialogTheme {
         surface: surface,
         onSurface: ink,
         onSurfaceVariant: muted,
-        outline: line,
+        outline: AppColors.outline,
         outlineVariant: line,
       ),
       textTheme: base.textTheme.apply(bodyColor: ink, displayColor: ink),
@@ -125,7 +126,12 @@ abstract final class AppDialogTheme {
         prefixIconColor: muted,
         border: border,
         enabledBorder: border,
-        disabledBorder: border,
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(
+            Radius.circular(AppStyle.controlRadius),
+          ),
+          borderSide: BorderSide(color: line),
+        ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.all(
             Radius.circular(AppStyle.controlRadius),
