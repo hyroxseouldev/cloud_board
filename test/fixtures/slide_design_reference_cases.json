@@ -1,0 +1,171 @@
+[
+  {
+    "id": "wod-mon",
+    "file": "images/01-mon.png",
+    "layoutFamily": "wod-numbered",
+    "header": "SINGLE : AMRAP",
+    "programLabel": "UNBROKEN",
+    "timingText": "5mins On / 90s Off",
+    "rows": [
+      "Run B 1000 / S 1150 / C 1350+",
+      "Ski B 1000 / S 1100 / C 1300+",
+      "Sled Pull B 5 / S 6 / C 7",
+      "Row B 1000 / S 1150 / C 1300+",
+      "FMCTP 20 + BTP 10 B 4 / S 5 / C 6",
+      "Wall Ball B 90 / S 105 / C 120"
+    ],
+    "expectedRowCount": 6,
+    "unresolvedTiming": [
+      "On/Off 적용 범위",
+      "번호 목록과 반복의 관계",
+      "마지막 휴식 포함 여부"
+    ],
+    "onSeconds": 300,
+    "offSeconds": 90
+  },
+  {
+    "id": "wod-tue",
+    "file": "images/02-tue.png",
+    "layoutFamily": "wod-numbered",
+    "header": "TEAM OF 2 : IGYG",
+    "programLabel": "STRENGTH",
+    "timingText": "6mins On / 1min Off",
+    "rows": [
+      "Heavy Sled Push 1 Way",
+      "OHP 8",
+      "Heavy Sled Pull Half Way",
+      "Gorilla Row 20",
+      "DB Heavy Back Lunge 16",
+      "Incline DB Press 12"
+    ],
+    "expectedRowCount": 6,
+    "unresolvedTiming": [
+      "팀 교대 규칙",
+      "On/Off 적용 범위",
+      "전체 반복 수",
+      "마지막 휴식 포함 여부"
+    ],
+    "onSeconds": 360,
+    "offSeconds": 60
+  },
+  {
+    "id": "wod-wed",
+    "file": "images/03-wed.png",
+    "layoutFamily": "wod-numbered",
+    "header": "TEAM OF 3 : RELAY",
+    "programLabel": "MAX",
+    "timingText": "6mins On / 2mins Off",
+    "rows": [
+      "Run 100m B 1500 / S 1700 / C 1900",
+      "BBJ 1 Way B 150(12) / S 175(14) / C 200(16)",
+      "Sled Pull 1 Way B 150(12) / S 175(14) / C 200(16)",
+      "Ski 100m B 1400 / S 1600 / C 1800",
+      "Bike Time Cap W 90 / M 110 / C 130"
+    ],
+    "expectedRowCount": 5,
+    "unresolvedTiming": [
+      "Time Cap 수치의 단위 미표기",
+      "릴레이 교대 규칙",
+      "On/Off 적용 범위",
+      "전체 반복 수"
+    ],
+    "onSeconds": 360,
+    "offSeconds": 120
+  },
+  {
+    "id": "wod-thu",
+    "file": "images/04-thu.png",
+    "layoutFamily": "wod-numbered",
+    "header": "SINGLE : E2MOM 3R",
+    "programLabel": "SWEAT",
+    "timingText": "6mins On / 30s move",
+    "rows": [
+      "Run 200m + Sled Mode 30m",
+      "Ski 200m + DV Press W 5 / M 8",
+      "FMC 6 Way",
+      "Row 200m + SBL 30",
+      "Wall Ball 30 + Hop Jump 10",
+      "BTP W 10 / M 15 + Jump Squat 30"
+    ],
+    "expectedRowCount": 6,
+    "unresolvedTiming": [
+      "E2MOM 3R와 6mins On의 적용 범위",
+      "30s move를 별도 이동 구간으로 유지",
+      "6개 운동행과 전체 반복의 관계",
+      "마지막 이동 포함 여부"
+    ],
+    "onSeconds": 360,
+    "transitionSeconds": 30,
+    "transitionLabel": "move"
+  },
+  {
+    "id": "wod-fri",
+    "file": "images/05-fri.png",
+    "layoutFamily": "wod-numbered",
+    "header": "SINGLE : EMOM",
+    "programLabel": "HYROX",
+    "timingText": "6mins On / 90s Off",
+    "rows": [
+      "1min Run + BTP B 12 / S 15 / C 20",
+      "1min Sled Pull + Sled Pull 1 Way",
+      "1min FMCTP + Ski B 150 / S 180 / C 230",
+      "1min Row + SBL B 20 / S 30 / C 40",
+      "1min Wall Ball + WB Squat B 20 / S 25 / C 30"
+    ],
+    "expectedRowCount": 5,
+    "unresolvedTiming": [
+      "행별 1min과 6mins On의 관계",
+      "5개 운동행과 반복 수의 관계",
+      "마지막 휴식 포함 여부"
+    ],
+    "onSeconds": 360,
+    "offSeconds": 90
+  },
+  {
+    "id": "wod-sat",
+    "file": "images/06-sat.png",
+    "layoutFamily": "wod-numbered",
+    "header": "TEAM OF 2",
+    "programLabel": "HYROX",
+    "timingText": "9mins On / 2mins Off",
+    "rows": [
+      "Run 1000m + Ski 1000m (M+100)",
+      "Sled Pull 8 Way + Row 500m",
+      "SBL 150 + FMCTP 40",
+      "BTP 50 + Wall Ball 150"
+    ],
+    "expectedRowCount": 4,
+    "unresolvedTiming": [
+      "팀 분담 규칙",
+      "M+100의 단위와 적용 대상",
+      "On/Off 적용 범위",
+      "전체 반복 수"
+    ],
+    "onSeconds": 540,
+    "offSeconds": 120
+  },
+  {
+    "id": "dolpa-brick",
+    "file": "images/07-dolpa-brick-session.png",
+    "layoutFamily": "dolpa-poster",
+    "header": "Brick Session",
+    "programLabel": null,
+    "timingText": "6mins On / 90s Off",
+    "rows": [
+      "Ski 250m + Sled Pull 1 Way",
+      "Run 250m + FMCTP 30",
+      "Ski 250m + Wall Ball 30",
+      "DV Press 8 + BTP 10"
+    ],
+    "expectedRowCount": 4,
+    "unresolvedTiming": [
+      "4개 행과 On/Off 반복의 관계",
+      "전체 반복 수",
+      "마지막 휴식 포함 여부"
+    ],
+    "className": "돌파",
+    "onSeconds": 360,
+    "offSeconds": 90,
+    "decorationText": "突破"
+  }
+]

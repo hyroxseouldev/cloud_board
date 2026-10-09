@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/starter_workouts_screen.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboarding_screen.dart';
 import 'package:cloud_board/src/app/feature/billing/presentation/views/subscription_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
@@ -5,6 +8,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/active_class_shell.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
@@ -34,6 +38,7 @@ GoRouter appRouter(Ref ref) {
   ref.listen(onboardingRequiredProvider, (_, _) => authRefresh.value++);
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
+  final imageCreationGuard = ExitGuard();
   final standbyGuard = ExitGuard();
   final operationsGuard = ExitGuard();
   final profileGuard = ExitGuard();
@@ -118,6 +123,18 @@ GoRouter appRouter(Ref ref) {
         ),
         routes: [
           GoRoute(
+            path: '/first-class',
+            builder: (_, _) => const FirstClassScreen(),
+          ),
+          GoRoute(
+            path: '/starter-workouts',
+            builder: (_, _) => const StarterWorkoutsScreen(),
+          ),
+          GoRoute(
+            path: '/displays/connect',
+            builder: (_, _) => const FirstTvConnectionScreen(),
+          ),
+          GoRoute(
             path: '/subscription',
             builder: (_, _) => const SubscriptionScreen(),
           ),
@@ -148,6 +165,11 @@ GoRouter appRouter(Ref ref) {
             ),
             onExit: (_, _) => workoutGuard.confirm(),
             routes: [
+              GoRoute(
+                path: 'images/create',
+                builder: (_, _) => AiSlidesPage(guard: imageCreationGuard),
+                onExit: (_, _) => imageCreationGuard.confirm(),
+              ),
               GoRoute(
                 path: 'slides/:moduleId',
                 builder: (_, state) => SlideEditorScreen(

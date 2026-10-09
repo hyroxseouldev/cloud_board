@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
+
+import 'timer_editor_test.dart' as timer_interaction;
+
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
 
@@ -893,25 +897,12 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
     await tester.pumpAndSettle();
-    final addBlock = find.byKey(const ValueKey('add-interval-block'));
-    final settingsRect = tester.getRect(
-      find.byKey(const ValueKey('timer-editor-settings')),
-    );
-    for (
-      var attempt = 0;
-      attempt < 20 && addBlock.hitTestable().evaluate().isEmpty;
-      attempt++
-    ) {
-      // Drag beside the duration wheels, which handle their own vertical swipes.
-      await tester.dragFrom(
-        Offset(settingsRect.left + 8, settingsRect.center.dy),
-        const Offset(0, -180),
-      );
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(addBlock);
+    await timer_interaction.tap(tester, 'timer-detail-toggle');
+    await tester.ensureVisible(find.text('구간 추가'));
+    await tester.tap(find.text('구간 추가'));
     await tester.pumpAndSettle();
-    expect(find.text('블록 2'), findsOneWidget);
+    await timer_interaction.tap(tester, 'add-interval-block');
+    expect(find.text('구간 2'), findsOneWidget);
     expect(saved, isEmpty);
     await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
     await tester.pumpAndSettle();
@@ -1280,21 +1271,22 @@ void main() {
       if (id == 'new') {
         await tester.tap(find.byTooltip('슬라이드 추가'));
         await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
+        await tester.pumpAndSettle();
+      } else {
+        await scrollTo(tester, _slideListCard('새 운동 1'));
+        await tester.tap(_slideListCard('새 운동 1'));
+        await tester.pumpAndSettle();
       }
-      await scrollTo(tester, find.text('새 운동 1'));
-      await tester.tap(find.text('새 운동 1'));
-      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
       expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
       await renameSlide(tester, '저장하지 않은 슬라이드 이름');
       await tester.tap(find.byKey(const ValueKey('slide-timer-summary')));
       await tester.pumpAndSettle();
-      tester
-          .widget<CupertinoPicker>(
-            find.byKey(const ValueKey('combined-minutes-picker')),
-          )
-          .onSelectedItemChanged!(2);
-      await tester.pump();
+      if (find.text('운동 방식을 선택하세요').evaluate().isNotEmpty) {
+        await timer_interaction.tap(tester, 'timer-mode-interval');
+      }
+      await timer_interaction.input(tester, 'timer-work', '02:00');
       await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
       await tester.pumpAndSettle();
       expect(saved, isEmpty);
@@ -1410,10 +1402,13 @@ void main() {
         if (id == 'new') {
           await tester.tap(find.byTooltip('슬라이드 추가'));
           await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('create-slide-blank')));
+          await tester.pumpAndSettle();
+        } else {
+          await scrollTo(tester, _slideListCard('새 운동 1'));
+          await tester.tap(_slideListCard('새 운동 1'));
+          await tester.pumpAndSettle();
         }
-        await scrollTo(tester, find.text('새 운동 1'));
-        await tester.tap(find.text('새 운동 1'));
-        await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('slide-editor-tabs')), findsOneWidget);
         expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
         await renameSlide(tester, '하위 페이지에서 수정');
@@ -1452,9 +1447,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
         expect(find.byKey(const ValueKey('slide-editor-tabs')), findsNothing);
-        await tester.ensureVisible(find.text('하위 페이지에서 수정'));
+        await tester.ensureVisible(_slideListCard('하위 페이지에서 수정'));
         await tester.pumpAndSettle();
-        expect(find.text('하위 페이지에서 수정'), findsOneWidget);
+        expect(_slideListCard('하위 페이지에서 수정'), findsOneWidget);
         expect(find.text('저장됨'), findsNothing);
         expect(
           tester
@@ -1469,7 +1464,7 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.text('복제'));
           await tester.pumpAndSettle();
-          expect(find.text('새 운동 1'), findsOneWidget);
+          expect(_slideListCard('새 운동 1'), findsOneWidget);
           expect(saved.length, 1);
           Future<void> deleteFirst() async {
             await tester.tap(find.byTooltip('슬라이드 메뉴').first);
@@ -1482,12 +1477,12 @@ void main() {
           expect(find.text('슬라이드를 삭제할까요?'), findsOneWidget);
           await tester.tap(find.text('취소'));
           await tester.pumpAndSettle();
-          expect(find.text('하위 페이지에서 수정'), findsOneWidget);
+          expect(_slideListCard('하위 페이지에서 수정'), findsOneWidget);
           await deleteFirst();
           await tester.tap(find.widgetWithText(FilledButton, '삭제'));
           await tester.pumpAndSettle();
-          expect(find.text('하위 페이지에서 수정'), findsNothing);
-          expect(find.text('새 운동 1'), findsOneWidget);
+          expect(_slideListCard('하위 페이지에서 수정'), findsNothing);
+          expect(_slideListCard('새 운동 1'), findsOneWidget);
           expect(saved.length, 1);
         }
         expect(tester.takeException(), isNull);
@@ -1687,3 +1682,7 @@ Future<void> renameWorkout(WidgetTester tester, String value) async {
   await tester.tap(find.widgetWithText(FilledButton, '변경'));
   await tester.pumpAndSettle();
 }
+
+Finder _slideListCard(String name) => find.byWidgetPredicate(
+  (widget) => widget is WorkoutSlideListCard && widget.module.name == name,
+);

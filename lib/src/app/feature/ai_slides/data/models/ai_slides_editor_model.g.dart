@@ -35,6 +35,13 @@ AiSlideDraftModel _$AiSlideDraftModelFromJson(Map<String, dynamic> json) =>
       title: json['title'] as String,
       layout: json['layout'] as String,
       lines: (json['lines'] as List<dynamic>).map((e) => e as String).toList(),
+      designHeaderLabel: json['designHeaderLabel'] as String? ?? '',
+      designSubtitle: json['designSubtitle'] as String? ?? '',
+      designStyle: json['designStyle'] == null
+          ? null
+          : SlideDesignStyle.fromJson(
+              json['designStyle'] as Map<String, dynamic>,
+            ),
       designBackgroundColor: (json['designBackgroundColor'] as num?)?.toInt(),
       designTextColor: (json['designTextColor'] as num?)?.toInt(),
       designAccentColor: (json['designAccentColor'] as num?)?.toInt(),
@@ -55,7 +62,10 @@ Map<String, dynamic> _$AiSlideDraftModelToJson(AiSlideDraftModel instance) =>
     <String, dynamic>{
       'title': instance.title,
       'layout': instance.layout,
+      'designHeaderLabel': instance.designHeaderLabel,
+      'designSubtitle': instance.designSubtitle,
       'lines': instance.lines,
+      'designStyle': instance.designStyle?.toJson(),
       'designBackgroundColor': instance.designBackgroundColor,
       'designTextColor': instance.designTextColor,
       'designAccentColor': instance.designAccentColor,
@@ -75,6 +85,11 @@ Map<String, dynamic> _$AiSlideDraftModelToJson(AiSlideDraftModel instance) =>
 AiSlideThemeModel _$AiSlideThemeModelFromJson(Map<String, dynamic> json) =>
     AiSlideThemeModel(
       schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
+      designStyle: json['designStyle'] == null
+          ? null
+          : SlideDesignStyle.fromJson(
+              json['designStyle'] as Map<String, dynamic>,
+            ),
       designBackgroundColor: (json['designBackgroundColor'] as num?)?.toInt(),
       designTextColor: (json['designTextColor'] as num?)?.toInt(),
       designAccentColor: (json['designAccentColor'] as num?)?.toInt(),
@@ -91,6 +106,7 @@ AiSlideThemeModel _$AiSlideThemeModelFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$AiSlideThemeModelToJson(AiSlideThemeModel instance) =>
     <String, dynamic>{
       'schemaVersion': instance.schemaVersion,
+      'designStyle': instance.designStyle?.toJson(),
       'designBackgroundColor': instance.designBackgroundColor,
       'designTextColor': instance.designTextColor,
       'designAccentColor': instance.designAccentColor,

@@ -9,6 +9,11 @@ on:
       - main
       - develop
 
+# Serialize production rule deployments so an older run cannot overwrite newer rules.
+concurrency:
+  group: firebase-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
@@ -40,7 +45,7 @@ jobs:
         run: flutter test
 
       - name: Test web command and diagnostic regressions in Chrome
-        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_quick_builder_test.dart
+        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_editing_test.dart test/timer_editor_flow_test.dart
 
       - name: Set up Node for account deletion functions
         uses: actions/setup-node@v4
@@ -53,7 +58,7 @@ jobs:
         run: |
           npm ci --prefix functions
           npm test --prefix functions
-          node --test tool/web_symbols.test.mjs
+          node --test tool/web_symbols.test.mjs tool/release_backend_gate.test.mjs
 
       - name: Set up Java for Firestore rules tests
         uses: actions/setup-java@v4
@@ -62,16 +67,27 @@ jobs:
           java-version: '21'
 
       - name: Test account library concurrency and security rules
-        run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-library 'node functions/test/slide-library-emulator.mjs'
+        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-library 'node functions/test/slide-library-emulator.mjs'
+
+      - name: Export actual Flutter workout writes
+        run: flutter test tool/export_workout_save_fixtures_test.dart
+
+      - name: Test workout save transactions and security rules
+        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-workouts 'node functions/test/workout-save-emulator.mjs'
 
       - name: Test AI premium access, shared budget, and concurrent requests
-        run: npx --yes firebase-tools emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-ai 'node functions/test/ai-timer-emulator.mjs && node functions/test/ai-slides-emulator.mjs && node functions/test/ai-slides-theme-emulator.mjs'
+        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-ai 'node functions/test/ai-timer-emulator.mjs && node functions/test/ai-slides-emulator.mjs && node functions/test/ai-slides-theme-emulator.mjs'
+
+      - name: Export starter pack and test first-class contracts
+        run: |
+          flutter test tool/export_starter_workout_fixtures_test.dart
+          npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-first-class 'node functions/test/first-class-emulator.mjs'
 
       - name: Test onboarding transactions and security rules
-        run: npx --yes firebase-tools emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'
+        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'
 
       - name: Test billing without Apple keys and purchase ownership
-        run: npx --yes firebase-tools emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-billing 'node functions/test/billing-emulator.mjs && node functions/test/google-play-emulator.mjs'
+        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-billing 'node functions/test/billing-emulator.mjs && node functions/test/google-play-emulator.mjs'
 
       - name: Validate database rules JSON
         run: python3 -m json.tool database.rules.json > /dev/null
@@ -107,8 +123,8 @@ jobs:
           esac
           printf 'AI_TIMER_SECRETS_ENABLED=%s\n' "$AI_TIMER_SECRETS_ENABLED" >> "$sender_env"
           # Approve the declared retry policy for new event functions in CI.
-          npx --yes firebase-tools deploy --only functions:account-deletion --project cloud-board-stationd --non-interactive --force
-          npx --yes firebase-tools deploy --only firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
+          npx --yes firebase-tools@15.29.0 deploy --only functions:account-deletion --project cloud-board-stationd --non-interactive --force
+          npx --yes firebase-tools@15.29.0 deploy --only firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
 
       - name: Build Flutter web app
         run: |

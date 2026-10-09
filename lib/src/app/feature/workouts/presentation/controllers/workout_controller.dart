@@ -1,7 +1,10 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 
 import 'dart:async';
+
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -397,8 +400,10 @@ class WorkoutActionController extends _$WorkoutActionController {
       await _ensureEditable(workout.id);
       final save = await ref.read(saveWorkoutProvider.future);
       await _ensureEditable(workout.id);
-      saved = await save(
+      saved = await _saveAndReport(
+        save,
         value,
+        action: 'workout.save',
         onProgress: (completed, total) {
           if (ref.mounted) {
             ref
@@ -409,6 +414,12 @@ class WorkoutActionController extends _$WorkoutActionController {
       );
       ref.read(workoutDetailProvider(saved!.id).notifier).replace(saved);
       ref.read(workoutControllerProvider.notifier).upsert(saved!);
+      unawaited(
+        ref
+            .read(firstClassControllerProvider.notifier)
+            .saved(saved!.id, ownerId: saved!.ownerId)
+            .catchError((Object _) {}),
+      );
       return '워크아웃을 저장했습니다.';
     });
     return state.hasError ? null : saved;
@@ -438,13 +449,37 @@ class WorkoutActionController extends _$WorkoutActionController {
             .map((item) => item.copyWith(id: '${item.id}c'))
             .toList(),
       );
-      final saved = await (await ref.read(saveWorkoutProvider.future))(
+      final saved = await _saveAndReport(
+        await ref.read(saveWorkoutProvider.future),
         duplicate,
+        action: 'workout.duplicate',
       );
       ref.read(workoutDetailProvider(saved.id).notifier).replace(saved);
       ref.read(workoutControllerProvider.notifier).upsert(saved);
     },
   );
+
+  Future<Workout> _saveAndReport(
+    SaveWorkout save,
+    Workout workout, {
+    required String action,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    // Retain the reporter before awaiting so a failed write is still reported
+    // when the editor is closed. Telemetry never changes the save result.
+    final reporter = ref.read(errorReporterProvider);
+    try {
+      return await save(workout, onProgress: onProgress);
+    } catch (error, stack) {
+      reporter.capture(
+        error,
+        stack,
+        action: action,
+        context: {'workoutId': workout.id},
+      );
+      rethrow;
+    }
+  }
 
   Future<void> _ensureEditable(String workoutId) async {
     // Riverpod pauses unobserved streams. Keep this check subscribed even when

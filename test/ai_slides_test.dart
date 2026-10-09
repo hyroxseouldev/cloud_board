@@ -1,9 +1,12 @@
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,10 +24,12 @@ import 'support/ai_slides_editor_fakes.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_slides_repository.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/original_slide_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 
 const draft = AiSlideDraft(
   title: 'WARM UP',
@@ -38,6 +43,8 @@ const draft = AiSlideDraft(
 class FakeAiSlidesRepository implements AiSlidesRepository {
   bool premium = true;
   int calls = 0;
+  int accessCalls = 0;
+  Object? accessFailure;
   Completer<AiSlidesResult>? pending;
   Object? failure;
   AiSlidesResult result = const AiSlidesResult(
@@ -46,8 +53,17 @@ class FakeAiSlidesRepository implements AiSlidesRepository {
     remaining: 29,
   );
   @override
-  Future<AiSlidesAccess> access() async =>
-      AiSlidesAccess(premium: premium, enabled: true, remaining: 30, limit: 30);
+  Future<AiSlidesAccess> access() async {
+    accessCalls++;
+    if (accessFailure != null) throw accessFailure!;
+    return AiSlidesAccess(
+      premium: premium,
+      enabled: true,
+      remaining: 30,
+      limit: 30,
+    );
+  }
+
   @override
   Future<AiSlidesResult> generate(String prompt) async {
     calls++;
@@ -136,9 +152,38 @@ void main() {
     FakeAiSlidesRepository repository,
     ValueChanged<List<WorkoutModule>?> onResult,
   ) async {
+    await tester.runAsync(
+      () => Future.wait(
+        originalSlideTemplates.map(
+          (template) => loadOriginalSlideImage(template.id),
+        ),
+      ),
+    );
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => Scaffold(
+            body: TextButton(
+              onPressed: () async => onResult(await showAiSlidesPage(context)),
+              child: const Text('open'),
+            ),
+          ),
+          routes: [
+            GoRoute(
+              path: 'images/create',
+              builder: (_, _) => const AiSlidesPage(),
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          aiSlideDesignOwnerIdProvider.overrideWithValue(null),
+          aiSlideDesignStoreIdProvider.overrideWithValue(null),
           aiSlidesRepositoryProvider.overrideWithValue(repository),
           aiSlidesOwnerIdProvider.overrideWithValue('test-owner'),
           aiSlidesEditorRepositoryProvider.overrideWithValue(
@@ -147,23 +192,17 @@ void main() {
         ],
         child: RepaintBoundary(
           key: const ValueKey('capture'),
-          child: MaterialApp(
+          child: MaterialApp.router(
+            routerConfig: router,
             debugShowCheckedModeBanner: false,
             theme: XonTheme.light,
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () async =>
-                      onResult(await showAiSlidesSheet(context)),
-                  child: const Text('open'),
-                ),
-              ),
-            ),
           ),
         ),
       ),
     );
     await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
   }
 
@@ -181,6 +220,8 @@ void main() {
   }
 
   Future<void> generate(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-slides-prompt')),
       'WARM UP 스쿼트 10회, 운동 5분, 휴식 없음, 1세트',
@@ -190,6 +231,31 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('ai-slides-generate')));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'shared usage recovers with retry and survives generation mode changes',
+    (tester) async {
+      final repository = FakeAiSlidesRepository()
+        ..accessFailure = const AiSlidesFailure('연결 실패');
+      await mount(tester, repository, (_) {});
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      expect(find.text('사용량을 불러오지 못했어요.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
+      repository.accessFailure = null;
+      await tester.tap(find.text('새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('30/30회 남음'), findsOneWidget);
+      final reads = repository.accessCalls;
+      for (final mode in ['스타일 제안', '이미지로 시작', '수업 메모']) {
+        await tester.tap(find.text(mode).first);
+        await tester.pumpAndSettle();
+        expect(find.text('30/30회 남음'), findsOneWidget);
+      }
+      expect(repository.accessCalls, reads);
+      expect(repository.calls, 0);
+    },
+  );
 
   for (final size in [
     const Size(320, 568),
@@ -214,11 +280,13 @@ void main() {
       List<WorkoutModule>? added;
       await mount(tester, repository, (value) => added = value);
       expect(repository.calls, 0);
-      expect(find.text('베타'), findsOneWidget);
+      expect(find.text('beta'), findsOneWidget);
+      expect(find.text('수업 이미지 생성'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
       await generate(tester);
       expect(repository.calls, 1);
       expect(added, isNull);
-      await tester.tap(find.text('디자인'));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-templates')));
       await tester.pumpAndSettle();
       final palette = find.byType(SlideDesignColors);
       await reveal(tester, palette);
@@ -248,7 +316,6 @@ void main() {
         });
       }
       final add = find.byKey(const ValueKey('ai-slides-add'));
-      await reveal(tester, add);
       await tester.tap(add);
       await tester.pumpAndSettle();
       expect(added?.single.workSeconds, 300);
@@ -274,7 +341,6 @@ void main() {
       await generate(tester);
       expect(find.textContaining('시간 · 세트 확인 필요'), findsNothing);
       final add = find.byKey(const ValueKey('ai-slides-add'));
-      await reveal(tester, add);
       await tester.tap(add);
       await tester.pumpAndSettle();
       final defaults = WorkoutModule.empty('defaults');
@@ -283,9 +349,14 @@ void main() {
       expect(added?.single.sets, defaults.sets);
       added = null;
       await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
       await generate(tester);
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      expect(find.text('작성 중인 내용을 버릴까요?'), findsOneWidget);
+      await tester.tap(find.text('버리고 나가기'));
       await tester.pumpAndSettle();
       expect(added, isNull);
       expect(tester.takeException(), isNull);
@@ -296,6 +367,8 @@ void main() {
     (tester) async {
       final repository = FakeAiSlidesRepository()..premium = false;
       await mount(tester, repository, (_) {});
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('ai-slides-prompt')),
         'notes',
@@ -310,11 +383,18 @@ void main() {
         isNull,
       );
       expect(repository.calls, 0);
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      expect(find.text('작성 중인 내용을 버릴까요?'), findsOneWidget);
+      await tester.tap(find.text('버리고 나가기'));
       await tester.pumpAndSettle();
       repository.premium = true;
       repository.pending = Completer<AiSlidesResult>();
       await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('ai-slides-prompt')),
@@ -338,7 +418,9 @@ void main() {
       );
       await tester.pump();
       expect(repository.calls, 1);
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.text('버리고 나가기'));
       await tester.pump(const Duration(seconds: 1));
       repository.pending!.complete(repository.result);
       await tester.pumpAndSettle();
@@ -346,7 +428,7 @@ void main() {
     },
   );
   testWidgets(
-    'edited sections survive close, failed regeneration and undo without extra generation',
+    'cancel keeps edits; confirmed discard opens a fresh creation session',
     (tester) async {
       final repository = FakeAiSlidesRepository()
         ..result = const AiSlidesResult(
@@ -378,9 +460,10 @@ void main() {
         tester.widget<TextField>(lines).controller!.text,
         'Squat 10 reps\nRun 200m',
       );
-      await tester.tap(find.byTooltip('닫기'));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('open'));
+      expect(find.text('작성 중인 내용을 버릴까요?'), findsOneWidget);
+      await tester.tap(find.text('계속 편집'));
       await tester.pumpAndSettle();
       expect(
         tester
@@ -394,7 +477,7 @@ void main() {
         tester.widget<TextField>(lines).controller!.text,
         contains('Run 200m'),
       );
-      await tester.tap(find.text('원문'));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
       await tester.pumpAndSettle();
       await reveal(tester, find.byKey(const ValueKey('ai-slides-generate')));
       expect(
@@ -416,7 +499,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.calls, 2);
       expect(find.text('연결을 확인해 주세요.'), findsOneWidget);
-      await tester.tap(find.text('내용'));
+      await tester.tap(find.byKey(const ValueKey('ai-nav-content')));
       await tester.pumpAndSettle();
       expect(
         tester
@@ -425,10 +508,31 @@ void main() {
             .text,
         '수정한 수업',
       );
-      await tester.tap(find.byTooltip('되돌리기'));
-      await tester.pumpAndSettle();
       await reveal(tester, lines);
-      expect(tester.widget<TextField>(lines).controller!.text, 'Squat 10 reps');
+      expect(
+        tester.widget<TextField>(lines).controller!.text,
+        'Squat 10 reps\nRun 200m',
+      );
+      expect(repository.calls, 2);
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('버리고 나가기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-slide-title')), findsNothing);
+      expect(find.text('프리미엄 템플릿'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('ai-slides-prompt')))
+            .controller!
+            .text,
+        isEmpty,
+      );
       expect(repository.calls, 2);
       expect(tester.takeException(), isNull);
     },
@@ -450,11 +554,32 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('ai-slide-title')));
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
+    final title = find.byKey(const ValueKey('ai-slide-title'));
+    await tester.enterText(title, '');
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(title).decoration!.errorText,
+      '제목을 입력해 주세요.',
+    );
+    expect(find.textContaining('1~60자'), findsNothing);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
+          .onPressed,
+      isNull,
+    );
     await tester.enterText(
       find.byKey(const ValueKey('ai-slide-title')),
       '휴대폰 편집',
     );
     await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(title).decoration!.errorText, isNull);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
+          .onPressed,
+      isNotNull,
+    );
     expect(tester.takeException(), isNull);
     tester.view.resetViewInsets();
     FocusManager.instance.primaryFocus?.unfocus();

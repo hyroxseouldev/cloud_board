@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -41,21 +42,24 @@ class ActiveClassShell extends HookConsumerWidget {
           SnackBar(
             content: Text(diagnosticMessage(error)),
             duration: const Duration(seconds: 8),
-            action: SnackBarAction(
-              label: '상세',
-              onPressed: () => showErrorDetails(
-                context,
-                ref.read(errorReporterProvider),
-                error,
-                next.stackTrace,
-                'playback.action',
-              ),
-            ),
+            action: kDebugMode
+                ? SnackBarAction(
+                    label: '상세',
+                    onPressed: () => showErrorDetails(
+                      context,
+                      ref.read(errorReporterProvider),
+                      error,
+                      next.stackTrace,
+                      'playback.action',
+                    ),
+                  )
+                : null,
           ),
         );
       }
     });
     final mode = ref.watch(deviceModeControllerProvider).value;
+    if (mode == DeviceMode.controller) ref.watch(firstClassControllerProvider);
     final session = ref.watch(activePlaybackSessionProvider).value;
     final recovery = ref.watch(playbackRecoveryControllerProvider);
     final suspended = useRef(false);

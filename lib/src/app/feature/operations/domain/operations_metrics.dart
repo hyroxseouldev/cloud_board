@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 
 OperationsReport buildOperationsReport(
@@ -8,7 +9,8 @@ OperationsReport buildOperationsReport(
   final startOfToday = DateTime(current.year, current.month, current.day);
   final startOfMonth = DateTime(current.year, current.month);
   final playbackEvents = events.where(
-    (event) => event.type == 'playback_started',
+    (event) =>
+        event.type == 'playback_started' && !isStarterWorkout(event.workoutId),
   );
   final today = playbackEvents
       .where(

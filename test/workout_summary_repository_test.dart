@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
@@ -60,6 +61,27 @@ void main() {
     expect((await first)?.id, 'w');
     expect(container.read(workoutActionControllerProvider).hasError, isFalse);
   });
+  test(
+    'starter retry returns edited server copy without another upload/save',
+    () async {
+      final starter = StarterWorkout.basics.create(
+        const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+      );
+      final source = _Source()
+        ..server.add(starter.copyWith(name: 'My edited class'));
+      final repo = WorkoutRepositoryImpl(
+        _Auth(),
+        source,
+        _Storage(),
+        WorkoutLocalDataSource(await SharedPreferences.getInstance()),
+      );
+      final copy = await repo.importStarter(starter);
+      expect(copy.name, 'My edited class');
+      expect(source.requiredServerReads, 1);
+      expect(source.server.where((w) => w.id == starter.id).length, 1);
+    },
+  );
+
   test(
     'catalog warms only recent details and repeated opens reuse those reads',
     () async {
@@ -151,7 +173,7 @@ class _Source extends WorkoutFirestoreDataSource {
   );
   Completer<void>? detailGate;
   bool fail = false;
-  int detailReads = 0, offlineChecks = 0;
+  int detailReads = 0, offlineChecks = 0, requiredServerReads = 0;
   final offlineGate = Completer<void>();
   @override
   Future<bool> hasSummaryCatalog(String id) async => true;
@@ -181,8 +203,13 @@ class _Source extends WorkoutFirestoreDataSource {
   }
 
   @override
-  Future<WorkoutModel?> loadOne(String uid, String id) async {
+  Future<WorkoutModel?> loadOne(
+    String uid,
+    String id, {
+    bool requireServer = false,
+  }) async {
     detailReads++;
+    if (requireServer) requiredServerReads++;
     await detailGate?.future;
     final detail = server.where((w) => w.id == id).firstOrNull;
     return detail == null

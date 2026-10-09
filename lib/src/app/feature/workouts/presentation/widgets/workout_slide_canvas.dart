@@ -1,9 +1,12 @@
+import 'dart:ui' as ui;
+
 import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/original_slide_renderer.dart';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -11,6 +14,44 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+
+class _SlideDesignArtwork extends HookWidget {
+  const _SlideDesignArtwork({required this.module});
+  final WorkoutModule module;
+
+  @override
+  Widget build(BuildContext context) {
+    final originalId = module.designStyle?.originalTemplate;
+    final imageFuture = useMemoized(
+      () => originalId == null ? null : loadOriginalSlideImage(originalId),
+      [originalId],
+    );
+    final image = useFuture<ui.Image>(imageFuture);
+    if (originalId != null && !image.hasData) {
+      if (module.imageSource.isNotEmpty) {
+        return WorkoutImage(source: module.imageSource, fit: BoxFit.contain);
+      }
+      return ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: image.hasError
+              ? const Text(
+                  '원본 이미지를 불러오지 못했어요.',
+                  style: TextStyle(color: Colors.white, fontSize: 40),
+                )
+              : const SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: CircularProgressIndicator(),
+                ),
+        ),
+      );
+    }
+    return CustomPaint(
+      painter: SlideDesignPainter(module, originalImage: image.data),
+    );
+  }
+}
 
 class WorkoutSlideCanvas extends StatelessWidget {
   const WorkoutSlideCanvas({
@@ -77,9 +118,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                           child: SizedBox(
                             width: 1920,
                             height: 1080,
-                            child: CustomPaint(
-                              painter: SlideDesignPainter(module),
-                            ),
+                            child: _SlideDesignArtwork(module: module),
                           ),
                         )
                       : WorkoutImage(

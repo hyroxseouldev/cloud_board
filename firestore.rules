@@ -79,11 +79,24 @@ service cloud.firestore {
     function validAiSlideColor(color) {
       return color == null || (color is int && color >= 0 && color <= 4294967295);
     }
-    function validAiSlideTheme(d) {
-      return d.keys().hasOnly(['schemaVersion', 'designBackgroundColor', 'designTextColor',
+    function validAiSlideDesignStyle(s) {
+      return s == null || (s is map
+        && s.keys().hasOnly(['version', 'family', 'fontFamily', 'titleColor', 'titleWeight', 'motif', 'originalTemplate'])
+        && s.get('originalTemplate', null) in [null, 'dolpa-brick-v1', 'stationd-mon-v1', 'stationd-tue-v1', 'stationd-wed-v1', 'stationd-thu-v1', 'stationd-fri-v1', 'stationd-sat-v1']
+        && s.get('version', 1) == 1
+        && s.get('family', 'banner') in ['banner', 'focus', 'editorial', 'cards']
+        && s.get('fontFamily', 'sans') in ['sans', 'serif']
+        && s.get('titleWeight', 900) in [400, 500, 600, 700, 800, 900]
+        && s.get('motif', '') is string && s.get('motif', '').size() <= 12
+        && (s.get('titleColor', null) == null || (s.titleColor is int
+          && s.titleColor >= 4278190080 && s.titleColor <= 4294967295)));
+    }
+    function validAiSlideThemeValues(d) {
+      return d is map && d.keys().hasOnly(['schemaVersion', 'designBackgroundColor', 'designTextColor',
           'designAccentColor', 'designLayout', 'designFontWeight', 'designItalic',
-          'designSpacing', 'showTimer', 'timerX', 'timerY', 'timerSize', 'updatedAt'])
-        && d.schemaVersion == 1 && d.updatedAt == request.time
+          'designSpacing', 'showTimer', 'timerX', 'timerY', 'timerSize', 'updatedAt', 'designStyle'])
+        && d.schemaVersion == 1
+        && validAiSlideDesignStyle(d.get('designStyle', null))
         && validAiSlideColor(d.designBackgroundColor)
         && validAiSlideColor(d.designTextColor) && validAiSlideColor(d.designAccentColor)
         && d.designLayout in ['auto', 'columns', 'cards']
@@ -93,6 +106,24 @@ service cloud.firestore {
         && d.timerX is number && d.timerX >= 0 && d.timerX <= 1
         && d.timerY is number && d.timerY >= 0 && d.timerY <= 1
         && d.timerSize is number && d.timerSize >= 0.5 && d.timerSize <= 1.8;
+    }
+    function validAiSlideTheme(d) {
+      return validAiSlideThemeValues(d) && d.updatedAt == request.time;
+    }
+    function validAiSlideDesignCenter(userId, storeId) {
+      return storeId == null || (storeId is string && storeId.size() > 0 && storeId.size() <= 120
+        && storeId.matches('^[A-Za-z0-9_-]+$')
+        && exists(/databases/$(database)/documents/centers/$(storeId))
+        && get(/databases/$(database)/documents/centers/$(storeId)).data.ownerUid == userId);
+    }
+    function validAiSlideDesign(d, userId) {
+      return d.keys().hasOnly(['schemaVersion', 'name', 'description', 'storeId', 'theme', 'updatedAt'])
+        && d.schemaVersion == 1
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.description is string && d.description.size() <= 160
+        && validAiSlideDesignCenter(userId, d.storeId)
+        && validAiSlideThemeValues(d.theme) && !d.theme.keys().hasAny(['updatedAt'])
+        && d.updatedAt == request.time;
     }
 
     match /users/{userId} {
@@ -128,6 +159,14 @@ service cloud.firestore {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId) && validAiSlideTheme(request.resource.data);
       }
+      // Named design templates have a dedicated collection. Saved WorkoutModule
+      // styles remain server-only and keep their existing wire contract.
+      match /aiSlideDesigns/{designId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && designId.size() > 0 && designId.size() <= 120 && designId.matches('^[A-Za-z0-9_-]+$')
+          && validAiSlideDesign(request.resource.data, userId);
+      }
       match /catalog/{documentId} {
         allow read: if isOwner(userId);
         // Only the verified admin migration can activate a complete catalog.
@@ -136,7 +175,7 @@ service cloud.firestore {
       match /workoutSummaries/{workoutId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId)
-          && request.resource.data.keys().hasOnly(['id', 'name', 'folder', 'imageSource', 'moduleCount', 'durationSeconds', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['id', 'name', 'folder', 'imageSource', 'moduleCount', 'durationSeconds', 'durationKind', 'updatedAt'])
           && request.resource.data.id == workoutId
           && request.resource.data.name is string
           && request.resource.data.folder is string
@@ -144,6 +183,7 @@ service cloud.firestore {
           && request.resource.data.moduleCount is int
           && request.resource.data.moduleCount >= 0
           && request.resource.data.durationSeconds is int
+          && request.resource.data.get('durationKind', 'fixed') in ['fixed', 'maximum', 'open']
           && request.resource.data.updatedAt is timestamp
           && getAfter(/databases/$(database)/documents/users/$(userId)/workouts/$(workoutId)).data.ownerId == userId;
       }

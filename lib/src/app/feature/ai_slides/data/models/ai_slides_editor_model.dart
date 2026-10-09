@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
@@ -44,12 +46,15 @@ class AiSlidesSavedDraftModel {
   }
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class AiSlideDraftModel {
   const AiSlideDraftModel({
     required this.title,
     required this.layout,
     required this.lines,
+    this.designHeaderLabel = '',
+    this.designSubtitle = '',
+    this.designStyle,
     this.designBackgroundColor,
     this.designTextColor,
     this.designAccentColor,
@@ -65,8 +70,9 @@ class AiSlideDraftModel {
     this.timerY = 0.5,
     this.timerSize = 1.0,
   });
-  final String title, layout;
+  final String title, layout, designHeaderLabel, designSubtitle;
   final List<String> lines;
+  final SlideDesignStyle? designStyle;
   final int? designBackgroundColor, designTextColor, designAccentColor;
   final int? workSeconds, restSeconds, sets;
   final String designLayout;
@@ -80,6 +86,9 @@ class AiSlideDraftModel {
     title: draft.title,
     layout: draft.layout,
     lines: draft.lines,
+    designStyle: draft.designStyle,
+    designHeaderLabel: draft.designHeaderLabel,
+    designSubtitle: draft.designSubtitle,
     designBackgroundColor: draft.designBackgroundColor,
     designTextColor: draft.designTextColor,
     designAccentColor: draft.designAccentColor,
@@ -97,10 +106,14 @@ class AiSlideDraftModel {
   );
   AiSlideDraft toEntity() {
     _validateVisuals(toJson());
+    _validateStudioStyle(designStyle);
     return AiSlideDraft(
       title: title,
       layout: layout,
       lines: lines,
+      designHeaderLabel: designHeaderLabel,
+      designSubtitle: designSubtitle,
+      designStyle: designStyle,
       designBackgroundColor: designBackgroundColor,
       designTextColor: designTextColor,
       designAccentColor: designAccentColor,
@@ -119,10 +132,11 @@ class AiSlideDraftModel {
   }
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class AiSlideThemeModel {
   const AiSlideThemeModel({
     this.schemaVersion = 1,
+    this.designStyle,
     this.designBackgroundColor,
     this.designTextColor,
     this.designAccentColor,
@@ -136,6 +150,7 @@ class AiSlideThemeModel {
     this.timerSize = 1.0,
   });
   final int schemaVersion;
+  final SlideDesignStyle? designStyle;
   final int? designBackgroundColor, designTextColor, designAccentColor;
   final String designLayout;
   final int designFontWeight;
@@ -145,6 +160,7 @@ class AiSlideThemeModel {
       _$AiSlideThemeModelFromJson(json);
   Map<String, dynamic> toJson() => _$AiSlideThemeModelToJson(this);
   factory AiSlideThemeModel.fromEntity(AiSlideTheme theme) => AiSlideThemeModel(
+    designStyle: theme.designStyle,
     designBackgroundColor: theme.designBackgroundColor,
     designTextColor: theme.designTextColor,
     designAccentColor: theme.designAccentColor,
@@ -162,7 +178,9 @@ class AiSlideThemeModel {
       throw const FormatException('Unsupported AI slide theme');
     }
     _validateVisuals(toJson());
+    _validateStudioStyle(designStyle);
     return AiSlideTheme(
+      designStyle: designStyle,
       designBackgroundColor: designBackgroundColor,
       designTextColor: designTextColor,
       designAccentColor: designAccentColor,
@@ -201,5 +219,20 @@ void _validateVisuals(Map<String, dynamic> json) {
       !numberWithin('timerY', 0, 1) ||
       !numberWithin('timerSize', 0.5, 1.8)) {
     throw const FormatException('Invalid slide style');
+  }
+}
+
+void _validateStudioStyle(SlideDesignStyle? style) {
+  if (style == null) return;
+  if (style.version != 1 ||
+      !['banner', 'focus', 'editorial', 'cards'].contains(style.family) ||
+      !['sans', 'serif'].contains(style.fontFamily) ||
+      ![400, 500, 600, 700, 800, 900].contains(style.titleWeight) ||
+      style.motif.length > 12 ||
+      (style.originalTemplate != null &&
+          originalSlideTemplate(style.originalTemplate) == null) ||
+      (style.titleColor != null &&
+          (style.titleColor! < 0xFF000000 || style.titleColor! > 0xFFFFFFFF))) {
+    throw const FormatException('Invalid studio style');
   }
 }

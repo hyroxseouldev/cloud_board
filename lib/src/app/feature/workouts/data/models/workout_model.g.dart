@@ -97,6 +97,11 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(
   text: json['text'] as String,
   imageUrl: json['imageUrl'] as String,
   designTemplate: json['designTemplate'] as String?,
+  designStyle: json['designStyle'] == null
+      ? null
+      : SlideDesignStyle.fromJson(json['designStyle'] as Map<String, dynamic>),
+  designHeaderLabel: json['designHeaderLabel'] as String? ?? '',
+  designSubtitle: json['designSubtitle'] as String? ?? '',
   designBackgroundColor: (json['designBackgroundColor'] as num?)?.toInt(),
   designTextColor: (json['designTextColor'] as num?)?.toInt(),
   designAccentColor: (json['designAccentColor'] as num?)?.toInt(),
@@ -138,6 +143,9 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'text': instance.text,
       'imageUrl': instance.imageUrl,
       'designTemplate': ?instance.designTemplate,
+      'designStyle': ?instance.designStyle?.toJson(),
+      'designHeaderLabel': instance.designHeaderLabel,
+      'designSubtitle': instance.designSubtitle,
       'designBackgroundColor': ?instance.designBackgroundColor,
       'designTextColor': ?instance.designTextColor,
       'designAccentColor': ?instance.designAccentColor,

@@ -1,6 +1,7 @@
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
@@ -156,6 +157,9 @@ class WorkoutModuleModel {
     required this.text,
     required this.imageUrl,
     this.designTemplate,
+    this.designStyle,
+    this.designHeaderLabel = '',
+    this.designSubtitle = '',
     this.designBackgroundColor,
     this.designTextColor,
     this.designAccentColor,
@@ -181,6 +185,9 @@ class WorkoutModuleModel {
   final String id, name, text, imageUrl;
   @JsonKey(includeIfNull: false)
   final String? designTemplate;
+  @JsonKey(includeIfNull: false)
+  final SlideDesignStyle? designStyle;
+  final String designHeaderLabel, designSubtitle;
   @JsonKey(includeIfNull: false)
   final int? designBackgroundColor;
   @JsonKey(includeIfNull: false)
@@ -229,6 +236,9 @@ class WorkoutModuleModel {
     text: text,
     imageSource: imageUrl,
     designTemplate: designTemplate,
+    designStyle: designStyle,
+    designHeaderLabel: designHeaderLabel,
+    designSubtitle: designSubtitle,
     designBackgroundColor: designBackgroundColor,
     designTextColor: designTextColor,
     designAccentColor: designAccentColor,
@@ -268,6 +278,9 @@ class WorkoutModuleModel {
         text: value.text,
         imageUrl: value.imageSource,
         designTemplate: value.designTemplate,
+        designStyle: value.designStyle,
+        designHeaderLabel: value.designHeaderLabel,
+        designSubtitle: value.designSubtitle,
         designBackgroundColor: value.designBackgroundColor,
         designTextColor: value.designTextColor,
         designAccentColor: value.designAccentColor,

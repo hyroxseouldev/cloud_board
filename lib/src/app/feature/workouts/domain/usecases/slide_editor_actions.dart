@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/slide_editor_repository.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
 part 'slide_editor_actions.g.dart';
@@ -36,25 +37,31 @@ class SlideEditorActions {
 SlideEditorActions slideEditorActions(Ref ref) =>
     SlideEditorActions(ref.watch(slideEditorRepositoryProvider));
 
-WorkoutModule applySlideStyle(WorkoutModule target, WorkoutModule style) =>
-    target.copyWith(
-      appearance: style.appearance,
-      designBackgroundColor: style.designBackgroundColor,
-      designTextColor: style.designTextColor,
-      designAccentColor: style.designAccentColor,
-      designLayout: style.designLayout,
-      designFontWeight: style.designFontWeight,
-      designItalic: style.designItalic,
-      designSpacing: style.designSpacing,
-      showTimer: style.showTimer,
-      showTimerGauge: style.showTimerGauge,
-      showSets: style.showSets,
-      workGaugeColor: style.workGaugeColor,
-      restGaugeColor: style.restGaugeColor,
-      workTextColor: style.workTextColor,
-      restTextColor: style.restTextColor,
-      timerColorValue: style.timerColorValue,
-    );
+WorkoutModule applySlideStyle(
+  WorkoutModule target,
+  WorkoutModule style,
+) => target.copyWith(
+  appearance: style.appearance,
+  designStyle: style.designStyle ?? target.designStyle,
+  designTemplate: style.designStyle == null
+      ? target.designTemplate
+      : 'studio-v1-${style.designStyle!.family == 'editorial' ? 'list' : slideDesignKind(target) ?? 'numbered'}',
+  designBackgroundColor: style.designBackgroundColor,
+  designTextColor: style.designTextColor,
+  designAccentColor: style.designAccentColor,
+  designLayout: style.designLayout,
+  designFontWeight: style.designFontWeight,
+  designItalic: style.designItalic,
+  designSpacing: style.designSpacing,
+  showTimer: style.showTimer,
+  showTimerGauge: style.showTimerGauge,
+  showSets: style.showSets,
+  workGaugeColor: style.workGaugeColor,
+  restGaugeColor: style.restGaugeColor,
+  workTextColor: style.workTextColor,
+  restTextColor: style.restTextColor,
+  timerColorValue: style.timerColorValue,
+);
 
 /// Retain the edited slide's identity; copied timing blocks belong to that slide.
 WorkoutModule replaceSlideWithTemplate(

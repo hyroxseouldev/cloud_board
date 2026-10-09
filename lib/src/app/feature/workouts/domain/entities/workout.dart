@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
@@ -82,6 +83,9 @@ abstract class WorkoutModule with _$WorkoutModule {
     required String imageSource,
     // Versioned theme; content stays in name/text/timer fields.
     String? designTemplate,
+    SlideDesignStyle? designStyle,
+    @Default('') String designHeaderLabel,
+    @Default('') String designSubtitle,
     int? designBackgroundColor,
     int? designTextColor,
     int? designAccentColor,

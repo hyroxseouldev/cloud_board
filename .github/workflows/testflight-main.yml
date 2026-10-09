@@ -8,12 +8,30 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: testflight-main
   cancel-in-progress: false
 
 jobs:
+  backend_ready:
+    name: Wait for verified backend deployment
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      !contains(github.event.head_commit.message, '[skip testflight]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require this commit's tested and deployed Firebase rules
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release_backend_gate.mjs
+
   verify:
     name: Verify release
     if: >-
@@ -50,7 +68,7 @@ jobs:
 
   upload:
     name: Build and upload
-    needs: verify
+    needs: [verify, backend_ready]
     runs-on: macos-26
     timeout-minutes: 45
     environment: testflight
@@ -318,6 +336,11 @@ jobs:
           path: ${{ runner.temp }}/ios-signing.json
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Recheck backend before publishing
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release_backend_gate.mjs --check-only
 
       - name: Upload to TestFlight
         env:

@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
@@ -20,7 +23,8 @@ import 'package:cloud_board/src/app/core/utils/async_value_cache.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_catalog_page.dart';
 part 'workout_repository_impl.g.dart';
 
-class WorkoutRepositoryImpl implements WorkoutRepository, PagedWorkoutCatalog {
+class WorkoutRepositoryImpl
+    implements WorkoutRepository, PagedWorkoutCatalog, StarterWorkoutImporter {
   WorkoutRepositoryImpl(
     this._auth,
     this._firestore,
@@ -239,9 +243,38 @@ class WorkoutRepositoryImpl implements WorkoutRepository, PagedWorkoutCatalog {
     void Function(int completed, int total)? onProgress,
   }) => _saveForUser(workout, _requireUser(), onProgress: onProgress);
 
+  @override
+  Future<Workout> importStarter(Workout workout) async {
+    if (!isStarterWorkout(workout.id)) {
+      throw ArgumentError('Invalid starter ID');
+    }
+    final user = _requireUser();
+    // Avoid rendering/uploading assets again on a retry. The create transaction
+    // below still arbitrates simultaneous imports from two controllers.
+    final existing = await _firestore.loadOne(
+      user.uid,
+      workout.id,
+      requireServer: true,
+    );
+    if (existing != null) return existing.toEntity();
+    final modules = <WorkoutModule>[];
+    for (final module in workout.modules) {
+      modules.add(await prepareSlideDesign(module));
+    }
+    if (_auth.currentUser?.uid != user.uid) {
+      throw StateError('로그인 계정이 변경되었습니다.');
+    }
+    return _saveForUser(
+      workout.copyWith(modules: modules),
+      user,
+      ifAbsent: true,
+    );
+  }
+
   Future<Workout> _saveForUser(
     Workout workout,
     User user, {
+    bool ifAbsent = false,
     void Function(int completed, int total)? onProgress,
   }) async {
     for (final module in workout.modules) {
@@ -266,6 +299,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository, PagedWorkoutCatalog {
     final stored = await _firestore.save(
       user.uid,
       WorkoutModel.fromEntity(uploaded),
+      ifAbsent: ifAbsent,
     );
     final saved = stored.toEntity();
     if (_auth.currentUser?.uid == user.uid && _cacheOwner == user.uid) {

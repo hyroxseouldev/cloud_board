@@ -1,6 +1,3 @@
-import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
-
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
@@ -10,7 +7,7 @@ import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -29,6 +26,8 @@ import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart'
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/folder_selector.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_creation_sheet.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 
@@ -190,7 +189,9 @@ class _EditorBody extends HookConsumerWidget {
     final slideScroll = useScrollController();
     final templateScroll = useScrollController();
     final selectedSlide = useState<String?>(null);
-    final rowExtent = 96 * MediaQuery.textScalerOf(context).scale(1);
+    final rowExtent = WorkoutSlideListCard.extent(
+      MediaQuery.textScalerOf(context),
+    );
     const slideListPadding = EdgeInsets.fromLTRB(24, 12, 24, 96);
     useListenable(name);
     useListenable(folder);
@@ -205,7 +206,7 @@ class _EditorBody extends HookConsumerWidget {
     final playbackAction = ref.watch(playbackActionControllerProvider);
     final isBusy =
         launching.value || action.isLoading || playbackAction.isLoading;
-    final hasUnsavedChanges =
+    bool hasUnsavedChanges() =>
         draft.value != savedBaseline.value ||
         name.text.trim() != savedBaseline.value.name ||
         folder.text.trim() != savedBaseline.value.folder;
@@ -245,7 +246,7 @@ class _EditorBody extends HookConsumerWidget {
     }
 
     Future<void> saveInPlace() async {
-      if (isBusy || (hasPersisted.value && !hasUnsavedChanges)) return;
+      if (isBusy || (hasPersisted.value && !hasUnsavedChanges())) return;
       final saved = await persist();
       if (saved == null || !context.mounted || !isNew) return;
       // Give the dirty-state guard a frame to observe the saved baseline.
@@ -274,7 +275,28 @@ class _EditorBody extends HookConsumerWidget {
       });
     }
 
-    void addSlide([WorkoutModule? template]) {
+    Future<void> editSlide(WorkoutModule module) async {
+      await context.push(
+        '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
+        extra: SlideEditRequest(
+          module: module,
+          needsInitialSave: !hasPersisted.value || hasUnsavedChanges(),
+          workout: draft.value.copyWith(name: name.text, folder: folder.text),
+          brandL: draft.value.brandL,
+          brandR: draft.value.brandR,
+          onSave: (updated) async {
+            final candidate = draft.value.copyWith(
+              modules: draft.value.modules
+                  .map((m) => m.id == updated.id ? updated : m)
+                  .toList(),
+            );
+            return await persist(edited: candidate) != null;
+          },
+        ),
+      );
+    }
+
+    WorkoutModule addSlide([WorkoutModule? template]) {
       final module = template == null
           ? WorkoutModule.empty(newId())
                 .copyWith(name: nextSlideName(draft.value.modules))
@@ -289,11 +311,12 @@ class _EditorBody extends HookConsumerWidget {
         modules: [...draft.value.modules, module],
       );
       selectSlide(module.id);
+      return module;
     }
 
     Future<void> addAiSlides() async {
       final owner = ref.read(authStateProvider).value?.id;
-      final modules = await showAiSlidesSheet(context);
+      final modules = await showAiSlidesPage(context);
       if (!context.mounted ||
           modules == null ||
           modules.isEmpty ||
@@ -304,6 +327,20 @@ class _EditorBody extends HookConsumerWidget {
         modules: [...draft.value.modules, ...modules],
       );
       selectSlide(modules.first.id);
+    }
+
+    Future<void> chooseSlideCreation() async {
+      if (isBusy) return;
+      final method = await showSlideCreationSheet(context);
+      if (!context.mounted) return;
+      switch (method) {
+        case SlideCreationMethod.blank:
+          await editSlide(addSlide());
+        case SlideCreationMethod.design:
+          await addAiSlides();
+        case null:
+          return;
+      }
     }
 
     Future<void> saveTemplate(WorkoutModule module) async {
@@ -332,7 +369,7 @@ class _EditorBody extends HookConsumerWidget {
       if (launching.value || isBusy || draft.value.modules.isEmpty) return;
       launching.value = true;
       try {
-        final saved = (!hasPersisted.value || hasUnsavedChanges)
+        final saved = (!hasPersisted.value || hasUnsavedChanges())
             ? await persist()
             : draft.value;
         if (saved == null || !context.mounted) return;
@@ -362,7 +399,7 @@ class _EditorBody extends HookConsumerWidget {
 
     return UnsavedChangesGuard(
       guard: guard,
-      dirty: hasUnsavedChanges,
+      dirty: hasUnsavedChanges(),
       blocked: isBusy,
       child: AsyncActionOverlay(
         // A mini-controller command must not obscure the editor.
@@ -401,7 +438,8 @@ class _EditorBody extends HookConsumerWidget {
                 tooltip: action.isLoading
                     ? workoutSaveProgressLabel(uploadProgress)
                     : '저장',
-                onPressed: isBusy || (hasPersisted.value && !hasUnsavedChanges)
+                onPressed:
+                    isBusy || (hasPersisted.value && !hasUnsavedChanges())
                     ? null
                     : saveInPlace,
                 icon: action.isLoading
@@ -618,37 +656,19 @@ class _EditorBody extends HookConsumerWidget {
                           itemExtent: rowExtent,
                           footer: Padding(
                             padding: const EdgeInsets.only(top: 8, bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Tooltip(
-                                  message: '슬라이드 추가',
-                                  child: OutlinedButton.icon(
-                                    key: const ValueKey('add-slide-at-end'),
-                                    onPressed: isBusy ? null : () => addSlide(),
-                                    icon: const Icon(Icons.add_rounded),
-                                    label: const Text('슬라이드 추가'),
-                                  ),
+                            child: Tooltip(
+                              message: '슬라이드 추가',
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  key: const ValueKey('add-slide-at-end'),
+                                  onPressed: isBusy
+                                      ? null
+                                      : chooseSlideCreation,
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('슬라이드 추가'),
                                 ),
-                                const SizedBox(height: 8),
-                                OutlinedButton(
-                                  onPressed: isBusy ? null : addAiSlides,
-                                  child: const Wrap(
-                                    alignment: WrapAlignment.center,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    spacing: 8,
-                                    children: [
-                                      Icon(
-                                        Icons.auto_awesome_rounded,
-                                        size: 18,
-                                      ),
-                                      Text('AI 슬라이드 만들기'),
-                                      AiBetaBadge(),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                           padding: slideListPadding,
@@ -669,184 +689,98 @@ class _EditorBody extends HookConsumerWidget {
                           },
                           proxyDecorator: (child, index, animation) => Material(
                             elevation: 8,
-                            borderRadius: BorderRadius.circular(9),
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
                             child: child,
                           ),
                           itemBuilder: (context, index) {
                             final module = draft.value.modules[index];
-                            final intervalBlocks = effectiveIntervalBlocks(
-                              module,
-                            );
-                            Future<void> edit() async {
-                              await context.push(
-                                '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
-                                extra: SlideEditRequest(
-                                  module: module,
-                                  needsInitialSave:
-                                      !hasPersisted.value || hasUnsavedChanges,
-                                  workout: draft.value.copyWith(
-                                    name: name.text,
-                                    folder: folder.text,
-                                  ),
-                                  brandL: draft.value.brandL,
-                                  brandR: draft.value.brandR,
-                                  onSave: (updated) async {
-                                    final candidate = draft.value.copyWith(
-                                      modules: draft.value.modules
-                                          .map(
-                                            (m) => m.id == updated.id
-                                                ? updated
-                                                : m,
-                                          )
-                                          .toList(),
-                                    );
-                                    return await persist(edited: candidate) !=
-                                        null;
-                                  },
-                                ),
-                              );
-                            }
-
-                            return Card(
+                            return WorkoutSlideListCard(
                               key: ValueKey(module.id),
-                              clipBehavior: Clip.antiAlias,
-                              elevation: 0,
-                              color: AppColors.surface,
-                              margin: const EdgeInsets.only(bottom: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppStyle.controlRadius,
-                                ),
-                              ),
-                              child: ListTile(
-                                onTap: isBusy ? null : edit,
-                                selected: selectedSlide.value == module.id,
-                                selectedTileColor: AppColors.selected,
-                                leading: ReorderableDragStartListener(
-                                  index: index,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: Icon(Icons.drag_handle),
+                              module: module,
+                              index: index,
+                              brandL: draft.value.brandL,
+                              brandR: draft.value.brandR,
+                              enabled: !isBusy,
+                              onTap: isBusy ? null : () => editSlide(module),
+                              selected: selectedSlide.value == module.id,
+                              menu: PopupMenuButton<String>(
+                                enabled: !isBusy,
+                                tooltip: '슬라이드 메뉴',
+                                itemBuilder: (_) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('수정'),
                                   ),
-                                ),
-                                title: Text(
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  module.name.isEmpty
-                                      ? '슬라이드 ${index + 1}'
-                                      : module.name,
-                                ),
-                                subtitle: Text(
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  isContinuousTimer(module)
-                                      ? '${timerModeLabel(module.timerMode)} · ${moduleDurationText(module)}'
-                                      : hasRoundTiming(module)
-                                      ? '${module.rounds}라운드 · ${intervalBlocks.length}블록 · 라운드 휴식 ${formatSlideTime(module.roundRestSeconds)}'
-                                      : intervalBlocks.length == 1
-                                      ? intervalBlocks.first.workSeconds == 0
-                                            ? '휴식만 ${formatSlideTime(intervalBlocks.first.restSeconds)} · ${intervalBlocks.first.sets}회'
-                                            : '${intervalBlocks.first.sets}세트 · ${formatSlideTime(intervalBlocks.first.workSeconds)} / 휴식 ${formatSlideTime(intervalBlocks.first.restSeconds)}'
-                                      : '${intervalBlocks.length}블록 · 총 ${moduleDurationText(module)}',
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      moduleDurationText(module),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: XonColors.muted,
+                                  PopupMenuItem(
+                                    value: 'duplicate',
+                                    child: Text('복제'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'template',
+                                    enabled:
+                                        templates.hasValue &&
+                                        !templates.isLoading,
+                                    child: const Text('라이브러리에 저장'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('삭제'),
+                                  ),
+                                ],
+                                onSelected: (action) async {
+                                  if (action == 'edit') {
+                                    await editSlide(module);
+                                    return;
+                                  }
+                                  if (action == 'template') {
+                                    await saveTemplate(module);
+                                    return;
+                                  }
+                                  final modules = [...draft.value.modules];
+                                  if (action == 'duplicate') {
+                                    modules.insert(
+                                      index + 1,
+                                      module.copyWith(
+                                        id: newId(),
+                                        name: nextSlideName(modules),
                                       ),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      enabled: !isBusy,
-                                      tooltip: '슬라이드 메뉴',
-                                      itemBuilder: (_) => [
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: Text('수정'),
+                                    );
+                                  } else {
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (dialogContext) => AppAlertDialog(
+                                        title: const Text('슬라이드를 삭제할까요?'),
+                                        content: Text(
+                                          '“${module.name}” 슬라이드를 목록에서 제거합니다.',
                                         ),
-                                        PopupMenuItem(
-                                          value: 'duplicate',
-                                          child: Text('복제'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'template',
-                                          enabled:
-                                              templates.hasValue &&
-                                              !templates.isLoading,
-                                          child: const Text('라이브러리에 저장'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          child: Text('삭제'),
-                                        ),
-                                      ],
-                                      onSelected: (action) async {
-                                        if (action == 'edit') {
-                                          await edit();
-                                          return;
-                                        }
-                                        if (action == 'template') {
-                                          await saveTemplate(module);
-                                          return;
-                                        }
-                                        final modules = [
-                                          ...draft.value.modules,
-                                        ];
-                                        if (action == 'duplicate') {
-                                          modules.insert(
-                                            index + 1,
-                                            module.copyWith(
-                                              id: newId(),
-                                              name: nextSlideName(modules),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(
+                                              dialogContext,
+                                              false,
                                             ),
-                                          );
-                                        } else {
-                                          final confirmed = await showDialog<bool>(
-                                            context: context,
-                                            builder: (dialogContext) =>
-                                                AppAlertDialog(
-                                                  title: const Text(
-                                                    '슬라이드를 삭제할까요?',
-                                                  ),
-                                                  content: Text(
-                                                    '“${module.name}” 슬라이드를 목록에서 제거합니다.',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            dialogContext,
-                                                            false,
-                                                          ),
-                                                      child: const Text('취소'),
-                                                    ),
-                                                    FilledButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            dialogContext,
-                                                            true,
-                                                          ),
-                                                      child: const Text('삭제'),
-                                                    ),
-                                                  ],
-                                                ),
-                                          );
-                                          if (confirmed != true ||
-                                              !context.mounted) {
-                                            return;
-                                          }
-                                          modules.removeAt(index);
-                                        }
-                                        draft.value = draft.value.copyWith(
-                                          modules: modules,
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
+                                            child: const Text('취소'),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () => Navigator.pop(
+                                              dialogContext,
+                                              true,
+                                            ),
+                                            child: const Text('삭제'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirmed != true || !context.mounted) {
+                                      return;
+                                    }
+                                    modules.removeAt(index);
+                                  }
+                                  draft.value = draft.value.copyWith(
+                                    modules: modules,
+                                  );
+                                },
                               ),
                             );
                           },

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -42,16 +43,18 @@ class DisplaySettingsScreen extends HookConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(diagnosticMessage(next.error!)),
-            action: SnackBarAction(
-              label: '상세',
-              onPressed: () => showErrorDetails(
-                context,
-                ref.read(errorReporterProvider),
-                next.error!,
-                next.stackTrace,
-                'pairing.action',
-              ),
-            ),
+            action: kDebugMode
+                ? SnackBarAction(
+                    label: '상세',
+                    onPressed: () => showErrorDetails(
+                      context,
+                      ref.read(errorReporterProvider),
+                      next.error!,
+                      next.stackTrace,
+                      'pairing.action',
+                    ),
+                  )
+                : null,
           ),
         );
       }
@@ -80,6 +83,14 @@ class DisplaySettingsScreen extends HookConsumerWidget {
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
             children: [
               Text('디스플레이 설정', style: AppStyle.of(context).mainText),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => context.push('/displays/connect'),
+                  icon: const Icon(Icons.help_outline),
+                  label: const Text('처음 연결하나요? TV 연결 안내'),
+                ),
+              ),
               const SizedBox(height: 32),
               Row(
                 children: [

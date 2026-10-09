@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
+
 import 'dart:async';
 
 import 'dart:math' as math;
@@ -391,6 +393,8 @@ class _WorkoutListBody extends HookConsumerWidget {
                                   ),
                                   const SizedBox(height: 12),
                                 ],
+                                if (!searchOpen.value)
+                                  const FirstClassHomeCard(),
                                 Row(
                                   children: [
                                     Expanded(
@@ -953,6 +957,16 @@ class _HomeDrawer extends HookWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     onTap: () => Navigator.of(context).pop(),
+                  ),
+                  destination(
+                    '첫 수업 준비',
+                    Icons.checklist_rounded,
+                    '/first-class',
+                  ),
+                  destination(
+                    '시작 템플릿',
+                    Icons.auto_awesome_mosaic_outlined,
+                    '/starter-workouts',
                   ),
                   destination('라이브러리', Icons.star_outline_rounded, '/slides'),
                   const Divider(height: 32),

@@ -128,7 +128,7 @@ final class DeviceClaimControllerProvider
 }
 
 String _$deviceClaimControllerHash() =>
-    r'cbf7cc11c8f8faae9ac4c9bb903553cfa032ebae';
+    r'22cb3043ac749c6eecee13135b8cf6a54d625814';
 
 abstract class _$DeviceClaimController extends $Notifier<AsyncValue<void>> {
   AsyncValue<void> build();

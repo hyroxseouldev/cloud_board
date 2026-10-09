@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 part 'ai_slides.freezed.dart';
 
@@ -17,6 +18,9 @@ abstract class AiSlideDraft with _$AiSlideDraft {
     required String title,
     required String layout,
     required List<String> lines,
+    SlideDesignStyle? designStyle,
+    @Default('') String designHeaderLabel,
+    @Default('') String designSubtitle,
     int? designBackgroundColor,
     int? designTextColor,
     int? designAccentColor,

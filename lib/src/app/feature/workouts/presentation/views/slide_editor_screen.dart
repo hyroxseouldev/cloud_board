@@ -1,10 +1,8 @@
-import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_section_editor.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
-import 'package:cloud_board/src/app/feature/ai_timer/presentation/widgets/ai_timer_button.dart';
-import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_actions.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/prepare_workout_image.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
 
@@ -17,7 +15,8 @@ import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_sheet.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -27,7 +26,6 @@ import 'package:cloud_board/src/app/core/utils/hex_color.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/timer_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
@@ -166,13 +164,26 @@ class _SlideEditorBody extends HookConsumerWidget {
     final renderedBrandR = renderedWorkout?.brandR ?? request.brandR;
 
     final module = state.module;
-    final structuredDesign = slideDesigns.containsKey(module.designTemplate);
+    final originalTemplate = originalSlideTemplate(
+      module.designStyle?.originalTemplate,
+    );
+    final originalDesign = originalTemplate != null;
+    final structuredDesign =
+        slideDesigns.containsKey(module.designTemplate) ||
+        isStudioSlideDesign(module);
     final busy = useState(false);
     final needsInitialSave = useState(request.needsInitialSave);
+    final timerConfigured = useState(false);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final error = useState<String?>(null);
     final form = useMemoized(() => GlobalKey<FormState>());
     final description = useTextEditingController(text: module.text);
+    final designHeader = useTextEditingController(
+      text: module.designHeaderLabel,
+    );
+    final designSubtitle = useTextEditingController(
+      text: module.designSubtitle,
+    );
     final section = useState(1);
     final sectionTransition = useAnimationController(
       duration: const Duration(milliseconds: 180),
@@ -185,17 +196,29 @@ class _SlideEditorBody extends HookConsumerWidget {
     final revision = useState(0);
     final selectedBlockId = useState<String?>(null);
     final blocks = effectiveIntervalBlocks(module);
-    useEffect(() {
-      for (final item in [(description, module.text)]) {
-        if (item.$1.text != item.$2) {
-          item.$1.value = TextEditingValue(
-            text: item.$2,
-            selection: TextSelection.collapsed(offset: item.$2.length),
-          );
+    useEffect(
+      () {
+        for (final item in [
+          (description, module.text),
+          (designHeader, module.designHeaderLabel),
+          (designSubtitle, module.designSubtitle),
+        ]) {
+          if (item.$1.text != item.$2) {
+            item.$1.value = TextEditingValue(
+              text: item.$2,
+              selection: TextSelection.collapsed(offset: item.$2.length),
+            );
+          }
         }
-      }
-      return null;
-    }, [module.text]);
+        return null;
+      },
+      [
+        module.name,
+        module.text,
+        module.designHeaderLabel,
+        module.designSubtitle,
+      ],
+    );
     useOnAppLifecycleStateChange((previous, next) {
       if (next != AppLifecycleState.resumed) unawaited(actions.flush());
     });
@@ -385,7 +408,11 @@ class _SlideEditorBody extends HookConsumerWidget {
             ref
                 .read(provider)
                 .module
-                .copyWith(imageSource: source, designTemplate: null),
+                .copyWith(
+                  imageSource: source,
+                  designTemplate: null,
+                  designStyle: null,
+                ),
           );
         }
       } catch (_) {
@@ -532,91 +559,42 @@ class _SlideEditorBody extends HookConsumerWidget {
         ),
       ),
     );
-    final workPerSet = _perSetTimeLabel(blocks.map((b) => b.workSeconds));
-    final restPerSet = _perSetTimeLabel(blocks.map((b) => b.restSeconds));
-    final summary = Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: InkWell(
-        key: const ValueKey('slide-timer-summary'),
-        onTap: () {
-          FocusScope.of(context).unfocus();
-          showModalBottomSheet<void>(
-            context: context,
-            isScrollControlled: true,
-            useSafeArea: true,
-            // Dismiss through the close action so unsaved timing is guarded.
-            isDismissible: false,
-            enableDrag: false,
-            showDragHandle: false,
-            constraints: const BoxConstraints(maxWidth: 720),
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            builder: (_) => FractionallySizedBox(
-              heightFactor: .9,
-              child: TimerEditorScreen(
-                workoutId: workoutId,
-                original: original,
-                scope: request.workout?.ownerId ?? 'local',
-                onSelectBlock: (id) => selectedBlockId.value = id,
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.timer_outlined,
-                size: 22,
-                color: SlideEditorStyle.accent,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                moduleDurationText(module),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: SlideEditorStyle.accent,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 10,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      isContinuousTimer(module)
-                          ? timerModeLabel(module.timerMode)
-                          : '운동 $workPerSet',
-                      semanticsLabel: '세트당 운동 $workPerSet',
-                    ),
-                    Text(
-                      '휴식 $restPerSet',
-                      semanticsLabel: '세트당 휴식 $restPerSet',
-                    ),
-                    Text(
-                      '${blocks.fold(0, (sum, b) => sum + b.sets)}${hasRoundTiming(module) ? '구간/라운드' : '세트'}',
-                    ),
-                    if (hasRoundTiming(module)) Text('${module.rounds}라운드'),
-                    if (module.roundRestSeconds > 0)
-                      Text('라운드 휴식 ${durationLabel(module.roundRestSeconds)}'),
-                    if (blocks.length > 1) Text('${blocks.length}블록'),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.keyboard_arrow_up,
-                color: SlideEditorStyle.muted,
-              ),
-            ],
+    final summary = SlideTimerSummary(
+      module: module,
+      dirty: !sameSlideTiming(module, state.saved),
+      onEdit: () {
+        FocusScope.of(context).unfocus();
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          isDismissible: false,
+          enableDrag: false,
+          showDragHandle: false,
+          constraints: const BoxConstraints(maxWidth: 720),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        ),
-      ),
+          clipBehavior: Clip.antiAlias,
+          builder: (_) => FractionallySizedBox(
+            heightFactor: .98,
+            child: TimerEditorScreen(
+              workoutId: workoutId,
+              original: original,
+              scope: request.workout?.ownerId ?? 'local',
+              chooseModeInitially:
+                  needsInitialSave.value && !timerConfigured.value,
+              brandL: renderedBrandL,
+              brandR: renderedBrandR,
+              workout: renderedWorkout,
+              onSelectBlock: (id) {
+                selectedBlockId.value = id;
+                timerConfigured.value = true;
+              },
+            ),
+          ),
+        );
+      },
     );
 
     final settings = Form(
@@ -651,29 +629,6 @@ class _SlideEditorBody extends HookConsumerWidget {
               children: [
                 if (section.value == 1) ...[
                   summary,
-                  AiTimerButton(
-                    module: module,
-                    onApply: (recognized) {
-                      final current = ref.read(provider).module;
-                      if (!canApplyAiTimer(module, current)) return false;
-                      resetFields(
-                        () => update(
-                          applyAiTimer(
-                            current,
-                            workSeconds: recognized.workSeconds,
-                            restSeconds: recognized.restSeconds,
-                            sets: recognized.sets,
-                            name: recognized.name != module.name
-                                ? recognized.name
-                                : null,
-                          ),
-                        ),
-                      );
-                      selectedBlockId.value = null;
-                      return true;
-                    },
-                  ),
-                  const Divider(height: 24),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const label = Column(
@@ -860,7 +815,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                   ),
                 ],
                 if (section.value == 2) ...[
-                  if (hasSlideDesign(module)) ...[
+                  if (hasSlideDesign(module) && !originalDesign) ...[
                     const Row(
                       children: [
                         Text('슬라이드 테마'),
@@ -929,6 +884,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                           module.copyWith(
                             imageSource: '',
                             designTemplate: null,
+                            designStyle: null,
                           ),
                         );
                       }
@@ -980,7 +936,44 @@ class _SlideEditorBody extends HookConsumerWidget {
                           update(module.copyWith(appearance: value)),
                     ),
                   const Divider(height: 24),
-                  if (structuredDesign)
+                  if (isStudioSlideDesign(module) && !originalDesign) ...[
+                    TextFormField(
+                      key: const ValueKey('studio-class-label'),
+                      controller: designHeader,
+                      maxLength: 60,
+                      decoration: const InputDecoration(
+                        labelText: '클래스 이름 · 분류',
+                      ),
+                      onChanged: (value) =>
+                          update(module.copyWith(designHeaderLabel: value)),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const ValueKey('studio-subtitle'),
+                      controller: designSubtitle,
+                      maxLength: 120,
+                      decoration: const InputDecoration(
+                        labelText: '운동 안내 · 시간 문구',
+                      ),
+                      onChanged: (value) =>
+                          update(module.copyWith(designSubtitle: value)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (originalDesign) ...[
+                    TextFormField(
+                      key: const ValueKey('original-slide-subtitle'),
+                      controller: designSubtitle,
+                      maxLength: 120,
+                      decoration: const InputDecoration(
+                        labelText: '운동 안내 · 시간 문구',
+                      ),
+                      onChanged: (value) =>
+                          update(module.copyWith(designSubtitle: value)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (structuredDesign && !originalDesign)
                     SlideDesignSectionEditor(
                       text: module.text,
                       onChanged: (value) =>
@@ -988,6 +981,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                     )
                   else
                     TextFormField(
+                      key: const ValueKey('slide-body-text'),
                       controller: description,
                       maxLines: 4,
                       maxLength: hasSlideDesign(module)
@@ -995,7 +989,9 @@ class _SlideEditorBody extends HookConsumerWidget {
                           : null,
                       decoration: InputDecoration(
                         labelText: '화면 텍스트',
-                        helperText: hasSlideDesign(module)
+                        helperText: originalDesign
+                            ? '최대 ${originalTemplate.maxLines}줄 · 한 줄에 120자'
+                            : hasSlideDesign(module)
                             ? '최대 24줄 · 한 줄에 120자'
                             : null,
                       ),
@@ -1112,15 +1108,19 @@ class _SlideEditorBody extends HookConsumerWidget {
             indicatorKey: const ValueKey('slide-tab-indicator'),
             selected: section.value - 1,
             onSelected: (index) => selectSection(index + 1),
-            items: const [
-              AppBottomTab(label: '타이머', icon: Icons.timer_outlined, flex: 4),
+            items: [
+              const AppBottomTab(
+                label: '타이머',
+                icon: Icons.timer_outlined,
+                flex: 4,
+              ),
               AppBottomTab(label: '배경', icon: Icons.image_outlined, flex: 4),
-              AppBottomTab(
+              const AppBottomTab(
                 label: '소리',
                 icon: Icons.volume_up_outlined,
                 flex: 4,
               ),
-              AppBottomTab(
+              const AppBottomTab(
                 label: '라이브러리',
                 icon: Icons.filter_none_rounded,
                 flex: 5,
@@ -1300,12 +1300,4 @@ class _StyleNameDialog extends HookWidget {
       ],
     );
   }
-}
-
-// Effective interval blocks always contain at least one block. Different block
-// timings are a per-set range, never a sum or an invented average set duration.
-String _perSetTimeLabel(Iterable<int> seconds) {
-  final values = seconds.toSet().toList()..sort();
-  final first = durationLabel(values.first);
-  return values.length == 1 ? first : '$first–${durationLabel(values.last)}';
 }
