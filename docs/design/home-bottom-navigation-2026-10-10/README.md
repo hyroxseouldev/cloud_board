@@ -1,6 +1,6 @@
 # 메인 바텀 내비게이션 리디자인
 
-기획: [STA-111](https://linear.app/clyrdev/issue/STA-111)
+기획: [STA-111](https://linear.app/clyrdev/issue/STA-111) · 구현: [PR #36](https://github.com/hyroxseouldev/cloud_board/pull/36)
 
 2026-10-10 · 선택한 2안 앱 구현 · STA-111
 
@@ -152,7 +152,7 @@ fvm flutter test --platform chrome test/main_navigation_test.dart
 - [x] **공통 탐색 셸:** 4개 루트와 더보기, 탭별 상태 유지, 딥링크/뒤로가기, 컨트롤러 모드 제한.
 - [x] **홈·라이브러리 이식:** 홈 햄버거 정리, 만들기 배치, 라이브러리 내부 분류를 상단으로 이동, 빠른 삽입 모드 분리.
 - [x] **재생과 하단 영역 통합:** ActiveClassShell의 미니 바/도크 순서와 홈 FAB 제거, 키보드·안전 영역·상세 화면 정책.
-- [x] **자동/렌더 회귀 검수:** 관련 42개 + Chrome 12개 통과. 탐색·인증·편집·재생 보존, 화면 크기·큰 글자·시맨틱 검수.
+- [x] **자동/렌더 회귀 검수:** 관련 75개 + Chrome 12개 통과. 탐색·인증·편집·재생 보존, 화면 크기·큰 글자·시맨틱 검수.
 - [ ] **현장 검수:** 실제 화면 낭독기와 모바일/TV 송출.
 
 주요 파일: app_router.dart, workout_list_screen.dart, slide_library_screen.dart, device_mode_home_screen.dart, active_class_shell.dart, app_bottom_tab_bar.dart, store_operations_screen.dart.
