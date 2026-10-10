@@ -17,6 +17,7 @@ import 'package:cloud_board/src/app/feature/playback/domain/playback_position.da
 import 'package:collection/collection.dart';
 
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
+import 'package:cloud_board/src/app/feature/playback/data/models/playback_start_documents.dart';
 
 class PlaybackRealtimeDataSource {
   PlaybackRealtimeDataSource(
@@ -265,29 +266,19 @@ class PlaybackRealtimeDataSource {
         }
       }
     }
-    final json = model.toJson()..['anchorServerMs'] = ServerValue.timestamp;
     // Older installed TVs continue receiving v1 until every registered display
     // has advertised support for immutable snapshots. Existing sessions never
     // change format while running. No capability means v1, not an assumption.
     final split = supportsSplitPlayback(devices);
+    final documents = PlaybackStartDocuments(model, split: split);
+    final json = documents.state;
     if (split) {
-      json.remove('workoutSnapshot');
-      json.addAll({
-        'schemaVersion': 2,
-        'snapshotId': model.id,
-        'workoutId': model.workoutSnapshot['id'],
-        'workoutName': model.workoutSnapshot['name'],
-      });
       _rememberSnapshot(model.id, model.workoutSnapshot);
     }
     final event = _user.child('operations/events').push();
     final updates = <String, Object?>{
       'activeSession': json,
-      if (split)
-        'playbackSnapshots/${model.id}': {
-          ...model.workoutSnapshot,
-          '_storedAtMs': ServerValue.timestamp,
-        },
+      if (split) 'playbackSnapshots/${model.id}': documents.snapshot,
       'operations/events/${event.key}': {
         'id': event.key,
         'type': model.briefing ? 'briefing_opened' : 'playback_started',

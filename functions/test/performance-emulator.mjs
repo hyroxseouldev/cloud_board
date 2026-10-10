@@ -1,3 +1,4 @@
+import {emulatorAddress} from '../../tool/firebase/common.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {initializeTestEnvironment, assertSucceeds, assertFails} from '@firebase/rules-unit-testing';
@@ -14,8 +15,8 @@ const projectId = 'demo-cloudboard';
 const app = initializeApp({projectId, databaseURL: 'https://demo-cloudboard.firebaseio.com'});
 const db = getFirestore(app);
 const env = await initializeTestEnvironment({projectId,
-  firestore: {host: '127.0.0.1', port: 19080, rules: fs.readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8')},
-  database: {host: '127.0.0.1', port: 19000, rules: fs.readFileSync(new URL('../../database.rules.json', import.meta.url), 'utf8')},
+  firestore: {...emulatorAddress(process.env.FIRESTORE_EMULATOR_HOST), rules: fs.readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8')},
+  database: {...emulatorAddress(process.env.FIREBASE_DATABASE_EMULATOR_HOST), rules: fs.readFileSync(new URL('../../database.rules.json', import.meta.url), 'utf8')},
 });
 const workout = {id: 'w', ownerId: 'owner', author: {id: 'owner'}, name: '한국어 운동', folder: '전체 검색',
   createdAt: Timestamp.fromMillis(1000), updatedAt: Timestamp.fromMillis(2000),
@@ -24,13 +25,15 @@ const workout = {id: 'w', ownerId: 'owner', author: {id: 'owner'}, name: '한국
     intervalBlocks: [{workSeconds: 40, restSeconds: 15, sets: 2}]}]};
 try {
   await env.clearFirestore(); await env.clearDatabase();
+  await env.withSecurityRulesDisabled(c => set(ref(c.database(), 'legacyPilotAccess/owner'), {validUntilMs: Date.now() + 300000}));
   await db.doc('users/owner').set({uid: 'owner'});
   await db.doc('users/owner/workouts/w').set(workout);
   await db.doc('users/other/workouts/untouched').set({...workout, id: 'untouched', ownerId: 'other'});
   assert.equal(await backfillCatalog(db, 'owner'), 1);
   const summary = (await db.doc('users/owner/workoutSummaries/w').get()).data();
   assert.deepEqual(summary, summarizeWorkout(workout));
-  assert.equal(summary.durationSeconds, 95);
+  // Two rounds include the final interval rest under the current timing policy.
+  assert.equal(summary.durationSeconds, 110);
   assert.equal(summary.imageSource, workout.modules[0].imageUrl);
   assert.equal((await db.doc('users/owner/catalog/schema').get()).data().version, 2);
   assert.deepEqual((await db.doc('users/owner/workouts/w').get()).data(), workout);

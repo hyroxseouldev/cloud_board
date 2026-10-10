@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "clients": [
+    {
+      "client": "1.0.0+2",
+      "sourceCommit": "1b64643860d2385d797dafba3db954063d28384f",
+      "platforms": [
+        "ios"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.0.0-build-2.json",
+      "sha256": "ba859a5987b1c1a1c498e67d00ed1d364a985aaba77b11a078aec049d455267a"
+    }
+  ]
+}

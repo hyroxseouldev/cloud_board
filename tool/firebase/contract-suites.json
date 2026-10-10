@@ -1,0 +1,163 @@
+{
+  "format": 1,
+  "firebaseTools": "15.29.0",
+  "timeoutSeconds": 240,
+  "suites": [
+    {
+      "id": "library",
+      "file": "functions/test/slide-library-emulator.mjs",
+      "project": "demo-cloudboard-library",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "workout-save",
+      "file": "functions/test/workout-save-emulator.mjs",
+      "project": "demo-cloudboard-workouts",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "settings",
+      "file": "functions/test/workout-settings-emulator.mjs",
+      "project": "demo-cloudboard-settings",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "ai-timer",
+      "file": "functions/test/ai-timer-emulator.mjs",
+      "project": "demo-cloudboard-ai",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "ai-slides",
+      "file": "functions/test/ai-slides-emulator.mjs",
+      "project": "demo-cloudboard-ai",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "ai-theme",
+      "file": "functions/test/ai-slides-theme-emulator.mjs",
+      "project": "demo-cloudboard-ai",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "ai-designs",
+      "file": "functions/test/ai-slide-designs-emulator.mjs",
+      "project": "demo-cloudboard-design-tests",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "first-class",
+      "file": "functions/test/first-class-emulator.mjs",
+      "project": "demo-cloudboard-first-class",
+      "coverage": [
+        "firestore",
+        "database"
+      ]
+    },
+    {
+      "id": "onboarding",
+      "file": "functions/test/onboarding-emulator.mjs",
+      "project": "demo-cloudboard-onboarding",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "billing",
+      "file": "functions/test/billing-emulator.mjs",
+      "project": "demo-cloudboard-billing",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "google-play",
+      "file": "functions/test/google-play-emulator.mjs",
+      "project": "demo-cloudboard-billing",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "playback",
+      "file": "functions/test/performance-emulator.mjs",
+      "project": "demo-cloudboard",
+      "coverage": [
+        "firestore",
+        "database"
+      ]
+    },
+    {
+      "id": "android-command",
+      "file": "functions/test/android-controls-emulator.mjs",
+      "project": "demo-cloudboard",
+      "coverage": [
+        "database"
+      ]
+    },
+    {
+      "id": "thumbnail",
+      "file": "functions/test/workout-thumbnail-emulator.mjs",
+      "project": "demo-cloudboard",
+      "coverage": []
+    },
+    {
+      "id": "account-deletion",
+      "file": "functions/test/emulator.mjs",
+      "project": "demo-cloudboard",
+      "coverage": [
+        "firestore",
+        "database"
+      ],
+      "databaseNamespace": "demo-cloudboard-default-rtdb"
+    },
+    {
+      "id": "storage",
+      "file": "functions/test/storage-rules-emulator.mjs",
+      "project": "demo-cloudboard",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "app-contracts",
+      "file": "functions/test/app-contracts-emulator.mjs",
+      "project": "demo-cloudboard-contracts",
+      "coverage": [
+        "firestore",
+        "database"
+      ]
+    },
+    {
+      "id": "mutation-recovery",
+      "file": "functions/test/rules-mutation-emulator.mjs",
+      "project": "demo-cloudboard-mutations",
+      "coverage": [
+        "firestore"
+      ]
+    },
+    {
+      "id": "release-smoke",
+      "file": "functions/test/release-smoke-emulator.mjs",
+      "project": "demo-cloudboard",
+      "coverage": [
+        "firestore",
+        "database"
+      ]
+    }
+  ]
+}

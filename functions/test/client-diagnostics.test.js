@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {validateDiagnostic, redactDiagnostic, recordClientDiagnostic} from '../src/client-diagnostics.js';
 const now=Date.parse('2026-09-30T00:00:00Z');
 const event=(id='event-12345')=>({accountId:'u',eventId:id,occurredAt:new Date(now).toISOString(),severity:'error',type:'StateError',code:'revision_conflict',message:'private@example.invalid +82 10 1234 5678 token=SECRET',stack:'at https://host.invalid/main.dart.js:12:56\nat users/private/activeSession',context:{action:'playback.pause',sessionId:'s',password:'secret',expectedRevision:1,observedRevision:2},breadcrumbs:[{action:'playback.pause',email:'secret'}]});
@@ -30,4 +32,20 @@ test('anonymous diagnostics require a paired display',async()=>{
  const task=recordClientDiagnostic({db:db(),realtime:{ref:()=>({get:async()=>({exists:()=>paired})})},auth:{uid:'u',token:{firebase:{sign_in_provider:'anonymous'}}},payload:event(),now,emit:()=>{}});
  if(paired) assert.equal((await task).accepted,true);else await assert.rejects(task,{code:'permission-denied'});
  }
+});
+test('real Functions logger preserves the exact marker used by the save alert', () => {
+ const script = `
+   import * as logger from 'firebase-functions/logger';
+   import {clientDiagnosticLogEntry} from './src/client-diagnostics.js';
+   const event = ${JSON.stringify(validateDiagnostic(event(), now))};
+   logger.error('client_diagnostic', event);
+   logger.write(clientDiagnosticLogEntry(event));
+ `;
+ const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8'});
+ assert.equal(result.status, 0, result.stderr);
+ const [legacy, current] = result.stderr.trim().split('\n').map(line => JSON.parse(line));
+ assert.match(legacy.message, /^Error: client_diagnostic\n/);
+ assert.equal(current.message, 'client_diagnostic'); assert.equal(current.severity, 'ERROR');
+ assert.equal(current.eventId, 'event-12345'); assert.equal(current.context.action, 'playback.pause');
+ assert.doesNotMatch(JSON.stringify(current), /SECRET|private@|accountId/);
 });
