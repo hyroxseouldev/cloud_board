@@ -11,7 +11,9 @@ export function summarizeDiagnostics(entries, receipt) {
   let delayedBeforeRelease = 0;
   for (const entry of entries) {
     const event = entry.jsonPayload || {}, context = event.context || {};
-    if (event.message !== 'client_diagnostic') continue;
+    // Older logger.error calls included an SDK stack in this field. New writes
+    // use the exact marker, but late reports from the old deployment still count.
+    if (event.message !== 'client_diagnostic' && !String(event.message).startsWith('Error: client_diagnostic\n')) continue;
     const occurred = Date.parse(event.occurredAt);
     if (!Number.isFinite(occurred)) continue;
     if (occurred < start) { delayedBeforeRelease++; continue; }
@@ -56,7 +58,7 @@ export async function inspectHealth(receipt, request, now = Date.now()) {
   const entries = []; let pageToken; let truncated = false;
   for (let page = 0; page < 10; page++) {
     const data = await request('POST', 'https://logging.googleapis.com/v2/entries:list', {resourceNames: [parent],
-      filter: `jsonPayload.message="client_diagnostic" AND timestamp>="${since}" AND severity>=ERROR`,
+      filter: `jsonPayload.message:"client_diagnostic" AND jsonPayload.eventId:* AND timestamp>="${since}" AND severity>=ERROR`,
       orderBy: 'timestamp desc', pageSize: 100, pageToken});
     entries.push(...(data.entries || [])); pageToken = data.nextPageToken;
     if (!pageToken) break;

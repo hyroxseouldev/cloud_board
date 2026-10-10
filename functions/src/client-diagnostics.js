@@ -3,6 +3,11 @@ import {HttpsError} from 'firebase-functions/v2/https';
 import {Timestamp} from 'firebase-admin/firestore';
 
 const keys = new Set(['action', 'role', 'platform', 'version', 'build', 'workoutId', 'sessionId', 'commandId', 'expectedRevision', 'observedRevision', 'stepIndex', 'stepCount', 'moduleIndex', 'moduleCount', 'status', 'remainingMs', 'countdownMs', 'connected', 'recovering', 'retryCount', 'elapsedMs', 'lastReceiptMs', 'ackRevision', 'firebaseCode', 'firebasePlugin']);
+// logger.error(string, details) replaces message with an SDK-generated stack.
+// Keep the existing alert's exact marker stable with logger.write instead.
+export function clientDiagnosticLogEntry(event) {
+  return {...event, severity: 'ERROR', message: 'client_diagnostic'};
+}
 export function redactDiagnostic(value, max = 3000) {
   return String(value ?? '').replace(/https?:\/\/[^\s)]+/g, value => value.match(/(main\.dart\.js|dart_sdk\.js|flutter_bootstrap\.js)(:\d+(?::\d+)?)/)?.[0] ?? '[url]')
     .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[email]')

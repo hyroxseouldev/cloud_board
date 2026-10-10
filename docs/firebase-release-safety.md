@@ -136,6 +136,10 @@ No merge queue is configured.
 
 - Confirm the existing managed save alert is enabled with an enabled/verified
   receiver. `release-health.mjs` checks configuration but **does not prove delivery**.
+  Client diagnostics now use structured `logger.write`: the previous
+  `logger.error` SDK prepended an Error stack to the marker, which did not match
+  the existing alert's exact message filter. The observer also recognizes that
+  older log format for delayed reports.
   Send one authorized synthetic diagnostic during rollout and record receiver,
   event ID, sent/received timestamps and actual delivery latency in the issue.
 

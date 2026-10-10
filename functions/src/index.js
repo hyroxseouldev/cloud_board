@@ -355,9 +355,10 @@ export const cleanupOnboardingVerification = onSchedule({region,schedule:'every 
 
 // Web has no Crashlytics SDK. Keep handled errors in authenticated structured logs.
 export const reportClientDiagnostic = onCall({region, timeoutSeconds: 15, maxInstances: 3}, async request => {
-  const {recordClientDiagnostic} = await import('./client-diagnostics.js');
+  const {recordClientDiagnostic, clientDiagnosticLogEntry} = await import('./client-diagnostics.js');
   const logger = await import('firebase-functions/logger');
-  return recordClientDiagnostic({db, realtime, auth: request.auth, payload: request.data, emit: logger.error});
+  return recordClientDiagnostic({db, realtime, auth: request.auth, payload: request.data,
+    emit: (_message, event) => logger.write(clientDiagnosticLogEntry(event))});
 });
 
 export const manageLibraryFolder = onCall({region, timeoutSeconds: 30, maxInstances: 3}, async request => {

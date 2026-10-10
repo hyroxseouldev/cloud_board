@@ -11,6 +11,8 @@ test('late offline reports do not blame a newer rules release and raw data is ex
   assert(!JSON.stringify(result).includes('private'));
   assert.equal(summarizeDiagnostics([], receipt).status, 'no-errors-observed');
   assert.match(summarizeDiagnostics([], receipt).dataMeaning, /not evidence/);
+  const legacy = sample('2026-10-10T03:01:00Z'); legacy.jsonPayload.message = 'Error: client_diagnostic\n    at logger.error';
+  assert.equal(summarizeDiagnostics([legacy], receipt).groups[0].count, 1);
 });
 test('existing save policy must be enabled, unique and have an enabled receiver', () => {
   const policy = {...workoutSavePolicy('cloud-board-stationd', 'channel'), name: 'policy'};
