@@ -1,0 +1,54 @@
+name: Check Firebase release drift and save alerts
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: firebase-release-monitor
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: npm ci --prefix functions
+      - name: Load latest verified production receipt
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/firebase/latest-release.mjs
+      - uses: google-github-actions/auth@v2
+        if: env.FIREBASE_DEPLOYMENT_PENDING != 'true'
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
+      - name: Check deployed rules against the receipt
+        if: env.FIREBASE_DEPLOYMENT_PENDING != 'true'
+        run: node functions/tools/live-rules.mjs
+      - name: Check existing alert receivers and save diagnostics
+        if: '!cancelled() && env.FIREBASE_DEPLOYMENT_PENDING != ''true'''
+        run: node functions/tools/release-health.mjs
+      - name: Check main and develop protections
+        if: '!cancelled()'
+        env:
+          GITHUB_TOKEN: ${{ secrets.FIREBASE_GOVERNANCE_TOKEN }}
+        run: node tool/firebase/branch-protection.mjs check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: firebase-observation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/
+          if-no-files-found: error
+          retention-days: 30

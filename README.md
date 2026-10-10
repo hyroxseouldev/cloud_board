@@ -38,6 +38,11 @@ promotes a release to the public production track. See
 
 ## Firebase release safeguards
 
+The complete rules gate, immutable deployment receipt, synthetic client smoke,
+branch-protection setup, monitoring and recovery workflow are documented in
+[Firebase release safety](docs/firebase-release-safety.md). The local/CI entry
+point is `node tool/firebase_contracts.mjs` (Node 22, Java 21, pinned Flutter).
+
 The Firebase workflow tests the app's actual serialized workout and summary
 documents together, including create/update/duplicate writes, supported older
 clients, ownership and transaction rollback. Run locally with Java 21:

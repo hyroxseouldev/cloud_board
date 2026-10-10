@@ -1,3 +1,4 @@
+import {emulatorAddress} from '../../tool/firebase/common.mjs';
 import assert from 'node:assert/strict';
 // This test can only run against a local demo project. Never remove these guards.
 for(const name of ['FIREBASE_AUTH_EMULATOR_HOST','FIRESTORE_EMULATOR_HOST','FIREBASE_DATABASE_EMULATOR_HOST','FIREBASE_STORAGE_EMULATOR_HOST']) {
@@ -43,9 +44,9 @@ const {ref:databaseRef,set}=await import('firebase/database');
 const {ref:storageRef,uploadBytes}=await import('firebase/storage');
 const fs=await import('node:fs');
 const env=await initializeTestEnvironment({projectId:process.env.GCLOUD_PROJECT,
- firestore:{host:'127.0.0.1',port:19080,rules:fs.readFileSync(new URL('../../firestore.rules',import.meta.url),'utf8')},
- database:{host:'127.0.0.1',port:19000,rules:fs.readFileSync(new URL('../../database.rules.json',import.meta.url),'utf8')},
- storage:{host:'127.0.0.1',port:19199,rules:fs.readFileSync(new URL('../../storage.rules',import.meta.url),'utf8')},
+ firestore:{...emulatorAddress(process.env.FIRESTORE_EMULATOR_HOST),rules:fs.readFileSync(new URL('../../firestore.rules',import.meta.url),'utf8')},
+ database:{...emulatorAddress(process.env.FIREBASE_DATABASE_EMULATOR_HOST),rules:fs.readFileSync(new URL('../../database.rules.json',import.meta.url),'utf8')},
+ storage:{...emulatorAddress(process.env.FIREBASE_STORAGE_EMULATOR_HOST),rules:fs.readFileSync(new URL('../../storage.rules',import.meta.url),'utf8')},
 });
 const locked=env.authenticatedContext(uid),other=env.authenticatedContext('other-account');
 await assertFails(setDoc(doc(locked.firestore(),`users/${uid}`),{uid}));

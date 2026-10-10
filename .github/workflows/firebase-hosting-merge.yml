@@ -2,22 +2,23 @@ name: Deploy Flutter Web to Firebase Hosting
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, develop]
   pull_request:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
 
-# Serialize production rule deployments so an older run cannot overwrite newer rules.
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
-  group: firebase-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: firebase-check-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build_and_deploy:
+  app_validation:
+    name: app-validation
     runs-on: ubuntu-latest
-
+    timeout-minutes: 35
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,73 +59,7 @@ jobs:
         run: |
           npm ci --prefix functions
           npm test --prefix functions
-          node --test tool/web_symbols.test.mjs tool/release_backend_gate.test.mjs
-
-      - name: Set up Java for Firestore rules tests
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Test account library concurrency and security rules
-        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-library 'node functions/test/slide-library-emulator.mjs'
-
-      - name: Export actual Flutter workout writes
-        run: flutter test tool/export_workout_save_fixtures_test.dart
-
-      - name: Test workout save transactions and security rules
-        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-workouts 'node functions/test/workout-save-emulator.mjs'
-
-      - name: Test AI premium access, shared budget, and concurrent requests
-        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.deletion-test.json --only firestore --project demo-cloudboard-ai 'node functions/test/ai-timer-emulator.mjs && node functions/test/ai-slides-emulator.mjs && node functions/test/ai-slides-theme-emulator.mjs'
-
-      - name: Export starter pack and test first-class contracts
-        run: |
-          flutter test tool/export_starter_workout_fixtures_test.dart
-          npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-first-class 'node functions/test/first-class-emulator.mjs'
-
-      - name: Test onboarding transactions and security rules
-        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-onboarding 'node functions/test/onboarding-emulator.mjs'
-
-      - name: Test billing without Apple keys and purchase ownership
-        run: npx --yes firebase-tools@15.29.0 emulators:exec --config firebase.onboarding-test.json --only firestore,database --project demo-cloudboard-billing 'node functions/test/billing-emulator.mjs && node functions/test/google-play-emulator.mjs'
-
-      - name: Validate database rules JSON
-        run: python3 -m json.tool database.rules.json > /dev/null
-
-      - name: Authenticate Firebase rule deployment
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
-
-      - name: Deploy account deletion functions and data rules
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          SOLAPI_FROM: ${{ secrets.SOLAPI_FROM }}
-          APPLE_IAP_SECRETS_ENABLED: ${{ vars.APPLE_IAP_SECRETS_ENABLED || 'false' }}
-          AI_TIMER_SECRETS_ENABLED: ${{ vars.AI_TIMER_SECRETS_ENABLED || 'false' }}
-        run: |
-          set -euo pipefail
-          test -n "$SOLAPI_FROM" || { echo 'Missing SMS sender configuration.' >&2; exit 1; }
-          umask 077
-          sender_env=functions/.env.cloud-board-stationd
-          trap 'rm -f "$sender_env"' EXIT
-          printf 'SOLAPI_FROM=%s\n' "$SOLAPI_FROM" > "$sender_env"
-          # Deploy and runtime must use the same explicit opt-in. No placeholder keys.
-          case "$APPLE_IAP_SECRETS_ENABLED" in
-            true|false) ;;
-            *) echo 'Invalid Apple secret binding setting.' >&2; exit 1 ;;
-          esac
-          printf 'APPLE_IAP_SECRETS_ENABLED=%s\n' "$APPLE_IAP_SECRETS_ENABLED" >> "$sender_env"
-          case "$AI_TIMER_SECRETS_ENABLED" in
-            true|false) ;;
-            *) echo 'Invalid AI timer secret binding setting.' >&2; exit 1 ;;
-          esac
-          printf 'AI_TIMER_SECRETS_ENABLED=%s\n' "$AI_TIMER_SECRETS_ENABLED" >> "$sender_env"
-          # Approve the declared retry policy for new event functions in CI.
-          npx --yes firebase-tools@15.29.0 deploy --only functions:account-deletion --project cloud-board-stationd --non-interactive --force
-          npx --yes firebase-tools@15.29.0 deploy --only firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
+          node --test tool/web_symbols.test.mjs tool/release_backend_gate.test.mjs tool/firebase/*.test.mjs
 
       - name: Build Flutter web app
         run: |
@@ -175,11 +110,184 @@ jobs:
               path.write_text(re.sub(r'(?m)^//# sourceMappingURL=.*$', '', path.read_text()))
           PYTHON
 
-      - name: Deploy to Firebase Hosting
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Retain verified web build
+        uses: actions/upload-artifact@v4
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
-          channelId: live
-          projectId: cloud-board-stationd
+          name: firebase-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/web/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  firebase_contracts:
+    name: firebase-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install contract dependencies
+        run: |
+          flutter pub get
+          npm ci --prefix functions
+      - name: Run every Firebase contract
+        env:
+          CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node tool/firebase_contracts.mjs
+      - name: Retain contract results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-contracts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/firebase-contracts/
+            build/contracts/
+          if-no-files-found: error
+          retention-days: 30
+
+  firebase_required:
+    name: firebase-required
+    if: always()
+    needs: [app_validation, firebase_contracts]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      REQUIRED_JOBS: ${{ toJSON(needs) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject failed, skipped, cancelled or missing jobs
+        run: node --input-type=module -e "import {requireSuccess} from './tool/firebase/release.mjs'; requireSuccess(JSON.parse(process.env.REQUIRED_JOBS), ['app_validation', 'firebase_contracts'])"
+      - uses: actions/download-artifact@v4
+        with:
+          name: firebase-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/web
+      - uses: actions/download-artifact@v4
+        with:
+          name: firebase-contracts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build
+      - name: Verify evidence and seal release manifest
+        run: node tool/firebase/release.mjs aggregate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firebase-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/web/
+            build/contracts/
+            build/firebase-contracts/
+            build/release/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
+  firebase_production:
+    name: firebase-production
+    needs: firebase_required
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    concurrency:
+      group: firebase-production
+      cancel-in-progress: false
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      FIREBASE_RELEASE_CANARY_ENABLED: ${{ vars.FIREBASE_RELEASE_CANARY_ENABLED }}
+      FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: npm ci --prefix functions
+      - uses: actions/download-artifact@v4
+        with:
+          name: firebase-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build
+      - name: Validate candidate and canary configuration before any deployment
+        run: |
+          node tool/firebase/release.mjs current
+          node tool/firebase/release.mjs verify
+          node functions/tools/release-smoke.mjs preflight
+      - name: Authenticate Firebase rule deployment
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
+
+      - name: Deploy account deletion functions and data rules
+        env:
+          SOLAPI_FROM: ${{ secrets.SOLAPI_FROM }}
+          APPLE_IAP_SECRETS_ENABLED: ${{ vars.APPLE_IAP_SECRETS_ENABLED || 'false' }}
+          AI_TIMER_SECRETS_ENABLED: ${{ vars.AI_TIMER_SECRETS_ENABLED || 'false' }}
+        run: |
+          set -euo pipefail
+          test -n "$SOLAPI_FROM" || { echo 'Missing SMS sender configuration.' >&2; exit 1; }
+          umask 077
+          sender_env=functions/.env.cloud-board-stationd
+          trap 'rm -f "$sender_env"' EXIT
+          printf 'SOLAPI_FROM=%s\n' "$SOLAPI_FROM" > "$sender_env"
+          # Deploy and runtime must use the same explicit opt-in. No placeholder keys.
+          case "$APPLE_IAP_SECRETS_ENABLED" in
+            true|false) ;;
+            *) echo 'Invalid Apple secret binding setting.' >&2; exit 1 ;;
+          esac
+          printf 'APPLE_IAP_SECRETS_ENABLED=%s\n' "$APPLE_IAP_SECRETS_ENABLED" >> "$sender_env"
+          case "$AI_TIMER_SECRETS_ENABLED" in
+            true|false) ;;
+            *) echo 'Invalid AI timer secret binding setting.' >&2; exit 1 ;;
+          esac
+          printf 'AI_TIMER_SECRETS_ENABLED=%s\n' "$AI_TIMER_SECRETS_ENABLED" >> "$sender_env"
+          # Approve the declared retry policy for new event functions in CI.
+          node tool/firebase/release.mjs current
+          node tool/firebase/release.mjs verify
+          npx --yes firebase-tools@15.29.0 deploy --only functions:account-deletion --project cloud-board-stationd --non-interactive --force
+          node tool/firebase/release.mjs current
+          node tool/firebase/release.mjs verify
+          npx --yes firebase-tools@15.29.0 deploy --only firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
+
+      - name: Verify deployed rules
+        run: node functions/tools/live-rules.mjs build/release/manifest.json --wait
+      - name: Verify client save, image and TV permissions
+        run: node functions/tools/release-smoke.mjs
+      - name: Deploy to Firebase Hosting
+        run: |
+          node tool/firebase/release.mjs current
+          node tool/firebase/release.mjs verify
+          npx --yes firebase-tools@15.29.0 deploy --only hosting --project cloud-board-stationd --non-interactive
+      - name: Publish verified release receipt
+        run: |
+          node functions/tools/live-rules.mjs
+          node tool/firebase/release.mjs ready
+      - name: Retain verified release receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Retain partial deployment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-attempt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/
+          if-no-files-found: error
+          retention-days: 90
