@@ -9,6 +9,16 @@ import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboar
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_board/src/app/feature/onboarding/data/repositories/exploration_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/entities/exploration_progress.dart';
+
+import 'dart:async';
+
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 const user = AuthUser(
   id: 'owner',
@@ -21,6 +31,7 @@ class FakeOnboarding implements OnboardingRepository {
   FakeOnboarding(this.value);
   CenterOnboarding value;
   bool fail = false;
+  Completer<void>? saveGate;
   int starts = 0, saves = 0;
   @override
   Future<CenterOnboarding> load() async => value;
@@ -40,12 +51,14 @@ class FakeOnboarding implements OnboardingRepository {
     String action,
   ) async {
     saves++;
+    await saveGate?.future;
     if (fail) throw StateError('저장 실패');
     return value = value.copyWith(
       profile: profile,
       revision: current.revision + 1,
       step: step,
       completed: action == 'complete',
+      deferred: action == 'defer',
     );
   }
 
@@ -56,18 +69,87 @@ class FakeOnboarding implements OnboardingRepository {
   }
 }
 
-Widget app(FakeOnboarding repository) => ProviderScope(
+Widget app(FakeOnboarding repository, {String? purpose}) => ProviderScope(
   overrides: [
     authStateProvider.overrideWith((ref) => Stream.value(user)),
     onboardingRepositoryProvider.overrideWith((ref) => repository),
   ],
-  child: MaterialApp(
+  child: MaterialApp.router(
     debugShowCheckedModeBanner: false,
     theme: XonTheme.light,
-    home: const OnboardingScreen(),
+    routerConfig: GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => OnboardingScreen(purpose: purpose),
+        ),
+        GoRoute(
+          path: '/explore',
+          builder: (_, _) => const Scaffold(body: Text('예시 체험 화면')),
+        ),
+        GoRoute(
+          path: '/starter-workouts',
+          builder: (_, state) => Scaffold(
+            key: ValueKey('resumed-${state.uri.queryParameters['starter']}'),
+            body: const Text('내 수업 준비 화면'),
+          ),
+        ),
+        GoRoute(
+          path: '/first-class',
+          builder: (_, _) => const Scaffold(body: Text('첫 수업 안내')),
+        ),
+      ],
+    ),
   ),
 );
 void main() {
+  setUp(
+    () => SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty(),
+  );
+  test(
+    'late onboarding response cannot replace the newly signed-in account',
+    () async {
+      final users = StreamController<AuthUser?>();
+      final repository = FakeOnboarding(
+        const CenterOnboarding(phoneRequired: false, storeId: 'first'),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          authStateProvider.overrideWith((_) => users.stream),
+          onboardingRepositoryProvider.overrideWith((_) => repository),
+        ],
+      );
+      addTearDown(() async {
+        container.dispose();
+        await users.close();
+      });
+      container.listen(onboardingControllerProvider, (_, _) {});
+      container.listen(onboardingActionProvider, (_, _) {});
+      users.add(user);
+      await container.pump();
+      await container.read(onboardingControllerProvider.future);
+      repository.saveGate = Completer<void>();
+      final saving = container
+          .read(onboardingActionProvider.notifier)
+          .save(const CenterProfile(purpose: 'operating'), 1);
+      repository.value = const CenterOnboarding(
+        phoneRequired: false,
+        storeId: 'second',
+        profile: CenterProfile(purpose: 'exploring'),
+      );
+      users.add(user.copyWith(id: 'other'));
+      await container.pump();
+      await container.read(onboardingControllerProvider.future);
+      repository.saveGate!.complete();
+      expect(await saving, isFalse);
+      expect(
+        container.read(onboardingControllerProvider).value?.profile.purpose,
+        'exploring',
+      );
+      expect(container.read(onboardingActionProvider).isLoading, isFalse);
+    },
+  );
   test('DTO roundtrip retains purpose, unknown choices and saved progress', () {
     const p = CenterProfile(
       purpose: 'exploring',
@@ -121,7 +203,9 @@ void main() {
       expect(repo.value.profile.purpose, 'exploring');
       expect(repo.starts, 0);
       expect(repo.saves, 1);
-      expect(find.text('센터를 조금 알려주세요'), findsOneWidget);
+      expect(repo.value.deferred, isTrue);
+      expect(find.text('예시 체험 화면'), findsOneWidget);
+      expect(find.text('센터를 조금 알려주세요'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -143,7 +227,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.value.profile.purpose, 'preparing');
     expect(repo.starts, 0);
+    expect(find.text('내 수업 준비 화면'), findsOneWidget);
   });
+  testWidgets(
+    'operating intent is preselected, then continues center setup without trial',
+    (tester) async {
+      final repo = FakeOnboarding(
+        const CenterOnboarding(phoneRequired: false, storeId: 'center'),
+      );
+      await tester.pumpWidget(app(repo, purpose: 'operating'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      expect(repo.value.profile.purpose, 'operating');
+      expect(repo.value.deferred, isFalse);
+      expect(find.text('센터를 조금 알려주세요'), findsOneWidget);
+      expect(repo.starts, 0);
+    },
+  );
+  testWidgets(
+    'restart restores this account pending sample import through onboarding',
+    (tester) async {
+      await LocalExplorationRepository(SharedPreferencesAsync()).save(
+        'owner',
+        const ExplorationProgress(
+          templateKey: 'team',
+          purpose: 'preparing',
+          pendingImport: true,
+        ),
+      );
+      final repo = FakeOnboarding(
+        const CenterOnboarding(phoneRequired: false, storeId: 'center'),
+      );
+      await tester.pumpWidget(app(repo));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      expect(repo.value.profile.purpose, 'preparing');
+      expect(find.byKey(const ValueKey('resumed-team')), findsOneWidget);
+      expect(repo.starts, 0);
+    },
+  );
   testWidgets(
     'phone verification is shown before center setup; no trial on verify',
     (tester) async {
@@ -152,10 +276,30 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('휴대폰 번호'), findsOneWidget);
       await tester.enterText(find.byType(TextField).first, '01012345678');
+      final pageScroll = find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('인증번호 받기'),
+        150,
+        scrollable: pageScroll,
+      );
       await tester.tap(find.text('인증번호 받기'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('인증번호'),
+        150,
+        scrollable: pageScroll,
+      );
       await tester.enterText(find.byType(TextField).last, '123456');
-      await tester.ensureVisible(find.text('인증하고 계속하기'));
+      await tester.scrollUntilVisible(
+        find.text('인증하고 계속하기'),
+        150,
+        scrollable: pageScroll,
+      );
       await tester.tap(find.text('인증하고 계속하기'));
       await tester.pumpAndSettle();
       expect(find.text('어떻게 시작하고 싶으세요?'), findsOneWidget);

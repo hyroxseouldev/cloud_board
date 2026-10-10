@@ -7,12 +7,15 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/starter_workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
 
 class StarterWorkoutsScreen extends HookConsumerWidget {
-  const StarterWorkoutsScreen({super.key});
+  const StarterWorkoutsScreen({super.key, this.initialTemplate, this.purpose});
+  final StarterWorkout? initialTemplate;
+  final String? purpose;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = useState(StarterWorkout.basics);
+    final selected = useState(initialTemplate ?? StarterWorkout.basics);
     final action = ref.watch(starterWorkoutControllerProvider);
     ref.listen(starterWorkoutControllerProvider, (previous, next) {
       if (next.hasError && previous?.error != next.error) {
@@ -42,9 +45,9 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
                 : () async {
                     final saved = await ref
                         .read(starterWorkoutControllerProvider.notifier)
-                        .import(selected.value);
+                        .import(selected.value, owned: true);
                     if (saved != null && context.mounted) {
-                      context.push('/editor/${saved.id}');
+                      context.push('/editor/${saved.id}?guide=true');
                     }
                   },
             icon: action.isLoading
@@ -53,7 +56,7 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.copy_outlined),
-            label: Text(action.isLoading ? '내 수업에 저장 중…' : '내 수업으로 가져오기'),
+            label: Text(action.isLoading ? '내 수업에 저장 중…' : '내 수업으로 만들고 편집'),
           ),
         ),
       ),
@@ -92,16 +95,44 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
             Text(
               '${workout.modules.length}개 슬라이드 · ${workoutDurationText(workout)}',
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: action.isLoading
+                  ? null
+                  : () => context.push(
+                      starterLocation(
+                        '/explore/play/${selected.value.key}',
+                        null,
+                        purpose: purpose,
+                      ),
+                    ),
+              icon: const Icon(Icons.play_circle_outline),
+              label: const Text('저장 전에 이 기기에서 체험'),
+            ),
+            TextButton(
+              onPressed: action.isLoading
+                  ? null
+                  : () => context.go(
+                      starterLocation(
+                        '/explore',
+                        selected.value,
+                        purpose: purpose,
+                      ),
+                    ),
+              child: const Text('다른 예시 둘러보기'),
+            ),
             const SizedBox(height: 16),
             for (final module in workout.modules) ...[
               WorkoutSlidePreview(module: module, isRest: false),
               const SizedBox(height: 12),
             ],
             const Text(
-              '예시 재생은 운영 리포트의 수업 횟수에서 제외됩니다. 실제 수업으로 쓰려면 홈의 수업 메뉴에서 복제해 사용하세요. 회원 수준에 맞게 운동과 시간을 조정하세요.',
+              '아래 버튼을 누르면 실제 수업에 쓸 수 있는 내 워크아웃이 저장됩니다. 체험용 시간이 아닌 원래 시간을 사용해요. 회원 수준에 맞게 운동과 시간을 조정하세요.',
             ),
             const SizedBox(height: 8),
-            const Text('이미 가져온 예시는 다시 열립니다. 수정한 내용은 덮어쓰지 않습니다.'),
+            const Text(
+              '이 예시로 만든 내 수업이 있으면 다시 열어요. 수정한 내용은 덮어쓰지 않습니다. 기존 [예시] 수업도 그대로 남아요.',
+            ),
             if (action.hasError)
               Padding(
                 padding: const EdgeInsets.only(top: 12),

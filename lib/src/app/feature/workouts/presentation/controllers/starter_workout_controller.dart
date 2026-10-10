@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/exploration_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/import_starter_workout.dart';
@@ -18,7 +19,7 @@ class StarterWorkoutController extends _$StarterWorkoutController {
   @override
   AsyncValue<String?> build() => const AsyncData(null);
 
-  Future<Workout?> import(StarterWorkout template) async {
+  Future<Workout?> import(StarterWorkout template, {bool owned = false}) async {
     if (state.isLoading) return null;
     final keepAlive = ref.keepAlive();
     final reporter = ref.read(errorReporterProvider);
@@ -38,17 +39,32 @@ class StarterWorkoutController extends _$StarterWorkoutController {
           displayName: user.displayName,
           photoUrl: user.photoUrl,
         ),
+        owned: owned,
       );
       if (!ref.mounted || ref.read(authStateProvider).value?.id != user.id) {
         return null;
       }
       ref.read(workoutDetailProvider(saved!.id).notifier).replace(saved);
       ref.read(workoutControllerProvider.notifier).upsert(saved!);
+      if (owned) {
+        unawaited(
+          ref
+              .read(explorationControllerProvider.notifier)
+              .imported(template)
+              .catchError((Object _) {}),
+        );
+      }
+      final firstClass = ref.read(firstClassControllerProvider.notifier);
       unawaited(
-        ref
-            .read(firstClassControllerProvider.notifier)
-            .saved(saved!.id, ownerId: saved!.ownerId)
-            .catchError((Object _) {}),
+        () async {
+          await firstClass.saved(saved!.id, ownerId: saved!.ownerId);
+          if (owned) {
+            await firstClass.learningEvent(
+              'starter_to_owned',
+              ownerId: saved!.ownerId,
+            );
+          }
+        }().catchError((Object _) {}),
       );
       return saved!.id;
     });

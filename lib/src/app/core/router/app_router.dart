@@ -1,4 +1,6 @@
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/views/explore_screen.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/starter_workouts_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboarding_screen.dart';
@@ -47,6 +49,9 @@ GoRouter appRouter(Ref ref) {
     initialLocation: '/',
     refreshListenable: authRefresh,
     redirect: (context, state) {
+      if (isExplorationPath(state.uri.path)) return null;
+      final starter = starterFromKey(state.uri.queryParameters['starter']);
+      final purpose = explorationPurpose(state.uri.queryParameters['purpose']);
       final auth = ref.read(authStateProvider);
       final isLoginRoute =
           state.matchedLocation == '/login' ||
@@ -60,7 +65,6 @@ GoRouter appRouter(Ref ref) {
         ).toString();
       }
       final isLoggedIn = auth.value != null;
-      if (!isLoggedIn && !isLoginRoute) return '/login';
       if (isLoadingRoute) {
         final destination = Uri.tryParse(
           state.uri.queryParameters['from'] ?? '/',
@@ -69,23 +73,53 @@ GoRouter appRouter(Ref ref) {
             destination.hasScheme ||
             destination.hasAuthority ||
             !destination.path.startsWith('/') ||
-            destination.path == '/auth-loading' ||
-            destination.path == '/login' ||
-            destination.path == '/login/email') {
+            destination.path == '/auth-loading') {
           return '/';
         }
         return destination.toString();
       }
+      if (!isLoggedIn && !isLoginRoute) {
+        return starterLocation('/login', starter, purpose: purpose);
+      }
       if (isLoggedIn && auth.value?.needsOnboarding == true) {
         final onboarding = ref.read(onboardingRequiredProvider);
         if (onboarding.value != false && state.uri.path != '/onboarding') {
-          return '/onboarding';
+          return starterLocation('/onboarding', starter, purpose: purpose);
         }
       }
-      if (isLoggedIn && isLoginRoute) return '/';
+      if (isLoggedIn && isLoginRoute) {
+        return starter == null
+            ? '/'
+            : starterLocation('/starter-workouts', starter, purpose: purpose);
+      }
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/explore',
+        builder: (_, state) => ExploreScreen(
+          initialTemplate: starterFromKey(state.uri.queryParameters['starter']),
+          initialPurpose: explorationPurpose(
+            state.uri.queryParameters['purpose'],
+          ),
+        ),
+        routes: [
+          GoRoute(
+            path: 'play/:template',
+            builder: (_, state) {
+              final template = starterFromKey(state.pathParameters['template']);
+              return template == null
+                  ? const ExploreScreen()
+                  : ExploreDemoScreen(
+                      template: template,
+                      purpose: explorationPurpose(
+                        state.uri.queryParameters['purpose'],
+                      ),
+                    );
+            },
+          ),
+        ],
+      ),
       GoRoute(
         path: '/auth-loading',
         builder: (_, _) => const AppStartupScreen(),
@@ -96,15 +130,29 @@ GoRouter appRouter(Ref ref) {
         builder: (_, state) => OnboardingScreen(
           editing: state.uri.queryParameters['edit'] == 'true',
           guard: onboardingGuard,
+          starter: starterFromKey(state.uri.queryParameters['starter']),
+          purpose: explorationPurpose(state.uri.queryParameters['purpose']),
         ),
       ),
       GoRoute(
         path: '/login',
-        builder: (_, _) => const WebPageFrame(child: LoginScreen()),
+        builder: (_, state) => WebPageFrame(
+          child: LoginScreen(
+            starter: starterFromKey(state.uri.queryParameters['starter']),
+            purpose: explorationPurpose(state.uri.queryParameters['purpose']),
+          ),
+        ),
         routes: [
           GoRoute(
             path: 'email',
-            builder: (_, _) => const WebPageFrame(child: EmailLoginScreen()),
+            builder: (_, state) => WebPageFrame(
+              child: EmailLoginScreen(
+                starter: starterFromKey(state.uri.queryParameters['starter']),
+                purpose: explorationPurpose(
+                  state.uri.queryParameters['purpose'],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -128,7 +176,12 @@ GoRouter appRouter(Ref ref) {
           ),
           GoRoute(
             path: '/starter-workouts',
-            builder: (_, _) => const StarterWorkoutsScreen(),
+            builder: (_, state) => StarterWorkoutsScreen(
+              purpose: explorationPurpose(state.uri.queryParameters['purpose']),
+              initialTemplate: starterFromKey(
+                state.uri.queryParameters['starter'],
+              ),
+            ),
           ),
           GoRoute(
             path: '/displays/connect',
@@ -162,6 +215,7 @@ GoRouter appRouter(Ref ref) {
             builder: (_, state) => WorkoutEditorScreen(
               workoutId: state.pathParameters['id']!,
               guard: workoutGuard,
+              guide: state.uri.queryParameters['guide'] == 'true',
             ),
             onExit: (_, _) => workoutGuard.confirm(),
             routes: [

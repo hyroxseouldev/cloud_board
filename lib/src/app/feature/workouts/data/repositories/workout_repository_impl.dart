@@ -245,7 +245,9 @@ class WorkoutRepositoryImpl
 
   @override
   Future<Workout> importStarter(Workout workout) async {
-    if (!isStarterWorkout(workout.id)) {
+    if (!StarterWorkout.values.any(
+      (t) => workout.id == t.workoutId || workout.id == t.ownedWorkoutId,
+    )) {
       throw ArgumentError('Invalid starter ID');
     }
     final user = _requireUser();

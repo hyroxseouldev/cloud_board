@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/exploration_controller.dart';
+
 import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
 
 import 'package:flutter/material.dart';
@@ -12,37 +16,82 @@ import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_rehearsal_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/center_onboarding.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
 
 class OnboardingScreen extends HookConsumerWidget {
-  const OnboardingScreen({super.key, this.editing = false, this.guard});
+  const OnboardingScreen({
+    super.key,
+    this.editing = false,
+    this.guard,
+    this.starter,
+    this.purpose,
+  });
   final ExitGuard? guard;
   final bool editing;
+  final StarterWorkout? starter;
+  final String? purpose;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(onboardingControllerProvider);
+    final exploration = ref.watch(explorationControllerProvider);
+    final continuedStarter =
+        starter ??
+        (exploration.value?.pendingImport == true
+            ? starterFromKey(exploration.value?.templateKey)
+            : null);
+    final continuedPurpose =
+        purpose ??
+        (exploration.value?.pendingImport == true
+            ? exploration.value?.purpose
+            : null);
+    useEffect(() {
+      if (starter != null) {
+        unawaited(
+          ref
+              .read(explorationControllerProvider.notifier)
+              .beginImport(starter!, purpose: explorationPurpose(purpose))
+              .catchError((Object _) {}),
+        );
+      }
+      if (explorationPurpose(purpose) != null) {
+        unawaited(
+          ref
+              .read(explorationControllerProvider.notifier)
+              .purpose(purpose!)
+              .catchError((Object _) {}),
+        );
+      }
+      return null;
+    }, [starter, purpose]);
     return Scaffold(
-      body: AsyncValueWidget<CenterOnboarding>(
-        value: progress,
-        onRetry: () => ref.invalidate(onboardingControllerProvider),
-        data: (data) => data.phoneRequired
-            ? const _PhoneVerification()
-            : _OnboardingForm(
-                key: ValueKey(data.storeId),
-                initial: data,
-                editing: editing,
-                guard: guard,
-              ),
-      ),
+      body: exploration.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : AsyncValueWidget<CenterOnboarding>(
+              value: progress,
+              onRetry: () => ref.invalidate(onboardingControllerProvider),
+              data: (data) => data.phoneRequired
+                  ? _PhoneVerification(
+                      starter: continuedStarter,
+                      purpose: continuedPurpose,
+                    )
+                  : _OnboardingForm(
+                      key: ValueKey(data.storeId),
+                      initial: data,
+                      editing: editing,
+                      guard: guard,
+                      starter: continuedStarter,
+                      purpose: continuedPurpose,
+                    ),
+            ),
     );
   }
 }
 
 class _PhoneVerification extends HookConsumerWidget {
-  const _PhoneVerification();
+  const _PhoneVerification({this.starter, this.purpose});
+  final StarterWorkout? starter;
+  final String? purpose;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final phone = useTextEditingController(), code = useTextEditingController();
@@ -63,7 +112,11 @@ class _PhoneVerification extends HookConsumerWidget {
           onPressed: action.isLoading
               ? null
               : () {
-                  if (context.canPop()) {
+                  if (starter != null) {
+                    context.go(
+                      starterLocation('/explore', starter, purpose: purpose),
+                    );
+                  } else if (context.canPop()) {
                     context.pop();
                   } else {
                     ref.read(authControllerProvider.notifier).signOut();
@@ -87,7 +140,21 @@ class _PhoneVerification extends HookConsumerWidget {
                 '센터 계정을 안전하게 연결하기 위한 인증이에요.\n인증만으로 무료 체험이 시작되지는 않아요.',
                 style: TextStyle(color: AppColors.muted, height: 1.6),
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 16),
+              if (starter != null) Text('${starter!.title} 선택은 그대로 이어집니다.'),
+              TextButton.icon(
+                onPressed: action.isLoading
+                    ? null
+                    : () => context.go(
+                        starterLocation('/explore', starter, purpose: purpose),
+                      ),
+                icon: const Icon(Icons.play_circle_outline),
+                label: const Text('인증은 나중에 · 먼저 둘러보기'),
+              ),
+              const Text(
+                '둘러보기와 이 기기 연습에는 인증이 필요 없어요. 내 계정에 수업을 저장하려면 인증을 이어가 주세요.',
+              ),
+              const SizedBox(height: 24),
               TextField(
                 controller: phone,
                 enabled: !action.isLoading && !sent.value,
@@ -168,13 +235,21 @@ class _OnboardingForm extends HookConsumerWidget {
     required this.initial,
     required this.editing,
     this.guard,
+    this.starter,
+    this.purpose,
   });
   final ExitGuard? guard;
   final CenterOnboarding initial;
   final bool editing;
+  final StarterWorkout? starter;
+  final String? purpose;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = useState(initial.profile);
+    final profile = useState(
+      initial.profile.purpose == null && !editing
+          ? initial.profile.copyWith(purpose: explorationPurpose(purpose))
+          : initial.profile,
+    );
     final step = useState(editing ? 1 : initial.step.clamp(0, 3));
     final latest = ref.watch(onboardingControllerProvider).value ?? initial;
     final action = ref.watch(onboardingActionProvider);
@@ -206,11 +281,35 @@ class _OnboardingForm extends HookConsumerWidget {
 
     Future<void> later() async {
       if (await save(step.value, action: 'defer') && context.mounted) {
-        context.go('/');
+        context.go(
+          starterLocation(
+            starter != null
+                ? '/starter-workouts'
+                : profile.value.purpose == 'operating'
+                ? '/first-class'
+                : '/explore',
+            starter,
+            purpose: profile.value.purpose,
+          ),
+        );
       }
     }
 
     Future<void> next() async {
+      if (step.value == 0 && profile.value.purpose != 'operating') {
+        if (await save(0, action: 'defer') && context.mounted) {
+          context.go(
+            starterLocation(
+              profile.value.purpose == 'preparing' || starter != null
+                  ? '/starter-workouts'
+                  : '/explore',
+              starter,
+              purpose: profile.value.purpose,
+            ),
+          );
+        }
+        return;
+      }
       if (step.value == 1 && !profile.value.isComplete) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('담당자 역할·센터명·센터 유형·지역을 입력해 주세요.')),
@@ -411,25 +510,11 @@ class _OnboardingForm extends HookConsumerWidget {
                           ),
                           const SizedBox(height: 28),
                           OutlinedButton.icon(
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => SlideRehearsalScreen(
-                                  module:
-                                      WorkoutModule.empty(
-                                        'onboarding-example',
-                                      ).copyWith(
-                                        name: '첫 수업 · 스쿼트',
-                                        text: '발을 어깨너비로 벌리고\n천천히 앉았다 일어나세요.',
-                                        workSeconds: 30,
-                                        restSeconds: 10,
-                                        sets: 3,
-                                        beep: false,
-                                      ),
-                                  brandL: profile.value.centerName.isEmpty
-                                      ? 'CloudBoard'
-                                      : profile.value.centerName,
-                                  brandR: '예시 수업',
-                                ),
+                            onPressed: () => context.push(
+                              starterLocation(
+                                '/explore',
+                                starter,
+                                purpose: profile.value.purpose,
                               ),
                             ),
                             icon: const Icon(Icons.play_circle_outline_rounded),
@@ -512,7 +597,15 @@ class _OnboardingForm extends HookConsumerWidget {
                                           !latest.hasAccess,
                                     );
                                   } else {
-                                    context.go('/');
+                                    context.go(
+                                      starter == null
+                                          ? '/first-class'
+                                          : starterLocation(
+                                              '/starter-workouts',
+                                              starter,
+                                              purpose: profile.value.purpose,
+                                            ),
+                                    );
                                   }
                                 },
                           style: FilledButton.styleFrom(
@@ -536,7 +629,9 @@ class _OnboardingForm extends HookConsumerWidget {
                                                 latest.hasAccess)
                                             ? '센터 설정 마치기'
                                             : '1개월 무료로 시작하기')
-                                      : '홈으로 가기',
+                                      : starter == null
+                                      ? '첫 수업 준비하기'
+                                      : '선택한 예시로 내 수업 만들기',
                                 ),
                         ),
                         if (step.value == 0)
