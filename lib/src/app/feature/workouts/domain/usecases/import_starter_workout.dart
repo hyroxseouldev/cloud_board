@@ -8,8 +8,13 @@ part 'import_starter_workout.g.dart';
 class ImportStarterWorkout {
   const ImportStarterWorkout(this.importer);
   final StarterWorkoutImporter importer;
-  Future<Workout> call(StarterWorkout template, WorkoutAuthor author) =>
-      importer.importStarter(template.create(author));
+  Future<Workout> call(
+    StarterWorkout template,
+    WorkoutAuthor author, {
+    bool owned = false,
+  }) => importer.importStarter(
+    owned ? template.createOwned(author) : template.create(author),
+  );
 }
 
 @riverpod

@@ -159,4 +159,21 @@ class FirstClassController extends _$FirstClassController {
     (p) => p.copyWith(verifiedDeviceId: deviceId),
     events: const ['display_completed'],
   );
+
+  Future<void> rehearsed(String workoutId, {required String ownerId}) async {
+    await future;
+    if (_scope?.userId != ownerId || state.value?.savedWorkoutId != workoutId) {
+      return;
+    }
+    return _change(
+      (p) => p.copyWith(rehearsedWorkoutId: workoutId),
+      events: const ['rehearsal_completed'],
+    );
+  }
+
+  Future<void> learningEvent(String event, {required String ownerId}) async {
+    await future;
+    if (_scope?.userId != ownerId) return;
+    return _change((p) => p, events: [event]);
+  }
 }

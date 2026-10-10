@@ -987,9 +987,9 @@ class _HomeDrawer extends HookWidget {
                     '/first-class',
                   ),
                   destination(
-                    '시작 템플릿',
+                    '예시 수업 둘러보기',
                     Icons.auto_awesome_mosaic_outlined,
-                    '/starter-workouts',
+                    '/explore',
                   ),
                   destination('라이브러리', Icons.star_outline_rounded, '/slides'),
                   const Divider(height: 32),

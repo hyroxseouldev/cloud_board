@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,7 +12,9 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/email_
 enum _EmailMode { login, signup, reset }
 
 class EmailLoginScreen extends HookConsumerWidget {
-  const EmailLoginScreen({super.key});
+  const EmailLoginScreen({super.key, this.starter, this.purpose});
+  final StarterWorkout? starter;
+  final String? purpose;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -64,7 +69,16 @@ class EmailLoginScreen extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        leading: starter == null
+            ? null
+            : BackButton(
+                onPressed: () => context.go(
+                  starterLocation('/login', starter, purpose: purpose),
+                ),
+              ),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -94,7 +108,7 @@ class EmailLoginScreen extends HookConsumerWidget {
                       const SizedBox(height: 12),
                       Text(
                         signup
-                            ? '가입 후 휴대폰 인증과 센터 설정을 이어서 진행해요.'
+                            ? '내 수업을 저장할 계정을 만들어요. 선택한 예시는 가입 후에도 이어집니다. 둘러보기는 계정 없이 가능해요.'
                             : reset
                             ? '가입한 이메일로 비밀번호 재설정 링크를 보내드려요.'
                             : '가입한 이메일과 비밀번호를 입력해 주세요.',

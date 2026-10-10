@@ -21,10 +21,17 @@ class SlideRehearsalScreen extends HookConsumerWidget {
     required this.brandL,
     required this.brandR,
     this.workout,
+    this.introduction,
+    this.navigation,
+    this.onCompleted,
+    this.title = '슬라이드 시험 재생',
   });
   final WorkoutModule module;
   final String brandL, brandR;
   final Workout? workout;
+  final Widget? introduction, navigation;
+  final VoidCallback? onCompleted;
+  final String title;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = slideRehearsalControllerProvider(module);
@@ -57,6 +64,11 @@ class SlideRehearsalScreen extends HookConsumerWidget {
     }
 
     ref.listen(provider, (previous, next) {
+      if (total > 0 &&
+          next.positionMs >= total &&
+          (previous?.positionMs ?? 0) < total) {
+        onCompleted?.call();
+      }
       if (previous == null || !previous.playing || !module.beep) return;
       final before = rehearsalFrame(module, previous.positionMs);
       final after = rehearsalFrame(module, next.positionMs);
@@ -144,9 +156,9 @@ class SlideRehearsalScreen extends HookConsumerWidget {
       data: SlideEditorStyle.theme(Theme.of(context)),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(
-            '슬라이드 시험 재생',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
         ),
         body: SafeArea(
@@ -174,13 +186,17 @@ class SlideRehearsalScreen extends HookConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                header,
-                                const SizedBox(height: 20),
-                                Expanded(child: Center(child: preview)),
-                              ],
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ?introduction,
+                                  header,
+                                  const SizedBox(height: 20),
+                                  preview,
+                                  ?navigation,
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 24),
@@ -201,11 +217,13 @@ class SlideRehearsalScreen extends HookConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        ?introduction,
                         header,
                         const SizedBox(height: 24),
                         preview,
                         const SizedBox(height: 24),
                         controls,
+                        ?navigation,
                       ],
                     ),
                   );
