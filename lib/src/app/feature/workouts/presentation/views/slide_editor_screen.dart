@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_design_colors.dart';
@@ -186,11 +187,11 @@ class _SlideEditorBody extends HookConsumerWidget {
     );
     final section = useState(1);
     final sectionTransition = useAnimationController(
-      duration: const Duration(milliseconds: 180),
+      duration: AppMotion.stateChange,
       initialValue: 1,
     );
     final sectionOpacity = sectionTransition.drive(
-      CurveTween(curve: Curves.easeOutCubic),
+      CurveTween(curve: AppMotion.curve),
     );
     final settingsScroll = useScrollController();
     final revision = useState(0);
@@ -504,7 +505,7 @@ class _SlideEditorBody extends HookConsumerWidget {
       if (value == section.value) return;
       FocusScope.of(context).unfocus();
       section.value = value;
-      if (MediaQuery.disableAnimationsOf(context)) {
+      if (AppMotion.reduced(context)) {
         sectionTransition.value = 1;
       } else {
         sectionTransition.forward(from: 0);

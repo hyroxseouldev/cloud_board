@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
+import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
 
 import 'dart:async';
@@ -18,9 +21,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
-import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_list_loading.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
-import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
@@ -54,7 +56,6 @@ class _WorkoutListBody extends HookConsumerWidget {
     final searchFocus = useFocusNode();
     final previousOffset = useRef(0.0);
     final previousPage = useRef(0);
-    final pendingDrawerRoute = useRef<String?>(null);
     final selectedFolder = useState<String?>(null);
     final scroll = useScrollController();
     final refreshing = useState(false);
@@ -64,6 +65,15 @@ class _WorkoutListBody extends HookConsumerWidget {
     final paged = mode == WorkoutListMode.paged;
     final workouts = ref.watch(workoutControllerProvider);
     final catalog = ref.watch(workoutCatalogStatusProvider);
+    final initialLoading =
+        !workouts.hasValue && (workouts.isLoading || refreshing.value);
+    final loading = useWorkoutLoadingPresentation(
+      loading: initialLoading,
+      hasData: workouts.hasValue,
+    );
+    final reveal = AppMotion.reduced(context)
+        ? const AlwaysStoppedAnimation<double>(1)
+        : loading.reveal;
     final items = workouts.value ?? const <WorkoutSummary>[];
     final folders = useMemoized(
       () =>
@@ -109,6 +119,8 @@ class _WorkoutListBody extends HookConsumerWidget {
     useEffect(() {
       void requestNext() {
         if (!scroll.hasClients ||
+            !workouts.hasValue ||
+            refreshing.value ||
             scroll.position.extentAfter > 500 ||
             !catalog.hasMore ||
             catalog.loading ||
@@ -185,7 +197,7 @@ class _WorkoutListBody extends HookConsumerWidget {
       try {
         await ref.read(workoutControllerProvider.notifier).refresh();
       } catch (_) {
-        if (context.mounted) {
+        if (context.mounted && workouts.hasValue) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('새로고침하지 못했습니다. 다시 시도해 주세요.')),
           );
@@ -217,44 +229,17 @@ class _WorkoutListBody extends HookConsumerWidget {
       child: AsyncActionOverlay(
         isLoading: authAction.isLoading || workoutAction.isLoading,
         child: Scaffold(
-          drawer: _HomeDrawer(
-            user: user,
-            isBusy: isBusy,
-            onNavigate: (drawerContext, route) {
-              if (pendingDrawerRoute.value != null) return;
-              pendingDrawerRoute.value = route;
-              Scaffold.of(drawerContext).closeDrawer();
-            },
-            onClosed: () {
-              // Scaffold unmounts the drawer content when its closing animation
-              // is dismissed. onDrawerChanged(false) fires too early (at start).
-              final route = pendingDrawerRoute.value;
-              pendingDrawerRoute.value = null;
-              if (route == null) return;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted &&
-                    ModalRoute.of(context)?.isCurrent == true) {
-                  context.push(route);
-                }
-              });
-            },
-          ),
           appBar: AppBar(
             centerTitle: false,
-            titleSpacing: 0,
+            titleSpacing: searchOpen.value ? 0 : 24,
+            automaticallyImplyLeading: false,
             leading: searchOpen.value
                 ? IconButton(
                     tooltip: '검색 닫기',
                     onPressed: closeSearch,
                     icon: const Icon(Icons.arrow_back_rounded),
                   )
-                : Builder(
-                    builder: (context) => IconButton(
-                      tooltip: '메뉴',
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                      icon: const Icon(Icons.menu_rounded),
-                    ),
-                  ),
+                : null,
             title: searchOpen.value
                 ? TextField(
                     key: const ValueKey('workout-search'),
@@ -325,8 +310,10 @@ class _WorkoutListBody extends HookConsumerWidget {
               if (kIsWeb)
                 IconButton(
                   tooltip: '새로고침',
-                  onPressed: refreshing.value || isBusy ? null : refresh,
-                  icon: refreshing.value
+                  onPressed: !workouts.hasValue || refreshing.value || isBusy
+                      ? null
+                      : refresh,
+                  icon: refreshing.value && workouts.hasValue
                       ? const SizedBox.square(
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
@@ -389,7 +376,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                                   _DisplayStatus(
                                     onPressed: isBusy
                                         ? null
-                                        : () => context.push('/displays'),
+                                        : () => context.go('/displays'),
                                   ),
                                   const SizedBox(height: 12),
                                 ],
@@ -399,43 +386,58 @@ class _WorkoutListBody extends HookConsumerWidget {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        '워크아웃 ${filtered.length}개${catalog.hasMore ? ' 이상' : ''}',
+                                        workouts.hasValue
+                                            ? '워크아웃 ${filtered.length}개${catalog.hasMore ? ' 이상' : ''}'
+                                            : '워크아웃',
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ),
-                                    Flexible(
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: _FolderMenu(
-                                          folders: folders,
-                                          selected: folder,
-                                          loadFolders: () async {
-                                            final all = await ref
-                                                .read(
-                                                  workoutControllerProvider
-                                                      .notifier,
-                                                )
-                                                .loadComplete();
-                                            return all
-                                                .map((item) => item.folder)
-                                                .where(
-                                                  (name) => name.isNotEmpty,
-                                                )
-                                                .toSet()
-                                                .toList()
-                                              ..sort();
-                                          },
-                                          onChanged: (value) {
-                                            selectedFolder.value = value;
-                                            changePage(0);
-                                          },
-                                        ),
+                                    const SizedBox(width: 12),
+                                    AppPressFeedback(
+                                      enabled: !isBusy,
+                                      child: FilledButton.icon(
+                                        key: const ValueKey('create-workout'),
+                                        onPressed: isBusy
+                                            ? null
+                                            : () => context.push('/editor/new'),
+                                        icon: const Icon(Icons.add_rounded),
+                                        label: const Text('만들기'),
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: _FolderMenu(
+                                    enabled: workouts.hasValue,
+                                    folders: folders,
+                                    selected: folder,
+                                    loadFolders: () async {
+                                      final all = await ref
+                                          .read(
+                                            workoutControllerProvider.notifier,
+                                          )
+                                          .loadComplete();
+                                      return all
+                                          .map((item) => item.folder)
+                                          .where((name) => name.isNotEmpty)
+                                          .toSet()
+                                          .toList()
+                                        ..sort();
+                                    },
+                                    onChanged: (value) {
+                                      selectedFolder.value = value;
+                                      changePage(0);
+                                    },
+                                  ),
+                                ),
+                                WorkoutLoadingStatus(
+                                  visible: loading.visible,
+                                  delayed: loading.delayed,
                                 ),
                                 if (paged && filtered.isNotEmpty)
                                   Row(
@@ -477,43 +479,62 @@ class _WorkoutListBody extends HookConsumerWidget {
                             ),
                           ),
                         ),
-                        if (!workouts.hasValue)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: AsyncValueWidget<List<WorkoutSummary>>(
-                              value: workouts,
-                              onRetry: refreshing.value ? null : refresh,
-                              data: (_) => const SizedBox.shrink(),
-                            ),
-                          )
-                        else if (filtered.isEmpty)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: items.isEmpty
-                                ? const _EmptyWorkouts()
-                                : const Center(child: Text('검색 결과가 없습니다.')),
-                          )
-                        else
+                        if (initialLoading)
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(
                               inset,
                               mobile ? 8 : 24,
                               inset,
-                              AppStyle.of(context).floatingSize + 40,
+                              24,
                             ),
-                            sliver: mobile
-                                ? _WorkoutList(
-                                    items: visibleItems,
-                                    isBusy: isBusy,
-                                  )
-                                : _WorkoutGrid(
-                                    items: visibleItems,
-                                    isBusy: isBusy,
+                            sliver: loading.visible
+                                ? WorkoutListSkeleton(mobile: mobile)
+                                : const SliverToBoxAdapter(
+                                    child: SizedBox.shrink(),
                                   ),
+                          )
+                        else if (!workouts.hasValue)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: WorkoutListLoadError(onRetry: refresh),
+                          )
+                        else if (filtered.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: FadeTransition(
+                              opacity: reveal,
+                              child: items.isEmpty
+                                  ? const _EmptyWorkouts()
+                                  : const Center(child: Text('검색 결과가 없습니다.')),
+                            ),
+                          )
+                        else
+                          SliverFadeTransition(
+                            opacity: reveal,
+                            sliver: SliverPadding(
+                              padding: EdgeInsets.fromLTRB(
+                                inset,
+                                mobile ? 8 : 24,
+                                inset,
+                                AppStyle.of(context).floatingSize + 40,
+                              ),
+                              sliver: mobile
+                                  ? _WorkoutList(
+                                      items: visibleItems,
+                                      isBusy: isBusy,
+                                      scope: (query, folder, mode, page.value),
+                                    )
+                                  : _WorkoutGrid(
+                                      items: visibleItems,
+                                      isBusy: isBusy,
+                                    ),
+                            ),
                           ),
-                        if (catalog.loading ||
-                            catalog.hasMore ||
-                            catalog.error != null)
+                        if (workouts.hasValue &&
+                            !refreshing.value &&
+                            (catalog.loading ||
+                                catalog.hasMore ||
+                                catalog.error != null))
                           SliverToBoxAdapter(
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(
@@ -568,14 +589,6 @@ class _WorkoutListBody extends HookConsumerWidget {
               },
             ),
           ),
-          floatingActionButton: FloatingActionButton(
-            tooltip: '워크아웃 추가',
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            onPressed: isBusy ? null : () => context.push('/editor/new'),
-            child: const Icon(Icons.add_rounded),
-          ),
         ),
       ),
     );
@@ -588,10 +601,12 @@ class _FolderMenu extends HookWidget {
     required this.selected,
     required this.onChanged,
     required this.loadFolders,
+    this.enabled = true,
   });
   final Future<List<String>> Function() loadFolders;
   final List<String> folders;
   final String? selected;
+  final bool enabled;
   final ValueChanged<String?> onChanged;
   @override
   Widget build(BuildContext context) {
@@ -603,7 +618,7 @@ class _FolderMenu extends HookWidget {
     return Tooltip(
       message: '폴더 선택',
       child: InkWell(
-        onTap: loading.value
+        onTap: !enabled || loading.value
             ? null
             : () async {
                 loading.value = true;
@@ -658,17 +673,17 @@ class _FolderMenu extends HookWidget {
                         loading.value ? '불러오는 중…' : selected ?? '모든 폴더',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: AppColors.accent,
+                          color: enabled ? AppColors.accent : AppColors.muted,
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(
+                    Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: 20,
-                      color: AppColors.accent,
+                      color: enabled ? AppColors.accent : AppColors.muted,
                     ),
                   ],
                 ),
@@ -714,21 +729,23 @@ class _DisplayStatus extends ConsumerWidget {
 }
 
 class _WorkoutList extends StatelessWidget {
-  const _WorkoutList({required this.items, required this.isBusy});
+  const _WorkoutList({
+    required this.items,
+    required this.isBusy,
+    required this.scope,
+  });
   final List<WorkoutSummary> items;
   final bool isBusy;
+  final Object scope;
   @override
-  Widget build(BuildContext context) => SliverList.builder(
+  Widget build(BuildContext context) => AppAnimatedSliverList<WorkoutSummary>(
     key: const ValueKey('workout-list'),
-    itemCount: items.length,
-    findChildIndexCallback: (key) {
-      final index = items.indexWhere((item) => ValueKey(item.id) == key);
-      return index < 0 ? null : index;
-    },
-    itemBuilder: (_, index) => Column(
-      key: ValueKey(items[index].id),
+    items: items,
+    idOf: (item) => item.id,
+    scope: scope,
+    itemBuilder: (_, item) => Column(
       children: [
-        _WorkoutRow(workout: items[index], isBusy: isBusy),
+        _WorkoutRow(workout: item, isBusy: isBusy),
         const Divider(height: 1),
       ],
     ),
@@ -853,28 +870,11 @@ class _WorkoutGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SliverLayoutBuilder(
     builder: (context, constraints) {
-      const gap = 16.0;
-      final textScaler = MediaQuery.textScalerOf(context);
-      // Keep room for a two-line title and both 44px actions. Large text or
-      // split view falls back to one column instead of squeezing card content.
-      final minCardWidth = 440 + math.max(0, textScaler.scale(16) - 16) * 10;
-      final columns =
-          ((constraints.crossAxisExtent + gap) / (minCardWidth + gap))
-              .floor()
-              .clamp(1, 2);
-      final textHeight =
-          (textScaler.scale(16) * 1.3).ceilToDouble() * 2 +
-          4 +
-          (textScaler.scale(12) * 1.3).ceilToDouble() +
-          4 +
-          (textScaler.scale(13) * 1.3).ceilToDouble();
       return SliverGrid.builder(
         key: const ValueKey('workout-grid'),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: columns,
-          mainAxisExtent: 32 + math.max(72, textHeight),
-          crossAxisSpacing: gap,
-          mainAxisSpacing: gap,
+        gridDelegate: workoutListGridDelegate(
+          context,
+          constraints.crossAxisExtent,
         ),
         itemCount: items.length,
         findChildIndexCallback: (key) {
@@ -901,130 +901,6 @@ class _Logo extends StatelessWidget {
       letterSpacing: -1,
       color: XonColors.black,
     ),
-  );
-}
-
-class _HomeDrawer extends HookWidget {
-  const _HomeDrawer({
-    required this.user,
-    required this.isBusy,
-    required this.onNavigate,
-    required this.onClosed,
-  });
-  final AuthUser? user;
-  final bool isBusy;
-  final void Function(BuildContext, String) onNavigate;
-  final VoidCallback onClosed;
-  @override
-  Widget build(BuildContext context) {
-    useEffect(() => onClosed, const []);
-    void open(String route) => onNavigate(context, route);
-
-    Widget destination(String label, IconData icon, String route) => ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      enabled: !isBusy,
-      onTap: () => open(route),
-    );
-    return Drawer(
-      backgroundColor: Colors.white,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 8, 16),
-              child: Row(
-                children: [
-                  const Expanded(child: _Logo()),
-                  IconButton(
-                    tooltip: '메뉴 닫기',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.home_outlined),
-                    title: const Text('홈'),
-                    selected: true,
-                    selectedTileColor: AppColors.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
-                  destination(
-                    '첫 수업 준비',
-                    Icons.checklist_rounded,
-                    '/first-class',
-                  ),
-                  destination(
-                    '시작 템플릿',
-                    Icons.auto_awesome_mosaic_outlined,
-                    '/starter-workouts',
-                  ),
-                  destination('라이브러리', Icons.star_outline_rounded, '/slides'),
-                  const Divider(height: 32),
-                  if (user != null)
-                    destination(
-                      '매장 관리',
-                      Icons.storefront_outlined,
-                      '/operations',
-                    ),
-                  destination(
-                    '디스플레이 관리',
-                    Icons.desktop_windows_outlined,
-                    '/displays',
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: ListTile(
-                leading: user == null
-                    ? const Icon(Icons.account_circle_outlined)
-                    : _Avatar(user: user!, radius: 20),
-                title: Text(
-                  user?.displayName ?? '내 계정',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: const Text('프로필 및 설정'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                enabled: !isBusy,
-                onTap: () => open('/profile'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.user, required this.radius});
-  final AuthUser user;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) => CircleAvatar(
-    radius: radius,
-    foregroundImage: user.photoUrl != null && user.photoUrl!.isNotEmpty
-        ? NetworkImage(user.photoUrl!)
-        : null,
-    child: user.photoUrl == null || user.photoUrl!.isEmpty
-        ? Text(
-            user.displayName.isEmpty ? '?' : user.displayName.characters.first,
-          )
-        : null,
   );
 }
 

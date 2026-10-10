@@ -17,6 +17,7 @@ abstract class FirstClassProgress with _$FirstClassProgress {
     String? savedWorkoutId,
     String? verifiedDeviceId,
     String? playedSessionId,
+    String? rehearsedWorkoutId,
     @Default(<String>[]) List<String> events,
   }) = _FirstClassProgress;
 
@@ -31,7 +32,18 @@ abstract class FirstClassProgress with _$FirstClassProgress {
   };
   int get completedCount => FirstClassStep.values.where(done).length;
   bool get complete => completedCount == FirstClassStep.values.length;
+
+  FirstClassNext next({required bool onlineTv}) {
+    if (playedSessionId != null) return FirstClassNext.repeat;
+    if (savedWorkoutId == null) return FirstClassNext.explore;
+    if (rehearsedWorkoutId != savedWorkoutId) return FirstClassNext.rehearse;
+    if (!centerReady) return FirstClassNext.center;
+    if (verifiedDeviceId == null || !onlineTv) return FirstClassNext.connect;
+    return FirstClassNext.play;
+  }
 }
+
+enum FirstClassNext { explore, rehearse, center, connect, play, repeat }
 
 /// A pairing record/online bit is not evidence that a class reached the TV.
 /// Require a playing session, an explicitly selected target and its current ACK.

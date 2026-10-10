@@ -601,28 +601,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
       expect(find.byKey(const ValueKey('workout-list')), findsNothing);
+      expect(find.byKey(const ValueKey('create-workout')), findsOneWidget);
+      expect(find.text('수업'), findsOneWidget);
       expect(
-        find.widgetWithIcon(FloatingActionButton, Icons.add_rounded),
+        find.byKey(const ValueKey('create-workout')).hitTestable(),
         findsOneWidget,
       );
-      expect(find.text('수업'), findsOneWidget);
-      expect(find.byTooltip('워크아웃 추가'), findsOneWidget);
-      expect(find.byType(FloatingActionButton).hitTestable(), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsNothing);
 
       expect(find.byTooltip('리스트 보기'), findsNothing);
       expect(find.byTooltip('그리드 보기'), findsNothing);
 
-      expect(find.byTooltip('메뉴'), findsOneWidget);
+      expect(find.byTooltip('메뉴'), findsNothing);
       expect(find.byTooltip('디스플레이 설정'), findsNothing);
       expect(find.byTooltip('기기 모드'), findsNothing);
-      await tester.tap(find.byTooltip('메뉴'));
-      await tester.pumpAndSettle();
-      for (final label in ['디스플레이 관리', '매장 관리', 'Coach']) {
-        expect(find.text(label), findsOneWidget);
-      }
-      expect(find.text('로그아웃'), findsNothing);
-      expect(find.text('기기 모드'), findsNothing);
-      await tester.tap(find.text('디스플레이 관리'));
+      await tester.tap(find.text('디스플레이 연결하기'));
       await tester.pumpAndSettle();
       expect(find.text('등록된 디스플레이'), findsOneWidget);
       expect(find.byType(AlertDialog), findsNothing);
@@ -640,10 +633,7 @@ void main() {
       await tester.enterText(find.byType(TextField), '없는 수업');
       await tester.pumpAndSettle();
       expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
-      expect(
-        find.widgetWithIcon(FloatingActionButton, Icons.add_rounded),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('create-workout')), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

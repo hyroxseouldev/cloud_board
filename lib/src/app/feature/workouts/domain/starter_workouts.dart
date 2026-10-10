@@ -16,6 +16,46 @@ enum StarterWorkout {
   final String key, title, description;
   final int color;
   String get workoutId => '$starterWorkoutPrefix$key';
+  // A normal, reportable class; stable per account for retry-safe conversion.
+  String get ownedWorkoutId => 'class_from_$key';
+
+  Workout createOwned(WorkoutAuthor author) {
+    final source = create(author);
+    return source.copyWith(
+      id: ownedWorkoutId,
+      name: title,
+      folder: '',
+      modules: source.modules
+          .map(
+            (m) => m.copyWith(
+              designHeaderLabel: 'DAILY TRAINING',
+              designSubtitle: '',
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  /// Separate fixtures: the real class timing is never overwritten by the tour.
+  Workout createDemo() {
+    final source = create(
+      const WorkoutAuthor(id: 'local-demo', displayName: '', photoUrl: null),
+    );
+    return source.copyWith(
+      id: 'demo_$key',
+      modules: source.modules
+          .map(
+            (m) => m.copyWith(
+              workSeconds: 8,
+              restSeconds: 4,
+              sets: 2,
+              includeFinalRest: false,
+              beep: false,
+            ),
+          )
+          .toList(),
+    );
+  }
 
   Workout create(WorkoutAuthor author) {
     WorkoutModule slide(

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +27,7 @@ class AiTimerButton extends StatelessWidget {
             : () {
                 showModalBottomSheet<void>(
                   context: context,
+                  sheetAnimationStyle: AppMotion.sheet(context),
                   isScrollControlled: true,
                   useSafeArea: true,
                   showDragHandle: true,

@@ -1,11 +1,14 @@
 import {appendFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
+import {validateReceipt} from './firebase/release.mjs';
+import {hashFile} from './firebase/common.mjs';
+import {readReleaseArtifact} from './firebase/github-artifact.mjs';
 
 const workflow = 'firebase-hosting-merge.yml';
 
 // A passing Flutter build alone is insufficient: the exact commit must have
 // passed the rules contracts AND finished deploying its backend and web app.
-export async function requireBackend({repository, sha, ref, request, sleep, timeoutMs = 45 * 60_000, now = Date.now}) {
+export async function requireBackend({repository, sha, ref, request, readArtifact, sleep, timeoutMs = 45 * 60_000, now = Date.now}) {
   if (ref !== 'refs/heads/main' || !/^[a-f0-9]{40}$/.test(sha || '')) {
     throw new Error('Production upload requires an exact main commit.');
   }
@@ -23,9 +26,23 @@ export async function requireBackend({repository, sha, ref, request, sleep, time
       // Also require the concrete deploy step. A future workflow skip must not
       // accidentally turn a green validation-only run into a release permit.
       const jobs = await request(`/repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
-      const job = jobs.jobs.find(j => j.name === 'build_and_deploy' && j.conclusion === 'success');
-      const deployed = job?.steps?.some(s => s.name === 'Deploy account deletion functions and data rules' && s.conclusion === 'success');
-      if (!deployed) throw new Error('No successful backend deployment step for this exact run attempt.');
+      const job = jobs.jobs.find(j => j.name === 'firebase-production' && j.conclusion === 'success');
+      const required = jobs.jobs.find(j => j.name === 'firebase-required' && j.conclusion === 'success');
+      const steps = ['Deploy account deletion functions and data rules', 'Verify deployed rules',
+        'Verify client save, image and TV permissions', 'Deploy to Firebase Hosting', 'Publish verified release receipt', 'Retain verified release receipt'];
+      if (!required || !steps.every(name => job?.steps?.some(s => s.name === name && s.conclusion === 'success'))) {
+        throw new Error('No successful backend deployment and client smoke for this exact run attempt.');
+      }
+      const artifacts = await request(`/repos/${repository}/actions/runs/${run.id}/artifacts?per_page=100`);
+      const matching = artifacts.artifacts.filter(a => a.name === `firebase-release-${run.id}-${run.run_attempt}` && !a.expired);
+      if (matching.length !== 1 || !readArtifact) throw new Error('Missing unambiguous verified release receipt.');
+      const receipt = await readArtifact(matching[0]);
+      validateReceipt(receipt, {sha, runId: String(run.id), attempt: String(run.run_attempt)});
+      for (const path of ['firestore.rules', 'database.rules.json', 'storage.rules']) {
+        if (receipt.manifest.files[path] !== hashFile(path)) throw new Error('Receipt rules do not match this client commit.');
+      }
+      // Main can advance during the artifact download too.
+      if ((await request(`/repos/${repository}/git/ref/heads/main`)).object.sha !== sha) throw new Error('This commit is no longer main.');
       return run;
     }
     if (now() - started >= timeoutMs) break;
@@ -38,6 +55,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const {GITHUB_TOKEN: token, GITHUB_REPOSITORY: repository, GITHUB_SHA: sha, GITHUB_REF: ref} = process.env;
   if (!token || !repository) throw new Error('Missing GitHub release gate credentials.');
   const run = await requireBackend({repository, sha, ref,
+    readArtifact: artifact => readReleaseArtifact(artifact, repository, token),
     timeoutMs: process.argv.includes('--check-only') ? 0 : undefined,
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
     request: async path => {

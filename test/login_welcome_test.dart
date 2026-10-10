@@ -70,6 +70,8 @@ void main() {
     (tester) async {
       final repository = _PendingRepository();
       await mount(tester, repository: repository);
+      await tester.ensureVisible(find.text('Apple로 계속하기'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Apple로 계속하기'));
       await tester.tap(find.text('Apple로 계속하기'));
       await tester.pump();

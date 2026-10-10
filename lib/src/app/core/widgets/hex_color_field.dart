@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/core/theme/app_dialog_theme.dart';
 
 import 'dart:async';
@@ -54,6 +55,7 @@ class HexColorField extends HookWidget {
     Future<void> pick() async {
       final selected = await showModalBottomSheet<Color>(
         context: context,
+        sheetAnimationStyle: AppMotion.sheet(context),
         isScrollControlled: true,
         showDragHandle: true,
         useSafeArea: true,

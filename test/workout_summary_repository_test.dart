@@ -83,6 +83,33 @@ void main() {
   );
 
   test(
+    'owned starter retry preserves edits and demo IDs cannot be imported',
+    () async {
+      final owned = StarterWorkout.interval.createOwned(
+        const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+      );
+      final edited = owned.copyWith(
+        name: 'Edited owned class',
+        modules: [owned.modules.first.copyWith(workSeconds: 72)],
+      );
+      final source = _Source()..server.add(edited);
+      final repo = WorkoutRepositoryImpl(
+        _Auth(),
+        source,
+        _Storage(),
+        WorkoutLocalDataSource(await SharedPreferences.getInstance()),
+      );
+      expect(await repo.importStarter(owned), edited);
+      expect(source.requiredServerReads, 1);
+      await expectLater(
+        repo.importStarter(StarterWorkout.interval.createDemo()),
+        throwsArgumentError,
+      );
+      expect(source.requiredServerReads, 1);
+    },
+  );
+
+  test(
     'catalog warms only recent details and repeated opens reuse those reads',
     () async {
       final source = _Source();

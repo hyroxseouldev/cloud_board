@@ -33,6 +33,19 @@ try {
   await assertFails(setDoc(doc(env.authenticatedContext('owner').firestore(),'appContent/updateNews'),feed));
   await assertFails(getDoc(doc(publicClient,'appContent/internal')));
   await assert.rejects(handleOnboarding({db,realtime,auth:{uid:'anon',token:{firebase:{sign_in_provider:'anonymous'}}},input:{},secret,send}),{code:'unauthenticated'});
+  // Exploration/preparation may defer after purpose selection. Neither grants access nor starts a trial.
+  for (const [purpose, phone] of [['exploring', '+821066667777'], ['preparing', '+821077778888']]) {
+    const uid = `intent-${purpose}`;
+    await register(uid, phone);
+    await saveOnboarding(db, uid, {action:'defer', profile:{purpose}, revision:0, step:0});
+    const resumed = await readOnboarding(db, uid);
+    assert.equal(resumed.profile.purpose, purpose);
+    assert.equal(resumed.deferred, true);
+    assert.equal(resumed.completed, false);
+    assert.equal((await db.doc(`onboardingTrials/${uid}`).get()).exists, false);
+    assert.equal((await realtime.ref(`subscriptionAccess/${uid}`).get()).exists(), false);
+    await assert.rejects(startOnboardingTrial(db, realtime, uid), {code:'invalid-argument'});
+  }
   // Email/password identities follow the same SMS ownership and trial gates.
   const emailRequest = input => handleOnboarding({db,realtime,auth:{uid:'email-owner',token:{firebase:{sign_in_provider:'password'}}},input,secret,send});
   assert.equal((await emailRequest({action:'load'})).phoneRequired,true);

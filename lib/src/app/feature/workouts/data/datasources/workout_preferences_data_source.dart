@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'package:cloud_board/src/app/feature/workouts/data/models/workout_preferences_document.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
@@ -164,13 +166,10 @@ class WorkoutPreferencesDataSource {
         throw const FormatException('지원하지 않는 설정 버전입니다.');
       }
       final contentOnly = previous?['contentOnly'] == true;
-      transaction.set(target, {
-        'schemaVersion': 1,
-        'revision': normalized.revision,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'contentOnly': contentOnly,
-        'preferences': normalized.toJson(),
-      });
+      transaction.set(
+        target,
+        workoutPreferencesDocument(normalized, contentOnly: contentOnly),
+      );
       // Temporary one-way mirror for installed legacy readers. Rules prevent
       // legacy writers from silently replacing the canonical preferences.
       if (!contentOnly) {

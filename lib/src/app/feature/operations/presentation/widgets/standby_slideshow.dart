@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -67,10 +68,13 @@ class StandbySlideshow extends HookWidget {
               },
             ),
           );
-    if (brand.standbyTransition == StandbyTransition.none) return child;
+    if (AppMotion.reduced(context) ||
+        brand.standbyTransition == StandbyTransition.none) {
+      return child;
+    }
     return ClipRect(
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 600),
+        duration: AppMotion.slideshow,
         transitionBuilder: (child, animation) =>
             brand.standbyTransition == StandbyTransition.slide
             ? SlideTransition(

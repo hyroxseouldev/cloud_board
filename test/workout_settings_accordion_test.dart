@@ -155,7 +155,11 @@ void main() {
       await tester.drag(list, const Offset(0, -420));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text('워크아웃 편집')), header);
-      expect(find.byTooltip('저장').hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('workout-save-button')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('저장됨'), findsOneWidget);
       await tester.drag(list, const Offset(0, 1200));
       await tester.pumpAndSettle();
       expect(find.byTooltip('슬라이드 실행').hitTestable(), findsOneWidget);

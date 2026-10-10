@@ -1,4 +1,11 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
+import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
+
 import 'dart:async';
+
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_rehearsal_screen.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
@@ -32,8 +39,14 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 
 class WorkoutEditorScreen extends HookConsumerWidget {
-  const WorkoutEditorScreen({super.key, required this.workoutId, this.guard});
+  const WorkoutEditorScreen({
+    super.key,
+    required this.workoutId,
+    this.guard,
+    this.guide = false,
+  });
   final String workoutId;
+  final bool guide;
   final ExitGuard? guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,6 +85,7 @@ class WorkoutEditorScreen extends HookConsumerWidget {
                 initial: workout,
                 isNew: workoutId == 'new',
                 guard: guard,
+                guide: guide,
               );
       },
       loading: () =>
@@ -175,15 +189,19 @@ class _EditorBody extends HookConsumerWidget {
     required this.initial,
     required this.isNew,
     this.guard,
+    this.guide = false,
   });
   final Workout initial;
   final bool isNew;
+  final bool guide;
   final ExitGuard? guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = useState(initial);
     final savedBaseline = useState(initial);
     final hasPersisted = useState(!isNew);
+    final guideHidden = useState(false);
+    final guideHeaderKey = useMemoized(GlobalKey.new);
     final name = useTextEditingController(text: initial.name);
     final folder = useTextEditingController(text: initial.folder);
     final slideScroll = useScrollController();
@@ -210,6 +228,59 @@ class _EditorBody extends HookConsumerWidget {
         draft.value != savedBaseline.value ||
         name.text.trim() != savedBaseline.value.name ||
         folder.text.trim() != savedBaseline.value.folder;
+
+    void rehearseHere() {
+      final saved = hasPersisted.value && !hasUnsavedChanges();
+      final value = draft.value.copyWith(name: name.text, folder: folder.text);
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => WorkoutRehearsalScreen(
+            workout: value,
+            onFinished: saved
+                ? () => unawaited(
+                    ref
+                        .read(firstClassControllerProvider.notifier)
+                        .rehearsed(value.id, ownerId: value.ownerId)
+                        .catchError((Object _) {}),
+                  )
+                : null,
+            onConnect: () => context.push('/displays/connect'),
+          ),
+        ),
+      );
+    }
+
+    void showHelp() {
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (sheet) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('첫 수업 만들기', style: Theme.of(sheet).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                const Text(
+                  '1. 수업 이름을 정해요.\n2. 슬라이드를 눌러 운동 내용과 시간을 바꿔요.\n3. 저장한 뒤 이 기기에서 연습해요.\n\n수업(워크아웃)은 여러 운동 화면의 묶음이에요. 각 화면이 슬라이드이고, 템플릿은 시작할 때 쓰는 예시나 디자인이에요. 상세한 배경·소리 설정은 나중에 바꿔도 괜찮아요.',
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(sheet);
+                    guideHidden.value = false;
+                  },
+                  child: const Text('편집 계속하기'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     Future<void> editName() async {
       if (isBusy) return;
@@ -251,7 +322,9 @@ class _EditorBody extends HookConsumerWidget {
       if (saved == null || !context.mounted || !isNew) return;
       // Give the dirty-state guard a frame to observe the saved baseline.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) context.replace('/editor/${saved.id}');
+        if (context.mounted) {
+          context.replace('/editor/${saved.id}?guide=${!guideHidden.value}');
+        }
       });
     }
 
@@ -261,16 +334,23 @@ class _EditorBody extends HookConsumerWidget {
         if (!context.mounted || !slideScroll.hasClients) return;
         final index = draft.value.modules.indexWhere((m) => m.id == id);
         if (index < 0) return;
+        final headerHeight = guideHeaderKey.currentContext?.size?.height ?? 0;
         // Include the newly appended row before the lazy list updates its extent.
         final maxOffset =
             (draft.value.modules.length * rowExtent +
+                    headerHeight +
                     slideListPadding.vertical -
                     slideScroll.position.viewportDimension)
                 .clamp(0.0, double.infinity);
+        final target = (headerHeight + index * rowExtent).clamp(0.0, maxOffset);
+        if (AppMotion.reduced(context)) {
+          slideScroll.jumpTo(target);
+          return;
+        }
         slideScroll.animateTo(
-          (index * rowExtent).clamp(0.0, maxOffset),
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
+          target,
+          duration: AppMotion.duration(context, AppMotion.layout),
+          curve: AppMotion.curve,
         );
       });
     }
@@ -406,13 +486,16 @@ class _EditorBody extends HookConsumerWidget {
         isLoading: false,
         child: Scaffold(
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          floatingActionButton: FloatingActionButton(
-            key: const ValueKey('workout-play-button'),
-            tooltip: '슬라이드 실행',
-            onPressed: isBusy || draft.value.modules.isEmpty
-                ? null
-                : playSlides,
-            child: const Icon(Icons.play_arrow_rounded),
+          floatingActionButton: AppPressFeedback(
+            enabled: !isBusy && draft.value.modules.isNotEmpty,
+            child: FloatingActionButton(
+              key: const ValueKey('workout-play-button'),
+              tooltip: '슬라이드 실행',
+              onPressed: isBusy || draft.value.modules.isEmpty
+                  ? null
+                  : playSlides,
+              child: const Icon(Icons.play_arrow_rounded),
+            ),
           ),
           appBar: AppBar(
             title: const Text(
@@ -434,20 +517,42 @@ class _EditorBody extends HookConsumerWidget {
             ),
             actions: [
               IconButton(
+                tooltip: '만들기 도움말',
+                onPressed: showHelp,
+                icon: const Icon(Icons.help_outline),
+              ),
+              IconButton(
                 key: const ValueKey('workout-save-button'),
                 tooltip: action.isLoading
                     ? workoutSaveProgressLabel(uploadProgress)
+                    : hasPersisted.value && !hasUnsavedChanges()
+                    ? '저장됨'
                     : '저장',
                 onPressed:
                     isBusy || (hasPersisted.value && !hasUnsavedChanges())
                     ? null
                     : saveInPlace,
-                icon: action.isLoading
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
+                icon: AppContentTransition(
+                  transitionKey: (
+                    action.isLoading,
+                    hasPersisted.value && !hasUnsavedChanges(),
+                  ),
+                  child: action.isLoading
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: AppMotion.reduced(context)
+                              ? const Icon(
+                                  Icons.hourglass_empty_rounded,
+                                  size: 20,
+                                )
+                              : const CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          hasPersisted.value && !hasUnsavedChanges()
+                              ? Icons.check_rounded
+                              : Icons.save_outlined,
+                        ),
+                ),
               ),
               const SizedBox(width: 16),
             ],
@@ -580,9 +685,11 @@ class _EditorBody extends HookConsumerWidget {
                                             child: const Text('칩 불러오기 다시 시도'),
                                           )
                                         : favoriteTemplates.isEmpty
-                                        ? const Text(
-                                            '저장한 슬라이드를 여기에서 빠르게 추가할 수 있어요',
-                                            style: TextStyle(
+                                        ? Text(
+                                            draft.value.modules.isEmpty
+                                                ? '첫 운동 화면을 추가해 수업을 시작해 보세요.'
+                                                : '저장한 슬라이드를 여기에서 빠르게 추가할 수 있어요',
+                                            style: const TextStyle(
                                               color: XonColors.muted,
                                               fontSize: 12,
                                             ),
@@ -654,6 +761,78 @@ class _EditorBody extends HookConsumerWidget {
                           key: const ValueKey('workout-slide-list'),
                           scrollController: slideScroll,
                           itemExtent: rowExtent,
+                          header: (guide || isNew) && !guideHidden.value
+                              ? Padding(
+                                  key: guideHeaderKey,
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Card(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  hasPersisted.value &&
+                                                          !hasUnsavedChanges()
+                                                      ? '수업이 저장됐어요'
+                                                      : '첫 운동 화면부터 만들어 보세요',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleMedium,
+                                                ),
+                                              ),
+                                              IconButton(
+                                                tooltip: '만들기 안내 숨기기',
+                                                onPressed: () =>
+                                                    guideHidden.value = true,
+                                                icon: const Icon(
+                                                  Icons.close,
+                                                  size: 20,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const Text(
+                                            '수업은 여러 슬라이드로 구성돼요. 이름을 정하고 각 슬라이드의 운동 내용과 시간을 바꿔 보세요.',
+                                          ),
+                                          if (draft
+                                              .value
+                                              .modules
+                                              .isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            OutlinedButton.icon(
+                                              onPressed: isBusy
+                                                  ? null
+                                                  : rehearseHere,
+                                              icon: const Icon(
+                                                Icons.play_circle_outline,
+                                              ),
+                                              label: const Text('이 기기에서 연습'),
+                                            ),
+                                          ],
+                                          if (hasPersisted.value &&
+                                              !hasUnsavedChanges())
+                                            TextButton(
+                                              onPressed: () =>
+                                                  context.push('/first-class'),
+                                              child: const Text('다음 준비 단계 보기'),
+                                            ),
+                                          if (draft.value.modules.isEmpty)
+                                            TextButton(
+                                              onPressed: () =>
+                                                  context.push('/explore'),
+                                              child: const Text('완성된 예시 수업 보기'),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : null,
                           footer: Padding(
                             padding: const EdgeInsets.only(top: 8, bottom: 8),
                             child: Tooltip(

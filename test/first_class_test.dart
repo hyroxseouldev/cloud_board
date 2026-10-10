@@ -287,6 +287,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('1/4 완료'), 180);
       expect(find.text('1/4 완료'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(

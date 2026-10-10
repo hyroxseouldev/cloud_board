@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
@@ -52,10 +53,8 @@ class StoreOperationsScreen extends HookConsumerWidget {
           FocusScope.of(context).unfocus();
           tabs.animateTo(
             index,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.duration(context, AppMotion.selection),
+            curve: AppMotion.curve,
           );
         },
         items: const [

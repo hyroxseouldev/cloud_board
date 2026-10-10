@@ -44,7 +44,7 @@ try {
     await assertFails(importStarter(env.authenticatedContext('other').firestore(), fixture));
     await assertFails(importStarter(env.unauthenticatedContext().firestore(), fixture));
   }
-  console.log('PASS: 3 starter packs, both schemas, concurrent/retried import preserves edits, cross-owner/guest denied');
+  console.log('PASS: 3 starter packs and owned conversions, both schemas, concurrent/retried import preserves edits, cross-owner/guest denied');
 
   const ownerDb = env.authenticatedContext('owner').database();
   const tvDb = env.authenticatedContext('tv-user', {firebase: {sign_in_provider: 'anonymous'}}).database();

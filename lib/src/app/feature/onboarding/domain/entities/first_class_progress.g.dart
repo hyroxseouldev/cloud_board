@@ -14,6 +14,7 @@ _FirstClassProgress _$FirstClassProgressFromJson(Map<String, dynamic> json) =>
       savedWorkoutId: json['savedWorkoutId'] as String?,
       verifiedDeviceId: json['verifiedDeviceId'] as String?,
       playedSessionId: json['playedSessionId'] as String?,
+      rehearsedWorkoutId: json['rehearsedWorkoutId'] as String?,
       events:
           (json['events'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -29,5 +30,6 @@ Map<String, dynamic> _$FirstClassProgressToJson(_FirstClassProgress instance) =>
       'savedWorkoutId': instance.savedWorkoutId,
       'verifiedDeviceId': instance.verifiedDeviceId,
       'playedSessionId': instance.playedSessionId,
+      'rehearsedWorkoutId': instance.rehearsedWorkoutId,
       'events': instance.events,
     };

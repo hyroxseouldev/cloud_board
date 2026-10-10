@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
@@ -41,12 +43,8 @@ class PlaybackRecoveryView extends HookWidget {
       };
     }, [error]);
 
-    final reduceMotion =
-        MediaQuery.disableAnimationsOf(context) ||
-        MediaQuery.accessibleNavigationOf(context);
-    final rotation = useAnimationController(
-      duration: const Duration(milliseconds: 1200),
-    );
+    final reduceMotion = AppMotion.reduced(context);
+    final rotation = useAnimationController(duration: AppMotion.recovery);
     useEffect(() {
       if (showIndicator.value && error == null && !reduceMotion) {
         rotation.repeat();

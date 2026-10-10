@@ -112,6 +112,11 @@ class FirstTvConnectionScreen extends ConsumerWidget {
               onPressed: () => context.push('/displays'),
               child: const Text('디스플레이 이름·구역 관리'),
             ),
+            TextButton.icon(
+              onPressed: () => context.push('/first-class'),
+              icon: const Icon(Icons.play_circle_outline),
+              label: const Text('TV 연결은 나중에 · 이 기기에서 연습'),
+            ),
           ],
         ),
       ),

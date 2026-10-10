@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -12,7 +14,9 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 import 'package:cloud_board/src/app/feature/auth/presentation/widgets/auth_error_notice.dart';
 
 class LoginScreen extends HookConsumerWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.starter, this.purpose});
+  final StarterWorkout? starter;
+  final String? purpose;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,9 +60,9 @@ class LoginScreen extends HookConsumerWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compactHeight = constraints.maxHeight < 700;
-            final artworkHeight = (constraints.maxHeight * .31).clamp(
-              150.0,
-              260.0,
+            final artworkHeight = (constraints.maxHeight * .22).clamp(
+              120.0,
+              180.0,
             );
             return SingleChildScrollView(
               child: ConstrainedBox(
@@ -104,7 +108,9 @@ class LoginScreen extends HookConsumerWidget {
                           WelcomeMotion(
                             delayFraction: .12,
                             child: Text(
-                              isTv ? '우리 센터의 화면을 준비해요.' : '반가워요,',
+                              isTv
+                                  ? '우리 센터의 화면을 준비해요.'
+                                  : '휴대폰으로 준비하고\nTV에서 함께 운동해요.',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontSize: 26,
@@ -114,24 +120,9 @@ class LoginScreen extends HookConsumerWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          if (!isTv)
-                            const Text(
-                              'CloudBoard에 오신 걸 환영해요.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                height: 1.35,
-                                letterSpacing: -.6,
-                                color: AppColors.ink,
-                              ),
-                            ),
                           const SizedBox(height: 12),
                           Text(
-                            isTv
-                                ? '매장 계정으로 로그인하면 이 TV가 디스플레이로 시작됩니다.'
-                                : '우리 센터의 수업을 함께 준비해요.',
+                            isTv ? '매장 계정으로 로그인하면 이 TV가 디스플레이로 시작됩니다.' : '운동 화면과 타이머를 한 수업으로 준비해요.\nTV 없이 예시부터 체험해 보세요.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 16,
@@ -140,10 +131,36 @@ class LoginScreen extends HookConsumerWidget {
                             ),
                           ),
                           SizedBox(height: compactHeight ? 24 : 36),
+                          if (!isTv) ...[
+                            FilledButton.icon(
+                              key: const ValueKey('explore-without-account'),
+                              onPressed: busy
+                                  ? null
+                                  : () => context.go(
+                                      starterLocation(
+                                        '/explore',
+                                        starter,
+                                        purpose: purpose,
+                                      ),
+                                    ),
+                              icon: const Icon(Icons.play_circle_outline),
+                              label: Text(
+                                starter == null ? '예시 수업 둘러보기' : '선택한 예시로 돌아가기',
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              '계정·TV 없이 이 기기에서 먼저 체험해 보세요.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                          ],
                           Text(
                             isTv
                                 ? '리모컨의 확인 버튼으로 로그인하세요.'
-                                : '로그인하고 수업을 준비해 보세요.',
+                                : starter == null
+                                ? '내 수업을 저장하려면 로그인해 주세요.'
+                                : '${starter!.title} 선택을 이어서 진행해요. 로그인만으로 체험이 시작되지는 않아요.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 14,
@@ -190,7 +207,13 @@ class LoginScreen extends HookConsumerWidget {
                             ),
                             onPressed: busy
                                 ? null
-                                : () => context.push('/login/email'),
+                                : () => context.push(
+                                    starterLocation(
+                                      '/login/email',
+                                      starter,
+                                      purpose: purpose,
+                                    ),
+                                  ),
                           ),
                           if (authState.hasError) ...[
                             const SizedBox(height: 16),
