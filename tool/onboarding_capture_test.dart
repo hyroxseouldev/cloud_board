@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../test/onboarding_test.dart' as fixture;
 
@@ -12,6 +14,8 @@ import 'package:cloud_board/src/app/feature/onboarding/domain/entities/center_on
 
 void main() {
   testWidgets('capture native onboarding design', (tester) async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
     await (FontLoader('Pretendard')..addFont(
           rootBundle.load('assets/fonts/pretendard/Pretendard-Regular.otf'),
         ))

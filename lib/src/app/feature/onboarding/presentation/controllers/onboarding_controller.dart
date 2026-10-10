@@ -28,14 +28,19 @@ class OnboardingAction extends _$OnboardingAction {
 
   Future<bool> run(Future<CenterOnboarding?> Function() operation) async {
     if (state.isLoading) return false;
+    final userId = ref.read(authStateProvider).value?.id;
     state = const AsyncLoading();
     final result = await AsyncValue.guard<void>(() async {
       final value = await operation();
-      if (ref.mounted && value != null) {
+      if (ref.mounted &&
+          ref.read(authStateProvider).value?.id == userId &&
+          value != null) {
         ref.read(onboardingControllerProvider.notifier).replace(value);
       }
     });
-    if (!ref.mounted) return false;
+    if (!ref.mounted || ref.read(authStateProvider).value?.id != userId) {
+      return false;
+    }
     state = result;
     return !state.hasError;
   }
