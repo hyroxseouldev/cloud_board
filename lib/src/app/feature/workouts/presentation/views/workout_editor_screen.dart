@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
+import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
@@ -267,10 +271,15 @@ class _EditorBody extends HookConsumerWidget {
                     slideListPadding.vertical -
                     slideScroll.position.viewportDimension)
                 .clamp(0.0, double.infinity);
+        final target = (index * rowExtent).clamp(0.0, maxOffset);
+        if (AppMotion.reduced(context)) {
+          slideScroll.jumpTo(target);
+          return;
+        }
         slideScroll.animateTo(
-          (index * rowExtent).clamp(0.0, maxOffset),
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
+          target,
+          duration: AppMotion.duration(context, AppMotion.layout),
+          curve: AppMotion.curve,
         );
       });
     }
@@ -406,13 +415,16 @@ class _EditorBody extends HookConsumerWidget {
         isLoading: false,
         child: Scaffold(
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          floatingActionButton: FloatingActionButton(
-            key: const ValueKey('workout-play-button'),
-            tooltip: '슬라이드 실행',
-            onPressed: isBusy || draft.value.modules.isEmpty
-                ? null
-                : playSlides,
-            child: const Icon(Icons.play_arrow_rounded),
+          floatingActionButton: AppPressFeedback(
+            enabled: !isBusy && draft.value.modules.isNotEmpty,
+            child: FloatingActionButton(
+              key: const ValueKey('workout-play-button'),
+              tooltip: '슬라이드 실행',
+              onPressed: isBusy || draft.value.modules.isEmpty
+                  ? null
+                  : playSlides,
+              child: const Icon(Icons.play_arrow_rounded),
+            ),
           ),
           appBar: AppBar(
             title: const Text(
@@ -437,17 +449,34 @@ class _EditorBody extends HookConsumerWidget {
                 key: const ValueKey('workout-save-button'),
                 tooltip: action.isLoading
                     ? workoutSaveProgressLabel(uploadProgress)
+                    : hasPersisted.value && !hasUnsavedChanges()
+                    ? '저장됨'
                     : '저장',
                 onPressed:
                     isBusy || (hasPersisted.value && !hasUnsavedChanges())
                     ? null
                     : saveInPlace,
-                icon: action.isLoading
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
+                icon: AppContentTransition(
+                  transitionKey: (
+                    action.isLoading,
+                    hasPersisted.value && !hasUnsavedChanges(),
+                  ),
+                  child: action.isLoading
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: AppMotion.reduced(context)
+                              ? const Icon(
+                                  Icons.hourglass_empty_rounded,
+                                  size: 20,
+                                )
+                              : const CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          hasPersisted.value && !hasUnsavedChanges()
+                              ? Icons.check_rounded
+                              : Icons.save_outlined,
+                        ),
+                ),
               ),
               const SizedBox(width: 16),
             ],

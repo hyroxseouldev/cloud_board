@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
@@ -183,7 +185,7 @@ class _OnboardingForm extends HookConsumerWidget {
     final scroll = useScrollController();
     final backwards = useState(false);
     final reducedMotion =
-        MediaQuery.disableAnimationsOf(context) ||
+        AppMotion.reduced(context) ||
         MediaQuery.accessibleNavigationOf(context);
     void move(int value) {
       FocusScope.of(context).unfocus();
@@ -272,8 +274,8 @@ class _OnboardingForm extends HookConsumerWidget {
                                 child: AnimatedContainer(
                                   duration: reducedMotion
                                       ? Duration.zero
-                                      : const Duration(milliseconds: 240),
-                                  curve: Curves.easeOutCubic,
+                                      : AppMotion.layout,
+                                  curve: AppMotion.curve,
                                   width: 28,
                                   height: 4,
                                   decoration: BoxDecoration(

@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
+import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
 
 import 'dart:async';
@@ -70,7 +73,7 @@ class _WorkoutListBody extends HookConsumerWidget {
       loading: initialLoading,
       hasData: workouts.hasValue,
     );
-    final reveal = MediaQuery.disableAnimationsOf(context)
+    final reveal = AppMotion.reduced(context)
         ? const AlwaysStoppedAnimation<double>(1)
         : loading.reveal;
     final items = workouts.value ?? const <WorkoutSummary>[];
@@ -540,6 +543,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                                   ? _WorkoutList(
                                       items: visibleItems,
                                       isBusy: isBusy,
+                                      scope: (query, folder, mode, page.value),
                                     )
                                   : _WorkoutGrid(
                                       items: visibleItems,
@@ -606,13 +610,16 @@ class _WorkoutListBody extends HookConsumerWidget {
               },
             ),
           ),
-          floatingActionButton: FloatingActionButton(
-            tooltip: '워크아웃 추가',
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+          floatingActionButton: AppPressFeedback(
+            enabled: !isBusy,
+            child: FloatingActionButton(
+              tooltip: '워크아웃 추가',
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              onPressed: isBusy ? null : () => context.push('/editor/new'),
+              child: const Icon(Icons.add_rounded),
             ),
-            onPressed: isBusy ? null : () => context.push('/editor/new'),
-            child: const Icon(Icons.add_rounded),
           ),
         ),
       ),
@@ -754,21 +761,23 @@ class _DisplayStatus extends ConsumerWidget {
 }
 
 class _WorkoutList extends StatelessWidget {
-  const _WorkoutList({required this.items, required this.isBusy});
+  const _WorkoutList({
+    required this.items,
+    required this.isBusy,
+    required this.scope,
+  });
   final List<WorkoutSummary> items;
   final bool isBusy;
+  final Object scope;
   @override
-  Widget build(BuildContext context) => SliverList.builder(
+  Widget build(BuildContext context) => AppAnimatedSliverList<WorkoutSummary>(
     key: const ValueKey('workout-list'),
-    itemCount: items.length,
-    findChildIndexCallback: (key) {
-      final index = items.indexWhere((item) => ValueKey(item.id) == key);
-      return index < 0 ? null : index;
-    },
-    itemBuilder: (_, index) => Column(
-      key: ValueKey(items[index].id),
+    items: items,
+    idOf: (item) => item.id,
+    scope: scope,
+    itemBuilder: (_, item) => Column(
       children: [
-        _WorkoutRow(workout: items[index], isBusy: isBusy),
+        _WorkoutRow(workout: item, isBusy: isBusy),
         const Divider(height: 1),
       ],
     ),

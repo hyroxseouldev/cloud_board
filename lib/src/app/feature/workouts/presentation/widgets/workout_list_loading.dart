@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -13,7 +15,7 @@ useWorkoutLoadingPresentation({required bool loading, required bool hasData}) {
   final phase = useState(_LoadingPhase.waiting);
   final shown = useRef(false);
   final reveal = useAnimationController(
-    duration: const Duration(milliseconds: 180),
+    duration: AppMotion.stateChange,
     initialValue: 1,
   );
   useEffect(() {
@@ -118,10 +120,8 @@ class WorkoutListSkeleton extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reducedMotion = MediaQuery.disableAnimationsOf(context);
-    final shimmer = useAnimationController(
-      duration: const Duration(milliseconds: 1300),
-    );
+    final reducedMotion = AppMotion.reduced(context);
+    final shimmer = useAnimationController(duration: AppMotion.shimmer);
     useEffect(() {
       if (reducedMotion) {
         shimmer.stop();

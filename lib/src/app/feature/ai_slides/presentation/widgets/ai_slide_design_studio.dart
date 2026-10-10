@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -179,7 +181,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           onTap: busy ? null : () => choose(design),
           borderRadius: BorderRadius.circular(14),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
+            duration: AppMotion.duration(context, AppMotion.stateChange),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),

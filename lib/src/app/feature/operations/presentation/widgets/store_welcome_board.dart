@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -185,6 +186,7 @@ class StoreWelcomeBoard extends StatelessWidget {
         ),
       );
     }
+    final reduced = AppMotion.reduced(context);
     final shift = now.minute % 4;
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5EF),
@@ -195,10 +197,10 @@ class StoreWelcomeBoard extends StatelessWidget {
             width: 1280,
             height: 720,
             child: AnimatedContainer(
-              duration: const Duration(seconds: 2),
+              duration: AppMotion.duration(context, AppMotion.boardShift),
               transform: Matrix4.translationValues(
-                shift.isEven ? -4 : 4,
-                shift < 2 ? -3 : 3,
+                reduced ? 0 : (shift.isEven ? -4 : 4),
+                reduced ? 0 : (shift < 2 ? -3 : 3),
                 0,
               ),
               padding: const EdgeInsets.all(48),
