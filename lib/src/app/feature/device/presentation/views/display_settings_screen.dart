@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
@@ -334,16 +335,19 @@ class _DisplayTile extends StatelessWidget {
                     style: AppStyle.of(context).subText3,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}'
-                    '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
+                  AppContentTransition(
+                    transitionKey: device.online,
+                    child: Text(
+                      '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}'
+                      '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
                     ),
                   ),
                 ],

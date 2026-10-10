@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -19,23 +20,23 @@ class WelcomeMotion extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduced =
-        MediaQuery.disableAnimationsOf(context) ||
-        MediaQuery.accessibleNavigationOf(context);
-    final controller = useAnimationController(
-      duration: const Duration(milliseconds: 420),
-    );
+    final reduced = AppMotion.reduced(context);
+    final first = useRef(true);
+    final previousKey = useRef(motionKey);
+    final controller = useAnimationController(duration: AppMotion.introduction);
     useEffect(() {
+      final animate = first.value || previousKey.value != motionKey;
+      first.value = false;
+      previousKey.value = motionKey;
       if (reduced) {
         controller.value = 1;
-      } else {
+      } else if (animate) {
         controller.forward(from: 0);
       }
       return null;
     }, [motionKey, reduced]);
-    if (reduced) return child;
     final curved = controller.drive(
-      CurveTween(curve: Interval(delayFraction, 1, curve: Curves.easeOutCubic)),
+      CurveTween(curve: Interval(delayFraction, 1, curve: AppMotion.curve)),
     );
     return FadeTransition(
       opacity: curved,

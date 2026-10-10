@@ -618,9 +618,12 @@ class WorkoutControlTimeline extends HookWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '${_time(position)} / ${_time(durations[active] * 1000)}',
-              style: const TextStyle(color: AppColors.muted, fontSize: 13),
+            Flexible(
+              child: Text(
+                '${_time(position)} / ${_time(durations[active] * 1000)}',
+                textAlign: TextAlign.end,
+                style: const TextStyle(color: AppColors.muted, fontSize: 13),
+              ),
             ),
           ],
         ),

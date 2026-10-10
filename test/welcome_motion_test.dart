@@ -21,17 +21,17 @@ void main() {
         ),
       );
       await tester.pumpWidget(form(0, true));
-      expect(
-        find.descendant(
-          of: find.byType(WelcomeMotion),
-          matching: find.byType(FadeTransition),
-        ),
-        findsNothing,
+      final transition = find.descendant(
+        of: find.byType(WelcomeMotion),
+        matching: find.byType(FadeTransition),
       );
+      expect(tester.widget<FadeTransition>(transition).opacity.value, 1);
+      final fieldBefore = tester.element(find.byType(TextField));
       await tester.enterText(find.byType(TextField), '센터 이름');
       await tester.pumpWidget(form(1, false));
       await tester.pump(const Duration(milliseconds: 180));
       expect(controller.text, '센터 이름');
+      expect(tester.element(find.byType(TextField)), same(fieldBefore));
       expect(find.byType(TextField), findsOneWidget);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
