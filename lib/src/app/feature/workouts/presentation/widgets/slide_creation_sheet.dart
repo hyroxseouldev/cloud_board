@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -7,6 +8,7 @@ enum SlideCreationMethod { blank, design }
 Future<SlideCreationMethod?> showSlideCreationSheet(BuildContext context) =>
     showModalBottomSheet<SlideCreationMethod>(
       context: context,
+      sheetAnimationStyle: AppMotion.sheet(context),
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,

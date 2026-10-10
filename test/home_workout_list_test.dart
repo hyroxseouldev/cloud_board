@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:go_router/go_router.dart';
@@ -85,9 +86,11 @@ void main() {
       expect(find.text('1 / 3'), findsOneWidget);
       expect(
         tester
-            .widget<SliverList>(find.byKey(const ValueKey('workout-list')))
-            .delegate
-            .estimatedChildCount,
+            .widget<AppAnimatedSliverList<WorkoutSummary>>(
+              find.byKey(const ValueKey('workout-list')),
+            )
+            .items
+            .length,
         12,
       );
       await tester.tap(find.byTooltip('다음 페이지'));
@@ -108,9 +111,11 @@ void main() {
       );
       expect(
         tester
-            .widget<SliverList>(find.byKey(const ValueKey('workout-list')))
-            .delegate
-            .estimatedChildCount,
+            .widget<AppAnimatedSliverList<WorkoutSummary>>(
+              find.byKey(const ValueKey('workout-list')),
+            )
+            .items
+            .length,
         25,
       );
       expect(_title('수업 01').hitTestable(), findsOneWidget);

@@ -19,10 +19,16 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  for (final size in [const Size(390, 844), const Size(834, 1194)]) {
+  for (final size in [
+    const Size(320, 568),
+    const Size(390, 844),
+    const Size(834, 1194),
+  ]) {
     testWidgets(
       'minimize, browse, expand, external end at $size keeps paused session',
       (tester) async {
+        final reducedMotion = ValueNotifier(size.width == 320);
+        addTearDown(reducedMotion.dispose);
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
@@ -120,13 +126,40 @@ void main() {
             child: MaterialApp.router(
               theme: XonTheme.light,
               routerConfig: router,
+              builder: (context, child) => ValueListenableBuilder<bool>(
+                valueListenable: reducedMotion,
+                builder: (context, reduced, _) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(size.width == 320 ? 2 : 1),
+                    disableAnimations: reduced,
+                  ),
+                  child: child!,
+                ),
+              ),
             ),
           ),
         );
         await tester.pump();
+        final homeBefore = tester.element(find.text('프로필 열기'));
         sessions.add(session);
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('expand-class')), findsOneWidget);
+        expect(tester.element(find.text('프로필 열기')), same(homeBefore));
+        final miniBefore = tester.element(
+          find.byKey(const ValueKey('expand-class')),
+        );
+        final player = playerControllerProvider(workout, sessionId: 's');
+        final playerOwner = container.read(player.notifier);
+        reducedMotion.value = !reducedMotion.value;
+        await tester.pumpAndSettle();
+        reducedMotion.value = !reducedMotion.value;
+        await tester.pumpAndSettle();
+        expect(container.read(player.notifier), same(playerOwner));
+        expect(
+          tester.element(find.byKey(const ValueKey('expand-class'))),
+          same(miniBefore),
+        );
+        expect(tester.element(find.text('프로필 열기')), same(homeBefore));
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('expand-class')), findsNothing);
@@ -147,7 +180,6 @@ void main() {
             (widget) => widget is IconButton && widget.tooltip == tooltip,
           ),
         );
-        final player = playerControllerProvider(workout, sessionId: 's');
         expect(control('이전 슬라이드').onPressed, isNull);
         await tester.tap(find.byTooltip('다음 슬라이드'));
         await tester.pump();
@@ -202,10 +234,12 @@ void main() {
           media.hides,
           0,
         ); // Screen disposal must not clear class system controls.
+        final profileBefore = tester.element(find.text('프로필 페이지'));
         sessions.add(session.copyWith(status: PlaybackStatus.completed));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('expand-class')), findsNothing);
         expect(media.hides, 0);
+        expect(tester.element(find.text('프로필 페이지')), same(profileBefore));
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         router.dispose();

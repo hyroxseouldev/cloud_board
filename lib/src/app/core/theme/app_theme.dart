@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/router/app_page_transitions.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -38,6 +40,14 @@ abstract final class AppTheme {
         )
         .apply(bodyColor: AppColors.ink, displayColor: AppColors.ink);
     return base.copyWith(
+      pageTransitionsTheme: kIsWeb
+          ? PageTransitionsTheme(
+              builders: {
+                for (final platform in TargetPlatform.values)
+                  platform: const AppWebPageTransitions(),
+              },
+            )
+          : base.pageTransitionsTheme,
       extensions: [
         ...base.extensions.values.where((value) => value is! AppStyle),
         guide,

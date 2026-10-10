@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
@@ -85,19 +87,47 @@ class ActiveClassShell extends HookConsumerWidget {
         session != null &&
         session.status != PlaybackStatus.completed &&
         session.workout.modules.isNotEmpty;
+    // Reparent this subtree when motion preferences change without recreating
+    // the player owner. AnimatedSize cannot safely use a zero-duration layout.
+    final barKey = useMemoized(GlobalKey.new);
+    final bar = KeyedSubtree(
+      key: barKey,
+      child: showActiveClass
+          ? _ActiveClass(
+              key: ValueKey(session.id),
+              session: session,
+              playerVisible: playerVisible,
+            )
+          : const SizedBox.shrink(),
+    );
     return WebPageFrame(
       fullWidth: playerVisible || (homeVisible && mode == DeviceMode.display),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          showActiveClass
-              ? _ActiveClass(
-                  key: ValueKey(session.id),
-                  session: session,
-                  playerVisible: playerVisible,
+          Column(
+            children: [
+              Expanded(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeBottom:
+                      showActiveClass &&
+                      !playerVisible &&
+                      MediaQuery.viewInsetsOf(context).bottom == 0,
                   child: child,
-                )
-              : child,
+                ),
+              ),
+              if (AppMotion.reduced(context))
+                bar
+              else
+                AnimatedSize(
+                  duration: AppMotion.layout,
+                  curve: AppMotion.curve,
+                  alignment: Alignment.bottomCenter,
+                  child: bar,
+                ),
+            ],
+          ),
           if (mode == DeviceMode.controller &&
               !recovery.hasValue &&
               playerVisible)
@@ -122,11 +152,9 @@ class _ActiveClass extends HookConsumerWidget {
   const _ActiveClass({
     super.key,
     required this.session,
-    required this.child,
     required this.playerVisible,
   });
   final PlaybackSession session;
-  final Widget child;
   final bool playerVisible;
 
   @override
@@ -177,7 +205,7 @@ class _ActiveClass extends HookConsumerWidget {
         playerVisible ||
         step == null ||
         MediaQuery.viewInsetsOf(context).bottom > 0;
-    if (hidden) return child;
+    if (hidden) return const SizedBox.shrink();
     final totalMs = state.steps.fold<int>(
       0,
       (total, item) => total + item.duration * 1000,
@@ -202,161 +230,154 @@ class _ActiveClass extends HookConsumerWidget {
               : step.isRest
               ? '휴식'
               : '운동'} · ${state.secondsLeft ~/ 60}:${(state.secondsLeft % 60).toString().padLeft(2, '0')}';
-    return Column(
-      children: [
-        Expanded(
-          // The mini controller below already owns the bottom safe area.
-          child: MediaQuery.removePadding(
-            context: context,
-            removeBottom: true,
-            child: child,
-          ),
-        ),
-        Material(
-          color: AppColors.surface,
-          elevation: 8,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LinearProgressIndicator(
-                key: const ValueKey('mini-class-progress'),
-                value: progress,
-                minHeight: 3,
-                stopIndicatorRadius: 0,
-                trackGap: 0,
-                color: AppColors.accent,
-                backgroundColor: AppColors.selected,
-                semanticsLabel: '전체 수업 진행률',
-                semanticsValue: '${(progress * 100).round()}%',
-              ),
-              SafeArea(
-                top: false,
-                child: SizedBox(
-                  height: 76,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          key: const ValueKey('expand-class'),
-                          onTap: () => context.push(
-                            Uri(
-                              path: '/player/${session.workout.id}',
-                              queryParameters: {'session': session.id},
-                            ).toString(),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: SizedBox(
-                                    width: 64,
-                                    height: 44,
-                                    child: step.module.imageSource.isEmpty
-                                        ? const ColoredBox(
-                                            color: AppColors.selected,
-                                            child: Icon(
-                                              Icons.slideshow_outlined,
-                                            ),
-                                          )
-                                        : WorkoutImage(
-                                            source: step.module.imageSource,
-                                            fit: BoxFit.cover,
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        session.workout.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+    return AppContentTransition(
+      transitionKey: session.id,
+      animateOnMount: true,
+      child: Material(
+        color: AppColors.surface,
+        elevation: 8,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LinearProgressIndicator(
+              key: const ValueKey('mini-class-progress'),
+              value: progress,
+              minHeight: 3,
+              stopIndicatorRadius: 0,
+              trackGap: 0,
+              color: AppColors.accent,
+              backgroundColor: AppColors.selected,
+              semanticsLabel: '전체 수업 진행률',
+              semanticsValue: '${(progress * 100).round()}%',
+            ),
+            SafeArea(
+              top: false,
+              child: SizedBox(
+                height:
+                    76 *
+                    (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+                      1.0,
+                      double.infinity,
+                    ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        key: const ValueKey('expand-class'),
+                        onTap: () => context.push(
+                          Uri(
+                            path: '/player/${session.workout.id}',
+                            queryParameters: {'session': session.id},
+                          ).toString(),
                         ),
-                      ),
-                      if (ref
-                          .watch(playbackRecoveryControllerProvider)
-                          .hasError)
-                        IconButton(
-                          tooltip: '다시 연결',
-                          icon: const Icon(Icons.refresh),
-                          onPressed: () => unawaited(
-                            ref
-                                .read(
-                                  playbackRecoveryControllerProvider.notifier,
-                                )
-                                .recover(),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                        ),
-                      IconButton(
-                        tooltip: '이전 슬라이드',
-                        onPressed: disabled || step.moduleIndex == 0
-                            ? null
-                            : () => unawaited(
-                                actions.selectModule(step.moduleIndex - 1),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: SizedBox(
+                                  width: 64,
+                                  height: 44,
+                                  child: step.module.imageSource.isEmpty
+                                      ? const ColoredBox(
+                                          color: AppColors.selected,
+                                          child: Icon(Icons.slideshow_outlined),
+                                        )
+                                      : WorkoutImage(
+                                          source: step.module.imageSource,
+                                          fit: BoxFit.cover,
+                                        ),
+                                ),
                               ),
-                        icon: const Icon(Icons.skip_previous_rounded),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      session.workout.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.muted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                    ),
+                    if (ref.watch(playbackRecoveryControllerProvider).hasError)
                       IconButton(
-                        tooltip: state.isPaused ? '수업 재개' : '수업 일시정지',
-                        onPressed: disabled
-                            ? null
-                            : () => unawaited(actions.toggle()),
-                        icon: Icon(
+                        tooltip: '다시 연결',
+                        icon: const Icon(Icons.refresh),
+                        onPressed: () => unawaited(
+                          ref
+                              .read(playbackRecoveryControllerProvider.notifier)
+                              .recover(),
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: '이전 슬라이드',
+                      onPressed: disabled || step.moduleIndex == 0
+                          ? null
+                          : () => unawaited(
+                              actions.selectModule(step.moduleIndex - 1),
+                            ),
+                      icon: const Icon(Icons.skip_previous_rounded),
+                    ),
+                    IconButton(
+                      tooltip: state.isPaused ? '수업 재개' : '수업 일시정지',
+                      onPressed: disabled
+                          ? null
+                          : () => unawaited(actions.toggle()),
+                      icon: AppContentTransition(
+                        transitionKey: state.isPaused,
+                        child: Icon(
                           state.isPaused
                               ? Icons.play_arrow_rounded
                               : Icons.pause_rounded,
                         ),
                       ),
-                      IconButton(
-                        tooltip: '다음 슬라이드',
-                        onPressed:
-                            disabled ||
-                                step.moduleIndex + 1 >=
-                                    session.workout.modules.length
-                            ? null
-                            : () => unawaited(
-                                actions.selectModule(step.moduleIndex + 1),
-                              ),
-                        icon: const Icon(Icons.skip_next_rounded),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      tooltip: '다음 슬라이드',
+                      onPressed:
+                          disabled ||
+                              step.moduleIndex + 1 >=
+                                  session.workout.modules.length
+                          ? null
+                          : () => unawaited(
+                              actions.selectModule(step.moduleIndex + 1),
+                            ),
+                      icon: const Icon(Icons.skip_next_rounded),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

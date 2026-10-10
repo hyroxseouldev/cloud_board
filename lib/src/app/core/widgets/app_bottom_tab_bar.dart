@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:flutter/material.dart';
 
 class AppBottomTab {
@@ -52,10 +53,11 @@ class AppBottomTabBar extends StatelessWidget {
                 child: Stack(
                   children: [
                     AnimatedPositioned(
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
+                      duration: AppMotion.duration(
+                        context,
+                        AppMotion.selection,
+                      ),
+                      curve: AppMotion.curve,
                       left: leadingFlex * slot + 2,
                       width: items[selected].flex * slot - 4,
                       top: 6,
