@@ -1,0 +1,86 @@
+{
+  "createdAt": "2026-10-09",
+  "kind": "design-proposal",
+  "implementationStatus": "Implemented",
+  "generator": "built-in image_gen",
+  "sourceScreenshot": "reference-home.png",
+  "sourceScreenshotOriginalFilename": "Simulator Screenshot - iPhone 17 Pro - 2026-10-09 at 20.25.22.png",
+  "referencePixels": {
+    "width": 1206,
+    "height": 2622
+  },
+  "gitBase": "origin/develop",
+  "gitCommit": "2aa7951",
+  "displayOrder": [
+    {
+      "number": 1,
+      "name": "목록 스켈레톤",
+      "file": "01-layout-skeleton.png",
+      "recommended": true,
+      "prompt": "Use case: ui-mockup.\nCreate a realistic, production-quality mobile app UI loading-state design with clear hierarchy, exact Korean typography, purposeful spacing and exceptional fidelity to the attached CloudBoard screenshot.\nInput image: the attached screenshot is the existing CloudBoard workout-home design and layout reference. Inspect and use it as visual grounding, not a generic inspiration board.\nDirection name for this independent image: Quiet Layout Skeleton.\nTarget dimensions: 1206 x 2622 pixels, same portrait aspect ratio as the supplied iPhone screenshot (402 x 874 logical points @3x). One independent full-screen app content image only.\nPreserve the reference's white background, black bold CloudBoard wordmark, hamburger left and search right, Korean greeting \"김선명님, 반가워요.\", monitor outline icon with \"디스플레이 연결하기\", section heading position, right-aligned folder selector and bottom-right floating plus button. Use Pretendard-like Korean typography, text #202028, secondary #777683, muted lavender accent #77729D, dividers #E6E3EF, placeholder base #F0EEF5 and subtle highlight #F8F7FB. Keep the ordinary row list, never convert the UI into cards. Horizontal content inset 24 logical points; preserve the source's generous whitespace and compact 60-point rounded thumbnails / 44-point trailing square controls.\nState: cold first-entry loading, authenticated user name already known, workout content and count NOT yet known.\nChange the section heading to exactly \"워크아웃\" without a count. Keep \"모든 폴더\" in muted disabled color. In place of the two real workout rows in the screenshot, show TWO convincing subtle skeleton rows, matching the exact real-list geometry: 60pt rounded thumbnail placeholder at left; a title placeholder, smaller metadata placeholder, and short duration placeholder in the middle; two 44pt rounded-square placeholder blocks on the right, with NO play glyph and NO ellipsis. Delicate separators between rows. The skeleton is grey-lavender with one soft light sheen captured mid-motion, understated and low contrast. Below the section heading and above the first row, use a small accessible text line \"워크아웃을 불러오는 중\" in muted gray, without a spinner. Slight emphasis on the stable structure, no fake workout titles or numbers.\nThe floating plus button remains at its reference position, pale lavender disabled until initial catalog hydration finishes.\nDo not add cards, extra panels, tabs, badges, metrics, borders, illustrations, gradients outside placeholders, or invented features. Hierarchy should come from whitespace, alignment and typography. No centered app card or device mockup.\nFor presentation output app content only: no phone bezel/body, no notch or Dynamic Island, no OS status bar, clock, signal, battery, home indicator, device mask, shadow or browser chrome. Preserve the app content arrangement, with a clean modest top inset replacing removed OS chrome. No design title, option number, annotation, watermark, footer legend or surrounding canvas. One idea only. All visible Korean text must be perfectly legible and correctly spelled.\nCurrent date anchor: 2026-10-09; do not add any date or time. This is a proposed loading design, not an actual implemented screenshot.",
+      "size": 910581,
+      "width": 851,
+      "height": 1849,
+      "linearAssetUrl": "https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/4decc278-4a10-4877-aec1-919fa43fc981/a46386db-174d-40de-8f83-e1b61554de3a"
+    },
+    {
+      "number": 2,
+      "name": "작은 타이머 링",
+      "file": "02-quiet-timer-ring.png",
+      "recommended": false,
+      "prompt": "Use case: ui-mockup.\nCreate a realistic, production-quality mobile app UI loading-state design with exact Korean typography, calm hierarchy and purposeful spacing.\nInput image: the attached screenshot is the actual CloudBoard workout-home screen. Use its visual system and layout faithfully.\nDirection name for this independent image: Quiet Timer Ring.\nTarget dimensions: 1206 x 2622 pixels, same portrait aspect ratio as the source screenshot, equivalent to 402 x 874 logical points @3x. A single standalone app content screen.\nMaintain white background, black bold CloudBoard wordmark, left hamburger, right search, greeting \"김선명님, 반가워요.\", monitor icon and \"디스플레이 연결하기\", workout section heading and muted \"모든 폴더\" at right, bottom-right 60pt rounded-square lavender plus button. Preserve the screenshot's app layout and spacing. Use Pretendard-like typography. Colors: ink #202028, secondary #777683, accent #77729D, subtle surface #F5F4F8. Existing content is NOT loaded yet, so show \"워크아웃\" with NO count.\nLoading concept: remove both workout rows and replace only their content region with a very restrained loading composition. Place a SMALL 24 logical point diameter, 2 logical point stroke circular timer-like spinner, formed of a clean lavender arc and extremely pale track. The arc's end has a subtly rounded cap, no big dots, no decoration. It should look elegant and engineered, small relative to text, never a huge logo. Center it horizontally in the list region, at roughly 345 logical points from the top. Place the exact short caption \"워크아웃을 불러오는 중\" 14 logical points below the ring, 14 logical point muted type. No second line. No skeleton shapes, no progress percent, no fake completion, no countdown.\nUse generous whitespace below. Folder selector and floating plus remain in their positions and are visibly disabled by pale accent styling during initial catalog loading. The header and greeting stay sharp and undimmed. Do not add a modal, overlay, tinted card, status pill, illustration or loading box.\nCreate only app content: no phone body, bezel, notch, Dynamic Island, OS clock/status/battery/signal, home indicator, shadow, device mask or browser chrome. Keep the content arrangement with a modest clean top inset replacing removed OS chrome.\nNo option label, title, surrounding canvas, explanation, annotation or watermark in the image. One idea per image. All Korean text must be exact and legible. Date anchor 2026-10-09; add no date or time. This is a concept rendering of an indeterminate animated loader, not a running app capture.",
+      "size": 739812,
+      "width": 851,
+      "height": 1848,
+      "linearAssetUrl": "https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/678f79f2-96fa-42df-93a5-372f45eb31cc/14ddd61b-63df-4dc3-8c35-9700a7d2e206"
+    },
+    {
+      "number": 3,
+      "name": "인라인 스피너 + 스켈레톤",
+      "file": "03-inline-pulse-hybrid.png",
+      "recommended": false,
+      "prompt": "Use case: ui-mockup.\nCreate a realistic, production-quality mobile UI design for CloudBoard's first-entry workout loading state. Match the attached actual product screenshot closely while showing a distinct hybrid concept.\nInput image role: original CloudBoard screen, essential reference for exact typography, visual language, content hierarchy, spacing, row geometry and lavender palette.\nDirection name: Inline Pulse Hybrid.\nTarget dimensions: 1206 x 2622 pixels, same portrait aspect ratio as the provided 402 x 874 logical point iPhone screenshot. One single app screen, not a collage.\nWhite base, black CloudBoard wordmark in the original bold weight, hamburger and search, \"김선명님, 반가워요.\" greeting, muted monitor icon with \"디스플레이 연결하기\". Use Pretendard-like Korean typography, ink #202028, secondary #777683, accent #77729D, pale placeholder #F0EEF5, separators #E6E3EF. Keep generous whitespace, no invented features, no cards around rows, no modal.\nThis design combines a very SMALL inline loading signal with reduced but layout-stable skeleton rows. Section header left is exactly \"워크아웃\" without a count. Replace the source's right-side folder selector DURING loading with a small 14 logical point thin lavender circular spinner immediately followed by the label \"불러오는 중\" in 13 logical point muted gray. This status is aligned to the same baseline as the section heading, with NO chip, border or badge background. No centered loader and no separate status line below the header.\nBeneath, retain TWO skeleton rows matching the existing workout-row positions and sizing: 60pt rounded-square thumbnail placeholders on left, three muted placeholder bars for title/metadata/duration, and two 44pt softly rounded trailing action placeholders without icons. Skeleton placeholders use a flat calm grey-lavender fill, no strong shimmer. The first row is fractionally more distinct than the second to suggest a gentle opacity pulse sequence; it must still look clearly like placeholder structure rather than real content. Use subtle row divider lines.\nKeep the floating plus at the original lower-right position, in pale disabled lavender with white plus. Everything else remains white and spacious. Do not render fake workout names, counts, percentages, progress completion or a loaded row. This is a true empty-cache first load; both rows are unknown placeholders.\nNo extra navigation, tabs, cards, illustration, texture, decorative blobs or large spinner. Differentiate by typography, spacing and alignment. The single inline status tells what's happening; the skeleton tells what will appear.\nApp-content-only presentation: omit all device bezel/body, notch, Dynamic Island, OS status/clock/signal/battery, home indicator, rounded mask, shadow or browser chrome. Use a modest top inset and source-faithful content layout. No concept title, option number, annotation, watermark, surrounding canvas or caption outside the app. One idea only. Korean spelling must be exact. Current date anchor 2026-10-09; do not add a date or time. This is a static design concept, not implemented output.",
+      "size": 840188,
+      "width": 851,
+      "height": 1849,
+      "linearAssetUrl": "https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/60e1a219-f6aa-4064-930f-2d28ccea39fc/87263913-50e5-44b4-a041-d6bed9227143"
+    }
+  ],
+  "linearIssue": {
+    "identifier": "STA-98",
+    "url": "https://linear.app/clyrdev/issue/STA-98/디자인-첫-홈-진입-로딩-스켈레톤미니-스피너-시안",
+    "status": "Backlog"
+  },
+  "sourceLinearAssetUrl": "https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/3acee565-699a-4769-9d8c-baa3603146d3/40c39edc-8bb7-422b-8927-aba127db6a53",
+  "issueDescription": "첫 진입 시 워크아웃을 가져오는 동안에도 CloudBoard의 흰 배경·라벤더·Pretendard를 유지하고, 무엇을 기다리는지 자연스럽게 전달한다.\n\n**추천: 1번 목록 스켈레톤.** 곧 나타날 썸네일·제목·메타 정보·재생 버튼의 위치를 먼저 보여주는 방향이다. 2번과 3번은 비교 시안이다. 현재 단계는 **이미지 디자인 제안 / 구현 전**이며, 애니메이션 수치는 구현 시작값이다.\n\n## 화면 기준\n\n사용자가 지정한 `Simulator Screenshot - iPhone 17 Pro - 2026-10-09 at 20.25.22.png`의 로그인 후 워크아웃 홈을 기준으로 했다. 원본은 목록 2개가 표시된 로드 완료 화면이며, 실제 로딩 시간은 측정하지 않았다. 시안은 같은 세로 비율의 앱 콘텐츠만 표현한다.\n\n## 시안 비교\n\n### 1. 목록 스켈레톤 · 추천\n\n![시안 1 · 목록 스켈레톤 · 추천](https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/4decc278-4a10-4877-aec1-919fa43fc981/a46386db-174d-40de-8f83-e1b61554de3a)\n\n기존 목록과 같은 두 행의 썸네일·제목·폴더/슬라이드 수·시간·동작 영역을 연한 라벤더로 표시한다. 제목은 `워크아웃`, 안내는 `워크아웃을 불러오는 중`. 수량은 응답 이후에 표시한다. 두 행은 화면 구조를 설명하는 자리 표시이며 실제 항목 수를 뜻하지 않는다.\n\n은은한 밝기 이동을 1.3초 주기로 적용하고, 콘텐츠 준비 즉시 같은 위치에서 약 180ms로 전환한다. 안내 문구는 기존 헤더–목록 간격 안에 배치해 목록 시작점이 움직이지 않도록 한다.\n\n### 2. 작은 타이머 링 · 비교안\n\n![시안 2 · 작은 타이머 링](https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/678f79f2-96fa-42df-93a5-372f45eb31cc/14ddd61b-63df-4dc3-8c35-9700a7d2e206)\n\n목록 영역 안에 24 logical px / stroke 2의 라벤더 링과 짧은 안내만 둔다. 1초 정도의 부드러운 회전으로 대기를 알린다. 가장 간결하지만, 목록 형태를 미리 알려주지는 못한다. 기존 [STA-54](https://linear.app/clyrdev/issue/STA-54)의 작은 스피너 방향과 크기를 맞춘다.\n\n### 3. 인라인 스피너 + 스켈레톤 · 비교안\n\n![시안 3 · 인라인 스피너 + 스켈레톤](https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/60e1a219-f6aa-4064-930f-2d28ccea39fc/87263913-50e5-44b4-a041-d6bed9227143)\n\n헤더 오른쪽에 14–16 logical px 링과 `불러오는 중`을 두고, 아래에는 두 행의 정적인 스켈레톤을 둔다. 상태가 명확하지만 움직임이 중복되지 않도록 스켈레톤에는 별도 shimmer를 적용하지 않는다. 완료 후 같은 오른쪽 자리에 폴더 선택을 복원한다.\n\n## 상태별 동작\n\n| 상황 | 표시와 동작 |\n| --- | --- |\n| 최초 진입 · 아직 데이터 없음 | 상단 로고·확인된 인사말을 먼저 표시. 약 150ms 이상 대기할 때 선택한 로딩 UI 표시. 준비된 데이터를 기다리게 하는 최소 노출 시간은 두지 않음. |\n| 정상 완료 | 실제 목록과 개수를 표시. 행 위치를 유지하며 짧게 전환. 썸네일 디코딩이 늦으면 해당 썸네일만 placeholder 유지. |\n| 정상 응답 · 0개 | 응답 완료를 확인한 뒤 기존 ‘첫 워크아웃 만들기’ 빈 상태로 전환. 로딩 중에 `워크아웃 0개` 또는 빈 상태를 선행 표시하지 않음. |\n| 재진입·새로고침 · 기존 데이터 있음 | 현재 목록과 스크롤 위치를 유지. 작은 새로고침 표시 하나만 사용하고 전체 스켈레톤으로 되돌리지 않음. |\n| 추가 페이지 로딩 | 기존 행 아래에 작은 로더 하나만 표시. 최초 로딩 표시와 중복 노출하지 않음. |\n| 5초 이상 지연 | `연결이 조금 지연되고 있어요`로 안내를 바꿈. 완료 비율이나 남은 시간을 추정해서 표시하지 않음. |\n| 실패·요청 타임아웃 | `워크아웃을 불러오지 못했어요` + `다시 시도`. 기존 데이터가 있으면 유지. 재시도 시 이전 요청 결과가 새 결과를 덮어쓰지 않도록 함. |\n\n목록 미확정 상태의 폴더 선택과 스켈레톤 행은 비활성화한다. 상단 메뉴는 유지하고, 디스플레이 상태와 생성 버튼은 실제 권한·준비 상태를 따른다. 시안의 옅은 `+`는 초기 준비 미완료 상태 표현이며, 생성이 가능한 상태라면 목록 조회만으로 추가 버튼을 막지 않는다. 사용자 이름을 아직 모르면 `반가워요.`를 쓴다.\n\n## 디자인·접근성 기준\n\n- 기존 토큰: accent `#77729D`, text `#202028`, muted `#777683`, line `#E6E3EF`. 스켈레톤 시작값은 `#F0EEF5 → #F8F7FB`.\n- 모바일 좌우 여백 24, 썸네일 60, 동작 영역 44 logical px를 현재 행 구조에 맞춘다. 생성 이미지의 픽셀을 그대로 구현 값으로 복사하지 않는다. 실제 배경은 순수한 흰색이다.\n- 모션 감소 설정에서는 shimmer·회전을 끄고 정적 표시와 상태 문구를 제공한다.\n- 스크린리더에는 `워크아웃을 불러오는 중`을 한 번 알리고, 장식용 스켈레톤은 탐색 대상에서 제외한다.\n- 작은 화면·큰 글꼴에서도 문구가 폴더/상태 표시와 겹치지 않고, 로딩 완료 시 레이아웃이 크게 움직이지 않아야 한다.\n\n## 원본 화면\n\n![기준 화면 · iPhone 17 Pro 홈](https://uploads.linear.app/aaac4c44-a796-4f5b-87f6-4e77a7ea338f/3acee565-699a-4769-9d8c-baa3603146d3/40c39edc-8bb7-422b-8927-aba127db6a53)\n\n## 현재 코드 확인과 구현 범위\n\n`develop`의 `2aa7951` 기준 정적 코드 확인이다.\n\n- [workout_list_screen.dart](https://github.com/hyroxseouldev/cloud_board/blob/2aa7951/lib/src/app/feature/workouts/presentation/views/workout_list_screen.dart): `workouts.value ?? []`에서 헤더 개수를 만들어 최초 로딩 중 0개로 보일 수 있다. 최초 응답 로딩과 `catalog.loading`의 하단 로더가 함께 표시될 수 있다.\n- [async_value_widget.dart](https://github.com/hyroxseouldev/cloud_board/blob/2aa7951/lib/src/app/core/widgets/async_value_widget.dart): 현재 기본 중앙 `CircularProgressIndicator`를 사용한다.\n- 선택 후 홈 전용 로딩 표현을 추가하고, 최초 응답·빈 데이터·기존 데이터가 있는 갱신을 분기한다. 0ms/150ms/1초/5초 이상 지연, 실패→재시도, 실제 빈 목록, 복귀 시나리오로 확인한다.\n\n연관: [STA-53 · 초기 실행 화면](https://linear.app/clyrdev/issue/STA-53), [STA-54 · 복귀 동기화](https://linear.app/clyrdev/issue/STA-54). 이번 제안은 로그인 후 워크아웃 홈의 데이터 로딩 경험을 다룬다.\n",
+  "implementation": {
+    "selectedOption": 1,
+    "implementedAt": "2026-10-10",
+    "branch": "hyroxseouldev/feat-sta-98-home-loading",
+    "baseCommit": "1f5d031",
+    "pullRequestBase": "develop",
+    "sourceGitCommitNote": "Top-level gitCommit records the original design investigation, not the implementation base.",
+    "captures": [
+      "implementation-loading.png",
+      "implementation-error.png",
+      "implementation-loaded.png",
+      "implementation-large-text.png",
+      "implementation-tablet.png"
+    ],
+    "captureMethod": "Flutter widget renderer at 3x; not a simulator or physical device capture.",
+    "comparison": [
+      "comparison.html",
+      "comparison-full.jpg",
+      "comparison-rows.jpg"
+    ],
+    "qaReport": "../../../design-qa.md",
+    "validation": {
+      "fullFlutterTestsPassed": 665,
+      "finalNativeHomeTestsPassed": 33,
+      "finalChromeHomeTestsPassed": 33,
+      "captureTestsPassed": 1,
+      "analyze": "No issues found",
+      "note": "Full suite preceded final visual and web loader refinements; focused native and Chrome suites passed on final source."
+    }
+  }
+}

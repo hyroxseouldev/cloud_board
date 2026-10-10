@@ -18,7 +18,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
-import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_list_loading.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -64,6 +64,15 @@ class _WorkoutListBody extends HookConsumerWidget {
     final paged = mode == WorkoutListMode.paged;
     final workouts = ref.watch(workoutControllerProvider);
     final catalog = ref.watch(workoutCatalogStatusProvider);
+    final initialLoading =
+        !workouts.hasValue && (workouts.isLoading || refreshing.value);
+    final loading = useWorkoutLoadingPresentation(
+      loading: initialLoading,
+      hasData: workouts.hasValue,
+    );
+    final reveal = MediaQuery.disableAnimationsOf(context)
+        ? const AlwaysStoppedAnimation<double>(1)
+        : loading.reveal;
     final items = workouts.value ?? const <WorkoutSummary>[];
     final folders = useMemoized(
       () =>
@@ -109,6 +118,8 @@ class _WorkoutListBody extends HookConsumerWidget {
     useEffect(() {
       void requestNext() {
         if (!scroll.hasClients ||
+            !workouts.hasValue ||
+            refreshing.value ||
             scroll.position.extentAfter > 500 ||
             !catalog.hasMore ||
             catalog.loading ||
@@ -185,7 +196,7 @@ class _WorkoutListBody extends HookConsumerWidget {
       try {
         await ref.read(workoutControllerProvider.notifier).refresh();
       } catch (_) {
-        if (context.mounted) {
+        if (context.mounted && workouts.hasValue) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('새로고침하지 못했습니다. 다시 시도해 주세요.')),
           );
@@ -325,8 +336,10 @@ class _WorkoutListBody extends HookConsumerWidget {
               if (kIsWeb)
                 IconButton(
                   tooltip: '새로고침',
-                  onPressed: refreshing.value || isBusy ? null : refresh,
-                  icon: refreshing.value
+                  onPressed: !workouts.hasValue || refreshing.value || isBusy
+                      ? null
+                      : refresh,
+                  icon: refreshing.value && workouts.hasValue
                       ? const SizedBox.square(
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
@@ -399,7 +412,9 @@ class _WorkoutListBody extends HookConsumerWidget {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        '워크아웃 ${filtered.length}개${catalog.hasMore ? ' 이상' : ''}',
+                                        workouts.hasValue
+                                            ? '워크아웃 ${filtered.length}개${catalog.hasMore ? ' 이상' : ''}'
+                                            : '워크아웃',
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
@@ -410,6 +425,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                                       child: Align(
                                         alignment: Alignment.centerRight,
                                         child: _FolderMenu(
+                                          enabled: workouts.hasValue,
                                           folders: folders,
                                           selected: folder,
                                           loadFolders: () async {
@@ -436,6 +452,10 @@ class _WorkoutListBody extends HookConsumerWidget {
                                       ),
                                     ),
                                   ],
+                                ),
+                                WorkoutLoadingStatus(
+                                  visible: loading.visible,
+                                  delayed: loading.delayed,
                                 ),
                                 if (paged && filtered.isNotEmpty)
                                   Row(
@@ -477,23 +497,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                             ),
                           ),
                         ),
-                        if (!workouts.hasValue)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: AsyncValueWidget<List<WorkoutSummary>>(
-                              value: workouts,
-                              onRetry: refreshing.value ? null : refresh,
-                              data: (_) => const SizedBox.shrink(),
-                            ),
-                          )
-                        else if (filtered.isEmpty)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: items.isEmpty
-                                ? const _EmptyWorkouts()
-                                : const Center(child: Text('검색 결과가 없습니다.')),
-                          )
-                        else
+                        if (initialLoading)
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(
                               inset,
@@ -501,19 +505,53 @@ class _WorkoutListBody extends HookConsumerWidget {
                               inset,
                               AppStyle.of(context).floatingSize + 40,
                             ),
-                            sliver: mobile
-                                ? _WorkoutList(
-                                    items: visibleItems,
-                                    isBusy: isBusy,
-                                  )
-                                : _WorkoutGrid(
-                                    items: visibleItems,
-                                    isBusy: isBusy,
+                            sliver: loading.visible
+                                ? WorkoutListSkeleton(mobile: mobile)
+                                : const SliverToBoxAdapter(
+                                    child: SizedBox.shrink(),
                                   ),
+                          )
+                        else if (!workouts.hasValue)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: WorkoutListLoadError(onRetry: refresh),
+                          )
+                        else if (filtered.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: FadeTransition(
+                              opacity: reveal,
+                              child: items.isEmpty
+                                  ? const _EmptyWorkouts()
+                                  : const Center(child: Text('검색 결과가 없습니다.')),
+                            ),
+                          )
+                        else
+                          SliverFadeTransition(
+                            opacity: reveal,
+                            sliver: SliverPadding(
+                              padding: EdgeInsets.fromLTRB(
+                                inset,
+                                mobile ? 8 : 24,
+                                inset,
+                                AppStyle.of(context).floatingSize + 40,
+                              ),
+                              sliver: mobile
+                                  ? _WorkoutList(
+                                      items: visibleItems,
+                                      isBusy: isBusy,
+                                    )
+                                  : _WorkoutGrid(
+                                      items: visibleItems,
+                                      isBusy: isBusy,
+                                    ),
+                            ),
                           ),
-                        if (catalog.loading ||
-                            catalog.hasMore ||
-                            catalog.error != null)
+                        if (workouts.hasValue &&
+                            !refreshing.value &&
+                            (catalog.loading ||
+                                catalog.hasMore ||
+                                catalog.error != null))
                           SliverToBoxAdapter(
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(
@@ -588,10 +626,12 @@ class _FolderMenu extends HookWidget {
     required this.selected,
     required this.onChanged,
     required this.loadFolders,
+    this.enabled = true,
   });
   final Future<List<String>> Function() loadFolders;
   final List<String> folders;
   final String? selected;
+  final bool enabled;
   final ValueChanged<String?> onChanged;
   @override
   Widget build(BuildContext context) {
@@ -603,7 +643,7 @@ class _FolderMenu extends HookWidget {
     return Tooltip(
       message: '폴더 선택',
       child: InkWell(
-        onTap: loading.value
+        onTap: !enabled || loading.value
             ? null
             : () async {
                 loading.value = true;
@@ -658,17 +698,17 @@ class _FolderMenu extends HookWidget {
                         loading.value ? '불러오는 중…' : selected ?? '모든 폴더',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: AppColors.accent,
+                          color: enabled ? AppColors.accent : AppColors.muted,
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(
+                    Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: 20,
-                      color: AppColors.accent,
+                      color: enabled ? AppColors.accent : AppColors.muted,
                     ),
                   ],
                 ),
@@ -853,28 +893,11 @@ class _WorkoutGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SliverLayoutBuilder(
     builder: (context, constraints) {
-      const gap = 16.0;
-      final textScaler = MediaQuery.textScalerOf(context);
-      // Keep room for a two-line title and both 44px actions. Large text or
-      // split view falls back to one column instead of squeezing card content.
-      final minCardWidth = 440 + math.max(0, textScaler.scale(16) - 16) * 10;
-      final columns =
-          ((constraints.crossAxisExtent + gap) / (minCardWidth + gap))
-              .floor()
-              .clamp(1, 2);
-      final textHeight =
-          (textScaler.scale(16) * 1.3).ceilToDouble() * 2 +
-          4 +
-          (textScaler.scale(12) * 1.3).ceilToDouble() +
-          4 +
-          (textScaler.scale(13) * 1.3).ceilToDouble();
       return SliverGrid.builder(
         key: const ValueKey('workout-grid'),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: columns,
-          mainAxisExtent: 32 + math.max(72, textHeight),
-          crossAxisSpacing: gap,
-          mainAxisSpacing: gap,
+        gridDelegate: workoutListGridDelegate(
+          context,
+          constraints.crossAxisExtent,
         ),
         itemCount: items.length,
         findChildIndexCallback: (key) {
