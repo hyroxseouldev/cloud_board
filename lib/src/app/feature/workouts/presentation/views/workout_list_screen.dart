@@ -20,7 +20,6 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
-import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
@@ -54,7 +53,6 @@ class _WorkoutListBody extends HookConsumerWidget {
     final searchFocus = useFocusNode();
     final previousOffset = useRef(0.0);
     final previousPage = useRef(0);
-    final pendingDrawerRoute = useRef<String?>(null);
     final selectedFolder = useState<String?>(null);
     final scroll = useScrollController();
     final refreshing = useState(false);
@@ -217,44 +215,17 @@ class _WorkoutListBody extends HookConsumerWidget {
       child: AsyncActionOverlay(
         isLoading: authAction.isLoading || workoutAction.isLoading,
         child: Scaffold(
-          drawer: _HomeDrawer(
-            user: user,
-            isBusy: isBusy,
-            onNavigate: (drawerContext, route) {
-              if (pendingDrawerRoute.value != null) return;
-              pendingDrawerRoute.value = route;
-              Scaffold.of(drawerContext).closeDrawer();
-            },
-            onClosed: () {
-              // Scaffold unmounts the drawer content when its closing animation
-              // is dismissed. onDrawerChanged(false) fires too early (at start).
-              final route = pendingDrawerRoute.value;
-              pendingDrawerRoute.value = null;
-              if (route == null) return;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted &&
-                    ModalRoute.of(context)?.isCurrent == true) {
-                  context.push(route);
-                }
-              });
-            },
-          ),
           appBar: AppBar(
             centerTitle: false,
-            titleSpacing: 0,
+            titleSpacing: searchOpen.value ? 0 : 24,
+            automaticallyImplyLeading: false,
             leading: searchOpen.value
                 ? IconButton(
                     tooltip: '검색 닫기',
                     onPressed: closeSearch,
                     icon: const Icon(Icons.arrow_back_rounded),
                   )
-                : Builder(
-                    builder: (context) => IconButton(
-                      tooltip: '메뉴',
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                      icon: const Icon(Icons.menu_rounded),
-                    ),
-                  ),
+                : null,
             title: searchOpen.value
                 ? TextField(
                     key: const ValueKey('workout-search'),
@@ -389,7 +360,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                                   _DisplayStatus(
                                     onPressed: isBusy
                                         ? null
-                                        : () => context.push('/displays'),
+                                        : () => context.go('/displays'),
                                   ),
                                   const SizedBox(height: 12),
                                 ],
@@ -406,36 +377,41 @@ class _WorkoutListBody extends HookConsumerWidget {
                                         ),
                                       ),
                                     ),
-                                    Flexible(
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: _FolderMenu(
-                                          folders: folders,
-                                          selected: folder,
-                                          loadFolders: () async {
-                                            final all = await ref
-                                                .read(
-                                                  workoutControllerProvider
-                                                      .notifier,
-                                                )
-                                                .loadComplete();
-                                            return all
-                                                .map((item) => item.folder)
-                                                .where(
-                                                  (name) => name.isNotEmpty,
-                                                )
-                                                .toSet()
-                                                .toList()
-                                              ..sort();
-                                          },
-                                          onChanged: (value) {
-                                            selectedFolder.value = value;
-                                            changePage(0);
-                                          },
-                                        ),
-                                      ),
+                                    const SizedBox(width: 12),
+                                    FilledButton.icon(
+                                      key: const ValueKey('create-workout'),
+                                      onPressed: isBusy
+                                          ? null
+                                          : () => context.push('/editor/new'),
+                                      icon: const Icon(Icons.add_rounded),
+                                      label: const Text('만들기'),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: _FolderMenu(
+                                    folders: folders,
+                                    selected: folder,
+                                    loadFolders: () async {
+                                      final all = await ref
+                                          .read(
+                                            workoutControllerProvider.notifier,
+                                          )
+                                          .loadComplete();
+                                      return all
+                                          .map((item) => item.folder)
+                                          .where((name) => name.isNotEmpty)
+                                          .toSet()
+                                          .toList()
+                                        ..sort();
+                                    },
+                                    onChanged: (value) {
+                                      selectedFolder.value = value;
+                                      changePage(0);
+                                    },
+                                  ),
                                 ),
                                 if (paged && filtered.isNotEmpty)
                                   Row(
@@ -499,7 +475,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                               inset,
                               mobile ? 8 : 24,
                               inset,
-                              AppStyle.of(context).floatingSize + 40,
+                              24,
                             ),
                             sliver: mobile
                                 ? _WorkoutList(
@@ -567,14 +543,6 @@ class _WorkoutListBody extends HookConsumerWidget {
                 );
               },
             ),
-          ),
-          floatingActionButton: FloatingActionButton(
-            tooltip: '워크아웃 추가',
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            onPressed: isBusy ? null : () => context.push('/editor/new'),
-            child: const Icon(Icons.add_rounded),
           ),
         ),
       ),
@@ -901,130 +869,6 @@ class _Logo extends StatelessWidget {
       letterSpacing: -1,
       color: XonColors.black,
     ),
-  );
-}
-
-class _HomeDrawer extends HookWidget {
-  const _HomeDrawer({
-    required this.user,
-    required this.isBusy,
-    required this.onNavigate,
-    required this.onClosed,
-  });
-  final AuthUser? user;
-  final bool isBusy;
-  final void Function(BuildContext, String) onNavigate;
-  final VoidCallback onClosed;
-  @override
-  Widget build(BuildContext context) {
-    useEffect(() => onClosed, const []);
-    void open(String route) => onNavigate(context, route);
-
-    Widget destination(String label, IconData icon, String route) => ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      enabled: !isBusy,
-      onTap: () => open(route),
-    );
-    return Drawer(
-      backgroundColor: Colors.white,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 8, 16),
-              child: Row(
-                children: [
-                  const Expanded(child: _Logo()),
-                  IconButton(
-                    tooltip: '메뉴 닫기',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.home_outlined),
-                    title: const Text('홈'),
-                    selected: true,
-                    selectedTileColor: AppColors.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
-                  destination(
-                    '첫 수업 준비',
-                    Icons.checklist_rounded,
-                    '/first-class',
-                  ),
-                  destination(
-                    '시작 템플릿',
-                    Icons.auto_awesome_mosaic_outlined,
-                    '/starter-workouts',
-                  ),
-                  destination('라이브러리', Icons.star_outline_rounded, '/slides'),
-                  const Divider(height: 32),
-                  if (user != null)
-                    destination(
-                      '매장 관리',
-                      Icons.storefront_outlined,
-                      '/operations',
-                    ),
-                  destination(
-                    '디스플레이 관리',
-                    Icons.desktop_windows_outlined,
-                    '/displays',
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: ListTile(
-                leading: user == null
-                    ? const Icon(Icons.account_circle_outlined)
-                    : _Avatar(user: user!, radius: 20),
-                title: Text(
-                  user?.displayName ?? '내 계정',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: const Text('프로필 및 설정'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                enabled: !isBusy,
-                onTap: () => open('/profile'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.user, required this.radius});
-  final AuthUser user;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) => CircleAvatar(
-    radius: radius,
-    foregroundImage: user.photoUrl != null && user.photoUrl!.isNotEmpty
-        ? NetworkImage(user.photoUrl!)
-        : null,
-    child: user.photoUrl == null || user.photoUrl!.isEmpty
-        ? Text(
-            user.displayName.isEmpty ? '?' : user.displayName.characters.first,
-          )
-        : null,
   );
 }
 

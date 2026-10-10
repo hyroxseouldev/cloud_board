@@ -190,36 +190,25 @@ void main() {
     );
   }
 
-  testWidgets('drawer closes before navigating and stays closed on return', (
+  testWidgets('header create opens the workout editor and returns to home', (
     tester,
   ) async {
     await _mount(
       tester,
       _CatalogRepository(_catalog(1)),
-      testProfileRoute: true,
+      testCreateRoute: true,
     );
-    await tester.tap(find.byTooltip('메뉴'));
+    expect(find.byTooltip('메뉴'), findsNothing);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('create-workout')));
     await tester.pumpAndSettle();
-    expect(find.text('슬라이드 라이브러리'), findsNothing);
-    await tester.tap(find.text('라이브러리'));
-    await tester.pump();
-    // Navigation must not cover and mute the still-closing drawer.
-    expect(find.text('라이브러리: all'), findsNothing);
-    expect(find.byType(Drawer), findsOneWidget);
+    expect(find.text('워크아웃 만들기 목적지'), findsOneWidget);
+    GoRouter.of(tester.element(find.text('워크아웃 만들기 목적지'))).pop();
     await tester.pumpAndSettle();
-    expect(find.text('라이브러리: all'), findsOneWidget);
-    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
-    GoRouter.of(tester.element(find.text('라이브러리: all'))).pop();
-    await tester.pump();
-    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('메뉴').hitTestable(), findsOneWidget);
-    await tester.tap(find.byTooltip('메뉴'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Coach'));
-    await tester.pumpAndSettle();
-    expect(find.text('프로필 목적지'), findsOneWidget);
-    expect(find.byType(Drawer, skipOffstage: false), findsNothing);
+    expect(
+      find.byKey(const ValueKey('create-workout')).hitTestable(),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -294,23 +283,6 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }
-  });
-
-  testWidgets('settings profile header opens profile with no duplicate menu', (
-    tester,
-  ) async {
-    await _mount(
-      tester,
-      _CatalogRepository(_catalog(1)),
-      testProfileRoute: true,
-    );
-    await tester.tap(find.byTooltip('메뉴'));
-    await tester.pumpAndSettle();
-    expect(find.text('프로필 조회 및 변경'), findsNothing);
-    expect(find.text('앱 버전'), findsNothing);
-    await tester.tap(find.text('Coach'));
-    await tester.pumpAndSettle();
-    expect(find.text('프로필 목적지'), findsOneWidget);
   });
 
   testWidgets('class commands do not flash a page overlay or reset browsing', (
@@ -435,7 +407,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(_title('수업 60').hitTestable(), findsOneWidget);
-        expect(find.byType(FloatingActionButton).hitTestable(), findsOneWidget);
+        expect(find.byType(FloatingActionButton), findsNothing);
         container.read(workoutControllerProvider.notifier).remove('w60');
         await tester.pumpAndSettle();
         expect(_title('수업 60'), findsNothing);
@@ -564,7 +536,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(repository.loads, 2);
-        expect(find.byType(FloatingActionButton).hitTestable(), findsOneWidget);
+        expect(find.byType(FloatingActionButton), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -621,7 +593,7 @@ Future<ProviderContainer> _mount(
   Size size = const Size(390, 844),
   PlaybackSession? activeSession,
   _Commands? commands,
-  bool testProfileRoute = false,
+  bool testCreateRoute = false,
   bool? showModeSelector,
   double textScale = 1,
 }) async {
@@ -629,21 +601,13 @@ Future<ProviderContainer> _mount(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  final router = testProfileRoute
+  final router = testCreateRoute
       ? GoRouter(
           routes: [
             GoRoute(path: '/', builder: (_, _) => const WorkoutListScreen()),
             GoRoute(
-              path: '/profile',
-              builder: (_, _) => const Scaffold(body: Text('프로필 목적지')),
-            ),
-            GoRoute(
-              path: '/slides',
-              builder: (_, state) => Scaffold(
-                body: Text(
-                  '라이브러리: ${state.uri.queryParameters['favorites'] ?? 'all'}',
-                ),
-              ),
+              path: '/editor/new',
+              builder: (_, _) => const Scaffold(body: Text('워크아웃 만들기 목적지')),
             ),
           ],
         )

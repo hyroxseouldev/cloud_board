@@ -22,7 +22,8 @@ import 'package:cloud_board/src/app/feature/profile/presentation/controllers/use
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 
 class DisplaySettingsScreen extends HookConsumerWidget {
-  const DisplaySettingsScreen({super.key});
+  const DisplaySettingsScreen({super.key, this.asMainTab = false});
+  final bool asMainTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,9 +73,13 @@ class DisplaySettingsScreen extends HookConsumerWidget {
       appBar: AppBar(
         toolbarHeight: 64,
         actions: [modeControl, const SizedBox(width: 18)],
-        leading: BackButton(
-          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-        ),
+        automaticallyImplyLeading: false,
+        leading: asMainTab
+            ? null
+            : BackButton(
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/'),
+              ),
       ),
       body: Center(
         child: ConstrainedBox(
