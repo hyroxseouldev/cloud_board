@@ -89,6 +89,12 @@ void main() {
             ShellRoute(
               builder: (_, state, child) => ActiveClassShell(
                 playerVisible: state.uri.path.startsWith('/player/'),
+                navigationBar: state.uri.path == '/'
+                    ? const SizedBox(
+                        key: ValueKey('navigation-dock'),
+                        height: 56,
+                      )
+                    : null,
                 child: child,
               ),
               routes: [
@@ -150,11 +156,18 @@ void main() {
         );
         final player = playerControllerProvider(workout, sessionId: 's');
         final playerOwner = container.read(player.notifier);
+        final dockBefore = tester.element(
+          find.byKey(const ValueKey('navigation-dock')),
+        );
         reducedMotion.value = !reducedMotion.value;
         await tester.pumpAndSettle();
         reducedMotion.value = !reducedMotion.value;
         await tester.pumpAndSettle();
         expect(container.read(player.notifier), same(playerOwner));
+        expect(
+          tester.element(find.byKey(const ValueKey('navigation-dock'))),
+          same(dockBefore),
+        );
         expect(
           tester.element(find.byKey(const ValueKey('expand-class'))),
           same(miniBefore),
@@ -180,27 +193,32 @@ void main() {
             (widget) => widget is IconButton && widget.tooltip == tooltip,
           ),
         );
-        expect(control('이전 슬라이드').onPressed, isNull);
-        await tester.tap(find.byTooltip('다음 슬라이드'));
-        await tester.pump();
-        expect(commands.seeks, [1]);
-        expect(container.read(player).isPaused, isTrue);
-        expect(control('이전 슬라이드').onPressed, isNull);
-        expect(control('다음 슬라이드').onPressed, isNull);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-        expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
-        commands.finishSeek();
-        await tester.pumpAndSettle();
-        expect(control('다음 슬라이드').onPressed, isNull);
-        expect(control('이전 슬라이드').onPressed, isNotNull);
-        expect(progress(), closeTo(.5, .001));
-        await tester.tap(find.byTooltip('이전 슬라이드'));
-        await tester.pump();
-        expect(commands.seeks, [1, 0]);
-        expect(container.read(player).isPaused, isTrue);
-        commands.finishSeek();
-        await tester.pumpAndSettle();
-        expect(control('이전 슬라이드').onPressed, isNull);
+        if (size.width >= 600) {
+          expect(control('이전 슬라이드').onPressed, isNull);
+          await tester.tap(find.byTooltip('다음 슬라이드'));
+          await tester.pump();
+          expect(commands.seeks, [1]);
+          expect(container.read(player).isPaused, isTrue);
+          expect(control('이전 슬라이드').onPressed, isNull);
+          expect(control('다음 슬라이드').onPressed, isNull);
+          expect(find.byType(CircularProgressIndicator), findsNothing);
+          expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+          commands.finishSeek();
+          await tester.pumpAndSettle();
+          expect(control('다음 슬라이드').onPressed, isNull);
+          expect(control('이전 슬라이드').onPressed, isNotNull);
+          expect(progress(), closeTo(.5, .001));
+          await tester.tap(find.byTooltip('이전 슬라이드'));
+          await tester.pump();
+          expect(commands.seeks, [1, 0]);
+          expect(container.read(player).isPaused, isTrue);
+          commands.finishSeek();
+          await tester.pumpAndSettle();
+          expect(control('이전 슬라이드').onPressed, isNull);
+        } else {
+          expect(find.byTooltip('이전 슬라이드'), findsNothing);
+          expect(find.byTooltip('다음 슬라이드'), findsNothing);
+        }
         sessions.add(session.copyWith(revision: session.revision + 1));
         await tester.pumpAndSettle();
         await tester.tap(find.text('프로필 열기'));

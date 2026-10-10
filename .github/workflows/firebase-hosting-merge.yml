@@ -46,7 +46,7 @@ jobs:
         run: flutter test
 
       - name: Test web command and diagnostic regressions in Chrome
-        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_editing_test.dart test/timer_editor_flow_test.dart
+        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_editing_test.dart test/timer_editor_flow_test.dart test/main_navigation_test.dart
 
       - name: Set up Node for account deletion functions
         uses: actions/setup-node@v4

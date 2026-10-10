@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
-import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -28,12 +27,15 @@ class SlideLibraryScreen extends HookConsumerWidget {
     super.key,
     this.onSelect,
     this.initialFavoritesOnly = false,
+    this.asMainTab = false,
   });
+  final bool asMainTab;
   final bool initialFavoritesOnly; // Retained for old deep links; all saved items remain visible.
   final ValueChanged<WorkoutModule>? onSelect;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tab = useState(1);
+    final tab = useTabController(initialLength: 3, initialIndex: 1);
+    useListenable(tab);
     final search = useTextEditingController();
     useListenable(search);
     final filter = useState<String?>(null);
@@ -316,21 +318,22 @@ class SlideLibraryScreen extends HookConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(onSelect == null ? '라이브러리' : '슬라이드 빠른 삽입'),
+        automaticallyImplyLeading: !asMainTab,
         actions: [
           if (onSelect == null)
             IconButton(
-              tooltip: tab.value == 0
+              tooltip: tab.index == 0
                   ? '워크아웃 만들기'
-                  : tab.value == 1
+                  : tab.index == 1
                   ? '슬라이드 만들기'
                   : '폴더 만들기',
               icon: const Icon(Icons.add),
               onPressed: busy
                   ? null
                   : () {
-                      if (tab.value == 0) {
+                      if (tab.index == 0) {
                         context.push('/editor/new');
-                      } else if (tab.value == 1) {
+                      } else if (tab.index == 1) {
                         createSlide();
                       } else {
                         changeFolder('create', '');
@@ -339,154 +342,170 @@ class SlideLibraryScreen extends HookConsumerWidget {
             ),
         ],
       ),
-      bottomNavigationBar: onSelect == null
-          ? AppBottomTabBar(
-              selected: tab.value,
-              onSelected: (value) {
-                tab.value = value;
-                search.clear();
-              },
-              items: const [
-                AppBottomTab(label: '워크아웃', icon: Icons.view_list_outlined),
-                AppBottomTab(label: '슬라이드', icon: Icons.star_outline_rounded),
-                AppBottomTab(label: '폴더', icon: Icons.folder_outlined),
-              ],
-            )
-          : null,
       body: AppContentTransition(
-        transitionKey: tab.value,
+        transitionKey: tab.index,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: search,
-                        decoration: InputDecoration(
-                          labelText: tab.value == 0
-                              ? '워크아웃 검색'
-                              : tab.value == 1
-                              ? '슬라이드 검색'
-                              : '폴더 검색',
-                          prefixIcon: const Icon(Icons.search),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (tab.value != 2)
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(provider);
+                if (onSelect == null) {
+                  await ref.read(workoutControllerProvider.notifier).refresh();
+                  await ref
+                      .read(workoutControllerProvider.notifier)
+                      .loadComplete();
+                  ref.invalidate(workoutDetailProvider);
+                  ref.invalidate(libraryFoldersProvider);
+                }
+              },
+              child: CustomScrollView(
+                key: ValueKey('library-tab-${tab.index}'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        if (onSelect == null)
+                          TabBar(
+                            key: const ValueKey('library-category-tabs'),
+                            controller: tab,
+                            isScrollable:
+                                MediaQuery.textScalerOf(context).scale(14) > 20,
+                            tabAlignment:
+                                MediaQuery.textScalerOf(context).scale(14) > 20
+                                ? TabAlignment.start
+                                : TabAlignment.fill,
+                            onTap: (_) => search.clear(),
+                            tabs: const [
+                              Tab(text: '워크아웃'),
+                              Tab(text: '슬라이드'),
+                              Tab(text: '폴더'),
+                            ],
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              for (final name in <String?>[null, '', ...names])
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                    label: Text(
-                                      name == null
-                                          ? '전체'
-                                          : name.isEmpty
-                                          ? '폴더 없음'
-                                          : name,
-                                    ),
-                                    selected: selected == name,
-                                    onSelected: (_) => filter.value = name,
+                              TextField(
+                                controller: search,
+                                decoration: InputDecoration(
+                                  labelText: tab.index == 0
+                                      ? '워크아웃 검색'
+                                      : tab.index == 1
+                                      ? '슬라이드 검색'
+                                      : '폴더 검색',
+                                  prefixIcon: const Icon(Icons.search),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              if (tab.index != 2)
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      for (final name in <String?>[
+                                        null,
+                                        '',
+                                        ...names,
+                                      ])
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 8,
+                                          ),
+                                          child: ChoiceChip(
+                                            label: Text(
+                                              name == null
+                                                  ? '전체'
+                                                  : name.isEmpty
+                                                  ? '폴더 없음'
+                                                  : name,
+                                            ),
+                                            selected: selected == name,
+                                            onSelected: (_) =>
+                                                filter.value = name,
+                                          ),
+                                        ),
+                                    ],
                                   ),
+                                ),
+                              if (tab.index == 1)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    '저장한 슬라이드를 모아둔 곳이에요. 워크아웃에 추가하면 복사본으로 사용됩니다.',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              if (templates.hasError)
+                                ErrorDetailsButton(
+                                  error: templates.error,
+                                  stack: templates.stackTrace,
+                                  action: 'library.load',
+                                ),
+                              if (actions.lastFailure != null)
+                                ErrorDetailsButton(
+                                  error: actions.lastFailure,
+                                  action: 'library.save',
+                                ),
+                              if (folderAction.hasError)
+                                ErrorDetailsButton(
+                                  error: folderAction.error,
+                                  stack: folderAction.stackTrace,
+                                  action: 'library.folder',
+                                ),
+                              if (workoutAction.hasError)
+                                ErrorDetailsButton(
+                                  error: workoutAction.error,
+                                  stack: workoutAction.stackTrace,
+                                  action: 'library.workout',
+                                ),
+                              if (actions.pendingDraft != null &&
+                                  actions.lastError != null)
+                                Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    const Text('편집 내용을 보관 중입니다.'),
+                                    TextButton(
+                                      onPressed: busy
+                                          ? null
+                                          : () => perform(
+                                              () => actions.save(
+                                                actions.pendingDraft!,
+                                                '${actions.pendingDraft!.name} 복사',
+                                              ),
+                                            ),
+                                      child: const Text('복사본으로 저장'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        actions.pendingDraft = null;
+                                        ref.invalidate(provider);
+                                      },
+                                      child: const Text('최신 내용 불러오기'),
+                                    ),
+                                  ],
                                 ),
                             ],
                           ),
                         ),
-                      if (tab.value == 1)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Text(
-                            '저장한 슬라이드를 모아둔 곳이에요. 워크아웃에 추가하면 복사본으로 사용됩니다.',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      if (templates.hasError)
-                        ErrorDetailsButton(
-                          error: templates.error,
-                          stack: templates.stackTrace,
-                          action: 'library.load',
-                        ),
-                      if (actions.lastFailure != null)
-                        ErrorDetailsButton(
-                          error: actions.lastFailure,
-                          action: 'library.save',
-                        ),
-                      if (folderAction.hasError)
-                        ErrorDetailsButton(
-                          error: folderAction.error,
-                          stack: folderAction.stackTrace,
-                          action: 'library.folder',
-                        ),
-                      if (workoutAction.hasError)
-                        ErrorDetailsButton(
-                          error: workoutAction.error,
-                          stack: workoutAction.stackTrace,
-                          action: 'library.workout',
-                        ),
-                      if (actions.pendingDraft != null &&
-                          actions.lastError != null)
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            const Text('편집 내용을 보관 중입니다.'),
-                            TextButton(
-                              onPressed: busy
-                                  ? null
-                                  : () => perform(
-                                      () => actions.save(
-                                        actions.pendingDraft!,
-                                        '${actions.pendingDraft!.name} 복사',
-                                      ),
-                                    ),
-                              child: const Text('복사본으로 저장'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                actions.pendingDraft = null;
-                                ref.invalidate(provider);
-                              },
-                              child: const Text('최신 내용 불러오기'),
-                            ),
-                          ],
-                        ),
-                    ],
+                        if (busy) const LinearProgressIndicator(),
+                      ],
+                    ),
                   ),
-                ),
-                if (busy) const LinearProgressIndicator(),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () async {
-                      ref.invalidate(provider);
-                      if (onSelect == null) {
-                        await ref
-                            .read(workoutControllerProvider.notifier)
-                            .refresh();
-                        await ref
-                            .read(workoutControllerProvider.notifier)
-                            .loadComplete();
-                        ref.invalidate(workoutDetailProvider);
-                        ref.invalidate(libraryFoldersProvider);
-                      }
-                    },
-                    child: ListView.builder(
-                      key: ValueKey('library-tab-${tab.value}'),
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: switch (tab.value) {
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    sliver: SliverList.builder(
+                      itemCount: switch (tab.index) {
                         0 => items.isEmpty ? 1 : items.length,
                         1 => slides.isEmpty ? 1 : slides.length,
                         _ => visibleFolders.isEmpty ? 1 : visibleFolders.length,
                       },
                       itemBuilder: (context, index) {
-                        if (tab.value == 0) {
+                        if (tab.index == 0) {
                           if (items.isEmpty) {
                             return const _Empty('워크아웃이 없습니다. + 버튼으로 만들어 보세요.');
                           }
@@ -534,7 +553,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                             ),
                           );
                         }
-                        if (tab.value == 1) {
+                        if (tab.index == 1) {
                           if (slides.isEmpty) {
                             return _Empty(
                               templates.hasError
@@ -682,7 +701,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                           ),
                           onTap: () {
                             filter.value = name;
-                            tab.value = 1;
+                            tab.index = 1;
                             search.clear();
                           },
                           trailing: PopupMenuButton<String>(
@@ -703,8 +722,8 @@ class SlideLibraryScreen extends HookConsumerWidget {
                       },
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

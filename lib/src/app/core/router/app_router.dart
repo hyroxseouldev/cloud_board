@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/router/main_tab_page.dart';
+import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/views/more_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/explore_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
@@ -36,6 +39,7 @@ part 'app_router.g.dart';
 @Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
   final authRefresh = ValueNotifier(0);
+  final mainNavigationKey = GlobalKey<StatefulNavigationShellState>();
   ref.listen(authStateProvider, (_, _) => authRefresh.value++);
   ref.listen(onboardingRequiredProvider, (_, _) => authRefresh.value++);
   final workoutGuard = ExitGuard();
@@ -157,19 +161,81 @@ GoRouter appRouter(Ref ref) {
         ],
       ),
       ShellRoute(
-        builder: (context, state, child) => ActiveClassShell(
-          playerVisible: state.uri.path.startsWith('/player/'),
-          homeVisible: state.uri.path == '/',
-          child: WorkoutEditGate(
-            workoutId:
-                state.uri.pathSegments.firstOrNull == 'editor' &&
-                    state.uri.pathSegments.length > 1
-                ? state.uri.pathSegments[1]
-                : null,
-            child: child,
-          ),
-        ),
+        builder: (context, state, child) {
+          final destination = MainDestination.forPath(state.uri.path);
+          return ActiveClassShell(
+            playerVisible: state.uri.path.startsWith('/player/'),
+            homeVisible: state.uri.path == '/',
+            navigationBar: destination == null
+                ? null
+                : MainNavigationDock(
+                    selected: destination,
+                    onSelected: (next) {
+                      if (next == destination) return;
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      mainNavigationKey.currentState?.goBranch(next.index);
+                    },
+                  ),
+            child: WorkoutEditGate(
+              workoutId:
+                  state.uri.pathSegments.firstOrNull == 'editor' &&
+                      state.uri.pathSegments.length > 1
+                  ? state.uri.pathSegments[1]
+                  : null,
+              child: child,
+            ),
+          );
+        },
         routes: [
+          StatefulShellRoute.indexedStack(
+            key: mainNavigationKey,
+            builder: (_, _, navigationShell) => navigationShell,
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/',
+                    builder: (_, _) => const MainTabPage(
+                      home: true,
+                      child: DeviceModeHomeScreen(),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/slides',
+                    builder: (_, state) => MainTabPage(
+                      child: SlideLibraryScreen(
+                        asMainTab: true,
+                        initialFavoritesOnly:
+                            state.uri.queryParameters['favorites'] == 'true',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/displays',
+                    builder: (_, _) => const MainTabPage(
+                      child: DisplaySettingsScreen(asMainTab: true),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/more',
+                    builder: (_, _) => const MainTabPage(child: MoreScreen()),
+                  ),
+                ],
+              ),
+            ],
+          ),
           GoRoute(
             path: '/first-class',
             builder: (_, _) => const FirstClassScreen(),
@@ -200,17 +266,6 @@ GoRouter appRouter(Ref ref) {
             onExit: (_, _) => slideGuard.confirm(),
           ),
           GoRoute(
-            path: '/slides',
-            builder: (_, state) => SlideLibraryScreen(
-              initialFavoritesOnly:
-                  state.uri.queryParameters['favorites'] == 'true',
-            ),
-          ),
-          GoRoute(
-            path: '/',
-            builder: (context, state) => const DeviceModeHomeScreen(),
-          ),
-          GoRoute(
             path: '/editor/:id',
             builder: (_, state) => WorkoutEditorScreen(
               workoutId: state.pathParameters['id']!,
@@ -237,10 +292,6 @@ GoRouter appRouter(Ref ref) {
                 onExit: (_, _) => slideGuard.confirm(),
               ),
             ],
-          ),
-          GoRoute(
-            path: '/displays',
-            builder: (_, _) => const DisplaySettingsScreen(),
           ),
           GoRoute(
             path: '/profile',

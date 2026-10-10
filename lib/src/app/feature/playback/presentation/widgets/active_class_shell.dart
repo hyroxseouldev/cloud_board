@@ -12,7 +12,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/widgets/web_page_frame.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
@@ -20,7 +19,7 @@ import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_se
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/playback_recovery_view.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/widgets/mini_class_bar.dart';
 
 /// Session lifetime belongs to the signed-in shell, not the full player route.
 /// The navigator is above the bar so page FABs and save actions get real space.
@@ -30,10 +29,12 @@ class ActiveClassShell extends HookConsumerWidget {
     required this.child,
     required this.playerVisible,
     this.homeVisible = false,
+    this.navigationBar,
   });
   final Widget child;
   final bool playerVisible;
   final bool homeVisible;
+  final Widget? navigationBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -87,69 +88,90 @@ class ActiveClassShell extends HookConsumerWidget {
         session != null &&
         session.status != PlaybackStatus.completed &&
         session.workout.modules.isNotEmpty;
-    // Reparent this subtree when motion preferences change without recreating
-    // the player owner. AnimatedSize cannot safely use a zero-duration layout.
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final dockVisible =
+        mode == DeviceMode.controller &&
+        navigationBar != null &&
+        !keyboardVisible;
+    final miniVisible = showActiveClass && !playerVisible && !keyboardVisible;
+    final bottomVisible = dockVisible || miniVisible;
+    // Retain the player owner and dock when motion preferences change.
     final barKey = useMemoized(GlobalKey.new);
     final bar = KeyedSubtree(
       key: barKey,
-      child: showActiveClass
-          ? _ActiveClass(
-              key: ValueKey(session.id),
-              session: session,
-              playerVisible: playerVisible,
-            )
-          : const SizedBox.shrink(),
+      child: Padding(
+        padding: bottomVisible
+            ? const EdgeInsets.fromLTRB(16, 8, 16, 16)
+            : EdgeInsets.zero,
+        child: SafeArea(
+          top: false,
+          bottom: bottomVisible,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showActiveClass)
+                _ActiveClassControls(
+                  key: ValueKey(session.id),
+                  session: session,
+                  playerVisible: playerVisible,
+                ),
+              if (miniVisible && dockVisible) const SizedBox(height: 10),
+              if (dockVisible) navigationBar!,
+            ],
+          ),
+        ),
+      ),
     );
     return WebPageFrame(
       fullWidth: playerVisible || (homeVisible && mode == DeviceMode.display),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Column(
-            children: [
-              Expanded(
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeBottom:
-                      showActiveClass &&
-                      !playerVisible &&
-                      MediaQuery.viewInsetsOf(context).bottom == 0,
-                  child: child,
+      child: ColoredBox(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Column(
+              children: [
+                Expanded(
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeBottom: bottomVisible,
+                    child: child,
+                  ),
                 ),
-              ),
-              if (AppMotion.reduced(context))
-                bar
-              else
-                AnimatedSize(
-                  duration: AppMotion.layout,
-                  curve: AppMotion.curve,
-                  alignment: Alignment.bottomCenter,
-                  child: bar,
-                ),
-            ],
-          ),
-          if (mode == DeviceMode.controller &&
-              !recovery.hasValue &&
-              playerVisible)
-            Positioned.fill(
-              child: PlaybackRecoveryView(
-                error: recovery.error,
-                stackTrace: recovery.stackTrace,
-                onRetry: () => unawaited(
-                  ref
-                      .read(playbackRecoveryControllerProvider.notifier)
-                      .recover(),
-                ),
-              ),
+                if (AppMotion.reduced(context))
+                  bar
+                else
+                  AnimatedSize(
+                    duration: AppMotion.layout,
+                    curve: AppMotion.curve,
+                    alignment: Alignment.bottomCenter,
+                    child: bar,
+                  ),
+              ],
             ),
-        ],
+            if (mode == DeviceMode.controller &&
+                !recovery.hasValue &&
+                playerVisible)
+              Positioned.fill(
+                child: PlaybackRecoveryView(
+                  error: recovery.error,
+                  stackTrace: recovery.stackTrace,
+                  onRetry: () => unawaited(
+                    ref
+                        .read(playbackRecoveryControllerProvider.notifier)
+                        .recover(),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ActiveClass extends HookConsumerWidget {
-  const _ActiveClass({
+class _ActiveClassControls extends HookConsumerWidget {
+  const _ActiveClassControls({
     super.key,
     required this.session,
     required this.playerVisible,
@@ -176,9 +198,10 @@ class _ActiveClass extends HookConsumerWidget {
     );
     final state = ref.read(provider);
     final actions = ref.read(provider.notifier);
+    final recovery = ref.watch(playbackRecoveryControllerProvider);
     final connected =
         ref.watch(playbackConnectionProvider).value == true &&
-        ref.watch(playbackRecoveryControllerProvider).hasValue;
+        recovery.hasValue;
     final command = ref.watch(playbackActionControllerProvider);
     final step = state.index < state.steps.length
         ? state.steps[state.index]
@@ -230,153 +253,35 @@ class _ActiveClass extends HookConsumerWidget {
               : step.isRest
               ? '휴식'
               : '운동'} · ${state.secondsLeft ~/ 60}:${(state.secondsLeft % 60).toString().padLeft(2, '0')}';
+    void expand() => context.push(
+      Uri(
+        path: '/player/${session.workout.id}',
+        queryParameters: {'session': session.id},
+      ).toString(),
+    );
     return AppContentTransition(
       transitionKey: session.id,
       animateOnMount: true,
-      child: Material(
-        color: AppColors.surface,
-        elevation: 8,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LinearProgressIndicator(
-              key: const ValueKey('mini-class-progress'),
-              value: progress,
-              minHeight: 3,
-              stopIndicatorRadius: 0,
-              trackGap: 0,
-              color: AppColors.accent,
-              backgroundColor: AppColors.selected,
-              semanticsLabel: '전체 수업 진행률',
-              semanticsValue: '${(progress * 100).round()}%',
-            ),
-            SafeArea(
-              top: false,
-              child: SizedBox(
-                height:
-                    76 *
-                    (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
-                      1.0,
-                      double.infinity,
-                    ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        key: const ValueKey('expand-class'),
-                        onTap: () => context.push(
-                          Uri(
-                            path: '/player/${session.workout.id}',
-                            queryParameters: {'session': session.id},
-                          ).toString(),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: SizedBox(
-                                  width: 64,
-                                  height: 44,
-                                  child: step.module.imageSource.isEmpty
-                                      ? const ColoredBox(
-                                          color: AppColors.selected,
-                                          child: Icon(Icons.slideshow_outlined),
-                                        )
-                                      : WorkoutImage(
-                                          source: step.module.imageSource,
-                                          fit: BoxFit.cover,
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      session.workout.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      label,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.muted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (ref.watch(playbackRecoveryControllerProvider).hasError)
-                      IconButton(
-                        tooltip: '다시 연결',
-                        icon: const Icon(Icons.refresh),
-                        onPressed: () => unawaited(
-                          ref
-                              .read(playbackRecoveryControllerProvider.notifier)
-                              .recover(),
-                        ),
-                      ),
-                    IconButton(
-                      tooltip: '이전 슬라이드',
-                      onPressed: disabled || step.moduleIndex == 0
-                          ? null
-                          : () => unawaited(
-                              actions.selectModule(step.moduleIndex - 1),
-                            ),
-                      icon: const Icon(Icons.skip_previous_rounded),
-                    ),
-                    IconButton(
-                      tooltip: state.isPaused ? '수업 재개' : '수업 일시정지',
-                      onPressed: disabled
-                          ? null
-                          : () => unawaited(actions.toggle()),
-                      icon: AppContentTransition(
-                        transitionKey: state.isPaused,
-                        child: Icon(
-                          state.isPaused
-                              ? Icons.play_arrow_rounded
-                              : Icons.pause_rounded,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '다음 슬라이드',
-                      onPressed:
-                          disabled ||
-                              step.moduleIndex + 1 >=
-                                  session.workout.modules.length
-                          ? null
-                          : () => unawaited(
-                              actions.selectModule(step.moduleIndex + 1),
-                            ),
-                      icon: const Icon(Icons.skip_next_rounded),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+      child: MiniClassBar(
+        title: session.workout.name,
+        label: label,
+        imageSource: step.module.imageSource,
+        progress: progress,
+        paused: state.isPaused,
+        onExpand: expand,
+        onToggle: disabled ? null : () => unawaited(actions.toggle()),
+        onPrevious: disabled || step.moduleIndex == 0
+            ? null
+            : () => unawaited(actions.selectModule(step.moduleIndex - 1)),
+        onNext:
+            disabled || step.moduleIndex + 1 >= session.workout.modules.length
+            ? null
+            : () => unawaited(actions.selectModule(step.moduleIndex + 1)),
+        onRetry: recovery.hasError
+            ? () => unawaited(
+                ref.read(playbackRecoveryControllerProvider.notifier).recover(),
+              )
+            : null,
       ),
     );
   }
