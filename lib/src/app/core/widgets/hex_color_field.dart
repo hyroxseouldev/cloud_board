@@ -21,6 +21,8 @@ class HexColorField extends HookWidget {
     this.compactWidth = 86,
   });
   final bool compact;
+
+  /// Minimum width; longer labels can grow within the available space.
   final double compactWidth;
   final String label, initialValue;
   final ValueChanged<String> onChanged;
@@ -76,37 +78,39 @@ class HexColorField extends HookWidget {
     }
 
     if (compact) {
-      return SizedBox(
-        width: compactWidth,
-        child: Tooltip(
-          message: '$label ${controller.text}',
-          child: InkWell(
-            key: ValueKey('color-swatch-$label'),
-            borderRadius: BorderRadius.circular(12),
-            onTap: pick,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: color.value,
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
+      return ConstrainedBox(
+        constraints: BoxConstraints(minWidth: compactWidth),
+        child: IntrinsicWidth(
+          child: Tooltip(
+            message: '$label ${controller.text}',
+            child: InkWell(
+              key: ValueKey('color-swatch-$label'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: pick,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color.value,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
