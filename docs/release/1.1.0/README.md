@@ -1,6 +1,6 @@
 # CloudBoard 1.1.0 release ledger
 
-Tracking: [STA-143](https://linear.app/clyrdev/issue/STA-143). The candidate includes [PR #44](https://github.com/hyroxseouldev/cloud_board/pull/44) at `7d12923490b2f8ced04f0977117c3fdef3256142` and this release-preparation change. The final source SHA, artifact hashes and CI runs must be recorded after the candidate is committed; a branch name is not a release identity.
+Tracking: [STA-143](https://linear.app/clyrdev/issue/STA-143). The candidate includes [PR #44](https://github.com/hyroxseouldev/cloud_board/pull/44) at `7d12923490b2f8ced04f0977117c3fdef3256142` and this release-preparation change, plus PR #45 (remove automatic Linear deployment posts while retaining app update news). The final source SHA, artifact hashes and CI runs must be recorded after the candidate is committed; a branch name is not a release identity.
 
 ## Authorized scope and current state
 
