@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
@@ -16,41 +17,87 @@ import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 
 class _SlideDesignArtwork extends HookWidget {
-  const _SlideDesignArtwork({required this.module});
+  const _SlideDesignArtwork({required this.module, required this.targetWidth});
   final WorkoutModule module;
+  final int targetWidth;
 
   @override
   Widget build(BuildContext context) {
     final originalId = module.designStyle?.originalTemplate;
-    final imageFuture = useMemoized(
-      () => originalId == null ? null : loadOriginalSlideImage(originalId),
-      [originalId],
-    );
-    final image = useFuture<ui.Image>(imageFuture);
-    if (originalId != null && !image.hasData) {
+    final image = useState<ui.Image?>(null);
+    final failure = useState<Object?>(null);
+    final attempt = useState(0);
+    useEffect(() {
+      var active = true;
+      ui.Image? owned;
+      image.value = null;
+      failure.value = null;
+      if (originalId != null) {
+        loadOriginalSlideImage(originalId, targetWidth: targetWidth).then(
+          (loaded) {
+            if (!active) {
+              loaded.dispose();
+              return;
+            }
+            owned = loaded;
+            image.value = loaded;
+          },
+          onError: (Object error) {
+            if (active) failure.value = error;
+          },
+        );
+      }
+      return () {
+        active = false;
+        // The old painter can still be installed until this frame ends.
+        final release = owned;
+        if (release != null) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => release.dispose(),
+          );
+        }
+      };
+    }, [originalId, targetWidth, attempt.value]);
+    if (originalId != null && image.value == null) {
       if (module.imageSource.isNotEmpty) {
         return WorkoutImage(source: module.imageSource, fit: BoxFit.contain);
       }
       return ColoredBox(
         color: Colors.black,
         child: Center(
-          child: image.hasError
-              ? const Text(
-                  '원본 이미지를 불러오지 못했어요.',
-                  style: TextStyle(color: Colors.white, fontSize: 40),
+          child: failure.value != null
+              ? TextButton(
+                  onPressed: () => attempt.value++,
+                  child: const Text(
+                    '원본 이미지 다시 불러오기',
+                    style: TextStyle(color: Colors.white, fontSize: 40),
+                  ),
                 )
-              : const SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: CircularProgressIndicator(),
+              : const Icon(
+                  Icons.image_outlined,
+                  color: Colors.white54,
+                  size: 56,
                 ),
         ),
       );
     }
     return CustomPaint(
-      painter: SlideDesignPainter(module, originalImage: image.data),
+      painter: SlideDesignPainter(module, originalImage: image.value),
     );
   }
+}
+
+int _artworkPixelWidth(
+  BoxConstraints bounds,
+  double ratio,
+  double zoom,
+  bool cover,
+) {
+  final fromHeight = bounds.maxHeight * 16 / 9;
+  final width = cover
+      ? math.max(bounds.maxWidth, fromHeight)
+      : math.min(bounds.maxWidth, fromHeight);
+  return (width * ratio * zoom / 64).ceil() * 64;
 }
 
 class WorkoutSlideCanvas extends StatelessWidget {
@@ -118,7 +165,17 @@ class WorkoutSlideCanvas extends StatelessWidget {
                           child: SizedBox(
                             width: 1920,
                             height: 1080,
-                            child: _SlideDesignArtwork(module: module),
+                            child: _SlideDesignArtwork(
+                              module: module,
+                              targetWidth: _artworkPixelWidth(
+                                constraints,
+                                MediaQuery.devicePixelRatioOf(context),
+                                preferences.zoom,
+                                preferences.enabled
+                                    ? preferences.cover
+                                    : module.coverImage,
+                              ),
+                            ),
                           ),
                         )
                       : WorkoutImage(

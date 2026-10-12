@@ -95,6 +95,7 @@ class NavigationPreviewData {
         : null;
     commands = NavigationCommands(this);
     container = ProviderContainer(
+      retry: (_, _) => null,
       overrides: [
         authStateProvider.overrideWith((ref) async* {
           yield previewUser;
@@ -207,6 +208,10 @@ class NavigationCommands extends PlaybackActionController {
   NavigationCommands(this.data);
   final NavigationPreviewData data;
   int transports = 0;
+  void reportActionFailure(Object error) {
+    state = AsyncError(error, StackTrace.current);
+  }
+
   @override
   AsyncValue<String?> build() => const AsyncData(null);
   @override
@@ -240,11 +245,17 @@ class NavigationWorkoutRepository implements WorkoutRepository {
   NavigationWorkoutRepository(this.items);
   final List<Workout> items;
   int loads = 0;
+  int detailReads = 0;
+  Object? detailError;
   @override
   Future<List<Workout>> load() async => items;
   @override
-  Future<Workout?> loadOne(String id) async =>
-      items.where((item) => item.id == id).firstOrNull;
+  Future<Workout?> loadOne(String id) async {
+    detailReads++;
+    if (detailError != null) throw detailError!;
+    return items.where((item) => item.id == id).firstOrNull;
+  }
+
   @override
   Stream<List<Workout>> watch() async* {
     loads++;

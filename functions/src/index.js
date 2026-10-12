@@ -361,6 +361,11 @@ export const reportClientDiagnostic = onCall({region, timeoutSeconds: 15, maxIns
     emit: (_message, event) => logger.write(clientDiagnosticLogEntry(event))});
 });
 
+export const listLibraryFolders = onCall({region, timeoutSeconds: 30, maxInstances: 3}, async request => {
+  const {listLibraryFolders} = await import('./library-folders.js');
+  return listLibraryFolders(db, request.auth?.uid, request.data);
+});
+
 export const manageLibraryFolder = onCall({region, timeoutSeconds: 30, maxInstances: 3}, async request => {
   const {manageLibraryFolder} = await import('./library-folders.js');
   return manageLibraryFolder(db, request.auth?.uid, request.data);

@@ -1,3 +1,9 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_catalog_page.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_repository.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_actions.dart';
+import 'package:firebase_core/firebase_core.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -18,6 +24,133 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'support/workout_catalog_fixture.dart';
 
 void main() {
+  testWidgets(
+    'delayed first page is loading, not an empty library; failure retries',
+    (tester) async {
+      final pages = _ControlledCatalog()
+        ..firstGate = Completer<void>()
+        ..failFirst = true;
+      await _mountCatalog(tester, pages);
+      await tester.tap(find.text('워크아웃').last);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('워크아웃 목록을 불러오고 있습니다…'), findsOneWidget);
+      expect(find.textContaining('+ 버튼으로'), findsNothing);
+      pages.firstGate!.complete();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('인터넷 연결'), findsOneWidget);
+      expect(find.textContaining('+ 버튼으로'), findsNothing);
+      pages.failFirst = false;
+      await tester.tap(find.widgetWithText(TextButton, '다시 시도'));
+      await tester.pumpAndSettle();
+      expect(find.text('첫 수업'), findsOneWidget);
+      expect(find.text('나중 수업'), findsOneWidget);
+      expect(find.textContaining('인터넷 연결'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'later page failure keeps rows and partial folder counts; retry completes',
+    (tester) async {
+      final pages = _ControlledCatalog()..failLater = true;
+      await _mountCatalog(tester, pages);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('워크아웃').last);
+      await tester.pumpAndSettle();
+      expect(find.text('첫 수업'), findsOneWidget);
+      expect(find.textContaining('인터넷 연결'), findsOneWidget);
+      await tester.tap(find.text('폴더').last);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('집계 미완료'), findsOneWidget);
+      pages.failLater = false;
+      await tester.tap(find.widgetWithText(TextButton, '다시 시도'));
+      await tester.pumpAndSettle();
+      expect(find.text('워크아웃 2개 · 슬라이드 0개'), findsOneWidget);
+      expect(find.textContaining('집계 미완료'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'refresh failure retains selection and data; search misses are distinct',
+    (tester) async {
+      final pages = _ControlledCatalog();
+      await _mountCatalog(tester, pages);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('워크아웃').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, '하체'));
+      await tester.enterText(find.widgetWithText(TextField, '워크아웃 검색'), '첫');
+      await tester.pumpAndSettle();
+      pages.failFirst = true;
+      final refresh = tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+          .onRefresh();
+      await tester.pumpAndSettle();
+      await refresh;
+      expect(find.text('첫 수업'), findsOneWidget);
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '하체'))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '첫',
+      );
+      expect(find.textContaining('인터넷 연결'), findsOneWidget);
+      pages.failFirst = false;
+      await tester.tap(find.widgetWithText(TextButton, '다시 시도'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '워크아웃 검색'),
+        '없는 검색어',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('검색 조건에 맞는 워크아웃 자료가 없습니다.'), findsOneWidget);
+      expect(find.textContaining('+ 버튼으로'), findsNothing);
+      await tester.tap(find.text('폴더').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, '폴더 검색'), '없는 검색어');
+      await tester.pumpAndSettle();
+      expect(find.text('검색 조건에 맞는 폴더 자료가 없습니다.'), findsOneWidget);
+      expect(find.text('폴더를 만들어 자료를 정리해 보세요.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'folder metadata failure offers retry without pretending no folders exist',
+    (tester) async {
+      final pages = _ControlledCatalog();
+      var failFolders = true;
+      await _mountCatalog(
+        tester,
+        pages,
+        folderStream: () => failFolders
+            ? Stream.error(
+                FirebaseException(
+                  plugin: 'cloud_firestore',
+                  code: 'unavailable',
+                ),
+              )
+            : Stream.value(['하체']),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('폴더').last);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('인터넷 연결'), findsOneWidget);
+      expect(find.text('폴더를 만들어 자료를 정리해 보세요.'), findsNothing);
+      failFolders = false;
+      await tester.tap(find.widgetWithText(TextButton, '다시 시도'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('인터넷 연결'), findsNothing);
+      expect(find.text('워크아웃 2개 · 슬라이드 0개'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'a large library builds only visible previews and still searches every slide',
     (tester) async {
@@ -214,5 +347,78 @@ class _Folders extends Fake implements LibraryFolderActions {
   Future<void> rename(String name, String newName) async {
     names[names.indexOf(name)] = newName;
     changes.add([...names]);
+  }
+}
+
+Future<void> _mountCatalog(
+  WidgetTester tester,
+  _ControlledCatalog repository, {
+  Stream<List<String>> Function()? folderStream,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        authStateProvider.overrideWith(
+          (ref) => Stream.value(
+            const AuthUser(
+              id: 'owner',
+              email: '',
+              displayName: '',
+              photoUrl: null,
+            ),
+          ),
+        ),
+        activePlaybackSessionProvider.overrideWith((ref) => Stream.value(null)),
+        loadWorkoutsProvider.overrideWith(
+          (ref) async => LoadWorkouts(repository),
+        ),
+        libraryFoldersProvider.overrideWith(
+          (ref) => folderStream?.call() ?? Stream.value(['하체']),
+        ),
+        slideTemplatesControllerProvider('owner')
+            .overrideWith(_EmptyTemplates.new),
+      ],
+      child: MaterialApp(
+        theme: XonTheme.light,
+        home: const SlideLibraryScreen(),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump();
+}
+
+class _EmptyTemplates extends SlideTemplatesController {
+  @override
+  Stream<List<WorkoutModule>> build(String scope) => Stream.value([]);
+}
+
+class _ControlledCatalog extends Fake
+    implements WorkoutRepository, PagedWorkoutCatalog {
+  Completer<void>? firstGate;
+  bool failFirst = false;
+  bool failLater = false;
+  final first = Workout.empty(
+    'first',
+    const WorkoutAuthor(id: 'owner', displayName: '', photoUrl: null),
+  ).copyWith(name: '첫 수업', folder: '하체');
+  final second = Workout.empty(
+    'second',
+    const WorkoutAuthor(id: 'owner', displayName: '', photoUrl: null),
+  ).copyWith(name: '나중 수업', folder: '하체');
+  @override
+  Stream<WorkoutCatalogPage> watchCatalog({bool requireServer = false}) async* {
+    await firstGate?.future;
+    if (failFirst) {
+      throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+    }
+    yield WorkoutCatalogPage([summarizeWorkout(first)]);
+    if (failLater) {
+      throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+    }
+    yield WorkoutCatalogPage([
+      summarizeWorkout(first),
+      summarizeWorkout(second),
+    ], complete: true);
   }
 }

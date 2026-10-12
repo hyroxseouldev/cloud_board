@@ -44,10 +44,10 @@ class WorkoutFirestoreDataSource {
     }
   }
 
+  /// Each emission contains only the newly fetched page, never earlier DTOs.
   Stream<({List<WorkoutSummaryModel> items, bool complete})> loadSummaryPages(
     String userId,
   ) async* {
-    final items = <WorkoutSummaryModel>[];
     DocumentSnapshot<Map<String, dynamic>>? cursor;
     while (true) {
       Query<Map<String, dynamic>> query = _summaries(userId)
@@ -55,11 +55,12 @@ class WorkoutFirestoreDataSource {
           .limit(pageSize);
       if (cursor != null) query = query.startAfterDocument(cursor);
       final snapshot = await query.get(const GetOptions(source: Source.server));
-      items.addAll(
-        snapshot.docs.map(
-          (doc) => WorkoutSummaryModel.fromJson({...doc.data(), 'id': doc.id}),
-        ),
-      );
+      final items = snapshot.docs
+          .map(
+            (doc) =>
+                WorkoutSummaryModel.fromJson({...doc.data(), 'id': doc.id}),
+          )
+          .toList(growable: false);
       final complete = snapshot.docs.length < pageSize;
       yield (items: List.unmodifiable(items), complete: complete);
       if (complete) return;
@@ -115,10 +116,10 @@ class WorkoutFirestoreDataSource {
     }
   }
 
+  /// Detail fallback uses the same delta contract as summary pages.
   Stream<({List<WorkoutModel> items, bool complete})> loadPages(
     String userId,
   ) async* {
-    final items = <String, WorkoutModel>{};
     DocumentSnapshot<Map<String, dynamic>>? cursor;
     while (true) {
       Query<Map<String, dynamic>> query = _workouts(userId)
@@ -126,18 +127,23 @@ class WorkoutFirestoreDataSource {
           .limit(pageSize);
       if (cursor != null) query = query.startAfterDocument(cursor);
       final snapshot = await query.get(const GetOptions(source: Source.server));
-      for (final item in _decode(snapshot)) {
-        items[item.id] = item;
-      }
+      final items = _decode(snapshot);
       final complete = snapshot.docs.length < pageSize;
-      yield (items: List.unmodifiable(items.values), complete: complete);
+      yield (items: List.unmodifiable(items), complete: complete);
       if (complete) return;
       cursor = snapshot.docs.last;
     }
   }
 
-  Future<List<WorkoutModel>> load(String userId) async =>
-      (await loadPages(userId).last).items;
+  Future<List<WorkoutModel>> load(String userId) async {
+    final items = <String, WorkoutModel>{};
+    await for (final page in loadPages(userId)) {
+      for (final item in page.items) {
+        items[item.id] = item;
+      }
+    }
+    return List.unmodifiable(items.values);
+  }
 
   List<WorkoutModel> _decode(QuerySnapshot<Map<String, dynamic>> snapshot) =>
       snapshot.docs

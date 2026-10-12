@@ -533,7 +533,10 @@ void main() {
       await tester.runAsync(
         () => Future.wait(
           originalSlideTemplates.map(
-            (template) => loadOriginalSlideImage(template.id),
+            (template) => loadOriginalSlideImage(
+              template.id,
+              targetWidth: 384,
+            ).then((image) => image.dispose()),
           ),
         ),
       );

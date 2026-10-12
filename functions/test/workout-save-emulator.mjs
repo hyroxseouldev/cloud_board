@@ -40,6 +40,9 @@ try {
     const contract = read(file);
     assert.equal(contract.format, 1);
     assert.equal(contract.scenarios.length, 6);
+    const fingerprints = contract.scenarios.flatMap(s => s.writes.flatMap(w => w.workout.modules.map(m => m.designFingerprint)));
+    if (file === currentFile) assert.ok(fingerprints.every(v => /^v1:[a-f0-9]{64}:[a-f0-9]{64}$/.test(v)));
+    else assert.ok(fingerprints.every(v => v === undefined), 'released DTO fixtures remain immutable');
     for (const scenario of contract.scenarios) {
       await env.clearFirestore();
       await setMode(scenario.contentOnly);

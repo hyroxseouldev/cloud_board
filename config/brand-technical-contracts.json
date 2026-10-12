@@ -130,7 +130,10 @@
     "flags": "gm",
     "expected": [
       "cloudboard.slide-editor.v1.$key",
-      "cloudboard.slide-editor.v1.$key"
+      "cloudboard.slide-editor.v1.$key",
+      "cloudboard.slide-editor.v1.draft.$key",
+      "cloudboard.slide-editor.v2.assets.$key",
+      "cloudboard.slide-editor.v2.draft.$key"
     ]
   },
   {

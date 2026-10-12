@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_load_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
@@ -121,7 +122,12 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     }
     if (localSnapshot.value == null && detail?.hasError == true) {
       return Scaffold(
-        body: Center(child: Text('운동을 불러오지 못했습니다: ${detail!.error}')),
+        body: WorkoutLoadFailure(
+          error: detail!.error,
+          stack: detail.stackTrace,
+          onRetry: () =>
+              ref.invalidate(localPlaybackWorkoutProvider(workoutId)),
+        ),
       );
     }
     if (!matchesSession &&

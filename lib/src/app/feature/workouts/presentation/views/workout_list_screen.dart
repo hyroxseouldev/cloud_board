@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
@@ -76,15 +77,14 @@ class _WorkoutListBody extends HookConsumerWidget {
         ? const AlwaysStoppedAnimation<double>(1)
         : loading.reveal;
     final items = workouts.value ?? const <WorkoutSummary>[];
+    final knownFolders =
+        ref.watch(libraryFoldersProvider).value ?? const <String>[];
     final folders = useMemoized(
-      () =>
-          items
-              .map((item) => item.folder)
-              .where((folder) => folder.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort(),
-      [items],
+      () => {
+        ...knownFolders,
+        ...items.map((item) => item.folder),
+      }.where((folder) => folder.isNotEmpty).toList()..sort(),
+      [items, knownFolders],
     );
     // A deleted or renamed folder must not leave an invalid dropdown selection.
     final folder = folders.contains(selectedFolder.value)
@@ -92,17 +92,13 @@ class _WorkoutListBody extends HookConsumerWidget {
         : null;
     final query = search.text.trim().toLowerCase();
     final filtered = useMemoized(
-      () =>
-          items.where((item) {
-            final matchesQuery =
-                query.isEmpty ||
-                item.name.toLowerCase().contains(query) ||
-                item.folder.toLowerCase().contains(query);
-            return matchesQuery && (folder == null || item.folder == folder);
-          }).toList()..sort((a, b) {
-            final updated = b.updatedAt.compareTo(a.updatedAt);
-            return updated != 0 ? updated : a.id.compareTo(b.id);
-          }),
+      () => items.where((item) {
+        final matchesQuery =
+            query.isEmpty ||
+            item.name.toLowerCase().contains(query) ||
+            item.folder.toLowerCase().contains(query);
+        return matchesQuery && (folder == null || item.folder == folder);
+      }).toList(),
       [items, query, folder],
     );
     useEffect(() {
@@ -165,13 +161,6 @@ class _WorkoutListBody extends HookConsumerWidget {
     final authAction = ref.watch(authControllerProvider);
     final workoutAction = ref.watch(workoutActionControllerProvider);
     final playbackAction = ref.watch(playbackActionControllerProvider);
-    ref.listen(playbackActionControllerProvider, (previous, next) {
-      if (next.hasError && previous?.error != next.error) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('수업 제어에 실패했습니다: ${next.error}')));
-      }
-    });
     final isBusy =
         authAction.isLoading ||
         workoutAction.isLoading ||
@@ -417,19 +406,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                                     enabled: workouts.hasValue,
                                     folders: folders,
                                     selected: folder,
-                                    loadFolders: () async {
-                                      final all = await ref
-                                          .read(
-                                            workoutControllerProvider.notifier,
-                                          )
-                                          .loadComplete();
-                                      return all
-                                          .map((item) => item.folder)
-                                          .where((name) => name.isNotEmpty)
-                                          .toSet()
-                                          .toList()
-                                        ..sort();
-                                    },
+                                    loadFolders: () async => folders,
                                     onChanged: (value) {
                                       selectedFolder.value = value;
                                       changePage(0);
@@ -1059,21 +1036,14 @@ class _WorkoutActions extends ConsumerWidget {
   );
 
   Future<Workout?> _detail(BuildContext context, WidgetRef ref) async {
-    try {
-      final detail = await ref
-          .read(workoutActionControllerProvider.notifier)
-          .prepare(workout.id);
-      if (!context.mounted) return null;
-      final error = ref.read(workoutActionControllerProvider).error;
-      if (error != null) throw error;
-      return detail;
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('운동을 불러오지 못했습니다: $error')));
-      }
-      return null;
+    // The app owns action feedback; avoid a second local error SnackBar.
+    // A new tap after failure must make a fresh request, not reuse AsyncError.
+    if (ref.read(workoutDetailProvider(workout.id)).hasError) {
+      ref.invalidate(workoutDetailProvider(workout.id));
     }
+    return ref
+        .read(workoutActionControllerProvider.notifier)
+        .prepare(workout.id);
   }
 
   Future<void> _play(BuildContext context, WidgetRef ref) async {

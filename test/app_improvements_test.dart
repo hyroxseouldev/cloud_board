@@ -61,7 +61,7 @@ const pixel =
 
 void main() {
   testWidgets(
-    'class start failure is visible and the preparation flow can retry',
+    'class start failure leaves the list usable and preparation can retry',
     (tester) async {
       tester.view.physicalSize = const Size(834, 1194);
       tester.view.devicePixelRatio = 1;
@@ -107,8 +107,10 @@ void main() {
       await tester.tap(find.text('수업 시작'));
       await tester.pumpAndSettle();
       expect(commands.starts, 1);
-      expect(find.textContaining('수업 제어에 실패했습니다'), findsOneWidget);
-      expect(find.textContaining('연결을 확인해 주세요'), findsOneWidget);
+      expect(commands.state.hasError, isTrue);
+      // The signed-in shell owns the one safe error notice. This isolated
+      // page must not enqueue a duplicate; the shell has its own UI regression.
+      expect(find.byType(SnackBar), findsNothing);
       expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
       await tester.tap(find.byTooltip('재생'));
       await tester.pumpAndSettle();

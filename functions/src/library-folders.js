@@ -7,6 +7,30 @@ export function folderName(value, {empty = false} = {}) {
   if (typeof value !== 'string' || value.trim().length > 40 || (!empty && !value.trim()) || /[\u0000-\u001f]/.test(value)) throw new HttpsError('invalid-argument', '폴더 이름은 1~40자로 입력해 주세요.');
   return value.trim();
 }
+// Legacy workouts did not create libraryFolders records. Project just folder
+// names on the server so discovery never downloads/decodes a workout catalog.
+// This still reads N projected documents; it reduces payload and client work,
+// not billed document reads. An optional owner guards an account-switch race.
+export async function listLibraryFolders(db, uid, data) {
+  if (!uid) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+  if (data?.owner !== uid) throw new HttpsError('permission-denied', '로그인 계정이 변경되었습니다.');
+  const root = `users/${uid}`;
+  const [folders, workouts] = await Promise.all([
+    db.collection(`${root}/libraryFolders`).select('name').get(),
+    db.collection(`${root}/workouts`).select('folder').get(),
+  ]);
+  const names = new Set();
+  for (const doc of folders.docs) {
+    const name = doc.data().name;
+    if (typeof name === 'string' && name) names.add(name);
+  }
+  for (const doc of workouts.docs) {
+    const name = doc.data().folder;
+    if (typeof name === 'string' && name) names.add(name);
+  }
+  return {folders: [...names].sort()};
+}
+
 export async function manageLibraryFolder(db, uid, data) {
   if (!uid) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   if (!['create', 'rename', 'remove'].includes(data?.action)) throw new HttpsError('invalid-argument', '잘못된 폴더 작업입니다.');
