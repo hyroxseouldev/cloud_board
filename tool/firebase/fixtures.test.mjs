@@ -76,7 +76,8 @@ test('pre-EMOM public/review fixtures describe only timer features those apps wr
     assert.equal(fixture.provenance.sourceBlobs['pubspec.lock'].length, 40);
   }
   const changed = structuredClone(registry);
-  changed.clients.at(-1).capabilities.summaryDurationKind = true;
+  const historical = changed.clients.find(c => c.sourceCommit === 'c54588cc7733ac8577d11c036c21635d1f283f2a');
+  historical.capabilities.summaryDurationKind = true;
   assert.throws(() => validateFixtures(changed, files, read), /Historical summary capability/);
 });
 
