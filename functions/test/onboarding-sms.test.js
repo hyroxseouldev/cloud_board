@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {sendOnboardingSms} from '../src/onboarding-sms.js';
+import {AppBrand} from '../src/config/app-brand.js';
 
 const env={SOLAPI_API_KEY:'test-key',SOLAPI_API_SECRET:'test-secret',SOLAPI_FROM:'0212345678'};
 const phone='+821012345678',code='123456';
@@ -10,6 +11,7 @@ test('SMS accepts the provider registration result and sends the national phone 
     const body=JSON.parse(options.body);
     assert.equal(body.messages[0].to,'01012345678');
     assert.equal(body.messages[0].from,env.SOLAPI_FROM);
+    assert.equal(body.messages[0].text,`[${AppBrand.nameKo}] 인증번호 ${code} (5분 이내 입력)`);
     assert.match(options.headers.Authorization,/^HMAC-SHA256 apiKey=test-key/);
     return Response.json({groupInfo:{count:{registeredSuccess:1}},failedMessageList:[]});
   }});

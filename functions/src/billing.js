@@ -1,3 +1,4 @@
+import {AppBrand} from './config/app-brand.js';
 import {randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {HttpsError} from 'firebase-functions/v2/https';
@@ -93,7 +94,7 @@ export async function claimSubscription(db, uid, transaction) {
       accountRef(db, uid), db.doc(`billingTokenOwners/${token}`), ref, db.doc(`billingTesters/${uid}`));
     if (lock.exists || account.data()?.deleted || owner.data()?.deleted) throw fail('permission-denied', '삭제된 계정의 구독입니다.');
     if (account.data()?.appAccountToken !== token || owner.data()?.uid !== uid || (existing.exists && existing.data().uid !== uid)) {
-      throw fail('permission-denied', '처음 구독한 CloudBoard 계정으로 로그인해 복원해 주세요.');
+      throw fail('permission-denied', `처음 구독한 ${AppBrand.name} 계정으로 로그인해 복원해 주세요.`);
     }
     if (transaction.environment === 'Sandbox' && tester.data()?.enabled !== true) throw fail('permission-denied', '테스트 계정으로만 테스트 결제를 사용할 수 있습니다.');
     if (!existing.exists) tx.create(ref, {uid, appAccountToken: token, environment: transaction.environment,

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -65,7 +66,7 @@ class _AppStartupScreenState extends State<AppStartupScreen> {
           children: [
             Center(
               child: Semantics(
-                label: 'CloudBoard',
+                label: AppBrand.name,
                 image: true,
                 child: const SoftRhythmMark(size: AppStartupScreen.markSize),
               ),

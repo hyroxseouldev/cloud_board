@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
 import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
@@ -928,7 +929,7 @@ class _Logo extends StatelessWidget {
   const _Logo();
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'CloudBoard',
+    label: AppBrand.name,
     excludeSemantics: true,
     child: const Row(
       mainAxisSize: MainAxisSize.min,
@@ -937,7 +938,7 @@ class _Logo extends StatelessWidget {
         SizedBox(width: 10),
         Flexible(
           child: Text(
-            'CloudBoard',
+            AppBrand.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

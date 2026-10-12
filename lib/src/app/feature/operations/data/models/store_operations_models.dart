@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/legacy_brand_defaults.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
@@ -24,7 +25,7 @@ class BrandTemplateModel {
     this.standbyImageFit = StandbyImageFit.contain,
   });
 
-  @JsonKey(defaultValue: 'CloudBoard Studio')
+  @JsonKey(defaultValue: LegacyBrandDefaults.storeName)
   final String storeName;
   final bool standbyFullscreen;
   final bool standbyShowText;

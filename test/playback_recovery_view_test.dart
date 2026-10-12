@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/playback_recovery_view.dart';
@@ -194,7 +195,13 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 5));
       expect(tester.takeException(), isNull);
-      expect(find.text('CloudBoard'), display ? findsNothing : findsOneWidget);
+      final brand = find.text(AppBrand.name);
+      expect(brand, display ? findsNothing : findsOneWidget);
+      if (!display) {
+        final bounds = tester.getRect(brand);
+        expect(bounds.left, 24);
+        expect(bounds.right, lessThanOrEqualTo(size.width - 24));
+      }
       await tester.pumpWidget(
         harness(
           PlaybackRecoveryView(

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "display": {
+    "name": "CloudBoard",
+    "nameKo": "클라우드보드",
+    "defaultWorkoutBrand": "CloudBoard",
+    "defaultStoreName": "CloudBoard Studio"
+  },
+  "platforms": {
+    "iosDisplayName": "Cloud Board",
+    "iosBundleName": "cloud_board",
+    "iosActivityDisplayName": "CloudBoard 수업",
+    "androidDisplayName": "CloudBoard",
+    "webTitle": "cloud_board",
+    "webName": "cloud_board",
+    "webShortName": "cloud_board",
+    "macosDisplayName": "cloud_board",
+    "windowsDisplayName": "cloud_board",
+    "linuxDisplayName": "cloud_board"
+  },
+  "links": {
+    "service": "https://clyr-landing-20.vercel.app/apps/cloudboard",
+    "privacy": "https://clyr-landing-20.vercel.app/apps/cloudboard/privacy",
+    "terms": "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+    "support": "mailto:vividxxxxx@gmail.com",
+    "accountDeletion": "https://clyr-landing-20.vercel.app/apps/cloudboard/delete-account",
+    "supportEmail": "vividxxxxx@gmail.com"
+  }
+}

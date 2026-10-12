@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
@@ -91,7 +92,7 @@ class MoreScreen extends ConsumerWidget {
           const Divider(height: 1),
           destination(
             '업데이트 소식',
-            'CloudBoard의 새로운 기능',
+            '${AppBrand.name}의 새로운 기능',
             Icons.campaign_outlined,
             '/profile/updates',
           ),

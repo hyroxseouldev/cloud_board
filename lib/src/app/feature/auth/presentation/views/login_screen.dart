@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
@@ -83,7 +84,7 @@ class LoginScreen extends HookConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const Text(
-                            'CloudBoard',
+                            AppBrand.name,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 30,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
@@ -136,6 +137,12 @@ void main() {
     'small phone with large text can reach account help without overflow',
     (tester) async {
       await mount(tester, size: const Size(320, 568), scale: 1.5);
+      final brand = find.text(AppBrand.name);
+      expect(brand, findsOneWidget);
+      final bounds = tester.getRect(brand);
+      expect(bounds.left, greaterThanOrEqualTo(24));
+      expect(bounds.right, lessThanOrEqualTo(296));
+      expect(tester.takeException(), isNull);
       await tester.ensureVisible(find.text('계정 안내'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('계정 안내'));

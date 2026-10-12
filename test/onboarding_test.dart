@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
@@ -188,6 +189,13 @@ void main() {
       );
       await tester.pumpWidget(app(repo));
       await tester.pumpAndSettle();
+      final brand = find.text(AppBrand.name);
+      expect(brand, findsOneWidget);
+      final brandBounds = tester.getRect(brand);
+      final appBarBounds = tester.getRect(find.byType(AppBar));
+      expect(brandBounds.left, greaterThanOrEqualTo(appBarBounds.left));
+      expect(brandBounds.right, lessThanOrEqualTo(appBarBounds.right));
+      expect(brandBounds.bottom, lessThanOrEqualTo(appBarBounds.bottom));
       expect(
         tester
             .widget<FilledButton>(find.widgetWithText(FilledButton, '다음'))

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/legacy_brand_defaults.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_content.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
@@ -46,13 +47,16 @@ class WorkoutDocument {
     }
     if (version != schemaVersion) return WorkoutModel.fromJson(json);
     // Rendering bridge only. Settings are resolved separately at playback start.
-    final defaults = const WorkoutPreferences().applyTo(
-      Workout.empty(
-        json['id'] as String,
-        WorkoutAuthorModel.fromJson(Map<String, dynamic>.from(json['author']))
-            .toEntity(),
-      ),
-    );
+    final defaults =
+        const WorkoutPreferences(brandL: LegacyBrandDefaults.workoutBrand)
+            .applyTo(
+              Workout.empty(
+                json['id'] as String,
+                WorkoutAuthorModel.fromJson(
+                  Map<String, dynamic>.from(json['author']),
+                ).toEntity(),
+              ),
+            );
     return WorkoutModel.fromJson({
       ...WorkoutModel.fromEntity(defaults).toJson(),
       for (final key in contentKeys) key: json[key],

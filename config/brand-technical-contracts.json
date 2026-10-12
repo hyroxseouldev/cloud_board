@@ -1,0 +1,240 @@
+[
+  {
+    "file": "pubspec.yaml",
+    "pattern": "^name: cloud_board$",
+    "flags": "gm",
+    "expected": [
+      "name: cloud_board"
+    ]
+  },
+  {
+    "file": "android/app/build.gradle.kts",
+    "pattern": "(?:namespace|applicationId) = \"[^\"]+\"",
+    "flags": "gm",
+    "expected": [
+      "applicationId = \"com.sunmkim.cloudboard\"",
+      "namespace = \"com.sunmkim.cloudboard\""
+    ]
+  },
+  {
+    "file": "ios/Runner.xcodeproj/project.pbxproj",
+    "pattern": "(?:PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM) = [^;]+;",
+    "flags": "gm",
+    "expected": [
+      "DEVELOPMENT_TEAM = NL7AM62SB9;",
+      "DEVELOPMENT_TEAM = NL7AM62SB9;",
+      "DEVELOPMENT_TEAM = NL7AM62SB9;",
+      "DEVELOPMENT_TEAM = NL7AM62SB9;",
+      "DEVELOPMENT_TEAM = NL7AM62SB9;",
+      "DEVELOPMENT_TEAM = NL7AM62SB9;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard.ClassActivity;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard.ClassActivity;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard.ClassActivity;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard.RunnerTests;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard.RunnerTests;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard.RunnerTests;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard;",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard;"
+    ]
+  },
+  {
+    "file": "macos/Runner/Configs/AppInfo.xcconfig",
+    "pattern": "PRODUCT_(?:NAME|BUNDLE_IDENTIFIER) = .+",
+    "flags": "gm",
+    "expected": [
+      "PRODUCT_BUNDLE_IDENTIFIER = com.sunmkim.cloudboard",
+      "PRODUCT_NAME = cloud_board"
+    ]
+  },
+  {
+    "file": "linux/CMakeLists.txt",
+    "pattern": "set\\((?:BINARY_NAME|APPLICATION_ID) \"[^\"]+\"\\)",
+    "flags": "gm",
+    "expected": [
+      "set(APPLICATION_ID \"com.sunmkim.cloudboard\")",
+      "set(BINARY_NAME \"cloud_board\")"
+    ]
+  },
+  {
+    "file": "windows/CMakeLists.txt",
+    "pattern": "(?:project\\([^\\n]+|set\\(BINARY_NAME \"[^\"]+\"\\))",
+    "flags": "gm",
+    "expected": [
+      "project(cloud_board LANGUAGES CXX)",
+      "set(BINARY_NAME \"cloud_board\")"
+    ]
+  },
+  {
+    "file": "windows/runner/Runner.rc",
+    "pattern": "VALUE \"(?:InternalName|OriginalFilename)\", [^\\n]+",
+    "flags": "gm",
+    "expected": [
+      "VALUE \"InternalName\", \"cloud_board\" \"\\0\"",
+      "VALUE \"OriginalFilename\", \"cloud_board.exe\" \"\\0\""
+    ]
+  },
+  {
+    "file": "ios/Runner/Info.plist",
+    "pattern": "com\\.googleusercontent\\.apps\\.[^<\\n]+",
+    "flags": "gm",
+    "expected": [
+      "com.googleusercontent.apps.428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg"
+    ]
+  },
+  {
+    "file": "lib/src/app/core/services/firebase_account_scope.dart",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app"
+    ]
+  },
+  {
+    "file": "functions/src/billing-policy.js",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "com.sunmkim.cloudboard",
+      "com.sunmkim.cloudboard.plus.monthly",
+      "com.sunmkim.cloudboard.premium.monthly"
+    ]
+  },
+  {
+    "file": "lib/src/app/core/services/ios_class_controls.dart",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "com.sunmkim.cloudboard/ios_class_controls"
+    ]
+  },
+  {
+    "file": "lib/src/app/core/services/android_class_notifications.dart",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "com.sunmkim.cloudboard/class_controls"
+    ]
+  },
+  {
+    "file": "lib/src/app/core/services/workout_media_controller.dart",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "com.sunmkim.cloudboard.workout"
+    ]
+  },
+  {
+    "file": "lib/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "cloudboard.slide-editor.v1.$key",
+      "cloudboard.slide-editor.v1.$key"
+    ]
+  },
+  {
+    "file": "lib/src/app/core/services/saved_color_store.dart",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "cloudboard.saved-colors.v1"
+    ]
+  },
+  {
+    "file": "lib/src/app/core/services/recent_color_store.dart",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "cloudboard.recent-colors.v1"
+    ]
+  },
+  {
+    "file": "ios/Runner/ClassControls.swift",
+    "pattern": "(?:com\\.sunmkim\\.cloudboard[^\\s'\";,<]*|cloud-board-stationd[^\\s'\";,<]*|cloudboard\\.[^\\s'\";,<]*)",
+    "flags": "gm",
+    "expected": [
+      "cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app",
+      "cloudboard.class-control-binding.v1",
+      "com.sunmkim.cloudboard/ios_class_controls"
+    ]
+  },
+  {
+    "file": "lib/src/app/feature/device/domain/entities/pairing_qr.dart",
+    "pattern": "cloudboard://pair\\?code=\\$code",
+    "flags": "gm",
+    "expected": [
+      "cloudboard://pair?code=$code"
+    ]
+  },
+  {
+    "file": "lib/src/app/feature/workouts/data/datasources/workout_local_data_source.dart",
+    "pattern": "xonboard\\.v1",
+    "flags": "gm",
+    "expected": [
+      "xonboard.v1"
+    ]
+  },
+  {
+    "file": "lib/firebase_options.dart",
+    "pattern": "(?:appId|messagingSenderId|projectId|authDomain|storageBucket|databaseURL|iosClientId|androidClientId|iosBundleId): '[^']*'",
+    "flags": "gm",
+    "expected": [
+      "androidClientId: '428540903054-lvnk9aog697de6gd54rf8uqb1m7s8b2e.apps.googleusercontent.com'",
+      "appId: '1:428540903054:android:372a37e13694a69b3d93df'",
+      "appId: '1:428540903054:ios:2483df8a16e997ba3d93df'",
+      "appId: '1:428540903054:web:c9deb3b356dbbf793d93df'",
+      "authDomain: 'cloud-board-stationd.firebaseapp.com'",
+      "iosBundleId: 'com.sunmkim.cloudboard'",
+      "iosClientId: '428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg.apps.googleusercontent.com'",
+      "messagingSenderId: '428540903054'",
+      "messagingSenderId: '428540903054'",
+      "messagingSenderId: '428540903054'",
+      "projectId: 'cloud-board-stationd'",
+      "projectId: 'cloud-board-stationd'",
+      "projectId: 'cloud-board-stationd'",
+      "storageBucket: 'cloud-board-stationd.firebasestorage.app'",
+      "storageBucket: 'cloud-board-stationd.firebasestorage.app'",
+      "storageBucket: 'cloud-board-stationd.firebasestorage.app'"
+    ]
+  },
+  {
+    "file": "android/app/google-services.json",
+    "pattern": "\"(?:project_id|project_number|mobilesdk_app_id|package_name|client_id|firebase_url|storage_bucket)\": \"[^\"]*\"",
+    "flags": "gm",
+    "expected": [
+      "\"client_id\": \"428540903054-97fm2qj8hto4qu0nnhmnjhgnlels8cf4.apps.googleusercontent.com\"",
+      "\"client_id\": \"428540903054-aepdo4ifu6em7r8sqlkd6c47s47lqkde.apps.googleusercontent.com\"",
+      "\"client_id\": \"428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg.apps.googleusercontent.com\"",
+      "\"client_id\": \"428540903054-hp49dq82ov7b36srhcoafpo8i1qvdfns.apps.googleusercontent.com\"",
+      "\"client_id\": \"428540903054-hp49dq82ov7b36srhcoafpo8i1qvdfns.apps.googleusercontent.com\"",
+      "\"client_id\": \"428540903054-lvnk9aog697de6gd54rf8uqb1m7s8b2e.apps.googleusercontent.com\"",
+      "\"client_id\": \"428540903054-vk585auhlrv29orlh8sl0una718hcqvr.apps.googleusercontent.com\"",
+      "\"firebase_url\": \"https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app\"",
+      "\"mobilesdk_app_id\": \"1:428540903054:android:372a37e13694a69b3d93df\"",
+      "\"package_name\": \"com.sunmkim.cloudboard\"",
+      "\"package_name\": \"com.sunmkim.cloudboard\"",
+      "\"package_name\": \"com.sunmkim.cloudboard\"",
+      "\"package_name\": \"com.sunmkim.cloudboard\"",
+      "\"package_name\": \"com.sunmkim.cloudboard\"",
+      "\"project_id\": \"cloud-board-stationd\"",
+      "\"project_number\": \"428540903054\"",
+      "\"storage_bucket\": \"cloud-board-stationd.firebasestorage.app\""
+    ]
+  },
+  {
+    "file": "ios/Runner/GoogleService-Info.plist",
+    "pattern": "<key>(?:GOOGLE_APP_ID|GCM_SENDER_ID|PROJECT_ID|STORAGE_BUCKET|DATABASE_URL|BUNDLE_ID|CLIENT_ID|REVERSED_CLIENT_ID)</key>\\s*<string>[^<]*</string>",
+    "flags": "gm",
+    "expected": [
+      "<key>BUNDLE_ID</key>\n\t<string>com.sunmkim.cloudboard</string>",
+      "<key>CLIENT_ID</key>\n\t<string>428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg.apps.googleusercontent.com</string>",
+      "<key>DATABASE_URL</key>\n\t<string>https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app</string>",
+      "<key>GCM_SENDER_ID</key>\n\t<string>428540903054</string>",
+      "<key>GOOGLE_APP_ID</key>\n\t<string>1:428540903054:ios:2483df8a16e997ba3d93df</string>",
+      "<key>PROJECT_ID</key>\n\t<string>cloud-board-stationd</string>",
+      "<key>REVERSED_CLIENT_ID</key>\n\t<string>com.googleusercontent.apps.428540903054-ass1pn2au4t7d7ih18u218d82pvkq3jg</string>",
+      "<key>STORAGE_BUCKET</key>\n\t<string>cloud-board-stationd.firebasestorage.app</string>"
+    ]
+  }
+]
