@@ -30,6 +30,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/slide_settings.dart'
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/timer_editor_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_style_picker.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/slide_editor_actions.dart';
@@ -300,94 +301,21 @@ class _SlideEditorBody extends HookConsumerWidget {
     }
 
     Future<void> loadStyle() async {
-      final green = WorkoutModule.empty('green').copyWith(
-        name: '초록 링 · 검정 숫자',
-        workGaugeColor: '#34C759',
-        restGaugeColor: '#0047FF',
-        workTextColor: '#000000',
-        restTextColor: '#000000',
-        appearance: const SlideAppearance(
-          titleColor: 0xFF000000,
-          bodyColor: 0xFF000000,
-          setsColor: 0xFF000000,
-          brandColor: 0xFF000000,
-        ),
-      );
       final selected = await showModalBottomSheet<WorkoutModule>(
         context: context,
+        sheetAnimationStyle: AppMotion.sheet(context),
         isScrollControlled: true,
-        builder: (sheetContext) => SafeArea(
-          child: SizedBox(
-            height: MediaQuery.sizeOf(sheetContext).height * .7,
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const Text(
-                  '스타일 불러오기',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                const Text('색상·배치·표시 옵션을 가져옵니다. 시간, 제목, 이미지는 유지됩니다.'),
-                const SizedBox(height: 16),
-                for (final entry in [
-                  (
-                    '기본 스타일',
-                    [
-                      green,
-                      WorkoutModule.empty('default').copyWith(name: '기본 · 흰색'),
-                    ],
-                  ),
-                  ('내 스타일 · 이 기기', state.styles),
-                  (
-                    '이 워크아웃의 슬라이드',
-                    request.workout?.modules
-                            .where((v) => v.id != module.id)
-                            .toList() ??
-                        <WorkoutModule>[],
-                  ),
-                ]) ...[
-                  Text(
-                    entry.$1,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  if (entry.$2.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text('아직 없습니다.'),
-                    ),
-                  for (final style in entry.$2)
-                    ListTile(
-                      title: Text(style.name),
-                      leading: Icon(
-                        Icons.palette_outlined,
-                        color: Color(
-                          slideColor(style, rest: false, text: false),
-                        ),
-                      ),
-                      onTap: () => Navigator.pop(sheetContext, style),
-                      trailing: entry.$1.startsWith('내 스타일')
-                          ? IconButton(
-                              tooltip: '스타일 삭제',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () async {
-                                try {
-                                  await actions.deleteStyle(style.id);
-                                  if (sheetContext.mounted) {
-                                    Navigator.pop(sheetContext);
-                                  }
-                                } catch (_) {
-                                  if (context.mounted) {
-                                    error.value = '스타일을 삭제하지 못했습니다.';
-                                  }
-                                }
-                              },
-                            )
-                          : const Icon(Icons.chevron_right),
-                    ),
-                  const SizedBox(height: 16),
-                ],
-              ],
-            ),
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => Consumer(
+          builder: (context, sheetRef, _) => SlideStylePicker(
+            styles: sheetRef.watch(provider.select((value) => value.styles)),
+            slides:
+                request.workout?.modules
+                    .where((value) => value.id != module.id)
+                    .toList() ??
+                const [],
+            onDelete: (style) => actions.deleteStyle(style.id),
           ),
         ),
       );
@@ -748,6 +676,32 @@ class _SlideEditorBody extends HookConsumerWidget {
                   ),
                   const Divider(height: 24),
                   const Text(
+                    '스타일',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('색상·배치·표시 옵션을 한 번에 적용하거나 저장해요.'),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const ValueKey('slide-load-style'),
+                        onPressed: loadStyle,
+                        icon: const Icon(Icons.palette_outlined),
+                        label: const Text('스타일 불러오기'),
+                      ),
+                      TextButton.icon(
+                        key: const ValueKey('slide-save-style'),
+                        onPressed: saveStyle,
+                        icon: const Icon(Icons.bookmark_add_outlined),
+                        label: const Text('스타일 저장'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
                     '타이머 색상',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
@@ -756,7 +710,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                     key: const ValueKey('timer-color-scroll'),
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      spacing: 4,
+                      spacing: 8,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         HexColorField(
@@ -782,7 +736,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                           HexColorField(
                             compact: true,
                             compactWidth: MediaQuery.textScalerOf(context)
-                                .scale(80),
+                                .scale(i >= 2 ? 112 : 80),
                             key: ValueKey('phase-color-$i-${revision.value}'),
                             label: const [
                               '운동 게이지',
@@ -904,21 +858,6 @@ class _SlideEditorBody extends HookConsumerWidget {
                             module.imageSource.isNotEmpty,
                         child: const Text('이미지 제거'),
                       ),
-                    ],
-                  ),
-                  const Divider(height: 1),
-                  _SlideEditorMenuTile(
-                    icon: Icons.palette_outlined,
-                    title: '스타일',
-                    subtitle: '색상·배치·표시 옵션',
-                    menuTooltip: '스타일 메뉴',
-                    onSelected: (action) {
-                      if (action == 'save') unawaited(saveStyle());
-                      if (action == 'load') unawaited(loadStyle());
-                    },
-                    items: const [
-                      PopupMenuItem(value: 'save', child: Text('스타일 저장')),
-                      PopupMenuItem(value: 'load', child: Text('스타일 불러오기')),
                     ],
                   ),
                   const Divider(height: 24),

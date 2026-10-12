@@ -6,6 +6,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -211,6 +212,36 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '선택'));
       await tester.pumpAndSettle();
       final colorRow = find.byKey(const ValueKey('timer-color-scroll'));
+      for (final label in [
+        '세트 숫자',
+        '운동 게이지',
+        '휴식 게이지',
+        '운동 시간 텍스트',
+        '휴식 시간 텍스트',
+      ]) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text(label),
+        );
+        final boxes = paragraph.getBoxesForSelection(
+          TextSelection(baseOffset: 0, extentOffset: label.length),
+        );
+        expect(
+          boxes.map((box) => box.top).toSet(),
+          hasLength(1),
+          reason: label,
+        );
+        expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      }
+      await reveal(find.byKey(const ValueKey('slide-load-style')));
+      expect(
+        find.byKey(const ValueKey('slide-load-style')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('slide-load-style'))).dy,
+        lessThan(tester.getTopLeft(find.text('타이머 색상')).dy),
+      );
+      await reveal(color);
       final firstColor = find.byKey(const ValueKey('color-swatch-세트 숫자'));
       final lastColor = find.byKey(const ValueKey('color-swatch-휴식 시간 텍스트'));
       expect(

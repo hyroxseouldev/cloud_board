@@ -404,13 +404,23 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('배경'));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SlideEditorScreen)),
+      );
+      final actions = container.read(
+        slideEditorControllerProvider(
+          'styles-workout',
+          original,
+          'local',
+        ).notifier,
+      );
+      actions.update(original.copyWith(workTextColor: '#000000'));
       await tester.pumpAndSettle();
-      await scrollSettingsTo(tester, find.byTooltip('스타일 메뉴'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('스타일 메뉴'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('스타일 저장'));
+      await scrollSettingsTo(
+        tester,
+        find.byKey(const ValueKey('slide-save-style')),
+      );
+      await tester.tap(find.byKey(const ValueKey('slide-save-style')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, '스타일 이름'),
@@ -419,13 +429,17 @@ void main() {
       await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, '스타일 저장'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byTooltip('스타일 메뉴'));
-      await tester.tap(find.byTooltip('스타일 메뉴'));
+      actions.update(original.copyWith(workTextColor: '#FF0000'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('스타일 불러오기'));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('slide-load-style')),
+      );
+      await tester.tap(find.byKey(const ValueKey('slide-load-style')));
       await tester.pumpAndSettle();
       expect(find.text('테스트 스타일'), findsOneWidget);
-      await tester.tap(find.text('초록 링 · 검정 숫자'));
+      expect(find.text('기본 스타일'), findsNothing);
+      expect(find.text('내 스타일 · 이 기기'), findsNothing);
+      await tester.tap(find.text('테스트 스타일'));
       await tester.pumpAndSettle();
       await scrollSettingsToTop(tester);
       final applied = tester
