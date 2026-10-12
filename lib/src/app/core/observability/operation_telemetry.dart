@@ -77,8 +77,9 @@ class OperationTelemetry {
       createId(),
       clock().toUtc(),
     );
-    if (_actions.contains(action) && account != null)
+    if (_actions.contains(action) && account != null) {
       _record(attempt, 'attempt', 0);
+    }
     return attempt;
   }
 
@@ -91,8 +92,9 @@ class OperationTelemetry {
     final account = attempt.account;
     if (!_actions.contains(attempt.action) ||
         account == null ||
-        readAccount() != account)
+        readAccount() != account) {
       return;
+    }
     final now = clock().toUtc();
     final event = <String, dynamic>{
       'operationId': attempt.id,
@@ -186,8 +188,9 @@ OperationTelemetry operationTelemetry(Ref ref) {
       } on FirebaseFunctionsException catch (error) {
         // Invalid/expired data cannot succeed later and must not block newer events.
         if (error.code == 'invalid-argument' ||
-            error.code == 'permission-denied')
+            error.code == 'permission-denied') {
           return;
+        }
         rethrow;
       }
     },
@@ -218,11 +221,13 @@ OperationTelemetry operationTelemetry(Ref ref) {
     } catch (_) {}
     if (!RegExp(r'^(unknown|\d+(?:[.\-+][a-zA-Z0-9]+){0,8})$')
             .hasMatch(version) ||
-        version.length > 40)
+        version.length > 40) {
       version = 'unknown';
+    }
     if (!RegExp(r'^(unknown|\d+(?:\.\d+){0,4})$').hasMatch(build) ||
-        build.length > 20)
+        build.length > 20) {
       build = 'unknown';
+    }
     return {
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'version': version,

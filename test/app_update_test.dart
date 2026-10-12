@@ -206,7 +206,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(opens, 1);
       expect(find.textContaining('스토어를 열지 못했어요'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      // Browsers reserve arrows for scrolling; native TV uses D-pad focus.
+      await tester.sendKeyEvent(
+        kIsWeb ? LogicalKeyboardKey.tab : LogicalKeyboardKey.arrowRight,
+      );
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();

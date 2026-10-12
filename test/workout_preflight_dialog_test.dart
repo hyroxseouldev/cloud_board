@@ -26,10 +26,14 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final repository = _PreparationRepository();
-      final workout = Workout.empty(
-        'w',
-        const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
-      ).copyWith(modules: [WorkoutModule.empty('m')]);
+      final workout =
+          Workout.empty(
+            'w',
+            const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+          ).copyWith(
+            name: '수업',
+            modules: [WorkoutModule.empty('m').copyWith(name: '스쿼트')],
+          );
       final now = DateTime.now().millisecondsSinceEpoch;
       final devices = ['a', 'b']
           .map(
@@ -70,7 +74,14 @@ void main() {
         isNull,
       );
       final first = repository.value!.sessionId;
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'TV 준비 다시 확인'))
+            .onPressed,
+        isNotNull,
+      );
       await tester.tap(find.text('TV 준비 다시 확인'));
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
       expect(repository.value!.sessionId, isNot(first));
       expect(
@@ -83,6 +94,7 @@ void main() {
       final second = find.widgetWithText(CheckboxListTile, 'TV b');
       await tester.ensureVisible(second);
       await tester.tap(second);
+      await tester.pump();
       await tester.pumpAndSettle();
       expect(repository.value!.targetDeviceIds, ['a']);
       expect(repository.value!.manifestHash, isNot(both));

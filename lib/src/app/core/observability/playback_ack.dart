@@ -30,12 +30,14 @@ PlaybackAckVerdict evaluatePlaybackAck({
       (currentRevision != null && currentRevision > expectedRevision)) {
     return PlaybackAckVerdict.cancelled;
   }
-  if (currentRevision == null || currentRevision < expectedRevision)
+  if (currentRevision == null || currentRevision < expectedRevision) {
     return PlaybackAckVerdict.pending;
+  }
   if (currentDeviceId != expectedDeviceId ||
       currentTargetIds.length != targetIds.length ||
-      !currentTargetIds.containsAll(targetIds))
+      !currentTargetIds.containsAll(targetIds)) {
     return PlaybackAckVerdict.cancelled;
+  }
   final targets = {
     for (final device in devices)
       if (targetIds.contains(device.id)) device.id: device,

@@ -37,7 +37,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
 
   Future<void> prepare(Workout workout, List<String> targets) async {
     final epoch = ++_epoch;
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     if (!ref.mounted || epoch != _epoch) return;
     state = const DisplayPreparationState(loading: true);
     try {
@@ -46,7 +46,8 @@ class DisplayPreparationController extends _$DisplayPreparationController {
       final request = prepareDisplayCandidate(
         workout,
         targets,
-        sessionId: 'prepare-${now.microsecondsSinceEpoch.toRadixString(36)}-$epoch',
+        sessionId:
+            'prepare-${now.microsecondsSinceEpoch.toRadixString(36)}-$epoch',
         revision: epoch,
         nowMs: preparationServerNow(
           ref.read(serverTimeOffsetProvider).value ?? 0,
