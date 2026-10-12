@@ -139,6 +139,7 @@ class FirstClassScreen extends HookConsumerWidget {
                 .start(
                   workout: workout,
                   targetDeviceIds: selection.targetDeviceIds,
+                  preparationProof: selection.preparation,
                   stepIndex: 0,
                   durationMs: steps.first.duration * 1000,
                 );

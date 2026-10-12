@@ -107,6 +107,21 @@ jobs:
           test/original_slide_cache_test.dart
           test/slide_design_asset_reuse_test.dart
 
+      - name: Test client compatibility and rollout regressions in Chrome
+        run: >-
+          flutter test --platform chrome
+          test/firebase_environment_test.dart
+          test/runtime_feature_policy_test.dart
+          test/remote_feature_rollout_test.dart
+          test/workout_recovery_test.dart
+          test/workout_recovery_widget_test.dart
+          test/playback_recovery_test.dart
+          test/app_update_test.dart
+          test/display_mode_flow_test.dart
+          test/display_preparation_test.dart
+          test/operation_telemetry_test.dart
+          test/playback_ack_test.dart
+
       - name: Test account deletion functions
         run: |
           npm ci --prefix functions
@@ -198,6 +213,10 @@ jobs:
         run: |
           flutter pub get
           npm ci --prefix functions
+      - name: Verify latest installed clients have frozen contracts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/firebase/installed-clients.mjs
       - name: Run every Firebase contract
         env:
           CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}

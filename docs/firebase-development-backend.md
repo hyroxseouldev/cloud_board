@@ -11,7 +11,7 @@ by these operator commands.
 node functions/scripts/development-onboarding.mjs deploy-targets --project cloud-board-development
 ```
 
-The 14 endpoints support workout summaries, settings compatibility, libraries,
+The 15 endpoints support workout summaries, settings compatibility, libraries,
 account deletion, onboarding/trials, diagnostics and playback snapshot cleanup.
 AI generation, real SMS and Apple/Google Play billing endpoints are not deployed
 to this project. No production provider credentials are copied. Store purchases
@@ -60,3 +60,5 @@ node functions/scripts/development-onboarding.mjs revoke-tester --project cloud-
 
 Production onboarding retains its existing SMS delivery and secret bindings;
 simulation rejects every project except the exact development project.
+
+The development onboarding secret must be printable UTF-8 text (for example a base64url-encoded random value). Secret Manager API `payload.data` is transport base64 and is decoded by the API; encoding raw random bytes only once stores binary data that Cloud Run cannot inject as an environment variable. Never reuse production provider credentials.

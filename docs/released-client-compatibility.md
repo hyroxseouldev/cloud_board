@@ -93,3 +93,5 @@ v1/v2 snapshot hydration, while negotiation/permissions are tested separately.
 Contract retirement is a separate policy/rollout change requiring evidence about
 installed versions and a deliberate support decision. A failing release is
 never repaired by deleting its failing old-client fixture.
+
+The required CI contract job also checks the latest actual iOS upload, Android/TV upload and Hosting publication against this registry (`tool/firebase/installed-clients.mjs`). It inspects successful upload steps, including uploads followed by a failed cleanup step, and excludes backend-only repairs. A missing source/run entry blocks the next change until the released client's immutable contracts and release metadata are registered. GitHub lookup failure is an explicit failed check, not permission to assume compatibility.

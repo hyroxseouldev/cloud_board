@@ -57,7 +57,7 @@ substitute for signing in on a real device.
 
 The development project shares the approved Firebase billing account, but keeps
 its own Storage bucket, databases, identities and server credentials. Its backend
-allowlist contains 14 core Functions and uses a dedicated runtime identity.
+allowlist contains 15 core Functions and uses a dedicated runtime identity.
 Development onboarding simulates SMS only for an explicitly approved tester;
 [development backend operations](docs/firebase-development-backend.md) documents
 approval and one-time code retrieval. Production SMS, purchase and AI secrets

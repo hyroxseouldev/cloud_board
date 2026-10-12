@@ -143,11 +143,21 @@ class DisplayModeScreen extends HookConsumerWidget {
         targetsThisDevice &&
         finishedSessionId.value != session.id &&
         session.workout.modules.isNotEmpty;
-    useDisplayPreparation(context, ref, deviceId: deviceId,
-      paired: currentDevice?.paired == true && (currentDevice?.preparationProtocol ?? 0) >= 1,
-      standby: !active.isLoading && !active.hasError && recovery.hasValue &&
-        (session == null || session.status == PlaybackStatus.completed),
-      connected: connected, foreground: foreground);
+    useDisplayPreparation(
+      context,
+      ref,
+      deviceId: deviceId,
+      paired:
+          currentDevice?.paired == true &&
+          (currentDevice?.preparationProtocol ?? 0) >= 1,
+      standby:
+          !active.isLoading &&
+          !active.hasError &&
+          recovery.hasValue &&
+          (session == null || session.status == PlaybackStatus.completed),
+      connected: connected,
+      foreground: foreground,
+    );
     final showCompletion =
         session != null &&
         session.status == PlaybackStatus.completed &&

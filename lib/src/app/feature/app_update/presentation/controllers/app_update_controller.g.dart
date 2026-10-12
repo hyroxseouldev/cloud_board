@@ -38,7 +38,7 @@ final class AppUpdateControllerProvider
 }
 
 String _$appUpdateControllerHash() =>
-    r'17af9ab9538d7f556bccd52fdcb847136ad211d5';
+    r'996104f9cf86fa22255efbb244a439ce984bb828';
 
 abstract class _$AppUpdateController
     extends $AsyncNotifier<({UpdateKind kind, AppRelease release})?> {

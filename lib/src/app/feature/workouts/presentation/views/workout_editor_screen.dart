@@ -604,6 +604,10 @@ class _EditorBody extends HookConsumerWidget {
         if (saved == null || !context.mounted) return;
         final selection = await showWorkoutPreflight(context, saved);
         if (selection == null || !context.mounted) return;
+        if (selection.localOnly) {
+          await context.push('/player/${saved.id}');
+          return;
+        }
         final steps = buildPlayerSteps(saved);
         if (steps.isEmpty) return;
         final id = await ref
@@ -613,6 +617,7 @@ class _EditorBody extends HookConsumerWidget {
               stepIndex: 0,
               durationMs: steps.first.duration * 1000,
               targetDeviceIds: selection.targetDeviceIds,
+              preparationProof: selection.preparation,
             );
         if (id != null && context.mounted) {
           launching.value = false;

@@ -1,3 +1,8 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
+import 'package:cloud_board/src/app/feature/device/domain/repositories/display_preparation_repository.dart';
+import 'package:cloud_board/src/app/feature/device/data/repositories/display_preparation_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+
 import 'dart:convert';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -13,6 +18,85 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'one failed TV blocks start until explicitly excluded and new candidate acknowledged',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _PreparationRepository();
+      final workout = Workout.empty(
+        'w',
+        const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+      ).copyWith(modules: [WorkoutModule.empty('m')]);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final devices = ['a', 'b']
+          .map(
+            (id) => DisplayDevice(
+              id: id,
+              name: 'TV $id',
+              zoneId: 'main',
+              zoneName: '',
+              online: true,
+              lastSeenAtMs: now,
+              currentSessionId: 'old-session',
+              acknowledgedRevision: 999,
+              paired: true,
+              preparationProtocol: 1,
+              playbackProtocol: 5,
+            ),
+          )
+          .toList();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            displayDevicesProvider.overrideWith((ref) => Stream.value(devices)),
+            serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+            displayPreparationRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: MaterialApp(
+            theme: XonTheme.light,
+            home: WorkoutPreflightDialog(workout: workout),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('TV 2대 중 1대 준비 완료'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+            .onPressed,
+        isNull,
+      );
+      final first = repository.value!.sessionId;
+      await tester.tap(find.text('TV 준비 다시 확인'));
+      await tester.pumpAndSettle();
+      expect(repository.value!.sessionId, isNot(first));
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+            .onPressed,
+        isNull,
+      );
+      final both = repository.value!.manifestHash;
+      final second = find.widgetWithText(CheckboxListTile, 'TV b');
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(repository.value!.targetDeviceIds, ['a']);
+      expect(repository.value!.manifestHash, isNot(both));
+      expect(find.text('TV 1대 중 1대 준비 완료'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+            .onPressed,
+        isNotNull,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('이미지 준비 오류는 원문을 숨기고 진단 정보와 복구 안내를 유지한다', (tester) async {
     final sink = _PreflightDiagnostics();
     final workout =
@@ -152,7 +236,12 @@ void main() {
     await tester.pump();
 
     final checkboxes = tester.widgetList<CheckboxListTile>(
-      find.byType(CheckboxListTile),
+      find.byWidgetPredicate(
+        (w) =>
+            w is CheckboxListTile &&
+            (w.title is Text) &&
+            ['메인 TV', '보조 TV'].contains((w.title as Text).data),
+      ),
     );
     expect(checkboxes.length, 2);
     expect(checkboxes.every((tile) => tile.value == true), isTrue);
@@ -167,7 +256,14 @@ void main() {
     expect(find.text('1대를 선택했습니다.'), findsOneWidget);
     expect(
       tester
-          .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+          .widgetList<CheckboxListTile>(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is CheckboxListTile &&
+                  (w.title is Text) &&
+                  ['메인 TV', '보조 TV'].contains((w.title as Text).data),
+            ),
+          )
           .map((tile) => tile.value),
       [true, false],
     );
@@ -183,3 +279,46 @@ class _PreflightDiagnostics implements DiagnosticSink {
 final _onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
 );
+
+class _PreparationRepository implements DisplayPreparationRepository {
+  DisplayPreparation? value;
+  @override
+  Future<void> request(DisplayPreparation request) async {
+    value = request;
+  }
+
+  @override
+  Future<void> cancel(String sessionId) async {}
+  @override
+  Stream<DisplayPreparation?> watchRequest(String deviceId) =>
+      Stream.value(value);
+  @override
+  Future<DisplayPreparation?> current() async => value;
+  @override
+  Stream<Map<String, DisplayPreparationReceipt>> watchReceipts() =>
+      Stream.value({
+        for (final id in value!.targetDeviceIds)
+          id: DisplayPreparationReceipt(
+            sessionId: value!.sessionId,
+            revision: value!.revision,
+            manifestHash: value!.manifestHash,
+            checkedAtMs: DateTime.now().millisecondsSinceEpoch,
+            status: id == 'a' ? 'ready' : 'failed',
+            imageCount: value!.images.length,
+            audioReady: id == 'a',
+          ),
+      });
+  @override
+  Future<Map<String, DisplayPreparationReceipt>> receipts() =>
+      watchReceipts().first;
+  @override
+  Future<void> respond(
+    String deviceId,
+    DisplayPreparation request, {
+    required bool ready,
+    required int imageCount,
+    required bool audioReady,
+  }) async {}
+  @override
+  Future<void> heartbeat(String deviceId) async {}
+}

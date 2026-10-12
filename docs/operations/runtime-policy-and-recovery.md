@@ -59,3 +59,12 @@ The new-operation boundary fetches and activates flags (bounded timeout, minimum
 Firestore `runtimePolicy/current` remains the compatibility/emergency control for existing clients. The new Remote Config rollout is an additional restriction: it cannot turn on a feature disabled by that existing control. These are feature controls, not authorization; Rules/server ownership and entitlement checks still apply. Missing/malformed/unavailable Remote Config preserves validated existing behavior, while a known disabled value stays disabled during an outage. Basic saving and already running playback are not gated.
 
 Use a pilot percentage for optional new functionality, verify TV capabilities before starting, and observe terminal operation outcomes before expansion. Source: [Firebase loading/activation guidance](https://firebase.google.com/docs/remote-config/loading). No production Remote Config template was published by this change.
+
+Prepare a Remote Config change with:
+
+```sh
+node functions/tools/remote-rollout.mjs --project cloud-board-development \
+  --file rollout.json --actor operator --reason 'Start verified center pilot'
+```
+
+This prints the existing ETag and proposed parameter without writing. Add `--apply --expected-etag '<reviewed-etag>'` to publish; stale ETags fail instead of overwriting another change. Only the dedicated feature parameter changes, and Remote Config version history records the operator/reason. To restore prior feature values, publish those values with a higher policy revision and a new reason; blindly restoring an older revision is intentionally rejected by clients. Do not add per-device conditions to this parameter: center/account cohort selection belongs to the owner-stable policy, and TV uses the session decision.

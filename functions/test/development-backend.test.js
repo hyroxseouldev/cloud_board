@@ -16,13 +16,13 @@ test('development binds its isolated secret; production and emulator keep the ex
   }
 });
 
-test('dev target list contains only 14 actual core exports with no provider billing/AI endpoints', () => {
+test('dev target list contains only 15 actual core exports with no provider billing/AI endpoints', () => {
   const source = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
-  assert.equal(developmentFunctionNames.length, 14);
-  assert.equal(new Set(developmentFunctionNames).size, 14);
+  assert.equal(developmentFunctionNames.length, 15);
+  assert.equal(new Set(developmentFunctionNames).size, 15);
   for (const name of developmentFunctionNames) assert(source.includes(`export const ${name}`));
   assert(!developmentFunctionNames.some(name => /Ai|Billing|appStore|GooglePlay|googlePlay|AppStore/.test(name)));
-  assert.equal(developmentDeployTargets(developmentProject).split(',').length, 14);
+  assert.equal(developmentDeployTargets(developmentProject).split(',').length, 15);
   const config = JSON.parse(readFileSync(new URL('../../firebase.development.json', import.meta.url)));
   assert.equal(config.functions[0].codebase, developmentFunctionCodebase);
   assert.deepEqual(developmentDeployTargets(developmentProject).split(','),

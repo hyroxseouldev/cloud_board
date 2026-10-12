@@ -61,6 +61,7 @@ const services={
     await deleteOnboardingData(db,uid);
     await db.recursiveDelete(db.doc(`users/${uid}`));
     await db.doc(`clientDiagnosticLimits/${uid}`).delete();
+    await db.doc(`operationTelemetryLimits/${uid}`).delete();
     if (projectId === developmentProject) await db.doc(`developmentSmsOutbox/${uid}`).delete();
   },
   async deleteRealtime(uid) {
@@ -398,4 +399,13 @@ export const manageLibraryFolder = onCall({region, timeoutSeconds: 30, maxInstan
 export const cleanupClientDiagnostics = onSchedule({region, schedule: 'every 24 hours', timeoutSeconds: 120, maxInstances: 1}, async () => {
   const {cleanupDiagnosticLimits} = await import('./client-diagnostics.js');
   await cleanupDiagnosticLimits(db);
+  const {cleanupOperationLimits} = await import('./operation-telemetry.js');
+  await cleanupOperationLimits(db);
+});
+
+// Operational denominators are separate from error diagnostics and their alert.
+export const recordOperationTelemetry = onCall({region, timeoutSeconds: 30, maxInstances: 3}, async request => {
+  const {recordOperation} = await import('./operation-telemetry.js');
+  const logger = await import('firebase-functions/logger');
+  return recordOperation({db, realtime, auth: request.auth, payload: request.data, emit: entry => logger.write(entry)});
 });
