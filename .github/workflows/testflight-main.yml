@@ -19,7 +19,8 @@ jobs:
     name: Wait for verified backend deployment
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      !contains(github.event.head_commit.message, '[skip testflight]')
+      (!contains(github.event.head_commit.message, '[skip testflight]') &&
+      !contains(github.event.head_commit.message, '[backend only]'))
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -36,7 +37,8 @@ jobs:
     name: Verify release
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      !contains(github.event.head_commit.message, '[skip testflight]')
+      (!contains(github.event.head_commit.message, '[skip testflight]') &&
+      !contains(github.event.head_commit.message, '[backend only]'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -254,7 +256,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          flutter build ipa \
+          flutter build ipa --flavor production \
             --release \
             --no-codesign \
             --build-number "$TESTFLIGHT_BUILD_NUMBER"

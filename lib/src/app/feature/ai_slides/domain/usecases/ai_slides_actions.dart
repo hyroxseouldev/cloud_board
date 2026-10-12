@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy.dart';
+import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -8,16 +10,26 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_sli
 part 'ai_slides_actions.g.dart';
 
 @riverpod
-AiSlidesActions aiSlidesActions(Ref ref) =>
-    AiSlidesActions(ref.watch(aiSlidesRepositoryProvider));
+AiSlidesActions aiSlidesActions(Ref ref) => AiSlidesActions(
+  ref.watch(aiSlidesRepositoryProvider),
+  generationAllowed: (ownerId) => ref
+      .read(runtimeFeaturePolicyServiceProvider)
+      .allows(RuntimeFeature.aiSlideGeneration, ownerId: ownerId),
+);
 
 class AiSlidesActions {
-  const AiSlidesActions(this.repository);
+  const AiSlidesActions(this.repository, {this.generationAllowed});
+  final Future<bool> Function(String ownerId)? generationAllowed;
   final AiSlidesRepository repository;
   Future<AiSlidesAccess> access() => repository.access();
-  Future<AiSlidesResult> generate(String prompt) async {
+  Future<AiSlidesResult> generate(String prompt, {String ownerId = ''}) async {
     if (prompt.trim().isEmpty || prompt.length > 6000) {
       throw const AiSlidesFailure('수업 내용을 1~6,000자로 입력해 주세요.');
+    }
+    if (generationAllowed != null && !await generationAllowed!(ownerId)) {
+      throw const AiSlidesFailure(
+        '내용 정리를 잠시 점검하고 있어요. 템플릿과 직접 편집은 계속 사용할 수 있어요.',
+      );
     }
     final access = await repository.access();
     if (!access.premium) {

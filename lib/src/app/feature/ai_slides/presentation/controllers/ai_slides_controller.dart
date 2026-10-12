@@ -246,7 +246,9 @@ class AiSlidesController extends _$AiSlidesController {
     state = state.copyWith(generating: true, error: null);
     await flush();
     if (!_current(session)) return;
-    final result = await AsyncValue.guard(() => actions.generate(normalized));
+    final result = await AsyncValue.guard(
+      () => actions.generate(normalized, ownerId: session.ownerId!),
+    );
     if (!_current(session)) return;
     ref.invalidate(aiSlidesAccessProvider);
     final generated = result.asData?.value;

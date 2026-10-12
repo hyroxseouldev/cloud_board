@@ -4,6 +4,24 @@ import {legacyBrandDefaults} from './config/legacy-brand-defaults.js';
 export const legacySettingKeys = ['brandL', 'brandR', 'soundTheme', 'countdownSound',
   'workStartSound', 'restStartSound', 'workoutEndSound', 'soundVolume',
   'countdownSeconds', 'countdownBackgroundColor', 'countdownImageSource', 'countdownAppearance'];
+
+export function assertSettingsMigrationMode(projectId, {finalize, confirmed, restoreCompatibility = false}) {
+  if (finalize && restoreCompatibility) throw Error('Choose finalize or restore-compatibility, not both');
+  // No telemetry or boolean operator flag can prove that every installed app,
+  // TV and cached web session has upgraded. Destructive cleanup is demo-only
+  // until a reviewed client retirement policy replaces this hard stop.
+  if (finalize && !projectId.startsWith('demo-')) {
+    throw Error('Production finalize is disabled while installed legacy clients are supported');
+  }
+  if (finalize && !confirmed) throw Error('Demo finalize requires --confirm-compatible-clients');
+}
+
+export function legacyWorkoutSettings(preferences) {
+  const {countdown, ...settings} = normalizeSettings(preferences);
+  return {...settings, countdownSeconds: countdown.seconds,
+    countdownBackgroundColor: countdown.backgroundColor, countdownImageSource: countdown.imageSource,
+    countdownAppearance: countdown.appearance};
+}
 const sounds = ['silent', 'gentleBeep', 'classicBeep', 'sharpBeep', 'lowPulse', 'boxingBell', 'softBell', 'doubleBeep', 'longFinish', 'videoBeep'];
 const themes = ['videoBeep', 'simple', 'classic', 'boxing', 'studio', 'custom'];
 const appearanceDefaults = {showReady: true, showTitle: true, numberScale: 1,

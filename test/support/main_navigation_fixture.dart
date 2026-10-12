@@ -1,3 +1,5 @@
+import 'workout_recovery_fixture.dart';
+
 // Production router and screens with local data. No Firebase/session writes.
 import 'dart:async';
 import 'dart:convert';
@@ -97,6 +99,7 @@ class NavigationPreviewData {
     container = ProviderContainer(
       retry: (_, _) => null,
       overrides: [
+        memoryWorkoutRecovery,
         authStateProvider.overrideWith((ref) async* {
           yield previewUser;
           yield* users.stream;

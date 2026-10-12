@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {requireBackend} from './release_backend_gate.mjs';
 import {receiptFor} from './firebase/test-fixtures.mjs';
+import {manifestHash} from './firebase/release.mjs';
 
 const sha = 'a'.repeat(40), repository = 'owner/cloud_board';
 const successful = {id: 12, run_attempt: 2, head_sha: sha, head_branch: 'main', head_repository: {full_name: repository}, event: 'push', status: 'completed', conclusion: 'success'};
@@ -15,6 +16,26 @@ function options(runs, extras = {}) {
 }
 test('exact commit and successful deployment attempt unlock upload', async () => {
   assert.equal(await requireBackend(options([successful])), successful);
+});
+test('a manually completed full deployment can unlock the exact same main SHA', async () => {
+  const run = {...successful, event: 'workflow_dispatch'};
+  assert.equal(await requireBackend(options([run])), run);
+});
+test('a newer manual failure blocks a prior full deployment permit', async () => {
+  await assert.rejects(requireBackend(options([successful, {...successful, id: 13, event: 'workflow_dispatch', conclusion: 'failure'}])), /blocked/);
+});
+test('backend-only receipt cannot authorize mobile uploads even if jobs appear green', async () => {
+  const base = options([{...successful, event: 'workflow_dispatch'}]);
+  for (const scope of ['rules', 'backend']) {
+    await assert.rejects(requireBackend({...base, readArtifact: async () => {
+      const receipt = receiptFor(); receipt.scope = scope; receipt.manifest.scope = scope;
+      receipt.manifestHash = manifestHash(receipt.manifest); return receipt;
+    }}), /Wrong release scope/);
+  }
+  const missingHosting = structuredClone(jobs);
+  missingHosting.jobs[1].steps.find(s => s.name === 'Deploy to Firebase Hosting').conclusion = 'skipped';
+  // Forging only the scope still cannot replace the required concrete Hosting step.
+  await assert.rejects(requireBackend({...base, request: async path => path.includes('/jobs?') ? missingHosting : base.request(path)}), /No successful backend/);
 });
 test('failure, cancellation and skipped runs block even if an older run passed', async () => {
   for (const conclusion of ['failure', 'cancelled', 'skipped', 'timed_out']) {

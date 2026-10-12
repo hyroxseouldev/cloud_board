@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "nonSemanticFieldsBySource": {
+    "1b64643860d2385d797dafba3db954063d28384f": [
+      {
+        "path": "workout/modules/*/designFingerprint",
+        "reason": "Regenerable rendering-cache fingerprint added after this client; missing fingerprint is a cache miss and does not change class content or timer behavior."
+      },
+      {
+        "path": "playback/workoutSnapshot/modules/*/designFingerprint",
+        "reason": "Same optional rendering-cache fingerprint in the TV snapshot."
+      }
+    ]
+  }
+}

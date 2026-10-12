@@ -1,3 +1,7 @@
+import {firebaseProject} from './firebase-environment.js';
+import {developmentProject, developmentOnboardingSecret, onboardingSecretBindings} from './development-backend-config.js';
+import {assertDevelopmentSmsTester, sendDevelopmentOnboardingSms} from './development-onboarding.js';
+import {setGlobalOptions} from 'firebase-functions/v2';
 import {prunePlaybackSnapshots} from './playback-snapshots.js';
 import {onDocumentWritten, onDocumentCreated} from 'firebase-functions/v2/firestore';
 import {syncWorkoutSummary, backfillCatalog} from './workout-catalog.js';
@@ -12,7 +16,11 @@ import {onMessagePublished} from 'firebase-functions/v2/pubsub';
 import {eraseAccount, requireDeletionIdentity} from './delete-account.js';
 import {appleApiReady, appleSecretBindings} from './apple-billing-config.js';
 
-const projectId=process.env.GCLOUD_PROJECT || 'cloud-board-stationd';
+const projectId=firebaseProject();
+if (projectId === developmentProject) setGlobalOptions({
+  serviceAccount: 'development-runtime@cloud-board-development.iam.gserviceaccount.com',
+  minInstances: 0,
+});
 initializeApp({projectId,databaseURL:`https://${projectId}-default-rtdb.asia-southeast1.firebasedatabase.app`,storageBucket:`${projectId}.firebasestorage.app`});
 const db=getFirestore(), realtime=getDatabase(), auth=getAuth(), bucket=getStorage().bucket();
 const jobs=db.collection('accountDeletions');
@@ -53,6 +61,7 @@ const services={
     await deleteOnboardingData(db,uid);
     await db.recursiveDelete(db.doc(`users/${uid}`));
     await db.doc(`clientDiagnosticLimits/${uid}`).delete();
+    if (projectId === developmentProject) await db.doc(`developmentSmsOutbox/${uid}`).delete();
   },
   async deleteRealtime(uid) {
     await userRef(uid).remove();
@@ -143,6 +152,17 @@ export const syncWorkoutCatalog = onDocumentWritten(
   },
 );
 
+// Support profile-setting writes from installed clients while the canonical
+// document is rolled out. Duplicate and reordered deliveries are harmless.
+export const syncLegacyWorkoutSettings = onDocumentWritten(
+  {document: 'users/{uid}', region, retry: true, maxInstances: 3},
+  async event => {
+    const {syncLegacyWorkoutSettings: synchronize} = await import('./workout-settings-compatibility.js');
+    await synchronize(db, event.params.uid, event.data?.before.data(),
+      event.data?.after.data(), event.data?.after.updateTime);
+  },
+);
+
 // Bound immutable session storage. The active snapshot is always retained;
 // recently ended snapshots allow slow/reconnecting clients to finish loading.
 export const cleanupPlaybackSnapshots = onSchedule(
@@ -214,7 +234,7 @@ export const syncSlideLibraryPlan = onDocumentWritten({
 // Firebase-native app onboarding. No web login or Postgres connection required.
 export const cloudboardAppOnboarding = onCall({
   region, timeoutSeconds: 60, maxInstances: 3,
-  secrets: ['CLOUDBOARD_ONBOARDING_SECRET', 'SOLAPI_API_KEY', 'SOLAPI_API_SECRET'],
+  secrets: onboardingSecretBindings(projectId),
 }, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   const bearer=request.rawRequest.headers.authorization?.replace(/^Bearer /i,'');
@@ -222,10 +242,14 @@ export const cloudboardAppOnboarding = onCall({
     const token=await auth.verifyIdToken(bearer||'',true);
     if(token.uid!==request.auth.uid) throw new Error();
   } catch { throw new HttpsError('unauthenticated','다시 로그인해 주세요.'); }
+  assertDevelopmentSmsTester(projectId, request.auth, request.data?.action);
   const {handleOnboarding}=await import('./onboarding.js');
   const {sendOnboardingSms}=await import('./onboarding-sms.js');
   return handleOnboarding({db,realtime,auth:request.auth,input:request.data,
-    secret:process.env.CLOUDBOARD_ONBOARDING_SECRET,send:sendOnboardingSms});
+    secret:process.env[projectId === developmentProject ? developmentOnboardingSecret : 'CLOUDBOARD_ONBOARDING_SECRET'],
+    send: projectId === developmentProject
+      ? (_phone, code) => sendDevelopmentOnboardingSms({projectId, db, auth: request.auth, code})
+      : sendOnboardingSms});
 });
 
 // Retrying projection repairs a dropped connection between the two Firebase stores.

@@ -4,15 +4,16 @@ import {getFirestore, FieldValue} from 'firebase-admin/firestore';
 import {mkdir, writeFile} from 'node:fs/promises';
 import {resolve, join} from 'node:path';
 import {randomUUID} from 'node:crypto';
-import {legacySettingKeys, planSettings} from '../src/workout-settings-migration.js';
+import {legacySettingKeys, planSettings, assertSettingsMigrationMode, legacyWorkoutSettings} from '../src/workout-settings-migration.js';
 const args = process.argv.slice(2);
 const option = key => args.includes(key) ? args[args.indexOf(key) + 1] : null;
 const projectId = option('--project');
 const uid = option('--uid');
 const apply = args.includes('--apply');
 const finalize = args.includes('--finalize');
-if (!projectId || (projectId !== 'cloud-board-stationd' && !projectId.startsWith('demo-'))) throw Error('Explicit --project required');
-if (finalize && !args.includes('--confirm-compatible-clients')) throw Error('Finalize requires verified compatible clients and --confirm-compatible-clients');
+const restoreCompatibility = args.includes('--restore-compatibility');
+if (!projectId || (!['cloud-board-stationd', 'cloud-board-development'].includes(projectId) && !projectId.startsWith('demo-'))) throw Error('Explicit --project required');
+assertSettingsMigrationMode(projectId, {finalize, restoreCompatibility, confirmed: args.includes('--confirm-compatible-clients')});
 const backupRoot = option('--backup-dir');
 if (apply && !backupRoot) throw Error('--apply requires --backup-dir');
 if (uid && uid.includes('/')) throw Error('Invalid UID');
@@ -57,9 +58,28 @@ for (const user of references) {
         contentOnly: finalize, preferences: plan.preferences});
       else if (finalize && canonical.data().contentOnly !== true) tx.update(canonicalRef, {
         contentOnly: true, revision: canonical.data().revision + 1, updatedAt: FieldValue.serverTimestamp()});
+      else if (restoreCompatibility && canonical.data().contentOnly === true) tx.update(canonicalRef, {
+        contentOnly: false, revision: canonical.data().revision + 1, updatedAt: FieldValue.serverTimestamp()});
       if (!finalize && !canonical.exists) tx.set(user, {uid: user.id, workoutSettings: plan.preferences}, {merge: true});
+      else if (restoreCompatibility) tx.set(user, {uid: user.id, workoutSettings: plan.preferences}, {merge: true});
     });
     row.status = finalize ? 'content-only-activated' : 'prepared';
+    if (restoreCompatibility) {
+      for (const reference of await user.collection('workouts').listDocuments()) {
+        await db.runTransaction(async tx => {
+          const deletion = await tx.get(lock);
+          const current = await tx.get(reference);
+          const settings = await tx.get(canonicalRef);
+          if (deletion.exists || settings.data()?.contentOnly !== false) throw Error('Compatibility state changed');
+          if (!current.exists || current.data().schemaVersion !== 2) return;
+          // Metadata additions are reversible. Content, timestamps and any
+          // future module fields are retained verbatim by this partial update.
+          tx.update(reference, {schemaVersion: FieldValue.delete(),
+            ...legacyWorkoutSettings(settings.data().preferences)});
+        });
+      }
+      row.status = 'compatibility-restored';
+    }
     if (!finalize) continue;
     // Marker protects against old clients recreating removed fields. Per-doc
     // transactions preserve concurrent content edits; each exact source is backed up.
@@ -90,5 +110,5 @@ for (const user of references) {
   }
 }
 if (backup) await writeBackup('report', {report});
-console.log(JSON.stringify({mode: apply ? 'apply' : 'dry-run', finalize, report}, null, 2));
+console.log(JSON.stringify({mode: apply ? 'apply' : 'dry-run', finalize, restoreCompatibility, report}, null, 2));
 await db.terminate();

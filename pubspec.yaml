@@ -94,6 +94,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  default-flavor: development
   assets:
     - assets/branding/soft_rhythm_mark.png
     - assets/slide_templates/

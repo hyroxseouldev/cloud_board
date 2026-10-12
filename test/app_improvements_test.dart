@@ -1,3 +1,5 @@
+import 'support/workout_recovery_fixture.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
 
 import 'timer_editor_test.dart' as timer_interaction;
@@ -71,6 +73,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),
@@ -150,6 +153,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          memoryWorkoutRecovery,
           slideEditorRepositoryProvider.overrideWithValue(
             LocalSlideEditorRepository(SlideEditorLocalDataSource()),
           ),
@@ -570,6 +574,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),
@@ -859,6 +864,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          memoryWorkoutRecovery,
           slideEditorRepositoryProvider.overrideWithValue(
             LocalSlideEditorRepository(SlideEditorLocalDataSource()),
           ),
@@ -1051,6 +1057,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              memoryWorkoutRecovery,
               slideEditorRepositoryProvider.overrideWithValue(
                 LocalSlideEditorRepository(SlideEditorLocalDataSource()),
               ),
@@ -1226,6 +1233,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),
@@ -1361,6 +1369,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              memoryWorkoutRecovery,
               slideEditorRepositoryProvider.overrideWithValue(
                 LocalSlideEditorRepository(SlideEditorLocalDataSource()),
               ),
@@ -1509,6 +1518,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),

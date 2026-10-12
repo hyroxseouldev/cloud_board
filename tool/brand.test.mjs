@@ -13,7 +13,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 function fixture(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cloudboard-brand-test-'));
   t.after(() => fs.rmSync(directory, {recursive: true, force: true}));
-  for (const file of ['ios/Runner/Info.plist', 'ios/ClassActivity/Info.plist', 'macos/Runner/Info.plist',
+  for (const file of ['ios/Runner/Info.plist', 'ios/Runner/Info-Development.plist', 'ios/ClassActivity/Info.plist', 'macos/Runner/Info.plist',
     'web/index.html', 'web/manifest.json', 'config/brand.json', 'config/brand-hardcoding-allowlist.json']) {
     fs.mkdirSync(path.dirname(path.join(directory, file)), {recursive: true});
     fs.copyFileSync(path.join(root, file), path.join(directory, file));

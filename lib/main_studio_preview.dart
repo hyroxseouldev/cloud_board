@@ -6,21 +6,21 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:cloud_board/firebase_options.dart';
 import 'package:cloud_board/main.dart' as app;
+import 'package:cloud_board/src/app/core/config/firebase_environment.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 
 /// Debug-only, isolated simulator preview. Start and seed the emulators using
 /// tool/studio-preview before launching; no production Firebase writes occur.
 void main() {
-  if (!kDebugMode) {
-    throw StateError('Studio preview is only available in debug builds.');
+  if (!kDebugMode || FirebaseEnvironment.isProduction) {
+    throw StateError('Studio preview requires the development debug build.');
   }
   app.runCloudBoard(
-    firebaseOptions: DefaultFirebaseOptions.currentPlatform.copyWith(
+    firebaseOptions: FirebaseEnvironment.options.copyWith(
       projectId: 'demo-cloudboard-studio',
       storageBucket: 'demo-cloudboard-studio.appspot.com',
-      databaseURL: cloudBoardRealtimeDatabaseUrl,
+      databaseURL: studioPreviewRealtimeDatabaseUrl,
     ),
     localPreview: true,
     configureFirebase: () async {

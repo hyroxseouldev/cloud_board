@@ -13,6 +13,7 @@ export function summarizeDiagnostics(entries, receipt) {
     const event = entry.jsonPayload || {}, context = event.context || {};
     // Older logger.error calls included an SDK stack in this field. New writes
     // use the exact marker, but late reports from the old deployment still count.
+    if (event.operationalTest === true && event.code === 'alert-test' && context.platform === 'operations') continue;
     if (event.message !== 'client_diagnostic' && !String(event.message).startsWith('Error: client_diagnostic\n')) continue;
     const occurred = Date.parse(event.occurredAt);
     if (!Number.isFinite(occurred)) continue;
@@ -42,22 +43,40 @@ export function validateSaveAlert(policies, channels) {
   return {status: 'configured', policy: policy.name, receivers: policy.notificationChannels.length,
     delivery: 'not-verified-by-configuration-read'};
 }
+export function healthFailure(error, stage = 'initialization') {
+  const status = Number(error?.response?.status || error?.status || 0);
+  const category = status === 401 ? 'authentication' : status === 403 ? 'permission-denied'
+    : status === 429 ? 'rate-limited' : status >= 500 ? 'service-unavailable'
+    : error?.code === 'ERR_ASSERTION' ? 'configuration-invalid' : 'request-failed';
+  // Deliberately exclude provider messages, headers and bodies: they can contain
+  // customer logs or OAuth credentials. Only controlled dimensions are written.
+  const allowedStages = ['initialization', 'receipt', 'alertPolicies', 'notificationChannels', 'alert-configuration', 'diagnostics'];
+  return {format: 1, status: 'unknown', checkedAt: new Date().toISOString(),
+    stage: allowedStages.includes(error?.healthStage || stage) ? (error?.healthStage || stage) : 'initialization',
+    category, ...(status >= 400 && status <= 599 ? {httpStatus: status} : {})};
+}
+
 export async function inspectHealth(receipt, request, now = Date.now()) {
-  validateReceipt(receipt, receipt);
+  try { validateReceipt(receipt, receipt); } catch (error) { error.healthStage = 'receipt'; throw error; }
   const since = new Date(Math.max(Date.parse(receipt.completedAt), now - 2 * 60 * 60_000)).toISOString();
   const parent = `projects/${targets.project}`;
+  async function checkedRequest(stage, ...args) {
+    try { return await request(...args); } catch (error) { error.healthStage = stage; throw error; }
+  }
   async function list(kind) {
     const values = []; let pageToken;
     do {
-      const page = await request('GET', `https://monitoring.googleapis.com/v3/${parent}/${kind}${pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : ''}`);
+      const page = await checkedRequest(kind, 'GET', `https://monitoring.googleapis.com/v3/${parent}/${kind}${pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : ''}`);
       values.push(...(page[kind] || [])); pageToken = page.nextPageToken;
     } while (pageToken);
     return values;
   }
-  const alert = validateSaveAlert(await list('alertPolicies'), await list('notificationChannels'));
+  const policies = await list('alertPolicies'), channels = await list('notificationChannels');
+  let alert;
+  try { alert = validateSaveAlert(policies, channels); } catch (error) { error.healthStage = 'alert-configuration'; throw error; }
   const entries = []; let pageToken; let truncated = false;
   for (let page = 0; page < 10; page++) {
-    const data = await request('POST', 'https://logging.googleapis.com/v2/entries:list', {resourceNames: [parent],
+    const data = await checkedRequest('diagnostics', 'POST', 'https://logging.googleapis.com/v2/entries:list', {resourceNames: [parent],
       filter: `jsonPayload.message:"client_diagnostic" AND jsonPayload.eventId:* AND timestamp>="${since}" AND severity>=ERROR`,
       orderBy: 'timestamp desc', pageSize: 100, pageToken});
     entries.push(...(data.entries || [])); pageToken = data.nextPageToken;
@@ -76,9 +95,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     writeJson('build/release/health.json', result);
     console.log(`Save alert ${result.alert.status}; diagnostics ${result.diagnostics.status}.`);
     if (result.diagnostics.status !== 'no-errors-observed') process.exitCode = 1;
-  } catch {
-    writeJson('build/release/health.json', {format: 1, status: 'unknown', checkedAt: new Date().toISOString(), reason: 'Monitoring configuration or diagnostic collection could not be verified'});
-    console.error('Release health is unknown; check monitoring access and existing alert configuration.');
+  } catch (error) {
+    const failure = healthFailure(error);
+    writeJson('build/release/health.json', failure);
+    console.error(`Release health is unknown: ${failure.stage}/${failure.category}.`);
     process.exitCode = 1;
   }
 }
