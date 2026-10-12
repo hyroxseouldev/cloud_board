@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -26,6 +27,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  for (final count in [10, 100, 500]) {
+    testWidgets('folder menu uses metadata without draining $count workouts', (
+      tester,
+    ) async {
+      final items = _catalog(count);
+      items[items.length - 1] = items.last.copyWith(folder: '오래된 폴더');
+      final repository = _PagedCatalogRepository(items);
+      await _mount(tester, repository, folders: ['오래된 폴더']);
+      expect(repository.loads, 1);
+      await tester.tap(find.byTooltip('폴더 선택'));
+      await tester.pumpAndSettle();
+      expect(find.text('오래된 폴더'), findsOneWidget);
+      expect(repository.loads, 1);
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets(
     'v5 home keeps row actions accessible and the create action singular',
     (tester) async {
@@ -352,7 +369,11 @@ void main() {
       await tester.pump();
       expect(tester.element(grid), same(gridElement));
     }
-    expect(find.textContaining('수업 제어에 실패했습니다'), findsOneWidget);
+    expect(
+      find.byType(SnackBar),
+      findsNothing,
+      reason: 'The active class shell owns playback feedback, not each page',
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -625,6 +646,7 @@ Future<ProviderContainer> _mount(
   bool testCreateRoute = false,
   bool? showModeSelector,
   double textScale = 1,
+  List<String> folders = const [],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -645,6 +667,7 @@ Future<ProviderContainer> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        libraryFoldersProvider.overrideWith((ref) => Stream.value(folders)),
         if (showModeSelector != null)
           workoutListModeSelectorEnabledProvider.overrideWithValue(
             showModeSelector,

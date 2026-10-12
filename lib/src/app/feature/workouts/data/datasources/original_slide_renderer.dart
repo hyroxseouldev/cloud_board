@@ -7,29 +7,126 @@ import 'package:flutter/services.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 
-final _images = <String, Future<ui.Image>>{};
+/// Cache-owned handles are separate from caller-owned clones. Eviction can
+/// dispose an idle cache handle without invalidating a painter or export.
+class OriginalSlideImageCache {
+  OriginalSlideImageCache({required this.maximumBytes});
+  final int maximumBytes;
+  final _entries = <String, _OriginalImageEntry>{};
+  int get retainedBytes => _entries.values.fold(0, (sum, e) => sum + e.bytes);
+  int get length => _entries.length;
 
-/// Shared asset cache. Callers must not dispose the returned image.
-Future<ui.Image> loadOriginalSlideImage(String id) {
+  Future<ui.Image> load(String key, Future<ui.Image> Function() decode) async {
+    final entry = _entries.remove(key) ?? _OriginalImageEntry();
+    _entries[key] = entry;
+    entry.readers++;
+    try {
+      entry.pending ??= decode().then((image) {
+        entry.image = image;
+        return image;
+      });
+      final image = await entry.pending!;
+      // The reader count pins the cache handle until this clone is created.
+      return image.clone();
+    } catch (_) {
+      if (identical(_entries[key], entry)) _entries.remove(key);
+      entry.evicted = true;
+      rethrow;
+    } finally {
+      entry.readers--;
+      while (retainedBytes > maximumBytes && _entries.isNotEmpty) {
+        final oldest = _entries.remove(_entries.keys.first)!;
+        oldest.evicted = true;
+        oldest.disposeIfUnused();
+      }
+      entry.disposeIfUnused();
+    }
+  }
+
+  void clear() {
+    for (final entry in _entries.values) {
+      entry.evicted = true;
+      entry.disposeIfUnused();
+    }
+    _entries.clear();
+  }
+}
+
+class _OriginalImageEntry {
+  Future<ui.Image>? pending;
+  ui.Image? image;
+  int readers = 0;
+  bool evicted = false;
+  int get bytes => image == null ? 0 : image!.width * image!.height * 4;
+  void disposeIfUnused() {
+    if (evicted && readers == 0) {
+      image?.dispose();
+      image = null;
+    }
+  }
+}
+
+/// LRU budgets exclude active caller clones, which are released by their owners.
+/// Previews use at most 16 MiB; full-resolution export sources use 64 MiB.
+final originalSlidePreviewCache = OriginalSlideImageCache(
+  maximumBytes: 16 * 1024 * 1024,
+);
+final originalSlideExportCache = OriginalSlideImageCache(
+  maximumBytes: 64 * 1024 * 1024,
+);
+
+class _OriginalImageMemoryObserver extends WidgetsBindingObserver {
+  @override
+  void didHaveMemoryPressure() {
+    originalSlidePreviewCache.clear();
+    originalSlideExportCache.clear();
+  }
+}
+
+bool _observesMemoryPressure = false;
+final _originalMemoryObserver = _OriginalImageMemoryObserver();
+
+/// Returns a caller-owned handle. Always dispose it after painting/exporting.
+/// [targetWidth] is in physical pixels; omission requests the exact original.
+Future<ui.Image> loadOriginalSlideImage(String id, {int? targetWidth}) {
+  if (!_observesMemoryPressure) {
+    WidgetsBinding.instance.addObserver(_originalMemoryObserver);
+    _observesMemoryPressure = true;
+  }
   final template = originalSlideTemplate(id);
   if (template == null) {
     return Future.error(
       ArgumentError.value(id, 'id', 'Unknown original slide'),
     );
   }
-  return _images.putIfAbsent(id, () async {
+  final width = targetWidth == null
+      ? null
+      : (((targetWidth.clamp(1, 3840) + 63) ~/ 64) * 64).clamp(
+          1,
+          template.sourceSize.width.toInt(),
+        );
+  final cache = width == null
+      ? originalSlideExportCache
+      : originalSlidePreviewCache;
+  return cache.load('$id:${width ?? 'original'}', () async {
     final bytes = await rootBundle.load(template.asset);
     final codec = await ui.instantiateImageCodec(
       bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
+      targetWidth: width,
+      allowUpscaling: false,
     );
-    final image = (await codec.getNextFrame()).image;
-    codec.dispose();
-    if (image.width != template.sourceSize.width ||
-        image.height != template.sourceSize.height) {
-      image.dispose();
-      throw StateError('Original slide dimensions changed');
+    try {
+      final image = (await codec.getNextFrame()).image;
+      if (width == null &&
+          (image.width != template.sourceSize.width ||
+              image.height != template.sourceSize.height)) {
+        image.dispose();
+        throw StateError('Original slide dimensions changed');
+      }
+      return image;
+    } finally {
+      codec.dispose();
     }
-    return image;
   });
 }
 
@@ -235,9 +332,10 @@ void paintOriginalSlide(
   canvas.translate(target.left, target.top);
   final scale = target.width / template.sourceSize.width;
   canvas.scale(scale);
-  canvas.drawImage(
+  canvas.drawImageRect(
     image,
-    Offset.zero,
+    Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+    Offset.zero & template.sourceSize,
     Paint()..filterQuality = FilterQuality.medium,
   );
   // Empty slots also remove their baked number. Every remaining number and

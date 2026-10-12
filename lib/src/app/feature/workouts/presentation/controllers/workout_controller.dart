@@ -152,7 +152,10 @@ class WorkoutController extends _$WorkoutController {
           _pages = catalogPages;
           _hasMore = true;
           try {
-            await _readPage(generation, (items) => output.add(_merge(items)));
+            await _readPage(
+              generation,
+              (items, ordered) => output.add(_merge(items, ordered: ordered)),
+            );
           } finally {
             if (!complete.isCompleted) complete.complete();
           }
@@ -211,8 +214,8 @@ class WorkoutController extends _$WorkoutController {
           // flight. Never advance a StreamIterator twice at the same time.
           await _loading;
           if (!ref.mounted || generation != _generation) return;
-          await _readPage(generation, (items) {
-            state = AsyncData(_merge(items));
+          await _readPage(generation, (items, ordered) {
+            state = AsyncData(_merge(items, ordered: ordered));
           });
         }().whenComplete(() {
           if (generation == _generation) _nextPage = null;
@@ -221,7 +224,7 @@ class WorkoutController extends _$WorkoutController {
 
   Future<void> _readPage(
     int generation,
-    void Function(List<WorkoutSummary>) emit,
+    void Function(List<WorkoutSummary>, bool ordered) emit,
   ) async {
     final pages = _pages;
     if (pages == null || !_hasMore || _pageFailed) return;
@@ -230,7 +233,7 @@ class WorkoutController extends _$WorkoutController {
       while (await pages.moveNext()) {
         if (!ref.mounted || generation != _generation) return;
         final page = pages.current;
-        emit(page.items);
+        emit(page.items, page.ordered);
         if (page.cached) continue;
         _hasMore = !page.complete;
         if (!_hasMore) unawaited(pages.cancel());
@@ -269,6 +272,7 @@ class WorkoutController extends _$WorkoutController {
     try {
       final loader = await ref.read(loadWorkoutsProvider.future);
       List<WorkoutSummary> items;
+      var ordered = false;
       if (loader.supportsPaging) {
         final pages = StreamIterator(loader.pages(requireServer: true));
         final count = state.value?.length ?? 0;
@@ -289,11 +293,14 @@ class WorkoutController extends _$WorkoutController {
             final page = pages.current;
             if (page.cached) continue;
             loaded = page.items;
+            ordered = page.ordered;
             hasMore = !page.complete;
             if (!hasMore || (!completeCatalog && loaded.length >= count)) break;
           }
         } catch (_) {
-          await pages.cancel();
+          // StreamIterator already cancels on error. Publish the failure
+          // without waiting for transport teardown before enabling retry.
+          unawaited(pages.cancel());
           rethrow;
         }
         if (!ref.mounted || generation != _generation) {
@@ -320,7 +327,7 @@ class WorkoutController extends _$WorkoutController {
         _removed.remove(id);
         _mutationVersions.remove(id);
       }
-      state = AsyncData(_merge(items));
+      state = AsyncData(_merge(items, ordered: ordered));
     } catch (error, stack) {
       if (!ref.mounted || generation != _generation) return;
       _status(error: error);
@@ -329,13 +336,14 @@ class WorkoutController extends _$WorkoutController {
     }
   }
 
-  List<WorkoutSummary> _merge(List<WorkoutSummary> items) {
-    final merged = {for (final item in items) item.id: item, ..._upserts};
-    for (final id in _removed) {
-      merged.remove(id);
-    }
-    return merged.values.toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  List<WorkoutSummary> _merge(
+    List<WorkoutSummary> items, {
+    bool ordered = false,
+  }) {
+    final sorted = ordered
+        ? items
+        : (items.toList()..sort(compareWorkoutSummaries));
+    return mergeWorkoutSummaries(sorted, _upserts, removed: _removed);
   }
 
   void upsert(Workout workout) {
@@ -345,14 +353,7 @@ class WorkoutController extends _$WorkoutController {
     _removed.remove(workout.id);
     final items = state.value;
     if (items == null) return;
-    final index = items.indexWhere((item) => item.id == workout.id);
-    final next = [...items];
-    if (index == -1) {
-      next.insert(0, summary);
-    } else {
-      next[index] = summary;
-    }
-    state = AsyncData(next);
+    state = AsyncData(mergeWorkoutSummaries(items, {workout.id: summary}));
   }
 
   void remove(String workoutId) {
@@ -376,6 +377,7 @@ class WorkoutActionController extends _$WorkoutActionController {
   /// or duplicate, so repeated taps cannot open multiple preparation dialogs.
   Future<Workout?> prepare(String id) async {
     if (state.isLoading) return null;
+    final reporter = ref.read(errorReporterProvider);
     state = const AsyncLoading();
     Workout? detail;
     final subscription = ref.listen(workoutDetailProvider(id), (_, _) {});
@@ -385,6 +387,13 @@ class WorkoutActionController extends _$WorkoutActionController {
       return null;
     });
     subscription.close();
+    if (result.hasError) {
+      reporter.capture(
+        result.error!,
+        result.stackTrace ?? StackTrace.current,
+        action: 'workout.prepare',
+      );
+    }
     if (!ref.mounted) return null;
     state = result;
     return result.hasError ? null : detail;

@@ -6,10 +6,14 @@ import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 part 'library_folder_controller.g.dart';
 
 @riverpod
-Stream<List<String>> libraryFolders(Ref ref) {
-  final owner = ref.watch(authStateProvider).value?.id;
-  if (owner == null) return Stream.value(const []);
-  return ref.watch(libraryFolderActionsProvider).watch(owner);
+Stream<List<String>> libraryFolders(Ref ref) async* {
+  final user = await ref.watch(authStateProvider.future);
+  if (!ref.mounted) return;
+  if (user == null) {
+    yield const [];
+    return;
+  }
+  yield* ref.watch(libraryFolderActionsProvider).watch(user.id);
 }
 
 @riverpod

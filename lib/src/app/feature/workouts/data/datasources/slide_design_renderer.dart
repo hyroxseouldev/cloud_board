@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:crypto/crypto.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
@@ -1274,7 +1275,16 @@ class SlideDesignPainter extends CustomPainter {
 // Only visual inputs participate: timer progression and module IDs never trigger
 // another expensive 1920×1080 PNG render. Bounded to avoid keeping full libraries.
 final _renderCache = <String, Future<String>>{};
+
+/// Increment when paint/layout/font assets change even with identical inputs.
+const slideDesignRendererVersion = 1;
+String slideDesignFingerprint(WorkoutModule module) =>
+    'v$slideDesignRendererVersion:${sha256.convert(utf8.encode(_renderKey(module)))}';
+
+void clearSlideDesignRenderCache() => _renderCache.clear();
+
 String _renderKey(WorkoutModule module) => jsonEncode([
+  slideDesignRendererVersion,
   module.name,
   module.text,
   module.designTemplate,
@@ -1342,6 +1352,7 @@ Future<String> _renderSlideDesign(WorkoutModule module) async {
     }
   } finally {
     picture.dispose();
+    originalImage?.dispose();
   }
 }
 
@@ -1349,6 +1360,7 @@ Future<WorkoutModule> prepareSlideDesign(WorkoutModule module) async {
   if (!hasSlideDesign(module)) return module;
   return module.copyWith(
     imageSource: await renderSlideDesign(module),
+    designFingerprint: slideDesignFingerprint(module),
     appearance: module.appearance.copyWith(showTitle: false, showBody: false),
   );
 }

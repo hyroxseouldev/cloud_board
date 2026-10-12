@@ -157,6 +157,7 @@ class WorkoutModuleModel {
     required this.text,
     required this.imageUrl,
     this.designTemplate,
+    this.designFingerprint,
     this.designStyle,
     this.designHeaderLabel = '',
     this.designSubtitle = '',
@@ -185,6 +186,8 @@ class WorkoutModuleModel {
   final String id, name, text, imageUrl;
   @JsonKey(includeIfNull: false)
   final String? designTemplate;
+  @JsonKey(includeIfNull: false)
+  final String? designFingerprint;
   @JsonKey(includeIfNull: false)
   final SlideDesignStyle? designStyle;
   final String designHeaderLabel, designSubtitle;
@@ -236,6 +239,7 @@ class WorkoutModuleModel {
     text: text,
     imageSource: imageUrl,
     designTemplate: designTemplate,
+    designFingerprint: designFingerprint,
     designStyle: designStyle,
     designHeaderLabel: designHeaderLabel,
     designSubtitle: designSubtitle,
@@ -278,6 +282,7 @@ class WorkoutModuleModel {
         text: value.text,
         imageUrl: value.imageSource,
         designTemplate: value.designTemplate,
+        designFingerprint: value.designFingerprint,
         designStyle: value.designStyle,
         designHeaderLabel: value.designHeaderLabel,
         designSubtitle: value.designSubtitle,

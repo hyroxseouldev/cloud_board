@@ -1,0 +1,42 @@
+{
+  "issue": "STA-125",
+  "measuredAt": "2026-10-12",
+  "flutterSdk": "3.47.0",
+  "method": "Same deterministic 5 MiB binary payload encoded as a data URI; initial save plus 20 text/timer edits each separated by 500 ms using the Flutter fake test clock. Baseline executes the former full-module JSON serialization; optimized executes the actual controller debounce and repository with instrumented in-memory storage.",
+  "limitations": [
+    "Debug-host algorithm timings are not device profile or disk latency measurements.",
+    "Baseline timing covers serialization; optimized timing additionally covers controller pumping, decoding/hash of the initial image, and in-memory persistence.",
+    "Metadata byte counts include the JSON draft document; the one-time small asset-intent boolean marker is not included.",
+    "Physical process restart is represented by fresh repository/data-source instances; separate native-file and real Chrome IndexedDB tests verify backend persistence across storage instances."
+  ],
+  "runs": [
+    {
+      "runtime": "flutter-vm-debug-host",
+      "command": "flutter test --no-pub test/draft_asset_store_native_test.dart test/slide_draft_assets_test.dart test/slide_editor_features_test.dart",
+      "measurements": {
+        "fixture": "5 MiB binary image, 21 saves, 20 edits at 500 ms fake intervals",
+        "baselineSerializedBytes": 146819432,
+        "baselineSerializationMicros": 780996,
+        "assetWrites": 1,
+        "assetBytes": 5242880,
+        "metadataWrites": 21,
+        "metadataBytes": 21641,
+        "optimizedSaveMicros": 217092
+      }
+    },
+    {
+      "runtime": "chrome-debug-test",
+      "command": "flutter test --no-pub --platform chrome test/draft_asset_store_web_test.dart test/slide_draft_assets_test.dart",
+      "measurements": {
+        "fixture": "5 MiB binary image, 21 saves, 20 edits at 500 ms fake intervals",
+        "baselineSerializedBytes": 146819264,
+        "baselineSerializationMicros": 7042401,
+        "assetWrites": 1,
+        "assetBytes": 5242880,
+        "metadataWrites": 21,
+        "metadataBytes": 21473,
+        "optimizedSaveMicros": 1506300
+      }
+    }
+  ]
+}

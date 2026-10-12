@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/visible_slide_preview.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:typed_data';
@@ -200,17 +201,20 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ExcludeSemantics(
-                  child: WorkoutSlidePreview(
-                    module: previewAiSlide(
-                      applyAiSlideTheme(
-                        design.theme.designStyle?.originalTemplate != null
-                            ? initialAiSlideDesignDraft(design.theme)
-                            : draft ?? initialAiSlideDesignDraft(design.theme),
-                        design.theme,
+                  child: VisibleSlidePreview(
+                    builder: (context) => WorkoutSlidePreview(
+                      module: previewAiSlide(
+                        applyAiSlideTheme(
+                          design.theme.designStyle?.originalTemplate != null
+                              ? initialAiSlideDesignDraft(design.theme)
+                              : draft ??
+                                    initialAiSlideDesignDraft(design.theme),
+                          design.theme,
+                        ),
                       ),
+                      isRest: false,
+                      borderRadius: 8,
                     ),
-                    isRest: false,
-                    borderRadius: 8,
                   ),
                 ),
                 const SizedBox(height: 9),

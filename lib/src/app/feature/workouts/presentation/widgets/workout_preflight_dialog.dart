@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 
 class WorkoutPreflightSelection {
   WorkoutPreflightSelection({required Iterable<String> targetDeviceIds})
@@ -46,6 +48,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     final readiness = evaluateWorkoutReadiness(workout);
     useEffect(() {
       var cancelled = false;
+      final reporter = ref.read(errorReporterProvider);
 
       Future<void> precacheAfterBuild() async {
         if (cancelled || !context.mounted) return;
@@ -59,6 +62,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
             imageCheck.value = AsyncData(count);
           }
         } catch (error, stack) {
+          reporter.capture(error, stack, action: 'workout.preflight.images');
           if (!cancelled && context.mounted) {
             imageCheck.value = AsyncError(error, stack);
           }
@@ -127,7 +131,10 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                 error: (error, _) => _CheckTile(
                   ok: false,
                   title: '이미지 준비 실패',
-                  subtitle: '$error',
+                  subtitle: workoutErrorMessage(
+                    error,
+                    fallback: '이미지를 준비하지 못했습니다. 인터넷 연결과 슬라이드 이미지를 확인한 뒤 수업 준비를 다시 열어 주세요.',
+                  ),
                 ),
                 data: (count) => _CheckTile(
                   ok: true,
