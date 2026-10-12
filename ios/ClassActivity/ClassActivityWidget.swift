@@ -20,7 +20,7 @@ struct ClassActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label("CloudBoard", systemImage: "rectangle.on.rectangle")
+                    Label(AppBrand.name, systemImage: "rectangle.on.rectangle")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -54,7 +54,7 @@ private struct ClassActivityCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("CloudBoard · 진행 중인 수업").font(.caption).foregroundStyle(.secondary)
+                    Text("\(AppBrand.name) · 진행 중인 수업").font(.caption).foregroundStyle(.secondary)
                     Text(context.attributes.workoutName).font(.headline).lineLimit(1)
                     ClassActivityStatus(context: context)
                 }

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'user_profile.freezed.dart';
@@ -12,7 +13,7 @@ extension PartnerTierLabel on PartnerTier {
     PartnerTier.trial => '체험 중',
     PartnerTier.pilot => '파일럿 파트너',
     PartnerTier.earlyPartner => '얼리 파트너',
-    PartnerTier.pro => 'CloudBoard Pro',
+    PartnerTier.pro => '${AppBrand.name} Pro',
     PartnerTier.enterprise => 'Enterprise',
   };
 }
@@ -33,8 +34,8 @@ extension UserProfilePlan on UserProfile {
   bool get unlimitedDisplays =>
       subscriptionPlan == 'premium' && displayLimit == -1;
   String get planLabel => switch (subscriptionPlan) {
-    'plus' => 'CloudBoard 플러스',
-    'premium' => 'CloudBoard 프리미엄',
+    'plus' => '${AppBrand.name} 플러스',
+    'premium' => '${AppBrand.name} 프리미엄',
     _ => partnerTier.label,
   };
   String get displayLimitLabel => unlimitedDisplays

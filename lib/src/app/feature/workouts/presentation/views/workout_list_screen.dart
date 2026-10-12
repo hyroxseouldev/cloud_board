@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
@@ -871,7 +872,9 @@ class _Logo extends StatelessWidget {
   const _Logo();
   @override
   Widget build(BuildContext context) => const Text(
-    'CloudBoard',
+    AppBrand.name,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
     style: TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.w900,

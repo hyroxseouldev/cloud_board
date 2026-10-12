@@ -23,6 +23,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Node for generators and account deletion functions
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Verify product display configuration and identifier contracts
+        run: |
+          node tool/brand.mjs --check
+          node --test tool/brand.test.mjs tool/brand-platforms.test.mjs
+
       - name: Test iOS signing checks
         run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
 
@@ -35,6 +47,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Test alternate brand and historical data in an isolated copy
+        run: node tool/brand-smoke.mjs
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
@@ -58,13 +73,6 @@ jobs:
           test/workout_catalog_incremental_test.dart
           test/original_slide_cache_test.dart
           test/slide_design_asset_reuse_test.dart
-
-      - name: Set up Node for account deletion functions
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: functions/package-lock.json
 
       - name: Test account deletion functions
         run: |

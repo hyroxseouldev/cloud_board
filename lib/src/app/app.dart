@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:cloud_board/src/app/feature/app_update/presentation/widgets/app_update_gate.dart';
 import 'package:cloud_board/src/app/feature/billing/presentation/controllers/billing_controller.dart';
@@ -121,7 +122,7 @@ class XonBoardApp extends HookConsumerWidget {
     });
 
     return MaterialApp.router(
-      title: 'CloudBoard',
+      title: AppBrand.name,
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: XonTheme.light,

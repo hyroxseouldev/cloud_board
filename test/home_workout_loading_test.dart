@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
@@ -188,6 +189,12 @@ void main() {
         await tester.pump();
         expect(find.byType(WorkoutListSkeleton), findsOneWidget);
         expect(find.byType(ShaderMask), findsNothing);
+        final brand = find.text(AppBrand.name);
+        expect(brand, findsOneWidget);
+        final brandBounds = tester.getRect(brand);
+        expect(brandBounds.left, greaterThanOrEqualTo(0));
+        expect(brandBounds.right, lessThanOrEqualTo(size.width));
+        expect(brandBounds.height, lessThanOrEqualTo(kToolbarHeight));
         expect(tester.binding.hasScheduledFrame, isFalse);
         expect(tester.takeException(), isNull);
         repository.respond(0, homeCatalog());

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:async';
@@ -107,7 +108,11 @@ class _PhoneVerification extends HookConsumerWidget {
     }, [remaining.value]);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CloudBoard'),
+        title: const Text(
+          AppBrand.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         leading: IconButton(
           tooltip: '뒤로',
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -341,7 +346,11 @@ class _OnboardingForm extends HookConsumerWidget {
                   onPressed: busy ? null : () => move(step.value - 1),
                 )
               : null,
-          title: const Text('CloudBoard'),
+          title: const Text(
+            AppBrand.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           actions: [
             if (step.value < 3)
               TextButton(

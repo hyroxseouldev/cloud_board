@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -131,7 +133,7 @@ class UpdatePresentation extends HookWidget {
               const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Text(
-                  '스토어를 열지 못했어요. 연결을 확인하거나 스토어에서 CloudBoard를 검색해 주세요.',
+                  '스토어를 열지 못했어요. 연결을 확인하거나 스토어에서 ${AppBrand.name}를 검색해 주세요.',
                 ),
               ),
             const SizedBox(height: 16),

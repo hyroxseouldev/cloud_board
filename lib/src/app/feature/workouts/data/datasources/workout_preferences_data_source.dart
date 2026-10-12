@@ -4,7 +4,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_preferences_document.dart';
 
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_image_source.dart';
 
@@ -104,13 +103,13 @@ class WorkoutPreferencesDataSource {
       common: common,
       initial:
           common ??
-          WorkoutPreferences(
-            countdown: countdown is Map
-                ? CountdownPreferences.fromJson(
-                    Map<String, dynamic>.from(countdown),
-                  )
-                : const CountdownPreferences(),
-          ),
+          (countdown is Map
+              // Existing countdown-only settings also retain their historical
+              // missing-brand fallback. Absence of all settings is a new draft.
+              ? WorkoutPreferences.fromJson({
+                  'countdown': Map<String, dynamic>.from(countdown),
+                })
+              : const WorkoutPreferences()),
     );
   }
 
