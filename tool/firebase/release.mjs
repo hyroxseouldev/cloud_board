@@ -8,6 +8,17 @@ export const targets = Object.freeze({project: 'cloud-board-stationd', firestore
   database: 'cloud-board-stationd-default-rtdb', databaseURL: 'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app',
   storage: 'cloud-board-stationd.firebasestorage.app'});
 export const ruleFiles = ['firestore.rules', 'database.rules.json', 'storage.rules'];
+export function deploymentScope(value = process.env.FIREBASE_DEPLOY_SCOPE || 'full') {
+  assert(['full', 'backend', 'rules'].includes(value), 'Invalid deployment scope');
+  return value;
+}
+// Receipts created before scoped repairs represented full backend + Hosting
+// publication. New receipts must bind their scope in both signed metadata maps.
+export function receiptScope(receipt) {
+  const scope = deploymentScope(receipt.manifest.scope === undefined ? 'full' : receipt.manifest.scope);
+  assert.equal(receipt.scope === undefined ? 'full' : receipt.scope, scope, 'Receipt deployment scope mismatch');
+  return scope;
+}
 export function identity(env = process.env) {
   const sha = env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
   assert.match(sha, /^[a-f0-9]{40}$/);
@@ -36,9 +47,27 @@ export function requireSuccess(needs, required) {
   assert.deepEqual(Object.keys(needs).sort(), [...required].sort());
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
 }
+export function validateReaderReport(report) {
+  assert.equal(report.format, 1);
+  assert.equal(report.status, 'success', 'Released readers did not pass');
+  assert.equal(report.harnessSha256, hashFile('tool/firebase/released_reader_contract_test.dart'), 'Released reader harness changed');
+  assert.equal(report.policySha256, hashFile('tool/firebase/compatibility-policy.json'), 'Compatibility exception policy changed');
+  const expected = new Map();
+  for (const client of readJson('tool/firebase/supported-clients.json').clients) {
+    expected.set(client.sourceCommit, [...(expected.get(client.sourceCommit) || []), client.client]);
+  }
+  assert.deepEqual(report.sources.map(source => source.sourceCommit).sort(), [...expected.keys()].sort(), 'Missing released source reader');
+  for (const source of report.sources) {
+    assert.equal(source.status, 'success', `Released reader did not pass: ${source.sourceCommit}`);
+    assert.deepEqual([...source.clients].sort(), expected.get(source.sourceCommit).sort(), 'Missing released client reader');
+  }
+  assert.deepEqual(Object.keys(report.candidateFiles).sort(), ['build/contracts/app-current.json', 'build/contracts/workout-save-current.json']);
+  for (const [file, digest] of Object.entries(report.candidateFiles)) assert.equal(hashFile(file), digest, `Released-reader input changed: ${file}`);
+}
 export function makeManifest() {
   const id = identity();
   validateReport(readJson('build/firebase-contracts/report.json'), id);
+  validateReaderReport(readJson('build/contracts/released-readers/report.json'));
   const config = readJson('firebase.json');
   assert.equal(config.firestore.rules, 'firestore.rules');
   assert.equal(config.firestore.database || '(default)', targets.firestore);
@@ -49,16 +78,17 @@ export function makeManifest() {
   assert.equal(config.functions[0].codebase, 'account-deletion');
   assert.deepEqual(config.storage, [{bucket: targets.storage, rules: 'storage.rules'}]);
   const paths = [...ruleFiles, 'firestore.indexes.json', 'firebase.json', 'functions/package.json', 'functions/package-lock.json',
-    'tool/firebase/supported-clients.json', 'tool/firebase/contract-suites.json',
+    'tool/firebase/supported-clients.json', 'tool/firebase/contract-suites.json', 'tool/firebase/compatibility-policy.json', 'tool/firebase/released_reader_contract_test.dart',
     ...filesIn('functions/src'), ...filesIn('functions/tools'), ...filesIn('functions/certificates'), ...filesIn('functions/test/fixtures'), ...filesIn('build/contracts'),
     ...filesIn('build/web'), ...filesIn('build/firebase-contracts')];
   assert(paths.some(p => p === 'build/web/index.html'), 'Missing release web build');
   assert(!paths.some(p => p.startsWith('build/web/') && p.endsWith('.map')), 'Public source map');
-  return {format: 1, ...id, targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
+  return {format: 1, ...id, scope: deploymentScope(), targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
     files: Object.fromEntries(paths.sort().map(path => [path, hashFile(path)]))};
 }
 export function verifyManifest(manifest, id = identity()) {
   assert.equal(manifest.format, 1);
+  assert.equal(deploymentScope(manifest.scope === undefined ? 'full' : manifest.scope), deploymentScope(), 'Candidate deployment scope mismatch');
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(manifest[key], id[key], `Manifest ${key} mismatch`);
   assert.deepEqual(manifest.targets, targets, 'Wrong Firebase target');
   assert.equal(manifest.databaseSemanticHash, hash(canonical(readJson('database.rules.json'))));
@@ -71,10 +101,13 @@ export function verifyManifest(manifest, id = identity()) {
     assert.deepEqual(filesIn(directory), Object.keys(manifest.files).filter(p => p.startsWith(`${directory}/`)).sort(), `Files added/removed after verification: ${directory}`);
   }
   validateReport(readJson('build/firebase-contracts/report.json'), id);
+  validateReaderReport(readJson('build/contracts/released-readers/report.json'));
 }
 export const manifestHash = manifest => hash(canonical(manifest));
 export function validateReceipt(receipt, id) {
   assert.equal(receipt.format, 1);
+  const scope = receiptScope(receipt);
+  if (id.scope) assert.equal(scope, id.scope, 'Wrong release scope');
   assert.equal(receipt.status, 'success');
   assert(Number.isFinite(Date.parse(receipt.completedAt)), 'Missing release completion time');
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(String(receipt[key]), String(id[key]), `Receipt ${key} mismatch`);
@@ -113,7 +146,7 @@ export async function github(path, {method = 'GET', body} = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const command = process.argv[2];
   if (command === 'aggregate') {
-    requireSuccess(JSON.parse(process.env.REQUIRED_JOBS || '{}'), ['app_validation', 'firebase_contracts']);
+    requireSuccess(JSON.parse(process.env.REQUIRED_JOBS || '{}'), ['app_validation', 'firebase_contracts', 'deployment_plan']);
     mkdirSync('build/release/rules', {recursive: true});
     for (const file of ruleFiles) copyFileSync(file, `build/release/rules/${file}`);
     writeJson('build/release/manifest.json', makeManifest());
@@ -122,7 +155,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   else if (command === 'ready') {
     await requireCurrentMain({sha: process.env.GITHUB_SHA, ref: process.env.GITHUB_REF, repository: process.env.GITHUB_REPOSITORY, request: github});
     const manifest = readJson('build/release/manifest.json'); verifyManifest(manifest);
-    const receipt = {format: 1, ...identity(), status: 'success', completedAt: new Date().toISOString(), manifest, manifestHash: manifestHash(manifest),
+    const receipt = {format: 1, ...identity(), scope: manifest.scope, status: 'success', completedAt: new Date().toISOString(), manifest, manifestHash: manifestHash(manifest),
       rules: readJson('build/release/live-rules.json'), smoke: readJson('build/release/smoke.json')};
     validateReceipt(receipt, identity());
     writeJson('build/release/release.json', receipt);

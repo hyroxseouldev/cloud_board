@@ -15,7 +15,7 @@ test('platform labels preserve existing variants and all unrelated metadata', ()
     .match(/IntentDescription\(("(?:\\.|[^"\\])*")\)/)[1];
   assert.equal(swiftString(intentLiteral),
     `${config.display.nameKo}의 현재 연결 수업을 조작합니다. 음악 재생에는 영향을 주지 않습니다.`);
-  for (const file of ['ios/Runner/Info.plist', 'ios/ClassActivity/Info.plist',
+  for (const file of ['ios/Runner/Info.plist', 'ios/Runner/Info-Development.plist', 'ios/ClassActivity/Info.plist',
     'macos/Runner/Info.plist', 'web/index.html', 'web/manifest.json']) {
     assert.equal(generated.get(file), read(file), `${file} current display must remain unchanged`);
   }
@@ -35,6 +35,20 @@ test('platform labels preserve existing variants and all unrelated metadata', ()
   assert.match(read('windows/runner/Runner.rc'), /VALUE "InternalName", "cloud_board"/);
   assert.match(read('macos/Runner/Configs/AppInfo.xcconfig'), /PRODUCT_NAME = cloud_board/);
   assert.match(read('linux/CMakeLists.txt'), /set\(BINARY_NAME "cloud_board"\)/);
+});
+
+test('development labels track branding while preserving Firebase OAuth and bundle metadata', () => {
+  const renamed = structuredClone(config);
+  renamed.platforms.iosDisplayName = 'Future Studio';
+  renamed.platforms.androidDisplayName = 'Future Android';
+  const file = 'ios/Runner/Info-Development.plist';
+  const original = read(file);
+  const generated = output(renamed);
+  assert.match(generated.get(file), /<key>CFBundleDisplayName<\/key>\s*<string>Future Studio Dev<\/string>/);
+  assert.match(generated.get('android/app/src/development/res/values/app_name.xml'), /"Future Android Dev"/);
+  const withoutOwnedLabels = text => text.replace(/(<key>CFBundle(?:DisplayName|Name)<\/key>\s*<string>)[^<]*(<\/string>)/g, '$1$2');
+  assert.equal(withoutOwnedLabels(generated.get(file)), withoutOwnedLabels(original),
+    'OAuth URL schemes, GIDClientID and all technical fields must remain byte-for-byte unchanged');
 });
 
 test('long display names with quotes, apostrophes, ampersands and backslashes stay data', async () => {

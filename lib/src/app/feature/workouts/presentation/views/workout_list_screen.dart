@@ -1158,6 +1158,10 @@ class _WorkoutActions extends ConsumerWidget {
     if (detail == null || !context.mounted) return;
     final selection = await showWorkoutPreflight(context, detail);
     if (selection == null || !context.mounted) return;
+    if (selection.localOnly) {
+      await context.push('/player/${workout.id}');
+      return;
+    }
     final steps = buildPlayerSteps(detail);
     if (steps.isEmpty) return;
     final sessionId = await ref
@@ -1165,6 +1169,7 @@ class _WorkoutActions extends ConsumerWidget {
         .start(
           workout: detail,
           targetDeviceIds: selection.targetDeviceIds,
+          preparationProof: selection.preparation,
           stepIndex: 0,
           durationMs: steps.first.duration * 1000,
         );

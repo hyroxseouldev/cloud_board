@@ -143,6 +143,43 @@ void main() {
     expect(db.updates.last.keys, isNot(contains('activeSession')));
   });
 
+  test('remote split stop only affects next start, ordinary and active playback remain usable', () async {
+    final db = _Database();
+    db.values['users/u/devices'] = {
+      'tv': {
+        'id': 'tv',
+        'mode': 'display',
+        'paired': true,
+        'playbackProtocol': 2,
+      },
+    };
+    var enabled = true;
+    final source = PlaybackRealtimeDataSource(
+      db,
+      'u',
+      allowSplitPlayback: () async => enabled,
+    );
+    await source.start(model('running'));
+    expect((db.values['users/u/activeSession'] as Map)['schemaVersion'], 2);
+    enabled = false;
+    final current = (await source.watchActive().first)!;
+    await source.update(
+      status: 'paused',
+      remainingMs: 5000,
+      deviceId: 'phone',
+      expectedSessionId: current.id,
+      expectedRevision: current.revision,
+    );
+    expect((db.values['users/u/activeSession'] as Map)['schemaVersion'], 2);
+    (db.values['users/u/activeSession'] as Map)['status'] = 'completed';
+    await source.start(model('next'));
+    expect(
+      (db.values['users/u/activeSession'] as Map)['workoutSnapshot'],
+      isNotNull,
+    );
+    expect(db.values['users/u/playbackSnapshots/next'], isNull);
+  });
+
   test('missing or mismatched snapshot fails instead of mixing data from another session', () async {
     final db = _Database();
     db.values['users/u/activeSession'] = {

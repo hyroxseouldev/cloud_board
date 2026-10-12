@@ -1,3 +1,8 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/display_preparation_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
@@ -14,10 +19,15 @@ import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.da
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 
 class WorkoutPreflightSelection {
-  WorkoutPreflightSelection({required Iterable<String> targetDeviceIds})
-    : targetDeviceIds = List.unmodifiable(targetDeviceIds);
+  WorkoutPreflightSelection({
+    required Iterable<String> targetDeviceIds,
+    this.preparation,
+    this.localOnly = false,
+  }) : targetDeviceIds = List.unmodifiable(targetDeviceIds);
 
   final List<String> targetDeviceIds;
+  final DisplayPreparationProof? preparation;
+  final bool localOnly;
 }
 
 Future<WorkoutPreflightSelection?> showWorkoutPreflight(
@@ -38,10 +48,13 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider).value ?? const [];
     final onlineDevices = devices
-        .where((item) => item.online && item.displayState == 'auto')
+        .where((item) => item.paired && item.displayState == 'auto')
         .toList();
     final selectedDeviceIds = useState<Set<String>>(
-      onlineDevices.map((device) => device.id).toSet(),
+      onlineDevices
+          .where((device) => device.online)
+          .map((device) => device.id)
+          .toSet(),
     );
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
     final imageCheck = useState<AsyncValue<int>>(const AsyncLoading());
@@ -81,7 +94,10 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     useEffect(() {
       final retained = selectedDeviceIds.value.intersection(onlineDeviceIds);
       final next = !initializedDeviceSelection.value && retained.isEmpty
-          ? onlineDeviceIds
+          ? onlineDevices
+                .where((device) => device.online)
+                .map((device) => device.id)
+                .toSet()
           : retained;
       if (onlineDeviceIds.isNotEmpty) initializedDeviceSelection.value = true;
       if (!_sameIds(next, selectedDeviceIds.value)) {
@@ -92,15 +108,88 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
       return null;
     }, [onlineDeviceSignature.join('|')]);
 
+    final selected = onlineDevices
+        .where((d) => selectedDeviceIds.value.contains(d.id))
+        .toList();
+    final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
+    final legacy = selected.where((d) => d.preparationProtocol < 1).toList();
+    final legacyConfirmed = useState(false);
+    final retry = useState(0);
+    final offset = modern.isEmpty
+        ? 0
+        : ref.watch(serverTimeOffsetProvider).value ?? 0;
+    final clock = useState(DateTime.now().millisecondsSinceEpoch);
+    final signature = (selectedDeviceIds.value.toList()..sort()).join('|');
+    final fingerprint = preparationFingerprint(
+      workout,
+      selectedDeviceIds.value,
+    );
+    final preparation = modern.isEmpty
+        ? const DisplayPreparationState()
+        : ref.watch(displayPreparationControllerProvider);
+    useEffect(() {
+      Future.microtask(() {
+        if (context.mounted) legacyConfirmed.value = false;
+      });
+      if (modern.isNotEmpty) {
+        Future.microtask(() {
+          if (context.mounted) {
+            unawaited(
+              ref
+                  .read(displayPreparationControllerProvider.notifier)
+                  .prepare(workout, selectedDeviceIds.value.toList()),
+            );
+          }
+        });
+      }
+      return null;
+    }, [workout, signature, retry.value]);
+    useEffect(() {
+      if (modern.isEmpty) return null;
+      final timer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => clock.value = DateTime.now().millisecondsSinceEpoch,
+      );
+      return timer.cancel;
+    }, [modern.isNotEmpty]);
+    final requiredProtocol = requiredTimingProtocol(workout);
+    final matchingRequest = preparation.request?.manifestHash == fingerprint
+        ? preparation.request
+        : null;
+    DisplayPreparationStatus statusOf(device) => displayPreparationStatus(
+      device,
+      requiredProtocol,
+      matchingRequest,
+      preparation.receipts[device.id],
+      preparationServerNow(offset, localNowMs: clock.value),
+    );
+    final allPrepared = selected.every(
+      (d) => switch (statusOf(d)) {
+        DisplayPreparationStatus.ready => true,
+        DisplayPreparationStatus.legacy => legacyConfirmed.value,
+        _ => false,
+      },
+    );
     final canStart =
-        readiness.isReady &&
-        imageCheck.value.hasValue &&
-        (onlineDevices.isEmpty || selectedDeviceIds.value.isNotEmpty);
+        readiness.isReady && imageCheck.value.hasValue && allPrepared;
 
     Future<void> start() async {
       if (context.mounted) {
         Navigator.of(context).pop(
-          WorkoutPreflightSelection(targetDeviceIds: selectedDeviceIds.value),
+          WorkoutPreflightSelection(
+            targetDeviceIds: selectedDeviceIds.value,
+            localOnly: selectedDeviceIds.value.isEmpty && devices.isNotEmpty,
+            preparation: selected.isEmpty
+                ? null
+                : DisplayPreparationProof(
+                    manifestHash: fingerprint,
+                    sessionId: matchingRequest?.sessionId,
+                    revision: matchingRequest?.revision,
+                    legacyDeviceIds: legacyConfirmed.value
+                        ? legacy.map((d) => d.id).toList()
+                        : const [],
+                  ),
+          ),
         );
       }
     }
@@ -143,14 +232,40 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                 ),
               ),
               _CheckTile(
-                ok: onlineDevices.isNotEmpty,
-                title: onlineDevices.isEmpty
+                ok: onlineDevices.any((d) => d.online),
+                title: !onlineDevices.any((d) => d.online)
                     ? '온라인 디스플레이 없음'
-                    : '${onlineDevices.length}대 온라인',
-                subtitle: onlineDevices.isEmpty
-                    ? '이 기기에서만 재생할 수 있습니다.'
+                    : '${onlineDevices.where((d) => d.online).length}대 온라인',
+                subtitle: selectedDeviceIds.value.isEmpty
+                    ? '이 기기에서만 재생합니다. TV에는 수업을 보내지 않아요.'
                     : '${selectedDeviceIds.value.length}대를 선택했습니다.',
               ),
+              if (modern.isNotEmpty) ...[
+                _CheckTile(
+                  ok:
+                      matchingRequest != null &&
+                      modern.every(
+                        (d) => statusOf(d) == DisplayPreparationStatus.ready,
+                      ),
+                  title:
+                      'TV ${selected.length}대 중 ${modern.where((d) => statusOf(d) == DisplayPreparationStatus.ready).length}대 준비 완료',
+                  subtitle: preparation.error ?? '선택한 수업의 이미지와 소리를 각 TV에서 확인해요. 준비되지 않은 TV는 재시도하거나 체크를 해제해 주세요.',
+                ),
+                TextButton(
+                  onPressed: preparation.loading ? null : () => retry.value++,
+                  child: const Text('TV 준비 다시 확인'),
+                ),
+              ],
+              if (legacy.isNotEmpty)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: legacyConfirmed.value,
+                  onChanged: (value) => legacyConfirmed.value = value ?? false,
+                  title: const Text('구형 TV 화면을 직접 확인했어요'),
+                  subtitle: const Text(
+                    '이 TV는 자료 준비를 자동 확인할 수 없어요. 업데이트하거나 화면을 직접 확인한 뒤 기존 방식으로 시작해요.',
+                  ),
+                ),
               if (onlineDevices.isNotEmpty) ...[
                 Row(
                   children: [
@@ -187,7 +302,9 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                             contentPadding: EdgeInsets.zero,
                             value: selectedDeviceIds.value.contains(device.id),
                             title: Text(device.name),
-                            subtitle: Text(device.zoneName),
+                            subtitle: Text(
+                              '${device.zoneName} · ${device.installedVersion}\n${_preparationLabel(statusOf(device))}',
+                            ),
                             onChanged: (checked) {
                               final next = Set<String>.from(
                                 selectedDeviceIds.value,
@@ -251,3 +368,13 @@ class _CheckTile extends StatelessWidget {
     subtitle: Text(subtitle),
   );
 }
+
+String _preparationLabel(DisplayPreparationStatus status) => switch (status) {
+  DisplayPreparationStatus.offline => '최근 응답 없음 · 연결 확인 또는 제외',
+  DisplayPreparationStatus.updateRequired => '이 수업은 TV 업데이트가 필요해요',
+  DisplayPreparationStatus.legacy => '구형 TV · 자료 준비 자동 확인 불가',
+  DisplayPreparationStatus.waiting => '이 수업의 이미지·소리 준비 중',
+  DisplayPreparationStatus.failed => '자료 준비 실패 · 재시도 또는 제외',
+  DisplayPreparationStatus.ready => '이 수업의 이미지·소리 준비 완료',
+  DisplayPreparationStatus.expired => '준비 확인 만료 · 다시 확인해 주세요',
+};

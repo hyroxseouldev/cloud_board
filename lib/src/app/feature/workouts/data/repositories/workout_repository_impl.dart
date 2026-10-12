@@ -39,6 +39,7 @@ class WorkoutRepositoryImpl
 
   final _details = AsyncValueCache<({String owner, String id}), Workout?>();
   final _versions = <String, DateTime>{};
+  final _openedWorkoutIds = <String>{};
   String? _cacheOwner;
 
   String _owner() {
@@ -47,6 +48,7 @@ class WorkoutRepositoryImpl
       _cacheOwner = uid;
       _details.clear();
       _versions.clear();
+      _openedWorkoutIds.clear();
     }
     return uid;
   }
@@ -79,10 +81,16 @@ class WorkoutRepositoryImpl
   @override
   Future<Workout?> loadOne(String workoutId) {
     final uid = _owner();
-    return _details.load((
-      owner: uid,
-      id: workoutId,
-    ), () async => (await _firestore.loadOne(uid, workoutId))?.toEntity());
+    return _details.load((owner: uid, id: workoutId), () async {
+      final workout = (await _firestore.loadOne(uid, workoutId))?.toEntity();
+      if (workout != null &&
+          _cacheOwner == uid &&
+          _auth.currentUser?.uid == uid) {
+        _versions[workoutId] = workout.updatedAt;
+        _openedWorkoutIds.add(workoutId);
+      }
+      return workout;
+    });
   }
 
   @override
@@ -350,13 +358,26 @@ class WorkoutRepositoryImpl
       ownedWorkout,
       onProgress: onProgress,
     );
+    if (_auth.currentUser?.uid != user.uid) {
+      throw StateError('로그인 계정이 변경되었습니다. 편집 내용은 원래 계정의 임시저장에 남아 있어요.');
+    }
+    // A save can be the first operation after signing into another account.
+    // Reset the known-record set before using it to guard against deletion.
+    _owner();
     final stored = await _firestore.save(
       user.uid,
       WorkoutModel.fromEntity(uploaded),
       ifAbsent: ifAbsent,
+      expectedUpdatedAt: ifAbsent ? null : workout.updatedAt,
+      requireExisting: !ifAbsent && _openedWorkoutIds.contains(workout.id),
     );
     final saved = stored.toEntity();
-    if (_auth.currentUser?.uid == user.uid && _cacheOwner == user.uid) {
+    if (_auth.currentUser?.uid == user.uid) {
+      _owner();
+      // Reopening this detail hits the cache, so its load callback will not
+      // run. A newly created or copied record must still be protected if
+      // another device deletes it before the next save.
+      _openedWorkoutIds.add(saved.id);
       _details.put((owner: user.uid, id: saved.id), saved);
       _versions[saved.id] = saved.updatedAt;
     }

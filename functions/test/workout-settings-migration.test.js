@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {legacySettings, planSettings, normalizeSettings} from '../src/workout-settings-migration.js';
+import {legacySettings, planSettings, normalizeSettings, assertSettingsMigrationMode, legacyWorkoutSettings} from '../src/workout-settings-migration.js';
+
+test('production destructive finalize cannot be authorized by an unchecked operator flag', () => {
+  for (const confirmed of [false, true]) {
+    assert.throws(() => assertSettingsMigrationMode('cloud-board-stationd', {finalize: true, confirmed}), /Production finalize is disabled/);
+  }
+  assert.doesNotThrow(() => assertSettingsMigrationMode('cloud-board-stationd', {restoreCompatibility: true}));
+  assert.throws(() => assertSettingsMigrationMode('demo-tests', {finalize: true}), /confirm-compatible-clients/);
+  assert.doesNotThrow(() => assertSettingsMigrationMode('demo-tests', {finalize: true, confirmed: true}));
+});
+
+test('restoring legacy shape retains exact canonical settings', () => {
+  const preferences = normalizeSettings({brandL: 'Owned', countdown: {seconds: 17}});
+  assert.deepEqual(legacySettings(legacyWorkoutSettings(preferences)), preferences);
+});
 
 test('mixed legacy settings require explicit selection; countdown defaults cannot override them', () => {
   assert.equal(planSettings({countdownDefaults: {seconds: 30}}, [{countdownSeconds: 3}, {countdownSeconds: 5}]).status, 'needs-selection');

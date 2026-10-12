@@ -1,6 +1,7 @@
 import {appendFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {validateReceipt} from './firebase/release.mjs';
+import {productionRuns} from './firebase/release-runs.mjs';
 import {hashFile} from './firebase/common.mjs';
 import {readReleaseArtifact} from './firebase/github-artifact.mjs';
 
@@ -16,10 +17,8 @@ export async function requireBackend({repository, sha, ref, request, readArtifac
   do {
     const head = await request(`/repos/${repository}/git/ref/heads/main`);
     if (head.object.sha !== sha) throw new Error('This commit is no longer main. Upload the latest verified commit.');
-    const result = await request(`/repos/${repository}/actions/workflows/${workflow}/runs?branch=main&event=push&head_sha=${sha}&per_page=100`);
-    const run = result.workflow_runs
-      .filter(r => r.head_sha === sha && r.head_branch === 'main' && r.event === 'push' && r.head_repository?.full_name === repository)
-      .sort((a, b) => b.id - a.id)[0];
+    const result = await request(`/repos/${repository}/actions/workflows/${workflow}/runs?branch=main&head_sha=${sha}&per_page=100`);
+    const run = productionRuns(result.workflow_runs, repository, sha)[0];
     // Never fall back to an older successful run when its retry/latest run fails.
     if (run?.status === 'completed') {
       if (run.conclusion !== 'success') throw new Error(`Backend deployment ${run.id} ended with ${run.conclusion}. Client upload blocked.`);
@@ -37,7 +36,7 @@ export async function requireBackend({repository, sha, ref, request, readArtifac
       const matching = artifacts.artifacts.filter(a => a.name === `firebase-release-${run.id}-${run.run_attempt}` && !a.expired);
       if (matching.length !== 1 || !readArtifact) throw new Error('Missing unambiguous verified release receipt.');
       const receipt = await readArtifact(matching[0]);
-      validateReceipt(receipt, {sha, runId: String(run.id), attempt: String(run.run_attempt)});
+      validateReceipt(receipt, {sha, runId: String(run.id), attempt: String(run.run_attempt), scope: 'full'});
       for (const path of ['firestore.rules', 'database.rules.json', 'storage.rules']) {
         if (receipt.manifest.files[path] !== hashFile(path)) throw new Error('Receipt rules do not match this client commit.');
       }

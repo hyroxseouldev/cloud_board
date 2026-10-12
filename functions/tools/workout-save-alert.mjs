@@ -15,7 +15,7 @@ export function workoutSavePolicy(project, channel) {
     userLabels: {managed_by: 'cloudboard', purpose: 'workout-save'},
     documentation: {
       mimeType: 'text/markdown',
-      content: `워크아웃 저장 또는 복사가 실패했습니다. 로그에서 eventId, code, context.platform, context.version, context.build를 확인하세요. permission-denied라면 앱 저장 필드와 배포된 Firestore 규칙을 비교하세요.\n\n[오류 로그](https://console.cloud.google.com/logs/query?project=${project}&query=${encodeURIComponent(workoutSaveFilter)})`,
+      content: `워크아웃 저장 또는 복사가 실패했습니다. 로그에서 eventId, code, context.platform, context.version, context.build를 확인하세요. permission-denied라면 앱 저장 필드와 배포된 Firestore 규칙을 비교하세요.\n\n[오류 로그](https://console.cloud.google.com/logs/query?project=${project}&query=${encodeURIComponent(workoutSaveFilter).replace(/[()]/g, value => `%${value.charCodeAt(0).toString(16).toUpperCase()}`)})`,
     },
     conditions: [{displayName: 'Handled workout save or duplicate failure', conditionMatchedLog: {filter: workoutSaveFilter}}],
     combiner: 'OR',

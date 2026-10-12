@@ -35,15 +35,22 @@ export function renderPlatformOutputs(config, readFile) {
   output.set('ios/Brand/ClassControlIntentBrand.swift', `// ${notice}\nimport AppIntents\n\n@available(iOS 16.0, *)\nextension ControlClassIntent {\n    static var description = IntentDescription(${swift(controlsDescription)})\n}\n`);
   // Android has its own string escaping in addition to XML escaping. Quotes
   // preserve leading/trailing whitespace and keep @/? prefixes literal.
-  const android = platforms.androidDisplayName.replaceAll('\\', '\\\\')
-    .replaceAll('"', '\\"').replaceAll("'", "\\'");
-  output.set('android/app/src/main/res/values/app_brand.xml', `<?xml version="1.0" encoding="utf-8"?>\n<!-- ${notice} -->\n<resources>\n    <string name="app_name" translatable="false" formatted="false">"${xml(android)}"</string>\n</resources>\n`);
+  const developmentName = name => name ? `${name} Dev` : '';
+  const androidResource = name => {
+    const escaped = name.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll("'", "\\'");
+    return `<?xml version="1.0" encoding="utf-8"?>\n<!-- ${notice} -->\n<resources>\n    <string name="app_name" translatable="false" formatted="false">"${xml(escaped)}"</string>\n</resources>\n`;
+  };
+  output.set('android/app/src/main/res/values/app_brand.xml', androidResource(platforms.androidDisplayName));
+  output.set('android/app/src/development/res/values/app_name.xml', androidResource(developmentName(platforms.androidDisplayName)));
   output.set('windows/runner/app_brand.h', `// ${notice}\n#pragma once\n\n#define APP_BRAND_RESOURCE_NAME ${rcWide(platforms.windowsDisplayName)}\n#define APP_BRAND_WINDOW_TITLE ${cppWide(platforms.windowsDisplayName)}\n`);
   output.set('linux/runner/app_brand.h', `// ${notice}\n#pragma once\n\n#define APP_BRAND_DISPLAY_NAME ${JSON.stringify(platforms.linuxDisplayName)}\n`);
 
   const runnerPlist = 'ios/Runner/Info.plist';
   output.set(runnerPlist, plist(plist(readFile(runnerPlist), 'CFBundleDisplayName',
     platforms.iosDisplayName, runnerPlist), 'CFBundleName', platforms.iosBundleName, runnerPlist));
+  const developmentPlist = 'ios/Runner/Info-Development.plist';
+  output.set(developmentPlist, plist(plist(readFile(developmentPlist), 'CFBundleDisplayName',
+    developmentName(platforms.iosDisplayName), developmentPlist), 'CFBundleName', platforms.iosBundleName, developmentPlist));
   const activityPlist = 'ios/ClassActivity/Info.plist';
   output.set(activityPlist, plist(readFile(activityPlist), 'CFBundleDisplayName',
     platforms.iosActivityDisplayName, activityPlist));

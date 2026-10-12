@@ -25,23 +25,15 @@ class AppUpdateGate extends HookConsumerWidget {
   final Widget child;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final update = ref.watch(appUpdateControllerProvider).value;
-    useOnAppLifecycleStateChange((previous, next) {
-      if (next == AppLifecycleState.resumed) {
-        ref.invalidate(appUpdateControllerProvider);
-      }
-    });
-    useEffect(() {
-      final timer = Timer.periodic(
-        const Duration(hours: 1),
-        (_) => ref.invalidate(appUpdateControllerProvider),
-      );
-      return timer.cancel;
-    }, const []);
+    final updateState = ref.watch(appUpdateControllerProvider);
+    final update = updateState.isLoading || updateState.hasError
+        ? null
+        : updateState.value;
+    final tv = ref.watch(androidTvProvider).value;
+    _useUpdateRefresh(ref, enabled: tv != true);
     final router = ref.watch(appRouterProvider);
     useListenable(router.routeInformationProvider);
     final route = router.routeInformationProvider.value.uri.path;
-    final tv = ref.watch(androidTvProvider).value;
     final auth = ref.watch(authStateProvider);
     final session = update == null || auth.value == null
         ? null
@@ -69,6 +61,54 @@ class AppUpdateGate extends HookConsumerWidget {
   }
 }
 
+/// The display screen owns the decision that standby is safe. A lost
+/// connection, pending recovery or active class removes this notice at once.
+class TvAppUpdateGate extends HookConsumerWidget {
+  const TvAppUpdateGate({
+    super.key,
+    required this.readyForUpdate,
+    required this.child,
+  });
+  final bool readyForUpdate;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isTv = ref.watch(androidTvProvider).value == true;
+    final updateState = ref.watch(appUpdateControllerProvider);
+    final update = updateState.isLoading || updateState.hasError
+        ? null
+        : updateState.value;
+    _useUpdateRefresh(ref, enabled: isTv);
+    return UpdatePresentation(
+      release: update?.release,
+      kind: isTv && readyForUpdate
+          ? update?.kind ?? UpdateKind.none
+          : UpdateKind.none,
+      television: true,
+      onLater: () => ref.read(appUpdateControllerProvider.notifier).later(),
+      onRetry: () => ref.read(appUpdateControllerProvider.notifier).checkNow(),
+      child: child,
+    );
+  }
+}
+
+void _useUpdateRefresh(WidgetRef ref, {required bool enabled}) {
+  useOnAppLifecycleStateChange((previous, next) {
+    if (enabled && next == AppLifecycleState.resumed) {
+      ref.invalidate(appUpdateControllerProvider);
+    }
+  });
+  useEffect(() {
+    if (!enabled) return null;
+    final timer = Timer.periodic(
+      const Duration(hours: 1),
+      (_) => ref.invalidate(appUpdateControllerProvider),
+    );
+    return timer.cancel;
+  }, [enabled]);
+}
+
 class UpdatePresentation extends HookWidget {
   const UpdatePresentation({
     super.key,
@@ -78,12 +118,14 @@ class UpdatePresentation extends HookWidget {
     required this.onLater,
     required this.onRetry,
     this.openStore = _openStore,
+    this.television = false,
   });
   final AppRelease? release;
   final UpdateKind kind;
   final Widget child;
   final VoidCallback onLater, onRetry;
   final Future<bool> Function(Uri) openStore;
+  final bool television;
   static Future<bool> _openStore(Uri uri) =>
       launchUrl(uri, mode: LaunchMode.externalApplication);
   @override
@@ -97,7 +139,10 @@ class UpdatePresentation extends HookWidget {
         children: [
           ExcludeSemantics(
             excluding: false,
-            child: IgnorePointer(ignoring: false, child: child),
+            child: IgnorePointer(
+              ignoring: false,
+              child: ExcludeFocus(excluding: false, child: child),
+            ),
           ),
         ],
       );
@@ -115,45 +160,49 @@ class UpdatePresentation extends HookWidget {
       opening.value = false;
     }
 
-    final card = Material(
-      color: Theme.of(context).colorScheme.surface,
-      elevation: required ? 0 : 8,
-      borderRadius: BorderRadius.circular(24),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              required ? '새 버전으로 함께해요' : '업데이트가 도착했어요',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text('${current.version} · ${current.message}'),
-            if (failed.value)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: Text(
-                  '스토어를 열지 못했어요. 연결을 확인하거나 스토어에서 ${AppBrand.name}를 검색해 주세요.',
-                ),
+    final card = FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        elevation: required ? 0 : 8,
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                required ? '새 버전으로 함께해요' : '업데이트가 도착했어요',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: opening.value ? null : open,
-                  child: const Text('업데이트'),
+              const SizedBox(height: 8),
+              Text('${current.version} · ${current.message}'),
+              if (failed.value)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Text(
+                    '스토어를 열지 못했어요. 연결을 확인하거나 스토어에서 ${AppBrand.name}를 검색해 주세요.',
+                  ),
                 ),
-                if (!required)
-                  TextButton(onPressed: onLater, child: const Text('나중에')),
-                if (required)
-                  TextButton(onPressed: onRetry, child: const Text('다시 확인')),
-              ],
-            ),
-          ],
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton(
+                    autofocus: television,
+                    onPressed: opening.value ? null : open,
+                    child: const Text('업데이트'),
+                  ),
+                  if (!required)
+                    TextButton(onPressed: onLater, child: const Text('나중에')),
+                  if (required || television)
+                    TextButton(onPressed: onRetry, child: const Text('다시 확인')),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -162,7 +211,10 @@ class UpdatePresentation extends HookWidget {
       children: [
         ExcludeSemantics(
           excluding: required,
-          child: IgnorePointer(ignoring: required, child: child),
+          child: IgnorePointer(
+            ignoring: required,
+            child: ExcludeFocus(excluding: required, child: child),
+          ),
         ),
         if (required)
           const ModalBarrier(dismissible: false, color: AppColors.canvas),

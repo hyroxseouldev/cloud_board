@@ -1,3 +1,8 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
+
+import 'support/workout_recovery_fixture.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
 
 import 'timer_editor_test.dart' as timer_interaction;
@@ -71,6 +76,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),
@@ -117,6 +123,90 @@ void main() {
       expect(find.text('수업 준비'), findsOneWidget);
     },
   );
+  testWidgets(
+    'offline TVs default to phone-only and never publish a broadcast start',
+    (tester) async {
+      tester.view.physicalSize = const Size(834, 1194);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final commands = _FailedStart();
+      Uri? playerUri;
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const WorkoutListScreen()),
+          GoRoute(
+            path: '/player/:id',
+            builder: (_, state) {
+              playerUri = state.uri;
+              return const Scaffold(body: Text('휴대폰 재생'));
+            },
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            memoryWorkoutRecovery,
+            slideEditorRepositoryProvider.overrideWithValue(
+              LocalSlideEditorRepository(SlideEditorLocalDataSource()),
+            ),
+            authStateProvider.overrideWith(
+              (ref) => Stream.value(
+                const AuthUser(
+                  id: 'u',
+                  email: 'coach@example.com',
+                  displayName: 'Coach',
+                  photoUrl: null,
+                ),
+              ),
+            ),
+            fixtureWorkoutDetails,
+            workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            accountWorkoutPreferencesProvider('u')
+                .overrideWith((ref) async => const WorkoutPreferences()),
+            displayDevicesProvider.overrideWith(
+              (ref) => Stream.value(const [
+                DisplayDevice(
+                  id: 'offline-tv',
+                  name: 'TV',
+                  zoneId: 'main',
+                  zoneName: '',
+                  online: false,
+                  lastSeenAtMs: 0,
+                  currentSessionId: null,
+                  acknowledgedRevision: 0,
+                  paired: true,
+                ),
+              ]),
+            ),
+            deviceModeControllerProvider.overrideWith(_TestDeviceMode.new),
+            playbackActionControllerProvider.overrideWith(() => commands),
+          ],
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('재생'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(find.text('수업 시작'));
+      await tester.pumpAndSettle();
+      expect(find.text('휴대폰 재생'), findsOneWidget);
+      expect(commands.starts, 0);
+      expect(playerUri?.queryParameters.containsKey('session'), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('system back asks before discarding the slide draft', (
     tester,
   ) async {
@@ -150,6 +240,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          memoryWorkoutRecovery,
           slideEditorRepositoryProvider.overrideWithValue(
             LocalSlideEditorRepository(SlideEditorLocalDataSource()),
           ),
@@ -570,6 +661,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),
@@ -859,6 +951,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          memoryWorkoutRecovery,
           slideEditorRepositoryProvider.overrideWithValue(
             LocalSlideEditorRepository(SlideEditorLocalDataSource()),
           ),
@@ -1051,6 +1144,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              memoryWorkoutRecovery,
               slideEditorRepositoryProvider.overrideWithValue(
                 LocalSlideEditorRepository(SlideEditorLocalDataSource()),
               ),
@@ -1226,6 +1320,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),
@@ -1361,6 +1456,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              memoryWorkoutRecovery,
               slideEditorRepositoryProvider.overrideWithValue(
                 LocalSlideEditorRepository(SlideEditorLocalDataSource()),
               ),
@@ -1509,6 +1605,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            memoryWorkoutRecovery,
             slideEditorRepositoryProvider.overrideWithValue(
               LocalSlideEditorRepository(SlideEditorLocalDataSource()),
             ),
@@ -1605,6 +1702,7 @@ class _FailedStart extends PlaybackActionController {
     required int stepIndex,
     required int durationMs,
     required List<String> targetDeviceIds,
+    DisplayPreparationProof? preparationProof,
   }) async {
     starts++;
     state = const AsyncLoading();

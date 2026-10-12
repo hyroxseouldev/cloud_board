@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'dart:async';
 
@@ -69,6 +70,157 @@ class NoStore extends BillingDataSource {
 
 void main() {
   testWidgets(
+    'TV reads its own release policy on initial check, retry and resume',
+    (tester) async {
+      final repository = FakeReleases()
+        ..value = release.copyWith(
+          storeUrl: 'https://play.google.com/store/apps/details?id=com.sunmkim.cloudboard',
+        )
+        ..build = 1;
+      final container = ProviderContainer(
+        overrides: [
+          androidTvProvider.overrideWith((ref) async => true),
+          checkAppUpdateProvider.overrideWithValue(CheckAppUpdate(repository)),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: TvAppUpdateGate(readyForUpdate: true, child: Text('TV 대기')),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (kIsWeb) {
+        expect(repository.requestedPlatforms, isEmpty);
+      } else {
+        expect(repository.requestedPlatforms, ['tv']);
+        expect(find.text('새 버전으로 함께해요'), findsOneWidget);
+        await tester.tap(find.text('다시 확인'));
+        await tester.pumpAndSettle();
+        expect(repository.requestedPlatforms, ['tv', 'tv']);
+        repository.value = null;
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(repository.requestedPlatforms, ['tv', 'tv', 'tv']);
+        expect(find.text('새 버전으로 함께해요'), findsNothing);
+        expect(find.text('TV 대기'), findsOneWidget);
+      }
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant({TargetPlatform.android}),
+  );
+
+  testWidgets('unknown TV detection never borrows a phone release policy', (
+    tester,
+  ) async {
+    final repository = FakeReleases();
+    final container = ProviderContainer(
+      overrides: [
+        androidTvProvider.overrideWith(
+          (ref) async => throw StateError('unknown device'),
+        ),
+        checkAppUpdateProvider.overrideWithValue(CheckAppUpdate(repository)),
+      ],
+      retry: (_, _) => null,
+    );
+    addTearDown(container.dispose);
+    try {
+      await container.read(appUpdateControllerProvider.future);
+    } catch (_) {}
+    expect(repository.requestedPlatforms, isEmpty);
+  }, variant: TargetPlatformVariant({TargetPlatform.android}));
+
+  test(
+    'TV unpublished, missing, unknown and invalid store policies fail open',
+    () async {
+      final repository = FakeReleases()
+        ..value = release.copyWith(
+          storeUrl: 'https://play.google.com/store/apps/details?id=com.sunmkim.cloudboard',
+        )
+        ..build = 1;
+      final check = CheckAppUpdate(repository);
+      final tv = repository.value!;
+      expect((await check.call('tv'))?.kind, UpdateKind.required);
+      for (final value in [
+        null,
+        tv.copyWith(published: false),
+        tv.copyWith(publishedBuild: 0),
+        tv.copyWith(enabled: false),
+        tv.copyWith(
+          storeUrl: 'https://play.google.com/store/apps/details?id=other.app',
+        ),
+        tv.copyWith(
+          storeUrl: 'https://play.google.com/store/apps/details?id=com.sunmkim.cloudboard&redirect=evil',
+        ),
+        release,
+      ]) {
+        repository.value = value;
+        expect(await check.call('tv'), isNull);
+      }
+      repository.value = tv;
+      repository.build = 0;
+      expect(await check.call('tv'), isNull);
+      repository.build = 1;
+      repository.offline = true;
+      expect(await check.call('tv'), isNull);
+    },
+  );
+
+  testWidgets(
+    'TV remote opens the store, retries failure, and cannot activate content behind a required update',
+    (tester) async {
+      var opens = 0, retries = 0, underlying = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: UpdatePresentation(
+              release: release.copyWith(
+                storeUrl: 'https://play.google.com/store/apps/details?id=com.sunmkim.cloudboard',
+              ),
+              kind: UpdateKind.required,
+              television: true,
+              onLater: () {},
+              onRetry: () => retries++,
+              openStore: (_) async {
+                opens++;
+                return false;
+              },
+              child: TextButton(
+                onPressed: () => underlying++,
+                child: const Text('수업 시작'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(opens, 1);
+      expect(find.textContaining('스토어를 열지 못했어요'), findsOneWidget);
+      // Browsers reserve arrows for scrolling; native TV uses D-pad focus.
+      await tester.sendKeyEvent(
+        kIsWeb ? LogicalKeyboardKey.tab : LogicalKeyboardKey.arrowRight,
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(retries, 1);
+      expect(underlying, 0);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'initial and manual native update checks use published platform keys',
     (tester) async {
       final platform = defaultTargetPlatform == TargetPlatform.iOS
@@ -82,6 +234,7 @@ void main() {
       }
       final container = ProviderContainer(
         overrides: [
+          androidTvProvider.overrideWith((ref) async => false),
           checkAppUpdateProvider.overrideWithValue(CheckAppUpdate(repository)),
         ],
       );

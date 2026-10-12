@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "1339501332",
+    "firebase_url": "https://cloud-board-development-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "cloud-board-development",
+    "storage_bucket": "cloud-board-development.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1339501332:android:1afe8ec27a953ed01ef001",
+        "android_client_info": {
+          "package_name": "com.sunmkim.cloudboard.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1339501332-g1op9ht8m79c6e41jh600jbc848f948o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sunmkim.cloudboard.dev",
+            "certificate_hash": "408a7bde815f4b2d477c14eebaaeff2bf8273084"
+          }
+        },
+        {
+          "client_id": "1339501332-sji0e0held2fdgfocc37t98shhc04cq8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcFPbe756-fPhs2LH3GiFgGFdrvwrDPXA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1339501332-sji0e0held2fdgfocc37t98shhc04cq8.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1339501332-d86si8mreofoot9rgpue5jck1c7sq5f9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sunmkim.cloudboard.dev"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

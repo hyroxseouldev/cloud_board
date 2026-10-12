@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>1339501332-d86si8mreofoot9rgpue5jck1c7sq5f9.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.1339501332-d86si8mreofoot9rgpue5jck1c7sq5f9</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>1339501332-g1op9ht8m79c6e41jh600jbc848f948o.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDkhOabPWS_B4MjwsGhP4o8wnpD-qbIMdE</string>
+	<key>GCM_SENDER_ID</key>
+	<string>1339501332</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.sunmkim.cloudboard.dev</string>
+	<key>PROJECT_ID</key>
+	<string>cloud-board-development</string>
+	<key>STORAGE_BUCKET</key>
+	<string>cloud-board-development.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:1339501332:ios:56b1f0d4a67a4e0c1ef001</string>
+	<key>DATABASE_URL</key>
+	<string>https://cloud-board-development-default-rtdb.asia-southeast1.firebasedatabase.app</string>
+</dict>
+</plist>

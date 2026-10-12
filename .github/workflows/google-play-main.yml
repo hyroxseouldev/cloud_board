@@ -26,7 +26,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
-      !contains(github.event.head_commit.message, '[skip google-play]'))
+      !contains(github.event.head_commit.message, '[skip google-play]') &&
+      !contains(github.event.head_commit.message, '[backend only]'))
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -45,7 +46,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
-      !contains(github.event.head_commit.message, '[skip google-play]'))
+      !contains(github.event.head_commit.message, '[skip google-play]') &&
+      !contains(github.event.head_commit.message, '[backend only]'))
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: google-play
@@ -145,11 +147,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          flutter build appbundle \
+          flutter build appbundle --flavor production \
             --release \
             --build-number "$PLAY_BUILD_NUMBER"
 
-          bundle_path="build/app/outputs/bundle/release/app-release.aab"
+          bundle_path="build/app/outputs/bundle/productionRelease/app-production-release.aab"
           if [[ ! -f "$bundle_path" ]]; then
             echo 'The signed Android App Bundle was not created.' >&2
             exit 1
@@ -159,7 +161,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-internal-aab-${{ env.PLAY_BUILD_NUMBER }}
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: build/app/outputs/bundle/productionRelease/app-production-release.aab
           if-no-files-found: error
           retention-days: 14
 
@@ -179,7 +181,7 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ env.ANDROID_PACKAGE_NAME }}
-          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
           track: internal
           status: completed
           # Google rejects changesNotSentForReview=true for this internal track.

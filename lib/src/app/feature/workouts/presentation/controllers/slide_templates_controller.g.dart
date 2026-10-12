@@ -151,7 +151,7 @@ final class SlideTemplatesControllerProvider
 }
 
 String _$slideTemplatesControllerHash() =>
-    r'b99b6397646defff2df53fa979c959454c7e0c6e';
+    r'560abcfb99455e04ea78de66bad21d42c82666d4';
 
 final class SlideTemplatesControllerFamily extends $Family
     with

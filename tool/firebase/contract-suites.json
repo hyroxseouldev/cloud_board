@@ -158,6 +158,14 @@
         "firestore",
         "database"
       ]
+    },
+    {
+      "id": "display-preparation",
+      "file": "functions/test/display-preparation-emulator.mjs",
+      "project": "demo-cloudboard-preparation",
+      "coverage": [
+        "database"
+      ]
     }
   ]
 }

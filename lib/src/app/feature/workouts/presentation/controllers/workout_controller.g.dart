@@ -243,7 +243,7 @@ final class WorkoutControllerProvider
   WorkoutController create() => WorkoutController();
 }
 
-String _$workoutControllerHash() => r'ec7ca56583a384967f7ec98e4ee28c80987f33b3';
+String _$workoutControllerHash() => r'90c792f606516c7888d4a9dfeb2a994ce2f2b7eb';
 
 abstract class _$WorkoutController
     extends $StreamNotifier<List<WorkoutSummary>> {
@@ -302,7 +302,7 @@ final class WorkoutActionControllerProvider
 }
 
 String _$workoutActionControllerHash() =>
-    r'bae72822b6314bdb912ba1afe671badf62cb4154';
+    r'3ecaefc0b5ccb888a2b5290249aad38f0c55f45b';
 
 abstract class _$WorkoutActionController
     extends $Notifier<AsyncValue<String?>> {

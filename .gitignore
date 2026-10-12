@@ -53,3 +53,6 @@ app.*.map.json
 
 # Kotlin incremental compiler cache
 android/.kotlin/
+
+# Ephemeral GitHub OIDC credentials
+gha-creds-*.json

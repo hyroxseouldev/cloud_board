@@ -24,12 +24,11 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
-    function settingsPath(userId) {
-      return /databases/$(database)/documents/users/$(userId)/settings/workout;
+    match /runtimePolicy/current {
+      allow get: if request.auth != null;
+      allow list, write: if false;
     }
-    function contentOnly(userId) {
-      return exists(settingsPath(userId)) && get(settingsPath(userId)).data.contentOnly == true;
-    }
+
     function validSound(v) {
       return v in ['silent', 'gentleBeep', 'classicBeep', 'sharpBeep', 'lowPulse',
         'boxingBell', 'softBell', 'doubleBeep', 'longFinish', 'videoBeep'];
@@ -65,16 +64,19 @@ service cloud.firestore {
         && d.schemaVersion == 1 && d.revision is int && d.updatedAt == request.time
         && d.contentOnly is bool && validPreferences(d.preferences);
     }
+    // During coexistence, installed clients still write these profile fields.
+    // Accept the same bounded values; an idempotent server bridge synchronizes
+    // the canonical document. This grants no subscription or ownership access.
     function compatibleProfileWrite(userId) {
-      return !existsAfter(settingsPath(userId))
-        || (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['workoutSettings', 'countdownDefaults']))
-        || (!getAfter(settingsPath(userId)).data.contentOnly
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['countdownDefaults'])
-          && request.resource.data.workoutSettings == getAfter(settingsPath(userId)).data.preferences);
-    }
-    function compatibleWorkoutWrite(userId) {
-      return !contentOnly(userId) || (request.resource.data.schemaVersion == 2
-        && request.resource.data.keys().hasOnly(['schemaVersion', 'id', 'ownerId', 'author', 'name', 'folder', 'modules', 'createdAt', 'updatedAt']));
+      let changes = request.resource.data.diff(resource.data).affectedKeys();
+      return (!changes.hasAny(['workoutSettings'])
+          || validPreferences(request.resource.data.workoutSettings))
+        && (!changes.hasAny(['countdownDefaults'])
+          || validPreferences({
+            'brandL': '', 'brandR': '', 'soundTheme': 'videoBeep',
+            'countdownSound': 'videoBeep', 'workStartSound': 'videoBeep',
+            'restStartSound': 'videoBeep', 'workoutEndSound': 'videoBeep',
+            'soundVolume': 1, 'countdown': request.resource.data.countdownDefaults}));
     }
     function validAiSlideColor(color) {
       return color == null || (color is int && color >= 0 && color <= 4294967295);
@@ -150,7 +152,7 @@ service cloud.firestore {
         allow update: if isOwner(userId) && validSettings(request.resource.data)
           && request.resource.data.revision == resource.data.revision + 1
           && request.resource.data.contentOnly == resource.data.contentOnly;
-        // Only the migration tool may activate content-only writes or remove settings.
+        // Compatibility migrations are Admin SDK only; installed writers remain supported.
         allow delete: if false;
       }
       // A visual preset shared by this account's signed-in devices. Lesson
@@ -192,11 +194,11 @@ service cloud.firestore {
       // It grants no asset permission; Storage and the scoped client lookup do.
       match /workouts/{workoutId} {
         allow read, delete: if isOwner(userId);
-        allow create: if isOwner(userId) && compatibleWorkoutWrite(userId)
+        allow create: if isOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.author.id == userId
           && request.resource.data.id == workoutId;
-        allow update: if isOwner(userId) && compatibleWorkoutWrite(userId)
+        allow update: if isOwner(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.author.id == userId
           && request.resource.data.id == workoutId

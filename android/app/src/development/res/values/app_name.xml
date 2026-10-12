@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from config/brand.json by tool/brand.mjs. Do not edit. -->
+<resources>
+    <string name="app_name" translatable="false" formatted="false">"CloudBoard Dev"</string>
+</resources>
