@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {summarizeDiagnostics, validateSaveAlert, inspectHealth} from '../../functions/tools/release-health.mjs';
+import {summarizeDiagnostics, validateSaveAlert, inspectHealth, healthFailure} from '../../functions/tools/release-health.mjs';
 import {receiptFor} from './test-fixtures.mjs';
 import {workoutSavePolicy} from '../../functions/tools/workout-save-alert.mjs';
 test('late offline reports do not blame a newer rules release and raw data is excluded', () => {
@@ -34,4 +34,28 @@ test('hourly observations bound received logs and surface truncated collection',
   assert.equal(requests.length, 10); assert.equal(result.diagnostics.truncated, true);
   assert.equal(result.diagnostics.status, 'incomplete');
   assert.match(requests[0].filter, /2026-10-11T08:00:00.000Z/);
+});
+
+test('monitoring failures identify the failing stage without exposing remote data', async () => {
+  const denied = Object.assign(new Error('private bearer token'), {response: {status: 403, data: 'private logs'}});
+  try { await inspectHealth(receiptFor(), async () => {throw denied;}); }
+  catch (error) {
+    const result = healthFailure(error);
+    assert.equal(result.stage, 'alertPolicies');
+    assert.equal(result.category, 'permission-denied');
+    assert.equal(result.httpStatus, 403);
+    assert(!JSON.stringify(result).includes('private'));
+  }
+  const invalid = Object.assign(new Error('private'), {code: 'ERR_ASSERTION', healthStage: 'alert-configuration'});
+  assert.equal(healthFailure(invalid).category, 'configuration-invalid');
+  assert.equal(healthFailure({response: {status: 503}}).category, 'service-unavailable');
+});
+
+test('explicit admin-only notification drill does not count as a failed customer save', () => {
+  const receipt = receiptFor();
+  const event = {message: 'client_diagnostic', occurredAt: receipt.completedAt,
+    operationalTest: true, code: 'alert-test', context: {action: 'workout.save', platform: 'operations'}};
+  assert.equal(summarizeDiagnostics([{jsonPayload: event}], receipt).status, 'no-errors-observed');
+  delete event.operationalTest;
+  assert.equal(summarizeDiagnostics([{jsonPayload: event}], receipt).status, 'errors-observed');
 });

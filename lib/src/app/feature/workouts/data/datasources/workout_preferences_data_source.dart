@@ -12,16 +12,36 @@ typedef _SettingsRead = ({
   WorkoutPreferences initial,
 });
 
+typedef _LegacyBaseline = ({int revision, WorkoutPreferences? preferences});
+
 class WorkoutPreferencesDataSource {
   WorkoutPreferencesDataSource(this.firestore, this.storage, this.auth);
   final FirebaseFirestore firestore;
   final FirebaseStorage storage;
   final FirebaseAuth auth;
   final _pending = <String, Future<_SettingsRead>>{};
+  // A baseline with null preferences records an observed absence. Keep the
+  // first mirror seen at a revision: a refresh before the bridge advances that
+  // revision must not make an already open editor appear current.
+  final _legacyBaselines = <String, _LegacyBaseline>{};
   String? _cachedOwner;
   _SettingsRead? _cached;
   DateTime? _expires;
   int _generation = 0;
+
+  void _rememberLegacyBaseline(
+    String ownerId,
+    int revision,
+    WorkoutPreferences? preferences,
+  ) {
+    final previous = _legacyBaselines[ownerId];
+    if (previous == null || previous.revision < revision) {
+      _legacyBaselines[ownerId] = (
+        revision: revision,
+        preferences: preferences,
+      );
+    }
+  }
 
   void clear() {
     _generation++;
@@ -29,6 +49,7 @@ class WorkoutPreferencesDataSource {
     _cached = null;
     _expires = null;
     _pending.clear();
+    _legacyBaselines.clear();
   }
 
   void checkOwner(String ownerId) {
@@ -82,9 +103,30 @@ class WorkoutPreferencesDataSource {
       if (json['schemaVersion'] != 1 || json['preferences'] is! Map) {
         throw const FormatException('지원하지 않는 계정 설정입니다. 앱을 업데이트해 주세요.');
       }
-      final value = WorkoutPreferences.fromJson(
+      var value = WorkoutPreferences.fromJson(
         Map<String, dynamic>.from(json['preferences']),
       ).copyWith(revision: (json['revision'] as num).toInt());
+      // While installed legacy clients coexist, their accepted profile write
+      // can precede the canonical bridge trigger. Read that mirror immediately
+      // and keep a baseline so a pending old-client edit cannot be overwritten.
+      if (json['contentOnly'] != true) {
+        final profile =
+            (await firestore
+                    .doc('users/$ownerId')
+                    .get(options)
+                    .timeout(const Duration(seconds: 8)))
+                .data();
+        final mirror = profile?['workoutSettings'];
+        if (mirror is Map) {
+          final legacy = WorkoutPreferences.fromJson(
+            Map<String, dynamic>.from(mirror),
+          );
+          _rememberLegacyBaseline(ownerId, value.revision, legacy);
+          value = legacy.copyWith(revision: value.revision);
+        } else {
+          _rememberLegacyBaseline(ownerId, value.revision, null);
+        }
+      }
       return (common: value, initial: value);
     }
     // One legacy read resolves both fields; countdown defaults are NOT common settings.
@@ -98,6 +140,7 @@ class WorkoutPreferencesDataSource {
     final common = json is Map
         ? WorkoutPreferences.fromJson(Map<String, dynamic>.from(json))
         : null;
+    _rememberLegacyBaseline(ownerId, 0, common);
     final countdown = legacy?['countdownDefaults'];
     return (
       common: common,
@@ -126,6 +169,7 @@ class WorkoutPreferencesDataSource {
     WorkoutPreferences value,
   ) async {
     checkOwner(ownerId);
+    final legacyBaseline = _legacyBaselines[ownerId];
     var source = value.countdown.imageSource;
     if (source.isNotEmpty &&
         !source.startsWith('https://') &&
@@ -157,6 +201,8 @@ class WorkoutPreferencesDataSource {
     final target = firestore.doc('users/$ownerId/settings/workout');
     await firestore.runTransaction((transaction) async {
       final previous = (await transaction.get(target)).data();
+      final profile = (await transaction.get(firestore.doc('users/$ownerId')))
+          .data();
       checkOwner(ownerId);
       if ((previous?['revision'] ?? 0) != value.revision) {
         throw StateError('다른 기기에서 설정이 변경됐습니다. 다시 불러온 뒤 적용해 주세요.');
@@ -165,12 +211,22 @@ class WorkoutPreferencesDataSource {
         throw const FormatException('지원하지 않는 설정 버전입니다.');
       }
       final contentOnly = previous?['contentOnly'] == true;
+      final mirror = profile?['workoutSettings'];
+      if (!contentOnly && legacyBaseline != null) {
+        final currentLegacy = mirror is Map
+            ? WorkoutPreferences.fromJson(Map<String, dynamic>.from(mirror))
+            : null;
+        if (legacyBaseline.revision != value.revision ||
+            currentLegacy != legacyBaseline.preferences) {
+          throw StateError('다른 기기에서 설정이 변경됐습니다. 다시 불러온 뒤 적용해 주세요.');
+        }
+      }
       transaction.set(
         target,
         workoutPreferencesDocument(normalized, contentOnly: contentOnly),
       );
-      // Temporary one-way mirror for installed legacy readers. Rules prevent
-      // legacy writers from silently replacing the canonical preferences.
+      // Installed legacy writers and readers share this mirror. The server
+      // bridge only increments canonical revision for an actual legacy change.
       if (!contentOnly) {
         transaction.set(firestore.doc('users/$ownerId'), {
           'uid': ownerId,
@@ -182,6 +238,11 @@ class WorkoutPreferencesDataSource {
     clear();
     _cachedOwner = ownerId;
     _cached = (common: normalized, initial: normalized);
+    _rememberLegacyBaseline(
+      ownerId,
+      normalized.revision,
+      normalized.copyWith(revision: 0),
+    );
     _expires = DateTime.now().add(const Duration(seconds: 30));
     return normalized;
   }

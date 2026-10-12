@@ -16,6 +16,73 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
+## Firebase environments
+
+Local runs default to `development`. The registered development project is
+`cloud-board-development`; the existing production project remains
+`cloud-board-stationd`. iOS and Android/TV development use the separate
+`com.sunmkim.cloudboard.dev` application ID, so both apps can coexist.
+Production bundle IDs, store records and user data are unchanged.
+
+```sh
+fvm flutter run --flavor development
+fvm flutter run -d chrome --dart-define=FIREBASE_ENV=development
+node tool/firebase/environments.mjs check
+node tool/firebase/environments.mjs deploy development rules
+```
+
+Native Xcode builds must select `development` or `production`; the old unqualified
+`Runner` scheme deliberately fails before copying Firebase credentials. Android
+chooses its Firebase SDK file by flavor. The application rejects inconsistent
+Firebase credentials/endpoints before initialization. Production debug runs also
+require the explicit `--dart-define=ALLOW_PRODUCTION_DEBUG=true`; normal store
+workflows build the production release flavor.
+
+`firebase.development.json` and its guarded deploy command pin the development
+project and database together. Changing only `firebase use` is insufficient and
+must not be used to switch the production config's Storage target. The
+**Deploy isolated development Firebase** workflow runs on `develop` pushes or a
+manual `develop` dispatch, tests all client contracts, then publishes the isolated core backend, development
+rules and web. Its OIDC identity is restricted to this repository, branch and
+workflow and has roles only in the development project; no service-account key
+or production deployment secret is used.
+
+Development Auth (Google, email/password and anonymous TV login), Firestore and
+Realtime Database are provisioned. Native Google callback configuration and this
+machine's Android debug signing fingerprints are registered. Other Android
+signing certificates need their own Firebase SHA registration. Apple Sign-In for
+the new development bundle and physical-device provisioning still require
+separate Apple setup. Google login configuration/build verification is not a
+substitute for signing in on a real device.
+
+The development project shares the approved Firebase billing account, but keeps
+its own Storage bucket, databases, identities and server credentials. Its backend
+allowlist contains 15 core Functions and uses a dedicated runtime identity.
+Development onboarding simulates SMS only for an explicitly approved tester;
+[development backend operations](docs/firebase-development-backend.md) documents
+approval and one-time code retrieval. Production SMS, purchase and AI secrets
+are not copied. AI generation and store-billing endpoints remain outside the
+development allowlist until separately configured integration tests are needed.
+
+The guarded web build stamps the Firebase environment and bundle digest. To
+publish a development bundle manually:
+
+```sh
+node tool/firebase/environments.mjs build development
+node tool/firebase/environments.mjs deploy development backend
+node tool/firebase/environments.mjs deploy development rules
+node tool/firebase/environments.mjs deploy development web
+```
+
+A production or overwritten web build is rejected by the development deployer.
+
+For released-client support, store-independent repairs and client recovery see
+[compatibility contracts](docs/released-client-compatibility.md),
+[manual backend repair](docs/firebase-emergency-repair.md) and
+[runtime policy and draft recovery](docs/operations/runtime-policy-and-recovery.md).
+A new app baseline is required for local draft recovery and remote feature
+controls; older installed versions remain protected by compatible server rules.
+
 ## Google Play deployment
 
 Merges to `main` build one signed Android App Bundle for both mobile and

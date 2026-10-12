@@ -72,7 +72,13 @@ actor ClassControlsService {
         configuration.timeoutIntervalForResource = 6
         let transport = URLSession(configuration: configuration)
         defer { transport.invalidateAndCancel() }
-        var components = URLComponents(string: "https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app")!
+        guard let project = FirebaseApp.app()?.options.projectID,
+              let database = [
+                "cloud-board-stationd": "https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app",
+                "cloud-board-development": "https://cloud-board-development-default-rtdb.asia-southeast1.firebasedatabase.app"
+              ][project], var components = URLComponents(string: database) else {
+            throw ClassControlCommand.Failure(message: "앱의 연결 환경을 확인해 주세요.")
+        }
         components.path = "/users/\(owner)/activeSession.json"
         components.queryItems = [URLQueryItem(name: "auth", value: token)]
         var request = URLRequest(url: components.url!)

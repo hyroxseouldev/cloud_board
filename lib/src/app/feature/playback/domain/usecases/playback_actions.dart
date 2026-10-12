@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
+import 'package:cloud_board/src/app/feature/device/domain/usecases/display_preparation_actions.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -9,7 +11,8 @@ import 'package:cloud_board/src/app/feature/playback/domain/repositories/playbac
 part 'playback_actions.g.dart';
 
 class PlaybackActions {
-  const PlaybackActions(this._repository, {this.preferences});
+  const PlaybackActions(this._repository, {this.preferences, this.preparation});
+  final DisplayPreparationActions Function()? preparation;
   final WorkoutPreferencesActions? preferences;
   final PlaybackRepository _repository;
 
@@ -27,16 +30,25 @@ class PlaybackActions {
     bool scheduled = false,
     bool briefing = false,
     int? scheduledAtMs,
-  }) async => _repository.start(
-    workout: await preferences?.apply(workout, fresh: true) ?? workout,
-    targetDeviceIds: targetDeviceIds,
-    stepIndex: stepIndex,
-    durationMs: durationMs,
-    deviceId: deviceId,
-    scheduled: scheduled,
-    briefing: briefing,
-    scheduledAtMs: scheduledAtMs,
-  );
+    DisplayPreparationProof? preparationProof,
+  }) async {
+    final effective = await preferences?.apply(workout, fresh: true) ?? workout;
+    await preparation?.call().verifyStart(
+      effective,
+      targetDeviceIds,
+      preparationProof,
+    );
+    return _repository.start(
+      workout: effective,
+      targetDeviceIds: targetDeviceIds,
+      stepIndex: stepIndex,
+      durationMs: durationMs,
+      deviceId: deviceId,
+      scheduled: scheduled,
+      briefing: briefing,
+      scheduledAtMs: scheduledAtMs,
+    );
+  }
 
   Future<void> pause({required int remainingMs, required String deviceId}) =>
       _repository.pause(remainingMs: remainingMs, deviceId: deviceId);
@@ -68,4 +80,5 @@ class PlaybackActions {
 PlaybackActions playbackActions(Ref ref) => PlaybackActions(
   ref.watch(playbackRepositoryProvider),
   preferences: ref.watch(workoutPreferencesActionsProvider),
+  preparation: () => ref.read(displayPreparationActionsProvider),
 );

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "status": "review-only-do-not-upload",
+  "sourceManifest": "docs/release/1.1.0/google-play/source-review/capture-manifest.json",
+  "sourceSha": "7d12923490b2f8ced04f0977117c3fdef3256142",
+  "version": "1.1.0",
+  "candidateBuild": null,
+  "generatedAt": "2026-10-12T14:38:59.112Z",
+  "assets": [
+    {
+      "file": "phone/01-control.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 309118,
+      "sha256": "c2dcb3c9a5a562ca195869170f2dc1e75ecee80096f7dd628fc28c6fa4300181"
+    },
+    {
+      "file": "phone/02-compose.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 312736,
+      "sha256": "489cd182de8efb3ab90a1a1bfb5c718614cde069c78557596911b5b6090b0ffe"
+    },
+    {
+      "file": "phone/03-reuse.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 260994,
+      "sha256": "2ef23c5e367898b789ebed805c5a8f1375f52a310e81005c61a602d25f1bf3a2"
+    },
+    {
+      "file": "phone/04-timer.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 308350,
+      "sha256": "1b643e5be8f66350609c53659b42e456b3245464f96a5e2c25f140621415a903"
+    },
+    {
+      "file": "phone/05-style.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 308238,
+      "sha256": "4c39e062bd4463e55f718f3a94b42382e497ad23cd93559a26936327b9922392"
+    },
+    {
+      "file": "phone/06-rehearsal.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 323890,
+      "sha256": "edbe265ddd647666f8b2cb755ef1902b23211f95ebba3f7a5824a5afe9cea054"
+    },
+    {
+      "file": "phone/07-library.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 241276,
+      "sha256": "cb2308e5e8727331f97a22f5d6179b8623f08e7dbd7fe95c7d3dc676c7584fc8"
+    },
+    {
+      "file": "phone/08-explore.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 334932,
+      "sha256": "d23d4d2ec4a8bbb6c9d00c29da3a64770adb4543b6fe0c1f71ad5e5b5918710c"
+    },
+    {
+      "file": "tv/01-player.png",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 134386,
+      "sha256": "0f34368664341dfff3bce6e7cab5d759a7ca3ab05c0ff3d36450c6f6f56faf1a"
+    },
+    {
+      "file": "branding/feature-graphic-1024x500.png",
+      "width": 1024,
+      "height": 500,
+      "bytes": 85183,
+      "sha256": "36c102cb86dda6fb5c8ef7aaaa20aa32fa7d9f33e3948a8f0802fed574e34033"
+    },
+    {
+      "file": "tv/banner-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "bytes": 137791,
+      "sha256": "8e1fc83d0512c2fcfb8fb386399c81479f03dd284d7e5da1eb8ff2f6b3f7fc36"
+    }
+  ]
+}

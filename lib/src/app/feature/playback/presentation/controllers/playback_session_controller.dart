@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/core/observability/playback_ack.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 
@@ -38,13 +42,17 @@ Stream<bool> playbackConnection(Ref ref) =>
 @Riverpod(keepAlive: true)
 class PlaybackActionController extends _$PlaybackActionController {
   Timer? _transportCooldown;
+  void Function()? _cancelAck;
 
   bool get canSendTransportCommand =>
       !state.isLoading && !(_transportCooldown?.isActive ?? false);
 
   @override
   AsyncValue<String?> build() {
-    ref.onDispose(() => _transportCooldown?.cancel());
+    ref.onDispose(() {
+      _transportCooldown?.cancel();
+      _cancelAck?.call();
+    });
     return const AsyncData(null);
   }
 
@@ -53,8 +61,12 @@ class PlaybackActionController extends _$PlaybackActionController {
     required int stepIndex,
     required int durationMs,
     required List<String> targetDeviceIds,
+    DisplayPreparationProof? preparationProof,
   }) async {
     if (state.isLoading) return null;
+    final attempt = ref
+        .read(operationTelemetryProvider)
+        .start('playback.control.submit');
     state = const AsyncLoading();
     PlaybackSession? session;
     final result = await AsyncValue.guard(() async {
@@ -73,6 +85,7 @@ class PlaybackActionController extends _$PlaybackActionController {
           .start(
             workout: workout,
             targetDeviceIds: targetDeviceIds,
+            preparationProof: preparationProof,
             stepIndex: stepIndex,
             durationMs: durationMs,
             deviceId: await ref.read(deviceIdProvider.future),
@@ -80,7 +93,23 @@ class PlaybackActionController extends _$PlaybackActionController {
           );
       return '재생을 시작했습니다.';
     });
+    if (result.hasError) {
+      attempt.failure(
+        result.error is PlaybackFailure
+            ? (result.error! as PlaybackFailure).code
+            : result.error,
+      );
+    } else {
+      attempt.success();
+    }
     if (!ref.mounted) return null;
+    if (!result.hasError && session != null) {
+      _watchDisplayAcknowledgement(
+        session!,
+        revision: session!.revision,
+        deviceId: session!.updatedByDeviceId,
+      );
+    }
     state = result;
     _reportResult(
       'playback.start',
@@ -169,16 +198,21 @@ class PlaybackActionController extends _$PlaybackActionController {
       _transportCooldown?.cancel();
       _transportCooldown = Timer(const Duration(milliseconds: 350), () {});
     }
+    final attempt = ref
+        .read(operationTelemetryProvider)
+        .start('playback.control.submit');
     final expectedSession = ref.read(activePlaybackSessionProvider).value;
     final reporter = ref.read(errorReporterProvider);
     final context = _context();
     final elapsed = Stopwatch()..start();
     context['expectedRevision'] = expectedSession?.revision;
     reporter.breadcrumb(actionName, context);
+    String? commandDeviceId;
     state = const AsyncLoading();
     final result = await AsyncValue.guard(() async {
       final actions = ref.read(playbackActionsProvider);
       final deviceId = await ref.read(deviceIdProvider.future);
+      commandDeviceId = deviceId;
       if (!ref.mounted) {
         throw const PlaybackFailure('session_changed', '계정 연결이 변경되었습니다.');
       }
@@ -195,7 +229,25 @@ class PlaybackActionController extends _$PlaybackActionController {
       await action(actions, deviceId);
       return successMessage;
     });
+    if (result.hasError) {
+      attempt.failure(
+        result.error is PlaybackFailure
+            ? (result.error! as PlaybackFailure).code
+            : result.error,
+      );
+    } else {
+      attempt.success();
+    }
     if (!ref.mounted) return false;
+    if (!result.hasError &&
+        expectedSession != null &&
+        commandDeviceId != null) {
+      _watchDisplayAcknowledgement(
+        expectedSession,
+        revision: expectedSession.revision + 1,
+        deviceId: commandDeviceId!,
+      );
+    }
     state = result;
     _reportResult(
       actionName,
@@ -211,6 +263,90 @@ class PlaybackActionController extends _$PlaybackActionController {
           .recover(restartTransport: false);
     }
     return !result.hasError;
+  }
+
+  // At most one passive observer; a later accepted control supersedes it.
+  // It never delays commands or retries a command after a missing TV response.
+  void _watchDisplayAcknowledgement(
+    PlaybackSession expected, {
+    required int revision,
+    required String deviceId,
+  }) {
+    _cancelAck?.call();
+    if (expected.targetDeviceIds.isEmpty || !ref.mounted) return;
+    final attempt = ref
+        .read(operationTelemetryProvider)
+        .start('playback.control.ack');
+    var done = false;
+    final baselineSessionId = ref.read(activePlaybackSessionProvider).value?.id;
+    var observedExpectedSession = baselineSessionId == expected.id;
+    Timer? timer;
+    void Function()? closeSession, closeDevices;
+    void finish(PlaybackAckVerdict verdict, [String? failure]) {
+      if (done) return;
+      done = true;
+      timer?.cancel();
+      closeSession?.call();
+      closeDevices?.call();
+      _cancelAck = null;
+      if (failure != null) {
+        attempt.failure(failure);
+      } else if (verdict == PlaybackAckVerdict.success) {
+        attempt.success();
+      } else {
+        attempt.cancel();
+      }
+    }
+
+    void check() {
+      if (done) return;
+      if (!ref.mounted) {
+        finish(PlaybackAckVerdict.cancelled);
+        return;
+      }
+      final active = ref.read(activePlaybackSessionProvider);
+      final deviceState = ref.read(displayDevicesProvider);
+      if (active.hasError || deviceState.hasError) {
+        finish(PlaybackAckVerdict.cancelled);
+        return;
+      }
+      if (active.isLoading || deviceState.isLoading) return;
+      final session = active.value;
+      // A new start can resolve before its stream replaces the previous class.
+      // Wait through that initial baseline, but cancel for any later session.
+      if (session?.id == expected.id) observedExpectedSession = true;
+      if (!observedExpectedSession && session?.id == baselineSessionId) return;
+      final verdict = evaluatePlaybackAck(
+        expectedSessionId: expected.id,
+        expectedRevision: revision,
+        targetIds: expected.targetDeviceIds.toSet(),
+        expectedDeviceId: deviceId,
+        currentSessionId: session?.id,
+        currentRevision: session?.revision,
+        currentDeviceId: session?.updatedByDeviceId,
+        currentTargetIds: session?.targetDeviceIds.toSet() ?? const {},
+        devices: (deviceState.value ?? const []).map(
+          (device) => PlaybackAckDevice(
+            device.id,
+            device.currentSessionId,
+            device.acknowledgedRevision,
+            paired: device.paired,
+          ),
+        ),
+      );
+      if (verdict != PlaybackAckVerdict.pending) finish(verdict);
+    }
+
+    closeSession = ref
+        .listen(activePlaybackSessionProvider, (_, _) => check())
+        .close;
+    closeDevices = ref.listen(displayDevicesProvider, (_, _) => check()).close;
+    timer = Timer(
+      const Duration(seconds: 12),
+      () => finish(PlaybackAckVerdict.pending, 'timeout'),
+    );
+    _cancelAck = () => finish(PlaybackAckVerdict.cancelled);
+    check();
   }
 
   Map<String, Object?> _context() {

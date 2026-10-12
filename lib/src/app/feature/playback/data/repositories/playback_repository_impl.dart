@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy.dart';
+import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy_service.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 
 import 'dart:async';
@@ -19,7 +21,7 @@ import 'package:cloud_board/src/app/feature/playback/data/models/playback_sessio
 
 part 'playback_repository_impl.g.dart';
 
-const realtimeDatabaseUrl = cloudBoardRealtimeDatabaseUrl;
+String get realtimeDatabaseUrl => cloudBoardRealtimeDatabaseUrl;
 
 class PlaybackRepositoryImpl implements PlaybackRepository {
   PlaybackRepositoryImpl(this._dataSource, this._local, this._ownerId);
@@ -241,6 +243,9 @@ PlaybackRepository playbackRepository(Ref ref) {
   final source = PlaybackRealtimeDataSource(
     database,
     ownerId,
+    allowSplitPlayback: () => ref
+        .read(runtimeFeaturePolicyServiceProvider)
+        .allows(RuntimeFeature.splitPlayback, ownerId: ownerId ?? ''),
     onAncillaryFailure: (error, stack) {
       if (ref.mounted) {
         ref

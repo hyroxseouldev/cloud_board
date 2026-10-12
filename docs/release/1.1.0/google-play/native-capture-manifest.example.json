@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "sourceKind": "android-native-release",
+  "version": "1.1.0",
+  "build": null,
+  "flavor": "production",
+  "firebaseProject": "cloud-board-stationd",
+  "packageName": "com.sunmkim.cloudboard",
+  "sourceSha": "",
+  "artifactSha256": "",
+  "device": "",
+  "capturedAt": "",
+  "verifiedBy": "",
+  "captures": [
+    {"file":"01-control.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"02-compose.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"03-reuse.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"04-timer.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"05-style.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"06-rehearsal.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"07-library.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"08-explore.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"phone"},
+    {"file":"tv-player.png","sha256":"","candidateBuild":null,"sourceSha":"","device":"","os":"","capturedAt":"","formFactor":"android-tv"}
+  ]
+}

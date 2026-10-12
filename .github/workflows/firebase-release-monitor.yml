@@ -43,8 +43,8 @@ jobs:
       - name: Check main and develop protections
         if: '!cancelled()'
         env:
-          GITHUB_TOKEN: ${{ secrets.FIREBASE_GOVERNANCE_TOKEN }}
-        run: node tool/firebase/branch-protection.mjs check
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/firebase/repository-rules.mjs check
       - uses: actions/upload-artifact@v4
         if: always()
         with:

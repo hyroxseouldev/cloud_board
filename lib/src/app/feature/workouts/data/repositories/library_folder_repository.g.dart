@@ -55,4 +55,4 @@ final class LibraryFolderRepositoryProvider
 }
 
 String _$libraryFolderRepositoryHash() =>
-    r'c23cf4ac3cbbf90a5f41e6546e4a7c90a8dcfdf5';
+    r'10e465846fd00ed1db0a0837a28b3d7835a7af5c';

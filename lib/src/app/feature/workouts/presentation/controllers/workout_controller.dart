@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
@@ -405,7 +406,8 @@ class WorkoutActionController extends _$WorkoutActionController {
     state = const AsyncLoading();
     Workout? saved;
     state = await AsyncValue.guard(() async {
-      final value = workout.copyWith(updatedAt: DateTime.now());
+      // Keep the editor's original version for the transaction conflict check.
+      final value = workout;
       await _ensureEditable(workout.id);
       final save = await ref.read(saveWorkoutProvider.future);
       await _ensureEditable(workout.id);
@@ -477,9 +479,13 @@ class WorkoutActionController extends _$WorkoutActionController {
     // Retain the reporter before awaiting so a failed write is still reported
     // when the editor is closed. Telemetry never changes the save result.
     final reporter = ref.read(errorReporterProvider);
+    final attempt = ref.read(operationTelemetryProvider).start('workout.save');
     try {
-      return await save(workout, onProgress: onProgress);
+      final saved = await save(workout, onProgress: onProgress);
+      attempt.success();
+      return saved;
     } catch (error, stack) {
+      attempt.failure(error);
       reporter.capture(
         error,
         stack,

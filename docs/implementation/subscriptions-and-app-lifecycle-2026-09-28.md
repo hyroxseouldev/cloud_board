@@ -129,9 +129,9 @@ Android는 `in_app_purchase_android` → `cloudboardPlayBilling` → Google Play
 
 ```sh
 # 기본은 검증 + 출력만. Admin 인증은 GOOGLE_APPLICATION_CREDENTIALS 또는 ADC.
-node functions/tools/release-policy.mjs ios /absolute/path/release.json
-# 실제 공개 완료를 확인한 뒤에만 저장:
-node functions/tools/release-policy.mjs ios /absolute/path/release.json --apply
+node functions/tools/release-policy.mjs ios /absolute/path/release.json --project cloud-board-stationd
+# 실제 적용은 현재 정책 hash·변경자·사유·설치 가능 증빙을 함께 지정한다.
+# 정확한 게시/복원 명령: docs/operations/release-policy.md
 ```
 
 잘못된 정책은 enabled=false로 되돌린다. 앱이 foreground로 돌아오거나 사용자가 다시 확인할 때 재조회하며, 실행 중에는 1시간마다 재조회한다.

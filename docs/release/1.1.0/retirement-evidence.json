@@ -1,0 +1,156 @@
+{
+  "format": 1,
+  "status": "success",
+  "harnessSha256": "2491ba3a28d485544d7ca006ff2d6366aaa852694909c4b6a05ba63948c687fb",
+  "policySha256": "63a94e6014f18592d04697c8ab5b7a02e6013313e7883d2459f5b675789f6cdd",
+  "retirementPolicySha256": "2b951b3af1c3b1f235bfa2bc5d0538d257cc9921b4d7b1bc08a7a54c74e17e16",
+  "candidateFiles": {
+    "build/contracts/workout-save-current.json": "8daa55719daedb133adea17a8937bc6ce0f82f1bef42642ddb0c573fc4e959da",
+    "build/contracts/app-current.json": "ee9cc0ec149e203806e205e2ddc6749b858f1c3cddf539b37a0b9a7196f48cd6"
+  },
+  "sources": [
+    {
+      "sourceCommit": "1b64643860d2385d797dafba3db954063d28384f",
+      "clients": [
+        "1.0.0+2"
+      ],
+      "exceptions": [
+        {
+          "path": "workout/modules/*/designFingerprint",
+          "reason": "Regenerable rendering-cache fingerprint added after this client; missing fingerprint is a cache miss and does not change class content or timer behavior."
+        },
+        {
+          "path": "playback/workoutSnapshot/modules/*/designFingerprint",
+          "reason": "Same optional rendering-cache fingerprint in the TV snapshot."
+        }
+      ],
+      "retirement": null,
+      "capabilities": [],
+      "status": "success",
+      "durationMs": 12040
+    },
+    {
+      "sourceCommit": "a8653077314c5e5bf2f14e1a8495e4c9ab1f1b6b",
+      "clients": [
+        "1.0.0-shared-2026-10-12"
+      ],
+      "exceptions": [],
+      "retirement": null,
+      "capabilities": [],
+      "status": "success",
+      "durationMs": 10818
+    },
+    {
+      "sourceCommit": "c85167e863ee5e8e9212722572ab57df65801eeb",
+      "clients": [
+        "1.0.0-android-production-52"
+      ],
+      "exceptions": [],
+      "retirement": {
+        "id": "owner-2026-10-13-c85167e",
+        "sourceCommit": "c85167e863ee5e8e9212722572ab57df65801eeb",
+        "clients": [
+          "1.0.0-android-production-52"
+        ],
+        "scope": "forward-semantic-reader-only",
+        "effectiveFromVersion": "1.1.0",
+        "reason": "owner-declared-zero-active-users-2026-10-13-KST",
+        "authorization": {
+          "kind": "owner-conversation",
+          "date": "2026-10-13",
+          "timezone": "Asia/Seoul",
+          "remotelyVerified": false,
+          "quotes": [
+            "아그럼강제업데이트시키면되잖아근데지금쓰는사람없어서ㄱㅊ음",
+            "쓰는사람없으니까1.1.0로올려"
+          ]
+        },
+        "retainedCoverage": [
+          "frozen-fixtures",
+          "current-reader-of-historical-data",
+          "historical-writes-against-current-rules"
+        ]
+      },
+      "capabilities": [
+        {
+          "client": "1.0.0-android-production-52",
+          "workoutScenarios": [
+            "legacy-fixed",
+            "content-fixed"
+          ],
+          "durationKinds": [
+            "fixed"
+          ],
+          "summaryDurationKind": false,
+          "playbackWireProtocols": [
+            1,
+            2
+          ],
+          "advertisedPlaybackProtocol": 3,
+          "extendedTiming": false,
+          "designTemplate": false,
+          "structuredDesignStyle": false
+        }
+      ],
+      "status": "retired",
+      "durationMs": 0
+    },
+    {
+      "sourceCommit": "c54588cc7733ac8577d11c036c21635d1f283f2a",
+      "clients": [
+        "1.0.0-review-548-closed-58"
+      ],
+      "exceptions": [],
+      "retirement": {
+        "id": "owner-2026-10-13-c54588c",
+        "sourceCommit": "c54588cc7733ac8577d11c036c21635d1f283f2a",
+        "clients": [
+          "1.0.0-review-548-closed-58"
+        ],
+        "scope": "forward-semantic-reader-only",
+        "effectiveFromVersion": "1.1.0",
+        "reason": "owner-declared-zero-active-users-2026-10-13-KST",
+        "authorization": {
+          "kind": "owner-conversation",
+          "date": "2026-10-13",
+          "timezone": "Asia/Seoul",
+          "remotelyVerified": false,
+          "quotes": [
+            "아그럼강제업데이트시키면되잖아근데지금쓰는사람없어서ㄱㅊ음",
+            "쓰는사람없으니까1.1.0로올려"
+          ]
+        },
+        "retainedCoverage": [
+          "frozen-fixtures",
+          "current-reader-of-historical-data",
+          "historical-writes-against-current-rules"
+        ]
+      },
+      "capabilities": [
+        {
+          "client": "1.0.0-review-548-closed-58",
+          "workoutScenarios": [
+            "legacy-fixed",
+            "content-fixed"
+          ],
+          "durationKinds": [
+            "fixed"
+          ],
+          "summaryDurationKind": false,
+          "playbackWireProtocols": [
+            1,
+            2
+          ],
+          "advertisedPlaybackProtocol": 3,
+          "extendedTiming": false,
+          "designTemplate": true,
+          "structuredDesignStyle": false
+        }
+      ],
+      "status": "retired",
+      "durationMs": 0
+    }
+  ],
+  "verifiedAt": "2026-10-12T15:07:54.391Z",
+  "scope": "Owner-authorized forward semantic support retirement only; original failure evidence retained in compatibility-evidence.json; no runtime forced-update or store mutation"
+}

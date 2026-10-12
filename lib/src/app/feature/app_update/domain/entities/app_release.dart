@@ -30,7 +30,7 @@ abstract class AppRelease with _$AppRelease {
                   RegExp(r'^/(?:[a-z]{2}/)?app/(?:[^/]+/)?id6809105126$')
                       .hasMatch(uri.path) &&
                   !uri.hasQuery
-            : platform == 'android' &&
+            : (platform == 'android' || platform == 'tv') &&
                   uri.host == 'play.google.com' &&
                   uri.path == '/store/apps/details' &&
                   uri.queryParameters.length == 1 &&

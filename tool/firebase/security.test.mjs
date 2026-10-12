@@ -22,7 +22,7 @@ test('emulator and canary boundaries reject production, URL and path overrides',
   for (const patch of [{FIREBASE_RELEASE_CANARY_ENABLED: ''}, {FIREBASE_WEB_API_KEY: ''}, {GITHUB_REF: 'refs/heads/develop'}, {FIRESTORE_EMULATOR_HOST: 'localhost:1'}]) assert.throws(() => preflight({...valid, ...patch}));
 });
 test('released fixture changes cannot be hidden by regenerating registry hashes', () => {
-  const registry = readJson('tool/firebase/supported-clients.json'), client = registry.clients[0], content = readFileSync(client.file);
+  const client = readJson('tool/firebase/supported-clients.json').clients[0], registry = {format: 1, clients: [client]}, content = readFileSync(client.file);
   const baseline = {[client.file]: hash(content)};
   validateFixtures(registry, [client.file], () => content, baseline);
   assert.throws(() => validateFixtures({...registry, clients: []}, [], () => content, baseline));

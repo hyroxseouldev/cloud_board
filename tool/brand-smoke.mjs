@@ -19,7 +19,7 @@ function run(args) {
 
 try {
   for (const folder of ['lib', 'test', 'web']) fs.cpSync(path.join(root, folder), path.join(temporary, folder), {recursive: true});
-  for (const file of ['pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', 'ios/Runner/Info.plist',
+  for (const file of ['pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', 'ios/Runner/Info.plist', 'ios/Runner/Info-Development.plist',
     'ios/ClassActivity/Info.plist', 'macos/Runner/Info.plist']) {
     fs.mkdirSync(path.dirname(path.join(temporary, file)), {recursive: true});
     fs.copyFileSync(path.join(root, file), path.join(temporary, file));

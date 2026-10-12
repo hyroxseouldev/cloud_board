@@ -5,7 +5,7 @@ import {getFirestore} from 'firebase-admin/firestore';
 import {getDatabase} from 'firebase-admin/database';
 import {initializeTestEnvironment,assertFails,assertSucceeds} from '@firebase/rules-unit-testing';
 import {publishUpdateNews} from '../tools/publish-update-news.mjs';
-import {doc,getDoc,setDoc} from 'firebase/firestore';
+import {doc,getDoc,setDoc,getDocs,collection} from 'firebase/firestore';
 import {handleOnboarding,sendOnboardingCode,verifyOnboardingCode,readOnboarding,saveOnboarding,startOnboardingTrial,deleteOnboardingData} from '../src/onboarding.js';
 assert.match(process.env.FIRESTORE_EMULATOR_HOST||'',/^(127\.0\.0\.1|localhost):\d+$/);
 const projectId='demo-cloudboard-onboarding';
@@ -28,6 +28,12 @@ try {
   assert.equal(feed.entries.length,1);
   assert.deepEqual(feed.entries[0].builds,{ios:'542',web:'82.2',android:'52'});
   const publicClient=env.unauthenticatedContext().firestore();
+  await db.doc('developmentSmsOutbox/owner').set({code:'731840',expiresAtMs:Date.now()+300000});
+  for (const client of [publicClient, env.authenticatedContext('owner', {developmentTester:true}).firestore(), env.authenticatedContext('other').firestore()]) {
+    await assertFails(getDoc(doc(client,'developmentSmsOutbox/owner')));
+    await assertFails(getDocs(collection(client,'developmentSmsOutbox')));
+    await assertFails(setDoc(doc(client,'developmentSmsOutbox/owner'),{code:'111111'}));
+  }
   await assertSucceeds(getDoc(doc(publicClient,'appContent/updateNews')));
   await assertFails(setDoc(doc(publicClient,'appContent/updateNews'),{schemaVersion:1,entries:[]}));
   await assertFails(setDoc(doc(env.authenticatedContext('owner').firestore(),'appContent/updateNews'),feed));

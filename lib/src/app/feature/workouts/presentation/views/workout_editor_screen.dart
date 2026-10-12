@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_recovery_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_recovery_repository.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_load_failure.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
@@ -50,32 +53,143 @@ class WorkoutEditorScreen extends HookConsumerWidget {
   final ExitGuard? guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep save state alive while recovery checks /editor/new → /editor/<id>.
+    ref.watch(workoutActionControllerProvider);
     final values = workoutId == 'new'
         ? const AsyncData<Workout?>(null)
         : ref.watch(workoutDetailProvider(workoutId));
     final user = ref.watch(authStateProvider).value;
-    return values.when(
-      data: (detail) {
-        final workout = workoutId == 'new' && user != null
-            ? Workout.empty(
-                newId(),
-                WorkoutAuthor(
-                  id: user.id,
-                  displayName: user.displayName,
-                  photoUrl: user.photoUrl,
+    final empty = useMemoized(
+      () => Workout.empty(
+        newId(),
+        WorkoutAuthor(
+          id: user?.id ?? '',
+          displayName: user?.displayName ?? '',
+          photoUrl: user?.photoUrl,
+        ),
+      ),
+      [user?.id, workoutId],
+    );
+    return _WorkoutRecoveryGate(
+      key: ValueKey('${user?.id}:$workoutId'),
+      ownerId: user?.id ?? '',
+      slot: workoutId,
+      values: workoutId == 'new' && user != null ? AsyncData(empty) : values,
+      guard: guard,
+      guide: guide,
+    );
+  }
+}
+
+/// Recovery requires an explicit choice. If the server changed while this
+/// editor was away, recover as a new workout rather than overwrite that edit.
+class _WorkoutRecoveryGate extends HookConsumerWidget {
+  const _WorkoutRecoveryGate({
+    super.key,
+    required this.ownerId,
+    required this.slot,
+    required this.values,
+    this.guard,
+    required this.guide,
+  });
+  final String ownerId, slot;
+  final AsyncValue<Workout?> values;
+  final ExitGuard? guard;
+  final bool guide;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = workoutRecoveryControllerProvider(ownerId, slot);
+    final recovery = ref.watch(provider);
+    final restored = useState<WorkoutRecoveryDraft?>(null);
+    final accepted = useState(false);
+    final initial = values.value;
+    final pending = recovery.recovered;
+    useEffect(() {
+      if (!recovery.loading && pending == null) {
+        Future.microtask(() {
+          if (context.mounted) ref.read(provider.notifier).accept();
+        });
+      }
+      return null;
+    }, [recovery.loading, pending]);
+    if (recovery.loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!accepted.value && pending != null) {
+      final needsCopy =
+          !pending.isNew &&
+          (initial == null || initial.updatedAt != pending.workout.updatedAt);
+      return Scaffold(
+        appBar: AppBar(title: const Text('저장하지 못한 편집 내용')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  pending.workout.name.isEmpty
+                      ? '새 워크아웃'
+                      : pending.workout.name,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-              )
-            : detail;
-        return workout == null
-            ? const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.')))
-            : _EditorBody(
-                key: ValueKey('${user?.id}:$workoutId'),
-                initial: workout,
-                isNew: workoutId == 'new',
-                guard: guard,
-                guide: guide,
-              );
-      },
+                const SizedBox(height: 16),
+                Text(
+                  needsCopy
+                      ? '서버의 내용이 달라졌거나 확인할 수 없어 새 워크아웃으로 복구해요. 기존 수업은 그대로 유지됩니다.'
+                      : '이 기기에 남아 있는 편집 내용을 복구할 수 있어요. 서버에 저장하려면 복구 후 저장을 눌러 주세요.',
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () {
+                    final workout = needsCopy
+                        ? pending.workout.copyWith(
+                            id: newId(),
+                            name: '${pending.workout.name} 복구',
+                            createdAt: DateTime.now(),
+                            updatedAt: DateTime.now(),
+                          )
+                        : pending.workout;
+                    restored.value = WorkoutRecoveryDraft(
+                      workout: workout,
+                      isNew: pending.isNew || needsCopy,
+                    );
+                    accepted.value = true;
+                    ref.read(provider.notifier).accept();
+                  },
+                  child: Text(needsCopy ? '새 워크아웃으로 복구' : '편집 내용 복구'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await ref.read(provider.notifier).clear();
+                    if (context.mounted) accepted.value = true;
+                  },
+                  child: const Text('임시저장 삭제'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    final selected = restored.value;
+    final workout = selected?.workout ?? initial;
+    if (workout != null) {
+      return _EditorBody(
+        key: ValueKey(workout.id),
+        initial: initial?.id == workout.id ? initial! : workout,
+        initialDraft: selected?.workout,
+        isNew: selected?.isNew ?? slot == 'new',
+        recoverySlot: slot,
+        recoveryOwnerId: ownerId,
+        guard: guard,
+        guide: guide,
+      );
+    }
+    return values.when(
+      data: (_) =>
+          const Scaffold(body: Center(child: Text('워크아웃을 찾을 수 없습니다.'))),
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(
@@ -83,7 +197,7 @@ class WorkoutEditorScreen extends HookConsumerWidget {
         body: WorkoutLoadFailure(
           error: error,
           stack: stack,
-          onRetry: () => ref.invalidate(workoutDetailProvider(workoutId)),
+          onRetry: () => ref.invalidate(workoutDetailProvider(slot)),
         ),
       ),
     );
@@ -183,22 +297,29 @@ class _EditorBody extends HookConsumerWidget {
     super.key,
     required this.initial,
     required this.isNew,
+    required this.recoverySlot,
+    required this.recoveryOwnerId,
+    this.initialDraft,
     this.guard,
     this.guide = false,
   });
   final Workout initial;
+  final Workout? initialDraft;
+  final String recoverySlot, recoveryOwnerId;
   final bool isNew;
   final bool guide;
   final ExitGuard? guard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final draft = useState(initial);
+    final draft = useState(initialDraft ?? initial);
     final savedBaseline = useState(initial);
     final hasPersisted = useState(!isNew);
     final guideHidden = useState(false);
     final guideHeaderKey = useMemoized(GlobalKey.new);
-    final name = useTextEditingController(text: initial.name);
-    final folder = useTextEditingController(text: initial.folder);
+    final name = useTextEditingController(text: (initialDraft ?? initial).name);
+    final folder = useTextEditingController(
+      text: (initialDraft ?? initial).folder,
+    );
     final slideScroll = useScrollController();
     final templateScroll = useScrollController();
     final selectedSlide = useState<String?>(null);
@@ -220,9 +341,31 @@ class _EditorBody extends HookConsumerWidget {
     final isBusy =
         launching.value || action.isLoading || playbackAction.isLoading;
     bool hasUnsavedChanges() =>
+        (initialDraft != null && !hasPersisted.value) ||
         draft.value != savedBaseline.value ||
         name.text.trim() != savedBaseline.value.name ||
         folder.text.trim() != savedBaseline.value.folder;
+
+    final recoveryProvider = workoutRecoveryControllerProvider(
+      recoveryOwnerId,
+      recoverySlot,
+    );
+    final recoveryState = ref.watch(recoveryProvider);
+    final recoveryActions = ref.read(recoveryProvider.notifier);
+    final localSnapshot = draft.value.copyWith(
+      name: name.text,
+      folder: folder.text,
+    );
+    useEffect(() {
+      if (hasUnsavedChanges() ||
+          (initialDraft != null && !hasPersisted.value)) {
+        recoveryActions.record(localSnapshot, isNew: !hasPersisted.value);
+      }
+      return null;
+    }, [localSnapshot, hasPersisted.value]);
+    useOnAppLifecycleStateChange((previous, next) {
+      if (next != AppLifecycleState.resumed) unawaited(recoveryActions.flush());
+    });
 
     void rehearseHere() {
       final saved = hasPersisted.value && !hasUnsavedChanges();
@@ -300,6 +443,11 @@ class _EditorBody extends HookConsumerWidget {
         name: name.text.trim(),
         folder: folder.text.trim(),
       );
+      // Persist the complete edited slide too, before a remote write can fail.
+      draft.value = value;
+      recoveryActions.record(value, isNew: !hasPersisted.value);
+      await recoveryActions.flush();
+      if (!context.mounted) return null;
       final saved = await ref
           .read(workoutActionControllerProvider.notifier)
           .save(value);
@@ -307,6 +455,12 @@ class _EditorBody extends HookConsumerWidget {
         hasPersisted.value = true;
         draft.value = saved;
         savedBaseline.value = saved;
+        await recoveryActions.clear();
+        if (saved.id != initial.id && context.mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) context.replace('/editor/${saved.id}');
+          });
+        }
       }
       return saved;
     }
@@ -450,6 +604,10 @@ class _EditorBody extends HookConsumerWidget {
         if (saved == null || !context.mounted) return;
         final selection = await showWorkoutPreflight(context, saved);
         if (selection == null || !context.mounted) return;
+        if (selection.localOnly) {
+          await context.push('/player/${saved.id}');
+          return;
+        }
         final steps = buildPlayerSteps(saved);
         if (steps.isEmpty) return;
         final id = await ref
@@ -459,6 +617,7 @@ class _EditorBody extends HookConsumerWidget {
               stepIndex: 0,
               durationMs: steps.first.duration * 1000,
               targetDeviceIds: selection.targetDeviceIds,
+              preparationProof: selection.preparation,
             );
         if (id != null && context.mounted) {
           launching.value = false;
@@ -476,6 +635,7 @@ class _EditorBody extends HookConsumerWidget {
       guard: guard,
       dirty: hasUnsavedChanges(),
       blocked: isBusy,
+      onDiscard: recoveryActions.clear,
       child: AsyncActionOverlay(
         // A mini-controller command must not obscure the editor.
         isLoading: false,
@@ -561,6 +721,42 @@ class _EditorBody extends HookConsumerWidget {
                   final compact = constraints.maxHeight < 480;
                   return Column(
                     children: [
+                      if (action.error is WorkoutWriteConflict)
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Text(
+                                '다른 기기의 변경사항을 유지하고 내 편집을 복사본으로 저장할 수 있어요.',
+                              ),
+                              TextButton(
+                                onPressed: isBusy
+                                    ? null
+                                    : () async {
+                                        await persist(
+                                          edited: draft.value.copyWith(
+                                            id: newId(),
+                                            createdAt: DateTime.now(),
+                                            updatedAt: DateTime.now(),
+                                          ),
+                                        );
+                                      },
+                                child: const Text('복사본으로 저장'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (recoveryState.error != null)
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(
+                            recoveryState.error!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(
                           24,

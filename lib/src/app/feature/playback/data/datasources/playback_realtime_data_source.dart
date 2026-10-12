@@ -25,9 +25,11 @@ class PlaybackRealtimeDataSource {
     this._ownerId, {
     this.serverRead,
     this.onAncillaryFailure,
+    this.allowSplitPlayback,
   });
 
   final Future<Object?> Function(String path)? serverRead;
+  final Future<bool> Function()? allowSplitPlayback;
   final void Function(Object error, StackTrace stack)? onAncillaryFailure;
   final _refreshes = StreamController<PlaybackSessionModel?>.broadcast();
   bool _recovering = false;
@@ -269,7 +271,9 @@ class PlaybackRealtimeDataSource {
     // Older installed TVs continue receiving v1 until every registered display
     // has advertised support for immutable snapshots. Existing sessions never
     // change format while running. No capability means v1, not an assumption.
-    final split = supportsSplitPlayback(devices);
+    final split =
+        supportsSplitPlayback(devices) &&
+        (await allowSplitPlayback?.call() ?? true);
     final documents = PlaybackStartDocuments(model, split: split);
     final json = documents.state;
     if (split) {

@@ -6,6 +6,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/feature/app_update/domain/entities/app_release.dart';
+import 'package:cloud_board/src/app/feature/app_update/presentation/controllers/app_update_controller.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
@@ -91,7 +93,110 @@ PlaybackSession running() => PlaybackSessionModel.fromWorkout(
   deviceId: 'phone',
 ).toEntity().copyWith(anchorServerMs: DateTime.now().millisecondsSinceEpoch);
 
+class _RequiredTvUpdate extends AppUpdateController {
+  @override
+  Future<({AppRelease release, UpdateKind kind})?> build() async => (
+    release: const AppRelease(
+      latestBuild: 100,
+      minimumBuild: 99,
+      publishedBuild: 100,
+      version: '1.2.0',
+      storeUrl: 'https://play.google.com/store/apps/details?id=com.sunmkim.cloudboard',
+      enabled: true,
+      published: true,
+    ),
+    kind: UpdateKind.required,
+  );
+}
+
+class _ControlledRecovery extends PlaybackRecoveryController {
+  void update(AsyncValue<void> value) => state = value;
+}
+
 void main() {
+  testWidgets(
+    'TV update appears only in confirmed standby and yields to a class, recovery or connection loss',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final sessions = StreamController<PlaybackSession?>.broadcast();
+      final connection = StreamController<bool>.broadcast();
+      final devices = StreamController<List<DisplayDevice>>.broadcast();
+      final recovery = _ControlledRecovery();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            androidTvProvider.overrideWith((ref) async => true),
+            appUpdateControllerProvider.overrideWith(_RequiredTvUpdate.new),
+            playbackRecoveryControllerProvider.overrideWith(() => recovery),
+            accountOwnerIdProvider.overrideWith((ref) => Stream.value('u')),
+            deviceIdProvider.overrideWith((ref) async => 'tv'),
+            deviceModeControllerProvider.overrideWith(_Mode.new),
+            devicePairingControllerProvider.overrideWith(_Pair.new),
+            devicePairingActionsProvider.overrideWithValue(_PairActions()),
+            displayDevicesProvider.overrideWith((ref) => devices.stream),
+            activePlaybackSessionProvider.overrideWith(
+              (ref) => sessions.stream,
+            ),
+            playbackConnectionProvider.overrideWith((ref) => connection.stream),
+            serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+            brandTemplateProvider.overrideWith(
+              (ref) => Stream.value(BrandTemplate.initial()),
+            ),
+            workoutSchedulesProvider.overrideWith((ref) => Stream.value([])),
+          ],
+          child: const MaterialApp(home: DisplayModeScreen()),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('새 버전으로 함께해요'), findsNothing);
+      devices.add([device('standby')]);
+      connection.add(true);
+      sessions.add(null);
+      await tester.pumpAndSettle();
+      expect(find.text('새 버전으로 함께해요'), findsOneWidget);
+      for (final status in [PlaybackStatus.playing, PlaybackStatus.paused]) {
+        sessions.add(running().copyWith(status: status));
+        await tester.pumpAndSettle();
+        expect(find.text('새 버전으로 함께해요'), findsNothing);
+      }
+      sessions.add(
+        running().copyWith(
+          status: PlaybackStatus.completed,
+          anchorServerMs: DateTime.now().millisecondsSinceEpoch - 10000,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('새 버전으로 함께해요'), findsOneWidget);
+      recovery.update(const AsyncLoading());
+      await tester.pumpAndSettle();
+      expect(find.text('새 버전으로 함께해요'), findsNothing);
+      recovery.update(
+        AsyncError(StateError('offline recovery'), StackTrace.current),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('새 버전으로 함께해요'), findsNothing);
+      recovery.update(const AsyncData(null));
+      await tester.pumpAndSettle();
+      expect(find.text('새 버전으로 함께해요'), findsOneWidget);
+      connection.add(false);
+      await tester.pumpAndSettle();
+      expect(find.text('새 버전으로 함께해요'), findsNothing);
+      connection.add(true);
+      devices.add([device('black')]);
+      sessions.add(null);
+      await tester.pumpAndSettle();
+      expect(find.text('새 버전으로 함께해요'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await sessions.close();
+      await connection.close();
+      await devices.close();
+    },
+  );
+
   testWidgets(
     'TV paints a silent identification card and ACKs only while idle and connected',
     (tester) async {

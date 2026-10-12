@@ -19,6 +19,7 @@ import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.android.gms.tasks.Tasks
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
@@ -35,7 +36,11 @@ internal object ClassNotifications {
     private const val CHANNEL = "class_controls_v1"
     private const val ID = 4601
     internal const val DISMISS = "com.sunmkim.cloudboard.DISMISS_CLASS_NOTIFICATION"
-    private const val DATABASE = "https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app"
+    private val DATABASE: String get() = when (FirebaseApp.getInstance().options.projectId) {
+        "cloud-board-stationd" -> "https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app"
+        "cloud-board-development" -> "https://cloud-board-development-default-rtdb.asia-southeast1.firebasedatabase.app"
+        else -> throw IllegalStateException("Unknown Firebase environment")
+    }
     private val busy = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor()
     private val deadlines = Executors.newSingleThreadScheduledExecutor()

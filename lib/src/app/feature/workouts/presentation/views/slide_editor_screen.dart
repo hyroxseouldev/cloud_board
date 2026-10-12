@@ -96,15 +96,13 @@ class SlideEditorScreen extends ConsumerWidget {
             brandL: workout.brandL,
             brandR: workout.brandR,
             onSave: (updated) async {
-              final latest = await ref.read(
-                workoutDetailProvider(workoutId).future,
-              );
-              if (latest == null) return false;
+              // Save against the version this editor opened. Loading a newer
+              // version here would hide a conflict and overwrite its slide.
               return await ref
                       .read(workoutActionControllerProvider.notifier)
                       .save(
-                        latest.copyWith(
-                          modules: latest.modules
+                        workout.copyWith(
+                          modules: workout.modules
                               .map((m) => m.id == moduleId ? updated : m)
                               .toList(),
                         ),

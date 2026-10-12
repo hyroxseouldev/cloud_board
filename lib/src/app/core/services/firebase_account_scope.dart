@@ -1,13 +1,27 @@
+import 'package:cloud_board/src/app/core/config/firebase_environment.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'firebase_account_scope.g.dart';
 
-const cloudBoardRealtimeDatabaseUrl = String.fromEnvironment(
-  'CLOUDBOARD_DATABASE_URL',
-  defaultValue: 'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app',
+const studioPreviewRealtimeDatabaseUrl =
+    'https://demo-cloudboard-studio-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+String get cloudBoardRealtimeDatabaseUrl => realtimeDatabaseUrlForOptions(
+  Firebase.apps.where((app) => app.name == '[DEFAULT]').firstOrNull?.options,
 );
+
+/// Ordinary builds always use their selected environment. The debug-only
+/// preview initializes a demo app and connects its database to localhost before
+/// providers mount; preserve that demo namespace instead of the dev namespace.
+@visibleForTesting
+String realtimeDatabaseUrlForOptions(FirebaseOptions? initializedOptions) =>
+    kDebugMode && initializedOptions?.projectId == 'demo-cloudboard-studio'
+    ? studioPreviewRealtimeDatabaseUrl
+    : FirebaseEnvironment.databaseUrl;
 
 @Riverpod(keepAlive: true)
 Stream<User?> firebaseAccountUser(Ref ref) =>

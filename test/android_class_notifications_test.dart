@@ -37,9 +37,15 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
       final calls = <MethodCall>[];
+      String? expectedMethod;
+      Completer<void>? observedMethod;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             calls.add(call);
+            if (call.method == expectedMethod &&
+                observedMethod?.isCompleted == false) {
+              observedMethod!.complete();
+            }
             return call.method == 'show'
                 ? false
                 : null; // Permission denial is nonfatal.
@@ -63,8 +69,28 @@ void main() {
       addTearDown(container.dispose);
       addTearDown(sessions.close);
       addTearDown(users.close);
+      Future<void> settleProjection() async {
+        // Streams and dependent providers each get a scheduler turn. No wall
+        // clock assumption about an idle test host or native build load.
+        await container.pump();
+        await container.pump();
+        await container.read(androidClassNotificationsProvider.future);
+      }
+
+      Future<void> expectNextMethod(
+        String method,
+        void Function() change,
+      ) async {
+        expectedMethod = method;
+        observedMethod = Completer<void>();
+        change();
+        await observedMethod!.future.timeout(const Duration(seconds: 5));
+        observedMethod = null;
+        expectedMethod = null;
+      }
+
       container.listen(androidClassNotificationsProvider, (_, _) {});
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await settleProjection();
       expect(
         calls,
         isEmpty,
@@ -88,14 +114,13 @@ void main() {
         deviceId: 'phone',
       ).toEntity();
       users.add(_User());
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await settleProjection();
       expect(
         calls,
         isEmpty,
         reason: 'Wait for the current session before clearing',
       );
-      sessions.add(session);
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await expectNextMethod('show', () => sessions.add(session));
       expect(
         await container.read(androidClassNotificationsProvider.future),
         isFalse,
@@ -104,13 +129,13 @@ void main() {
       expect(payload['sessionId'], 'session');
       expect(payload['ownerId'], 'owner');
       expect((payload['steps'] as List).first['name'], 'Squat');
-      sessions.add(session.copyWith(status: PlaybackStatus.completed));
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await expectNextMethod(
+        'clear',
+        () => sessions.add(session.copyWith(status: PlaybackStatus.completed)),
+      );
       expect(calls.last.method, 'clear');
-      sessions.add(session);
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      users.add(null);
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await expectNextMethod('show', () => sessions.add(session));
+      await expectNextMethod('clear', () => users.add(null));
       expect(calls.last.method, 'clear');
     },
   );

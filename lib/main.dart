@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:cloud_board/firebase_options.dart';
+import 'package:cloud_board/src/app/core/config/firebase_environment.dart';
 import 'package:cloud_board/src/app/app.dart';
 import 'package:cloud_board/src/app/bootstrap.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
@@ -15,8 +15,8 @@ void main() {
   runCloudBoard();
 }
 
-/// The separate local-preview entry point configures emulators before providers
-/// can read Firebase. Normal builds always use the production configuration.
+/// Local previews inject emulator options; all other builds validate their
+/// explicit environment before any Firebase SDK can connect.
 void runCloudBoard({
   FirebaseOptions? firebaseOptions,
   Future<void> Function()? configureFirebase,
@@ -40,11 +40,19 @@ Future<bool> _initialize(
   Future<void> Function()? configureFirebase,
   bool localPreview,
 ) async {
+  final options = firebaseOptions ?? FirebaseEnvironment.options;
+  if (localPreview) {
+    FirebaseEnvironment.validateProject(
+      options.projectId,
+      localPreview: true,
+      hasEmulatorConfiguration: configureFirebase != null,
+    );
+  } else {
+    FirebaseEnvironment.validateLaunch(options);
+  }
   // Neither operation depends on the other. The bootstrap has already painted.
   final results = await Future.wait<Object>([
-    Firebase.initializeApp(
-      options: firebaseOptions ?? DefaultFirebaseOptions.currentPlatform,
-    ),
+    Firebase.initializeApp(options: options),
     const DeviceFormFactorDataSource().isAndroidTv(),
   ]);
   await configureFirebase?.call();

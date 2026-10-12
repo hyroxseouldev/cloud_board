@@ -46,7 +46,7 @@ final class LibraryFoldersProvider
   }
 }
 
-String _$libraryFoldersHash() => r'e99c67c47ab37ff446500da74db814699e27a02f';
+String _$libraryFoldersHash() => r'd3d20adf30876452afa5b7b07fd318a1321e3f9b';
 
 @ProviderFor(LibraryFolderController)
 final libraryFolderControllerProvider = LibraryFolderControllerProvider._();

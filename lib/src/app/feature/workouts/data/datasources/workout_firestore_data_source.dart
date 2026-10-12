@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_document.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_save_documents.dart';
 
@@ -157,6 +158,8 @@ class WorkoutFirestoreDataSource {
     String userId,
     WorkoutModel workout, {
     bool ifAbsent = false,
+    DateTime? expectedUpdatedAt,
+    bool requireExisting = false,
   }) async {
     // Never persist settings composed for a preview. Preserve existing legacy
     // values during rollout; switch to content-only only after admin activation.
@@ -169,6 +172,15 @@ class WorkoutFirestoreDataSource {
       if (ifAbsent && previous != null) {
         return WorkoutDocument.decode({...previous, 'id': workout.id});
       }
+      ensureWorkoutRevision(
+        expected: expectedUpdatedAt,
+        requireExisting: requireExisting,
+        current: previous == null
+            ? null
+            : const FirestoreTimestampConverter().fromJson(
+                previous['updatedAt'],
+              ),
+      );
       final documents = WorkoutSaveDocuments(
         workout,
         contentOnly: settings?['contentOnly'] == true,
