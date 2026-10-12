@@ -1,0 +1,35 @@
+{
+  "measuredAt": "2026-10-12",
+  "buildCommand": "flutter build web --release --no-pub --target tool/sta122_release_error_check.dart",
+  "runtime": "Google Chrome, actual Flutter web release build",
+  "scope": "Production WorkoutLoadFailure widget and workout/playback error mappers mounted in an isolated harness. Text read from mounted Flutter elements after the release frame. UI retry flow and single playback SnackBar are covered by widget tests separately.",
+  "result": {
+    "issue": "STA-129",
+    "buildMode": "release",
+    "texts": [
+      "network",
+      "서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.",
+      "다시 시도",
+      "permission",
+      "이 자료를 사용할 권한이 없습니다. 자료 소유자나 관리자에게 권한을 확인해 주세요.",
+      "다시 시도",
+      "deleted",
+      "자료가 삭제되었거나 더 이상 사용할 수 없습니다. 목록을 새로고침해 주세요.",
+      "다시 시도",
+      "active class",
+      "수업 진행 중에는 편집할 수 없습니다. 수업을 종료한 뒤 다시 시도해 주세요.",
+      "다시 시도",
+      "unknown",
+      "워크아웃을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      "다시 시도",
+      "library",
+      "워크아웃을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      "다시 시도",
+      "수업을 제어하지 못했습니다. 연결과 현재 수업 상태를 확인한 뒤 다시 시도해 주세요.",
+      "STA-129 Release UI verification"
+    ],
+    "technicalTextVisible": false,
+    "debugDetailsVisible": false,
+    "retryButtons": 6
+  }
+}

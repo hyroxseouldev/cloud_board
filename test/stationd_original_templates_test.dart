@@ -100,6 +100,7 @@ void main() {
           sourceHashes[index],
         );
         final source = await loadOriginalSlideImage(template.id);
+        addTearDown(source.dispose);
         expect(
           Size(source.width.toDouble(), source.height.toDouble()),
           const Size(3840, 2160),
@@ -127,6 +128,7 @@ void main() {
       '${template.id}: editing a row and removing the last row preserves all other pixels',
       () async {
         final source = await loadOriginalSlideImage(template.id);
+        addTearDown(source.dispose);
         final edited = module.copyWith(
           text: [
             'Run 300m + Sled Pull 1 Way',

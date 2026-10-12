@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -8,7 +9,7 @@ Future<PackageInfo> readInstalledAppInfo() {
   if (kIsWeb && name.isNotEmpty && number.isNotEmpty) {
     return Future.value(
       PackageInfo(
-        appName: 'CloudBoard',
+        appName: AppBrand.name,
         packageName: 'cloud_board',
         version: name,
         buildNumber: number,

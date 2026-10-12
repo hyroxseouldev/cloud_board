@@ -48,10 +48,15 @@ function normalizeLibraryDesignStyle(value) {
 
 export function normalizeLibraryValue(value) {
   if (!value) return null;
+  // Render fingerprints are disposable cache hints, not user content. Older
+  // clients omit them from their decoded base snapshot; keep those clients able
+  // to edit/delete current records while still comparing every content field.
+  const content = {...value};
+  delete content.designFingerprint;
   return {showTimerGauge: true, favorite: false, category: '', timerColorValue: null,
     workGaugeColor: null, restGaugeColor: null, workTextColor: null, restTextColor: null,
     intervalBlocks: [], includeFinalRest: true, timingVersion: 1, rounds: 1,
-    roundRestSeconds: 0, includeFinalRoundRest: true, timerMode: 'custom', timerDirection: 'down', ...value,
+    roundRestSeconds: 0, includeFinalRoundRest: true, timerMode: 'custom', timerDirection: 'down', ...content,
     designLayout: value.designLayout ?? 'auto',
     designFontWeight: value.designFontWeight ?? 900,
     designItalic: value.designItalic ?? true,

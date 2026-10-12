@@ -109,11 +109,11 @@ class SlideEditorController extends _$SlideEditorController {
       } else {
         await _actions.clearDraft(_key);
       }
-      if (ref.mounted && state.module == snapshot) {
+      if (ref.mounted && state.module == snapshot && state.dirty == dirty) {
         state = state.copyWith(localSaved: dirty, storageError: null);
       }
     } catch (_) {
-      if (ref.mounted) {
+      if (ref.mounted && state.module == snapshot && state.dirty == dirty) {
         state = state.copyWith(storageError: '임시저장에 실패했습니다. 저장 버튼으로 저장해 주세요.');
       }
     }
@@ -139,6 +139,7 @@ class SlideEditorController extends _$SlideEditorController {
       saved: saved,
       localSaved: false,
       recovery: null,
+      storageError: null,
     );
     try {
       await _actions.clearDraft(_key);

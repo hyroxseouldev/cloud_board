@@ -1,4 +1,8 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
+
 import 'dart:async';
+
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -131,7 +135,7 @@ class UpdatePresentation extends HookWidget {
               const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Text(
-                  '스토어를 열지 못했어요. 연결을 확인하거나 스토어에서 CloudBoard를 검색해 주세요.',
+                  '스토어를 열지 못했어요. 연결을 확인하거나 스토어에서 ${AppBrand.name}를 검색해 주세요.',
                 ),
               ),
             const SizedBox(height: 16),
@@ -161,7 +165,7 @@ class UpdatePresentation extends HookWidget {
           child: IgnorePointer(ignoring: required, child: child),
         ),
         if (required)
-          const ModalBarrier(dismissible: false, color: Colors.white),
+          const ModalBarrier(dismissible: false, color: AppColors.canvas),
         SafeArea(
           child: Align(
             alignment: required ? Alignment.center : Alignment.bottomCenter,

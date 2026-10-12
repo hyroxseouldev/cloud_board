@@ -2,6 +2,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:cloud_board/src/app/feature/auth/data/datasources/firebase_auth_data_source.dart';
 import 'package:cloud_board/src/app/feature/auth/data/repositories/firebase_auth_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
@@ -43,11 +44,11 @@ class FirebaseAccountDeletionRepository implements AccountDeletionRepository {
     } on FirebaseFunctionsException catch (error) {
       if (error.code == 'not-found' || error.code == 'unimplemented') {
         throw StateError(
-          '계정 삭제 서비스를 사용할 수 없습니다. 잠시 후 다시 시도하거나 vividxxxxx@gmail.com으로 문의해 주세요.',
+          '계정 삭제 서비스를 사용할 수 없습니다. 잠시 후 다시 시도하거나 ${AppLinks.supportEmail}으로 문의해 주세요.',
         );
       }
       throw StateError(
-        '삭제 결과를 확인하지 못했습니다. 계정을 다시 만들지 말고 vividxxxxx@gmail.com으로 문의해 주세요.',
+        '삭제 결과를 확인하지 못했습니다. 계정을 다시 만들지 말고 ${AppLinks.supportEmail}으로 문의해 주세요.',
       );
     } on FirebaseAuthException {
       rethrow;

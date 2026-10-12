@@ -173,7 +173,6 @@ enum ClassControlAction: String, AppEnum {
 @available(iOS 16.0, *)
 struct ControlClassIntent: AppIntent {
     static var title: LocalizedStringResource = "연결 수업 조작"
-    static var description = IntentDescription("클라우드보드의 현재 연결 수업을 조작합니다. 음악 재생에는 영향을 주지 않습니다.")
     static var openAppWhenRun: Bool = false
     @Parameter(title: "동작") var action: ClassControlAction
     static var parameterSummary: some ParameterSummary { Summary("\(\.$action)") }

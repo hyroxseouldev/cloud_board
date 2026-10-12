@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'store_operations.freezed.dart';
@@ -29,7 +30,7 @@ abstract class BrandTemplate with _$BrandTemplate {
   }) = _BrandTemplate;
 
   factory BrandTemplate.initial() => const BrandTemplate(
-    storeName: 'CloudBoard Studio',
+    storeName: AppBrand.defaultStoreName,
     standbyMessage: '다음 수업을 준비하고 있습니다',
     logoUrl: null,
     promotionImageUrls: <String>[],

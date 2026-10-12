@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -29,18 +31,16 @@ class AiBetaBadge extends StatelessWidget {
       vertical: compact ? 1 : 3,
     ),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF4F46E5), Color(0xFF9333EA), Color(0xFFDB2777)],
-      ),
+      color: AppColors.selected,
       borderRadius: BorderRadius.circular(20),
     ),
     child: Text(
       'beta',
       style: TextStyle(
         fontSize: compact ? 9 : 11,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w600,
         letterSpacing: .4,
-        color: Colors.white,
+        color: AppColors.accent,
       ),
     ),
   );

@@ -2,7 +2,7 @@ import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
-import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 
 import 'dart:async';
@@ -43,7 +43,7 @@ class ActiveClassShell extends HookConsumerWidget {
         final error = next.error!;
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
-            content: Text(diagnosticMessage(error)),
+            content: Text(playbackErrorMessage(error)),
             duration: const Duration(seconds: 8),
             action: kDebugMode
                 ? SnackBarAction(
@@ -101,7 +101,7 @@ class ActiveClassShell extends HookConsumerWidget {
       key: barKey,
       child: Padding(
         padding: bottomVisible
-            ? const EdgeInsets.fromLTRB(16, 8, 16, 16)
+            ? const EdgeInsets.fromLTRB(12, 8, 12, 16)
             : EdgeInsets.zero,
         child: SafeArea(
           top: false,
@@ -115,7 +115,7 @@ class ActiveClassShell extends HookConsumerWidget {
                   session: session,
                   playerVisible: playerVisible,
                 ),
-              if (miniVisible && dockVisible) const SizedBox(height: 10),
+              if (miniVisible && dockVisible) const SizedBox(height: 8),
               if (dockVisible) navigationBar!,
             ],
           ),
@@ -248,7 +248,7 @@ class _ActiveClassControls extends HookConsumerWidget {
         ? '명령 전달 실패 · 다시 시도해 주세요'
         : preparing
         ? '수업 시작 준비 중'
-        : '${step.module.name.isEmpty ? '슬라이드 ${step.moduleIndex + 1}' : step.module.name} · ${state.isPaused
+        : '${state.isPaused
               ? '일시정지'
               : step.isRest
               ? '휴식'

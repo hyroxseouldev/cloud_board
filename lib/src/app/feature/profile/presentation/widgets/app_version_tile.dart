@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -22,7 +23,7 @@ class AppVersionTile extends HookWidget {
         await Clipboard.setData(
           ClipboardData(
             text:
-                'CloudBoard · ${kIsWeb ? 'Web' : defaultTargetPlatform.name} · $version',
+                '${AppBrand.name} · ${kIsWeb ? 'Web' : defaultTargetPlatform.name} · $version',
           ),
         );
         if (!context.mounted) return;

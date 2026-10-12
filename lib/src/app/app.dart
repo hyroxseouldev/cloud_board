@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:cloud_board/src/app/feature/app_update/presentation/widgets/app_update_gate.dart';
 import 'package:cloud_board/src/app/feature/billing/presentation/controllers/billing_controller.dart';
@@ -57,7 +59,7 @@ class XonBoardApp extends HookConsumerWidget {
       if (previous?.isLoading != true) return;
       final isError = next.hasError;
       final message = isError
-          ? errorMessage?.call(next.error) ?? '$errorPrefix: ${next.error}'
+          ? errorMessage?.call(next.error) ?? '$errorPrefix. 잠시 후 다시 시도해 주세요.'
           : next.value;
       if (message == null) return;
       _scaffoldMessengerKey.currentState
@@ -111,11 +113,16 @@ class XonBoardApp extends HookConsumerWidget {
       );
     });
     ref.listen(workoutActionControllerProvider, (previous, next) {
-      showActionResult(previous, next, '워크아웃 작업에 실패했습니다');
+      showActionResult(
+        previous,
+        next,
+        '워크아웃 작업에 실패했습니다',
+        errorMessage: workoutErrorMessage,
+      );
     });
 
     return MaterialApp.router(
-      title: 'CloudBoard',
+      title: AppBrand.name,
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: XonTheme.light,

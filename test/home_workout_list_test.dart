@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -26,6 +27,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  for (final count in [10, 100, 500]) {
+    testWidgets('folder menu uses metadata without draining $count workouts', (
+      tester,
+    ) async {
+      final items = _catalog(count);
+      items[items.length - 1] = items.last.copyWith(folder: '오래된 폴더');
+      final repository = _PagedCatalogRepository(items);
+      await _mount(tester, repository, folders: ['오래된 폴더']);
+      expect(repository.loads, 1);
+      await tester.tap(find.byTooltip('폴더 선택'));
+      await tester.pumpAndSettle();
+      expect(find.text('오래된 폴더'), findsOneWidget);
+      expect(repository.loads, 1);
+      expect(tester.takeException(), isNull);
+    });
+  }
+  testWidgets(
+    'v5 home keeps row actions accessible and the create action singular',
+    (tester) async {
+      await _mount(tester, _CatalogRepository(_catalog(1)));
+      expect(find.text('수업 만들기'), findsOneWidget);
+      expect(find.text('내 수업 1개'), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsNothing);
+      for (final control in [
+        find.byKey(const ValueKey('create-workout')),
+        find.byTooltip('재생'),
+        find.byTooltip('워크아웃 메뉴'),
+      ]) {
+        expect(tester.getSize(control).width, greaterThanOrEqualTo(48));
+        expect(tester.getSize(control).height, greaterThanOrEqualTo(48));
+      }
+      await tester.tap(find.byTooltip('워크아웃 메뉴'));
+      await tester.pumpAndSettle();
+      expect(find.text('편집'), findsOneWidget);
+      expect(find.text('복사'), findsOneWidget);
+      expect(find.text('삭제'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'scroll loads the next page and search finds the last unrequested page',
     (tester) async {
@@ -328,7 +369,11 @@ void main() {
       await tester.pump();
       expect(tester.element(grid), same(gridElement));
     }
-    expect(find.textContaining('수업 제어에 실패했습니다'), findsOneWidget);
+    expect(
+      find.byType(SnackBar),
+      findsNothing,
+      reason: 'The active class shell owns playback feedback, not each page',
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -420,11 +465,11 @@ void main() {
         await tester.enterText(find.byType(TextField), '수업 59');
         await tester.pumpAndSettle();
         expect(_title('수업 59').hitTestable(), findsOneWidget);
-        expect(find.text('워크아웃 1개'), findsOneWidget);
+        expect(find.text('내 수업 1개'), findsOneWidget);
         await tester.tap(find.byTooltip('검색 지우기'));
         await tester.pumpAndSettle();
         await _folder(tester, 'Stationd');
-        expect(find.text('워크아웃 13개'), findsOneWidget);
+        expect(find.text('내 수업 13개'), findsOneWidget);
         await tester.enterText(find.byType(TextField), '수업 59');
         await tester.pumpAndSettle();
         expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
@@ -436,7 +481,7 @@ void main() {
         }
         await tester.pumpAndSettle();
         expect(find.text('모든 폴더'), findsOneWidget);
-        expect(find.text('워크아웃 13개'), findsOneWidget);
+        expect(find.text('내 수업 13개'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
@@ -500,7 +545,7 @@ void main() {
         final repository = _CatalogRepository(_catalog(count));
         await _mount(tester, repository);
         // The old fixed header was outside the refresh scrollable.
-        final point = tester.getCenter(find.text('워크아웃 $count개'));
+        final point = tester.getCenter(find.text('내 수업 $count개'));
         final gesture = await tester.startGesture(point, kind: kind);
         await gesture.moveBy(const Offset(0, 340));
         await tester.pump();
@@ -601,6 +646,7 @@ Future<ProviderContainer> _mount(
   bool testCreateRoute = false,
   bool? showModeSelector,
   double textScale = 1,
+  List<String> folders = const [],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -621,6 +667,7 @@ Future<ProviderContainer> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        libraryFoldersProvider.overrideWith((ref) => Stream.value(folders)),
         if (showModeSelector != null)
           workoutListModeSelectorEnabledProvider.overrideWithValue(
             showModeSelector,

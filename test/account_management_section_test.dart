@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
+import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -18,7 +20,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 void main() {
   setUp(
     () => PackageInfo.setMockInitialValues(
-      appName: 'CloudBoard',
+      appName: AppBrand.name,
       packageName: 'com.sunmkim.cloudboard',
       version: '1.2.3',
       buildNumber: '529',
@@ -31,6 +33,7 @@ void main() {
     Future<bool> Function(Uri) launch, {
     bool tv = false,
     bool hasPassword = false,
+    double scale = 1,
     AccountDeletionRepository? repository,
   }) async {
     await tester.pumpWidget(
@@ -53,6 +56,11 @@ void main() {
         ],
         child: MaterialApp(
           theme: XonTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
           home: Scaffold(
             body: SingleChildScrollView(
               child: Column(
@@ -82,6 +90,55 @@ void main() {
     );
   });
 
+  testWidgets('version copy uses the configured display brand', (tester) async {
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await mount(tester, (_) async => true);
+    await tester.ensureVisible(find.byTooltip('버전 정보 복사'));
+    await tester.tap(find.byTooltip('버전 정보 복사'));
+    await tester.pumpAndSettle();
+    expect(clipboard, startsWith('${AppBrand.name} · '));
+    expect(clipboard, endsWith(' · 버전 1.2.3 · 빌드 529'));
+    expect(find.text('버전 정보를 복사했습니다.'), findsOneWidget);
+  });
+
+  testWidgets('configured account copy fits a small phone with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _DeletionRepository();
+    await mount(tester, (_) async => true, scale: 1.5, repository: repository);
+    expect(find.text('${AppBrand.nameKo} 계정과 관련 데이터를 삭제합니다.'), findsOneWidget);
+    await tester.ensureVisible(find.text('계정 삭제'));
+    await tester.tap(find.text('계정 삭제'));
+    await tester.pumpAndSettle();
+    expect(find.text('${AppBrand.nameKo} 계정을 삭제할까요?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('취소'));
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, 0);
+    expect(find.text('${AppBrand.nameKo} 계정을 삭제할까요?'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [const Size(390, 844), const Size(834, 1194)]) {
     testWidgets('links preserve the current screen and draft at $size', (
       tester,
@@ -98,14 +155,13 @@ void main() {
       await tester.enterText(find.byType(TextField), '변경 중인 이름');
       await tester.tap(find.text('계정 삭제 안내 및 문의'));
       await tester.pumpAndSettle();
-      expect(links.single.path, '/apps/cloudboard/delete-account');
-      expect(links.single.hasQuery, isFalse);
+      expect(links.single, Uri.parse(AppLinks.accountDeletion));
       expect(find.text('변경 중인 이름'), findsOneWidget);
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(SnackBar), findsNothing);
       await tester.tap(find.text('개인정보처리방침'));
       await tester.pumpAndSettle();
-      expect(links.last.path, '/apps/cloudboard/privacy');
+      expect(links.last, Uri.parse(AppLinks.privacy));
       expect(tester.takeException(), isNull);
     });
   }
@@ -135,10 +191,13 @@ void main() {
       });
       await tester.tap(find.text('계정 삭제 안내 및 문의'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('vividxxxxx@gmail.com으로 문의'), findsOneWidget);
+      expect(
+        find.textContaining('${AppLinks.supportEmail}으로 문의'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('이메일 주소 복사'));
       await tester.pumpAndSettle();
-      expect(clipboard, 'vividxxxxx@gmail.com');
+      expect(clipboard, AppLinks.supportEmail);
       expect(find.text('이메일 주소를 복사했습니다.'), findsOneWidget);
       await tester.tap(find.text('닫기'));
       await tester.pumpAndSettle();

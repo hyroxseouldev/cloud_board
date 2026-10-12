@@ -32,11 +32,36 @@ abstract final class AppTheme {
     final guide = style ?? base.extension<AppStyle>() ?? const AppStyle();
     final text = base.textTheme
         .copyWith(
+          bodySmall: base.textTheme.bodySmall?.copyWith(letterSpacing: 0),
+          labelSmall: base.textTheme.labelSmall?.copyWith(letterSpacing: 0),
+          labelMedium: base.textTheme.labelMedium?.copyWith(letterSpacing: 0),
           displaySmall: base.textTheme.displaySmall?.merge(guide.mainText),
           headlineLarge: base.textTheme.headlineLarge?.merge(guide.mainText),
           headlineMedium: base.textTheme.headlineMedium?.merge(guide.subText1),
           headlineSmall: base.textTheme.headlineSmall?.merge(guide.subText2),
           titleLarge: base.textTheme.titleLarge?.merge(guide.subText3),
+          titleMedium: const TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 17,
+            letterSpacing: -.17,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+          ),
+          bodyLarge: const TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 16,
+            letterSpacing: 0,
+            fontWeight: FontWeight.w400,
+            height: 1.5,
+          ),
+          bodyMedium: const TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 14,
+            letterSpacing: 0,
+            fontWeight: FontWeight.w400,
+            height: 1.5,
+          ),
+          labelLarge: guide.buttonText,
         )
         .apply(bodyColor: AppColors.ink, displayColor: AppColors.ink);
     return base.copyWith(
@@ -52,7 +77,7 @@ abstract final class AppTheme {
         ...base.extensions.values.where((value) => value is! AppStyle),
         guide,
       ],
-      scaffoldBackgroundColor: Colors.white,
+      scaffoldBackgroundColor: AppColors.canvas,
       dialogTheme: AppDialogTheme.data.copyWith(
         titleTextStyle: base.textTheme.titleLarge
             ?.merge(guide.subText2)
@@ -72,7 +97,7 @@ abstract final class AppTheme {
       colorScheme: ColorScheme.fromSeed(seedColor: AppColors.accent).copyWith(
         primary: AppColors.accent,
         onPrimary: Colors.white,
-        surface: Colors.white,
+        surface: AppColors.surface,
         onSurface: AppColors.ink,
         onSurfaceVariant: AppColors.muted,
         primaryContainer: AppColors.selected,
@@ -85,10 +110,10 @@ abstract final class AppTheme {
         onTertiary: Colors.white,
         tertiaryContainer: AppColors.selected,
         onTertiaryContainer: AppColors.ink,
-        surfaceContainerLowest: Colors.white,
+        surfaceContainerLowest: AppColors.surface,
         surfaceContainer: AppColors.surface,
         surfaceContainerHigh: AppColors.selected,
-        outline: AppColors.muted,
+        outline: AppColors.controlBorder,
         surfaceContainerLow: AppColors.surface,
         surfaceContainerHighest: AppColors.selected,
         outlineVariant: AppColors.line,
@@ -98,7 +123,7 @@ abstract final class AppTheme {
             ?.merge(guide.subText2)
             .copyWith(color: AppColors.ink),
         toolbarHeight: guide.primaryButtonHeight,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.canvas,
         foregroundColor: AppColors.ink,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -125,11 +150,11 @@ abstract final class AppTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppStyle.controlRadius),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AppColors.controlBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppStyle.controlRadius),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AppColors.controlBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppStyle.controlRadius),
@@ -145,8 +170,8 @@ abstract final class AppTheme {
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
-        modalBackgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        modalBackgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -155,7 +180,7 @@ abstract final class AppTheme {
         dragHandleColor: AppColors.line,
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: Colors.white,
+        color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -164,7 +189,7 @@ abstract final class AppTheme {
       ),
       menuTheme: MenuThemeData(
         style: MenuStyle(
-          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          backgroundColor: const WidgetStatePropertyAll(AppColors.surface),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -240,13 +265,13 @@ abstract final class AppTheme {
         actionTextColor: Colors.white,
       ),
       datePickerTheme: const DatePickerThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         headerBackgroundColor: AppColors.surface,
         headerForegroundColor: AppColors.ink,
       ),
       timePickerTheme: const TimePickerThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         dialBackgroundColor: AppColors.surface,
         dialHandColor: AppColors.accent,
       ),
@@ -277,7 +302,7 @@ abstract final class AppTheme {
           minimumSize: Size(64, guide.buttonHeight),
           textStyle: base.textTheme.labelLarge?.merge(guide.buttonText),
           foregroundColor: AppColors.accent,
-          side: const BorderSide(color: AppColors.line),
+          side: const BorderSide(color: AppColors.controlBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppStyle.controlRadius),
           ),

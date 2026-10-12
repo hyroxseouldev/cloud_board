@@ -45,7 +45,10 @@ class SlideLibraryPicker extends HookConsumerWidget {
               children: [
                 const Text(
                   '저장한 슬라이드',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    letterSpacing: -0.14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -134,6 +137,7 @@ class SlideLibraryPicker extends HookConsumerWidget {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
+                                      letterSpacing: -0.14,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -187,7 +191,10 @@ class SlideLibraryReplacementDialog extends HookWidget {
         children: [
           Text(
             template.name,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              letterSpacing: -0.14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           WorkoutSlidePreview(

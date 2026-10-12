@@ -35,6 +35,7 @@ void main() {
                       ? WorkoutTimerMode.custom
                       : WorkoutTimerMode.forTime,
                   workSeconds: kind == 'open' ? 0 : 60,
+                  designFingerprint: 'v1:${'a' * 64}:${'b' * 64}',
                 ),
               ],
             );

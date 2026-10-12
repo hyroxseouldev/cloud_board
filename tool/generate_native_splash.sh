@@ -12,6 +12,13 @@ from pathlib import Path
 import plistlib
 import xml.etree.ElementTree as ET
 
+colors = Path('android/app/src/main/res/values/brand_colors.xml')
+colors.write_text('''<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="startup_canvas">#F7F5EF</color>
+</resources>
+''')
+
 for qualifier in ('values', 'values-night', 'values-v31', 'values-night-v31'):
     path = Path(f'android/app/src/main/res/{qualifier}/styles.xml')
     parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
@@ -25,11 +32,11 @@ for qualifier in ('values', 'values-night', 'values-v31', 'values-night-v31'):
             'android:windowDrawsSystemBarBackgrounds': 'true',
             'android:statusBarColor': '@android:color/transparent',
             'android:windowLightStatusBar': 'true',
-            'android:navigationBarColor': '@android:color/white',
+            'android:navigationBarColor': '@color/startup_canvas',
             'android:windowLightNavigationBar': 'true',
         }
         if style.get('name') == 'NormalTheme':
-            values['android:windowBackground'] = '@android:color/white'
+            values['android:windowBackground'] = '@color/startup_canvas'
         for name, value in values.items():
             item = next((i for i in style.findall('item') if i.get('name') == name), None)
             if item is None:

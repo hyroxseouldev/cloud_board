@@ -1,5 +1,8 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
+import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
 
@@ -75,15 +78,14 @@ class _WorkoutListBody extends HookConsumerWidget {
         ? const AlwaysStoppedAnimation<double>(1)
         : loading.reveal;
     final items = workouts.value ?? const <WorkoutSummary>[];
+    final knownFolders =
+        ref.watch(libraryFoldersProvider).value ?? const <String>[];
     final folders = useMemoized(
-      () =>
-          items
-              .map((item) => item.folder)
-              .where((folder) => folder.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort(),
-      [items],
+      () => {
+        ...knownFolders,
+        ...items.map((item) => item.folder),
+      }.where((folder) => folder.isNotEmpty).toList()..sort(),
+      [items, knownFolders],
     );
     // A deleted or renamed folder must not leave an invalid dropdown selection.
     final folder = folders.contains(selectedFolder.value)
@@ -91,17 +93,13 @@ class _WorkoutListBody extends HookConsumerWidget {
         : null;
     final query = search.text.trim().toLowerCase();
     final filtered = useMemoized(
-      () =>
-          items.where((item) {
-            final matchesQuery =
-                query.isEmpty ||
-                item.name.toLowerCase().contains(query) ||
-                item.folder.toLowerCase().contains(query);
-            return matchesQuery && (folder == null || item.folder == folder);
-          }).toList()..sort((a, b) {
-            final updated = b.updatedAt.compareTo(a.updatedAt);
-            return updated != 0 ? updated : a.id.compareTo(b.id);
-          }),
+      () => items.where((item) {
+        final matchesQuery =
+            query.isEmpty ||
+            item.name.toLowerCase().contains(query) ||
+            item.folder.toLowerCase().contains(query);
+        return matchesQuery && (folder == null || item.folder == folder);
+      }).toList(),
       [items, query, folder],
     );
     useEffect(() {
@@ -164,13 +162,6 @@ class _WorkoutListBody extends HookConsumerWidget {
     final authAction = ref.watch(authControllerProvider);
     final workoutAction = ref.watch(workoutActionControllerProvider);
     final playbackAction = ref.watch(playbackActionControllerProvider);
-    ref.listen(playbackActionControllerProvider, (previous, next) {
-      if (next.hasError && previous?.error != next.error) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('수업 제어에 실패했습니다: ${next.error}')));
-      }
-    });
     final isBusy =
         authAction.isLoading ||
         workoutAction.isLoading ||
@@ -231,7 +222,9 @@ class _WorkoutListBody extends HookConsumerWidget {
         child: Scaffold(
           appBar: AppBar(
             centerTitle: false,
-            titleSpacing: searchOpen.value ? 0 : 24,
+            titleSpacing: searchOpen.value
+                ? 0
+                : (MediaQuery.sizeOf(context).width < 360 ? 16 : 20),
             automaticallyImplyLeading: false,
             leading: searchOpen.value
                 ? IconButton(
@@ -328,11 +321,13 @@ class _WorkoutListBody extends HookConsumerWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final mobile = constraints.maxWidth < 600;
+                final compactHeight = constraints.maxHeight < 300;
                 final maxWidth = kIsWeb
                     ? AppStyle.webPageMaxWidth
                     : AppStyle.cardWidth * 2 + 60;
                 final inset =
-                    24.0 + math.max(0, constraints.maxWidth - maxWidth) / 2;
+                    (constraints.maxWidth < 360 ? 16.0 : 20.0) +
+                    math.max(0, constraints.maxWidth - maxWidth) / 2;
                 // Keep the header, empty state and rows in one scrollable, so a
                 // pull can start anywhere and short lists can still overscroll.
                 return ScrollConfiguration(
@@ -352,93 +347,93 @@ class _WorkoutListBody extends HookConsumerWidget {
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       slivers: [
                         SliverPadding(
-                          padding: EdgeInsets.fromLTRB(inset, 16, inset, 4),
+                          padding: EdgeInsets.fromLTRB(
+                            inset,
+                            compactHeight ? 8 : 16,
+                            inset,
+                            4,
+                          ),
                           sliver: SliverToBoxAdapter(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (!searchOpen.value &&
                                     constraints.maxHeight > 440) ...[
-                                  Text(
-                                    user == null ||
-                                            user.displayName.trim().isEmpty
-                                        ? '반가워요.'
-                                        : '${user.displayName}님, 반가워요.',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.3,
+                                  // Keep the actual connection state and class list
+                                  // ahead of a decorative greeting in large text.
+                                  if (MediaQuery.textScalerOf(context)
+                                              .scale(26) <=
+                                          36 ||
+                                      constraints.maxHeight > 700) ...[
+                                    Text(
+                                      user == null ||
+                                              user.displayName.trim().isEmpty
+                                          ? '반가워요.'
+                                          : '${user.displayName}님, 반가워요.',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 26,
+                                        letterSpacing: -.26,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.3,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
+                                    const SizedBox(height: 20),
+                                  ],
                                   _DisplayStatus(
                                     onPressed: isBusy
                                         ? null
                                         : () => context.go('/displays'),
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 28),
                                 ],
                                 if (!searchOpen.value)
                                   const FirstClassHomeCard(),
+                                _WorkoutHeader(
+                                  count: workouts.hasValue
+                                      ? '${filtered.length}개${catalog.hasMore ? ' 이상' : ''}'
+                                      : null,
+                                  onCreate: isBusy
+                                      ? null
+                                      : () => context.push('/editor/new'),
+                                ),
+                                SizedBox(height: compactHeight ? 0 : 8),
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Text(
-                                        workouts.hasValue
-                                            ? '워크아웃 ${filtered.length}개${catalog.hasMore ? ' 이상' : ''}'
-                                            : '워크아웃',
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w700,
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: _FolderMenu(
+                                          enabled: workouts.hasValue,
+                                          folders: folders,
+                                          selected: folder,
+                                          loadFolders: () async => folders,
+                                          onChanged: (value) {
+                                            selectedFolder.value = value;
+                                            changePage(0);
+                                          },
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    AppPressFeedback(
-                                      enabled: !isBusy,
-                                      child: FilledButton.icon(
-                                        key: const ValueKey('create-workout'),
-                                        onPressed: isBusy
-                                            ? null
-                                            : () => context.push('/editor/new'),
-                                        icon: const Icon(Icons.add_rounded),
-                                        label: const Text('만들기'),
+                                    if (MediaQuery.textScalerOf(context)
+                                            .scale(14) <=
+                                        20)
+                                      Expanded(
+                                        child: WorkoutLoadingStatus(
+                                          visible: loading.visible,
+                                          delayed: loading.delayed,
+                                        ),
                                       ),
-                                    ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: _FolderMenu(
-                                    enabled: workouts.hasValue,
-                                    folders: folders,
-                                    selected: folder,
-                                    loadFolders: () async {
-                                      final all = await ref
-                                          .read(
-                                            workoutControllerProvider.notifier,
-                                          )
-                                          .loadComplete();
-                                      return all
-                                          .map((item) => item.folder)
-                                          .where((name) => name.isNotEmpty)
-                                          .toSet()
-                                          .toList()
-                                        ..sort();
-                                    },
-                                    onChanged: (value) {
-                                      selectedFolder.value = value;
-                                      changePage(0);
-                                    },
+                                if (MediaQuery.textScalerOf(context).scale(14) >
+                                        20 &&
+                                    (!compactHeight || loading.visible))
+                                  WorkoutLoadingStatus(
+                                    visible: loading.visible,
+                                    delayed: loading.delayed,
                                   ),
-                                ),
-                                WorkoutLoadingStatus(
-                                  visible: loading.visible,
-                                  delayed: loading.delayed,
-                                ),
                                 if (paged && filtered.isNotEmpty)
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
@@ -483,7 +478,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(
                               inset,
-                              mobile ? 8 : 24,
+                              mobile || compactHeight ? 8 : 24,
                               inset,
                               24,
                             ),
@@ -514,9 +509,9 @@ class _WorkoutListBody extends HookConsumerWidget {
                             sliver: SliverPadding(
                               padding: EdgeInsets.fromLTRB(
                                 inset,
-                                mobile ? 8 : 24,
+                                mobile || compactHeight ? 8 : 24,
                                 inset,
-                                AppStyle.of(context).floatingSize + 40,
+                                24,
                               ),
                               sliver: mobile
                                   ? _WorkoutList(
@@ -675,7 +670,8 @@ class _FolderMenu extends HookWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
-                          color: enabled ? AppColors.accent : AppColors.muted,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.secondaryText,
                         ),
                       ),
                     ),
@@ -683,7 +679,7 @@ class _FolderMenu extends HookWidget {
                     Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: 20,
-                      color: enabled ? AppColors.accent : AppColors.muted,
+                      color: AppColors.secondaryText,
                     ),
                   ],
                 ),
@@ -710,20 +706,35 @@ class _DisplayStatus extends ConsumerWidget {
         : count == 0
         ? '디스플레이 연결하기'
         : '디스플레이 $count대 연결됨';
-    final color = devices.hasValue && !devices.hasError && count > 0
-        ? const Color(0xFF287858)
-        : AppColors.muted;
-    return TextButton.icon(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        padding: EdgeInsets.zero,
-        minimumSize: const Size(0, 44),
-        alignment: Alignment.centerLeft,
-        foregroundColor: color,
-        textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 13),
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        key: const ValueKey('home-display-status'),
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          minimumSize: const Size(48, 52),
+          alignment: Alignment.centerLeft,
+          foregroundColor: AppColors.accent,
+          backgroundColor: AppColors.surfaceAccent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 14,
+            height: 1.4,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        icon: Icon(
+          devices.hasError
+              ? Icons.warning_amber_rounded
+              : Icons.desktop_windows_outlined,
+          size: 24,
+        ),
+        label: Text(label),
       ),
-      icon: const Icon(Icons.desktop_windows_outlined, size: 20),
-      label: Text(label),
     );
   }
 }
@@ -768,10 +779,7 @@ class _WorkoutRow extends ConsumerWidget {
       workout.id,
     );
     return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: framed ? 16 : 0,
-        vertical: framed ? 16 : 14,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: framed ? 16 : 0, vertical: 16),
       child: Row(
         children: [
           Expanded(
@@ -819,8 +827,9 @@ class _WorkoutRow extends ConsumerWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            letterSpacing: -.17,
+                            fontWeight: FontWeight.w600,
                             height: 1.3,
                           ),
                         ),
@@ -830,8 +839,8 @@ class _WorkoutRow extends ConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.muted,
+                            fontSize: 14,
+                            color: AppColors.secondaryText,
                             height: 1.3,
                           ),
                         ),
@@ -842,8 +851,8 @@ class _WorkoutRow extends ConsumerWidget {
                             workout.durationKind,
                           ),
                           style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
                             height: 1.3,
                           ),
                         ),
@@ -893,15 +902,89 @@ class _WorkoutGrid extends StatelessWidget {
 class _Logo extends StatelessWidget {
   const _Logo();
   @override
-  Widget build(BuildContext context) => const Text(
-    'CloudBoard',
-    style: TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.w900,
-      letterSpacing: -1,
-      color: XonColors.black,
+  Widget build(BuildContext context) => Semantics(
+    label: AppBrand.name,
+    excludeSemantics: true,
+    child: const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SoftRhythmMark(size: 30),
+        SizedBox(width: 10),
+        Flexible(
+          child: Text(
+            AppBrand.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 21,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -.21,
+              color: AppColors.ink,
+            ),
+          ),
+        ),
+      ],
     ),
   );
+}
+
+class _WorkoutHeader extends StatelessWidget {
+  const _WorkoutHeader({required this.count, required this.onCreate});
+  final String? count;
+  final VoidCallback? onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Text.rich(
+      TextSpan(
+        children: [
+          const TextSpan(text: '내 수업'),
+          if (count != null)
+            TextSpan(
+              text: ' $count',
+              style: const TextStyle(color: AppColors.secondaryText),
+            ),
+        ],
+      ),
+      style: const TextStyle(
+        fontSize: 20,
+        letterSpacing: -.2,
+        height: 1.3,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final create = AppPressFeedback(
+      enabled: onCreate != null,
+      child: FilledButton.icon(
+        key: const ValueKey('create-workout'),
+        onPressed: onCreate,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          textStyle: const TextStyle(
+            fontFamily: 'Pretendard',
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        icon: const Icon(Icons.add_rounded, size: 22),
+        label: const Text('수업 만들기'),
+      ),
+    );
+    if (MediaQuery.textScalerOf(context).scale(20) > 26) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [title, const SizedBox(height: 12), create],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: title),
+        const SizedBox(width: 12),
+        create,
+      ],
+    );
+  }
 }
 
 class _EmptyWorkouts extends StatelessWidget {
@@ -925,11 +1008,15 @@ class _EmptyWorkouts extends StatelessWidget {
               SizedBox(height: 12),
               Text(
                 '아직 워크아웃이 없어요',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 20,
+                  letterSpacing: -.2,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               SizedBox(height: 6),
               Text(
-                '아래 버튼으로 첫 수업을 만드세요.',
+                '수업 만들기로 첫 수업을 준비해 보세요.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: XonColors.muted),
               ),
@@ -952,7 +1039,7 @@ class _WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white,
+    color: AppColors.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),
       side: const BorderSide(color: AppColors.line),
@@ -982,11 +1069,11 @@ class _WorkoutActions extends ConsumerWidget {
         tooltip: '재생',
         style: compact
             ? IconButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.surfaceAccent,
+                foregroundColor: AppColors.accent,
                 disabledBackgroundColor: AppColors.surface,
-                minimumSize: const Size(44, 44),
-                maximumSize: const Size(44, 44),
+                minimumSize: const Size(48, 48),
+                maximumSize: const Size(48, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -995,7 +1082,7 @@ class _WorkoutActions extends ConsumerWidget {
         onPressed: workout.moduleCount == 0 || isBusy
             ? null
             : () => _play(context, ref),
-        icon: const Icon(Icons.play_arrow_rounded),
+        icon: const Icon(Icons.play_arrow_rounded, size: 28),
       ),
       if (compact) const SizedBox(width: 6),
       PopupMenuButton<_WorkoutAction>(
@@ -1003,8 +1090,8 @@ class _WorkoutActions extends ConsumerWidget {
         style: compact
             ? IconButton.styleFrom(
                 backgroundColor: AppColors.surface,
-                minimumSize: const Size(44, 44),
-                maximumSize: const Size(44, 44),
+                minimumSize: const Size(48, 48),
+                maximumSize: const Size(48, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1056,21 +1143,14 @@ class _WorkoutActions extends ConsumerWidget {
   );
 
   Future<Workout?> _detail(BuildContext context, WidgetRef ref) async {
-    try {
-      final detail = await ref
-          .read(workoutActionControllerProvider.notifier)
-          .prepare(workout.id);
-      if (!context.mounted) return null;
-      final error = ref.read(workoutActionControllerProvider).error;
-      if (error != null) throw error;
-      return detail;
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('운동을 불러오지 못했습니다: $error')));
-      }
-      return null;
+    // The app owns action feedback; avoid a second local error SnackBar.
+    // A new tap after failure must make a fresh request, not reuse AsyncError.
+    if (ref.read(workoutDetailProvider(workout.id)).hasError) {
+      ref.invalidate(workoutDetailProvider(workout.id));
     }
+    return ref
+        .read(workoutActionControllerProvider.notifier)
+        .prepare(workout.id);
   }
 
   Future<void> _play(BuildContext context, WidgetRef ref) async {

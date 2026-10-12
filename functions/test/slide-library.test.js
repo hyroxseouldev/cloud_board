@@ -99,3 +99,58 @@ test('legacy library edit after DTO roundtrip saves complete studio style and de
   await assert.rejects(mutateSlideLibrary(db, 'owner', {...request,
     changes: [{id, base, value: {...next, designSubtitle: 'Another lesson'}}]}), {code: 'aborted'});
 });
+
+function fingerprintedLibrary(kind) {
+  const id = 'slide';
+  // This is the exact content an old DTO can retain after loading the current
+  // record. It intentionally has no knowledge of designFingerprint.
+  const legacyBase = {id, name: 'MAIN', text: 'Run 200m', imageUrl: 'https://example.com/slide.png',
+    workSeconds: 60, restSeconds: 0, sets: 1, showTimer: false,
+    beep: true, coverImage: false, favorite: false, category: '', appearance: {}, intervalBlocks: [],
+    designTemplate: 'studio-v1-list'};
+  const current = {...legacyBase, designFingerprint: 'v1:visual-hash:asset-hash'};
+  const path = `users/owner/slide${kind === 'templates' ? 'Templates' : 'Styles'}/${id}`;
+  const indexPath = 'users/owner/libraryState/index';
+  const documents = new Map([[path, {value: current}], [indexPath, {savedCount: 1, favoriteCount: 0}]]);
+  const db = {
+    doc: path => ({path}),
+    collection: path => ({doc: id => ({path: `${path}/${id}`})}),
+    runTransaction: async run => run({
+      getAll: async (...refs) => refs.map(ref => ({exists: documents.has(ref.path), data: () => documents.get(ref.path)})),
+      set: (ref, value, options) => documents.set(ref.path, options?.merge ? {...documents.get(ref.path), ...value} : value),
+    }),
+  };
+  return {id, legacyBase, current, path, indexPath, documents, db};
+}
+
+for (const kind of ['templates', 'styles']) {
+  for (const operation of ['update', 'delete']) {
+    test(`old client can ${operation} fingerprinted ${kind} and retry a lost response`, async () => {
+      const {id, legacyBase, current, path, indexPath, documents, db} = fingerprintedLibrary(kind);
+      const value = operation === 'delete' ? null : {...legacyBase, name: 'UPDATED'};
+      const request = {ownerId: 'owner', kind, changes: [{id, base: legacyBase, value}]};
+      assert.deepEqual(normalizeLibraryValue(current), normalizeLibraryValue(legacyBase));
+      assert.equal(current.designFingerprint, 'v1:visual-hash:asset-hash', 'comparison never mutates stored input');
+      assert.equal((await mutateSlideLibrary(db, 'owner', request)).changed, 1);
+      assert.deepEqual(documents.get(path).value, value);
+      assert.equal(documents.get(path).deleted, operation === 'delete');
+      if (kind === 'templates') {
+        assert.equal(documents.get(indexPath).savedCount, operation === 'delete' ? 0 : 1);
+      }
+      assert.equal((await mutateSlideLibrary(db, 'owner', request)).changed, 0);
+    });
+
+    test(`old client ${operation} still rejects real content conflicts in ${kind}`, async () => {
+      for (const change of [{name: 'Concurrent name'}, {imageUrl: 'https://example.com/new.png'}, {futureField: 'preserved'}]) {
+        const {id, legacyBase, current, path, documents, db} = fingerprintedLibrary(kind);
+        const concurrent = {...current, ...change};
+        documents.set(path, {value: concurrent});
+        const value = operation === 'delete' ? null : {...legacyBase, text: 'Run 400m'};
+        await assert.rejects(mutateSlideLibrary(db, 'owner', {
+          ownerId: 'owner', kind, changes: [{id, base: legacyBase, value}],
+        }), {code: 'aborted'});
+        assert.deepEqual(documents.get(path), {value: concurrent});
+      }
+    });
+  }
+}

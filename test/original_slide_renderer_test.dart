@@ -76,6 +76,8 @@ void main() {
     source = await loadOriginalSlideImage(dolpaBrickOriginalTemplateId);
   });
 
+  tearDownAll(() => source.dispose());
+
   test('bundled source is the unmodified user PNG', () async {
     final bytes = await rootBundle.load(dolpaBrickOriginalAsset);
     expect(

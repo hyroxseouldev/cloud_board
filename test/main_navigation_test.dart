@@ -18,6 +18,39 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'support/main_navigation_fixture.dart';
 
 void main() {
+  for (final accessible in [false, true]) {
+    testWidgets(
+      'dock respects reduced motion and still selects immediately: accessible=$accessible',
+      (tester) async {
+        MainDestination? selected;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                disableAnimations: !accessible,
+                accessibleNavigation: accessible,
+              ),
+              child: Scaffold(
+                bottomNavigationBar: MainNavigationDock(
+                  selected: MainDestination.home,
+                  onSelected: (value) => selected = value,
+                ),
+              ),
+            ),
+          ),
+        );
+        for (final pill in tester.widgetList<AnimatedContainer>(
+          find.byType(AnimatedContainer),
+        )) {
+          expect(pill.duration, Duration.zero);
+        }
+        await tester.tap(find.byKey(const ValueKey('main-tab-library')));
+        expect(selected, MainDestination.library);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   navigationTest(
     'tab switches preserve both searches, category and home scroll',
     (tester) async {
@@ -212,6 +245,24 @@ void main() {
           tester.getRect(find.byKey(const ValueKey('workout-scroll'))).bottom,
           lessThan(tester.getRect(mini).top),
         );
+        if (size.height <= 450 || (size.width == 320 && scale == 2)) {
+          // The persistent controls must leave a visible class to browse even
+          // before scrolling on short screens and with enlarged system text.
+          expect(tester.getSize(mini).height, lessThanOrEqualTo(64));
+          final row = find
+              .ancestor(
+                of: find.byKey(const ValueKey('workout-thumbnail-preview-0')),
+                matching: find.byType(InkWell),
+              )
+              .first;
+          expect(row, findsOneWidget);
+          final viewport = tester.getRect(
+            find.byKey(const ValueKey('workout-scroll')),
+          );
+          expect(tester.getRect(row).top, lessThan(viewport.bottom));
+          expect(find.byTooltip('수업 재개').hitTestable(), findsOneWidget);
+          expect(find.byTooltip('수업으로 돌아가기').hitTestable(), findsOneWidget);
+        }
         final semantics = tester.ensureSemantics();
         for (final destination in MainDestination.values) {
           final tab = find.byKey(ValueKey('main-tab-${destination.name}'));

@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$WorkoutPreferences {
 
-@JsonKey(includeToJson: false) int get revision; String get brandL; String get brandR; WorkoutSoundTheme get soundTheme; WorkoutSound get countdownSound; WorkoutSound get workStartSound; WorkoutSound get restStartSound; WorkoutSound get workoutEndSound; double get soundVolume; CountdownPreferences get countdown;
+@JsonKey(includeToJson: false) int get revision;@JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand) String get brandL; String get brandR; WorkoutSoundTheme get soundTheme; WorkoutSound get countdownSound; WorkoutSound get workStartSound; WorkoutSound get restStartSound; WorkoutSound get workoutEndSound; double get soundVolume; CountdownPreferences get countdown;
 /// Create a copy of WorkoutPreferences
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -54,7 +54,7 @@ abstract mixin class $WorkoutPreferencesCopyWith<$Res>  {
   factory $WorkoutPreferencesCopyWith(WorkoutPreferences value, $Res Function(WorkoutPreferences) _then) = _$WorkoutPreferencesCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(includeToJson: false) int revision, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
+@JsonKey(includeToJson: false) int revision,@JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand) String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
 });
 
 
@@ -177,7 +177,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(includeToJson: false)  int revision,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(includeToJson: false)  int revision, @JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand)  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkoutPreferences() when $default != null:
 return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
@@ -198,7 +198,7 @@ return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(includeToJson: false)  int revision,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(includeToJson: false)  int revision, @JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand)  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutPreferences():
 return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
@@ -218,7 +218,7 @@ return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(includeToJson: false)  int revision,  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(includeToJson: false)  int revision, @JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand)  String brandL,  String brandR,  WorkoutSoundTheme soundTheme,  WorkoutSound countdownSound,  WorkoutSound workStartSound,  WorkoutSound restStartSound,  WorkoutSound workoutEndSound,  double soundVolume,  CountdownPreferences countdown)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutPreferences() when $default != null:
 return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.countdownSound,_that.workStartSound,_that.restStartSound,_that.workoutEndSound,_that.soundVolume,_that.countdown);case _:
@@ -233,11 +233,11 @@ return $default(_that.revision,_that.brandL,_that.brandR,_that.soundTheme,_that.
 
 @JsonSerializable(explicitToJson: true)
 class _WorkoutPreferences extends WorkoutPreferences {
-  const _WorkoutPreferences({@JsonKey(includeToJson: false) this.revision = 0, this.brandL = 'CloudBoard', this.brandR = '', this.soundTheme = WorkoutSoundTheme.videoBeep, this.countdownSound = WorkoutSound.videoBeep, this.workStartSound = WorkoutSound.videoBeep, this.restStartSound = WorkoutSound.videoBeep, this.workoutEndSound = WorkoutSound.videoBeep, this.soundVolume = 1.0, this.countdown = const CountdownPreferences()}): super._();
+  const _WorkoutPreferences({@JsonKey(includeToJson: false) this.revision = 0, @JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand) this.brandL = AppBrand.defaultWorkoutBrand, this.brandR = '', this.soundTheme = WorkoutSoundTheme.videoBeep, this.countdownSound = WorkoutSound.videoBeep, this.workStartSound = WorkoutSound.videoBeep, this.restStartSound = WorkoutSound.videoBeep, this.workoutEndSound = WorkoutSound.videoBeep, this.soundVolume = 1.0, this.countdown = const CountdownPreferences()}): super._();
   factory _WorkoutPreferences.fromJson(Map<String, dynamic> json) => _$WorkoutPreferencesFromJson(json);
 
 @override@JsonKey(includeToJson: false) final  int revision;
-@override@JsonKey() final  String brandL;
+@override@JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand) final  String brandL;
 @override@JsonKey() final  String brandR;
 @override@JsonKey() final  WorkoutSoundTheme soundTheme;
 @override@JsonKey() final  WorkoutSound countdownSound;
@@ -282,7 +282,7 @@ abstract mixin class _$WorkoutPreferencesCopyWith<$Res> implements $WorkoutPrefe
   factory _$WorkoutPreferencesCopyWith(_WorkoutPreferences value, $Res Function(_WorkoutPreferences) _then) = __$WorkoutPreferencesCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(includeToJson: false) int revision, String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
+@JsonKey(includeToJson: false) int revision,@JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand) String brandL, String brandR, WorkoutSoundTheme soundTheme, WorkoutSound countdownSound, WorkoutSound workStartSound, WorkoutSound restStartSound, WorkoutSound workoutEndSound, double soundVolume, CountdownPreferences countdown
 });
 
 

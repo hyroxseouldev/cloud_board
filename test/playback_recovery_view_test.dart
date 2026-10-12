@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/playback_recovery_view.dart';
@@ -144,6 +145,34 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets(
+    'TV recovery retains its broadcast palette under the sage theme',
+    (tester) async {
+      await tester.pumpWidget(
+        harness(PlaybackRecoveryView(displayMode: true, onRetry: () {})),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        tester
+            .widget<CircularProgressIndicator>(
+              find.byType(CircularProgressIndicator),
+            )
+            .color,
+        const Color(0xFF77729D),
+      );
+      final material = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byType(PlaybackRecoveryView),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(material.color, const Color(0xFF050505));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   for (final (size, display) in [
     (const Size(320, 568), false),
     (const Size(844, 390), false),
@@ -166,7 +195,13 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 5));
       expect(tester.takeException(), isNull);
-      expect(find.text('CloudBoard'), display ? findsNothing : findsOneWidget);
+      final brand = find.text(AppBrand.name);
+      expect(brand, display ? findsNothing : findsOneWidget);
+      if (!display) {
+        final bounds = tester.getRect(brand);
+        expect(bounds.left, 24);
+        expect(bounds.right, lessThanOrEqualTo(size.width - 24));
+      }
       await tester.pumpWidget(
         harness(
           PlaybackRecoveryView(

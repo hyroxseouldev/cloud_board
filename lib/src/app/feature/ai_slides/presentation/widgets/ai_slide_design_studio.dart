@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/visible_slide_preview.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:typed_data';
@@ -200,17 +201,20 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ExcludeSemantics(
-                  child: WorkoutSlidePreview(
-                    module: previewAiSlide(
-                      applyAiSlideTheme(
-                        design.theme.designStyle?.originalTemplate != null
-                            ? initialAiSlideDesignDraft(design.theme)
-                            : draft ?? initialAiSlideDesignDraft(design.theme),
-                        design.theme,
+                  child: VisibleSlidePreview(
+                    builder: (context) => WorkoutSlidePreview(
+                      module: previewAiSlide(
+                        applyAiSlideTheme(
+                          design.theme.designStyle?.originalTemplate != null
+                              ? initialAiSlideDesignDraft(design.theme)
+                              : draft ??
+                                    initialAiSlideDesignDraft(design.theme),
+                          design.theme,
+                        ),
                       ),
+                      isRest: false,
+                      borderRadius: 8,
                     ),
-                    isRest: false,
-                    borderRadius: 8,
                   ),
                 ),
                 const SizedBox(height: 9),
@@ -223,7 +227,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -283,7 +288,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                 title,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -311,7 +317,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                     catalog ? '수업에 맞는 템플릿' : '수업 내용과 디자인 만들기',
                     style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.18,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -353,7 +360,11 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           const SizedBox(height: 14),
           const Text(
             '저장한 클래스',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 12,
+              letterSpacing: -0.12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 6),
           Wrap(
@@ -387,7 +398,11 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               children: [
                 const Text(
                   '이번 달 생성 사용량',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 12,
+                    letterSpacing: -0.12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 access!.when(
@@ -490,7 +505,11 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           if (mode == AiSlideCreationPath.reference) ...[
             const Text(
               '이 이미지의 느낌으로',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: 15,
+                letterSpacing: -0.15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -612,7 +631,10 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             const SizedBox(height: 16),
             const Text(
               '마음에 드는 디자인을 선택해 주세요.',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(
+                letterSpacing: -0.14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 10),
             designGrid(state.proposals),

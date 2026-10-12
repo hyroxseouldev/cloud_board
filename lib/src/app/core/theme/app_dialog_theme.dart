@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
-/// Shared modal styling, matching the quiet lavender editing surfaces.
+/// Shared modal styling, matching the warm Oat Sage editing surfaces.
 abstract final class AppDialogTheme {
   static const surface = AppColors.dialog;
   static const ink = AppColors.ink;
@@ -23,6 +23,7 @@ abstract final class AppDialogTheme {
   static const twoActionTitle = TextStyle(
     fontFamily: 'Pretendard',
     fontSize: 18,
+    letterSpacing: -.18,
     height: 1.4,
     fontWeight: FontWeight.w600,
     color: ink,
@@ -49,6 +50,7 @@ abstract final class AppDialogTheme {
         TextStyle(
           fontFamily: 'Pretendard',
           fontSize: 14,
+          letterSpacing: 0,
           fontWeight: FontWeight.w600,
           height: 1.3,
         ),
@@ -77,13 +79,15 @@ abstract final class AppDialogTheme {
     titleTextStyle: TextStyle(
       fontFamily: 'Pretendard',
       fontSize: 20,
+      letterSpacing: -.2,
       height: 1.4,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       color: ink,
     ),
     contentTextStyle: TextStyle(
       fontFamily: 'Pretendard',
       fontSize: 14,
+      letterSpacing: 0,
       height: 1.5,
       color: muted,
     ),
@@ -98,7 +102,7 @@ abstract final class AppDialogTheme {
     );
     const border = OutlineInputBorder(
       borderRadius: BorderRadius.all(Radius.circular(AppStyle.controlRadius)),
-      borderSide: BorderSide(color: line),
+      borderSide: BorderSide(color: AppColors.controlBorder),
     );
     return base.copyWith(
       dialogTheme: data.copyWith(
@@ -118,7 +122,7 @@ abstract final class AppDialogTheme {
       textTheme: base.textTheme.apply(bodyColor: ink, displayColor: ink),
       inputDecorationTheme: const InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surface,
         labelStyle: TextStyle(color: muted, fontSize: 14),
         floatingLabelStyle: TextStyle(color: accent, fontSize: 14),
         hintStyle: TextStyle(color: muted, fontSize: 14),

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
@@ -14,11 +15,14 @@ class StoreOperationsRealtimeDataSource {
   Stream<BrandTemplateModel> watchBrandTemplate() {
     if (_ownerId == null) {
       return Stream.value(
-        BrandTemplateModel.fromJson(const <String, dynamic>{}),
+        BrandTemplateModel.fromEntity(BrandTemplate.initial()),
       );
     }
     return _operations.child('brand').onValue.map((event) {
       final value = event.snapshot.value;
+      if (value == null) {
+        return BrandTemplateModel.fromEntity(BrandTemplate.initial());
+      }
       if (value is! Map) {
         return BrandTemplateModel.fromJson(const <String, dynamic>{});
       }

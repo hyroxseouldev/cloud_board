@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/library_failure.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -134,9 +135,10 @@ class SlideTemplatesController extends _$SlideTemplatesController {
               action: 'library.save',
             );
       }
-      lastError = result.error is LibraryFailure
-          ? result.error.toString()
-          : '동기화하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.';
+      lastError = workoutErrorMessage(
+        result.error,
+        fallback: '동기화하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.',
+      );
     }
     if (result.hasError) {
       final fresh = await AsyncValue.guard(() => actions.loadTemplates(scope));

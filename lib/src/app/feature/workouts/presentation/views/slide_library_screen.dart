@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 
 import 'dart:async';
@@ -69,9 +70,8 @@ class SlideLibraryScreen extends HookConsumerWidget {
       [folders.value, all, workouts.value],
     );
     final query = search.text.trim().toLowerCase();
-    final selected = filter.value == '' || names.contains(filter.value)
-        ? filter.value
-        : null;
+    // Keep the user's filter while a refresh is loading or has failed.
+    final selected = filter.value;
     final slides = useMemoized(
       () =>
           all
@@ -118,22 +118,122 @@ class SlideLibraryScreen extends HookConsumerWidget {
       }
       return counts;
     }, [workouts.value, all]);
-    // Library management/search needs the complete folder inventory.
+    final catalog = onSelect == null
+        ? ref.watch(workoutCatalogStatusProvider)
+        : const CatalogLoadState();
+    final catalogPending = useState(false);
+    final catalogFailure = useState<Object?>(null);
+    final refreshFailure = useState<Object?>(null);
+    final requestVersion = useRef(0);
+
+    Future<void> loadCatalog({bool refresh = false}) async {
+      final version = ++requestVersion.value;
+      catalogPending.value = true;
+      catalogFailure.value = null;
+      try {
+        final controller = ref.read(workoutControllerProvider.notifier);
+        if (refresh) await controller.refresh();
+        await controller.loadComplete();
+      } catch (error) {
+        if (context.mounted &&
+            version == requestVersion.value &&
+            ref.read(authStateProvider).value?.id == scope) {
+          catalogFailure.value = error;
+        }
+      } finally {
+        if (context.mounted &&
+            version == requestVersion.value &&
+            ref.read(authStateProvider).value?.id == scope) {
+          catalogPending.value = false;
+        }
+      }
+    }
+
+    // Search includes later pages, but an incomplete/failed inventory must not
+    // be presented as an empty library or a final folder count.
     useEffect(() {
-      if (onSelect == null) {
-        unawaited(
-          ref
-              .read(workoutControllerProvider.notifier)
-              .loadComplete()
-              .catchError((Object _) => const <WorkoutSummary>[]),
+      var active = true;
+      Future.microtask(() {
+        if (!active || !context.mounted) return;
+        filter.value = null;
+        refreshFailure.value = null;
+        if (onSelect == null) unawaited(loadCatalog());
+      });
+      return () {
+        active = false;
+        requestVersion.value++;
+      };
+    }, [scope, onSelect == null]);
+
+    Future<void> refreshLibrary() async {
+      refreshFailure.value = null;
+      try {
+        await Future.wait([
+          ref.refresh(provider.future),
+          if (onSelect == null) ...[
+            loadCatalog(refresh: true),
+            ref.refresh(libraryFoldersProvider.future),
+          ],
+        ]);
+        if (context.mounted) ref.invalidate(workoutDetailProvider);
+      } catch (error) {
+        if (context.mounted && ref.read(authStateProvider).value?.id == scope) {
+          refreshFailure.value = error;
+        }
+      }
+    }
+
+    final workoutLoading =
+        workouts.isLoading || catalog.loading || catalogPending.value;
+    final workoutError =
+        catalogFailure.value ?? catalog.error ?? workouts.error;
+    final foldersLoading =
+        folders.isLoading || workoutLoading || templates.isLoading;
+    final folderError = folders.error ?? workoutError ?? templates.error;
+    final countsComplete =
+        !foldersLoading && folderError == null && !catalog.hasMore;
+    final readLoading = switch (tab.index) {
+      0 => workoutLoading,
+      1 => templates.isLoading,
+      _ => foldersLoading,
+    };
+    final readError =
+        refreshFailure.value ??
+        switch (tab.index) {
+          0 => workoutError,
+          1 => templates.error,
+          _ => folderError,
+        };
+    final visibleCount = switch (tab.index) {
+      0 => items.length,
+      1 => slides.length,
+      _ => visibleFolders.length,
+    };
+    final busy =
+        readLoading || folderAction.isLoading || workoutAction.isLoading;
+    final sectionName = switch (tab.index) {
+      0 => '워크아웃',
+      1 => '슬라이드',
+      _ => '폴더',
+    };
+    Widget emptyState(String emptyMessage) {
+      if (readError != null) {
+        return _LibraryLoadNotice(
+          message: workoutErrorMessage(
+            readError,
+            fallback: '$sectionName 목록을 불러오지 못했습니다. 다시 시도해 주세요.',
+          ),
+          onRetry: readLoading ? null : refreshLibrary,
         );
       }
-      return null;
-    }, [scope, onSelect == null]);
-    final busy =
-        templates.isLoading ||
-        folderAction.isLoading ||
-        workoutAction.isLoading;
+      if (readLoading) return _Empty('$sectionName 목록을 불러오고 있습니다…');
+      if (query.isNotEmpty) return _Empty('검색 조건에 맞는 $sectionName 자료가 없습니다.');
+      if (selected != null && tab.index != 2) {
+        return _Empty('선택한 폴더에 $sectionName 자료가 없습니다.');
+      }
+      return _Empty(emptyMessage);
+    }
+
     void notice(String message) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -348,17 +448,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),
             child: RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(provider);
-                if (onSelect == null) {
-                  await ref.read(workoutControllerProvider.notifier).refresh();
-                  await ref
-                      .read(workoutControllerProvider.notifier)
-                      .loadComplete();
-                  ref.invalidate(workoutDetailProvider);
-                  ref.invalidate(libraryFoldersProvider);
-                }
-              },
+              onRefresh: refreshLibrary,
               child: CustomScrollView(
                 key: ValueKey('library-tab-${tab.index}'),
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -493,6 +583,20 @@ class SlideLibraryScreen extends HookConsumerWidget {
                           ),
                         ),
                         if (busy) const LinearProgressIndicator(),
+                        if (visibleCount > 0 && readError != null)
+                          _LibraryLoadNotice(
+                            message: workoutErrorMessage(
+                              readError,
+                              fallback:
+                                  '일부 자료를 불러오지 못했습니다. 표시된 자료는 계속 사용할 수 있습니다.',
+                            ),
+                            onRetry: readLoading ? null : refreshLibrary,
+                          ),
+                        if (visibleCount > 0 && readLoading)
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text('$sectionName 목록을 더 불러오고 있습니다…'),
+                          ),
                       ],
                     ),
                   ),
@@ -507,7 +611,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                       itemBuilder: (context, index) {
                         if (tab.index == 0) {
                           if (items.isEmpty) {
-                            return const _Empty('워크아웃이 없습니다. + 버튼으로 만들어 보세요.');
+                            return emptyState('워크아웃이 없습니다. + 버튼으로 만들어 보세요.');
                           }
                           final item = items[index];
                           return ListTile(
@@ -555,11 +659,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                         }
                         if (tab.index == 1) {
                           if (slides.isEmpty) {
-                            return _Empty(
-                              templates.hasError
-                                  ? '불러오지 못했습니다. 아래로 당겨 다시 시도해 주세요.'
-                                  : '저장한 슬라이드가 없습니다.',
-                            );
+                            return emptyState('저장한 슬라이드가 없습니다.');
                           }
                           final item = slides[index];
                           return Padding(
@@ -595,7 +695,8 @@ class SlideLibraryScreen extends HookConsumerWidget {
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: -0.14,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                             Text(
@@ -689,7 +790,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                           );
                         }
                         if (visibleFolders.isEmpty) {
-                          return const _Empty('폴더를 만들어 자료를 정리해 보세요.');
+                          return emptyState('폴더를 만들어 자료를 정리해 보세요.');
                         }
                         final name = visibleFolders[index];
                         return ListTile(
@@ -697,7 +798,9 @@ class SlideLibraryScreen extends HookConsumerWidget {
                           leading: const Icon(Icons.folder_outlined),
                           title: Text(name),
                           subtitle: Text(
-                            '워크아웃 ${folderCounts[name]?.workouts ?? 0}개 · 슬라이드 ${folderCounts[name]?.slides ?? 0}개',
+                            countsComplete
+                                ? '워크아웃 ${folderCounts[name]?.workouts ?? 0}개 · 슬라이드 ${folderCounts[name]?.slides ?? 0}개'
+                                : '불러온 워크아웃 ${folderCounts[name]?.workouts ?? 0}개 · 슬라이드 ${folderCounts[name]?.slides ?? 0}개 (집계 미완료)',
                           ),
                           onTap: () {
                             filter.value = name;
@@ -792,6 +895,32 @@ class SavedSlideEditorScreen extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _LibraryLoadNotice extends StatelessWidget {
+  const _LibraryLoadNotice({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          liveRegion: true,
+          child: Text(message, textAlign: TextAlign.center),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('다시 시도'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Empty extends StatelessWidget {

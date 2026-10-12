@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +19,13 @@ class MoreScreen extends ConsumerWidget {
     ) => ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       leading: Icon(icon, color: AppColors.accent),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          letterSpacing: -0.16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       subtitle: Text(subtitle),
       subtitleTextStyle: Theme.of(context).textTheme.bodyMedium
           ?.copyWith(color: AppColors.secondaryText),
@@ -27,7 +34,7 @@ class MoreScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
         title: const Text('더보기'),
         automaticallyImplyLeading: false,
@@ -39,7 +46,11 @@ class MoreScreen extends ConsumerWidget {
             user?.displayName.trim().isNotEmpty == true
                 ? '${user!.displayName}님'
                 : '내 계정',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 24,
+              letterSpacing: -0.24,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           destination(
@@ -81,7 +92,7 @@ class MoreScreen extends ConsumerWidget {
           const Divider(height: 1),
           destination(
             '업데이트 소식',
-            'CloudBoard의 새로운 기능',
+            '${AppBrand.name}의 새로운 기능',
             Icons.campaign_outlined,
             '/profile/updates',
           ),

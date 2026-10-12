@@ -64,6 +64,8 @@ dependencies:
   package_info_plus: ^10.2.1
   image: ^4.10.1
   crypto: ^3.0.7
+  path_provider: ^2.1.6
+  web: ^1.1.1
   in_app_purchase: ^3.3.1
   in_app_purchase_android: ^0.5.3
 
@@ -93,6 +95,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - assets/branding/soft_rhythm_mark.png
     - assets/slide_templates/
     - assets/fonts/noto_serif_kr/OFL.txt
     - assets/fonts/racing_sans_one/OFL.txt

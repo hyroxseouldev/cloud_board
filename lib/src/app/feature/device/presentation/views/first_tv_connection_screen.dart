@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +28,7 @@ class FirstTvConnectionScreen extends ConsumerWidget {
             const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(child: Text('1')),
-              title: Text('TV에서 CloudBoard 앱 열기'),
+              title: Text('TV에서 ${AppBrand.name} 앱 열기'),
               subtitle: Text('TV를 인터넷에 연결하고 앱의 연결 대기 화면을 켜 두세요.'),
             ),
             const ListTile(

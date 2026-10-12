@@ -20,20 +20,15 @@ class LocalSlideEditorRepository implements SlideEditorRepository {
   final SlideEditorLocalDataSource source;
   @override
   Future<WorkoutModule?> loadDraft(String key) async {
-    final value = await source.read('draft.$key');
-    return value == null
-        ? null
-        : WorkoutModuleModel.fromJson(jsonDecode(value) as Map<String, dynamic>)
-              .toEntity();
+    final value = await source.readDraft(key);
+    return value == null ? null : WorkoutModuleModel.fromJson(value).toEntity();
   }
 
   @override
-  Future<void> saveDraft(String key, WorkoutModule module) => source.write(
-    'draft.$key',
-    jsonEncode(WorkoutModuleModel.fromEntity(module).toJson()),
-  );
+  Future<void> saveDraft(String key, WorkoutModule module) =>
+      source.writeDraft(key, WorkoutModuleModel.fromEntity(module).toJson());
   @override
-  Future<void> clearDraft(String key) => source.write('draft.$key', null);
+  Future<void> clearDraft(String key) => source.clearDraft(key);
   @override
   Stream<List<WorkoutModule>> watchTemplates(String scope) =>
       Stream.fromFuture(loadTemplates(scope));

@@ -1,3 +1,5 @@
+import {legacyBrandDefaults} from './config/legacy-brand-defaults.js';
+
 // Pure compatibility policy, shared by dry-run and apply. No IO.
 export const legacySettingKeys = ['brandL', 'brandR', 'soundTheme', 'countdownSound',
   'workStartSound', 'restStartSound', 'workoutEndSound', 'soundVolume',
@@ -30,7 +32,7 @@ export function normalizeSettings(value) {
   }
   a.numberScale = clamp(numeric(a.numberScale, 1), .5, 1.8);
   a.overlayOpacity = a.overlayOpacity == null ? null : clamp(numeric(a.overlayOpacity), 0, 1);
-  const result = {brandL: string(value.brandL, 'CloudBoard'), brandR: string(value.brandR),
+  const result = {brandL: string(value.brandL, legacyBrandDefaults.workoutBrand), brandR: string(value.brandR),
     soundTheme: value.soundTheme ?? 'videoBeep',
     countdownSound: value.countdownSound ?? 'videoBeep',
     workStartSound: value.workStartSound ?? 'videoBeep',

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:async';
@@ -57,6 +58,10 @@ class PlaybackRecoveryView extends HookWidget {
     final actionColor = displayMode
         ? const Color(0xFFB7B0D4)
         : AppColors.accent;
+    // The broadcast recovery surface keeps its existing TV palette.
+    final indicatorColor = displayMode
+        ? const Color(0xFF77729D)
+        : AppColors.accent;
     final style = TextStyle(
       inherit: false,
       fontFamily: 'Pretendard',
@@ -71,7 +76,7 @@ class PlaybackRecoveryView extends HookWidget {
     // A ColoredBox alone inherits Flutter's red/yellow fallback text above the
     // Navigator. Own the Material and text style instead of relying on a page.
     return Material(
-      color: displayMode ? const Color(0xFF050505) : Colors.white,
+      color: displayMode ? const Color(0xFF050505) : AppColors.canvas,
       textStyle: style,
       child: SafeArea(
         child: Stack(
@@ -81,13 +86,17 @@ class PlaybackRecoveryView extends HookWidget {
               const Positioned(
                 top: 20,
                 left: 24,
+                right: 24,
                 child: Text(
-                  'CloudBoard',
+                  AppBrand.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     inherit: false,
                     fontFamily: 'Pretendard',
                     fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.ink,
                     decoration: TextDecoration.none,
                   ),
@@ -138,8 +147,9 @@ class PlaybackRecoveryView extends HookWidget {
                                                 fontFamily: 'Pretendard',
                                                 colorScheme:
                                                     ColorScheme.fromSeed(
-                                                      seedColor:
-                                                          AppColors.accent,
+                                                      seedColor: const Color(
+                                                        0xFF77729D,
+                                                      ),
                                                       brightness:
                                                           Brightness.dark,
                                                     ),
@@ -182,20 +192,19 @@ class PlaybackRecoveryView extends HookWidget {
                                       ? Icon(
                                           Icons.sync_rounded,
                                           size: indicatorSize,
-                                          color: AppColors.accent,
+                                          color: indicatorColor,
                                         )
                                       : RotationTransition(
                                           turns: rotation,
                                           // A constant open ring stays visible at
                                           // this small size. It is not progress;
                                           // semantics come from the status label.
-                                          child:
-                                              const CircularProgressIndicator(
-                                                value: .75,
-                                                strokeWidth: 2,
-                                                strokeCap: StrokeCap.round,
-                                                color: AppColors.accent,
-                                              ),
+                                          child: CircularProgressIndicator(
+                                            value: .75,
+                                            strokeWidth: 2,
+                                            strokeCap: StrokeCap.round,
+                                            color: indicatorColor,
+                                          ),
                                         ),
                                 ),
                               ),

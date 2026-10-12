@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
+import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/widgets/app_version_tile.dart';
 import 'package:cloud_board/src/app/feature/billing/presentation/views/subscription_screen.dart';
 
@@ -16,8 +18,7 @@ import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 
-const accountSupportEmail = 'vividxxxxx@gmail.com';
-const _policyBase = 'https://clyr-landing-20.vercel.app/apps/cloudboard';
+const accountSupportEmail = AppLinks.supportEmail;
 
 Future<bool> _openExternal(Uri uri) =>
     launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -42,12 +43,12 @@ class AccountManagementSection extends HookConsumerWidget {
     // Wait for platform detection; TV must never launch a mobile browser flow.
     if (isTv.value != false) return const SizedBox.shrink();
 
-    Future<void> open(String path) async {
+    Future<void> open(String url) async {
       if (opening.value) return;
       opening.value = true;
       var launched = false;
       try {
-        launched = await openLink(Uri.parse('$_policyBase/$path'));
+        launched = await openLink(Uri.parse(url));
       } catch (_) {
         // Platform errors follow the same honest fallback as a false result.
       }
@@ -101,7 +102,7 @@ class AccountManagementSection extends HookConsumerWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AppAlertDialog(
-            title: const Text('클라우드보드 계정을 삭제할까요?'),
+            title: const Text('${AppBrand.nameKo} 계정을 삭제할까요?'),
             content: const Text(
               '프로필, 워크아웃, 업로드 파일, 매장 설정과 연결 기기 정보를 삭제하고 진행 중인 수업을 종료합니다. 삭제한 콘텐츠는 복구할 수 없습니다.\n\n'
               '계정을 삭제해도 Apple·Google Play 구독의 자동 갱신은 해지되지 않습니다. 구입한 스토어에서 별도로 해지해 주세요.\n\n'
@@ -156,7 +157,7 @@ class AccountManagementSection extends HookConsumerWidget {
           ),
         ),
         Material(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppStyle.cardRadius),
           clipBehavior: Clip.antiAlias,
           child: Padding(
@@ -174,7 +175,7 @@ class AccountManagementSection extends HookConsumerWidget {
                         ? '본인 확인 및 삭제 처리 중…'
                         : '계정 삭제',
                   ),
-                  subtitle: const Text('클라우드보드 계정과 관련 데이터를 삭제합니다.'),
+                  subtitle: const Text('${AppBrand.nameKo} 계정과 관련 데이터를 삭제합니다.'),
                   trailing: deletion.isLoading
                       ? const SizedBox.square(
                           dimension: 20,
@@ -193,7 +194,7 @@ class AccountManagementSection extends HookConsumerWidget {
                   title: const Text('계정 삭제 안내 및 문의'),
                   trailing: const Icon(Icons.open_in_new_rounded, size: 20),
                   enabled: !opening.value && !deleting,
-                  onTap: () => open('delete-account'),
+                  onTap: () => open(AppLinks.accountDeletion),
                 ),
                 if (processing)
                   Padding(
@@ -209,7 +210,7 @@ class AccountManagementSection extends HookConsumerWidget {
                   title: const Text('개인정보처리방침'),
                   trailing: const Icon(Icons.open_in_new_rounded, size: 20),
                   enabled: !opening.value,
-                  onTap: () => open('privacy'),
+                  onTap: () => open(AppLinks.privacy),
                 ),
                 const UpdateNewsTile(),
                 const AppVersionTile(),
