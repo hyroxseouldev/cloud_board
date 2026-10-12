@@ -8,6 +8,16 @@ import 'package:cloud_board/firebase_options_development.dart';
 /// Build identity is explicit and must agree with the native Firebase app.
 /// An unqualified local/web run always uses development, never production.
 abstract final class FirebaseEnvironment {
+  static const _configuredEnvironment = String.fromEnvironment('FIREBASE_ENV');
+  static const _configuredFlavor = appFlavor;
+
+  /// Retained in the AOT artifact so the upload gate can inspect the exact
+  /// compile-time inputs also consumed by [name], for every native ABI.
+  @pragma('vm:entry-point')
+  static String get compiledReleaseBinding =>
+      'cloudboard-release-binding:env=$_configuredEnvironment;'
+      'flavor=$_configuredFlavor;';
+
   static String resolve({String define = '', String? flavor}) {
     final selected = define.isNotEmpty ? define : (flavor ?? 'development');
     if (!const ['development', 'production'].contains(selected)) {
@@ -20,8 +30,8 @@ abstract final class FirebaseEnvironment {
   }
 
   static String get name => resolve(
-    define: const String.fromEnvironment('FIREBASE_ENV'),
-    flavor: kIsWeb ? null : appFlavor,
+    define: _configuredEnvironment,
+    flavor: kIsWeb ? null : _configuredFlavor,
   );
 
   static bool get isProduction => name == 'production';

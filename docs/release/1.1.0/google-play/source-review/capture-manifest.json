@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "status": "review-only",
+  "sourceKind": "flutter-widget-review",
+  "capturedAt": "2026-10-12T14:38:40.668575Z",
+  "sourceSha": "7d12923490b2f8ced04f0977117c3fdef3256142",
+  "version": "1.1.0",
+  "build": null,
+  "device": null,
+  "flavor": null,
+  "note": "Production widgets with local fixtures and Android styling. Not an installed release candidate; no Firebase writes or TV pairing were executed.",
+  "captures": [
+    {
+      "file": "01-control.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "02-compose.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "03-reuse.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "07-library.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "04-timer.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "05-style.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "06-rehearsal.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "08-explore.png",
+      "width": 1200,
+      "height": 2400,
+      "kind": "flutter-widget-review"
+    },
+    {
+      "file": "tv-player.png",
+      "width": 2880,
+      "height": 1620,
+      "kind": "flutter-widget-review"
+    }
+  ]
+}

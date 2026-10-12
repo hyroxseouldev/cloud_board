@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      upload_to_testflight:
+        description: Upload to TestFlight (disable to prepare a signed IPA only)
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -18,8 +24,8 @@ jobs:
   backend_ready:
     name: Wait for verified backend deployment
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (!contains(github.event.head_commit.message, '[skip testflight]') &&
+      (github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight) ||
+      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip testflight]') &&
       !contains(github.event.head_commit.message, '[backend only]'))
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -49,6 +55,15 @@ jobs:
       - name: Test iOS signing checks
         run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Test release metadata and artifact gates
+        run: |
+          node --test tool/release/*.test.mjs
+          python3 -m unittest discover -s tool/release -p 'test_*.py'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -71,6 +86,10 @@ jobs:
   upload:
     name: Build and upload
     needs: [verify, backend_ready]
+    if: >-
+      always() && !cancelled() && needs.verify.result == 'success' &&
+      (needs.backend_ready.result == 'success' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.upload_to_testflight))
     runs-on: macos-26
     timeout-minutes: 45
     environment: testflight
@@ -81,6 +100,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Require a trusted release source
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/heads/release/*) ;;
+            *) echo 'Signed builds require main or a release/* branch.' >&2; exit 1 ;;
+          esac
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Check release credentials
         env:
@@ -177,64 +207,13 @@ jobs:
             exit 1
           fi
 
-      - name: Set build number
+      - name: Set marketing version and next iOS build from complete history
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          set -euo pipefail
-
-          token="$({ ruby -ropenssl -rbase64 -rjson <<'RUBY'
-          def base64url(data)
-            Base64.urlsafe_encode64(data, padding: false)
-          end
-
-          key = OpenSSL::PKey::EC.new(File.read(ENV.fetch('APP_STORE_CONNECT_API_KEY_PATH')))
-          header = {
-            alg: 'ES256',
-            kid: ENV.fetch('APP_STORE_CONNECT_KEY_ID'),
-            typ: 'JWT',
-          }
-          payload = {
-            iss: ENV.fetch('APP_STORE_CONNECT_ISSUER_ID'),
-            exp: Time.now.to_i + (20 * 60),
-            aud: 'appstoreconnect-v1',
-          }
-          signing_input = "#{base64url(header.to_json)}.#{base64url(payload.to_json)}"
-          sequence = OpenSSL::ASN1.decode(
-            key.dsa_sign_asn1(OpenSSL::Digest::SHA256.digest(signing_input)),
-          )
-          r = sequence.value[0].value.to_s(2).rjust(32, "\0")[-32, 32]
-          s = sequence.value[1].value.to_s(2).rjust(32, "\0")[-32, 32]
-          print "#{signing_input}.#{base64url(r + s)}"
-          RUBY
-          } 2>/dev/null)"
-
-          app_id="$(
-            curl --fail --silent --show-error --retry 3 \
-              -H "Authorization: Bearer $token" \
-              "https://api.appstoreconnect.apple.com/v1/apps?filter%5BbundleId%5D=$IOS_BUNDLE_ID&limit=1" |
-              ruby -rjson -e 'print JSON.parse(STDIN.read).dig("data", 0, "id")'
-          )"
-          if [[ -z "$app_id" ]]; then
-            echo "App Store Connect app not found: $IOS_BUNDLE_ID" >&2
-            exit 1
-          fi
-
-          latest_build="$(
-            curl --fail --silent --show-error --retry 3 \
-              -H "Authorization: Bearer $token" \
-              "https://api.appstoreconnect.apple.com/v1/builds?filter%5Bapp%5D=$app_id&sort=-uploadedDate&limit=1" |
-              ruby -rjson -e 'print JSON.parse(STDIN.read).dig("data", 0, "attributes", "version")'
-          )"
-          if [[ ! "$latest_build" =~ ^[0-9]+$ ]]; then
-            echo "Invalid latest TestFlight build number: $latest_build" >&2
-            exit 1
-          fi
-
-          build_number=$((latest_build + 1))
-          echo "TESTFLIGHT_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
-          echo "TestFlight build number: $build_number"
+          node tool/release/play_version_code.mjs --version-name
+          node tool/release/ios_build_number.mjs --next
 
       - name: Create export options
         run: |
@@ -258,6 +237,8 @@ jobs:
 
           flutter build ipa --flavor production \
             --release \
+            --dart-define=FIREBASE_ENV=production \
+            --build-name "$RELEASE_VERSION_NAME" \
             --no-codesign \
             --build-number "$TESTFLIGHT_BUILD_NUMBER"
 
@@ -277,6 +258,7 @@ jobs:
           retention-days: 90
 
       - name: Upload dSYMs to Firebase Crashlytics
+        if: github.event_name == 'push' || inputs.upload_to_testflight
         run: |
           set -euo pipefail
 
@@ -330,6 +312,24 @@ jobs:
           python3 tool/inspect_ios_signing.py "$ipa_path" "$RUNNER_TEMP/ios-signing.json" \
             --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
 
+      - name: Verify actual IPA version, package and native/Dart Firebase binding
+        run: |
+          set -euo pipefail
+          ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
+          python3 tool/release/inspect_native.py ios "$ipa_path" \
+            --version "$RELEASE_VERSION_NAME" --build "$TESTFLIGHT_BUILD_NUMBER" \
+            --output "$RUNNER_TEMP/ios-release-metadata.json"
+
+      - name: Keep signed IPA and release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudboard-ios-release-${{ env.TESTFLIGHT_BUILD_NUMBER }}
+          path: |
+            build/ios/ipa/*.ipa
+            ${{ runner.temp }}/ios-release-metadata.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Keep signing diagnostics
         if: ${{ !cancelled() && env.TESTFLIGHT_BUILD_NUMBER != '' }}
         uses: actions/upload-artifact@v4
@@ -340,11 +340,17 @@ jobs:
           retention-days: 90
 
       - name: Recheck backend before publishing
+        if: github.event_name == 'push' || inputs.upload_to_testflight
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node tool/release_backend_gate.mjs --check-only
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          node tool/release_backend_gate.mjs --check-only
+          node tool/release/ios_build_number.mjs --recheck
 
       - name: Upload to TestFlight
+        if: github.event_name == 'push' || inputs.upload_to_testflight
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
