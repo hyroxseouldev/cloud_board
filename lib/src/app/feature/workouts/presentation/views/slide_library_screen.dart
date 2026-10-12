@@ -595,7 +595,8 @@ class SlideLibraryScreen extends HookConsumerWidget {
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: -0.14,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                             Text(

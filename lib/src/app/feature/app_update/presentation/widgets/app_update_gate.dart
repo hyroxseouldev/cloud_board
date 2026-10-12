@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -161,7 +163,7 @@ class UpdatePresentation extends HookWidget {
           child: IgnorePointer(ignoring: required, child: child),
         ),
         if (required)
-          const ModalBarrier(dismissible: false, color: Colors.white),
+          const ModalBarrier(dismissible: false, color: AppColors.canvas),
         SafeArea(
           child: Align(
             alignment: required ? Alignment.center : Alignment.bottomCenter,

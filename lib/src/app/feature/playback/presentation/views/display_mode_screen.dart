@@ -4,7 +4,6 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/display_prefe
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_pairing_card.dart';
-import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
 import 'dart:async';
@@ -495,7 +494,7 @@ class _DisplayStandby extends StatelessWidget {
                   padding: EdgeInsets.only(top: 16),
                   child: Text(
                     '네트워크 연결을 확인하고 있습니다.',
-                    style: TextStyle(color: AppColors.muted),
+                    style: TextStyle(color: Color(0xFF777683)),
                   ),
                 ),
               if (!isLoading)

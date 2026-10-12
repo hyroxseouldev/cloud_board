@@ -478,7 +478,8 @@ class _SlideEditorBody extends HookConsumerWidget {
                 style: const TextStyle(
                   fontFamily: 'Pretendard',
                   fontSize: 22,
-                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.22,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -565,7 +566,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                         children: [
                           Text(
                             '타이머 표시',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              letterSpacing: -0.14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           SizedBox(height: 4),
                           Text(
@@ -677,7 +681,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                   const Divider(height: 24),
                   const Text(
                     '스타일',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      letterSpacing: -0.14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text('색상·배치·표시 옵션을 한 번에 적용하거나 저장해요.'),
@@ -703,7 +710,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                   const SizedBox(height: 24),
                   const Text(
                     '타이머 색상',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      letterSpacing: -0.14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   SingleChildScrollView(
@@ -941,7 +951,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                   if (!hasSlideDesign(module))
                     const Text(
                       '색상',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        letterSpacing: -0.14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   if (!hasSlideDesign(module))
                     SlideAppearanceControls(
@@ -1151,7 +1164,13 @@ class _SlideEditorMenuTile extends HookWidget {
       dense: true,
       minVerticalPadding: 12,
       leading: Icon(icon, color: SlideEditorStyle.accent),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          letterSpacing: -0.13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       subtitle: Text(
         subtitle,
         style: const TextStyle(fontSize: 12, color: SlideEditorStyle.muted),

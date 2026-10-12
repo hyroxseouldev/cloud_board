@@ -27,6 +27,30 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
   testWidgets(
+    'v5 home keeps row actions accessible and the create action singular',
+    (tester) async {
+      await _mount(tester, _CatalogRepository(_catalog(1)));
+      expect(find.text('수업 만들기'), findsOneWidget);
+      expect(find.text('내 수업 1개'), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsNothing);
+      for (final control in [
+        find.byKey(const ValueKey('create-workout')),
+        find.byTooltip('재생'),
+        find.byTooltip('워크아웃 메뉴'),
+      ]) {
+        expect(tester.getSize(control).width, greaterThanOrEqualTo(48));
+        expect(tester.getSize(control).height, greaterThanOrEqualTo(48));
+      }
+      await tester.tap(find.byTooltip('워크아웃 메뉴'));
+      await tester.pumpAndSettle();
+      expect(find.text('편집'), findsOneWidget);
+      expect(find.text('복사'), findsOneWidget);
+      expect(find.text('삭제'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'scroll loads the next page and search finds the last unrequested page',
     (tester) async {
       final repo = _PagedCatalogRepository(_catalog(60));
@@ -420,11 +444,11 @@ void main() {
         await tester.enterText(find.byType(TextField), '수업 59');
         await tester.pumpAndSettle();
         expect(_title('수업 59').hitTestable(), findsOneWidget);
-        expect(find.text('워크아웃 1개'), findsOneWidget);
+        expect(find.text('내 수업 1개'), findsOneWidget);
         await tester.tap(find.byTooltip('검색 지우기'));
         await tester.pumpAndSettle();
         await _folder(tester, 'Stationd');
-        expect(find.text('워크아웃 13개'), findsOneWidget);
+        expect(find.text('내 수업 13개'), findsOneWidget);
         await tester.enterText(find.byType(TextField), '수업 59');
         await tester.pumpAndSettle();
         expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
@@ -436,7 +460,7 @@ void main() {
         }
         await tester.pumpAndSettle();
         expect(find.text('모든 폴더'), findsOneWidget);
-        expect(find.text('워크아웃 13개'), findsOneWidget);
+        expect(find.text('내 수업 13개'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
@@ -500,7 +524,7 @@ void main() {
         final repository = _CatalogRepository(_catalog(count));
         await _mount(tester, repository);
         // The old fixed header was outside the refresh scrollable.
-        final point = tester.getCenter(find.text('워크아웃 $count개'));
+        final point = tester.getCenter(find.text('내 수업 $count개'));
         final gesture = await tester.startGesture(point, kind: kind);
         await gesture.moveBy(const Offset(0, 340));
         await tester.pump();

@@ -630,7 +630,10 @@ class _EditorBody extends HookConsumerWidget {
                               children: [
                                 const Text(
                                   '전체 워크아웃',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                  style: TextStyle(
+                                    letterSpacing: -0.14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
@@ -638,7 +641,7 @@ class _EditorBody extends HookConsumerWidget {
                                     workoutDurationText(draft.value),
                                     textAlign: TextAlign.end,
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                       color: XonColors.muted,
                                     ),
                                   ),

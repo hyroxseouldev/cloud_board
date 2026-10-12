@@ -100,11 +100,11 @@ SliverGridDelegateWithFixedCrossAxisCount workoutListGridDelegate(
   final scaler = MediaQuery.textScalerOf(context);
   final minWidth = 440 + math.max(0, scaler.scale(16) - 16) * 10;
   final textHeight =
-      (scaler.scale(16) * 1.3).ceilToDouble() * 2 +
+      (scaler.scale(17) * 1.3).ceilToDouble() * 2 +
       4 +
-      (scaler.scale(12) * 1.3).ceilToDouble() +
+      (scaler.scale(14) * 1.3).ceilToDouble() +
       4 +
-      (scaler.scale(13) * 1.3).ceilToDouble();
+      (scaler.scale(14) * 1.3).ceilToDouble();
   return SliverGridDelegateWithFixedCrossAxisCount(
     crossAxisCount: ((width + 16) / (minWidth + 16)).floor().clamp(1, 2),
     mainAxisExtent: 32 + math.max(72, textHeight),
@@ -175,17 +175,14 @@ class _SkeletonRow extends StatelessWidget {
   final bool framed;
   final Animation<double> shimmer;
   final bool reducedMotion;
-  static const _base = Color(0xFFF0EEF5);
-  static const _highlight = Color(0xFFF8F7FB);
+  static const _base = AppColors.surfaceAccent;
+  static const _highlight = AppColors.surface;
 
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
     final contents = Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: framed ? 16 : 0,
-        vertical: framed ? 16 : 14,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: framed ? 16 : 0, vertical: 16),
       child: Row(
         children: [
           _block(width: framed ? 72 : 60, height: framed ? 72 : 60, radius: 12),
@@ -195,18 +192,18 @@ class _SkeletonRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _bar(0.70, scaler.scale(16) * 1.3),
+                _bar(0.70, scaler.scale(17) * 1.3),
                 const SizedBox(height: 4),
-                _bar(0.46, scaler.scale(12) * 1.3),
+                _bar(0.46, scaler.scale(14) * 1.3),
                 const SizedBox(height: 4),
-                _bar(0.23, scaler.scale(13) * 1.3),
+                _bar(0.23, scaler.scale(14) * 1.3),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          _block(width: 44, height: 44, radius: 12),
-          const SizedBox(width: 8),
-          _block(width: 44, height: 44, radius: 12),
+          _block(width: 48, height: 48, radius: 12),
+          const SizedBox(width: 6),
+          _block(width: 48, height: 48, radius: 12),
         ],
       ),
     );

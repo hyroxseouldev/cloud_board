@@ -101,7 +101,7 @@ class ActiveClassShell extends HookConsumerWidget {
       key: barKey,
       child: Padding(
         padding: bottomVisible
-            ? const EdgeInsets.fromLTRB(16, 8, 16, 16)
+            ? const EdgeInsets.fromLTRB(12, 8, 12, 16)
             : EdgeInsets.zero,
         child: SafeArea(
           top: false,
@@ -115,7 +115,7 @@ class ActiveClassShell extends HookConsumerWidget {
                   session: session,
                   playerVisible: playerVisible,
                 ),
-              if (miniVisible && dockVisible) const SizedBox(height: 10),
+              if (miniVisible && dockVisible) const SizedBox(height: 8),
               if (dockVisible) navigationBar!,
             ],
           ),
@@ -248,7 +248,7 @@ class _ActiveClassControls extends HookConsumerWidget {
         ? '명령 전달 실패 · 다시 시도해 주세요'
         : preparing
         ? '수업 시작 준비 중'
-        : '${step.module.name.isEmpty ? '슬라이드 ${step.moduleIndex + 1}' : step.module.name} · ${state.isPaused
+        : '${state.isPaused
               ? '일시정지'
               : step.isRest
               ? '휴식'

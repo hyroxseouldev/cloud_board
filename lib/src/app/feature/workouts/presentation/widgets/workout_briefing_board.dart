@@ -12,6 +12,24 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 
+// Broadcast content keeps its established palette and typography independently
+// of the management application's theme.
+abstract final class _DisplayBriefingStyle {
+  static const ink = Color(0xFF202028);
+  static const muted = Color(0xFF777683);
+  static const accent = Color(0xFF77729D);
+  static const surface = Color(0xFFF5F4F8);
+  static const line = Color(0xFFE6E3EF);
+
+  static TextStyle heading(double size) => TextStyle(
+    fontFamily: 'Pretendard',
+    fontSize: size,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -size * .05,
+    height: 1.25,
+  );
+}
+
 /// Uses the same saved workout as playback: coaches never maintain a second board.
 class WorkoutBriefingBoard extends HookWidget {
   const WorkoutBriefingBoard({
@@ -37,9 +55,14 @@ class WorkoutBriefingBoard extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final guide = displayMode
-        ? const AppStyle(compact: false)
-        : AppStyle.of(context);
+    final guide = AppStyle.of(context);
+    final titleStyle = displayMode
+        ? _DisplayBriefingStyle.heading(44)
+        : guide.mainText;
+    final brandStyle = displayMode
+        ? _DisplayBriefingStyle.heading(24)
+        : guide.subText3;
+    final muted = displayMode ? _DisplayBriefingStyle.muted : AppColors.muted;
     final now = useState(DateTime.now());
     final pageCount = max(1, (workout.modules.length / 3).ceil());
     useEffect(() {
@@ -61,7 +84,7 @@ class WorkoutBriefingBoard extends HookWidget {
             workout.brandL,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: guide.subText3,
+            style: brandStyle,
           ),
         ),
         Expanded(
@@ -70,14 +93,14 @@ class WorkoutBriefingBoard extends HookWidget {
             textAlign: TextAlign.end,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: guide.subText3.copyWith(color: AppColors.muted),
+            style: brandStyle.copyWith(color: muted),
           ),
         ),
       ],
     );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: displayMode ? Colors.white : AppColors.canvas,
       appBar: displayMode
           ? null
           : AppBar(
@@ -87,10 +110,13 @@ class WorkoutBriefingBoard extends HookWidget {
                 onPressed: busy ? null : onExit,
                 icon: const Icon(Icons.close_rounded),
               ),
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.canvas,
             ),
       body: DefaultTextStyle(
-        style: const TextStyle(fontFamily: 'Pretendard', color: AppColors.ink),
+        style: TextStyle(
+          fontFamily: 'Pretendard',
+          color: displayMode ? _DisplayBriefingStyle.ink : AppColors.ink,
+        ),
         child: displayMode
             ? MediaQuery.withNoTextScaling(
                 child: Center(
@@ -108,7 +134,7 @@ class WorkoutBriefingBoard extends HookWidget {
                               '$date  ·  TODAY’S WORKOUT',
                               style: const TextStyle(
                                 fontSize: 18,
-                                color: AppColors.muted,
+                                color: _DisplayBriefingStyle.muted,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -116,15 +142,13 @@ class WorkoutBriefingBoard extends HookWidget {
                               workout.name.isEmpty ? '오늘의 수업' : workout.name,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: guide.mainText,
+                              style: titleStyle,
                             ),
                             const SizedBox(height: 10),
                             Text(
                               '${workout.modules.length}개 운동 · 총 ${workoutDurationText(workout)}'
                               '${pageCount > 1 ? '  ·  ${page + 1}/$pageCount 페이지' : ''}',
-                              style: guide.subText3.copyWith(
-                                color: AppColors.muted,
-                              ),
+                              style: brandStyle.copyWith(color: muted),
                             ),
                             const SizedBox(height: 28),
                             Expanded(
@@ -163,7 +187,10 @@ class WorkoutBriefingBoard extends HookWidget {
                                 ],
                               ),
                             ),
-                            const Divider(color: AppColors.line, height: 28),
+                            const Divider(
+                              color: _DisplayBriefingStyle.line,
+                              height: 28,
+                            ),
                             footer(),
                             const SizedBox(height: 12),
                             const Text(
@@ -191,7 +218,7 @@ class WorkoutBriefingBoard extends HookWidget {
                   const SizedBox(height: 10),
                   Text(
                     workout.name.isEmpty ? '오늘의 수업' : workout.name,
-                    style: guide.mainText,
+                    style: titleStyle,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -288,10 +315,12 @@ class _ModuleSummary extends StatelessWidget {
       module.text.isEmpty ? '운동 설명을 확인해 주세요.' : module.text,
       style: TextStyle(fontSize: fit ? 27 : 18, height: 1.45),
     );
-    final guide = fit ? const AppStyle(compact: false) : AppStyle.of(context);
+    final titleStyle = fit
+        ? _DisplayBriefingStyle.heading(28)
+        : AppStyle.of(context).subText2;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: fit ? _DisplayBriefingStyle.surface : AppColors.surface,
         borderRadius: BorderRadius.circular(AppStyle.cardRadius),
       ),
       child: Padding(
@@ -306,7 +335,9 @@ class _ModuleSummary extends StatelessWidget {
                 '${index + 1}. ${module.name.isEmpty ? '운동 ${index + 1}' : module.name}',
                 maxLines: fit ? 2 : null,
                 overflow: fit ? TextOverflow.ellipsis : TextOverflow.visible,
-                style: guide.subText2.copyWith(color: AppColors.ink),
+                style: titleStyle.copyWith(
+                  color: fit ? _DisplayBriefingStyle.ink : AppColors.ink,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -322,7 +353,7 @@ class _ModuleSummary extends StatelessWidget {
                   : '${durationLabel(module.workSeconds)} × ${module.sets}세트'
                         '${module.sets > 1 && module.restSeconds > 0 ? ' · 휴식 ${durationLabel(module.restSeconds)}' : ''}',
               style: TextStyle(
-                color: AppColors.accent,
+                color: fit ? _DisplayBriefingStyle.accent : AppColors.accent,
                 fontSize: fit ? 20 : 16,
                 fontWeight: FontWeight.w700,
               ),

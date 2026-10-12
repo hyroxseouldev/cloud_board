@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
 import 'package:cloud_board/src/app/feature/auth/data/repositories/firebase_auth_repository.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/repositories/auth_repository.dart';
@@ -64,6 +66,33 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'welcome uses the shared sage mark while provider buttons retain their colors',
+    (tester) async {
+      await mount(tester);
+      expect(find.byType(SoftRhythmMark), findsOneWidget);
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        AppColors.canvas,
+      );
+      for (final (label, background) in [
+        ('Apple로 계속하기', Colors.black),
+        ('Google로 계속하기', Colors.white),
+      ]) {
+        final button = tester.widget<OutlinedButton>(
+          find.widgetWithText(OutlinedButton, label),
+        );
+        expect(button.style?.backgroundColor?.resolve({}), background);
+        expect(
+          button.style?.foregroundColor?.resolve({WidgetState.disabled}),
+          label.startsWith('Apple') ? Colors.white70 : const Color(0xFF777683),
+        );
+      }
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
 
   testWidgets(
     'pending sign-in stays in its button, blocks duplicates, and recovers after cancel',
