@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_document.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_summary_model.dart';
@@ -37,13 +38,26 @@ void expectPreserved(Object? candidate, Object? installed, String path) {
   }
   if (candidate is Map) {
     expect(installed, isA<Map>(), reason: path);
+    final installedMap = installed as Map;
+    final missing = candidate.keys
+        .where(
+          (key) =>
+              !exceptions.contains('$path/$key') &&
+              !installedMap.containsKey(key),
+        )
+        .map((key) => '$path/$key')
+        .toList();
+    expect(
+      missing,
+      isEmpty,
+      reason: 'Released serializer drops fields: ${missing.join(', ')}',
+    );
     for (final key in candidate.keys) {
       if (exceptions.contains('$path/$key')) {
         expectPreserved(candidate[key], null, '$path/$key');
         continue;
       }
-      expect((installed as Map).containsKey(key), isTrue, reason: path);
-      expectPreserved(candidate[key], installed[key], '$path/$key');
+      expectPreserved(candidate[key], installedMap[key], '$path/$key');
     }
   } else if (candidate is List) {
     expect(installed, isA<List>(), reason: path);
@@ -76,6 +90,29 @@ void main() {
     });
   }
   final app = readCandidate('app-current.json');
+  for (final behavior in app['behavior'] as List) {
+    test('installed timer behavior preserves ${behavior['name']}', () {
+      final session = PlaybackSessionModel.fromJson(
+        Map<String, dynamic>.from(behavior['state'] as Map),
+      ).toEntity();
+      final durations = playbackDurations(session.workout);
+      expect(
+        durations,
+        behavior['expectedDurationsMs'],
+        reason: 'Installed timer must retain current phase durations; an unlimited timer cannot become one second',
+      );
+      final position = playbackPosition(
+        session,
+        durations,
+        behavior['serverNowMs'] as int,
+      );
+      expect(
+        (position.index, position.remainingMs),
+        (behavior['expectedIndex'], behavior['expectedRemainingMs']),
+        reason: 'For Time must stay at its result until coach action; an open timer must count elapsed time',
+      );
+    });
+  }
   test('installed preferences reader/serializer retains current values', () {
     final candidate = Map<String, dynamic>.from(
       app['settings']['preferences'] as Map,

@@ -9,11 +9,22 @@ function jobCondition(file, job) {
   assert(block, `Missing workflow job: ${job}`);
   return block.match(/^    if: >-\n((?:      .+\n)+)/m)?.[1].trim();
 }
-const context = (event = 'push', message = 'Release', bootstrapped = 'true') => ({
-  github: {event_name: event, event: {head_commit: {message}}},
-  vars: {GOOGLE_PLAY_BOOTSTRAPPED: bootstrapped},
-  contains: (text, value) => text?.includes(value) ?? false,
-});
+const context = (event = 'push', message = 'Release', bootstrapped = 'true', upload = true) => {
+  const scheduled = event === 'workflow_dispatch' ||
+    (!message.includes('[backend only]') && !message.includes('[skip ') && bootstrapped === 'true');
+  return {
+    github: {event_name: event, event: {head_commit: {message}}},
+    vars: {GOOGLE_PLAY_BOOTSTRAPPED: bootstrapped},
+    inputs: {upload_to_play: upload, upload_to_testflight: upload},
+    needs: {
+      backend_ready: {result: scheduled && upload ? 'success' : 'skipped'},
+      verify: {result: scheduled ? 'success' : 'skipped'},
+    },
+    always: () => true,
+    cancelled: () => false,
+    contains: (text, value) => text?.includes(value) ?? false,
+  };
+};
 const evaluate = (condition, values) => {
   assert(condition, 'Missing deployment condition');
   return runInNewContext(`(${condition})`, values, {timeout: 100});
@@ -21,7 +32,7 @@ const evaluate = (condition, values) => {
 
 test('real native workflow conditions suppress every automatic backend-only upload job', () => {
   for (const [file, jobs, skip] of [
-    ['testflight-main.yml', ['backend_ready', 'verify'], '[skip testflight]'],
+    ['testflight-main.yml', ['backend_ready', 'verify', 'upload'], '[skip testflight]'],
     ['google-play-main.yml', ['backend_ready', 'upload'], '[skip google-play]'],
   ]) {
     for (const job of jobs) {
@@ -30,6 +41,8 @@ test('real native workflow conditions suppress every automatic backend-only uplo
       assert.equal(evaluate(condition, context('push', '[backend only] Fix rules')), false);
       assert.equal(evaluate(condition, context('push', skip)), false);
       assert.equal(evaluate(condition, context('workflow_dispatch', '[backend only] Fix rules')), true);
+      assert.equal(evaluate(condition, context('workflow_dispatch', 'Prepare only', 'true', false)),
+        job !== 'backend_ready', 'Build-only dispatch must not wait for or run a deployment');
       if (file === 'google-play-main.yml') assert.equal(evaluate(condition, context('push', 'Release', 'false')), false);
     }
   }

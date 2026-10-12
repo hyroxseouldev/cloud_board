@@ -1,0 +1,11 @@
+{
+  "packageName": "com.sunmkim.cloudboard",
+  "highestEverVersionCode": 65,
+  "completeUploadHistory": true,
+  "verifiedAt": "2026-10-12T14:33:00Z",
+  "verifiedBy": "Codex (authenticated Play Console UI)",
+  "evidenceUrl": "https://play.google.com/console/u/0/developers/5882095575387783300/app/4975842846741924244/bundle-explorer-selector",
+  "evidenceFile": "docs/release/1.1.0/store-inventory.md",
+  "historicalBundleCount": 47,
+  "manualUploadPolicy": "reserve-with-this-allocator"
+}

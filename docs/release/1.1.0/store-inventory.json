@@ -1,0 +1,90 @@
+{
+  "format": 1,
+  "issue": "STA-143",
+  "observedAt": "2026-10-12T14:38:00Z",
+  "method": "Authenticated store console UI, public store UI and GitHub artifact metadata; read-only",
+  "observedBy": "Codex",
+  "publicInstallationTested": false,
+  "productionStateChanged": false,
+  "ios": {
+    "appId": "6809105126",
+    "bundleId": "com.sunmkim.cloudboard",
+    "storeVersion": "1.0",
+    "reviewBinaryVersion": "1.0.0",
+    "reviewBuild": "548",
+    "reviewStatus": "WAITING_FOR_REVIEW",
+    "existingReleaseMode": "AFTER_APPROVAL",
+    "configuredCountries": ["KR"],
+    "publicKoreanListingResult": "page_not_found",
+    "latestObservedTestFlightBuild": "553",
+    "latestObservedTestFlightVersion": "1.0.0",
+    "latestObservedTestFlightUploadStatus": "complete",
+    "version110RegisteredObserved": false,
+    "reviewSourceCommit": "c54588cc7733ac8577d11c036c21635d1f283f2a",
+    "reviewWorkflowRunId": "37411690757",
+    "testFlightSourceCommit": "a8653077314c5e5bf2f14e1a8495e4c9ab1f1b6b",
+    "testFlightWorkflowRunId": "38216234409",
+    "releaseUrl": "https://appstoreconnect.apple.com/apps/6809105126/distribution/ios/version/inflight",
+    "publicUrl": "https://apps.apple.com/kr/app/id6809105126"
+  },
+  "play": {
+    "packageName": "com.sunmkim.cloudboard",
+    "highestEverVersionCode": 65,
+    "completeUploadHistory": true,
+    "historyEntryCount": 47,
+    "historyPagesInspected": 5,
+    "observedVersionCodes": [65, 64, 63, 62, 61, 60, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 47, 45, 44, 43, 42, 40, 38, 37, 36, 34, 33, 32, 31, 30, 29, 28, 27, 22, 21, 20, 18, 17, 16, 15, 14, 13, 12, 11, 10, 8, 3],
+    "allObservedVersionNames": ["1.0.0"],
+    "version110UploadedObserved": false,
+    "unpublishedChangesObserved": false,
+    "managedPublishingEnabled": false,
+    "approvalPublishesAutomaticallyInObservedConfiguration": true,
+    "policyIssuesObserved": false,
+    "appContentDeclarationsNeedingAttention": 0,
+    "completedAppContentDeclarations": 10,
+    "dataSafetyDeclarationLastEdited": "2026-09-12",
+    "loginDetailsDeclarationLastEdited": "2026-09-12",
+    "reviewAccountLoginTested": false,
+    "production": {
+      "versionName": "1.0.0",
+      "versionCode": 52,
+      "status": "available_on_google_play",
+      "rollout": "full",
+      "countries": ["KR"],
+      "sourceCommit": "c85167e863ee5e8e9212722572ab57df65801eeb",
+      "workflowRunId": "36680683610",
+      "artifactName": "cloudboard-alpha-aab-52"
+    },
+    "closedAlpha": {
+      "versionName": "1.0.0",
+      "versionCode": 58,
+      "status": "available_to_testers",
+      "sourceCommit": "c54588cc7733ac8577d11c036c21635d1f283f2a",
+      "workflowRunId": "37411690762",
+      "artifactName": "cloudboard-alpha-aab-58"
+    },
+    "internal": {
+      "versionName": "1.0.0",
+      "versionCode": 65,
+      "status": "available_to_internal_testers",
+      "sourceCommit": "a8653077314c5e5bf2f14e1a8495e4c9ab1f1b6b",
+      "workflowRunId": "38216234280"
+    },
+    "tv": {
+      "formFactorConfigured": false,
+      "evidence": "Advanced Settings lists Android XR active; Android TV remains in Add form factor menu",
+      "publicAvailabilityVerified": false,
+      "physicalStoreInstallVerified": false
+    },
+    "publicKoreanListing": {
+      "visible": true,
+      "installButtonVisible": true,
+      "versionName": "1.0.0",
+      "minimumAndroidVersion": "7.0",
+      "physicalInstallationPerformed": false
+    },
+    "historyUrl": "https://play.google.com/console/u/0/developers/5882095575387783300/app/4975842846741924244/bundle-explorer-selector",
+    "formFactorsUrl": "https://play.google.com/console/u/0/developers/5882095575387783300/app/4975842846741924244/advanced-distribution?tab=releaseTypes",
+    "publicUrl": "https://play.google.com/store/apps/details?id=com.sunmkim.cloudboard&hl=ko&gl=KR"
+  }
+}

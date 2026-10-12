@@ -80,6 +80,26 @@ void main() {
       }
     },
   );
+  test('artifact binding contains the same compile-time selector inputs', () {
+    const configured = String.fromEnvironment('FIREBASE_ENV');
+    expect(
+      FirebaseEnvironment.compiledReleaseBinding,
+      startsWith('cloudboard-release-binding:env=$configured;flavor='),
+    );
+    for (final environment in ['development', 'production']) {
+      expect(
+        FirebaseEnvironment.resolve(define: environment, flavor: environment),
+        environment,
+      );
+    }
+    expect(
+      () => FirebaseEnvironment.resolve(
+        define: 'development',
+        flavor: 'production',
+      ),
+      throwsStateError,
+    );
+  });
   test('unqualified runs are isolated from production', () {
     expect(FirebaseEnvironment.resolve(), 'development');
     expect(FirebaseEnvironment.resolve(flavor: 'production'), 'production');

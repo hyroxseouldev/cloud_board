@@ -10,6 +10,7 @@ const currentFile = new URL('../../build/contracts/workout-save-current.json', i
 assert.ok(fs.existsSync(currentFile), 'Export current Flutter payloads first: flutter test tool/export_workout_save_fixtures_test.dart');
 const fixtureDir = new URL('./fixtures/workout-save/', import.meta.url);
 const files = [currentFile, ...fs.readdirSync(fixtureDir).filter(f => f.endsWith('.json')).map(f => new URL(f, fixtureDir))];
+const registry = JSON.parse(fs.readFileSync(new URL('../../tool/firebase/supported-clients.json', import.meta.url), 'utf8'));
 const read = file => JSON.parse(fs.readFileSync(file, 'utf8'), (_, value) =>
   value && typeof value === 'object' && Object.hasOwn(value, '__timestampMillis')
     ? Timestamp.fromMillis(value.__timestampMillis) : value);
@@ -39,7 +40,12 @@ try {
   for (const file of files) {
     const contract = read(file);
     assert.equal(contract.format, 1);
-    assert.equal(contract.scenarios.length, 6);
+    const historicalCapabilities = registry.clients.find(client => client.client === contract.client)?.capabilities;
+    if (historicalCapabilities) {
+      assert.deepEqual(contract.scenarios.map(s => s.name), historicalCapabilities.workoutScenarios);
+    } else {
+      assert.equal(contract.scenarios.length, 6);
+    }
     const fingerprints = contract.scenarios.flatMap(s => s.writes.flatMap(w => w.workout.modules.map(m => m.designFingerprint)));
     if (file === currentFile) assert.ok(fingerprints.every(v => /^v1:[a-f0-9]{64}:[a-f0-9]{64}$/.test(v)));
     else if (contract.client === '1.0.0+2') assert.ok(fingerprints.every(v => v === undefined), 'original released DTO remains unchanged');
@@ -52,13 +58,17 @@ try {
         assert.deepEqual((await getDoc(doc(owner, `users/owner/workouts/${write.workout.id}`))).data(), write.workout);
         const summary = (await getDoc(doc(owner, `users/owner/workoutSummaries/${write.workout.id}`))).data();
         assert.deepEqual(summary, write.summary);
-        assert.equal(summary.durationKind, scenario.durationKind);
+        if (historicalCapabilities?.summaryDurationKind === false) {
+          assert.equal(Object.hasOwn(summary, 'durationKind'), false, 'Historical writer predates durationKind');
+        } else {
+          assert.equal(summary.durationKind, scenario.durationKind);
+        }
       }
       const legacy = {...scenario.writes[1], summary: {...scenario.writes[1].summary}};
       delete legacy.summary.durationKind;
       await assertSucceeds(save(owner, legacy));
     }
-    console.log(`PASS: ${contract.client || 'current Flutter'} create/update/duplicate, all duration kinds and both schemas; pre-durationKind summary compatibility`);
+    console.log(`PASS: ${contract.client || 'current Flutter'} create/update/duplicate, ${contract.scenarios.length} actual supported scenarios and both schemas; pre-durationKind summary compatibility`);
   }
 
   await env.clearFirestore();

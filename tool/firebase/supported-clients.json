@@ -63,6 +63,102 @@
           "workflowRunId": "38216234276"
         }
       ]
+    },
+    {
+      "client": "1.0.0-android-production-52",
+      "sourceCommit": "c85167e863ee5e8e9212722572ab57df65801eeb",
+      "platforms": [
+        "android"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.0.0-production-52.json",
+      "sha256": "6ac7fde2e179f8e1a12b58dbc8371d7916bfd8c61e3ba8214ce0d2baae2cd958",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/1.0.0-production-52.json",
+        "sha256": "81f67b4fb1482f429a6362bd0093639850028328a651cc69163bdf3d3a4ab4ef"
+      },
+      "capabilities": {
+        "workoutScenarios": [
+          "legacy-fixed",
+          "content-fixed"
+        ],
+        "durationKinds": [
+          "fixed"
+        ],
+        "summaryDurationKind": false,
+        "playbackWireProtocols": [
+          1,
+          2
+        ],
+        "advertisedPlaybackProtocol": 3,
+        "extendedTiming": false,
+        "designTemplate": false,
+        "structuredDesignStyle": false
+      },
+      "releases": [
+        {
+          "platform": "android",
+          "version": "1.0.0",
+          "build": "52",
+          "channel": "production",
+          "workflowRunId": "36680683610"
+        }
+      ]
+    },
+    {
+      "client": "1.0.0-review-548-closed-58",
+      "sourceCommit": "c54588cc7733ac8577d11c036c21635d1f283f2a",
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.0.0-review-548-closed-58.json",
+      "sha256": "7cef16fb7d502c5aacf6b1a84412837014e34c26d78077b8a7a672d4a3c74a9a",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/1.0.0-review-548-closed-58.json",
+        "sha256": "9f694ebefafc8f30fa36e0b9bea13b48e898946284c0ffde736e330792977f32"
+      },
+      "capabilities": {
+        "workoutScenarios": [
+          "legacy-fixed",
+          "content-fixed"
+        ],
+        "durationKinds": [
+          "fixed"
+        ],
+        "summaryDurationKind": false,
+        "playbackWireProtocols": [
+          1,
+          2
+        ],
+        "advertisedPlaybackProtocol": 3,
+        "extendedTiming": false,
+        "designTemplate": true,
+        "structuredDesignStyle": false
+      },
+      "releases": [
+        {
+          "platform": "ios",
+          "version": "1.0.0",
+          "build": "548",
+          "channel": "testflight",
+          "workflowRunId": "37411690757"
+        },
+        {
+          "platform": "android",
+          "version": "1.0.0",
+          "build": "58",
+          "channel": "closed",
+          "workflowRunId": "37411690762"
+        }
+      ]
     }
   ]
 }

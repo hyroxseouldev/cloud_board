@@ -65,3 +65,24 @@ test('an optional additive wire field does not erase any supported reader contra
   workout.scenarios[0].writes[0].workout.modules[0].futureOptionalMetadata = {color: 'sage'};
   validateCurrentContracts(registry, readCandidate(workout));
 });
+
+test('pre-EMOM public/review fixtures describe only timer features those apps wrote', () => {
+  for (const client of registry.clients.filter(c => c.capabilities)) {
+    const fixture = readJson(client.file);
+    assert.deepEqual(fixture.scenarios.map(s => s.name), ['legacy-fixed', 'content-fixed']);
+    assert.deepEqual(client.capabilities.durationKinds, ['fixed']);
+    assert(fixture.scenarios.every(s => s.writes.every(w => !Object.hasOwn(w.summary, 'durationKind'))));
+    assert.equal(fixture.provenance.kind, 'exported-with-historical-source-harness');
+    assert.equal(fixture.provenance.sourceBlobs['pubspec.lock'].length, 40);
+  }
+  const changed = structuredClone(registry);
+  changed.clients.at(-1).capabilities.summaryDurationKind = true;
+  assert.throws(() => validateFixtures(changed, files, read), /Historical summary capability/);
+});
+
+test('current fixed-timer scenario cannot disappear behind historical capability metadata', () => {
+  const workout = structuredClone(currentWorkout);
+  workout.scenarios = workout.scenarios.filter(s => s.name !== 'legacy-fixed');
+  const historicalOnly = {...registry, clients: registry.clients.filter(c => c.capabilities)};
+  assert.throws(() => validateCurrentContracts(historicalOnly, readCandidate(workout)), /Released wire field removed/);
+});

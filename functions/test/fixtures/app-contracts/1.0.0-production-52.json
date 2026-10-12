@@ -1,0 +1,261 @@
+{
+  "format": 1,
+  "settings": {
+    "schemaVersion": 1,
+    "revision": 1,
+    "updatedAt": {
+      "__serverTimestamp": true
+    },
+    "contentOnly": false,
+    "preferences": {
+      "brandL": "CloudBoard",
+      "brandR": "",
+      "soundTheme": "videoBeep",
+      "countdownSound": "videoBeep",
+      "workStartSound": "videoBeep",
+      "restStartSound": "videoBeep",
+      "workoutEndSound": "videoBeep",
+      "soundVolume": 1.0,
+      "countdown": {
+        "seconds": 3,
+        "backgroundColor": 4278190080,
+        "imageSource": "",
+        "appearance": {
+          "showReady": true,
+          "showTitle": true,
+          "numberScale": 1.0,
+          "numberFormat": "seconds",
+          "numberColor": null,
+          "numberShadow": false,
+          "overlayEnabled": true,
+          "overlayOpacity": null,
+          "overlayColor": null
+        }
+      }
+    }
+  },
+  "playback": [
+    {
+      "split": false,
+      "state": {
+        "id": "session-v1",
+        "ownerId": "owner",
+        "zoneId": "main",
+        "targetDeviceIds": [
+          "tv"
+        ],
+        "workoutSnapshot": {
+          "id": "contract-workout",
+          "ownerId": "owner",
+          "name": "Contract",
+          "folder": "",
+          "brandL": "CloudBoard",
+          "brandR": "",
+          "soundTheme": "videoBeep",
+          "countdownSound": "videoBeep",
+          "workStartSound": "videoBeep",
+          "restStartSound": "videoBeep",
+          "workoutEndSound": "videoBeep",
+          "soundVolume": 1.0,
+          "countdownSeconds": 3,
+          "countdownBackgroundColor": 4278190080,
+          "countdownImageSource": "",
+          "countdownAppearance": {
+            "showReady": true,
+            "showTitle": true,
+            "numberScale": 1.0,
+            "numberFormat": "seconds",
+            "numberColor": null,
+            "numberShadow": false,
+            "overlayEnabled": true,
+            "overlayOpacity": null,
+            "overlayColor": null
+          },
+          "author": {
+            "id": "owner",
+            "displayName": "Test",
+            "photoUrl": null
+          },
+          "modules": [
+            {
+              "id": "slide",
+              "name": "",
+              "text": "",
+              "imageUrl": "",
+              "workSeconds": 60,
+              "sets": 1,
+              "restSeconds": 0,
+              "includeFinalRest": true,
+              "showTimer": true,
+              "appearance": {
+                "timerX": 0.84,
+                "timerY": 0.5,
+                "timerSize": 1.0,
+                "ringWidth": 30.0,
+                "setsSize": 1.0,
+                "setsOffsetY": 0.07,
+                "showTitle": true,
+                "showBody": true,
+                "showBrand": true,
+                "titleColor": 4294967295,
+                "bodyColor": 4294967295,
+                "setsColor": 3019898879,
+                "brandColor": 4294967295
+              },
+              "showTimerGauge": true,
+              "showSets": true,
+              "beep": true,
+              "coverImage": false,
+              "favorite": false,
+              "category": "",
+              "timerColorValue": null,
+              "workGaugeColor": null,
+              "restGaugeColor": null,
+              "workTextColor": null,
+              "restTextColor": null,
+              "intervalBlocks": []
+            }
+          ],
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "updatedAt": "1970-01-01T00:00:02.000Z"
+        },
+        "status": "playing",
+        "briefing": false,
+        "startDelayMs": 3000,
+        "stepIndex": 0,
+        "remainingMs": 60000,
+        "anchorServerMs": {
+          ".sv": "timestamp"
+        },
+        "revision": 1,
+        "updatedByDeviceId": "phone"
+      },
+      "snapshot": null
+    },
+    {
+      "split": true,
+      "state": {
+        "id": "session-v2",
+        "ownerId": "owner",
+        "zoneId": "main",
+        "targetDeviceIds": [
+          "tv"
+        ],
+        "status": "playing",
+        "briefing": false,
+        "startDelayMs": 3000,
+        "stepIndex": 0,
+        "remainingMs": 60000,
+        "anchorServerMs": {
+          ".sv": "timestamp"
+        },
+        "revision": 1,
+        "updatedByDeviceId": "phone",
+        "schemaVersion": 2,
+        "snapshotId": "session-v2",
+        "workoutId": "contract-workout",
+        "workoutName": "Contract"
+      },
+      "snapshot": {
+        "id": "contract-workout",
+        "ownerId": "owner",
+        "name": "Contract",
+        "folder": "",
+        "brandL": "CloudBoard",
+        "brandR": "",
+        "soundTheme": "videoBeep",
+        "countdownSound": "videoBeep",
+        "workStartSound": "videoBeep",
+        "restStartSound": "videoBeep",
+        "workoutEndSound": "videoBeep",
+        "soundVolume": 1.0,
+        "countdownSeconds": 3,
+        "countdownBackgroundColor": 4278190080,
+        "countdownImageSource": "",
+        "countdownAppearance": {
+          "showReady": true,
+          "showTitle": true,
+          "numberScale": 1.0,
+          "numberFormat": "seconds",
+          "numberColor": null,
+          "numberShadow": false,
+          "overlayEnabled": true,
+          "overlayOpacity": null,
+          "overlayColor": null
+        },
+        "author": {
+          "id": "owner",
+          "displayName": "Test",
+          "photoUrl": null
+        },
+        "modules": [
+          {
+            "id": "slide",
+            "name": "",
+            "text": "",
+            "imageUrl": "",
+            "workSeconds": 60,
+            "sets": 1,
+            "restSeconds": 0,
+            "includeFinalRest": true,
+            "showTimer": true,
+            "appearance": {
+              "timerX": 0.84,
+              "timerY": 0.5,
+              "timerSize": 1.0,
+              "ringWidth": 30.0,
+              "setsSize": 1.0,
+              "setsOffsetY": 0.07,
+              "showTitle": true,
+              "showBody": true,
+              "showBrand": true,
+              "titleColor": 4294967295,
+              "bodyColor": 4294967295,
+              "setsColor": 3019898879,
+              "brandColor": 4294967295
+            },
+            "showTimerGauge": true,
+            "showSets": true,
+            "beep": true,
+            "coverImage": false,
+            "favorite": false,
+            "category": "",
+            "timerColorValue": null,
+            "workGaugeColor": null,
+            "restGaugeColor": null,
+            "workTextColor": null,
+            "restTextColor": null,
+            "intervalBlocks": []
+          }
+        ],
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:02.000Z",
+        "_storedAtMs": {
+          ".sv": "timestamp"
+        }
+      }
+    }
+  ],
+  "client": "1.0.0-android-production-52",
+  "sourceCommit": "c85167e863ee5e8e9212722572ab57df65801eeb",
+  "provenance": {
+    "kind": "exported-with-historical-source-harness",
+    "sourceTree": "975d5c5dbbe0904ce387965c38184ac06146fcf3",
+    "harness": "tool/firebase/historical_contract_export_test.dart",
+    "harnessSha256": "19bafa046aa4c88b371441ef0452ceadef0eff42f73b67c412d90c63aec7b6b9",
+    "sourceBlobs": {
+      "pubspec.lock": "4a2aedfb4d84265ad3bb37c7e46c1800f991809b",
+      "lib/src/app/feature/workouts/data/models/workout_document.dart": "c5d980dc676b04981f29139ff4aa32d914b84adb",
+      "lib/src/app/feature/workouts/data/models/workout_model.dart": "e85436099ff4212e150175a4c39209249b491908",
+      "lib/src/app/feature/workouts/data/models/workout_model.g.dart": "a7d3318f4c97f9907577d43abf178d1eef260d73",
+      "lib/src/app/feature/workouts/data/models/workout_summary_model.dart": "96cd9ce2a5c16144b3c9f0b50ca63c341d5ef5d0",
+      "lib/src/app/feature/workouts/data/models/workout_summary_model.g.dart": "39d812f96d54ce3a3ee0715b005482ffdc2b0ffb",
+      "lib/src/app/feature/workouts/data/datasources/workout_firestore_data_source.dart": "e6fa7097477f2c2242c6f88cd677477f5acdf6bf",
+      "lib/src/app/feature/workouts/data/datasources/workout_preferences_data_source.dart": "1de5fb3572dea0114f5f62b0f2dd451bb69a51c8",
+      "lib/src/app/feature/workouts/domain/entities/workout.dart": "fa6f6053f1aae941c7417ab09ca3bb6f525ce637",
+      "lib/src/app/feature/workouts/domain/entities/workout_preferences.dart": "bb21db768563f44a42de0237f3ba86b6f798583d",
+      "lib/src/app/feature/playback/data/models/playback_session_model.dart": "f90464160e7ee8944aea6efc66e7df38286d9eb6",
+      "lib/src/app/feature/playback/data/datasources/playback_realtime_data_source.dart": "7266e0a8e0151eb23021a73d1d5e268ec8506a2a"
+    }
+  }
+}

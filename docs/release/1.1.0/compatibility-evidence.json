@@ -1,0 +1,200 @@
+{
+  "format": 1,
+  "status": "failure",
+  "harnessSha256": "2491ba3a28d485544d7ca006ff2d6366aaa852694909c4b6a05ba63948c687fb",
+  "policySha256": "63a94e6014f18592d04697c8ab5b7a02e6013313e7883d2459f5b675789f6cdd",
+  "candidateFiles": {
+    "build/contracts/workout-save-current.json": "8daa55719daedb133adea17a8937bc6ce0f82f1bef42642ddb0c573fc4e959da",
+    "build/contracts/app-current.json": "ee9cc0ec149e203806e205e2ddc6749b858f1c3cddf539b37a0b9a7196f48cd6"
+  },
+  "sources": [
+    {
+      "sourceCommit": "1b64643860d2385d797dafba3db954063d28384f",
+      "clients": [
+        "1.0.0+2"
+      ],
+      "exceptions": [
+        {
+          "path": "workout/modules/*/designFingerprint",
+          "reason": "Regenerable rendering-cache fingerprint added after this client; missing fingerprint is a cache miss and does not change class content or timer behavior."
+        },
+        {
+          "path": "playback/workoutSnapshot/modules/*/designFingerprint",
+          "reason": "Same optional rendering-cache fingerprint in the TV snapshot."
+        }
+      ],
+      "capabilities": [],
+      "status": "success",
+      "durationMs": 11030,
+      "tests": {
+        "passed": 12,
+        "failed": 0
+      },
+      "failureReasons": [],
+      "logSha256": "78dbb7a62a929c1c04e234299e59b6c92341bbd9a21b11b30438dea2da5c1f3b"
+    },
+    {
+      "sourceCommit": "a8653077314c5e5bf2f14e1a8495e4c9ab1f1b6b",
+      "clients": [
+        "1.0.0-shared-2026-10-12"
+      ],
+      "exceptions": [],
+      "capabilities": [],
+      "status": "success",
+      "durationMs": 10147,
+      "tests": {
+        "passed": 12,
+        "failed": 0
+      },
+      "failureReasons": [],
+      "logSha256": "a114d13f9d5c1cfc66407b69c6a2122b664f3e42d27629527a3652f60544a0ec"
+    },
+    {
+      "sourceCommit": "c85167e863ee5e8e9212722572ab57df65801eeb",
+      "clients": [
+        "1.0.0-android-production-52"
+      ],
+      "exceptions": [],
+      "capabilities": [
+        {
+          "client": "1.0.0-android-production-52",
+          "workoutScenarios": [
+            "legacy-fixed",
+            "content-fixed"
+          ],
+          "durationKinds": [
+            "fixed"
+          ],
+          "summaryDurationKind": false,
+          "playbackWireProtocols": [
+            1,
+            2
+          ],
+          "advertisedPlaybackProtocol": 3,
+          "extendedTiming": false,
+          "designTemplate": false,
+          "structuredDesignStyle": false
+        }
+      ],
+      "status": "failure",
+      "durationMs": 10588,
+      "tests": {
+        "passed": 2,
+        "failed": 10
+      },
+      "failureReasons": [
+        "Released serializer drops fields: workout/modules/*/designFingerprint, workout/modules/*/designHeaderLabel, workout/modules/*/designSubtitle, workout/modules/*/designLayout, workout/modules/*/designFontWeight, workout/modules/*/designItalic, workout/modules/*/designSpacing, workout/modules/*/timingVersion, workout/modules/*/rounds, workout/modules/*/roundRestSeconds, workout/modules/*/timerMode, workout/modules/*/timerDirection, workout/modules/*/includeFinalRoundRest",
+        "For Time must stay at its result until coach action; an open timer must count elapsed time",
+        "Installed timer must retain current phase durations; an unlimited timer cannot become one second",
+        "Released serializer drops fields: playback/timerCompleted"
+      ],
+      "logSha256": "3cdb57cd5ef2c65c22fa878061ffb8d1909925b25266c9d937df730f262b0227"
+    },
+    {
+      "sourceCommit": "c54588cc7733ac8577d11c036c21635d1f283f2a",
+      "clients": [
+        "1.0.0-review-548-closed-58"
+      ],
+      "exceptions": [],
+      "capabilities": [
+        {
+          "client": "1.0.0-review-548-closed-58",
+          "workoutScenarios": [
+            "legacy-fixed",
+            "content-fixed"
+          ],
+          "durationKinds": [
+            "fixed"
+          ],
+          "summaryDurationKind": false,
+          "playbackWireProtocols": [
+            1,
+            2
+          ],
+          "advertisedPlaybackProtocol": 3,
+          "extendedTiming": false,
+          "designTemplate": true,
+          "structuredDesignStyle": false
+        }
+      ],
+      "status": "failure",
+      "durationMs": 9598,
+      "tests": {
+        "passed": 2,
+        "failed": 10
+      },
+      "failureReasons": [
+        "Released serializer drops fields: workout/modules/*/designFingerprint, workout/modules/*/designHeaderLabel, workout/modules/*/designSubtitle, workout/modules/*/timingVersion, workout/modules/*/rounds, workout/modules/*/roundRestSeconds, workout/modules/*/timerMode, workout/modules/*/timerDirection, workout/modules/*/includeFinalRoundRest",
+        "For Time must stay at its result until coach action; an open timer must count elapsed time",
+        "Installed timer must retain current phase durations; an unlimited timer cannot become one second",
+        "Released serializer drops fields: playback/timerCompleted"
+      ],
+      "logSha256": "616cae8ed464e400703fe54a533014289c03d7d094e09f47aac9d6d1ea84aead"
+    }
+  ],
+  "verifiedAt": "2026-10-12T14:58:52.637431+00:00",
+  "scope": "Original released Dart reader/serializer and playback algorithms against current candidate exports; no production or store mutations.",
+  "supportingChecks": {
+    "historicalExporter": {
+      "c85167e": {
+        "passed": 2,
+        "failed": 0
+      },
+      "c54588c": {
+        "passed": 2,
+        "failed": 0
+      }
+    },
+    "currentExportersAndCurrentReaders": {
+      "passed": 27,
+      "failed": 0
+    },
+    "validBehaviorExporter": {
+      "passed": 1,
+      "failed": 0
+    },
+    "nodeFixturesAndReaderPlans": {
+      "passed": 10,
+      "failed": 0
+    },
+    "frozenProvenanceAndCurrentWireShape": "pass",
+    "firestoreAndRealtimeEmulators": "pass"
+  },
+  "behaviorObservations": [
+    {
+      "name": "fixed",
+      "expectedDurationsMs": [
+        60000
+      ],
+      "expectedIndex": 1,
+      "expectedRemainingMs": 0,
+      "allFourSources": "pass"
+    },
+    {
+      "name": "maximum",
+      "factory": "createContinuousTimer(forTime, seconds: 60, direction: up)",
+      "expectedAfter61000Ms": {
+        "index": 0,
+        "remainingMs": 0
+      },
+      "c85167eAndC54588cActual": {
+        "index": 1,
+        "remainingMs": 0
+      },
+      "latestTwoSources": "pass"
+    },
+    {
+      "name": "open",
+      "factory": "createContinuousTimer(forTime, seconds: 0, direction: up)",
+      "expectedDurationsMs": [
+        0
+      ],
+      "expectedElapsedAfter61000Ms": 61000,
+      "c85167eAndC54588cActualDurationsMs": [
+        1000
+      ],
+      "latestTwoSources": "pass"
+    }
+  ],
+  "releaseDecision": "BLOCKED pending STA-144; do not waive timing/design preservation or claim old protocol 3 supports current timing v3."
+}
