@@ -32,3 +32,23 @@ test('corrupted/unknown values block automatic migration', () => {
   assert.throws(() => legacySettings({countdownSound: 'unknown'}));
   assert.throws(() => legacySettings({schemaVersion: 2}));
 });
+
+test('migration keeps frozen legacy branding for absent/null fields', () => {
+  for (const brandL of [undefined, null]) {
+    assert.equal(normalizeSettings({brandL}).brandL, 'CloudBoard');
+    assert.equal(legacySettings({brandL}).brandL, 'CloudBoard');
+    assert.equal(planSettings({workoutSettings: {brandL}}, []).preferences.brandL, 'CloudBoard');
+    assert.equal(planSettings({}, [], {schemaVersion: 1, revision: 1, preferences: {brandL}}).preferences.brandL, 'CloudBoard');
+  }
+  assert.equal(planSettings({}, []).preferences.brandL, 'CloudBoard');
+});
+
+test('brand-looking strings remain stored user text through migration', () => {
+  for (const brandL of ['CloudBoard', 'CloudBoard Studio', '', 'My gym', '클라우드보드 수업']) {
+    const value = normalizeSettings({brandL});
+    assert.equal(value.brandL, brandL);
+    assert.deepEqual(normalizeSettings(value), value);
+    assert.equal(legacySettings({brandL}).brandL, brandL);
+    assert.equal(planSettings({}, [{brandL}, {brandL}]).preferences.brandL, brandL);
+  }
+});

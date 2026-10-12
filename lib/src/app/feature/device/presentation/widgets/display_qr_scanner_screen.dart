@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +38,7 @@ class DisplayQrScannerScreen extends HookWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                '설정 화면을 열 수 없습니다. 기기 설정에서 클라우드보드의 카메라 권한을 확인해 주세요.',
+                '설정 화면을 열 수 없습니다. 기기 설정에서 ${AppBrand.nameKo}의 카메라 권한을 확인해 주세요.',
               ),
             ),
           );
@@ -108,7 +109,7 @@ class DisplayQrScannerScreen extends HookWidget {
                 children: [
                   Text(
                     invalid.value
-                        ? '클라우드보드 연결 QR을 비춰 주세요.'
+                        ? '${AppBrand.nameKo} 연결 QR을 비춰 주세요.'
                         : '연결할 디스플레이에 표시된 QR을 비춰 주세요.',
                   ),
                   TextButton(

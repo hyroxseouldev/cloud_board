@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
@@ -77,7 +78,7 @@ class AddDisplayDialog extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'TV에서 CloudBoard 앱을 열고 화면의 QR을 스캔하거나 6자리 코드를 입력하세요. 코드는 10분 동안 유효합니다.',
+                  'TV에서 ${AppBrand.name} 앱을 열고 화면의 QR을 스캔하거나 6자리 코드를 입력하세요. 코드는 10분 동안 유효합니다.',
                 ),
                 const SizedBox(height: 16),
                 _PairingCodeInput(controller: code, enabled: !action.isLoading),

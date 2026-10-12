@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
+import 'package:cloud_board/src/app/core/config/legacy_brand_defaults.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
@@ -13,7 +15,9 @@ abstract class WorkoutPreferences with _$WorkoutPreferences {
   @JsonSerializable(explicitToJson: true)
   const factory WorkoutPreferences({
     @JsonKey(includeToJson: false) @Default(0) int revision,
-    @Default('CloudBoard') String brandL,
+    @JsonKey(defaultValue: LegacyBrandDefaults.workoutBrand)
+    @Default(AppBrand.defaultWorkoutBrand)
+    String brandL,
     @Default('') String brandR,
     @Default(WorkoutSoundTheme.videoBeep) WorkoutSoundTheme soundTheme,
     @Default(WorkoutSound.videoBeep) WorkoutSound countdownSound,

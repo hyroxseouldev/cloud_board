@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -201,7 +203,7 @@ class _WorkoutAudioHandler extends BaseAudioHandler {
     mediaItem.add(
       MediaItem(
         id: value['sessionId'] as String? ?? 'local-workout',
-        album: value['workoutName'] as String? ?? 'CloudBoard',
+        album: value['workoutName'] as String? ?? AppBrand.name,
         title: value['slideName'] as String? ?? '수업 진행 중',
         artist: value['statusLabel'] as String? ?? '',
         duration: durationMs == 0 ? null : Duration(milliseconds: durationMs),

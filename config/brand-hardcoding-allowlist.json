@@ -1,0 +1,32 @@
+[
+  {
+    "file": "lib/src/app/core/config/legacy_brand_defaults.dart",
+    "text": "CloudBoard",
+    "occurrences": 1,
+    "reason": "Frozen default for interpreting stored workout documents; independent of new product names."
+  },
+  {
+    "file": "lib/src/app/core/config/legacy_brand_defaults.dart",
+    "text": "CloudBoard Studio",
+    "occurrences": 1,
+    "reason": "Frozen default for interpreting stored center documents."
+  },
+  {
+    "file": "functions/src/config/legacy-brand-defaults.js",
+    "text": "CloudBoard",
+    "occurrences": 1,
+    "reason": "Server compatibility default for historical workout settings."
+  },
+  {
+    "file": "functions/src/config/legacy-brand-defaults.js",
+    "text": "CloudBoard Studio",
+    "occurrences": 1,
+    "reason": "Server compatibility default for historical center data."
+  },
+  {
+    "file": "ios/Runner/AppDelegate.swift",
+    "text": "CloudBoardClassControls",
+    "occurrences": 1,
+    "reason": "Existing Flutter plugin registration identifier, not user display text."
+  }
+]
