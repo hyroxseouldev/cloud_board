@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
+import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -56,7 +57,7 @@ class LoginScreen extends HookConsumerWidget {
 
     final busy = authState.isLoading || signingInWith.value != null;
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -87,21 +88,21 @@ class LoginScreen extends HookConsumerWidget {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 30,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1.2,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -.3,
                               color: AppColors.ink,
                             ),
                           ),
                           SizedBox(height: compactHeight ? 16 : 24),
                           WelcomeMotion(
                             child: ExcludeSemantics(
-                              child: Image.asset(
-                                'assets/images/login_welcome.png',
+                              child: SizedBox(
                                 height: artworkHeight,
-                                fit: BoxFit.contain,
-                                // The decorative image must never block sign-in.
-                                errorBuilder: (_, _, _) =>
-                                    SizedBox(height: artworkHeight),
+                                child: Center(
+                                  child: SoftRhythmMark(
+                                    size: artworkHeight * .78,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -115,7 +116,8 @@ class LoginScreen extends HookConsumerWidget {
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontSize: 26,
-                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.26,
+                                fontWeight: FontWeight.w600,
                                 height: 1.3,
                                 color: AppColors.ink,
                               ),
@@ -307,7 +309,8 @@ class _SignInButton extends StatelessWidget {
       backgroundColor: dark ? Colors.black : Colors.white,
       foregroundColor: dark ? Colors.white : const Color(0xFF1F1F1F),
       disabledBackgroundColor: dark ? Colors.black : Colors.white,
-      disabledForegroundColor: dark ? Colors.white70 : AppColors.muted,
+      // Provider buttons keep their existing palette, including pending states.
+      disabledForegroundColor: dark ? Colors.white70 : const Color(0xFF777683),
       minimumSize: const Size.fromHeight(54),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       side: BorderSide(color: dark ? Colors.black : const Color(0xFF747775)),
@@ -323,7 +326,7 @@ class _SignInButton extends StatelessWidget {
             dimension: 22,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: dark ? Colors.white : AppColors.accent,
+              color: dark ? Colors.white : const Color(0xFF77729D),
             ),
           )
         : icon,

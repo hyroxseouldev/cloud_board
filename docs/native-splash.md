@@ -1,57 +1,56 @@
-# Native startup (STA-53)
+# Native startup · v5 Oat Sage
 
-The native launch screen and Flutter bootstrap/auth restoration now share a white
-background and the existing CloudBoard monitor mark at 128 logical pixels. The
-mark is centered independently from the progress indicator or retry message.
-
-The first Flutter frame is still painted **before** Firebase/device initialization.
-There is no minimum display duration, `deferFirstFrame`, `preserve`/`remove` call,
-new splash route, or lifecycle listener that replays it on resume. Initialization
-failure leaves native UI immediately and uses the existing Flutter retry flow.
-Auth restoration, onboarding guards, deep-link destinations and TV authentication
-keep their existing behavior. Web HTML/hosting, app icons and TV launcher banners
-are outside this change.
+STA-121 uses the same [Soft Rhythm master](../assets/branding/soft_rhythm_mark.png)
+on the native launch screen and Flutter bootstrap, on `#F7F5EF`.
+The fixed artwork canvas is 128 pt/dp; the image is decoded at the current device
+pixel density. The first native-to-Flutter handoff waits only for this local image
+to decode. Framework frames and Firebase initialization continue in parallel;
+decode failure or fast navigation also releases the first-frame gate. Retries and
+auth routing keep their existing behavior. There is no timed branding hold. Native launch resources use the full
+master canvas so the mark does not change position at the Flutter handoff.
 
 ## Artwork and regeneration
 
-The geometry comes from the existing
-`docs/play-store/ko-KR/assets/branding/app-icon-draft.svg`. Its matching vector
-painter, `StartupMarkPainter`, renders the first Flutter frame synchronously,
-without waiting for image decoding. The same painter exports the native artwork.
+[Asset provenance and exact prompts](design/sta121-v5/assets.md) document the generated
+transparent raster master. `tool/brand_asset_exporter.dart` only performs density,
+background and platform-mask exports. Launcher tiles center the visible artwork;
+near-transparent edge residue is excluded from optical bounds. iOS/macOS/store
+icons are opaque RGB. Android adaptive foregrounds and web maskable icons keep
+extra safe padding. Android TV retains the CloudBoard name with the new mark.
 
-| Source/export | Size | Use |
-| --- | --- | --- |
-| `assets/splash/mark.png` | 512 × 512 | 4x source, 128 pt/dp iOS and older Android |
-| `assets/splash/mark_android12.png` | 1152 × 1152 | Centered 512 px mark; all four corners fit inside the 768 px safe circle |
-| iOS LaunchImage | 128 / 256 / 384 px | 1x / 2x / 3x, centered without scaling to the device |
-| Android splash | 128 / 192 / 256 / 384 / 512 px | mdpi through xxxhdpi |
-
-`flutter_native_splash` is pinned to **2.4.8** under dev dependencies. Configuration
-is in `flutter_native_splash.yaml`; web generation is disabled. Run from the repo:
+| Export | Size / purpose |
+| --- | --- |
+| `assets/branding/app_icon.png` | 1024 × 1024 opaque review/store master |
+| `assets/splash/mark.png` | 512 × 512, 4x source for 128 pt/dp |
+| `assets/splash/mark_android12.png` | 1152 × 1152 with centered 512 px canvas |
+| iOS LaunchImage | 128 / 256 / 384 px |
+| Android splash | 128 / 192 / 256 / 384 / 512 px |
+| Launcher exports | Android legacy/adaptive/TV, iOS, macOS, web, Windows |
 
 ```sh
 fvm flutter pub get
+fvm flutter test tool/generate_android_launcher_test.dart
 bash tool/generate_native_splash.sh
-git diff -- android ios assets/splash
 ```
 
-The wrapper first exports the vector, calls the package generator, then normalizes
-Android day/night LaunchTheme and NormalTheme to the app's light appearance and
-system bars. It also keeps iOS light at native launch. Use the wrapper rather than
-only the package command: the package retains the template's black night theme.
-Keep generated resource files in version control with the configuration, so CI
-does not need to regenerate them.
-Two consecutive wrapper runs were checked for identical file hashes.
+`flutter_native_splash` stays pinned to 2.4.8. The wrapper exports artwork, runs
+the generator and normalizes Android day/night themes and system bars to the
+light oat surface. It also preserves iOS light launch appearance. Generated
+resources are committed; CI does not need to regenerate them. Web generation
+is disabled: its HTML canvas and manifest theme use the oat color directly.
 
-Android 12+ centers its system splash across the full window. `MainActivity`
-therefore configures edge-to-edge once, after Flutter's first `onPostResume`
-restores system bars and before the first draw on API 31+, so the mark does not
-shift by half the navigation bar height. Later resumes retain the player's own
-system UI mode. Older Android keeps its
-existing viewport, matching its `launch_background.xml` window.
+Android 12+ keeps the existing edge-to-edge first-resume configuration so native
+and Flutter coordinates agree. Resource changes require a new native build/install
+and a **cold launch**. Hot reload cannot verify an OS launch screen. Do not delete
+user app data to clear an iOS cached launch snapshot.
 
-Package behavior and Android 12 image requirements:
-[flutter_native_splash documentation](https://pub.dev/packages/flutter_native_splash).
+Current verification is recorded in [design-qa.md](../design-qa.md). Physical-device
+launch timing and manufacturer-specific masking remain later device QA, as requested.
+
+## Historical STA-53 evidence
+
+The following results refer to the previous white/vector artwork and **do not**
+measure v5 startup performance.
 
 ## Verification — 2026-09-30
 

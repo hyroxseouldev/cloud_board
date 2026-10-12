@@ -42,9 +42,9 @@ class UserProfileScreen extends HookConsumerWidget {
       ),
     );
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
         title: const Text('프로필'),
         centerTitle: true,
@@ -78,7 +78,8 @@ class UserProfileScreen extends HookConsumerWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 24,
-                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.24,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 32),
@@ -160,7 +161,7 @@ class UserProfileScreen extends HookConsumerWidget {
               const AccountManagementSection(),
               const SizedBox(height: 16),
               Material(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
@@ -264,9 +265,9 @@ class EditUserProfileScreen extends HookConsumerWidget {
       blocked: hasSubmitted.value && profileState.isLoading,
       guard: exitGuard,
       child: Scaffold(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.canvas,
         appBar: AppBar(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.canvas,
           surfaceTintColor: Colors.transparent,
           title: const Text('프로필 수정'),
           centerTitle: true,
@@ -328,14 +329,18 @@ class EditUserProfileScreen extends HookConsumerWidget {
                   decoration: InputDecoration(
                     hintText: '이름을 입력해 주세요',
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppColors.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(
+                        color: AppColors.controlBorder,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(
+                        color: AppColors.controlBorder,
+                      ),
                     ),
                   ),
                 ),
@@ -390,7 +395,7 @@ class EditUserProfileScreen extends HookConsumerWidget {
                           dimension: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.onAccent,
                           ),
                         )
                       : const Icon(Icons.check_rounded),
@@ -440,7 +445,7 @@ class _ProfileGroup extends StatelessWidget {
         ),
       ),
       Material(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -528,8 +533,8 @@ class _ProfileAvatar extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: radius,
-            backgroundColor: const Color(0xFF839191),
-            foregroundColor: Colors.white,
+            backgroundColor: AppColors.selected,
+            foregroundColor: AppColors.accent,
             foregroundImage: image,
             child: Text(
               displayName.isEmpty
@@ -545,7 +550,7 @@ class _ProfileAvatar extends StatelessWidget {
               tooltip: tooltip,
               onPressed: onPressed,
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.surface,
                 foregroundColor: AppColors.ink,
                 side: const BorderSide(color: AppColors.surface, width: 2),
               ),

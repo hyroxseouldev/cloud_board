@@ -1,3 +1,107 @@
+# STA-121 · v5 Oat Sage 앱·아이콘·스플래시 QA
+
+2026-10-12 · 사용자가 지정한 v5 구현. 아래는 최신 결과이며, 구분선 이후는 이전 이슈의 이력이다.
+
+final result: passed
+
+검토한 상태에 남아 있는 P0/P1/P2는 없다. 실제 Flutter 위젯 렌더와 생성한 네이티브 자산을
+선택 시안과 비교했다. 실기기 테스트는 사용자 요청에 따라 이후 진행한다.
+
+## 기준과 정규화
+
+- 원본: [reference-v5.png](docs/design/sta121-v5/reference-v5.png), **853×1844**.
+- 구현: [home-390-active.png](docs/design/sta121-v5/home-390-active.png),
+  **390×844 논리 px / DPR 2 / 780×1688 PNG**. CSS viewport는 해당하지 않는다.
+- 같은 상태: 수업 3개, 연결된 디스플레이 1대, 일시정지한 수업 8:00, 홈 선택,
+  검색 닫힘, 밝은 테마. 진행률은 실제 fixture 상태를 사용해 원본과 다르다.
+- 원본을 비율 유지하여 780×1686으로 줄이고 아래 2px를 오트 바탕으로 채웠다.
+  구현은 크기를 바꾸지 않았다. OS 상태 표시줄·홈 인디케이터를 앱 콘텐츠로 그리지 않았다.
+- [전체 나란히 비교](docs/design/sta121-v5/comparison-home-390-full.png),
+  [헤더](docs/design/sta121-v5/comparison-home-header.png),
+  [목록](docs/design/sta121-v5/comparison-home-list.png),
+  [하단 조작](docs/design/sta121-v5/comparison-home-navigation.png)을 실제로 열어 검토했다.
+- 추가 상태: 320px, 가로 844×390, 글자 2배, iPad 가로/세로, 1440px 데스크톱,
+  로딩·빈 목록·오류·미니 컨트롤 없는 상태. 재현은 `tool/sta121_home_capture_test.dart`다.
+  로딩·오류·빈 목록 캡처는 페이지 fixture여서 도크가 없으며, 실제 앱 셸 동작은 별도 테스트한다.
+- [로그인](docs/design/sta121-v5/login.png), [연결](docs/design/sta121-v5/displays.png),
+  [더보기](docs/design/sta121-v5/more.png), [복구 오류](docs/design/sta121-v5/recovery-error.png),
+  [시작](docs/design/sta121-v5/startup.png), [시작 재시도](docs/design/sta121-v5/startup-retry.png)는
+  같은 390×844 / DPR 2의 production-widget fixture다.
+
+## 발견·수정·재검토
+
+1. **[P2, 해결] 짧은 화면에서 첫 수업이 고정 조작 아래로 밀렸다.** 가로 미니 컨트롤은
+   48px, 좁은 큰 글자는 64px로 정리하고 헤더 여백을 줄였다. 첫 목록 행의 시작과 조작의
+   hit testing을 회귀 검증했다. [가로 최종](docs/design/sta121-v5/comparison-home-landscape-fixed.png),
+   [큰 글자 최종](docs/design/sta121-v5/comparison-home-large-text-fixed.png)을 다시 열어 확인했다.
+   두 비교의 왼쪽은 이미 compact 변경이 반영된 중간 캡처다. 최초 no-row 상태의 보존 이미지로
+   주장하지 않는다. 글자 2배에서는 전체 행을 보려면 정상적인 세로 스크롤이 필요하다.
+2. **[P2, 해결] 세이지 표면 위 보조 글자 대비가 낮았다.** v5 후보 `#657066`은 선택 표면과
+   4.22:1이었다. `#616B63`으로 소폭 보정하고 최종 캡처를 재생성했다. 공유 표면의 실제
+   본문·보조·행동색은 4.5:1 이상, 입력 경계는 3:1 이상을 자동 검증한다.
+3. **[P2, 해결] raster 시작 심볼을 읽기 전 빈 첫 프레임 가능성.** 표시 이미지와 동일한
+   ResizeImage provider로 미리 읽고, 준비될 때까지 native handoff만 보류한다. framework
+   프레임과 Firebase 초기화는 계속 진행한다. 성공·오류·빠른 화면 교체에서 보류를 해제하며
+   고정 노출 시간은 없다. 지연 bundle·실패·dispose 테스트로 해제와 실제 이미지 표시를 확인했다.
+4. **증거 품질 보정:** 관리 화면의 최초 캡처는 ResizeImage와 다른 cache key를 미리 읽어
+   일부 이미지가 준비되지 않았다. 실제 Image provider 전부를 디코딩하고 RawImage 준비를
+   검사하도록 fixture를 수정했다. DPR 2와 스크롤 0을 확인해 최종 7장을 다시 생성했다.
+5. **자간 최종 점검:** 공통 테마를 덮어쓰는 직접 지정 제목에도 −1%를 적용하고,
+   본문·버튼은 0으로 명시했다. 최종 홈·관리 화면을 재생성해 줄바꿈과 작은 화면을 재검토했다.
+
+## 필수 시각 요소
+
+| 항목 | 결과 |
+| --- | --- |
+| 글꼴·타입 | Pretendard 유지, 제목 w600/-1%, 목록 17/600, 메타 14, 버튼 16/600. 생성 시안의 과장된 글자 대신 문서의 역할별 수치를 적용했다. 큰 글자 줄바꿈과 스크롤을 확인했다. |
+| 배치·간격 | 브랜드→인사→연결→목록→미니→4탭 순서, 연속 구분선 목록, 최소 48px 조작 영역. 1–2열은 기존 가용 폭·글자 크기 계산을 유지한다. |
+| 색상 | 평면 오트/세이지 토큰, 대비 보정된 보조 글자. 시안의 종이 질감·조명 노이즈는 UI에 넣지 않는다. 오류/연결은 문구와 아이콘도 사용한다. |
+| 이미지·아이콘 | 생성한 실제 Soft Rhythm raster 원본을 공유한다. 작은 심볼·원형/둥근 마스크에서 두 보드가 구분되고 halo나 잘림이 없다. 수업 썸네일은 콘텐츠로 유지한다. |
+| 문구 | `내 수업`, `수업 만들기`, `모든 폴더`, 실제 연결·재생 상태와 기존 4탭 목적지를 유지한다. 로딩·오류·빈 목록은 별도 표현한다. |
+
+## 아이콘·시작 화면
+
+[플랫폼 아이콘 비교](docs/design/sta121-v5/comparison-native-icons.png)와
+[스플래시 자산 비교](docs/design/sta121-v5/comparison-native-splash.png)를 열어 검토했다.
+이 두 장은 **실제 export를 배치한 QA 합성**이며 실기기 스크린샷이 아니다.
+iOS/macOS 카탈로그의 모든 크기와 RGB 불투명 채널, Android adaptive의 66dp 안전 원,
+Android 12 스플래시 원형 안전 영역, iOS/Android의 128pt/dp 밀도별 크기가 검증됐다.
+두 번의 리소스 재생성에서 해시가 동일했다. 원본·정확한 프롬프트는
+[assets.md](docs/design/sta121-v5/assets.md)에 기록했다.
+
+## 검증
+
+- 최종 소스의 Flutter 테스트 **719개 통과**: 기본 테스트 716개와 화면 캡처 테스트 3개.
+  cold-start 지연·실패·빠른 종료 테스트를 포함하고 최종 자간 보정 후 화면을 다시 생성했다.
+- Chrome 회귀 **83개 통과**: 홈·탐색·큰 글자·타이머 편집·공통 테마/대비.
+- 최종 `flutter analyze --no-pub`: No issues found. Dart 포맷 585개 파일 변경 없음,
+  `git diff --check` 통과.
+- Android debug APK 및 Flutter web release 빌드 성공.
+- iPhone 17 Pro / iOS 26.2 Simulator: XcodeBuildMCP로 Debug 빌드·설치·실행 성공.
+  콜드 실행 녹화 프레임에서 새 런처 아이콘, [실제 native launch](docs/design/sta121-v5/iphone-native-launch.png),
+  홈 진입을 확인했다. 실제 로그인 세션의 데이터이므로 홈 녹화는 로컬 검토에만 사용했다.
+  검색 열기/닫기, 라이브러리 왕복과 홈 복귀를 실제 UI로 확인했고 runtime log에서
+  exception/overflow를 발견하지 못했다. 녹화 샘플은 시작 성능 벤치마크가 아니다.
+- 네이티브 빌드는 기존 플러그인의 Kotlin/StoreKit deprecation 경고가 있으나 성공했다.
+
+TV 브리핑의 기존 색·44/28/24px 글자와 사용자 슬라이드·타이머·센터 브랜드를 보존하는
+경계 테스트를 포함한다. 검색·폴더·스크롤 복원·새로고침·생성·재생·도크·키보드·안전영역·
+모션 감소·큰 글자·입력·다이얼로그·실패 복구는 관련 자동 테스트로 확인했다.
+운영 데이터 변경, 스토어 업로드, 실제 TV 연결 세션은 수행하지 않았다.
+
+## 남은 범위
+
+- [P3] 390px의 필터와 첫 행 사이 여백은 시안보다 약 16–20px 넓다. 세 행이 보이며 조작성을
+  해치지 않아 허용했다. 후속 미세 조정 대상이다.
+- 실기기 iOS/Android/TV의 콜드 스타트·제조사 마스크·모션 체감·VoiceOver 발화는 이후 검증한다.
+- macOS/Windows 아이콘은 생성/파일 규격 검증만 했으며 해당 플랫폼 앱 빌드는 실행하지 않았다.
+- 자세한 독립 비교는 [review.md](docs/design/sta121-v5/review.md)에 있다.
+
+구현 체크리스트: v5 공통 테마·홈·관리 UI, 동일 심볼의 플랫폼 아이콘·시작 화면,
+반응형/접근성 보완, 시안 비교와 자동 검증을 완료했다.
+
+---
+
 # STA-98 홈 첫 진입 로딩 QA
 
 final result: passed

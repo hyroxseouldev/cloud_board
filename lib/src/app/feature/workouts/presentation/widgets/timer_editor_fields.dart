@@ -73,12 +73,14 @@ class TimerValueField extends HookWidget {
             vertical: 12,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: SlideEditorStyle.surface,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(
-              color: stepper ? Colors.transparent : SlideEditorStyle.line,
+              color: stepper
+                  ? Colors.transparent
+                  : SlideEditorStyle.controlBorder,
             ),
           ),
         ),
@@ -356,6 +358,7 @@ class TimerDetailedFields extends HookWidget {
                             title: Text(
                               restOnly ? '휴식 ${index + 1}' : '구간 ${index + 1}',
                               style: const TextStyle(
+                                letterSpacing: -0.16,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

@@ -68,7 +68,7 @@ class EmailLoginScreen extends HookConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
         title: Text(title),
         leading: starter == null
@@ -101,7 +101,8 @@ class EmailLoginScreen extends HookConsumerWidget {
                             : '다시 만나 반가워요.',
                         style: const TextStyle(
                           fontSize: 26,
-                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.26,
+                          fontWeight: FontWeight.w600,
                           height: 1.3,
                         ),
                       ),

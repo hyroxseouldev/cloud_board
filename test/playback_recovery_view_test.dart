@@ -145,6 +145,34 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets(
+    'TV recovery retains its broadcast palette under the sage theme',
+    (tester) async {
+      await tester.pumpWidget(
+        harness(PlaybackRecoveryView(displayMode: true, onRetry: () {})),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        tester
+            .widget<CircularProgressIndicator>(
+              find.byType(CircularProgressIndicator),
+            )
+            .color,
+        const Color(0xFF77729D),
+      );
+      final material = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byType(PlaybackRecoveryView),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(material.color, const Color(0xFF050505));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   for (final (size, display) in [
     (const Size(320, 568), false),
     (const Size(844, 390), false),

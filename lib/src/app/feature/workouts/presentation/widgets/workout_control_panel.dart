@@ -96,7 +96,7 @@ class WorkoutControlPanel extends HookWidget {
 
     final disabled = busy || pending.value || locked;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

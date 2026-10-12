@@ -157,7 +157,7 @@ class AccountManagementSection extends HookConsumerWidget {
           ),
         ),
         Material(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppStyle.cardRadius),
           clipBehavior: Clip.antiAlias,
           child: Padding(

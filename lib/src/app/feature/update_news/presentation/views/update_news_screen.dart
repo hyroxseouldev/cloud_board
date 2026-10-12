@@ -35,7 +35,8 @@ class UpdateNewsScreen extends ConsumerWidget {
               '달라진 점을 한눈에.',
               style: TextStyle(
                 fontSize: 26,
-                fontWeight: FontWeight.w700,
+                letterSpacing: -0.26,
+                fontWeight: FontWeight.w600,
                 height: 1.3,
               ),
             ),
@@ -109,7 +110,8 @@ class UpdateNewsDetailScreen extends HookConsumerWidget {
                       style: const TextStyle(
                         fontSize: 28,
                         height: 1.35,
-                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.28,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -133,7 +135,8 @@ class UpdateNewsDetailScreen extends HookConsumerWidget {
                           style: const TextStyle(
                             fontSize: 19,
                             height: 1.4,
-                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.19,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -162,7 +165,7 @@ class _NewsPage extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.canvas,
     appBar: AppBar(
       title: Text(title),
       leading: IconButton(
@@ -191,7 +194,7 @@ class _NewsCard extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     label: unread ? '읽지 않은 소식' : null,
     child: Material(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -208,7 +211,8 @@ class _NewsCard extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 20,
                   height: 1.4,
-                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
@@ -262,7 +266,7 @@ class _NewsMeta extends StatelessWidget {
           style: TextStyle(
             color: AppColors.accent,
             fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
     ],

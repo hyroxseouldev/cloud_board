@@ -95,6 +95,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - assets/branding/soft_rhythm_mark.png
     - assets/slide_templates/
     - assets/fonts/noto_serif_kr/OFL.txt
     - assets/fonts/racing_sans_one/OFL.txt

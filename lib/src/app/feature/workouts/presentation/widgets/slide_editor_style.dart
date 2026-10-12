@@ -11,6 +11,7 @@ abstract final class SlideEditorStyle {
   static const surface = AppColors.surface;
   static const wheel = AppColors.selected;
   static const line = AppColors.line;
+  static const controlBorder = AppColors.controlBorder;
 
   static ThemeData theme(ThemeData base) => AppTheme.apply(base);
 }

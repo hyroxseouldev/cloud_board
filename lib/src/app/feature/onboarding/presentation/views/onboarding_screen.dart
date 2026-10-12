@@ -140,7 +140,11 @@ class _PhoneVerification extends HookConsumerWidget {
               const SizedBox(height: 32),
               const Text(
                 '반가워요!\n휴대폰 번호를 확인할게요.',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontSize: 28,
+                  letterSpacing: -0.28,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -479,7 +483,8 @@ class _OnboardingForm extends HookConsumerWidget {
                                         ? '기존 체험 기간'
                                         : '지금 시작하면',
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.14,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -753,7 +758,8 @@ class _PurposeChoices extends StatelessWidget {
                               Text(
                                 item.$3,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.16,
+                                  fontWeight: FontWeight.w600,
                                   fontSize: 16,
                                 ),
                               ),
@@ -816,7 +822,13 @@ class _CenterFields extends HookWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: const TextStyle(
+              letterSpacing: -0.14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
@@ -844,7 +856,13 @@ class _CenterFields extends HookWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: const TextStyle(
+              letterSpacing: -0.14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
@@ -899,7 +917,7 @@ class _CenterFields extends HookWidget {
         const SizedBox(height: 22),
         const Text(
           '센터 유형 · 복수 선택',
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(letterSpacing: -0.14, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -1108,7 +1126,8 @@ class _Heading extends StatelessWidget {
         title,
         style: const TextStyle(
           fontSize: 26,
-          fontWeight: FontWeight.w700,
+          letterSpacing: -0.26,
+          fontWeight: FontWeight.w600,
           height: 1.35,
         ),
       ),

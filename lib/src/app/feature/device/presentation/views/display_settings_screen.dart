@@ -70,7 +70,7 @@ class DisplaySettingsScreen extends HookConsumerWidget {
       },
     );
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
         toolbarHeight: 64,
         actions: [modeControl, const SizedBox(width: 18)],

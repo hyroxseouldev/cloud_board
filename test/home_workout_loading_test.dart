@@ -26,15 +26,15 @@ void main() {
   ) async {
     final repository = ControlledHomeCatalog();
     await mountLoadingHome(tester, repository);
-    expect(find.text('워크아웃'), findsOneWidget);
-    expect(find.text('워크아웃 0개'), findsNothing);
+    expect(find.text('내 수업'), findsOneWidget);
+    expect(find.text('내 수업 0개'), findsNothing);
     expect(find.text('아직 워크아웃이 없어요'), findsNothing);
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(WorkoutListSkeleton), findsNothing);
     repository.respond(0, homeCatalog());
     await tester.pumpAndSettle();
     expect(find.text('수업 1'), findsOneWidget);
-    expect(find.text('워크아웃 2개'), findsOneWidget);
+    expect(find.text('내 수업 2개'), findsOneWidget);
     expect(find.byType(WorkoutListSkeleton), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
@@ -50,7 +50,7 @@ void main() {
         expect(find.byType(WorkoutListSkeleton), findsOneWidget);
         expect(find.bySemanticsLabel('워크아웃을 불러오는 중'), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsNothing);
-        expect(find.text('워크아웃 0개'), findsNothing);
+        expect(find.text('내 수업 0개'), findsNothing);
         expect(find.byTooltip('재생'), findsNothing);
         await tester.tap(find.byTooltip('폴더 선택'));
         await tester.pump(const Duration(milliseconds: 200));
@@ -79,7 +79,7 @@ void main() {
     expect(find.text('아직 워크아웃이 없어요'), findsNothing);
     repository.respond(0, []);
     await tester.pumpAndSettle();
-    expect(find.text('워크아웃 0개'), findsOneWidget);
+    expect(find.text('내 수업 0개'), findsOneWidget);
     expect(find.text('아직 워크아웃이 없어요'), findsOneWidget);
     expect(find.byType(WorkoutListSkeleton), findsNothing);
   });
@@ -95,7 +95,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('워크아웃을 불러오지 못했어요'), findsOneWidget);
       expect(find.textContaining('internal diagnostic payload'), findsNothing);
-      expect(find.text('워크아웃 0개'), findsNothing);
+      expect(find.text('내 수업 0개'), findsNothing);
       expect(find.text('다시 시도'), findsOneWidget);
       expect(find.byKey(const ValueKey('workout-load-more')), findsNothing);
       await tester.tap(find.text('다시 시도'));
@@ -165,7 +165,7 @@ void main() {
     repository.respond(0, homeCatalog(25));
     await next;
     await tester.pumpAndSettle();
-    expect(find.text('워크아웃 25개'), findsOneWidget);
+    expect(find.text('내 수업 25개'), findsOneWidget);
   });
 
   for (final (size, scale) in [

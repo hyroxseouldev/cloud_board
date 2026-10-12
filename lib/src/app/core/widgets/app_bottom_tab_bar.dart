@@ -123,7 +123,7 @@ class AppBottomTabBar extends StatelessWidget {
                                                 ? 11
                                                 : 12,
                                             fontWeight: selected == index
-                                                ? FontWeight.w700
+                                                ? FontWeight.w600
                                                 : FontWeight.w500,
                                             color: selected == index
                                                 ? colors.primary

@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:flutter/material.dart';
 
 enum MainDestination {
@@ -40,16 +41,13 @@ class MainNavigationDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     key: const ValueKey('main-navigation-dock'),
-    color: Colors.white,
-    elevation: 1,
+    color: AppColors.navigation,
+    elevation: 0,
     shadowColor: AppColors.accent.withValues(alpha: .14),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(32),
-      side: const BorderSide(color: AppColors.line),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     clipBehavior: Clip.antiAlias,
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,11 +75,13 @@ class MainNavigationDock extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           AnimatedContainer(
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : const Duration(milliseconds: 180),
+                            duration: AppMotion.duration(
+                              context,
+                              AppMotion.selection,
+                            ),
+                            curve: AppMotion.curve,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: 16,
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
@@ -94,7 +94,7 @@ class MainNavigationDock extends StatelessWidget {
                               destination == selected
                                   ? destination.selectedIcon
                                   : destination.icon,
-                              size: 24,
+                              size: 26,
                               color: destination == selected
                                   ? AppColors.accent
                                   : AppColors.muted,
@@ -108,7 +108,7 @@ class MainNavigationDock extends StatelessWidget {
                               fontSize: 12,
                               height: 1.25,
                               fontWeight: destination == selected
-                                  ? FontWeight.w700
+                                  ? FontWeight.w600
                                   : FontWeight.w500,
                               color: destination == selected
                                   ? AppColors.ink

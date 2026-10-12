@@ -145,7 +145,8 @@ class TimerEditorScreen extends HookConsumerWidget {
                               key: const ValueKey('timer-current-mode'),
                               style: const TextStyle(
                                 fontSize: 26,
-                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.26,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -297,7 +298,7 @@ class TimerEditorScreen extends HookConsumerWidget {
                 top: false,
                 child: Container(
                   decoration: const BoxDecoration(
-                    color: Colors.white,
+                    color: SlideEditorStyle.surface,
                     border: Border(
                       top: BorderSide(color: SlideEditorStyle.line),
                     ),

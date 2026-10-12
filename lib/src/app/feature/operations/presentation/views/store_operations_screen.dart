@@ -184,7 +184,10 @@ class _BrandSettingsTab extends HookConsumerWidget {
                     const SizedBox(height: 20),
                     const Text(
                       '브랜드 색상',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        letterSpacing: -0.14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Wrap(
@@ -391,7 +394,10 @@ class _ScheduleTab extends HookConsumerWidget {
                       ),
                       title: Text(
                         item.workoutName,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        style: const TextStyle(
+                          letterSpacing: -0.16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: Text(
                         '${_weekdaysLabel(item.weekdays)} · ${item.targetDeviceIds.isEmpty ? '모든 온라인 디스플레이' : '${item.targetDeviceIds.length}대'}',
@@ -503,7 +509,10 @@ class _ScheduleDialog extends HookConsumerWidget {
               const SizedBox(height: 16),
               const Text(
                 '반복 요일',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  letterSpacing: -0.14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -536,7 +545,10 @@ class _ScheduleDialog extends HookConsumerWidget {
               const SizedBox(height: 18),
               const Text(
                 '재생 디스플레이',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  letterSpacing: -0.14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const Text('선택하지 않으면 시작 시 온라인인 모든 디스플레이에서 재생합니다.'),
               ...devices.map(
@@ -645,7 +657,10 @@ class _RemoteDisplayCard extends ConsumerWidget {
             ),
             title: Text(
               device.name,
-              style: const TextStyle(fontWeight: FontWeight.w900),
+              style: const TextStyle(
+                letterSpacing: -0.16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             subtitle: Text(
               '${device.zoneName} · ${device.online ? '온라인' : '오프라인'} · ${_displayStateLabel(device.displayState)}',
@@ -882,7 +897,7 @@ class _MetricCard extends StatelessWidget {
               value,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
@@ -906,7 +921,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.w900),
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 3),
         Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
@@ -936,7 +951,11 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             title,
-            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+            style: const TextStyle(
+              fontSize: 19,
+              letterSpacing: -0.19,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 6),
           Text(subtitle, textAlign: TextAlign.center),

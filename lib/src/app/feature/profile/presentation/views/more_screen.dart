@@ -19,7 +19,13 @@ class MoreScreen extends ConsumerWidget {
     ) => ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       leading: Icon(icon, color: AppColors.accent),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          letterSpacing: -0.16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       subtitle: Text(subtitle),
       subtitleTextStyle: Theme.of(context).textTheme.bodyMedium
           ?.copyWith(color: AppColors.secondaryText),
@@ -28,7 +34,7 @@ class MoreScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
         title: const Text('더보기'),
         automaticallyImplyLeading: false,
@@ -40,7 +46,11 @@ class MoreScreen extends ConsumerWidget {
             user?.displayName.trim().isNotEmpty == true
                 ? '${user!.displayName}님'
                 : '내 계정',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 24,
+              letterSpacing: -0.24,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           destination(

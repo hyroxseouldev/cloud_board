@@ -136,7 +136,10 @@ class SlideTimingBlocks extends StatelessWidget {
                 leading ?? Icon(Icons.timer_outlined, color: colors.primary),
             title: Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                letterSpacing: -0.16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -269,7 +272,7 @@ class SlideTimingEditor extends HookWidget {
                           Text(
                             '시간 및 세트 설정',
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         Text(
                           '${sets.value}세트 · ${formatSlideTime(workTotal)} / 휴식 ${formatSlideTime(restTotal)}',
@@ -590,7 +593,7 @@ class _MetricBlock extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: colors.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                       ),
                     ),
@@ -604,7 +607,7 @@ class _MetricBlock extends StatelessWidget {
                     value,
                     key: ValueKey('metric-$label'),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w600,
                       letterSpacing: -.5,
                     ),
                   ),
@@ -696,7 +699,7 @@ class _DurationPickerSheet extends HookWidget {
                       Text(
                         '$title 설정',
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       Text(
                         formatSlideTime(total),
@@ -825,7 +828,7 @@ class _SetCountPickerSheet extends HookWidget {
                       Text(
                         '$label 설정',
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       Text(
                         '${count.value}$unit',
