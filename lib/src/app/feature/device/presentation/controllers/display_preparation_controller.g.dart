@@ -47,7 +47,7 @@ final class DisplayPreparationControllerProvider
 }
 
 String _$displayPreparationControllerHash() =>
-    r'6ab35dd6c0bdce6f0fefda794b0f52a188bc04d4';
+    r'0e38647cd496dfdc9155dfd86377637b8cafbe77';
 
 abstract class _$DisplayPreparationController
     extends $Notifier<DisplayPreparationState> {
