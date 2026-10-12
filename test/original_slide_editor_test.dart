@@ -30,7 +30,8 @@ void main() {
         await tester.runAsync(
           () => loadOriginalSlideImage(
             design.theme.designStyle!.originalTemplate!,
-          ),
+            targetWidth: 384,
+          ).then((image) => image.dispose()),
         );
         final original = previewAiSlide(
           applyAiSlideTheme(

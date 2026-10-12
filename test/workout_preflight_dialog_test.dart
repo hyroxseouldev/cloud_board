@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -11,6 +13,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets('이미지 준비 오류는 원문을 숨기고 진단 정보와 복구 안내를 유지한다', (tester) async {
+    final sink = _PreflightDiagnostics();
+    final workout =
+        Workout.empty(
+          'workout',
+          const WorkoutAuthor(
+            id: 'user',
+            displayName: 'Tester',
+            photoUrl: null,
+          ),
+        ).copyWith(
+          modules: [
+            WorkoutModule.empty('module').copyWith(
+              imageSource: 'data:image/png;base64,TECHNICAL_PRIVATE%%',
+            ),
+          ],
+        );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
+          errorReporterProvider.overrideWithValue(ErrorReporter(sink)),
+        ],
+        child: MaterialApp(
+          theme: XonTheme.light,
+          builder: XonTheme.responsiveBuilder,
+          home: WorkoutPreflightDialog(workout: workout),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('이미지 준비 실패'), findsOneWidget);
+    expect(find.textContaining('인터넷 연결과 슬라이드 이미지'), findsOneWidget);
+    expect(find.textContaining('TECHNICAL_PRIVATE'), findsNothing);
+    expect(find.textContaining('FormatException'), findsNothing);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+          .onPressed,
+      isNull,
+    );
+    expect(sink.events.single.error, isA<FormatException>());
+    expect(sink.events.single.context['action'], 'workout.preflight.images');
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('이미지 프리로드는 첫 프레임 이후 안전하게 시작한다', (tester) async {
     final workout =
         Workout.empty(
@@ -125,6 +172,12 @@ void main() {
       [true, false],
     );
   });
+}
+
+class _PreflightDiagnostics implements DiagnosticSink {
+  final events = <DiagnosticEvent>[];
+  @override
+  Future<void> send(DiagnosticEvent event) async => events.add(event);
 }
 
 final _onePixelPng = base64Decode(

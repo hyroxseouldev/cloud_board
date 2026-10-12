@@ -187,6 +187,9 @@ service cloud.firestore {
           && request.resource.data.updatedAt is timestamp
           && getAfter(/databases/$(database)/documents/users/$(userId)/workouts/$(workoutId)).data.ownerId == userId;
       }
+      // Module designFingerprint is an optional renderer-version/hash hint.
+      // Both old modules without it and new DTOs retain the same owner checks.
+      // It grants no asset permission; Storage and the scoped client lookup do.
       match /workouts/{workoutId} {
         allow read, delete: if isOwner(userId);
         allow create: if isOwner(userId) && compatibleWorkoutWrite(userId)

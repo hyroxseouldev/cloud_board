@@ -83,6 +83,8 @@ abstract class WorkoutModule with _$WorkoutModule {
     required String imageSource,
     // Versioned theme; content stays in name/text/timer fields.
     String? designTemplate,
+    // Versioned hash of the visual input associated with imageSource.
+    String? designFingerprint,
     SlideDesignStyle? designStyle,
     @Default('') String designHeaderLabel,
     @Default('') String designSubtitle,

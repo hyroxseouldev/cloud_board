@@ -132,6 +132,19 @@ void main() {
       expect(source.detailReads, lessThanOrEqualTo(3));
     },
   );
+  test('legacy account retains complete detail cache alongside partial summaries offline', () async {
+    final source = _LegacyCachedSource();
+    final repository = WorkoutRepositoryImpl(
+      _Auth(),
+      source,
+      _Storage(),
+      WorkoutLocalDataSource(await SharedPreferences.getInstance()),
+    );
+    final pages = await repository.watchSummaries().toList();
+    expect(pages.first.map((item) => item.id), ['w0']);
+    expect(pages.last.map((item) => item.id).toSet(), {'w0', 'w1', 'w2'});
+  });
+
   test('summary cache survives failed refresh without querying full server documents', () async {
     final source = _Source()
       ..cached = [
@@ -286,4 +299,19 @@ class _PendingDetail implements WorkoutRepository {
 
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class _LegacyCachedSource extends _Source {
+  @override
+  Future<bool> hasSummaryCatalog(String id) async => false;
+  @override
+  Future<List<WorkoutSummaryModel>> loadCachedSummaries(String id) async => [
+    WorkoutSummaryModel.fromEntity(summarizeWorkout(server.first)),
+  ];
+  @override
+  Future<List<WorkoutModel>> loadCached(String id) async =>
+      server.take(3).map(WorkoutModel.fromEntity).toList();
+  @override
+  Stream<({List<WorkoutModel> items, bool complete})> loadPages(String id) =>
+      Stream.error(StateError('offline'));
 }

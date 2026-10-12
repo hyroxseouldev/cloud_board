@@ -97,6 +97,7 @@ WorkoutModuleModel _$WorkoutModuleModelFromJson(
   text: json['text'] as String,
   imageUrl: json['imageUrl'] as String,
   designTemplate: json['designTemplate'] as String?,
+  designFingerprint: json['designFingerprint'] as String?,
   designStyle: json['designStyle'] == null
       ? null
       : SlideDesignStyle.fromJson(json['designStyle'] as Map<String, dynamic>),
@@ -143,6 +144,7 @@ Map<String, dynamic> _$WorkoutModuleModelToJson(WorkoutModuleModel instance) =>
       'text': instance.text,
       'imageUrl': instance.imageUrl,
       'designTemplate': ?instance.designTemplate,
+      'designFingerprint': ?instance.designFingerprint,
       'designStyle': ?instance.designStyle?.toJson(),
       'designHeaderLabel': instance.designHeaderLabel,
       'designSubtitle': instance.designSubtitle,

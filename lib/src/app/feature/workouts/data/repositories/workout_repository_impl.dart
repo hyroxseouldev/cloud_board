@@ -53,12 +53,12 @@ class WorkoutRepositoryImpl
 
   void _rememberVersions(
     String uid,
-    List<WorkoutSummary> items, {
-    bool complete = false,
+    Iterable<WorkoutSummary> items, {
+    Set<String>? completeIds,
   }) {
     if (_cacheOwner != uid || _auth.currentUser?.uid != uid) return;
-    if (complete) {
-      final ids = items.map((item) => item.id).toSet();
+    if (completeIds != null) {
+      final ids = completeIds;
       // Include details opened before their first catalog read, and pending
       // reads for records that have since been deleted.
       for (final key in _details.keys) {
@@ -94,61 +94,115 @@ class WorkoutRepositoryImpl
     final userId = _owner();
     // Retain full cached details already used by earlier app versions for offline
     // playback. Do not download every detail just to construct this catalog.
+    final catalog = WorkoutSummaryAccumulator();
     final cached = await _firestore.loadCachedSummaries(userId);
-    final visible = {for (final item in cached) item.id: item.toEntity()};
-    if (visible.isNotEmpty) {
-      yield WorkoutCatalogPage(_sortedSummaries(visible.values), cached: true);
+    catalog.add(
+      cached,
+      (item) => item.id,
+      (item) => item.updatedAt,
+      (item) => item.toEntity(),
+      server: false,
+    );
+    if (catalog.items.isNotEmpty) {
+      yield WorkoutCatalogPage(catalog.items, cached: true, ordered: true);
     }
     try {
       if (!await _firestore.hasSummaryCatalog(userId)) {
-        var cached = true;
-        var complete = false;
-        await for (final items in _watch(
-          requireServer: requireServer,
-          onServerPage: (finished) {
-            cached = false;
-            complete = finished;
-          },
-        )) {
-          final summaries = items.map(summarizeWorkout).toList();
-          if (!cached) {
-            _rememberVersions(userId, summaries, complete: complete);
+        // Legacy accounts use the same incremental summary boundary. Never
+        // summarize all earlier detail pages again when the next page arrives.
+        // During migration the summary disk cache can be partial. Merge the
+        // older detail cache as well so offline accounts retain every known row.
+        final cachedDetails = await _firestore.loadCached(userId);
+        if (cachedDetails.isNotEmpty) {
+          catalog.add(
+            cachedDetails,
+            (item) => item.id,
+            (item) => item.updatedAt,
+            (item) => summarizeWorkout(item.toEntity()),
+            server: false,
+          );
+          if (catalog.items.isNotEmpty) {
+            yield WorkoutCatalogPage(
+              catalog.items,
+              cached: true,
+              ordered: true,
+            );
           }
+        }
+        await for (final page in _firestore.loadPages(userId)) {
+          if (_auth.currentUser?.uid != userId) return;
+          var details = page.items;
+          if (page.complete && details.isEmpty && catalog.serverIds.isEmpty) {
+            final legacy = _local.load();
+            if (legacy.isNotEmpty) {
+              for (final workout in legacy) {
+                if (_auth.currentUser?.uid != userId) return;
+                await _saveForUser(workout.toEntity(), _requireUser());
+              }
+              await _local.clear();
+              details = await _firestore.load(userId);
+            }
+          }
+          final changed = catalog.add(
+            details,
+            (item) => item.id,
+            (item) => item.updatedAt,
+            (item) => summarizeWorkout(item.toEntity()),
+            complete: page.complete,
+          );
+          _rememberVersions(
+            userId,
+            changed,
+            completeIds: page.complete ? catalog.serverIds : null,
+          );
           yield WorkoutCatalogPage(
-            summaries,
-            cached: cached,
-            complete: complete,
+            catalog.items,
+            complete: page.complete,
+            ordered: true,
           );
         }
         return;
       }
+      var warmed = false;
       await for (final page in _firestore.loadSummaryPages(userId)) {
-        if (page.complete) {
-          final ids = page.items.map((item) => item.id).toSet();
-          visible.removeWhere((id, _) => !ids.contains(id));
+        if (_auth.currentUser?.uid != userId) return;
+        final changed = catalog.add(
+          page.items,
+          (item) => item.id,
+          (item) => item.updatedAt,
+          (item) => item.toEntity(),
+          complete: page.complete,
+        );
+        _rememberVersions(
+          userId,
+          changed,
+          completeIds: page.complete ? catalog.serverIds : null,
+        );
+        if (!warmed) {
+          warmed = true;
+          unawaited(
+            _warmOfflineDetails(userId, catalog.items.take(2).toList()),
+          );
         }
-        for (final item in page.items) {
-          visible[item.id] = item.toEntity();
-        }
-        final summaries = _sortedSummaries(visible.values);
-        _rememberVersions(userId, summaries, complete: page.complete);
-        // Warm only the two most recent details, not the entire library.
-        if (page.items.length <= WorkoutFirestoreDataSource.pageSize) {
-          unawaited(_warmOfflineDetails(userId, summaries.take(2).toList()));
-        }
-        yield WorkoutCatalogPage(summaries, complete: page.complete);
+        yield WorkoutCatalogPage(
+          catalog.items,
+          complete: page.complete,
+          ordered: true,
+        );
       }
     } catch (_) {
-      // An explicit refresh must not report success after serving only cache.
       if (requireServer) rethrow;
-      if (visible.isNotEmpty) return;
-      // Old detail caches remain usable even before the first summary sync.
+      if (catalog.items.isNotEmpty) return;
       final legacyCache = await _firestore.loadCached(userId);
       if (legacyCache.isEmpty) rethrow;
-      yield WorkoutCatalogPage(
-        legacyCache.map((item) => summarizeWorkout(item.toEntity())).toList(),
-        cached: true,
+      catalog.add(
+        legacyCache,
+        (item) => item.id,
+        (item) => item.updatedAt,
+        (item) => summarizeWorkout(item.toEntity()),
+        server: false,
       );
+      yield WorkoutCatalogPage(catalog.items, cached: true, ordered: true);
     }
   }
 
@@ -175,9 +229,6 @@ class WorkoutRepositoryImpl
     await Future.wait([worker(), worker()]);
   }
 
-  List<WorkoutSummary> _sortedSummaries(Iterable<WorkoutSummary> items) =>
-      items.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
   @override
   Future<List<Workout>> load() => watch().last;
 
@@ -192,9 +243,10 @@ class WorkoutRepositoryImpl
     final cached = await _firestore.loadCached(user.uid);
     final visible = {for (final item in cached) item.id: item.toEntity()};
     if (visible.isNotEmpty) yield _sorted(visible.values);
+    final serverIds = <String>{};
     try {
       await for (final page in _firestore.loadPages(user.uid)) {
-        if (page.complete && page.items.isEmpty) {
+        if (page.complete && page.items.isEmpty && serverIds.isEmpty) {
           final legacy = _local.load();
           if (legacy.isNotEmpty) {
             for (final workout in legacy) {
@@ -210,9 +262,9 @@ class WorkoutRepositoryImpl
         }
         // Retain cached rows while later pages are still arriving. A complete
         // server result removes rows deleted on other devices.
+        serverIds.addAll(page.items.map((item) => item.id));
         if (page.complete) {
-          final ids = page.items.map((item) => item.id).toSet();
-          visible.removeWhere((id, _) => !ids.contains(id));
+          visible.removeWhere((id, _) => !serverIds.contains(id));
         }
         for (final item in page.items) {
           final previous = visible[item.id];
@@ -325,6 +377,48 @@ class WorkoutRepositoryImpl
     final user = _auth.currentUser;
     if (user == null) throw StateError('로그인이 필요합니다.');
     return user;
+  }
+}
+
+/// Converts each new/changed DTO once per sync, including on the legacy path.
+/// Snapshots are still immutable, but previously ordered rows are never sorted
+/// again just because another network page arrived.
+class WorkoutSummaryAccumulator {
+  final _versions = <String, DateTime>{};
+  final _values = <String, WorkoutSummary>{};
+  final serverIds = <String>{};
+  List<WorkoutSummary> items = const [];
+
+  List<WorkoutSummary> add<T>(
+    Iterable<T> page,
+    String Function(T) idOf,
+    DateTime Function(T) versionOf,
+    WorkoutSummary Function(T) decode, {
+    bool server = true,
+    bool complete = false,
+  }) {
+    final changed = <String, WorkoutSummary>{};
+    final observed = <WorkoutSummary>[];
+    for (final model in page) {
+      final id = idOf(model);
+      if (server) serverIds.add(id);
+      final version = versionOf(model);
+      if (_versions[id] != version) {
+        changed[id] = decode(model);
+        _values[id] = changed[id]!;
+        _versions[id] = version;
+      }
+      observed.add(_values[id]!);
+    }
+    final removed = complete
+        ? _versions.keys.where((id) => !serverIds.contains(id)).toSet()
+        : const <String>{};
+    for (final id in removed) {
+      _versions.remove(id);
+      _values.remove(id);
+    }
+    items = mergeWorkoutSummaries(items, changed, removed: removed);
+    return observed;
   }
 }
 
