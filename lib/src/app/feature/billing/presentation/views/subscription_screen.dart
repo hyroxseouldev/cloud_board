@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,10 +11,8 @@ import 'package:cloud_board/src/app/feature/billing/presentation/controllers/bil
 const appleSubscriptionsUrl = 'https://apps.apple.com/account/subscriptions';
 const googleSubscriptionsUrl =
     'https://play.google.com/store/account/subscriptions?package=com.sunmkim.cloudboard';
-const subscriptionTermsUrl =
-    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
-const subscriptionPrivacyUrl =
-    'https://clyr-landing-20.vercel.app/apps/cloudboard/privacy';
+const subscriptionTermsUrl = AppLinks.terms;
+const subscriptionPrivacyUrl = AppLinks.privacy;
 
 class SubscriptionScreen extends HookConsumerWidget {
   const SubscriptionScreen({super.key});

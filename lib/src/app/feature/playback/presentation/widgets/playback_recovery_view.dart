@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:async';
@@ -81,8 +82,11 @@ class PlaybackRecoveryView extends HookWidget {
               const Positioned(
                 top: 20,
                 left: 24,
+                right: 24,
                 child: Text(
-                  'CloudBoard',
+                  AppBrand.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     inherit: false,
                     fontFamily: 'Pretendard',

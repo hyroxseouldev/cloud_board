@@ -1,3 +1,4 @@
+import {AppBrand} from './config/app-brand.js';
 import {randomUUID} from 'node:crypto';
 import {HttpsError} from 'firebase-functions/v2/https';
 import {billingAccount, handleBilling, refreshEntitlements} from './billing.js';
@@ -18,7 +19,7 @@ export async function claimPlaySubscription(db, uid, token, snapshot) {
     }
     if (account.data()?.appAccountToken !== snapshot.accountToken || owner.data()?.uid !== uid ||
         (existing.exists && existing.data().uid !== uid)) {
-      throw fail('permission-denied', '처음 구독한 CloudBoard 계정으로 로그인해 복원해 주세요.');
+      throw fail('permission-denied', `처음 구독한 ${AppBrand.name} 계정으로 로그인해 복원해 주세요.`);
     }
     if (snapshot.grant.environment === 'Sandbox' && tester.data()?.enabled !== true) {
       throw fail('permission-denied', '테스트 계정으로만 테스트 결제를 사용할 수 있습니다.');

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
@@ -41,7 +42,7 @@ abstract class Workout with _$Workout {
     author: author,
     name: '',
     folder: '',
-    brandL: 'CloudBoard',
+    brandL: AppBrand.defaultWorkoutBrand,
     brandR: '',
     soundTheme: WorkoutSoundTheme.videoBeep,
     countdownSound: WorkoutSound.videoBeep,
