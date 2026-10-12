@@ -1,6 +1,6 @@
 # CloudBoard 1.1.0 release ledger
 
-Tracking: [STA-143](https://linear.app/clyrdev/issue/STA-143). The candidate includes [PR #44](https://github.com/hyroxseouldev/cloud_board/pull/44) at `7d12923490b2f8ced04f0977117c3fdef3256142` and this release-preparation change, plus PR #45 (remove automatic Linear deployment posts while retaining app update news). The final source SHA, artifact hashes and CI runs must be recorded after the candidate is committed; a branch name is not a release identity.
+Tracking: [STA-143](https://linear.app/clyrdev/issue/STA-143). The final release source is `9289366258f561b2b5b040b24f461b1db008e295`, incorporating PRs #44, #45 and #46. Current CI, deployment/upload evidence, native build identities and review status are recorded in the [post-upload ledger](post-upload-ledger.md). Preparation-build observations below are historical and do not substitute for final-main evidence.
 
 ## Authorized scope and current state
 
@@ -18,12 +18,12 @@ Google Play managed publishing was disabled at inventory time. It was **enabled 
 | Android previous public binary | `1.0.0 (52)`, Korea, full rollout |
 | Highest historical Play upload | `65`, confirmed across all 47 uploads; reserve a fresh number immediately before each build |
 | iOS previous review / latest test binary | Review `1.0.0 (548)` / TestFlight `1.0.0 (553)`; not evidence of public availability |
-| Candidate IPA/AAB | Build-only preparation at `f7c064210fce45063b53e87a3b2b5db4dd1ddd4b`: [Android run 38265566752](https://github.com/hyroxseouldev/cloud_board/actions/runs/38265566752), [iOS run 38265571411](https://github.com/hyroxseouldev/cloud_board/actions/runs/38265571411); iOS passed as 1.1.0 (554), including signing, production Firebase and arm64 AOT binding; Android 66 compiled/signed but its inspector rejected bundletool STR formatting, now fixed and covered by regression tests; a new Android build is required |
-| Final app + Firebase contract CI | Pending final candidate SHA; earlier PR #44 results do not replace this check |
-| Production backend receipt for candidate | Main promotion and automatic deployment authorized; exact-SHA receipt pending |
+| Historical preparation IPA/AAB | Build-only preparation at `f7c064210fce45063b53e87a3b2b5db4dd1ddd4b`: [Android run 38265566752](https://github.com/hyroxseouldev/cloud_board/actions/runs/38265566752), [iOS run 38265571411](https://github.com/hyroxseouldev/cloud_board/actions/runs/38265571411); iOS passed as 1.1.0 (554), including signing, production Firebase and arm64 AOT binding; Android 66 compiled/signed but its inspector rejected bundletool STR formatting. Follow-on Android 67 preparation smoke and final-main evidence are distinguished in the [post-upload ledger](post-upload-ledger.md). |
+| Final app + Firebase contract CI | Exact-main run [38271696281](https://github.com/hyroxseouldev/cloud_board/actions/runs/38271696281); see [current evidence](post-upload-ledger.md) |
+| Production backend receipt for final main | See [post-upload ledger](post-upload-ledger.md); preparation runs do not authorize final-main client upload |
 | Upgrade and mixed phone/TV validation | Pending [physical-device matrix](device-validation.md) |
-| Google Play images and copy | [Google Play materials](google-play/); widget render drafts must be replaced with verified candidate captures before submission |
-| Production review / public rollout | Not submitted / not published by this preparation record |
+| Google Play images and copy | Existing store images retained for this core release. [New materials](google-play/) remain drafts and are not uploaded; verified full native screenshot and TV sets remain follow-up work. |
+| Production review / public rollout | Recorded separately in the [post-upload ledger](post-upload-ledger.md); internal upload is not publication |
 
 The local application baseline at `f7c0642` passed analysis and **860 Flutter tests**. Release-helper checks passed **11 Node tests and 4 Python tests**. These checks do not establish retired-client forward compatibility; the separate historical audit preserves those failures and the explicit support decision.
 
@@ -34,7 +34,7 @@ The local application baseline at `f7c0642` passed analysis and **860 Flutter te
 3. Inspect retained metadata reports. They must identify version 1.1.0, fresh platform build number, the unchanged app identifier, production Firebase resources, all release Dart architectures and the expected signing identity. Store the artifact SHA-256, source SHA, workflow run and attempt in the release record.
 4. Prepare manual main promotion only after checks pass. Main push currently starts the Firebase production/web workflow and can start native upload workflows; it is not merely a branch move. The owner explicitly authorized this production step in the October 13 conversation. A build-only run must never be treated as a successful store upload or backend receipt.
 5. Before any actual client upload, require the successful **same-main-SHA full backend receipt**, live-rule read-back and client permission canary through `tool/release_backend_gate.mjs`. Do not bypass the gate by manually uploading an earlier preparation artifact. If promotion changes the SHA, build and inspect a new candidate with a fresh build number.
-6. Upload the verified Android candidate to internal testing, perform the device checks, and promote **that same AAB** to production review with the verified Korean listing materials and release notes. Verify managed publishing is on and the release/listing changes have actually been sent for review. Record the submitted versionCode and timestamp, not just the existence of a draft release.
+6. Upload the verified Android candidate to internal testing, record the completed and outstanding device checks, and promote **that same final-main AAB** to production review with release notes while preserving the existing store images. Verify managed publishing is on and the release changes have actually been sent for review. Record the submitted versionCode and timestamp, not just the existence of a draft release.
 7. When the owner later publishes, verify actual Play installation/update and listing appearance in Korea. Do not enable mandatory updates or register availability while review is pending. Keep minimum supported builds unchanged until actual availability is verified; only then apply the owner-authorized update policy.
 
 ## Candidate contract and release registration

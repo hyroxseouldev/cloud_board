@@ -1,0 +1,112 @@
+{
+  "format": 1,
+  "sourceCommit": "9289366258f561b2b5b040b24f461b1db008e295",
+  "verifiedAt": "2026-10-12T16:16:34.082549Z",
+  "firebase": {
+    "runId": "38271696281",
+    "attempt": "1",
+    "status": "success",
+    "scope": "full",
+    "completedAt": "2026-10-12T15:57:03.655Z",
+    "manifestHash": "98041eaf00a8f7a15c769289c69c6d0bb82f8f1281c7b14db654550f6ec3a28c",
+    "canary": {
+      "status": "success",
+      "cleanup": "success",
+      "checks": [
+        "workout",
+        "storage",
+        "tv",
+        "isolation"
+      ]
+    },
+    "liveRules": "success",
+    "liveWeb": {
+      "url": "https://cloud-board-stationd.web.app/version.json",
+      "app_name": "cloud_board",
+      "version": "1.1.0",
+      "build_number": "159.1",
+      "package_name": "cloud_board",
+      "exactCandidateMatch": true
+    },
+    "candidateArtifactId": "11758016228"
+  },
+  "nativeUploads": {
+    "android": {
+      "runId": "38271696288",
+      "attempt": "1",
+      "status": "success",
+      "version": "1.1.0",
+      "build": "68",
+      "sourceCommit": "9289366258f561b2b5b040b24f461b1db008e295",
+      "artifactSha256": "72171e0985210cb88468dacf2d580e2dbf029321358578454b89b6f37d93d253",
+      "uploadAcceptedAt": "2026-10-12T16:13:02Z",
+      "productionBindingVerified": true,
+      "channel": "internal",
+      "editId": "06468497176628521120",
+      "sharedTvBundle": true,
+      "tvPublicAvailability": "not-verified"
+    },
+    "ios": {
+      "runId": "38271696253",
+      "attempt": "1",
+      "status": "success",
+      "version": "1.1.0",
+      "build": "554",
+      "sourceCommit": "9289366258f561b2b5b040b24f461b1db008e295",
+      "artifactSha256": "5694f711191ff8b8478115a772db13885f0d5ffbf77c781bbe5c431f73ecf7ea",
+      "uploadAcceptedAt": "2026-10-12T16:11:11Z",
+      "productionBindingVerified": true,
+      "channel": "testflight",
+      "deliveryUuid": "9225b102-6693-4b8d-beef-48271422decb",
+      "processingReady": "not-verified"
+    }
+  },
+  "storePublication": {
+    "androidProductionReview": {
+      "status": "review-submitted-prechecks-running",
+      "version": "1.1.0",
+      "build": "68",
+      "track": "production",
+      "trackId": "4697936926455709729",
+      "releaseId": "3",
+      "managedPublishing": true,
+      "consoleSection": "검토 중인 변경사항",
+      "rolloutDescription": "전체 출시 시작",
+      "automaticCheckMessage": "일반적으로 발견되는 문제에 대한 빠른 검사 실행 중",
+      "evidenceFile": "docs/release/1.1.0/google-play-1.1.0-68-review-submitted.jpg",
+      "evidenceSha256": "98784e1ad703498feecfc4d0c4065f13ae617342050e564f103ec02de74e4992",
+      "public": false
+    },
+    "androidPublicRelease": "not-published-managed-publishing-enabled",
+    "iosPublicRelease": "not-verified"
+  },
+  "notes": [
+    "Existing store images retained; new draft renders not uploaded",
+    "Preparation emulator smoke for source8613f13/build67 does not verify final main or Play install",
+    "No mandatory update policy change made by this registration"
+  ],
+  "installedWorkflowInventory": [
+    {
+      "platforms": [
+        "ios"
+      ],
+      "runId": "38271696253",
+      "sha": "9289366258f561b2b5b040b24f461b1db008e295"
+    },
+    {
+      "platforms": [
+        "android",
+        "tv"
+      ],
+      "runId": "38271696288",
+      "sha": "9289366258f561b2b5b040b24f461b1db008e295"
+    },
+    {
+      "platforms": [
+        "web"
+      ],
+      "runId": "38271696281",
+      "sha": "9289366258f561b2b5b040b24f461b1db008e295"
+    }
+  ]
+}
