@@ -517,7 +517,7 @@
     "kind": "exported-with-historical-source-harness",
     "sourceTree": "975d5c5dbbe0904ce387965c38184ac06146fcf3",
     "harness": "tool/firebase/historical_contract_export_test.dart",
-    "harnessSha256": "affbaf69714bca67903d845e4012054f40a923ddb6d88580726c0fe80115257a",
+    "harnessSha256": "19bafa046aa4c88b371441ef0452ceadef0eff42f73b67c412d90c63aec7b6b9",
     "sourceBlobs": {
       "pubspec.lock": "4a2aedfb4d84265ad3bb37c7e46c1800f991809b",
       "lib/src/app/feature/workouts/data/models/workout_document.dart": "c5d980dc676b04981f29139ff4aa32d914b84adb",

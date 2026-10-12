@@ -202,6 +202,8 @@ class _Transaction extends Fake implements Transaction {
   }
 }
 
+// Recording-only transport fake; serialization remains the historical SDK code.
+// ignore: subtype_of_sealed_class
 class _Document extends Fake
     implements DocumentReference<Map<String, dynamic>> {
   _Document(this.db, this.path);
@@ -217,6 +219,8 @@ class _Document extends Fake
   ]) async => _Snapshot(db.documents[path]);
 }
 
+// Recording-only transport fake for the original data source's collection path.
+// ignore: subtype_of_sealed_class
 class _Collection extends Fake
     implements CollectionReference<Map<String, dynamic>> {
   _Collection(this.db, this.path);
@@ -228,6 +232,8 @@ class _Collection extends Fake
       _Document(db, '${this.path}/$path');
 }
 
+// Recording-only transport fake returning documents captured by the transaction.
+// ignore: subtype_of_sealed_class
 class _Snapshot extends Fake implements DocumentSnapshot<Map<String, dynamic>> {
   _Snapshot(this.value);
   final Map<String, dynamic>? value;

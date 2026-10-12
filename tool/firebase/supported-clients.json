@@ -75,10 +75,10 @@
         "contentOnly"
       ],
       "file": "functions/test/fixtures/workout-save/1.0.0-production-52.json",
-      "sha256": "023bccb955e96e9c0ee0511d0ae6cf981c68113513186f3260d2775bd60faab5",
+      "sha256": "6ac7fde2e179f8e1a12b58dbc8371d7916bfd8c61e3ba8214ce0d2baae2cd958",
       "appContract": {
         "file": "functions/test/fixtures/app-contracts/1.0.0-production-52.json",
-        "sha256": "4893f7d69d3691b2d0ee2d781876ab13f50e74b06c3eba6e9bb5f6264c3f1b26"
+        "sha256": "81f67b4fb1482f429a6362bd0093639850028328a651cc69163bdf3d3a4ab4ef"
       },
       "capabilities": {
         "workoutScenarios": [
@@ -120,10 +120,10 @@
         "contentOnly"
       ],
       "file": "functions/test/fixtures/workout-save/1.0.0-review-548-closed-58.json",
-      "sha256": "19de801f176787743252dfabebd0f522abac1edb1e49dca997e0fd980aa8c79d",
+      "sha256": "7cef16fb7d502c5aacf6b1a84412837014e34c26d78077b8a7a672d4a3c74a9a",
       "appContract": {
         "file": "functions/test/fixtures/app-contracts/1.0.0-review-548-closed-58.json",
-        "sha256": "0cf79ea1a30bce63268a7778b305aec5e1369e4e971db648d4afe93327266a42"
+        "sha256": "9f694ebefafc8f30fa36e0b9bea13b48e898946284c0ffde736e330792977f32"
       },
       "capabilities": {
         "workoutScenarios": [
