@@ -1,0 +1,55 @@
+{
+  "format": 1,
+  "retirements": [
+    {
+      "id": "owner-2026-10-13-c85167e",
+      "sourceCommit": "c85167e863ee5e8e9212722572ab57df65801eeb",
+      "clients": [
+        "1.0.0-android-production-52"
+      ],
+      "scope": "forward-semantic-reader-only",
+      "effectiveFromVersion": "1.1.0",
+      "reason": "owner-declared-zero-active-users-2026-10-13-KST",
+      "authorization": {
+        "kind": "owner-conversation",
+        "date": "2026-10-13",
+        "timezone": "Asia/Seoul",
+        "remotelyVerified": false,
+        "quotes": [
+          "아그럼강제업데이트시키면되잖아근데지금쓰는사람없어서ㄱㅊ음",
+          "쓰는사람없으니까1.1.0로올려"
+        ]
+      },
+      "retainedCoverage": [
+        "frozen-fixtures",
+        "current-reader-of-historical-data",
+        "historical-writes-against-current-rules"
+      ]
+    },
+    {
+      "id": "owner-2026-10-13-c54588c",
+      "sourceCommit": "c54588cc7733ac8577d11c036c21635d1f283f2a",
+      "clients": [
+        "1.0.0-review-548-closed-58"
+      ],
+      "scope": "forward-semantic-reader-only",
+      "effectiveFromVersion": "1.1.0",
+      "reason": "owner-declared-zero-active-users-2026-10-13-KST",
+      "authorization": {
+        "kind": "owner-conversation",
+        "date": "2026-10-13",
+        "timezone": "Asia/Seoul",
+        "remotelyVerified": false,
+        "quotes": [
+          "아그럼강제업데이트시키면되잖아근데지금쓰는사람없어서ㄱㅊ음",
+          "쓰는사람없으니까1.1.0로올려"
+        ]
+      },
+      "retainedCoverage": [
+        "frozen-fixtures",
+        "current-reader-of-historical-data",
+        "historical-writes-against-current-rules"
+      ]
+    }
+  ]
+}

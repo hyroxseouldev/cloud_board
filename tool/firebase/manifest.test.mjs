@@ -17,15 +17,23 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
   const write = (file, content) => { mkdirSync(dirname(join(dir, file)), {recursive: true}); writeFileSync(join(dir, file), content); };
   const json = (file, value) => write(file, JSON.stringify(value));
   try {
-    for (const file of ['tool/firebase/release.mjs', 'tool/firebase/common.mjs', 'firebase.json', 'firestore.rules', 'database.rules.json', 'storage.rules']) write(file, readFileSync(file));
+    for (const file of ['tool/firebase/release.mjs', 'tool/firebase/common.mjs', 'tool/firebase/support_retirements.mjs', 'firebase.json', 'firestore.rules', 'database.rules.json', 'storage.rules']) write(file, readFileSync(file));
     for (const directory of ['functions/src', 'functions/tools', 'functions/certificates', 'functions/test/fixtures']) write(`${directory}/example.js`, 'verified');
     for (const file of ['firestore.indexes.json', 'functions/package.json', 'functions/package-lock.json', 'build/contracts/app-current.json', 'build/contracts/workout-save-current.json', 'tool/firebase/compatibility-policy.json']) json(file, {});
     const sourceCommit = 'b'.repeat(40);
-    json('tool/firebase/supported-clients.json', {clients: [{client: 'released', sourceCommit}]});
+    const retirementPolicyFile = 'tool/firebase/support-retirements.json';
+    const retirementBytes = readFileSync(retirementPolicyFile);
+    const retirementPolicy = JSON.parse(retirementBytes);
+    write(retirementPolicyFile, retirementBytes);
+    json('tool/firebase/supported-clients.json', {clients: [{client: 'released', sourceCommit},
+      ...retirementPolicy.retirements.flatMap(entry => entry.clients.map(client => ({client, sourceCommit: entry.sourceCommit}))),
+    ]});
     write('tool/firebase/released_reader_contract_test.dart', 'actual released reader harness');
-    const readerReport = {format: 1, status: 'success', harnessSha256: hash('actual released reader harness'), policySha256: hash('{}'),
+    const readerReport = {format: 1, status: 'success', harnessSha256: hash('actual released reader harness'), policySha256: hash('{}'), retirementPolicySha256: hash(retirementBytes),
       candidateFiles: {'build/contracts/app-current.json': hash('{}'), 'build/contracts/workout-save-current.json': hash('{}')},
-      sources: [{sourceCommit, clients: ['released'], status: 'success'}]};
+      sources: [{sourceCommit, clients: ['released'], status: 'success', retirement: null},
+        ...retirementPolicy.retirements.map(retirement => ({sourceCommit: retirement.sourceCommit, clients: retirement.clients, status: 'retired', retirement})),
+      ]};
     json('build/contracts/released-readers/report.json', readerReport);
     write('build/web/index.html', '<html>verified</html>');
     const suites = {format: 1, suites: [{id: 'save', file: 'functions/test/save-emulator.mjs', project: 'demo-save', coverage: ['firestore']}]};
@@ -38,6 +46,38 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
     const reportFile = 'build/firebase-contracts/report.json'; json(reportFile, report);
     const {makeManifest, verifyManifest} = await import(pathToFileURL(join(dir, 'tool/firebase/release.mjs')).href);
     const manifest = makeManifest(); verifyManifest(manifest);
+    assert.equal(manifest.files[retirementPolicyFile], hash(retirementBytes));
+    assert.equal(manifest.files['tool/firebase/support_retirements.mjs'], hash(readFileSync('tool/firebase/support_retirements.mjs')));
+    for (const retirementPolicySha256 of [undefined, '0'.repeat(64)]) {
+      json('build/contracts/released-readers/report.json', {...readerReport, retirementPolicySha256});
+      assert.throws(() => makeManifest(), /Support retirement policy changed/);
+    }
+    for (const retirement of [undefined, {...readerReport.sources[1].retirement, authorization: {remotelyVerified: true}}]) {
+      const changed = structuredClone(readerReport); changed.sources[1].retirement = retirement;
+      json('build/contracts/released-readers/report.json', changed);
+      assert.throws(() => makeManifest(), /retirement evidence mismatch/);
+    }
+    for (const [index, status] of [[0, 'retired'], [1, 'success']]) {
+      const changed = structuredClone(readerReport); changed.sources[index].status = status;
+      json('build/contracts/released-readers/report.json', changed);
+      assert.throws(() => makeManifest(), /Released reader did not pass/);
+    }
+    json('build/contracts/released-readers/report.json', readerReport);
+    for (const file of [retirementPolicyFile, 'tool/firebase/support_retirements.mjs']) {
+      const missing = structuredClone(manifest); delete missing.files[file];
+      assert.throws(() => verifyManifest(missing), /Missing tool\/firebase\/support/);
+    }
+    const removedPolicy = {...retirementPolicy, retirements: retirementPolicy.retirements.slice(1)};
+    json(retirementPolicyFile, removedPolicy);
+    assert.throws(() => verifyManifest(manifest), /Artifact changed/);
+    assert.throws(() => makeManifest(), /Support retirement policy changed/);
+    // Updating the digest alone cannot hide that a retired source lost its
+    // authorization: it must become a passing active reader again.
+    json('build/contracts/released-readers/report.json', {...readerReport, retirementPolicySha256: hash(JSON.stringify(removedPolicy))});
+    assert.throws(() => makeManifest(), /Released reader did not pass/);
+    write(retirementPolicyFile, retirementBytes);
+    json('build/contracts/released-readers/report.json', readerReport);
+    verifyManifest(manifest);
     json('build/contracts/released-readers/report.json', {...readerReport, sources: []});
     assert.throws(() => makeManifest(), /Missing released source reader/);
     json('build/contracts/released-readers/report.json', {...readerReport, status: 'skipped'});

@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {copyFileSync, mkdirSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {readJson, writeJson, hashFile, hash, canonical, filesIn} from './common.mjs';
+import {retirementPolicyFile, validateRetirements} from './support_retirements.mjs';
 
 export const targets = Object.freeze({project: 'cloud-board-stationd', firestore: '(default)',
   database: 'cloud-board-stationd-default-rtdb', databaseURL: 'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -52,13 +53,18 @@ export function validateReaderReport(report) {
   assert.equal(report.status, 'success', 'Released readers did not pass');
   assert.equal(report.harnessSha256, hashFile('tool/firebase/released_reader_contract_test.dart'), 'Released reader harness changed');
   assert.equal(report.policySha256, hashFile('tool/firebase/compatibility-policy.json'), 'Compatibility exception policy changed');
+  assert.equal(report.retirementPolicySha256, hashFile(retirementPolicyFile), 'Support retirement policy changed');
+  const registry = readJson('tool/firebase/supported-clients.json');
+  const retired = validateRetirements(registry, readJson(retirementPolicyFile));
   const expected = new Map();
-  for (const client of readJson('tool/firebase/supported-clients.json').clients) {
+  for (const client of registry.clients) {
     expected.set(client.sourceCommit, [...(expected.get(client.sourceCommit) || []), client.client]);
   }
   assert.deepEqual(report.sources.map(source => source.sourceCommit).sort(), [...expected.keys()].sort(), 'Missing released source reader');
   for (const source of report.sources) {
-    assert.equal(source.status, 'success', `Released reader did not pass: ${source.sourceCommit}`);
+    const retirement = retired.get(source.sourceCommit) || null;
+    assert.equal(source.status, retirement ? 'retired' : 'success', `Released reader did not pass: ${source.sourceCommit}`);
+    assert.deepEqual(source.retirement, retirement, 'Released source retirement evidence mismatch');
     assert.deepEqual([...source.clients].sort(), expected.get(source.sourceCommit).sort(), 'Missing released client reader');
   }
   assert.deepEqual(Object.keys(report.candidateFiles).sort(), ['build/contracts/app-current.json', 'build/contracts/workout-save-current.json']);
@@ -78,7 +84,7 @@ export function makeManifest() {
   assert.equal(config.functions[0].codebase, 'account-deletion');
   assert.deepEqual(config.storage, [{bucket: targets.storage, rules: 'storage.rules'}]);
   const paths = [...ruleFiles, 'firestore.indexes.json', 'firebase.json', 'functions/package.json', 'functions/package-lock.json',
-    'tool/firebase/supported-clients.json', 'tool/firebase/contract-suites.json', 'tool/firebase/compatibility-policy.json', 'tool/firebase/released_reader_contract_test.dart',
+    'tool/firebase/supported-clients.json', 'tool/firebase/contract-suites.json', 'tool/firebase/compatibility-policy.json', retirementPolicyFile, 'tool/firebase/support_retirements.mjs', 'tool/firebase/released_reader_contract_test.dart',
     ...filesIn('functions/src'), ...filesIn('functions/tools'), ...filesIn('functions/certificates'), ...filesIn('functions/test/fixtures'), ...filesIn('build/contracts'),
     ...filesIn('build/web'), ...filesIn('build/firebase-contracts')];
   assert(paths.some(p => p === 'build/web/index.html'), 'Missing release web build');
@@ -93,6 +99,7 @@ export function verifyManifest(manifest, id = identity()) {
   assert.deepEqual(manifest.targets, targets, 'Wrong Firebase target');
   assert.equal(manifest.databaseSemanticHash, hash(canonical(readJson('database.rules.json'))));
   for (const path of ruleFiles) assert(manifest.files[path], `Missing ${path}`);
+  for (const path of [retirementPolicyFile, 'tool/firebase/support_retirements.mjs']) assert(manifest.files[path], `Missing ${path}`);
   for (const [path, digest] of Object.entries(manifest.files)) {
     assert(!path.includes('..') && !path.startsWith('/') && /^[a-zA-Z0-9_./-]+$/.test(path), 'Unsafe manifest path');
     assert.equal(hashFile(path), digest, `Artifact changed: ${path}`);

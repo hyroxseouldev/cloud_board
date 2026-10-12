@@ -6,13 +6,15 @@ import {tmpdir} from 'node:os';
 import {resolve, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {root, readJson, hashFile, writeJson} from './common.mjs';
+import {retirementPolicyFile, validateRetirements} from './support_retirements.mjs';
 
 const exec = promisify(execFile);
 const harness = 'tool/firebase/released_reader_contract_test.dart';
 const policyFile = 'tool/firebase/compatibility-policy.json';
 
-export function readerPlans(registry, policy) {
+export function readerPlans(registry, policy, retirements = {format: 1, retirements: []}) {
   assert.equal(policy.format, 1);
+  const retired = validateRetirements(registry, retirements);
   const sources = [...new Set(registry.clients.map(client => client.sourceCommit))];
   for (const source of Object.keys(policy.nonSemanticFieldsBySource)) assert(sources.includes(source), `Unknown exception source: ${source}`);
   return sources.map(sourceCommit => {
@@ -23,17 +25,26 @@ export function readerPlans(registry, policy) {
       assert(exception.reason?.length >= 30, 'A non-semantic omission needs an explicit compatibility reason');
       assert(!exception.path.endsWith('/*'), 'Entire objects cannot be exempted');
     }
-    return {sourceCommit, clients: registry.clients.filter(c => c.sourceCommit === sourceCommit).map(c => c.client), exceptions};
+    const clients = registry.clients.filter(c => c.sourceCommit === sourceCommit);
+    return {sourceCommit, clients: clients.map(c => c.client), exceptions, retirement: retired.get(sourceCommit) || null,
+      capabilities: clients.filter(c => c.capabilities).map(c => ({client: c.client, ...c.capabilities}))};
   });
 }
 
 export async function verifyReleasedReaders() {
   const report = {format: 1, status: 'running', harnessSha256: hashFile(harness), policySha256: hashFile(policyFile),
+    retirementPolicySha256: hashFile(retirementPolicyFile),
     candidateFiles: Object.fromEntries(['build/contracts/workout-save-current.json', 'build/contracts/app-current.json'].map(file => [file, hashFile(file)])), sources: []};
   const output = resolve(root, 'build/contracts/released-readers');
   mkdirSync(output, {recursive: true});
+  const failures = [];
   try {
-    for (const plan of readerPlans(readJson('tool/firebase/supported-clients.json'), readJson(policyFile))) {
+    for (const plan of readerPlans(readJson('tool/firebase/supported-clients.json'), readJson(policyFile), readJson(retirementPolicyFile))) {
+      if (plan.retirement) {
+        report.sources.push({...plan, status: 'retired', durationMs: 0});
+        console.log(`RETIRED forward semantic support ${plan.sourceCommit} (${plan.clients.join(', ')}): ${plan.retirement.reason}; historical data/rules coverage retained`);
+        continue;
+      }
       const temporary = mkdtempSync(join(tmpdir(), 'cloudboard-released-reader-'));
       const checkout = join(temporary, 'source');
       let registered = false;
@@ -67,13 +78,15 @@ export async function verifyReleasedReaders() {
         console.log(`PASS released reader/serializer ${plan.sourceCommit.slice(0, 12)} (${plan.clients.join(', ')})`);
       } catch (error) {
         report.sources.push({...plan, status: 'failure', durationMs: Date.now() - started});
-        throw new Error(`Released reader/serializer failed: ${plan.sourceCommit}; see build/contracts/released-readers/${plan.sourceCommit}.log`, {cause: error});
+        failures.push(plan.sourceCommit);
+        console.error(`FAIL released reader/serializer ${plan.sourceCommit}; see build/contracts/released-readers/${plan.sourceCommit}.log`);
       } finally {
         writeFileSync(join(output, `${plan.sourceCommit}.log`), log);
         if (registered) await exec('git', ['worktree', 'remove', '--force', checkout], {cwd: root});
         rmSync(temporary, {recursive: true, force: true});
       }
     }
+    assert.equal(failures.length, 0, `Released reader/serializer incompatibility: ${failures.join(', ')}`);
     report.status = 'success';
   } catch (error) {
     report.status = 'failure';

@@ -1,8 +1,9 @@
 # Firebase release safety
 
-This change is developed and reviewed against `develop`. Merging it to `develop`
-runs checks only. Production settings, accounts, alert delivery and deployment are
-not configured or exercised by a develop PR.
+This change is developed and reviewed against `develop`. Pull requests run checks;
+a push to `develop` also runs the isolated development deployment workflow for
+`cloud-board-development`. Production deployment is limited to `main` and the
+explicit production workflow inputs. A develop PR does not deploy production.
 
 ## Run the complete check locally
 
@@ -68,7 +69,10 @@ is still needed for platform SDK/offline differences.
    checks every suite and evidence hash, then creates the candidate manifest.
    Missing, skipped, neutral, failed, cancelled or timed-out checks never grant a
    release permit.
-4. `firebase-production`: **main push only**, one production deployment at a time.
+4. `firebase-production`: **main push or explicit manual execution on current main**,
+   one production deployment at a time. Manual execution requires the exact main
+   SHA and a declared `rules`, `backend` or `full` scope; mobile upload requires a
+   successful `full` receipt.
    Verify SHA, targets, every artifact hash and canary configuration before any
    Firebase change. Recheck current main immediately before backend/rules changes
    and Hosting publication. A superseded run cannot intentionally redeploy old rules.
@@ -76,8 +80,10 @@ is still needed for platform SDK/offline differences.
    save/update/server-read, image CRUD, TV session/ACK and cross-account denial.
    Rule-version propagation has a bounded wait; authentication/API errors fail immediately.
 6. Publish Hosting, recheck live rules/current main, seal `release.json`, and retain
-   the matching run/attempt receipt for 90 days. Mobile workflows download and verify
-   this receipt and its artifact digest both before build and immediately before upload.
+   the matching run/attempt receipt for 90 days. Store-upload workflows download and
+   verify this receipt before the release build and immediately before upload.
+   Explicit native build-only execution can prepare signed artifacts on a trusted
+   `release/*` branch without deploying or uploading; it grants no upload permit.
 
 Use **Re-run all jobs** for a failed workflow. A new attempt must produce fresh
 contracts, build, manifest and receipt together; mixing artifacts from attempts
@@ -116,23 +122,22 @@ These are rollout prerequisites, **not operations performed by this PR**:
   taken over. If a job is killed before cleanup,
   inspect that run's lease and rerun scoped cleanup before another smoke. Do not delete
   arbitrary user paths. Clean up stale run namespaces using the reviewed cleanup helper.
-- Configure a read-only repository Administration token as `FIREBASE_GOVERNANCE_TOKEN`
-  for the monitoring job. Normal PR jobs never receive it or Firebase credentials.
-- After `firebase-required` has succeeded on the heads of main and develop, inspect
-  the offline plan, then apply protections deliberately with an admin token:
+- The monitoring job audits active repository rules using its read-only built-in
+  GitHub token. No stored `FIREBASE_GOVERNANCE_TOKEN` is required. Normal PR jobs
+  receive no Firebase deployment credentials.
+- Inspect the expected rule plan and verify the active rules on main and develop:
 
 ```sh
-node tool/firebase/branch-protection.mjs plan
-# GITHUB_TOKEN is supplied securely by the operator, not pasted into a command.
-node tool/firebase/branch-protection.mjs apply
-node tool/firebase/branch-protection.mjs check
+node tool/firebase/repository-rules.mjs plan
+# Supply GITHUB_TOKEN securely; GITHUB_REPOSITORY=hyroxseouldev/cloud_board.
+node tool/firebase/repository-rules.mjs check
 ```
 
 The protection requires PRs, an up-to-date base and the exact check from GitHub
 Actions, and disables administrator/force-push/deletion bypass. Until this separate
 GitHub setting is applied, the workflow alone cannot prevent someone merging a
-failed PR. The tool checks actual check availability before applying a branch rule.
-No merge queue is configured.
+failed PR. The rules checker is read-only; changing protection is a separate
+operator action. No merge queue is configured.
 
 - Confirm the existing managed save alert is enabled with an enabled/verified
   receiver. `release-health.mjs` checks configuration but **does not prove delivery**.

@@ -71,6 +71,11 @@ jobs:
       - name: Test iOS signing checks
         run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
 
+      - name: Test native release identity and build-only upload guards
+        run: |
+          node --test tool/release/*.test.mjs
+          python3 -m unittest discover -s tool/release -p 'test_*.py'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:

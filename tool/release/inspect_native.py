@@ -97,8 +97,17 @@ def check_android_manifest(manifest, version, build):
 
 def check_resource_dump(dump, name, expected):
     require(f"string/{name}" in dump, f"AAB Firebase resource {name} missing")
-    values = re.findall(r" - \[string\] (.*)$", dump, flags=re.MULTILINE)
-    require(values and all(value.strip().strip('"') == expected for value in values), f"AAB Firebase {name} mismatch")
+    # Pinned bundletool prints protobuf enum names, e.g. [STR] "value".
+    # Inspect every configuration, including an unexpected reference/type.
+    values = re.findall(r" - \[([^\]]+)\] (.*)$", dump, flags=re.MULTILINE)
+    require(values, f"AAB Firebase {name} has no values")
+    for kind, raw_value in values:
+        require(kind in ("STR", "RAW_STR"), f"AAB Firebase {name} is not a literal string")
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"AAB Firebase {name} has an invalid quoted value") from error
+        require(value == expected, f"AAB Firebase {name} mismatch")
 
 
 def verify_android_signature(path):

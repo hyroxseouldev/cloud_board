@@ -47,9 +47,13 @@ class NativeArtifactTests(unittest.TestCase):
         with self.assertRaises(ValueError): gate.check_android_manifest(manifest, '1.0.0', '66')
         manifest.find('application').set(gate.ANDROID_NS + 'debuggable', 'true')
         with self.assertRaises(ValueError): gate.check_android_manifest(manifest, '1.1.0', '66')
-        dump = "Package 'app':\n0x111 - string/project_id\n\t(default) - [string] cloud-board-stationd\n"
+        # Format taken from bundletool 1.18.3 DumpManagerTest.printResources_withValues.
+        dump = 'Package \'com.sunmkim.cloudboard\':\n0x7f010000 - string/project_id\n\t(default) - [STR] "cloud-board-stationd"\n\n'
         gate.check_resource_dump(dump, 'project_id', gate.PROJECT)
-        with self.assertRaises(ValueError): gate.check_resource_dump(dump + '\tko - [string] cloud-board-development\n', 'project_id', gate.PROJECT)
+        with self.assertRaises(ValueError): gate.check_resource_dump(dump + '\tko - [STR] "cloud-board-development"\n', 'project_id', gate.PROJECT)
         with self.assertRaises(ValueError): gate.check_resource_dump('', 'project_id', gate.PROJECT)
+        with self.assertRaises(ValueError): gate.check_resource_dump(dump + '\tko - [REF] 0x7f010001\n', 'project_id', gate.PROJECT)
+        with self.assertRaises(ValueError): gate.check_resource_dump(dump.replace('"cloud-board-stationd"', 'cloud-board-stationd'), 'project_id', gate.PROJECT)
+        gate.check_resource_dump(dump.replace('[STR]', '[RAW_STR]'), 'project_id', gate.PROJECT)
 
 if __name__ == '__main__': unittest.main()
