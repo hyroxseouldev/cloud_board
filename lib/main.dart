@@ -40,12 +40,19 @@ Future<bool> _initialize(
   Future<void> Function()? configureFirebase,
   bool localPreview,
 ) async {
-  if (!localPreview) FirebaseEnvironment.validateLaunch();
+  final options = firebaseOptions ?? FirebaseEnvironment.options;
+  if (localPreview) {
+    FirebaseEnvironment.validateProject(
+      options.projectId,
+      localPreview: true,
+      hasEmulatorConfiguration: configureFirebase != null,
+    );
+  } else {
+    FirebaseEnvironment.validateLaunch(options);
+  }
   // Neither operation depends on the other. The bootstrap has already painted.
   final results = await Future.wait<Object>([
-    Firebase.initializeApp(
-      options: firebaseOptions ?? FirebaseEnvironment.options,
-    ),
+    Firebase.initializeApp(options: options),
     const DeviceFormFactorDataSource().isAndroidTv(),
   ]);
   await configureFirebase?.call();

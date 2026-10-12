@@ -35,6 +35,8 @@ class DisplayDevice {
     this.preferences = const DisplayPreferences(),
     this.lastCommandAtMs = 0,
     this.onlineSinceMs = 0,
+    this.appVersion = '', this.appBuild = '', this.appPlatform = '',
+    this.playbackProtocol = 1, this.preparationProtocol = 0,
   });
 
   final String id;
@@ -54,6 +56,12 @@ class DisplayDevice {
   final DisplayPreferences preferences;
   final int lastCommandAtMs;
   final int onlineSinceMs;
+  final String appVersion, appBuild, appPlatform;
+  final int playbackProtocol, preparationProtocol;
+  bool recentlySeen(int nowMs) => online && lastSeenAtMs > 0 &&
+      nowMs - lastSeenAtMs < 75000 && lastSeenAtMs <= nowMs + 5000;
+  String get installedVersion => appVersion.isEmpty || appBuild.isEmpty
+      ? '설치 버전 확인 불가' : '$appPlatform $appVersion+$appBuild';
 }
 
 String generatePairingCode([Random? random]) {

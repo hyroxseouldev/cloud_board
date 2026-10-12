@@ -49,3 +49,13 @@ The existing per-slide draft mechanism remains responsible for edits still open 
 - `functions/test/runtime-policy.test.js`: validated operator input and atomic revision checks.
 
 Before promoting to all users, exercise real-device airplane-mode save/relaunch/recovery and development policy stop/restore with one current phone, one current TV, and a supported older TV. Never claim a server-side control can repair behavior absent from a released binary.
+
+## Remote Config rollout (STA-134 additional plan)
+
+`cloudboard_optional_features_v1` is a Remote Config JSON parameter using the same validated `{schemaVersion: 1, revision, features}` schema. It contains optional feature flags only; **never** put minimum/recommended/published app builds here. Version requirements remain exclusively in `appReleases`.
+
+The new-operation boundary fetches and activates flags (bounded timeout, minimum fetch interval 15 minutes), validates them, and caches the last good value per Firebase project. There is no real-time listener that changes an active lesson. The phone resolves the feature choice once when creating a session; TVs consume that session's existing protocol/snapshot and do not independently randomize flags. Percentage assignment uses the owner's stable identifier so the same center/account has the same cohort across restarts.
+
+Firestore `runtimePolicy/current` remains the compatibility/emergency control for existing clients. The new Remote Config rollout is an additional restriction: it cannot turn on a feature disabled by that existing control. These are feature controls, not authorization; Rules/server ownership and entitlement checks still apply. Missing/malformed/unavailable Remote Config preserves validated existing behavior, while a known disabled value stays disabled during an outage. Basic saving and already running playback are not gated.
+
+Use a pilot percentage for optional new functionality, verify TV capabilities before starting, and observe terminal operation outcomes before expansion. Source: [Firebase loading/activation guidance](https://firebase.google.com/docs/remote-config/loading). No production Remote Config template was published by this change.

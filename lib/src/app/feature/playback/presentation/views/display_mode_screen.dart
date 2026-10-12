@@ -1,4 +1,6 @@
+import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
 import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
+import 'package:cloud_board/src/app/feature/app_update/presentation/widgets/app_update_gate.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/playback_recovery_view.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:go_router/go_router.dart';
@@ -141,6 +143,11 @@ class DisplayModeScreen extends HookConsumerWidget {
         targetsThisDevice &&
         finishedSessionId.value != session.id &&
         session.workout.modules.isNotEmpty;
+    useDisplayPreparation(context, ref, deviceId: deviceId,
+      paired: currentDevice?.paired == true && (currentDevice?.preparationProtocol ?? 0) >= 1,
+      standby: !active.isLoading && !active.hasError && recovery.hasValue &&
+        (session == null || session.status == PlaybackStatus.completed),
+      connected: connected, foreground: foreground);
     final showCompletion =
         session != null &&
         session.status == PlaybackStatus.completed &&
@@ -292,120 +299,136 @@ class DisplayModeScreen extends HookConsumerWidget {
     );
     return PopScope(
       canPop: !isTv,
-      child: FocusTraversalGroup(
-        policy: ReadingOrderTraversalPolicy(),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (!foreground)
-              PlaybackRecoveryView(
-                displayMode: true,
-                error: recovery.error,
-                stackTrace: recovery.stackTrace,
-                onRetry: () => unawaited(
-                  ref
-                      .read(playbackRecoveryControllerProvider.notifier)
-                      .recover(restartTransport: false),
+      child: TvAppUpdateGate(
+        readyForUpdate:
+            foreground &&
+            connected &&
+            recovery.hasValue &&
+            !recovery.isLoading &&
+            !recovery.hasError &&
+            !active.isLoading &&
+            !active.hasError &&
+            !(targetsThisDevice &&
+                session != null &&
+                session.status != PlaybackStatus.completed) &&
+            !showCompletion &&
+            !showBlack &&
+            !identify,
+        child: FocusTraversalGroup(
+          policy: ReadingOrderTraversalPolicy(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (!foreground)
+                PlaybackRecoveryView(
+                  displayMode: true,
+                  error: recovery.error,
+                  stackTrace: recovery.stackTrace,
+                  onRetry: () => unawaited(
+                    ref
+                        .read(playbackRecoveryControllerProvider.notifier)
+                        .recover(restartTransport: false),
+                  ),
+                )
+              else if (showBlack)
+                const ColoredBox(color: Colors.black)
+              else if ((isActive || showCompletion) &&
+                  allowPlayback &&
+                  session.briefing != true)
+                player
+              else
+                _DisplayStandby(
+                  isLoading: active.isLoading,
+                  error: active.error,
+                  pairing: pairing,
+                  currentDevice: currentDevice,
+                  onRefreshPairing: () => ref
+                      .read(devicePairingControllerProvider.notifier)
+                      .refresh(),
+                  connected: connected,
+                  brand: brand,
+                  schedules: schedules,
+                  now: now.value,
+                  onTestSound: () async {
+                    try {
+                      await ref.read(beepPlayerProvider).play();
+                    } catch (_) {}
+                  },
                 ),
-              )
-            else if (showBlack)
-              const ColoredBox(color: Colors.black)
-            else if ((isActive || showCompletion) &&
-                allowPlayback &&
-                session.briefing != true)
-              player
-            else
-              _DisplayStandby(
-                isLoading: active.isLoading,
-                error: active.error,
-                pairing: pairing,
-                currentDevice: currentDevice,
-                onRefreshPairing: () => ref
-                    .read(devicePairingControllerProvider.notifier)
-                    .refresh(),
-                connected: connected,
-                brand: brand,
-                schedules: schedules,
-                now: now.value,
-                onTestSound: () async {
-                  try {
-                    await ref.read(beepPlayerProvider).play();
-                  } catch (_) {}
-                },
-              ),
-            if (identify)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.white,
-                  child: SafeArea(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.tv_rounded, size: 64),
-                            const SizedBox(height: 20),
-                            const Text(
-                              'TV 연결 확인',
-                              style: TextStyle(fontSize: 28),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              currentDevice.name,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
+              if (identify)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: Colors.white,
+                    child: SafeArea(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.tv_rounded, size: 64),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'TV 연결 확인',
+                                style: TextStyle(fontSize: 28),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              currentDevice.identificationId!.substring(
-                                currentDevice.identificationId!.length - 4,
+                              const SizedBox(height: 12),
+                              Text(
+                                currentDevice.name,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              style: const TextStyle(
-                                fontSize: 64,
-                                fontWeight: FontWeight.bold,
+                              const SizedBox(height: 16),
+                              Text(
+                                currentDevice.identificationId!.substring(
+                                  currentDevice.identificationId!.length - 4,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 64,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const Text(
-                              '관리 기기에서 이 TV가 맞는지 확인해 주세요. 소리는 재생되지 않습니다.',
-                            ),
-                          ],
+                              const Text(
+                                '관리 기기에서 이 TV가 맞는지 확인해 주세요. 소리는 재생되지 않습니다.',
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            if (!showBlack && !isTv)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  bottom: false,
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: kIsWeb && !isActive
-                            ? AppStyle.webPageMaxWidth
-                            : double.infinity,
-                      ),
-                      child: SizedBox(
-                        height: 64,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 18),
-                            child: DeviceModeToggle(
-                              onChanged: (mode) {
-                                if (mode == DeviceMode.controller) {
-                                  context.go('/displays');
-                                }
-                              },
+              if (!showBlack && !isTv)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: kIsWeb && !isActive
+                              ? AppStyle.webPageMaxWidth
+                              : double.infinity,
+                        ),
+                        child: SizedBox(
+                          height: 64,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 18),
+                              child: DeviceModeToggle(
+                                onChanged: (mode) {
+                                  if (mode == DeviceMode.controller) {
+                                    context.go('/displays');
+                                  }
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -413,8 +436,8 @@ class DisplayModeScreen extends HookConsumerWidget {
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -39,13 +39,7 @@ class BeepPlayer {
       if (_disposed || !_enabled || request != _request) return;
       final source = _sources.putIfAbsent(
         (sound, countdown),
-        () => sound == WorkoutSound.videoBeep
-            ? AssetSource(
-                countdown
-                    ? 'sounds/video_beep_tick.wav'
-                    : 'sounds/video_beep.wav',
-              )
-            : BytesSource(_createWave(sound), mimeType: 'audio/wav'),
+        () => workoutSoundSource(sound, countdown: countdown),
       );
       await _player.stop();
       if (_disposed || !_enabled || request != _request) return;
@@ -109,6 +103,13 @@ BeepPlayer beepPlayer(Ref ref) {
   ref.onDispose(() => player.dispose());
   return player;
 }
+
+
+/// The preparation check uses the same sources as playback without playing a cue.
+Source workoutSoundSource(WorkoutSound sound, {bool countdown = false}) =>
+  sound == WorkoutSound.videoBeep
+    ? AssetSource(countdown ? 'sounds/video_beep_tick.wav' : 'sounds/video_beep.wav')
+    : BytesSource(_createWave(sound), mimeType: 'audio/wav');
 
 Uint8List _createWave(WorkoutSound sound) {
   const sampleRate = 44100;

@@ -35,7 +35,36 @@ abstract final class FirebaseEnvironment {
       ? DefaultFirebaseOptions.currentPlatform
       : DevelopmentFirebaseOptions.currentPlatform;
 
-  static void validateLaunch() {
+  static void validateProject(
+    String actualProject, {
+    bool localPreview = false,
+    bool hasEmulatorConfiguration = false,
+  }) {
+    if (localPreview) {
+      if (!actualProject.startsWith('demo-') || !hasEmulatorConfiguration) {
+        throw StateError(
+          'Local preview requires a demo project and emulator configuration.',
+        );
+      }
+    } else if (actualProject != projectId) {
+      throw StateError(
+        'Firebase project does not match the selected environment.',
+      );
+    }
+  }
+
+  static void validateOptions(
+    FirebaseOptions actual,
+    FirebaseOptions expected,
+  ) {
+    if (actual != expected) {
+      throw StateError(
+        'Firebase SDK credentials or endpoints do not match the selected environment.',
+      );
+    }
+  }
+
+  static void validateLaunch(FirebaseOptions effectiveOptions) {
     if (isProduction &&
         !kReleaseMode &&
         !const bool.fromEnvironment('ALLOW_PRODUCTION_DEBUG')) {
@@ -44,10 +73,7 @@ abstract final class FirebaseEnvironment {
         'Use the development flavor for normal development.',
       );
     }
-    if (options.projectId != projectId) {
-      throw StateError(
-        'Firebase project does not match the selected environment.',
-      );
-    }
+    validateProject(effectiveOptions.projectId);
+    validateOptions(effectiveOptions, options);
   }
 }

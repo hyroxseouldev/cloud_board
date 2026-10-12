@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/services/realtime_connection.dart'
@@ -114,6 +116,11 @@ class DevicePairingRealtimeDataSource {
               zoneId: (item['zoneId'] as String?) ?? 'main',
               zoneName: (item['zoneName'] as String?) ?? '메인 구역',
               online: item['online'] == true,
+              appVersion: (item['appVersion'] as String?) ?? '',
+              appBuild: (item['appBuild'] as String?) ?? '',
+              appPlatform: (item['appPlatform'] as String?) ?? '',
+              playbackProtocol: (item['playbackProtocol'] as num?)?.toInt() ?? 1,
+              preparationProtocol: (item['preparationProtocol'] as num?)?.toInt() ?? 0,
               lastSeenAtMs: (item['lastSeenAtMs'] as num?)?.round() ?? 0,
               currentSessionId: item['currentSessionId'] as String?,
               acknowledgedRevision:
@@ -413,6 +420,8 @@ class DevicePairingRealtimeDataSource {
       'lastSeenAtMs': ServerValue.timestamp,
       'pendingOfflineEventKey': offlineEvent.key,
       'playbackProtocol': 5,
+      'preparationProtocol': _auth.currentUser?.isAnonymous == true ? 1 : 0,
+      ...await displayInstallationInfo(),
     };
     if (!wasOnline) updates['onlineSinceMs'] = ServerValue.timestamp;
     final result = await deviceRef.runTransaction((current) {
@@ -602,4 +611,12 @@ bool isRegisteredDisplay(Object? value) {
   if (value is! Map) return false;
   if (value.containsKey('paired')) return value['paired'] == true;
   return value['pairedAtMs'] is num && (value['pairedAtMs'] as num) > 0;
+}
+
+Future<Map<String, Object>> displayInstallationInfo() async {
+  try {
+    final package = await readInstalledAppInfo().timeout(const Duration(seconds: 2));
+    return {'appVersion': package.version, 'appBuild': package.buildNumber,
+      'appPlatform': kIsWeb ? 'web' : defaultTargetPlatform.name};
+  } catch (_) { return const {}; }
 }

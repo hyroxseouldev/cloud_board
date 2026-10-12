@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/feature/app_update/domain/entities/app_release.dart';
 import 'package:cloud_board/src/app/feature/app_update/domain/usecases/check_app_update.dart';
 part 'app_update_controller.g.dart';
@@ -15,9 +16,10 @@ class AppUpdateController extends _$AppUpdateController {
         ].contains(defaultTargetPlatform)) {
       return null;
     }
-    return ref
-        .watch(checkAppUpdateProvider)
-        .call(defaultTargetPlatform.name.toLowerCase());
+    final platform = defaultTargetPlatform == TargetPlatform.android
+        ? (await ref.watch(androidTvProvider.future) ? 'tv' : 'android')
+        : 'ios';
+    return ref.watch(checkAppUpdateProvider).call(platform);
   }
 
   Future<void> checkNow() async {
@@ -30,11 +32,14 @@ class AppUpdateController extends _$AppUpdateController {
       return;
     }
     state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref
+    state = await AsyncValue.guard(() async {
+      final platform = defaultTargetPlatform == TargetPlatform.android
+          ? (await ref.read(androidTvProvider.future) ? 'tv' : 'android')
+          : 'ios';
+      return ref
           .read(checkAppUpdateProvider)
-          .call(defaultTargetPlatform.name.toLowerCase(), ignoreSnooze: true),
-    );
+          .call(platform, ignoreSnooze: true);
+    });
   }
 
   Future<void> later() async {

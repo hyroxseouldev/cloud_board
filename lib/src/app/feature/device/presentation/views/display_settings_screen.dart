@@ -341,11 +341,11 @@ class _DisplayTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   AppContentTransition(
-                    transitionKey: device.online,
+                    transitionKey: '${device.online}:${device.appBuild}:${device.lastSeenAtMs}',
                     child: Text(
-                      '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}'
-                      '',
-                      maxLines: 1,
+                      '${device.zoneName} · ${device.recentlySeen(DateTime.now().millisecondsSinceEpoch) ? '최근 응답' : device.online ? '응답 확인 필요' : '오프라인'}\n'
+                      '${device.installedVersion} · 재생 규격 ${device.playbackProtocol}',
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.muted,
