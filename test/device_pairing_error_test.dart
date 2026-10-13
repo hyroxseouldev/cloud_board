@@ -61,7 +61,7 @@ void main() {
     final message = devicePairingErrorMessage(
       FirebaseException(plugin: 'firebase_database', code: 'permission-denied'),
     );
-    expect(message, contains('거부'));
+    expect(message, contains('연결 권한'));
     expect(message, isNot(contains('만료')));
     expect(message, isNot(contains('firebase')));
     expect(

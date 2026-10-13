@@ -148,7 +148,7 @@ class _PhoneVerification extends HookConsumerWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                '센터 계정을 안전하게 연결하기 위한 인증이에요.\n인증만으로 무료 체험이 시작되지는 않아요.',
+                '내 계정에 수업을 안전하게 저장하기 위한 인증이에요.\n프리미엄 1개월 무료 이용은 직접 선택해야 시작돼요.',
                 style: TextStyle(color: AppColors.muted, height: 1.6),
               ),
               const SizedBox(height: 16),
@@ -266,6 +266,8 @@ class _OnboardingForm extends HookConsumerWidget {
     final action = ref.watch(onboardingActionProvider);
     final actions = ref.read(onboardingActionProvider.notifier);
     final busy = action.isLoading;
+    final paidAccess = latest.hasAccess && !latest.freeActive;
+    final canStartTrial = latest.trialEligible && !paidAccess;
     final scroll = useScrollController();
     final backwards = useState(false);
     final reducedMotion =
@@ -308,6 +310,11 @@ class _OnboardingForm extends HookConsumerWidget {
 
     Future<void> next() async {
       if (step.value == 0 && profile.value.purpose != 'operating') {
+        if (latest.freeAvailable &&
+            !latest.hasAccess &&
+            !await actions.startFree()) {
+          return;
+        }
         if (await save(0, action: 'defer') && context.mounted) {
           context.go(
             starterLocation(
@@ -333,6 +340,12 @@ class _OnboardingForm extends HookConsumerWidget {
     Future<void> finish({required bool trial}) async {
       if (!await save(2)) return;
       if (trial && !await actions.startTrial()) return;
+      if (!trial &&
+          latest.freeAvailable &&
+          !latest.hasAccess &&
+          !await actions.startFree()) {
+        return;
+      }
       if (await save(3, action: 'complete') && context.mounted) move(3);
     }
 
@@ -405,7 +418,7 @@ class _OnboardingForm extends HookConsumerWidget {
                         if (step.value == 0) ...[
                           const _Heading(
                             '어떻게 시작하고 싶으세요?',
-                            '선택에 맞춰 첫 사용을 안내해 드릴게요.',
+                            '내 수업 저장과 연습부터 시작해요. 센터·TV 준비는 필요할 때 이어갈 수 있어요.',
                           ),
                           const SizedBox(height: 26),
                           _PurposeChoices(
@@ -443,20 +456,26 @@ class _OnboardingForm extends HookConsumerWidget {
                           ),
                         ] else if (step.value == 2) ...[
                           _Heading(
-                            latest.hasAccess
-                                ? '이미 이용 중인 권한이 있어요'
-                                : latest.trialEligible
-                                ? '우리 센터에서\n1개월 무료로 시작해요'
-                                : '기존 이용 내역을 확인했어요',
-                            latest.trialEligible && !latest.hasAccess
-                                ? '카드 등록 없이 준비하고, 내 기기로 먼저 살펴보세요.'
-                                : '기존 이용 기간은 그대로 유지해요. 센터 설정을 마치고 시작해 보세요.',
+                            paidAccess
+                                ? '이용 중인 권한을 그대로 이어가요'
+                                : latest.freeActive
+                                ? 'Free로 수업을 준비해요'
+                                : latest.freeAvailable
+                                ? 'TV 한 대로, 무료로 시작해요'
+                                : '먼저 내 수업을 준비해요',
+                            paidAccess
+                                ? '기존 이용 기간과 권한은 바뀌지 않아요.'
+                                : latest.freeAvailable || latest.freeActive
+                                ? 'Free · 기간 제한 없이 · 카드 등록 없이'
+                                : '수업 저장과 이 기기 연습부터 시작하고, TV 이용 상태는 내 구독에서 확인해 주세요.',
                           ),
-                          const SizedBox(height: 26),
+                          const SizedBox(height: 24),
                           for (final item in [
-                            '워크아웃과 슬라이드 만들기',
-                            '타이머·효과음과 원격 수업 제어',
-                            '디스플레이·즐겨찾기 수 제한 없는 프리미엄',
+                            '템플릿으로 만들고 내 수업 저장',
+                            '이 기기에서 연습한 뒤 수업 진행',
+                            if (!paidAccess &&
+                                (latest.freeAvailable || latest.freeActive))
+                              'Free는 TV 1대에 동시 송출',
                           ])
                             ListTile(
                               contentPadding: EdgeInsets.zero,
@@ -466,50 +485,49 @@ class _OnboardingForm extends HookConsumerWidget {
                               ),
                               title: Text(item),
                             ),
-                          const SizedBox(height: 20),
-                          if (latest.trialStartedAtMs > 0 ||
-                              (latest.trialEligible && !latest.hasAccess))
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    latest.trialStartedAtMs > 0
-                                        ? '기존 체험 기간'
-                                        : '지금 시작하면',
-                                    style: const TextStyle(
-                                      letterSpacing: -0.14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${_date(latest.trialStartedAtMs > 0 ? latest.trialStartedAtMs : latest.serverNowMs)} →\n${_date(latest.trialEndsAtMs > 0 ? latest.trialEndsAtMs : latest.suggestedTrialEndsAtMs)} (한국 시간)',
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    '시작 버튼을 누른 서버 시각부터 달력 기준 1개월이에요. 기존 체험·유료 이용 기간은 변경하지 않아요.',
-                                    style: TextStyle(
-                                      color: AppColors.muted,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                           const Text(
-                            '체험이 끝나도 자동 결제되지 않아요. 만든 워크아웃은 그대로 남고 편집·미리보기를 계속할 수 있어요. 새 수업 송출에는 유효한 이용권이 필요해요.',
+                            '예시 체험, Free, 프리미엄 1개월 무료 이용은 서로 달라요. 로그인이나 예시 재생만으로 프리미엄 체험이 시작되지는 않아요.',
                             style: TextStyle(
                               color: AppColors.muted,
-                              height: 1.6,
+                              height: 1.5,
                             ),
                           ),
+                          if (canStartTrial)
+                            ExpansionTile(
+                              key: const ValueKey('premium-trial-details'),
+                              tilePadding: EdgeInsets.zero,
+                              title: const Text('프리미엄 1개월 무료 이용 · 선택'),
+                              expandedCrossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  '여러 TV와 재사용 슬라이드가 필요할 때 직접 시작하세요. 자동 결제되지 않아요.',
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  '${_date(latest.serverNowMs)} → ${_date(latest.suggestedTrialEndsAtMs)} (한국 시간)',
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  '아래 시작 버튼을 누른 서버 시각부터 달력 기준 1개월이에요. 이미 사용한 체험을 다시 부여하지 않아요.',
+                                ),
+                                const SizedBox(height: 12),
+                                OutlinedButton(
+                                  onPressed: busy
+                                      ? null
+                                      : () => finish(trial: true),
+                                  child: const Text('프리미엄 1개월 무료 이용 시작'),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                            ),
+                          if (latest.trialStartedAtMs > 0) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              '기존 체험 기간: ${_date(latest.trialStartedAtMs)} → ${_date(latest.trialEndsAtMs)} (한국 시간)',
+                            ),
+                          ],
                         ] else ...[
                           const SizedBox(height: 35),
                           const Icon(
@@ -522,7 +540,7 @@ class _OnboardingForm extends HookConsumerWidget {
                             profile.value.purpose == 'preparing'
                                 ? '센터의 첫 수업을 준비해요!'
                                 : '이제 시작할 준비가 됐어요!',
-                            '센터 정보는 프로필에서 언제든 수정할 수 있어요.',
+                            '이제 제목이나 운동 하나를 바꿔 저장하고, 이 기기에서 연습해 보세요.',
                           ),
                           const SizedBox(height: 28),
                           OutlinedButton.icon(
@@ -586,10 +604,12 @@ class _OnboardingForm extends HookConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (step.value == 0)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 14),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
                             child: Text(
-                              '1개월 무료 체험 · 카드 등록 없이',
+                              latest.freeAvailable || latest.freeActive
+                                  ? 'Free · TV 1대 · 기간 제한·카드 등록 없이'
+                                  : '예시 체험과 내 수업 준비부터',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: AppColors.accent,
@@ -607,11 +627,7 @@ class _OnboardingForm extends HookConsumerWidget {
                                   if (step.value < 2) {
                                     next();
                                   } else if (step.value == 2) {
-                                    finish(
-                                      trial:
-                                          latest.trialEligible &&
-                                          !latest.hasAccess,
-                                    );
+                                    finish(trial: false);
                                   } else {
                                     context.go(
                                       starter == null
@@ -639,12 +655,21 @@ class _OnboardingForm extends HookConsumerWidget {
                                 )
                               : Text(
                                   step.value < 2
-                                      ? '다음'
+                                      ? (step.value == 0 &&
+                                                profile.value.purpose !=
+                                                    'operating' &&
+                                                latest.freeAvailable &&
+                                                !latest.hasAccess
+                                            ? 'Free로 수업 준비하기'
+                                            : '다음')
                                       : step.value == 2
-                                      ? ((!latest.trialEligible ||
-                                                latest.hasAccess)
+                                      ? (paidAccess
                                             ? '센터 설정 마치기'
-                                            : '1개월 무료로 시작하기')
+                                            : latest.freeActive
+                                            ? 'Free로 계속하기'
+                                            : latest.freeAvailable
+                                            ? 'Free로 시작하기'
+                                            : '센터 설정 마치기')
                                       : starter == null
                                       ? '첫 수업 준비하기'
                                       : '선택한 예시로 내 수업 만들기',
@@ -654,20 +679,13 @@ class _OnboardingForm extends HookConsumerWidget {
                           const Padding(
                             padding: EdgeInsets.only(top: 12),
                             child: Text(
-                              '체험은 준비를 마친 뒤 직접 시작할 수 있어요.',
+                              '프리미엄 1개월 무료 이용은 나중에 직접 선택할 수 있어요.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.muted,
                               ),
                             ),
-                          ),
-                        if (step.value == 2 &&
-                            latest.trialEligible &&
-                            !latest.hasAccess)
-                          TextButton(
-                            onPressed: busy ? null : () => finish(trial: false),
-                            child: const Text('체험은 나중에 시작하기'),
                           ),
                       ],
                     ),

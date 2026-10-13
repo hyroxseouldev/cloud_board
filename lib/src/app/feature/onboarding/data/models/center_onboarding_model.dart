@@ -15,13 +15,21 @@ class CenterOnboardingModel {
     this.deferred = false,
     this.status = 'pending_connection',
     this.hasAccess = false,
+    this.freeAvailable = false,
+    this.freeActive = false,
     this.trialEligible = true,
     this.trialStartedAtMs = 0,
     this.trialEndsAtMs = 0,
     this.serverNowMs = 0,
     this.suggestedTrialEndsAtMs = 0,
   });
-  final bool phoneRequired, completed, deferred, hasAccess, trialEligible;
+  final bool phoneRequired,
+      completed,
+      deferred,
+      hasAccess,
+      freeAvailable,
+      freeActive,
+      trialEligible;
   final String storeId, status;
   final Map<String, dynamic> profile;
   final int step,
@@ -42,6 +50,8 @@ class CenterOnboardingModel {
     deferred: deferred,
     status: status,
     hasAccess: hasAccess,
+    freeAvailable: freeAvailable,
+    freeActive: freeActive,
     trialEligible: trialEligible,
     trialStartedAtMs: trialStartedAtMs,
     trialEndsAtMs: trialEndsAtMs,

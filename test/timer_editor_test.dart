@@ -293,7 +293,7 @@ void main() {
         expect(container.read(provider).dirty, isFalse);
         expect(
           tester
-              .widget<IconButton>(
+              .widget<TextButton>(
                 find.byKey(const ValueKey('slide-save-button')),
               )
               .onPressed,
@@ -433,19 +433,23 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('apply-timer-editor')));
     await tester.pumpAndSettle();
     expect(calls, 0);
+    expect(find.text('변경사항 있음'), findsOneWidget);
     final save = find.byKey(const ValueKey('slide-save-button'));
     await tester.tap(save);
     await tester.pump();
-    expect(tester.widget<IconButton>(save).onPressed, isNull);
+    expect(tester.widget<TextButton>(save).onPressed, isNull);
     expect(calls, 1);
+    expect(find.text('저장됨'), findsNothing);
     pending.complete(false);
     await tester.pumpAndSettle();
     expect(container.read(provider).module.workSeconds, 150);
     expect(container.read(provider).saved.workSeconds, 90);
     expect(container.read(provider).dirty, isTrue);
+    expect(find.text('저장 실패 · 편집 내용 유지됨'), findsOneWidget);
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(calls, 2);
+    expect(find.text('저장됨'), findsOneWidget);
     expect(container.read(provider).saved.workSeconds, 150);
     expect(container.read(provider).dirty, isFalse);
     await tester.pumpWidget(const SizedBox());

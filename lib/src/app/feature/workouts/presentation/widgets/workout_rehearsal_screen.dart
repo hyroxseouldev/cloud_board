@@ -128,15 +128,24 @@ class WorkoutRehearsalScreen extends HookConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              demo
-                  ? '체험용 시간: 운동 8초 · 휴식 4초 · 2세트. 내 수업에는 원래 시간이 적용돼요.'
-                  : '저장된 시간으로 연습해요. 전환음은 버튼을 눌러 확인할 수 있어요.',
+              index.value + 1 < modules.length
+                  ? '다음 · ${modules[index.value + 1].name.isEmpty ? '슬라이드 ${index.value + 2}' : modules[index.value + 1].name}'
+                  : '다음 · 연습 완료 후 수업으로 돌아가기',
+              key: const ValueKey('rehearsal-next-slide'),
             ),
-            const SizedBox(height: 8),
-            const Text('이 기기에서만 연습해요 · TV로 보내지 않아요.'),
-            const SizedBox(height: 8),
-            const Text(
-              '운동 화면은 TV에, 재생·일시정지 버튼은 휴대폰에 보여요. 지금은 이 기기에서 두 역할을 함께 체험해 보세요.',
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('연습 안내'),
+              children: [
+                Text(
+                  demo
+                      ? '체험용 시간: 운동 8초 · 휴식 4초 · 2세트. 내 수업에는 원래 시간이 적용돼요.'
+                      : '현재 편집 중인 시간으로 연습해요. 전환음은 버튼을 눌러 확인할 수 있어요.',
+                ),
+                const Text(
+                  '운동 화면은 TV에, 재생·일시정지 버튼은 휴대폰에 보여요. 지금은 이 기기에서 두 역할을 함께 확인해 보세요.',
+                ),
+              ],
             ),
           ],
         ),

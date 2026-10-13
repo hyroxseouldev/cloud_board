@@ -23,7 +23,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('워크아웃 편집'), findsOneWidget);
+        expect(find.text('수업 구성'), findsOneWidget);
         expect(fixture.repository.loads, 0);
         expect(fixture.repository.detailReads, 1);
         expect(tester.takeException(), isNull);

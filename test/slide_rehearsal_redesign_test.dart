@@ -43,6 +43,8 @@ void main() {
         expect(canvas().brandL, 'CloudBoard');
         expect(canvas().brandR, 'Stationd');
         expect(canvas().secondsLeft, 5);
+        await tap('구간·소리 확인');
+        await tester.pumpAndSettle();
         await tap('마지막 3초');
         expect(canvas().secondsLeft, 3);
         expect(container.read(provider).positionMs, 2000);
@@ -102,6 +104,9 @@ void main() {
       module,
       textScale: 2,
     );
+    await tester.ensureVisible(find.text('구간·소리 확인'));
+    await tester.tap(find.text('구간·소리 확인'));
+    await tester.pumpAndSettle();
     final button = find.text('휴식으로');
     await tester.ensureVisible(button);
     await tester.pumpAndSettle();

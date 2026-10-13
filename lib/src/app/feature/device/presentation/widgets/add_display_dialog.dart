@@ -29,20 +29,28 @@ class AddDisplayDialog extends HookConsumerWidget {
     final zone = useTextEditingController(text: '메인 구역');
     final action = ref.watch(deviceClaimControllerProvider);
     final submitted = useState(false);
+    final requesting = useState(false);
+    final busy = action.isLoading || requesting.value;
     final claimedCode = useState<String?>(null);
     final codeError = useState<String?>(null);
 
     Future<void> connect() async {
+      if (requesting.value || action.isLoading) return;
       if (code.text.length != 6) {
         codeError.value = '6자리 코드를 입력해 주세요.';
         return;
       }
       codeError.value = null;
       submitted.value = true;
-      final success = await ref
-          .read(deviceClaimControllerProvider.notifier)
-          .claim(code: code.text, name: name.text, zoneName: zone.text);
-      if (success && context.mounted) claimedCode.value = code.text;
+      requesting.value = true;
+      try {
+        final success = await ref
+            .read(deviceClaimControllerProvider.notifier)
+            .claim(code: code.text, name: name.text, zoneName: zone.text);
+        if (success && context.mounted) claimedCode.value = code.text;
+      } finally {
+        if (context.mounted) requesting.value = false;
+      }
     }
 
     if (claimedCode.value != null) {
@@ -67,7 +75,7 @@ class AddDisplayDialog extends HookConsumerWidget {
     }
 
     return PopScope(
-      canPop: !action.isLoading,
+      canPop: !busy,
       child: AppAlertDialog(
         title: const Text('디스플레이 추가'),
         content: SizedBox(
@@ -81,7 +89,7 @@ class AddDisplayDialog extends HookConsumerWidget {
                   'TV에서 ${AppBrand.name} 앱을 열고 화면의 QR을 스캔하거나 6자리 코드를 입력하세요. 코드는 10분 동안 유효합니다.',
                 ),
                 const SizedBox(height: 16),
-                _PairingCodeInput(controller: code, enabled: !action.isLoading),
+                _PairingCodeInput(controller: code, enabled: !busy),
                 if (codeError.value != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -95,7 +103,7 @@ class AddDisplayDialog extends HookConsumerWidget {
                 if (canScan) ...[
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
-                    onPressed: action.isLoading
+                    onPressed: busy
                         ? null
                         : () async {
                             FocusScope.of(context).unfocus();
@@ -124,13 +132,13 @@ class AddDisplayDialog extends HookConsumerWidget {
                   children: [
                     TextField(
                       controller: name,
-                      enabled: !action.isLoading,
+                      enabled: !busy,
                       decoration: const InputDecoration(labelText: '기기 이름'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: zone,
-                      enabled: !action.isLoading,
+                      enabled: !busy,
                       decoration: const InputDecoration(labelText: '구역 이름'),
                     ),
                     const SizedBox(height: 12),
@@ -156,14 +164,12 @@ class AddDisplayDialog extends HookConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: action.isLoading
-                ? null
-                : () => Navigator.of(context).pop(),
+            onPressed: busy ? null : () => Navigator.of(context).pop(),
             child: const Text('취소'),
           ),
           FilledButton.icon(
-            onPressed: action.isLoading ? null : connect,
-            icon: action.isLoading
+            onPressed: busy ? null : connect,
+            icon: busy
                 ? const SizedBox.square(
                     dimension: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
@@ -187,7 +193,7 @@ class _PairingCodeInput extends HookWidget {
     useListenable(focus);
     useListenable(controller);
     return SizedBox(
-      height: 64,
+      height: MediaQuery.textScalerOf(context).scale(26) + 38,
       child: Stack(
         children: [
           ExcludeSemantics(
@@ -213,7 +219,7 @@ class _PairingCodeInput extends HookWidget {
                           i < controller.text.length ? controller.text[i] : '',
                           style: const TextStyle(
                             fontSize: 26,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),

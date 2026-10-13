@@ -2,6 +2,8 @@ import {createHmac, randomInt, randomUUID, timingSafeEqual} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {Timestamp} from 'firebase-admin/firestore';
 import {HttpsError} from 'firebase-functions/v2/https';
+import {startFreePlan} from './free-plan.js';
+import {hasPaidOrTrialHistory} from './billing-policy.js';
 const fail = (code, message) => new HttpsError(code, message);
 // One calendar month in Asia/Seoul, stored as UTC. Clamp missing days at month end.
 export function trialEnd(start) {
@@ -119,7 +121,7 @@ export async function readOnboarding(db,uid,now=Date.now(),realtime) {
   await assertUnlocked(db,uid);
   const progress=(await stateRef(db,uid).get()).data();
   if(!progress?.phoneVerified) return {phoneRequired:true,serverNowMs:now};
-  const [center,trial,entitlement]=await Promise.all([db.doc(`centers/${progress.storeId}`).get(),db.doc(`onboardingTrials/${uid}`).get(),db.doc(`subscriptionEntitlements/${uid}`).get()]);
+  const [center,trial,entitlement,freePolicy,billing,account]=await Promise.all([db.doc(`centers/${progress.storeId}`).get(),db.doc(`onboardingTrials/${uid}`).get(),db.doc(`subscriptionEntitlements/${uid}`).get(),db.doc('appConfig/freePlan').get(),db.doc(`users/${uid}/billing/summary`).get(),db.doc(`billingAccounts/${uid}`).get()]);
   if(center.data()?.ownerUid!==uid) throw fail('permission-denied','센터 정보를 확인할 수 없습니다.');
   const t=trial.data(), access=entitlement.data();
   const legacy=realtime ? (await realtime.ref(`legacyPilotAccess/${uid}`).get()).val() : null;
@@ -127,7 +129,11 @@ export async function readOnboarding(db,uid,now=Date.now(),realtime) {
   return {phoneRequired:false,storeId:progress.storeId,profile:center.data().profile,revision:center.data().revision,
     step:progress.step,completed:progress.completed,deferred:progress.deferred,status:access?.status??'pending_connection',
     hasAccess:access?.validUntilMs>now || hasLegacyAccess,
-    trialEligible:!hasLegacyAccess && !t && (!access?.managed || ['pending_connection','awaiting_web'].includes(access.status)),
+    freeAvailable:freePolicy.data()?.enrollmentEnabled!==false,
+    freeActive:access?.plan==='free' && access?.canStartClass===true && access.validUntilMs>now,
+    trialEligible:!hasLegacyAccess && !t && !billing.data()?.paid &&
+      !hasPaidOrTrialHistory(access?.webGrant) && !hasPaidOrTrialHistory(account.data()?.baseline) &&
+      (!access?.managed || access.plan==='free' || ['pending_connection','awaiting_web'].includes(access.status)),
     trialStartedAtMs:t?.startedAtMs??0,trialEndsAtMs:t?.endsAtMs??0,serverNowMs:now,suggestedTrialEndsAtMs:+trialEnd(new Date(now))};
 }
 export async function saveOnboarding(db,uid,input,now=Date.now()) {
@@ -159,21 +165,32 @@ export async function startOnboardingTrial(db,realtime,uid,now=Date.now()) {
     const center=db.doc(`centers/${p.data().storeId}`), c=await tx.get(center);
     if(c.data()?.ownerUid!==uid) throw fail('permission-denied','센터 정보를 확인할 수 없습니다.');
     validateProfile(c.data().profile,true);
-    if(t.exists) return; // Idempotent across retries, concurrent devices and reinstalls.
+    if(t.exists) {
+      if(t.data().endsAtMs<=now) throw fail('failed-precondition','이미 1개월 무료 이용을 사용했어요. Free로 계속 이용할 수 있어요.');
+      return; // Idempotent across retries, concurrent devices and reinstalls.
+    }
     const previous=a.data();
-    if(legacy?.validUntilMs>now || previous?.validUntilMs>now) return;
+    if(legacy?.validUntilMs>now || (previous?.plan!=='free' && previous?.validUntilMs>now)) return;
     // Any historical paid/trial grant is preserved. No automatic retrial.
-    if(previous?.managed===true && previous?.status!=='pending_connection' && previous?.status!=='awaiting_web')
+    const [billing,account]=await tx.getAll(db.doc(`users/${uid}/billing/summary`),db.doc(`billingAccounts/${uid}`));
+    if(billing.data()?.paid || hasPaidOrTrialHistory(previous?.webGrant) || hasPaidOrTrialHistory(account.data()?.baseline) ||
+      (previous?.managed===true && previous.plan!=='free' && previous?.status!=='pending_connection' && previous?.status!=='awaiting_web'))
       throw fail('failed-precondition','기존 이용 이력이 있습니다. 프로필에서 이용 상태를 확인해 주세요.');
     const startedAtMs=now,endsAtMs=+trialEnd(new Date(now));
     tx.create(trial,{storeId:p.data().storeId,startedAtMs,endsAtMs,policyVersion:'native-trial-1month-v1'});
     tx.set(access,{storeId:p.data().storeId,managed:true,source:'app_trial',status:'trialing',plan:'premium',
       validUntilMs:endsAtMs,revision:(previous?.revision??0)+1,canPrepare:true,canPairDisplay:true,canStartClass:true,
       displaysUnlimited:true,maxActiveDisplays:null,favoritesUnlimited:true,maxFavorites:null,idleScreenCustomization:'custom',
-      displayLimit:2147483647,policyVersion:'native-trial-1month-v1',updatedAt:Timestamp.fromMillis(now)});
+      displayLimit:2147483647,policyVersion:'native-trial-1month-v1',updatedAt:Timestamp.fromMillis(now),
+      ...(previous?.webGrant ? {webGrant:previous.webGrant} : {})});
   });
   if(legacy?.validUntilMs>now) return;
   await syncNativeTrial(db,realtime,uid);
+  if ((await db.doc(`onboardingTrials/${uid}`).get()).exists) {
+    const {billingAccount,refreshEntitlements}=await import('./billing.js');
+    await billingAccount(db,realtime,uid);
+    await refreshEntitlements(db,realtime,uid,now);
+  }
   const [a,r]=await Promise.all([db.doc(`subscriptionEntitlements/${uid}`).get(),realtime.ref(`subscriptionAccess/${uid}`).get()]);
   if(!(a.data()?.validUntilMs>now)||!(r.val()?.validUntilMs>now)) throw fail('failed-precondition','이용 권한을 확인하지 못했습니다. 다시 시도해 주세요.');
 }
@@ -181,9 +198,9 @@ export async function syncNativeTrial(db,realtime,uid) {
   if((await db.doc(`accountDeletions/${uid}`).get()).exists) return;
   const current=(await db.doc(`subscriptionEntitlements/${uid}`).get()).data();
   if(current?.source!=='app_trial') return;
-  const {updatedAt,...wire}=current;
+  const {updatedAt,webGrant,...wire}=current;
   await realtime.ref(`subscriptionAccess/${uid}`).transaction(old=> {
-    if(old && old.source!=='app_trial' && old.validUntilMs>Date.now()) return undefined;
+    if(old && old.source!=='app_trial' && old.plan!=='free' && old.validUntilMs>Date.now()) return undefined;
     if(old?.source==='app_trial' && old.revision>wire.revision) return undefined;
     return wire;
   });
@@ -195,6 +212,7 @@ export async function handleOnboarding({db,realtime,auth,input,secret,send}) {
   if(action==='verifyCode') await verifyOnboardingCode(db,uid,input.code,secret);
   else if(['save','complete','defer'].includes(action)) await saveOnboarding(db,uid,input);
   else if(action==='startTrial') await startOnboardingTrial(db,realtime,uid);
+  else if(action==='startFree') await startFreePlan(db,realtime,uid);
   else if(action!=='load') throw fail('invalid-argument','지원하지 않는 요청입니다.');
   if(action==='complete') {
     const state=await readOnboarding(db,uid,Date.now(),realtime);
@@ -208,7 +226,7 @@ export async function deleteOnboardingData(db,uid) {
     const field=collection==='centers'?'ownerUid':'uid';
     for(const document of (await db.collection(collection).where(field,'==',uid).get()).docs) await db.recursiveDelete(document.ref);
   }
-  await Promise.all(['onboardingTrials','onboardingPhoneChallenges'].map(collection=>db.doc(`${collection}/${uid}`).delete()));
+  await Promise.all(['onboardingTrials','onboardingPhoneChallenges','onboardingFree'].map(collection=>db.doc(`${collection}/${uid}`).delete()));
   await db.doc(`onboardingSmsLimits/user_${uid}`).delete();
   const entitlement=db.doc(`subscriptionEntitlements/${uid}`);
   await db.runTransaction(async tx=>{

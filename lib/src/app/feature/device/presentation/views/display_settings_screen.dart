@@ -1,5 +1,8 @@
+import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -30,6 +33,7 @@ class DisplaySettingsScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider);
     final pendingRemoval = useState<String?>(null);
+    final changingOutput = useState(false);
     final removed = useState<Set<String>>({});
     ref.listen(displayDevicesProvider, (previous, next) {
       if (!next.hasValue || next.isLoading) return;
@@ -42,9 +46,14 @@ class DisplaySettingsScreen extends HookConsumerWidget {
     final action = ref.watch(deviceClaimControllerProvider);
     ref.listen(deviceClaimControllerProvider, (previous, next) {
       if (next.hasError && next.error != previous?.error) {
+        final error = next.error!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(diagnosticMessage(next.error!)),
+            content: Text(
+              error is FirebaseException && error.code == 'resource-exhausted'
+                  ? '동시 송출 한도에 도달했습니다. 송출 중인 TV를 먼저 끄거나 구독 관리에서 한도를 확인해 주세요.'
+                  : diagnosticMessage(error),
+            ),
             action: kDebugMode
                 ? SnackBarAction(
                     label: '상세',
@@ -62,9 +71,12 @@ class DisplaySettingsScreen extends HookConsumerWidget {
       }
     });
     final modeState = ref.watch(deviceModeControllerProvider);
-    final busy = action.isLoading || modeState.isLoading;
+    final busy =
+        action.isLoading || modeState.isLoading || changingOutput.value;
+    final stackedMode = MediaQuery.textScalerOf(context).scale(14) > 18;
     final modeControl = DeviceModeToggle(
       enabled: !busy,
+      direction: stackedMode ? Axis.vertical : Axis.horizontal,
       onChanged: (selected) {
         if (selected == DeviceMode.display) context.go('/');
       },
@@ -73,7 +85,7 @@ class DisplaySettingsScreen extends HookConsumerWidget {
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
         toolbarHeight: 64,
-        actions: [modeControl, const SizedBox(width: 18)],
+        actions: stackedMode ? null : [modeControl, const SizedBox(width: 18)],
         automaticallyImplyLeading: false,
         leading: asMainTab
             ? null
@@ -88,7 +100,37 @@ class DisplaySettingsScreen extends HookConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
             children: [
+              if (stackedMode)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: modeControl,
+                  ),
+                ),
               Text('디스플레이 설정', style: AppStyle.of(context).mainText),
+              const SizedBox(height: 8),
+              Text(
+                devices.isLoading
+                    ? '등록된 TV와 연결 상태를 확인하고 있습니다.'
+                    : devices.hasError
+                    ? 'TV 상태를 확인하지 못했습니다. 아래에서 다시 불러와 주세요.'
+                    : devices.value?.isEmpty == true
+                    ? 'TV 앱을 열고 QR 또는 6자리 코드로 첫 화면을 연결하세요.'
+                    : '등록 ${devices.value?.length ?? 0}대 · 온라인 ${devices.value?.where((device) => device.online).length ?? 0}대',
+                style: const TextStyle(color: AppColors.secondaryText),
+              ),
+              if (devices.hasValue && devices.value!.isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    '온라인 표시는 TV 응답 확인과 다릅니다. TV 메뉴에서 확인 번호를 보내세요.',
+                    style: TextStyle(
+                      color: AppColors.secondaryText,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
@@ -170,67 +212,102 @@ class DisplaySettingsScreen extends HookConsumerWidget {
                       busy: busy || pendingRemoval.value != null,
                       removing: pendingRemoval.value == device.id,
                       onToggle: (enabled) async {
-                        if (enabled &&
-                            items.any(
-                              (d) =>
-                                  d.id != device.id && d.displayState == 'auto',
-                            )) {
-                          try {
-                            final profile = await ref.read(
-                              userProfileControllerProvider.future,
-                            );
-                            if (!context.mounted) return;
-                            if (profile.subscriptionPlan == 'plus') {
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (dialogContext) => AppAlertDialog(
-                                  title: const Text('송출 화면을 변경할까요?'),
-                                  content: Text(
-                                    '플러스는 동시에 1대에 송출할 수 있습니다. 기존 화면의 송출을 끄고 ${device.name}에서 이어서 표시합니다.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(dialogContext, false),
-                                      child: const Text('취소'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.pop(dialogContext, true),
-                                      child: const Text('변경'),
-                                    ),
-                                  ],
-                                ),
+                        if (changingOutput.value) return;
+                        changingOutput.value = true;
+                        try {
+                          var replaceDeviceIds = const <String>[];
+                          final activeOthers = items
+                              .where(
+                                (d) =>
+                                    d.id != device.id &&
+                                    d.paired &&
+                                    d.displayState == 'auto',
+                              )
+                              .toList();
+                          if (enabled && activeOthers.isNotEmpty) {
+                            try {
+                              final profile = await ref.read(
+                                userProfileControllerProvider.future,
                               );
-                              if (confirmed != true || !context.mounted) return;
-                            }
-                          } catch (_) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    '플랜 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
+                              if (!context.mounted) return;
+                              if (!profile.unlimitedDisplays &&
+                                  profile.hasPlanDisplayPolicy &&
+                                  activeOthers.length >= profile.displayLimit) {
+                                if (profile.displayLimit <= 0) {
+                                  throw StateError(
+                                    'Display allowance is not confirmed',
+                                  );
+                                }
+                                final selected = await showDialog<List<String>>(
+                                  context: context,
+                                  builder: (_) => _DisplaySwitchDialog(
+                                    target: device.name,
+                                    active: activeOthers,
+                                    limit: profile.displayLimit,
                                   ),
-                                ),
-                              );
+                                );
+                                if (selected == null || !context.mounted) {
+                                  return;
+                                }
+                                replaceDeviceIds = selected;
+                              }
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      '플랜 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
+                                    ),
+                                  ),
+                                );
+                              }
+                              return;
                             }
-                            return;
                           }
-                        }
-                        final success = await ref
-                            .read(deviceClaimControllerProvider.notifier)
-                            .setDisplayState(
-                              deviceId: device.id,
-                              displayState: enabled ? 'auto' : 'standby',
+                          final success = await ref
+                              .read(deviceClaimControllerProvider.notifier)
+                              .setDisplayState(
+                                deviceId: device.id,
+                                displayState: enabled ? 'auto' : 'standby',
+                                replaceDeviceIds: replaceDeviceIds,
+                              );
+                          if (!success &&
+                              context.mounted &&
+                              !ref
+                                  .read(deviceClaimControllerProvider)
+                                  .hasError) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('화면 표시를 변경하지 못했습니다. 다시 시도해 주세요.'),
+                              ),
                             );
-                        if (!success && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('화면 표시를 변경하지 못했습니다. 다시 시도해 주세요.'),
-                            ),
-                          );
+                          }
+                        } finally {
+                          if (context.mounted) changingOutput.value = false;
                         }
                       },
+                      onVerify: () => showDialog<void>(
+                        context: context,
+                        builder: (dialogContext) => AppAlertDialog(
+                          title: const Text('TV 응답 확인'),
+                          content: SizedBox(
+                            width: 360,
+                            child: SingleChildScrollView(
+                              child: DisplayVerification(
+                                deviceId: device.id,
+                                onDone: () => Navigator.of(dialogContext).pop(),
+                              ),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                              child: const Text('닫기'),
+                            ),
+                          ],
+                        ),
+                      ),
                       onPreferences: () => showDialog<void>(
                         context: context,
                         barrierDismissible: false,
@@ -290,6 +367,7 @@ class _DisplayTile extends StatelessWidget {
     required this.onRename,
     required this.onPreferences,
     required this.onToggle,
+    required this.onVerify,
   });
   final DisplayDevice device;
   final bool busy;
@@ -297,6 +375,7 @@ class _DisplayTile extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onRename;
   final VoidCallback onPreferences;
+  final VoidCallback onVerify;
   final ValueChanged<bool> onToggle;
 
   @override
@@ -316,13 +395,10 @@ class _DisplayTile extends StatelessWidget {
                 message: '화면 표시',
                 child: Semantics(
                   label: '${device.name} 화면 표시',
-                  child: Transform.scale(
-                    scale: 0.85,
-                    child: Switch(
-                      value: device.displayState == 'auto',
-                      onChanged: busy ? null : onToggle,
-                      materialTapTargetSize: MaterialTapTargetSize.padded,
-                    ),
+                  child: Switch(
+                    value: device.displayState == 'auto',
+                    onChanged: busy ? null : onToggle,
+                    materialTapTargetSize: MaterialTapTargetSize.padded,
                   ),
                 ),
               ),
@@ -335,7 +411,7 @@ class _DisplayTile extends StatelessWidget {
                 children: [
                   Text(
                     device.name,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: AppStyle.of(context).subText3,
                   ),
@@ -344,14 +420,9 @@ class _DisplayTile extends StatelessWidget {
                     transitionKey:
                         '${device.online}:${device.appBuild}:${device.lastSeenAtMs}',
                     child: Text(
-                      '${device.zoneName} · ${device.recentlySeen(DateTime.now().millisecondsSinceEpoch)
-                          ? '최근 응답'
-                          : device.online
-                          ? '응답 확인 필요'
-                          : '오프라인'}\n'
-                      '${device.installedVersion} · 재생 규격 ${device.playbackProtocol}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}\n'
+                      '${device.displayState == 'auto' ? '송출 켜짐' : '송출 꺼짐'} · ${device.recentlySeen(DateTime.now().millisecondsSinceEpoch) ? '최근 응답 수신' : 'TV 응답 확인 필요'}'
+                      '${device.online ? '' : '\nTV 앱과 인터넷 연결을 확인해 주세요.'}',
                       style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 12,
@@ -376,12 +447,15 @@ class _DisplayTile extends StatelessWidget {
                 tooltip: '디스플레이 메뉴',
                 enabled: !busy,
                 icon: const Icon(Icons.more_vert, color: AppColors.muted),
-                onSelected: (value) => value == 'rename'
+                onSelected: (value) => value == 'verify'
+                    ? onVerify()
+                    : value == 'rename'
                     ? onRename()
                     : value == 'preferences'
                     ? onPreferences()
                     : onRemove(),
                 itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'verify', child: Text('TV 응답 확인')),
                   PopupMenuItem(value: 'rename', child: Text('이름 수정')),
                   PopupMenuItem(value: 'preferences', child: Text('화면 맞춤')),
                   PopupMenuItem(value: 'remove', child: Text('연결 해제')),
@@ -392,4 +466,62 @@ class _DisplayTile extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Explicit replacement only: a server-confirmed allowance never implies that
+/// another coach's screen can be silently removed from the class.
+class _DisplaySwitchDialog extends HookWidget {
+  const _DisplaySwitchDialog({
+    required this.target,
+    required this.active,
+    required this.limit,
+  });
+  final String target;
+  final List<DisplayDevice> active;
+  final int limit;
+  @override
+  Widget build(BuildContext context) {
+    final selected = useState<Set<String>>({});
+    final requiredCount = active.length - limit + 1;
+    return AppAlertDialog(
+      title: const Text('송출 화면을 변경할까요?'),
+      content: SizedBox(
+        width: 360,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '동시에 $limit대까지 송출할 수 있습니다. $target에서 이어서 표시하려면 중지할 TV를 $requiredCount대 이상 선택하세요. 등록은 유지됩니다.',
+              ),
+              const SizedBox(height: 12),
+              for (final device in active)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(device.name),
+                  subtitle: Text(device.zoneName),
+                  value: selected.value.contains(device.id),
+                  onChanged: (checked) => selected.value = checked == true
+                      ? {...selected.value, device.id}
+                      : ({...selected.value}..remove(device.id)),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: selected.value.length < requiredCount
+              ? null
+              : () => Navigator.pop(context, selected.value.toList()),
+          child: const Text('선택한 TV 대신 송출'),
+        ),
+      ],
+    );
+  }
 }

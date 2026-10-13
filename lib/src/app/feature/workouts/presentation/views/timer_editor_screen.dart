@@ -207,7 +207,7 @@ class TimerEditorScreen extends HookConsumerWidget {
                         ListTile(
                           key: const ValueKey('timer-detail-toggle'),
                           visualDensity: VisualDensity.compact,
-                          minTileHeight: 44,
+                          minTileHeight: 48,
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             state.detailed ? '간단한 설정으로 돌아가기' : '구간별로 직접 편집',
@@ -323,8 +323,8 @@ class TimerEditorScreen extends HookConsumerWidget {
                       if (keyboard == 0) ...[
                         const SizedBox(height: 8),
                         const Text(
-                          '슬라이드에 반영한 뒤 저장해 주세요.',
-                          textAlign: TextAlign.center,
+                          '타이머 반영은 초안 변경이에요. 슬라이드 저장으로 완료해 주세요.',
+                          textAlign: TextAlign.left,
                           style: TextStyle(
                             fontSize: 12,
                             color: SlideEditorStyle.muted,

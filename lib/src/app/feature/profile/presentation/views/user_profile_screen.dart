@@ -32,15 +32,12 @@ class UserProfileScreen extends HookConsumerWidget {
     final uid = ref.watch(authStateProvider).value?.id;
     final authAction = ref.watch(authControllerProvider);
     final deletion = ref.watch(accountDeletionControllerProvider);
-    final phoneVerified = ref.watch(
-      onboardingControllerProvider.select(
-        (state) =>
-            !state.isLoading &&
-            !state.hasError &&
-            state.value?.phoneRequired == false &&
-            (state.value?.storeId.isNotEmpty ?? false),
-      ),
-    );
+    final onboarding = ref.watch(onboardingControllerProvider);
+    final phoneVerified =
+        !onboarding.isLoading &&
+        !onboarding.hasError &&
+        onboarding.value?.phoneRequired == false &&
+        (onboarding.value?.storeId.isNotEmpty ?? false);
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
@@ -82,7 +79,14 @@ class UserProfileScreen extends HookConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 32),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => context.push('/profile/edit'),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('이름·사진 수정'),
+                ),
+              ),
+              const SizedBox(height: 24),
               _ProfileGroup(
                 title: '계정',
                 children: [
@@ -103,7 +107,7 @@ class UserProfileScreen extends HookConsumerWidget {
                       spacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text('센터 정보 · 온보딩'),
+                        const Text('센터 정보'),
                         if (phoneVerified)
                           const Tooltip(
                             message: '휴대폰 인증 완료',
@@ -116,9 +120,13 @@ class UserProfileScreen extends HookConsumerWidget {
                       ],
                     ),
                     subtitle: Text(
-                      phoneVerified
+                      onboarding.isLoading
+                          ? '인증·센터 정보를 확인하고 있습니다'
+                          : onboarding.hasError
+                          ? '인증 정보를 확인하지 못했습니다 · 센터 정보에서 다시 확인'
+                          : phoneVerified
                           ? '휴대폰 인증 완료 · 센터 정보 수정'
-                          : '센터 정보 수정과 1개월 무료 체험',
+                          : '휴대폰 인증과 센터 정보 확인',
                     ),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push('/onboarding?edit=true'),
@@ -143,7 +151,7 @@ class UserProfileScreen extends HookConsumerWidget {
                   _ProfileInfo(
                     icon: Icons.check_circle_outline_rounded,
                     label: '이용 상태',
-                    value: data.subscriptionStatus.label,
+                    value: data.statusLabel,
                   ),
                   _ProfileInfo(
                     icon: Icons.connected_tv_rounded,
@@ -226,7 +234,9 @@ class EditUserProfileScreen extends HookConsumerWidget {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            next.hasError ? '프로필을 저장하지 못했습니다: ${next.error}' : '프로필을 저장했습니다.',
+            next.hasError
+                ? '프로필을 저장하지 못했습니다. 입력은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.'
+                : '프로필을 저장했습니다.',
           ),
           backgroundColor: next.hasError ? Colors.red.shade800 : null,
           behavior: SnackBarBehavior.floating,
@@ -497,7 +507,7 @@ String _endLabel(UserProfile profile) {
   final lastDay = profile.pilotEndsAt
       ?.subtract(const Duration(milliseconds: 1))
       .toLocal();
-  if (lastDay == null) return '파일럿 기간 협의 중';
+  if (lastDay == null) return '등록된 이용 종료일 없음';
   return '${lastDay.year}.${lastDay.month.toString().padLeft(2, '0')}.${lastDay.day.toString().padLeft(2, '0')}까지';
 }
 

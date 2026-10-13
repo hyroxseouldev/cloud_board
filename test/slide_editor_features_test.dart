@@ -247,7 +247,12 @@ void main() {
           tester
               .getSize(find.byKey(const ValueKey('slide-preview-card')))
               .width,
-          closeTo(size.width, 1),
+          closeTo(
+            size.width >= 700 && size.height < 540
+                ? size.width / 2
+                : size.width,
+            1,
+          ),
         );
         expect(find.byTooltip('미리 재생'), findsOneWidget);
         expect(find.text('시험 재생'), findsNothing);
@@ -354,7 +359,7 @@ void main() {
       expect(find.text('저장됨'), findsNothing);
       expect(
         tester
-            .widget<IconButton>(find.byKey(const ValueKey('slide-save-button')))
+            .widget<TextButton>(find.byKey(const ValueKey('slide-save-button')))
             .onPressed,
         isNotNull,
       );
@@ -478,6 +483,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('구간·소리 확인'));
+      await tester.tap(find.text('구간·소리 확인'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('마지막 3초'));
       await tester.tap(find.text('마지막 3초'));
       await tester.pump();
       expect(find.byKey(const ValueKey('slide-time-text')), findsOneWidget);

@@ -237,10 +237,25 @@ void main() {
         find.byKey(const ValueKey('slide-load-style')).hitTestable(),
         findsOneWidget,
       );
-      expect(
-        tester.getTopLeft(find.byKey(const ValueKey('slide-load-style'))).dy,
-        lessThan(tester.getTopLeft(find.text('타이머 색상')).dy),
-      );
+      final loader = find.byKey(const ValueKey('slide-load-style'));
+      double contentY(Finder finder) =>
+          tester.getTopLeft(finder).dy +
+          tester
+              .state<ScrollableState>(
+                find
+                    .descendant(
+                      of: find.byKey(const ValueKey('slide-editor-settings')),
+                      matching: find.byType(Scrollable),
+                    )
+                    .first,
+              )
+              .position
+              .pixels;
+      final loadStyleOffset = contentY(loader);
+      // Color controls follow the style loader; at 320px they are lazy-built
+      // only once scrolled into the shortened settings viewport.
+      await reveal(find.text('타이머 색상'));
+      expect(loadStyleOffset, lessThan(contentY(color)));
       await reveal(color);
       final firstColor = find.byKey(const ValueKey('color-swatch-세트 숫자'));
       final lastColor = find.byKey(const ValueKey('color-swatch-휴식 시간 텍스트'));

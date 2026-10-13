@@ -83,7 +83,7 @@ class SubscriptionScreen extends HookConsumerWidget {
                   Text(
                     '우리 센터에 맞는\n수업의 다음 단계.',
                     style: Theme.of(context).textTheme.headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 24),
                   Card(
@@ -101,9 +101,14 @@ class SubscriptionScreen extends HookConsumerWidget {
                             data.planLabel,
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
-                          if (data.validUntilMs > 0) ...[
+                          if (data.validUntilMs > 0 && data.plan != 'free') ...[
                             const SizedBox(height: 8),
                             Text('${date(data.validUntilMs)}까지 이용'),
+                          ],
+                          if (data.plan == 'free' &&
+                              data.status == 'active') ...[
+                            const SizedBox(height: 12),
+                            const Text('TV 한 대로 무료 운영 · 기간 제한 없이 · 카드 등록 없이'),
                           ],
                           if (data.status == 'trialing') ...[
                             const SizedBox(height: 12),
@@ -281,7 +286,7 @@ class _PlanCard extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          Text(premium ? '센터 디스플레이·저장 슬라이드 제한 없이' : '디스플레이 1대 · 저장 슬라이드 3개'),
+          Text(premium ? '센터 디스플레이·저장 슬라이드 제한 없이' : 'TV 동시 3대 · 저장 슬라이드 3개'),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: enabled && offer != null

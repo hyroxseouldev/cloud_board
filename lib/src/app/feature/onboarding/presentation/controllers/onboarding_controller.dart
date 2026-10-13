@@ -69,6 +69,8 @@ class OnboardingAction extends _$OnboardingAction {
       run(() => ref.read(onboardingActionsProvider).load());
   Future<bool> startTrial() =>
       run(() => ref.read(onboardingActionsProvider).startTrial());
+  Future<bool> startFree() =>
+      run(() => ref.read(onboardingActionsProvider).startFree());
 }
 
 @riverpod

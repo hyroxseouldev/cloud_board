@@ -6,10 +6,16 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.d
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 
 class DeviceModeToggle extends ConsumerWidget {
-  const DeviceModeToggle({super.key, this.enabled = true, this.onChanged});
+  const DeviceModeToggle({
+    super.key,
+    this.enabled = true,
+    this.onChanged,
+    this.direction = Axis.horizontal,
+  });
 
   final bool enabled;
   final ValueChanged<DeviceMode>? onChanged;
+  final Axis direction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,6 +29,7 @@ class DeviceModeToggle extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(4),
         child: SegmentedButton<DeviceMode>(
+          direction: direction,
           style: const ButtonStyle(
             visualDensity: VisualDensity.standard,
             minimumSize: WidgetStatePropertyAll(Size(76, 40)),

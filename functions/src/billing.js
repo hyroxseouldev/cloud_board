@@ -2,7 +2,7 @@ import {AppBrand} from './config/app-brand.js';
 import {randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {HttpsError} from 'firebase-functions/v2/https';
-import {appleGrant, billingSource, products, purchasesAllowed, resolveGrants, tokenPattern} from './billing-policy.js';
+import {appleGrant, billingSource, products, purchasesAllowed, resolveGrants, freeGrant, hasPaidOrTrialHistory, tokenPattern} from './billing-policy.js';
 import {latestAppleSubscription, verifyApplePayload} from './apple-store.js';
 import {appleApiReady} from './apple-billing-config.js';
 
@@ -21,7 +21,8 @@ export async function billingAccount(db, realtime, uid) {
     if (lock.exists || account.data()?.deleted) throw fail('permission-denied', '삭제된 계정입니다.');
     if (account.exists) return account.data();
     const appAccountToken = randomUUID();
-    const baseline = current.data()?.source !== billingSource ? clean(current.data()) : {};
+    const {webGrant, ...currentAccess} = current.data() ?? {};
+    const baseline = webGrant ?? (currentAccess.source !== billingSource ? clean(currentAccess) : {});
     // Snapshot existing server grants before switching to the billing projection.
     const oldRealtime = legacy?.source !== billingSource ? clean(legacy) : {};
     const value = {appAccountToken, deleted: false, createdAtMs: Date.now(), baseline,
@@ -36,28 +37,41 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
   const livePilot = (await realtime.ref(`legacyPilotAccess/${uid}`).get()).val();
   await db.runTransaction(async tx => {
     const accessRef = db.doc(`subscriptionEntitlements/${uid}`), aRef = accountRef(db, uid);
-    const [lock, account, access, trial, tester, subscriptions, progress, playSubscriptions] = await Promise.all([
+    const [lock, account, access, trial, tester, subscriptions, progress, playSubscriptions, free, freePolicy] = await Promise.all([
       tx.get(db.doc(`accountDeletions/${uid}`)), tx.get(aRef), tx.get(accessRef),
       tx.get(db.doc(`onboardingTrials/${uid}`)), tx.get(db.doc(`billingTesters/${uid}`)),
       tx.get(db.collection('appStoreSubscriptions').where('uid', '==', uid)),
       tx.get(db.doc(`users/${uid}/onboarding/progress`)),
       tx.get(db.collection('googlePlaySubscriptions').where('uid', '==', uid)),
+      tx.get(db.doc(`onboardingFree/${uid}`)),
+      tx.get(db.doc('appConfig/freePlan')),
     ]);
     if (lock.exists || !account.exists || account.data().deleted) return;
     const data = account.data(), previous = access.data();
-    const baseline = previous && previous.source !== billingSource ? clean(previous) : data.baseline;
+    // Web revisions are independent of projection revisions. The web writer
+    // stores its latest grant here, so cancellation replaces an old snapshot
+    // without ever replacing a native paid/trial projection directly.
+    const webGrant = previous?.webGrant;
+    const baseline = webGrant ?? (previous && previous.source !== billingSource ? clean(previous) : data.baseline);
     const apple = subscriptions.docs.map(d => d.data()).filter(d => d.environment === 'Production' || tester.data()?.enabled === true);
     const play = playSubscriptions.docs.map(d => d.data()).filter(d => !d.deleted && !d.replacedBy &&
       (d.environment === 'Production' || tester.data()?.enabled === true));
+    const nativeHistory = progress.data()?.phoneVerified === true &&
+      (trial.exists || apple.length > 0 || play.length > 0);
+    const enrollFallback = !free.exists && freePolicy.data()?.enrollmentEnabled !== false &&
+      (nativeHistory || hasPaidOrTrialHistory(baseline));
+    const freeEnrollment = enrollFallback ? {enabled: true} : free.data();
+    if (enrollFallback) tx.set(db.doc(`onboardingFree/${uid}`),
+      {enabled: true, startedAtMs: now, policyVersion: 'free-tv1-v1'});
     const grants = [baseline, baseline?.managed ? null : data.oldRealtime, livePilot,
       trial.exists ? {source: 'app_trial', plan: 'premium', status: 'trialing', validUntilMs: trial.data().endsAtMs} : null,
-      ...apple.map(d => d.grant), ...play.map(d => d.grant)];
-    const result = {...resolveGrants(grants, now),
+      ...apple.map(d => d.grant), ...play.map(d => d.grant), freeGrant(freeEnrollment)];
+    const result = {...resolveGrants(grants, now), ...(webGrant ? {webGrant} : {}),
       storeId: progress.data()?.storeId ?? previous?.storeId ?? baseline?.storeId ?? null};
     const comparable = previous ? Object.fromEntries(Object.keys(result).map(k => [k, previous[k]])) : null;
     // Merely opening the page must not turn a new user's pending trial into a
     // historical expired grant, or migrate any legacy account before a purchase.
-    if ((subscriptions.size > 0 || playSubscriptions.size > 0 || previous?.source === billingSource) && !isDeepStrictEqual(comparable, result)) {
+    if ((free.exists || enrollFallback || subscriptions.size > 0 || playSubscriptions.size > 0 || previous?.source === billingSource) && !isDeepStrictEqual(comparable, result)) {
       tx.set(accessRef, {...result, revision: (previous?.revision ?? 0) + 1});
     }
     const futureEnds = grants.filter(g => g?.validUntilMs > now).map(g => g.validUntilMs);
@@ -78,12 +92,34 @@ export async function projectBillingAccess(db, realtime, uid) {
   if ((await db.doc(`accountDeletions/${uid}`).get()).exists) return;
   const current = (await db.doc(`subscriptionEntitlements/${uid}`).get()).data();
   if (current?.source !== billingSource) return;
+  const {webGrant, ...wire} = current;
   await realtime.ref(`subscriptionAccess/${uid}`).transaction(old => {
     if (old?.source === billingSource && old.revision > current.revision) return undefined;
-    return current;
+    return wire;
   });
   // Cover deletion racing a cross-database projection.
   if ((await db.doc(`accountDeletions/${uid}`).get()).exists) await realtime.ref(`subscriptionAccess/${uid}`).remove();
+}
+
+// Web-only accounts also need scheduled expiry/fallback reconciliation. The
+// source grant is server-owned and does not require a first native billing visit.
+export async function syncBillingEntitlement(db, realtime, uid) {
+  const [lock, account, access] = await db.getAll(db.doc(`accountDeletions/${uid}`),
+    accountRef(db, uid), db.doc(`subscriptionEntitlements/${uid}`));
+  if (lock.exists || account.data()?.deleted || (!account.exists && !access.data()?.webGrant)) return;
+  if (!account.exists) {
+    try {
+      await billingAccount(db, realtime, uid);
+    } catch (error) {
+      // Deletion can win between the read above and account initialization.
+      if (error.code === 'permission-denied') {
+        const [latestLock, latestAccount] = await db.getAll(db.doc(`accountDeletions/${uid}`), accountRef(db, uid));
+        if (latestLock.exists || latestAccount.data()?.deleted) return;
+      }
+      throw error;
+    }
+  }
+  await refreshEntitlements(db, realtime, uid);
 }
 
 export async function claimSubscription(db, uid, transaction) {
@@ -177,7 +213,7 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
   const paid = summary.data()?.paid;
   const existingPaid = paid && (paid.validUntilMs > Date.now() || paid.autoRenew || ['billing_retry', 'paused', 'pending'].includes(paid.status));
   const legacyActive = summary.data()?.validUntilMs > Date.now() &&
-    !['app_trial', 'app_store', 'google_play'].includes(summary.data()?.grantSource);
+    !['app_trial', 'app_free', 'app_store', 'google_play'].includes(summary.data()?.grantSource);
   const eligible = progress.data()?.phoneVerified === true && !existingPaid && !legacyActive;
   const storeReady = adapter.store === 'google_play' || appleApiReady();
   const enabled = storeReady && purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;

@@ -40,8 +40,10 @@ void main() {
     Size size = const Size(390, 844),
     double scale = 1,
     _PendingRepository? repository,
+    TargetPlatform platform = TargetPlatform.iOS,
+    bool tv = false,
   }) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    debugDefaultTargetPlatformOverride = platform;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -50,7 +52,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          androidTvProvider.overrideWith((ref) async => false),
+          androidTvProvider.overrideWith((ref) async => tv),
           if (repository != null)
             authRepositoryProvider.overrideWith((ref) => repository),
         ],
@@ -67,6 +69,40 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'Android quiet welcome prioritizes demo and keeps email a text action',
+    (tester) async {
+      await mount(tester, platform: TargetPlatform.android);
+      expect(find.text('오늘의 수업을,\n조금 더 여유롭게.'), findsOneWidget);
+      expect(find.text('Apple로 계속하기'), findsNothing);
+      expect(find.text('Google로 계속하기'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '이메일로 로그인'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, '이메일로 계속하기'), findsNothing);
+      for (final label in ['이메일로 로그인', '기존 계정 로그인 안내']) {
+        expect(
+          tester.getSize(find.widgetWithText(TextButton, label)).height,
+          greaterThanOrEqualTo(48),
+        );
+      }
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('TV retains remote sign-in and excludes mobile demo actions', (
+    tester,
+  ) async {
+    await mount(tester, platform: TargetPlatform.android, tv: true);
+    expect(find.text('우리 센터의 화면을 준비해요.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('explore-without-account')), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, '이메일로 계속하기'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Google로 계속하기'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'welcome uses the shared sage mark while provider buttons retain their colors',
@@ -136,16 +172,23 @@ void main() {
   testWidgets(
     'small phone with large text can reach account help without overflow',
     (tester) async {
-      await mount(tester, size: const Size(320, 568), scale: 1.5);
+      await mount(tester, size: const Size(320, 568), scale: 2);
       final brand = find.text(AppBrand.name);
       expect(brand, findsOneWidget);
       final bounds = tester.getRect(brand);
       expect(bounds.left, greaterThanOrEqualTo(24));
       expect(bounds.right, lessThanOrEqualTo(296));
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('계정 안내'));
+      for (final key in ['explore-without-account', 'email-sign-in']) {
+        final target = find.byKey(ValueKey(key));
+        await tester.ensureVisible(target);
+        await tester.pumpAndSettle();
+        expect(target.hitTestable(), findsOneWidget);
+        expect(tester.getSize(target).height, greaterThanOrEqualTo(48));
+      }
+      await tester.ensureVisible(find.text('기존 계정 로그인 안내'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('계정 안내'));
+      await tester.tap(find.text('기존 계정 로그인 안내'));
       await tester.pumpAndSettle();
       expect(find.text('기존 계정으로 로그인하기'), findsOneWidget);
       expect(tester.takeException(), isNull);

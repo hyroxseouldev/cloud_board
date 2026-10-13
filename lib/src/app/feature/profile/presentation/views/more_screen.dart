@@ -33,70 +33,99 @@ class MoreScreen extends ConsumerWidget {
       onTap: () => context.push(path),
     );
 
+    final name = user?.displayName.trim();
+    Widget group(String title) => Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: Semantics(
+        header: true,
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(color: AppColors.accent),
+        ),
+      ),
+    );
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
         title: const Text('더보기'),
         automaticallyImplyLeading: false,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        children: [
-          Text(
-            user?.displayName.trim().isNotEmpty == true
-                ? '${user!.displayName}님'
-                : '내 계정',
-            style: const TextStyle(
-              fontSize: 24,
-              letterSpacing: -0.24,
-              fontWeight: FontWeight.w600,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              MediaQuery.sizeOf(context).width < 350 ? 16 : 20,
+              16,
+              20,
+              32,
             ),
+            children: [
+              ListTile(
+                key: const ValueKey('more-profile-summary'),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                leading: CircleAvatar(
+                  radius: 26,
+                  backgroundColor: AppColors.selected,
+                  foregroundColor: AppColors.accent,
+                  foregroundImage: user?.photoUrl?.isNotEmpty == true
+                      ? NetworkImage(user!.photoUrl!)
+                      : null,
+                  child: Text(
+                    name?.isNotEmpty == true ? name!.characters.first : '나',
+                  ),
+                ),
+                title: Text(
+                  name?.isNotEmpty == true ? name! : '내 계정',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                subtitle: const Text('프로필 및 설정'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/profile'),
+              ),
+              const Divider(height: 24),
+              group('수업과 센터'),
+              if (user != null) ...[
+                destination(
+                  '매장 관리',
+                  '기본값 · 대기 화면 · 예약 재생',
+                  Icons.storefront_outlined,
+                  '/operations',
+                ),
+                const Divider(height: 1),
+              ],
+              destination(
+                '구독 관리',
+                '이용 중인 플랜과 결제 정보',
+                Icons.credit_card_outlined,
+                '/subscription',
+              ),
+              const Divider(height: 1),
+              group('시작과 소식'),
+              destination(
+                '첫 수업 준비',
+                '수업 만들기부터 TV 연결까지',
+                Icons.checklist_rounded,
+                '/first-class',
+              ),
+              const Divider(height: 1),
+              destination(
+                '예시 수업 둘러보기',
+                '예시를 체험하고 내 수업으로 시작하기',
+                Icons.auto_awesome_mosaic_outlined,
+                '/explore',
+              ),
+              const Divider(height: 1),
+              destination(
+                '업데이트 소식',
+                '${AppBrand.name}의 새로운 기능',
+                Icons.campaign_outlined,
+                '/profile/updates',
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          destination(
-            '프로필 및 설정',
-            '계정 정보와 센터 정보',
-            Icons.account_circle_outlined,
-            '/profile',
-          ),
-          const Divider(height: 1),
-          destination(
-            '첫 수업 준비',
-            '수업 만들기부터 TV 연결까지',
-            Icons.checklist_rounded,
-            '/first-class',
-          ),
-          const Divider(height: 1),
-          destination(
-            '예시 수업 둘러보기',
-            '예시를 체험하고 내 수업으로 시작하기',
-            Icons.auto_awesome_mosaic_outlined,
-            '/explore',
-          ),
-          const Divider(height: 1),
-          if (user != null) ...[
-            destination(
-              '매장 관리',
-              '워크아웃 기본값 · 대기 화면 · 예약 재생',
-              Icons.storefront_outlined,
-              '/operations',
-            ),
-            const Divider(height: 1),
-          ],
-          destination(
-            '구독 관리',
-            '이용 중인 플랜과 결제 정보',
-            Icons.credit_card_outlined,
-            '/subscription',
-          ),
-          const Divider(height: 1),
-          destination(
-            '업데이트 소식',
-            '${AppBrand.name}의 새로운 기능',
-            Icons.campaign_outlined,
-            '/profile/updates',
-          ),
-        ],
+        ),
       ),
     );
   }
