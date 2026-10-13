@@ -10,6 +10,8 @@ export const developmentFunctionNames = Object.freeze([
   'syncSlideLibraryPlan', 'cloudboardAppOnboarding', 'syncAppTrialAccess',
   'cleanupOnboardingVerification', 'reportClientDiagnostic', 'listLibraryFolders',
   'manageLibraryFolder', 'cleanupClientDiagnostics', 'recordOperationTelemetry',
+  'saveWorkout', 'getPlanUsage', 'syncWorkoutPlanUsage', 'syncSlidePlanUsage',
+  'cloudboardSaveBrandConfig', 'syncStandbyBranding',
 ]);
 
 export function onboardingSecretBindings(projectId) {
