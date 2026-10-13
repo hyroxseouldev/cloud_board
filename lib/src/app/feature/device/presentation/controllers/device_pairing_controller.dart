@@ -144,10 +144,15 @@ class DeviceClaimController extends _$DeviceClaimController {
   Future<bool> setDisplayState({
     required String deviceId,
     required String displayState,
+    List<String> replaceDeviceIds = const [],
   }) => _run(
     'display_state',
     () => ref
         .read(devicePairingActionsProvider)
-        .setDisplayState(deviceId: deviceId, displayState: displayState),
+        .setDisplayState(
+          deviceId: deviceId,
+          displayState: displayState,
+          replaceDeviceIds: replaceDeviceIds,
+        ),
   );
 }

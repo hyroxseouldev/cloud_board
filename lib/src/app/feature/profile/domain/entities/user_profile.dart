@@ -9,7 +9,7 @@ enum SubscriptionStatus { free, trialing, active, pastDue, canceled }
 
 extension PartnerTierLabel on PartnerTier {
   String get label => switch (this) {
-    PartnerTier.free => '무료 준비',
+    PartnerTier.free => 'Free',
     PartnerTier.trial => '체험 중',
     PartnerTier.pilot => '파일럿 파트너',
     PartnerTier.earlyPartner => '얼리 파트너',
@@ -20,7 +20,7 @@ extension PartnerTierLabel on PartnerTier {
 
 extension SubscriptionStatusLabel on SubscriptionStatus {
   String get label => switch (this) {
-    SubscriptionStatus.free => '수업 준비 가능',
+    SubscriptionStatus.free => 'Free 이용 중',
     SubscriptionStatus.trialing => '무료 체험 중',
     SubscriptionStatus.active => '정상 이용 중',
     SubscriptionStatus.pastDue => '결제 확인 필요',
@@ -30,14 +30,20 @@ extension SubscriptionStatusLabel on SubscriptionStatus {
 
 extension UserProfilePlan on UserProfile {
   bool get hasPlanDisplayPolicy =>
-      subscriptionPlan == 'plus' || subscriptionPlan == 'premium';
+      subscriptionPlan == 'free' ||
+      subscriptionPlan == 'plus' ||
+      subscriptionPlan == 'premium';
   bool get unlimitedDisplays =>
       subscriptionPlan == 'premium' && displayLimit == -1;
   String get planLabel => switch (subscriptionPlan) {
+    'free' => displayLimit > 0 ? 'Free' : '수업 준비',
     'plus' => '${AppBrand.name} 플러스',
     'premium' => '${AppBrand.name} 프리미엄',
     _ => partnerTier.label,
   };
+  String get statusLabel => subscriptionPlan == 'free' && displayLimit <= 0
+      ? '수업 준비 중'
+      : subscriptionStatus.label;
   String get displayLimitLabel => unlimitedDisplays
       ? '디스플레이 무제한'
       : '디스플레이 ${hasPlanDisplayPolicy ? "동시 " : ""}$displayLimit대';

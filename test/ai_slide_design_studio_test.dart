@@ -127,6 +127,45 @@ class _ContentRepository implements AiSlidesRepository {
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  test(
+    'empty design response leaves a retryable error and retry can succeed',
+    () async {
+      final repository = _DesignRepository()
+        ..pending = Completer<AiSlideDesignResult>();
+      final container = ProviderContainer(
+        overrides: [
+          aiSlideDesignOwnerIdProvider.overrideWithValue('alice'),
+          aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
+          aiSlideDesignRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        aiSlideDesignControllerProvider.notifier,
+      );
+      final pending = controller.generate('세이지 디자인');
+      repository.pending!.complete(
+        const AiSlideDesignResult(designs: [], remaining: 29),
+      );
+      await pending;
+      expect(
+        container.read(aiSlideDesignControllerProvider).error,
+        contains('결과가 없어요'),
+      );
+      expect(
+        container.read(aiSlideDesignControllerProvider).generating,
+        isFalse,
+      );
+      repository.pending = null;
+      await controller.generate('다시 제안');
+      expect(container.read(aiSlideDesignControllerProvider).error, isNull);
+      expect(
+        container.read(aiSlideDesignControllerProvider).proposals,
+        hasLength(3),
+      );
+    },
+  );
+
   test('content and design completion refresh the same quota', () async {
     final content = _ContentRepository()..premium = true;
     final designs = _DesignRepository()
@@ -615,7 +654,7 @@ void main() {
       expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);
       expect(
         tester
-            .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
+            .widget<FilledButton>(find.byKey(const ValueKey('ai-slides-add')))
             .onPressed,
         isNotNull,
       );

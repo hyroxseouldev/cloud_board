@@ -25,6 +25,7 @@ class OnboardingActions {
   }
 
   Future<CenterOnboarding> startTrial() => repository.startTrial();
+  Future<CenterOnboarding> startFree() => repository.startFree();
 }
 
 @riverpod

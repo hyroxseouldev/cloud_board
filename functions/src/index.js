@@ -259,10 +259,8 @@ export const syncAppTrialAccess = onDocumentWritten({
 }, async event => {
   const {syncNativeTrial}=await import('./onboarding.js');
   await syncNativeTrial(db,realtime,event.params.uid);
-  const {refreshEntitlements}=await import('./billing.js');
-  if ((await db.doc(`billingAccounts/${event.params.uid}`).get()).exists) {
-    await refreshEntitlements(db,realtime,event.params.uid);
-  }
+  const {syncBillingEntitlement}=await import('./billing.js');
+  await syncBillingEntitlement(db,realtime,event.params.uid);
 });
 
 const appleSecrets = appleSecretBindings();

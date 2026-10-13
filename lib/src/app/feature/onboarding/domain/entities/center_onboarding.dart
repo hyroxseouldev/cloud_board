@@ -43,6 +43,8 @@ abstract class CenterOnboarding with _$CenterOnboarding {
     @Default(false) bool deferred,
     @Default('pending_connection') String status,
     @Default(false) bool hasAccess,
+    @Default(false) bool freeAvailable,
+    @Default(false) bool freeActive,
     @Default(true) bool trialEligible,
     @Default(0) int trialStartedAtMs,
     @Default(0) int trialEndsAtMs,

@@ -33,7 +33,8 @@ class FakeOnboarding implements OnboardingRepository {
   CenterOnboarding value;
   bool fail = false;
   Completer<void>? saveGate;
-  int starts = 0, saves = 0;
+  int starts = 0, saves = 0, freeStarts = 0;
+  bool failFree = false;
   @override
   Future<CenterOnboarding> load() async => value;
   @override
@@ -61,6 +62,13 @@ class FakeOnboarding implements OnboardingRepository {
       completed: action == 'complete',
       deferred: action == 'defer',
     );
+  }
+
+  @override
+  Future<CenterOnboarding> startFree() async {
+    freeStarts++;
+    if (failFree) throw StateError('Free 시작 실패');
+    return value = value.copyWith(freeActive: true, hasAccess: true);
   }
 
   @override
@@ -167,10 +175,18 @@ void main() {
       'profile': CenterOnboardingModel.profileJson(p),
       'step': 2,
       'revision': 4,
+      'freeAvailable': true,
+      'freeActive': true,
     }).toEntity();
     expect(restored.profile, p);
     expect(restored.step, 2);
     expect(restored.revision, 4);
+    expect(restored.freeAvailable, isTrue);
+    expect(restored.freeActive, isTrue);
+    expect(
+      CenterOnboardingModel.fromJson({}).toEntity().freeAvailable,
+      isFalse,
+    );
   });
   for (final size in [
     const Size(320, 568),
@@ -336,12 +352,83 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
     expect(repo.starts, 0);
-    await tester.tap(find.text('1개월 무료로 시작하기'));
+    await tester.ensureVisible(find.text('프리미엄 1개월 무료 이용 · 선택'));
+    await tester.tap(find.text('프리미엄 1개월 무료 이용 · 선택'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('프리미엄 1개월 무료 이용 시작'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('프리미엄 1개월 무료 이용 시작'));
     await tester.pumpAndSettle();
     expect(repo.starts, 1);
     expect(repo.value.completed, isTrue);
     expect(find.text('예시 수업 미리보기'), findsOneWidget);
   });
+
+  testWidgets(
+    'Free starts only on explicit action, retries without losing purpose, and never starts trial',
+    (tester) async {
+      final repo = FakeOnboarding(
+        const CenterOnboarding(
+          phoneRequired: false,
+          storeId: 'center',
+          freeAvailable: true,
+        ),
+      )..failFree = true;
+      await tester.pumpWidget(app(repo, purpose: 'preparing'));
+      await tester.pumpAndSettle();
+      expect(repo.freeStarts, 0);
+      expect(repo.starts, 0);
+      await tester.tap(find.text('Free로 수업 준비하기'));
+      await tester.pumpAndSettle();
+      expect(repo.freeStarts, 1);
+      expect(repo.value.deferred, isFalse);
+      expect(find.text('어떻게 시작하고 싶으세요?'), findsOneWidget);
+      repo.failFree = false;
+      await tester.tap(find.text('Free로 수업 준비하기'));
+      await tester.pumpAndSettle();
+      expect(repo.value.freeActive, isTrue);
+      expect(repo.value.deferred, isTrue);
+      expect(repo.value.profile.purpose, 'preparing');
+      expect(repo.starts, 0);
+      expect(find.text('내 수업 준비 화면'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an eligible Free member can explicitly start the first premium trial',
+    (tester) async {
+      final repo = FakeOnboarding(
+        const CenterOnboarding(
+          phoneRequired: false,
+          storeId: 'center',
+          step: 2,
+          freeAvailable: true,
+          freeActive: true,
+          hasAccess: true,
+          profile: CenterProfile(
+            purpose: 'preparing',
+            role: 'owner',
+            centerTypes: ['gym'],
+            undecidedName: true,
+            undecidedRegion: true,
+          ),
+        ),
+      );
+      await tester.pumpWidget(app(repo));
+      await tester.pumpAndSettle();
+      expect(find.text('Free로 계속하기'), findsOneWidget);
+      expect(repo.starts, 0);
+      await tester.ensureVisible(find.text('프리미엄 1개월 무료 이용 · 선택'));
+      await tester.tap(find.text('프리미엄 1개월 무료 이용 · 선택'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('프리미엄 1개월 무료 이용 시작'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('프리미엄 1개월 무료 이용 시작'));
+      await tester.pumpAndSettle();
+      expect(repo.starts, 1);
+      expect(repo.freeStarts, 0);
+    },
+  );
 
   testWidgets('existing access finishes setup without offering a new trial', (
     tester,

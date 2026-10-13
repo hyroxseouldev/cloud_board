@@ -51,6 +51,7 @@ class _DisplayActions extends DeviceClaimController {
   Future<bool> setDisplayState({
     required String deviceId,
     required String displayState,
+    List<String> replaceDeviceIds = const [],
   }) async {
     calls.add((deviceId: deviceId, displayState: displayState));
     state = fail

@@ -21,6 +21,7 @@ abstract interface class DevicePairingRepository {
   Future<void> setDisplayState({
     required String deviceId,
     required String displayState,
+    List<String> replaceDeviceIds = const [],
   });
   Future<void> identify(String deviceId, String nonce, int expiresAtMs);
 

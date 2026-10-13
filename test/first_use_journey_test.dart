@@ -258,6 +258,11 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(find.text('인터벌 수업'), findsNothing);
+        await tester.scrollUntilVisible(find.text('다른 예시·시작 목적 선택'), 180);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('다른 예시·시작 목적 선택'));
+        await tester.pumpAndSettle();
         await tester.scrollUntilVisible(find.text('인터벌 수업'), 200);
         await tester.pumpAndSettle();
         await tester.tap(find.text('인터벌 수업'));
@@ -269,9 +274,9 @@ void main() {
           container.read(explorationControllerProvider).value?.templateKey,
           'interval',
         );
-        await tester.scrollUntilVisible(find.text('이 기기에서 1분 체험'), 180);
+        await tester.scrollUntilVisible(find.text('이 기기에서 예시 재생'), 180);
         await tester.pumpAndSettle();
-        expect(find.text('이 기기에서 1분 체험').hitTestable(), findsOneWidget);
+        expect(find.text('이 기기에서 예시 재생').hitTestable(), findsOneWidget);
         expect(container.exists(playbackActionControllerProvider), isFalse);
         expect(container.exists(workoutActionControllerProvider), isFalse);
         expect(tester.takeException(), isNull);

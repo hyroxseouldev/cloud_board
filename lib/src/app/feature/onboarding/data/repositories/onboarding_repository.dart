@@ -35,6 +35,8 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   });
   @override
   Future<CenterOnboarding> startTrial() => _call({'action': 'startTrial'});
+  @override
+  Future<CenterOnboarding> startFree() => _call({'action': 'startFree'});
 }
 
 @riverpod

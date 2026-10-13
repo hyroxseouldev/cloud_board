@@ -106,6 +106,49 @@ void main() {
     });
   }
 
+  testWidgets(
+    'menu reorder works without dragging and persists the chosen order',
+    (tester) async {
+      final saved = <Workout>[];
+      await _pumpEditor(tester, saved: saved);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('wave')),
+          matching: find.byTooltip('슬라이드 메뉴'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<PopupMenuItem<String>>(
+              find.ancestor(
+                of: find.text('위로 이동'),
+                matching: find.byType(PopupMenuItem<String>),
+              ),
+            )
+            .enabled,
+        isFalse,
+      );
+      await tester.tap(find.text('아래로 이동'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<WorkoutSlideListCard>(find.byType(WorkoutSlideListCard))
+            .map((card) => card.module.id),
+        ['race', 'wave', 'timer'],
+      );
+      expect(find.text('변경사항 있음 · 수업을 저장해 주세요'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('workout-save-button')));
+      await tester.pumpAndSettle();
+      expect(saved.single.modules.map((module) => module.id), [
+        'race',
+        'wave',
+        'timer',
+      ]);
+      expect(find.text('저장됨'), findsOneWidget);
+    },
+  );
+
   testWidgets('dragging the handle reorders previews and persists the order', (
     tester,
   ) async {

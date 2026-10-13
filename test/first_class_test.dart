@@ -287,8 +287,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('1/4 완료'), 180);
-      expect(find.text('1/4 완료'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('첫 목표 0/2 완료 · 내 수업 저장 + 이 기기 연습'),
+        180,
+      );
+      expect(find.text('첫 목표 0/2 완료 · 내 수업 저장 + 이 기기 연습'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(
         ProviderScope(

@@ -24,7 +24,7 @@ class SlideRehearsalScreen extends HookConsumerWidget {
     this.introduction,
     this.navigation,
     this.onCompleted,
-    this.title = '슬라이드 시험 재생',
+    this.title = '이 기기에서 연습',
   });
   final WorkoutModule module;
   final String brandL, brandR;
@@ -158,7 +158,11 @@ class SlideRehearsalScreen extends HookConsumerWidget {
         appBar: AppBar(
           title: Text(
             title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 20,
+              letterSpacing: -.2,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         body: SafeArea(
@@ -286,7 +290,7 @@ class _RehearsalHeader extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       const Text(
-        '이 기기에서만 재생됩니다. 실제 수업에는 반영되지 않습니다.',
+        '이 기기에서만 재생되며 TV에는 반영되지 않아요.',
         style: TextStyle(
           color: SlideEditorStyle.muted,
           fontSize: 13,
@@ -408,22 +412,28 @@ class _RehearsalControls extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _ControlPair(
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('구간·소리 확인'),
             children: [
-              OutlinedButton(
-                onPressed: onLastSeconds,
-                child: const Text('마지막 3초'),
+              const SizedBox(height: 12),
+              _ControlPair(
+                children: [
+                  OutlinedButton(
+                    onPressed: onLastSeconds,
+                    child: const Text('마지막 3초'),
+                  ),
+                  OutlinedButton(onPressed: onRest, child: const Text('휴식으로')),
+                ],
               ),
-              OutlinedButton(onPressed: onRest, child: const Text('휴식으로')),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                onPressed: onSound,
+                icon: const Icon(Icons.volume_up_outlined),
+                label: const Text('전환음 듣기'),
+              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
-            onPressed: onSound,
-            icon: const Icon(Icons.volume_up_outlined),
-            label: const Text('전환음 듣기'),
           ),
           if (soundError != null) ...[
             const SizedBox(height: 12),

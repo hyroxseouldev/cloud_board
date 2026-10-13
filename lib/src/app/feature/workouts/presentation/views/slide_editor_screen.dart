@@ -444,7 +444,7 @@ class _SlideEditorBody extends HookConsumerWidget {
       style: TextButton.styleFrom(
         foregroundColor: SlideEditorStyle.accent,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        minimumSize: const Size(44, 44),
+        minimumSize: const Size(48, 48),
         alignment: Alignment.centerLeft,
       ),
       onPressed: busy.value
@@ -525,6 +525,7 @@ class _SlideEditorBody extends HookConsumerWidget {
       },
     );
 
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
     final settings = Form(
       key: form,
       child: section.value == 4
@@ -555,6 +556,16 @@ class _SlideEditorBody extends HookConsumerWidget {
               key: const ValueKey('slide-editor-settings'),
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
               children: [
+                if (largeText && error.value != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      error.value!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
                 if (section.value == 1) ...[
                   summary,
                   LayoutBuilder(
@@ -583,7 +594,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                         key: const ValueKey('timer-display-toggle'),
                         showSelectedIcon: false,
                         style: SegmentedButton.styleFrom(
-                          minimumSize: const Size(44, 44),
+                          minimumSize: const Size(48, 48),
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           textStyle: const TextStyle(
                             fontFamily: 'Pretendard',
@@ -975,7 +986,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                   const Text('소리 종류와 볼륨은 워크아웃 설정을 따릅니다.'),
                   const SizedBox(height: 12),
                   const Text(
-                    '소리는 상단 앱바의 미리 재생 버튼으로 확인할 수 있어요.',
+                    '미리 재생에서 이 기기의 전환음을 확인할 수 있어요.',
                     style: TextStyle(
                       fontSize: 12,
                       color: SlideEditorStyle.muted,
@@ -986,6 +997,29 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
     );
 
+    final editorTabs = AbsorbPointer(
+      absorbing: busy.value,
+      child: AppBottomTabBar(
+        key: const ValueKey('slide-editor-tabs'),
+        indicatorKey: const ValueKey('slide-tab-indicator'),
+        selected: section.value - 1,
+        onSelected: (index) => selectSection(index + 1),
+        items: [
+          const AppBottomTab(label: '타이머', icon: Icons.timer_outlined, flex: 4),
+          AppBottomTab(label: '배경', icon: Icons.image_outlined, flex: 4),
+          const AppBottomTab(
+            label: '소리',
+            icon: Icons.volume_up_outlined,
+            flex: 4,
+          ),
+          const AppBottomTab(
+            label: '라이브러리',
+            icon: Icons.filter_none_rounded,
+            flex: 5,
+          ),
+        ],
+      ),
+    );
     return UnsavedChangesGuard(
       guard: guard,
       dirty: state.dirty,
@@ -1000,23 +1034,18 @@ class _SlideEditorBody extends HookConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           titleSpacing: 0,
-          title: AbsorbPointer(
-            absorbing: busy.value,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 260),
-                child: titleButton,
-              ),
-            ),
-          ),
+          title:
+              MediaQuery.sizeOf(context).height < 540 ||
+                  MediaQuery.viewInsetsOf(context).bottom > 0
+              ? titleButton
+              : const Text('슬라이드 편집'),
           actions: [
             IconButton(
               key: const ValueKey('slide-preview-rehearse'),
               tooltip: '미리 재생',
               onPressed: busy.value ? null : rehearse,
               style: IconButton.styleFrom(
-                minimumSize: const Size(44, 44),
+                minimumSize: const Size(48, 48),
                 iconSize: 22,
                 foregroundColor: SlideEditorStyle.accent,
               ),
@@ -1024,60 +1053,31 @@ class _SlideEditorBody extends HookConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: IconButton(
-                key: const ValueKey('slide-save-button'),
-                tooltip: busy.value
-                    ? workoutSaveProgressLabel(uploadProgress)
-                    : error.value == null
-                    ? '저장'
-                    : '다시 저장',
-                style: IconButton.styleFrom(
-                  foregroundColor: SlideEditorStyle.accent,
-                  minimumSize: const Size(48, 48),
+              child: Tooltip(
+                message: error.value == null ? '저장' : '다시 저장',
+                child: TextButton(
+                  key: const ValueKey('slide-save-button'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: SlideEditorStyle.accent,
+                    minimumSize: const Size(48, 48),
+                  ),
+                  onPressed:
+                      busy.value || (!state.dirty && !needsInitialSave.value)
+                      ? null
+                      : save,
+                  child: busy.value
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            semanticsLabel: '저장 중',
+                          ),
+                        )
+                      : Text(error.value == null ? '저장' : '다시 저장'),
                 ),
-                onPressed:
-                    busy.value || (!state.dirty && !needsInitialSave.value)
-                    ? null
-                    : save,
-                icon: busy.value
-                    ? const SizedBox.square(
-                        dimension: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          semanticsLabel: '저장 중',
-                        ),
-                      )
-                    : const Icon(Icons.save_outlined, size: 24),
               ),
             ),
           ],
-        ),
-        bottomNavigationBar: AbsorbPointer(
-          absorbing: busy.value,
-          child: AppBottomTabBar(
-            key: const ValueKey('slide-editor-tabs'),
-            indicatorKey: const ValueKey('slide-tab-indicator'),
-            selected: section.value - 1,
-            onSelected: (index) => selectSection(index + 1),
-            items: [
-              const AppBottomTab(
-                label: '타이머',
-                icon: Icons.timer_outlined,
-                flex: 4,
-              ),
-              AppBottomTab(label: '배경', icon: Icons.image_outlined, flex: 4),
-              const AppBottomTab(
-                label: '소리',
-                icon: Icons.volume_up_outlined,
-                flex: 4,
-              ),
-              const AppBottomTab(
-                label: '라이브러리',
-                icon: Icons.filter_none_rounded,
-                flex: 5,
-              ),
-            ],
-          ),
         ),
         body: AbsorbPointer(
           absorbing: busy.value,
@@ -1097,11 +1097,12 @@ class _SlideEditorBody extends HookConsumerWidget {
                     ),
                   ],
                 ),
-              if (error.value != null || state.storageError != null)
+              if ((error.value != null && !largeText) ||
+                  state.storageError != null)
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Text(
-                    error.value ?? state.storageError!,
+                    (largeText ? null : error.value) ?? state.storageError!,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),
@@ -1110,26 +1111,126 @@ class _SlideEditorBody extends HookConsumerWidget {
               const Divider(height: 1),
               Expanded(
                 child: LayoutBuilder(
-                  builder: (context, constraints) => Column(
-                    children: [
-                      if (MediaQuery.viewInsetsOf(context).bottom == 0 &&
-                          constraints.maxHeight >= 160) ...[
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: constraints.maxHeight * .6,
+                  builder: (context, constraints) {
+                    if (constraints.maxHeight < 180) {
+                      // Keyboard, large text and a recovery/error notice can
+                      // leave less room than the tabs themselves need. Let the
+                      // section controls scroll without clipping their labels.
+                      return SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            MediaQuery.removePadding(
+                              context: context,
+                              removeBottom: true,
+                              child: editorTabs,
+                            ),
+                            SizedBox(height: 260, child: settings),
+                          ],
+                        ),
+                      );
+                    }
+                    if (constraints.maxWidth >= 700 &&
+                        constraints.maxHeight < 400) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: preview),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                MediaQuery.removePadding(
+                                  context: context,
+                                  removeBottom: true,
+                                  child: editorTabs,
+                                ),
+                                Expanded(child: settings),
+                              ],
+                            ),
                           ),
-                          child: preview,
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        if (constraints.maxHeight >= 280 &&
+                            MediaQuery.sizeOf(context).height >= 540 &&
+                            MediaQuery.viewInsetsOf(context).bottom == 0)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                titleButton,
+                                Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    busy.value
+                                        ? workoutSaveProgressLabel(
+                                            uploadProgress,
+                                          )
+                                        : error.value != null
+                                        ? '저장 실패 · 편집 내용 유지됨'
+                                        : state.dirty || needsInitialSave.value
+                                        ? '변경사항 있음'
+                                        : '저장됨',
+                                    key: const ValueKey('slide-save-status'),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: SlideEditorStyle.muted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (MediaQuery.viewInsetsOf(context).bottom == 0 &&
+                            constraints.maxHeight >= 400) ...[
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: largeText
+                                  ? (constraints.maxHeight * .24).clamp(0, 110)
+                                  : constraints.maxHeight * .32,
+                            ),
+                            child: preview,
+                          ),
+                          if (MediaQuery.textScalerOf(context).scale(14) <=
+                              20) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: TextButton.icon(
+                                onPressed: busy.value ? null : rehearse,
+                                icon: const Icon(Icons.play_circle_outline),
+                                label: const Text('이 기기에서 연습'),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                              child: Text(
+                                '이 기기에서만 재생되며 TV에는 반영되지 않아요.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: SlideEditorStyle.muted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                        MediaQuery.removePadding(
+                          context: context,
+                          removeBottom: true,
+                          child: editorTabs,
                         ),
-                        const Divider(height: 1),
+                        Expanded(
+                          child: FadeTransition(
+                            opacity: sectionOpacity,
+                            child: settings,
+                          ),
+                        ),
                       ],
-                      Expanded(
-                        child: FadeTransition(
-                          opacity: sectionOpacity,
-                          child: settings,
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ],

@@ -56,6 +56,28 @@ class LoginScreen extends HookConsumerWidget {
     }
 
     final busy = authState.isLoading || signingInWith.value != null;
+    if (!isTv) {
+      return _QuietWelcome(
+        starter: starter,
+        busy: busy,
+        showApple: showApple,
+        signingInWith: signingInWith.value,
+        onExplore: () =>
+            context.go(starterLocation('/explore', starter, purpose: purpose)),
+        onApple: () => signIn('apple'),
+        onGoogle: () => signIn('google'),
+        onEmail: () => context.push(
+          starterLocation('/login/email', starter, purpose: purpose),
+        ),
+        onAccountHelp: () => _showAccountHelp(context),
+        errorNotice: authState.hasError
+            ? AuthErrorNotice(
+                error: authState.error!,
+                stack: authState.stackTrace,
+              )
+            : null,
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: SafeArea(
@@ -261,6 +283,194 @@ class LoginScreen extends HookConsumerWidget {
       ),
     );
   }
+}
+
+/// Mobile welcome only. TV retains its focused remote-friendly sign-in layout.
+class _QuietWelcome extends StatelessWidget {
+  const _QuietWelcome({
+    required this.starter,
+    required this.busy,
+    required this.showApple,
+    required this.signingInWith,
+    required this.onExplore,
+    required this.onApple,
+    required this.onGoogle,
+    required this.onEmail,
+    required this.onAccountHelp,
+    this.errorNotice,
+  });
+
+  final StarterWorkout? starter;
+  final bool busy, showApple;
+  final String? signingInWith;
+  final VoidCallback onExplore, onApple, onGoogle, onEmail, onAccountHelp;
+  final Widget? errorNotice;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.canvas,
+    body: SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 740 || showApple;
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24, compact ? 24 : 62, 24, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          AppBrand.name,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -.24,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        SizedBox(height: compact ? 20 : 58),
+                        WelcomeMotion(
+                          child: Center(
+                            child: SizedBox(
+                              height: compact ? 92 : 136,
+                              child: Center(
+                                child: SoftRhythmMark(size: compact ? 92 : 112),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: compact ? 16 : 22),
+                        const WelcomeMotion(
+                          delayFraction: .12,
+                          child: Text(
+                            '오늘의 수업을,\n조금 더 여유롭게.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -.28,
+                              height: 1.35,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: compact ? 16 : 20),
+                        const Text(
+                          '운동과 타이머를 준비하고\n연결한 TV에서 진행하세요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 1.5,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        SizedBox(height: compact ? 24 : 34),
+                        FilledButton.icon(
+                          key: const ValueKey('explore-without-account'),
+                          onPressed: busy ? null : onExplore,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          icon: const Icon(Icons.play_circle_outline),
+                          label: Text(
+                            starter == null ? '예시 수업 둘러보기' : '선택한 예시로 돌아가기',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          '계정·TV 없이 먼저 체험할 수 있어요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        if (starter != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            '${starter!.title} 선택을 이어가요. 내 수업 저장을 위해 로그인해 주세요.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.5,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        if (showApple) ...[
+                          _SignInButton(
+                            provider: 'Apple',
+                            dark: true,
+                            loading: signingInWith == 'apple',
+                            icon: const Icon(Icons.apple, size: 25),
+                            onPressed: busy ? null : onApple,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        _SignInButton(
+                          provider: 'Google',
+                          loading: signingInWith == 'google',
+                          icon: Image.asset(
+                            'assets/images/google_g.png',
+                            width: 22,
+                            height: 22,
+                            excludeFromSemantics: true,
+                          ),
+                          onPressed: busy ? null : onGoogle,
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          key: const ValueKey('email-sign-in'),
+                          onPressed: busy ? null : onEmail,
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                          ),
+                          child: const Text(
+                            '이메일로 로그인',
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                        if (errorNotice != null) ...[
+                          const SizedBox(height: 12),
+                          errorNotice!,
+                        ],
+                        SizedBox(height: compact ? 20 : 44),
+                        const Divider(height: 1),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: busy ? null : onAccountHelp,
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                          ),
+                          child: const Text(
+                            '기존 계정 로그인 안내',
+                            style: TextStyle(
+                              fontSize: 13,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }
 
 Future<void> _showAccountHelp(BuildContext context) => showDialog<void>(

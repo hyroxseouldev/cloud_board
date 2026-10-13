@@ -22,25 +22,13 @@ class AiSlidesPromptEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          '수업 내용 정리하기',
-          style: Theme.of(context).textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          state.draft == null
-              ? '수업 메모를 붙여넣으면 제목과 운동 목록을 정리해요.'
-              : '새 수업 메모를 붙여넣으면 선택한 디자인으로 내용을 정리해요.',
-        ),
-        const SizedBox(height: 12),
         if (state.themeError != null) AiSlidesNotice(state.themeError!),
         AiSlidesSyncedField(
           fieldKey: const ValueKey('ai-slides-prompt'),
           value: state.prompt,
           label: '수업 메모',
-          minLines: 5,
-          maxLines: 10,
+          minLines: 7,
+          maxLines: 12,
           maxLength: 6000,
           onChanged: onChanged,
           hint: 'WARM UP\n스쿼트 10회 / 런지 10회\n\nMAIN\nRUN 1km\nROW 500m',

@@ -216,7 +216,11 @@ class SlideLibraryScreen extends HookConsumerWidget {
       1 => '슬라이드',
       _ => '폴더',
     };
-    Widget emptyState(String emptyMessage) {
+    Widget emptyState(
+      String emptyMessage, {
+      String? actionLabel,
+      VoidCallback? onAction,
+    }) {
       if (readError != null) {
         return _LibraryLoadNotice(
           message: workoutErrorMessage(
@@ -227,11 +231,25 @@ class SlideLibraryScreen extends HookConsumerWidget {
         );
       }
       if (readLoading) return _Empty('$sectionName 목록을 불러오고 있습니다…');
-      if (query.isNotEmpty) return _Empty('검색 조건에 맞는 $sectionName 자료가 없습니다.');
-      if (selected != null && tab.index != 2) {
-        return _Empty('선택한 폴더에 $sectionName 자료가 없습니다.');
+      if (query.isNotEmpty) {
+        return _Empty(
+          '검색 조건에 맞는 $sectionName 자료가 없습니다.',
+          actionLabel: '검색 지우기',
+          onAction: search.clear,
+        );
       }
-      return _Empty(emptyMessage);
+      if (selected != null && tab.index != 2) {
+        return _Empty(
+          '선택한 폴더에 $sectionName 자료가 없습니다.',
+          actionLabel: '모든 폴더 보기',
+          onAction: () => filter.value = null,
+        );
+      }
+      return _Empty(
+        emptyMessage,
+        actionLabel: actionLabel,
+        onAction: onSelect == null ? onAction : null,
+      );
     }
 
     void notice(String message) {
@@ -611,7 +629,11 @@ class SlideLibraryScreen extends HookConsumerWidget {
                       itemBuilder: (context, index) {
                         if (tab.index == 0) {
                           if (items.isEmpty) {
-                            return emptyState('워크아웃이 없습니다. + 버튼으로 만들어 보세요.');
+                            return emptyState(
+                              '워크아웃이 없습니다. + 버튼으로 만들어 보세요.',
+                              actionLabel: '수업 만들기',
+                              onAction: () => context.push('/editor/new'),
+                            );
                           }
                           final item = items[index];
                           return ListTile(
@@ -659,7 +681,11 @@ class SlideLibraryScreen extends HookConsumerWidget {
                         }
                         if (tab.index == 1) {
                           if (slides.isEmpty) {
-                            return emptyState('저장한 슬라이드가 없습니다.');
+                            return emptyState(
+                              '저장한 슬라이드가 없습니다.',
+                              actionLabel: '슬라이드 만들기',
+                              onAction: createSlide,
+                            );
                           }
                           final item = slides[index];
                           return Padding(
@@ -790,7 +816,11 @@ class SlideLibraryScreen extends HookConsumerWidget {
                           );
                         }
                         if (visibleFolders.isEmpty) {
-                          return emptyState('폴더를 만들어 자료를 정리해 보세요.');
+                          return emptyState(
+                            '폴더를 만들어 자료를 정리해 보세요.',
+                            actionLabel: '폴더 만들기',
+                            onAction: () => changeFolder('create', ''),
+                          );
                         }
                         final name = visibleFolders[index];
                         return ListTile(
@@ -924,12 +954,25 @@ class _LibraryLoadNotice extends StatelessWidget {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty(this.text);
+  const _Empty(this.text, {this.actionLabel, this.onAction});
   final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
-    child: Center(child: Text(text, textAlign: TextAlign.center)),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(text, textAlign: TextAlign.center),
+          if (onAction != null) ...[
+            const SizedBox(height: 12),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
+        ],
+      ),
+    ),
   );
 }
 

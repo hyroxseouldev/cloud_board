@@ -24,7 +24,7 @@ abstract class BillingStatus with _$BillingStatus {
   String get planLabel => switch (plan) {
     'premium' => '프리미엄',
     'plus' => '플러스',
-    'free' => '무료',
+    'free' => 'Free',
     _ => '기존 이용 플랜',
   };
   String get statusLabel => switch (status) {

@@ -317,6 +317,7 @@ class DevicePairingRealtimeDataSource {
   Future<void> setDisplayState({
     required String deviceId,
     required String displayState,
+    List<String> replaceDeviceIds = const [],
   }) async {
     await _connected();
     if (!const {'auto', 'standby', 'black'}.contains(displayState)) {
@@ -325,7 +326,9 @@ class DevicePairingRealtimeDataSource {
     final access =
         (await _database.ref('subscriptionAccess/$_ownerId').get()).value;
     if (access is Map &&
-        (access['plan'] == 'plus' || access['plan'] == 'premium')) {
+        (access['plan'] == 'free' ||
+            access['plan'] == 'plus' ||
+            access['plan'] == 'premium')) {
       try {
         await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
             .httpsCallable(
@@ -334,7 +337,11 @@ class DevicePairingRealtimeDataSource {
                 timeout: const Duration(seconds: 15),
               ),
             )
-            .call<void>({'deviceId': deviceId, 'displayState': displayState});
+            .call<void>({
+              'deviceId': deviceId,
+              'displayState': displayState,
+              'replaceDeviceIds': replaceDeviceIds,
+            });
       } on FirebaseFunctionsException {
         rethrow;
       }

@@ -191,7 +191,7 @@ void main() {
       );
       await mountEditor(tester, module);
       final dropdown = find.byKey(const ValueKey('slide-design-layout-auto'));
-      await tester.ensureVisible(dropdown);
+      await revealEditor(tester, dropdown);
       await tester.tap(dropdown);
       await tester.pumpAndSettle();
       await tester.tap(find.text('섹션 카드').last);

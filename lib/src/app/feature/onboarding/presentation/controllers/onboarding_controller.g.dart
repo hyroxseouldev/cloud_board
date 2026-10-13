@@ -87,7 +87,7 @@ final class OnboardingActionProvider
   }
 }
 
-String _$onboardingActionHash() => r'c1ad6367cacee69279b407b2b6658bbff2d0c44e';
+String _$onboardingActionHash() => r'2abf4f3c0d30060137081161f1d0bd0b7b126a14';
 
 abstract class _$OnboardingAction extends $Notifier<AsyncValue<void>> {
   AsyncValue<void> build();

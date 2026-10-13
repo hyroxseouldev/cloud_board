@@ -51,18 +51,18 @@ try {
   assert.equal((await handleBilling(db, realtime, 'owner', {})).purchasesEnabled, false, 'Google subscriber cannot double-buy Apple');
   assert.equal((await handlePlayBilling(db, realtime, 'owner', {}, api)).purchasesEnabled, false, 'no duplicate Google subscription');
 
-  // Expiry/revocation and failed renewals never inherit the device expiry.
+  // Expiry/revocation falls back to enrolled Free, never retaining paid capabilities.
   google = {...google, subscriptionState: 'SUBSCRIPTION_STATE_ON_HOLD'};
-  await verify(); assert.equal((await access()).canStartClass, false);
+  await verify(); assert.equal((await access()).plan, 'free'); assert.equal((await access()).maxActiveDisplays, 1);
   google = {...google, subscriptionState: 'SUBSCRIPTION_STATE_CANCELED',
     lineItems: [{...item, autoRenewingPlan: {autoRenewEnabled: false}}]};
   await verify(); assert.equal((await access()).canStartClass, true);
   assert.equal((await db.doc('users/owner/billing/summary').get()).data().paid.autoRenew, false);
   google = {...google, subscriptionState: 'SUBSCRIPTION_STATE_EXPIRED'};
-  await verify(); assert.equal((await access()).canStartClass, false);
+  await verify(); assert.equal((await access()).plan, 'free'); assert.equal((await access()).maxActiveDisplays, 1);
   google = {...google, subscriptionState: 'SUBSCRIPTION_STATE_PENDING', acknowledgementState: 'ACKNOWLEDGEMENT_STATE_PENDING'};
   await assert.rejects(verify(), {code: 'failed-precondition'});
-  assert.equal(acknowledgements, 1); assert.equal((await access()).canStartClass, false);
+  assert.equal(acknowledgements, 1); assert.equal((await access()).plan, 'free'); assert.equal((await access()).maxActiveDisplays, 1);
 
   // Ack failure remains retryable even though a genuine paid entitlement committed.
   google = {...google, subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE', lineItems: [item]};
@@ -120,12 +120,12 @@ try {
   assert.equal((await retiredEvent.get()).data().purchaseToken, undefined);
 
   await db.doc('billingTesters/owner').set({enabled: false});
-  await refreshEntitlements(db, realtime, 'owner'); assert.equal((await access()).canStartClass, false);
+  await refreshEntitlements(db, realtime, 'owner'); assert.equal((await access()).plan, 'free'); assert.equal((await access()).maxActiveDisplays, 1);
   await db.doc('billingTesters/owner').set({enabled: true});
   await refreshEntitlements(db, realtime, 'owner'); assert.equal((await access()).canStartClass, true);
   const second = db.doc(`googlePlaySubscriptions/${purchaseKey('purchase-two')}`);
   await refreshPlaySubscription(db, realtime, second, {fetch: async () => {throw Object.assign(Error('gone'), {httpStatus: 410});}});
-  assert.equal((await access()).canStartClass, false);
+  assert.equal((await access()).plan, 'free'); assert.equal((await access()).maxActiveDisplays, 1);
   assert.equal((await second.get()).data().nextCheckAtMs, null);
 
   const client = env.authenticatedContext('owner').firestore();

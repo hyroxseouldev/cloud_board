@@ -11,4 +11,5 @@ abstract interface class OnboardingRepository {
     String action,
   );
   Future<CenterOnboarding> startTrial();
+  Future<CenterOnboarding> startFree();
 }

@@ -112,6 +112,8 @@ try {
   await db.doc('accountDeletions/owner').set({status:'pending'});
   await assert.rejects(readOnboarding(db,'owner'),{code:'permission-denied'});
   await assert.rejects(startOnboardingTrial(db,realtime,'owner'),{code:'permission-denied'});
+  const {deleteBillingData}=await import('../src/billing.js');
+  await deleteBillingData(db,'owner');
   await deleteOnboardingData(db,'owner');
   assert.equal((await db.doc(`centers/${centerId}`).get()).exists,false);
   assert.equal((await db.doc('subscriptionEntitlements/owner').get()).exists,false);

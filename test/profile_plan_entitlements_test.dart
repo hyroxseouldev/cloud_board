@@ -68,4 +68,35 @@ void main() {
       );
     },
   );
+  test('Free and expanded Plus use explicit server caps; missing and expired grants stay unavailable', () {
+    final free = profileEntitlements(original, {
+      ...base,
+      'plan': 'free',
+      'canStartClass': true,
+      'maxActiveDisplays': 1,
+      'displaysUnlimited': false,
+    }, 1000);
+    expect(free['subscriptionPlan'], 'free');
+    expect(free['displayLimit'], 1);
+    expect(free['pilotEndsAt'], isNull);
+    final plus = profileEntitlements(original, {
+      ...base,
+      'plan': 'plus',
+      'maxActiveDisplays': 3,
+      'displaysUnlimited': false,
+    }, 1000);
+    expect(plus['subscriptionPlan'], 'plus');
+    expect(plus['displayLimit'], 3);
+    expect(profileEntitlements(original, null, 1000)['displayLimit'], 0);
+    expect(
+      profileEntitlements(original, {
+        ...base,
+        'plan': 'free',
+        'canStartClass': true,
+        'maxActiveDisplays': 1,
+        'displaysUnlimited': false,
+      }, 3000)['displayLimit'],
+      0,
+    );
+  });
 }
