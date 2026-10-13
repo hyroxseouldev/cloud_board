@@ -3,15 +3,18 @@ import 'package:cloud_board/src/app/feature/workouts/data/models/workout_documen
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_save_documents.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_summary_model.dart';
 
 class WorkoutFirestoreDataSource {
-  WorkoutFirestoreDataSource(this._firestore);
+  WorkoutFirestoreDataSource(this._firestore, {FirebaseFunctions? functions})
+    : _functions = functions; // ignore: prefer_initializing_formals
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions? _functions;
 
   CollectionReference<Map<String, dynamic>> _workouts(String userId) =>
       _firestore.collection('users').doc(userId).collection('workouts');
@@ -161,37 +164,64 @@ class WorkoutFirestoreDataSource {
     DateTime? expectedUpdatedAt,
     bool requireExisting = false,
   }) async {
-    // Never persist settings composed for a preview. Preserve existing legacy
-    // values during rollout; switch to content-only only after admin activation.
-    return _firestore.runTransaction((transaction) async {
-      final settings = (await transaction.get(
-        _firestore.doc('users/$userId/settings/workout'),
-      )).data();
-      final reference = _workouts(userId).doc(workout.id);
-      final previous = (await transaction.get(reference)).data();
-      if (ifAbsent && previous != null) {
-        return WorkoutDocument.decode({...previous, 'id': workout.id});
-      }
-      ensureWorkoutRevision(
-        expected: expectedUpdatedAt,
-        requireExisting: requireExisting,
-        current: previous == null
-            ? null
-            : const FirestoreTimestampConverter().fromJson(
-                previous['updatedAt'],
-              ),
+    // Prepare with the same versioned DTO policy, then let the server recheck
+    // this revision and the account quota in its atomic commit. Rejected or
+    // offline requests never become locally committed successful saves.
+    final settings =
+        (await _firestore
+                .doc('users/$userId/settings/workout')
+                .get(const GetOptions(source: Source.server)))
+            .data();
+    final reference = _workouts(userId).doc(workout.id);
+    final previous = (await reference.get(
+      const GetOptions(source: Source.server),
+    )).data();
+    if (ifAbsent && previous != null) {
+      return WorkoutDocument.decode({...previous, 'id': workout.id});
+    }
+    ensureWorkoutRevision(
+      expected: expectedUpdatedAt,
+      requireExisting: requireExisting,
+      current: previous == null
+          ? null
+          : const FirestoreTimestampConverter().fromJson(previous['updatedAt']),
+    );
+    final documents = WorkoutSaveDocuments(
+      workout,
+      contentOnly: settings?['contentOnly'] == true,
+      previous: previous,
+    );
+    try {
+      final result =
+          await (_functions ??
+                  FirebaseFunctions.instanceFor(region: 'asia-northeast3'))
+              .httpsCallable('saveWorkout')
+              .call({
+                'ownerId': userId,
+                'workout': {
+                  ..._callableValue(documents.workout) as Map<String, dynamic>,
+                  'createdAt': workout.createdAt.millisecondsSinceEpoch,
+                  'updatedAt': workout.updatedAt.millisecondsSinceEpoch,
+                },
+                'ifAbsent': ifAbsent,
+                'requireExisting': requireExisting,
+                'settingsContentOnly': settings?['contentOnly'] == true,
+                'expectedUpdatedAt':
+                    (expectedUpdatedAt ??
+                            (previous == null
+                                ? null
+                                : const FirestoreTimestampConverter().fromJson(
+                                    previous['updatedAt'],
+                                  )))
+                        ?.millisecondsSinceEpoch,
+              });
+      return WorkoutDocument.decode(
+        _documentValue((result.data as Map)['workout']) as Map<String, dynamic>,
       );
-      final documents = WorkoutSaveDocuments(
-        workout,
-        contentOnly: settings?['contentOnly'] == true,
-        previous: previous,
-      );
-      // Return the actual persisted representation, not a composed caller value.
-      final stored = WorkoutDocument.decode(documents.workout);
-      transaction.set(reference, documents.workout);
-      transaction.set(_summaries(userId).doc(workout.id), documents.summary);
-      return stored;
-    });
+    } on FirebaseFunctionsException catch (error) {
+      if (error.code == 'aborted') throw const WorkoutWriteConflict();
+      rethrow;
+    }
   }
 
   Future<void> delete(String userId, String workoutId) async {
@@ -201,3 +231,26 @@ class WorkoutFirestoreDataSource {
     await batch.commit();
   }
 }
+
+Object? _callableValue(Object? value) => switch (value) {
+  Timestamp timestamp => {
+    '__timestampMillis': timestamp.millisecondsSinceEpoch,
+  },
+  Map map => <String, dynamic>{
+    for (final entry in map.entries)
+      entry.key as String: _callableValue(entry.value),
+  },
+  List list => list.map(_callableValue).toList(),
+  _ => value,
+};
+
+Object? _documentValue(Object? value) => switch (value) {
+  Map map when map.length == 1 && map['__timestampMillis'] is int =>
+    Timestamp.fromMillisecondsSinceEpoch(map['__timestampMillis'] as int),
+  Map map => <String, dynamic>{
+    for (final entry in map.entries)
+      entry.key as String: _documentValue(entry.value),
+  },
+  List list => list.map(_documentValue).toList(),
+  _ => value,
+};

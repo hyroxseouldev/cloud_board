@@ -1,3 +1,6 @@
+import {planAccess, planPolicyVersion} from './plan-policy.js';
+export {planAccess} from './plan-policy.js';
+
 // Only verified App Store data reaches these policies. No prices are hard-coded.
 export const bundleId = 'com.sunmkim.cloudboard';
 export const appAppleId = 6809105126;
@@ -36,15 +39,6 @@ export function appleGrant(t, renewal, status, now = Date.now()) {
   };
 }
 
-export function planAccess(plan) {
-  const premium = plan === 'premium';
-  const free = plan === 'free';
-  return {canPrepare: true, canPairDisplay: true, canStartClass: true,
-    displaysUnlimited: premium, maxActiveDisplays: premium ? null : free ? 1 : 3,
-    favoritesUnlimited: premium, maxFavorites: premium ? null : 3,
-    idleScreenCustomization: premium ? 'custom' : 'basic', displayLimit: premium ? 2147483647 : free ? 1 : 3};
-}
-
 // Use the selected grant's OWN expiry. A longer Plus grant cannot extend Premium.
 export function resolveGrants(grants, now = Date.now()) {
   const active = grants.filter(g => g && Number.isSafeInteger(g.validUntilMs) && g.validUntilMs > now);
@@ -54,10 +48,22 @@ export function resolveGrants(grants, now = Date.now()) {
   if (!winner) return {managed: true, source: billingSource, plan: 'free', status: 'expired',
     validUntilMs: 0, canPrepare: true, canPairDisplay: false, canStartClass: false,
     displaysUnlimited: false, maxActiveDisplays: 0, displayLimit: 0,
-    favoritesUnlimited: false, maxFavorites: 3, idleScreenCustomization: 'basic'};
-  const legacyDefaults = {...planAccess('plus'), displayLimit: 3, maxActiveDisplays: 3};
-  const capabilities = ['app_store', 'google_play', 'app_trial', 'app_free'].includes(winner.source)
+    favoritesUnlimited: false, maxFavorites: 3, idleScreenCustomization: 'basic',
+    policyVersion: planPolicyVersion, workoutsUnlimited: false, maxWorkouts: 7,
+    savedSlidesUnlimited: false, maxSavedSlides: 3, canHideCloudBoardLogo: false, canUseCenterLogo: false,
+    aiSlidesMonthlyLimit: 0, aiTimerMonthlyLimit: 0};
+  const legacyDefaults = {...planAccess('plus'), displayLimit: 3, maxActiveDisplays: 3,
+    maxFavorites: 3, maxSavedSlides: 3, idleScreenCustomization: 'basic',
+    canHideCloudBoardLogo: false, canUseCenterLogo: false, aiSlidesMonthlyLimit: 0, aiTimerMonthlyLimit: 0};
+  const capabilities = ['free', 'plus', 'premium'].includes(winner.plan)
     ? planAccess(winner.plan) : Object.fromEntries(Object.keys(legacyDefaults).map(k => [k, Object.hasOwn(winner, k) ? winner[k] : legacyDefaults[k]]));
+  if (!['free', 'plus', 'premium'].includes(winner.plan)) {
+    capabilities.maxSavedSlides = Object.hasOwn(winner, 'maxSavedSlides') ? winner.maxSavedSlides : capabilities.maxFavorites;
+    capabilities.savedSlidesUnlimited = capabilities.maxSavedSlides === null;
+    capabilities.maxWorkouts = Object.hasOwn(winner, 'maxWorkouts') ? winner.maxWorkouts : null;
+    capabilities.workoutsUnlimited = capabilities.maxWorkouts === null;
+    capabilities.policyVersion = planPolicyVersion;
+  }
   // Only a recognized modern Plus grant receives the new three-TV policy.
   // Unknown legacy grants keep their independently assigned capabilities.
   if (winner.plan === 'plus' && winner.displaysUnlimited === false &&

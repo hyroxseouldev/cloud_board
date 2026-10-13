@@ -65,7 +65,20 @@ void main() {
     expect(await repository.loadStyles('coach-a'), isEmpty);
     source.fail = true;
     expect(await reopened.read(provider.notifier).save(module, '실패'), isFalse);
+    final draft = reopened.read(provider.notifier).pendingDraft!;
+    expect(draft.name, '실패');
+    expect(reopened.read(provider.notifier).pendingNewDraft, draft);
+    expect(draft.copyWith(id: module.id, name: module.name), module);
+    expect(draft.imageSource, module.imageSource);
     expect(await reopened.read(provider.notifier).remove(saved.id), isFalse);
+    expect(
+      await reopened
+          .read(provider.notifier)
+          .updateTemplate(saved.copyWith(name: '수정 실패')),
+      isFalse,
+    );
+    expect(reopened.read(provider.notifier).pendingNewDraft, isNull);
+    expect(reopened.read(provider.notifier).pendingDraft!.id, saved.id);
     expect(reopened.read(provider).requireValue, [saved]);
     source.fail = false;
     expect(await reopened.read(provider.notifier).remove(saved.id), isTrue);

@@ -1,6 +1,5 @@
 import {createHash} from 'node:crypto';
 import {HttpsError} from 'firebase-functions/v2/https';
-import {AI_SLIDES_LIMIT} from './ai-slides.js';
 import {AI_TIMER_MODEL, AI_TIMER_RESERVE, handleMeteredAi, readAiTimerImage} from './ai-timer.js';
 
 const VERSION = 'slide-design-v2-hex-contrast';
@@ -162,7 +161,7 @@ export async function requestAiSlideDesigns(source, apiKey, fetchImpl = fetch) {
 export async function handleAiSlideDesigns(options) {
   let source;
   const input = options.input?.action === 'access' ? {...options.input, action: 'status'} : options.input;
-  const response = await handleMeteredAi({...options, input, feature: 'aiSlides', action: 'generate', limit: AI_SLIDES_LIMIT,
+  const response = await handleMeteredAi({...options, input, feature: 'aiSlides', operation: 'design', action: 'generate',
     parse: value => (source = readSlideDesignPrompt(value)), validate: value => validateSlideDesigns(value, source),
     recognize: options.recognize ?? requestAiSlideDesigns});
   // Metering returns completed account-scoped cache jobs without calling its

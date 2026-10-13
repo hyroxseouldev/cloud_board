@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 
 import 'dart:async';
@@ -23,6 +24,9 @@ class StarterWorkoutController extends _$StarterWorkoutController {
     if (state.isLoading) return null;
     final keepAlive = ref.keepAlive();
     final reporter = ref.read(errorReporterProvider);
+    final attempt = ref
+        .read(operationTelemetryProvider)
+        .start('workout.import');
     state = const AsyncLoading();
     Workout? saved;
     final result = await AsyncValue.guard(() async {
@@ -69,12 +73,20 @@ class StarterWorkoutController extends _$StarterWorkoutController {
       return saved!.id;
     });
     if (result.hasError) {
+      attempt.failure(result.error);
       reporter.capture(
         result.error!,
         result.stackTrace ?? StackTrace.current,
         action: 'workout.save',
         context: {'workoutId': template.workoutId, 'source': 'starter_import'},
       );
+    }
+    if (!result.hasError) {
+      if (result.value != null) {
+        attempt.success();
+      } else {
+        attempt.cancel();
+      }
     }
     if (ref.mounted) state = result;
     keepAlive.close();

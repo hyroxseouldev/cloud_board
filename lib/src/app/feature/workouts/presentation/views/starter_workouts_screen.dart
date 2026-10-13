@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -19,6 +22,11 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
     final action = ref.watch(starterWorkoutControllerProvider);
     ref.listen(starterWorkoutControllerProvider, (previous, next) {
       if (next.hasError && previous?.error != next.error) {
+        final limit = PlanLimitFailure.from(next.error);
+        if (limit != null) {
+          showPlanLimitNotice(context, limit);
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -72,6 +80,7 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
             const Text(
               '내 계정에 저장한 뒤 제목이나 운동 하나를 바꾸고, 이 기기에서 연습해 보세요. 센터 정보와 TV 연결은 나중에 해도 괜찮아요.',
             ),
+            const PlanUsageNotice(),
             const SizedBox(height: 20),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
@@ -157,7 +166,10 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  '가져오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.',
+                  workoutErrorMessage(
+                    action.error,
+                    fallback: '가져오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.',
+                  ),
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),

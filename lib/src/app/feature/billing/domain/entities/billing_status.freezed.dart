@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$BillingStatus {
 
- String get appAccountToken; bool get purchasesEnabled; List<String> get productIds; String get plan; String get status; int get validUntilMs; String? get grantSource; String? get paidStatus; String? get paidPlan; String? get paidSource; List<String> get paidStores; String? get nextProductId; bool get autoRenew; int get paidExpiresAtMs;
+ String get appAccountToken; bool get purchasesEnabled; bool get planBenefitsReady; List<String> get productIds; String get plan; String get status; int get validUntilMs; String? get grantSource; String? get paidStatus; String? get paidPlan; String? get paidSource; List<String> get paidStores; String? get nextProductId; bool get autoRenew; int get paidExpiresAtMs;
 /// Create a copy of BillingStatus
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $BillingStatusCopyWith<BillingStatus> get copyWith => _$BillingStatusCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as BillingStatus;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BillingStatus&&(identical(other.appAccountToken, _this.appAccountToken) || other.appAccountToken == _this.appAccountToken)&&(identical(other.purchasesEnabled, _this.purchasesEnabled) || other.purchasesEnabled == _this.purchasesEnabled)&&const DeepCollectionEquality().equals(other.productIds, _this.productIds)&&(identical(other.plan, _this.plan) || other.plan == _this.plan)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.validUntilMs, _this.validUntilMs) || other.validUntilMs == _this.validUntilMs)&&(identical(other.grantSource, _this.grantSource) || other.grantSource == _this.grantSource)&&(identical(other.paidStatus, _this.paidStatus) || other.paidStatus == _this.paidStatus)&&(identical(other.paidPlan, _this.paidPlan) || other.paidPlan == _this.paidPlan)&&(identical(other.paidSource, _this.paidSource) || other.paidSource == _this.paidSource)&&const DeepCollectionEquality().equals(other.paidStores, _this.paidStores)&&(identical(other.nextProductId, _this.nextProductId) || other.nextProductId == _this.nextProductId)&&(identical(other.autoRenew, _this.autoRenew) || other.autoRenew == _this.autoRenew)&&(identical(other.paidExpiresAtMs, _this.paidExpiresAtMs) || other.paidExpiresAtMs == _this.paidExpiresAtMs));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BillingStatus&&(identical(other.appAccountToken, _this.appAccountToken) || other.appAccountToken == _this.appAccountToken)&&(identical(other.purchasesEnabled, _this.purchasesEnabled) || other.purchasesEnabled == _this.purchasesEnabled)&&(identical(other.planBenefitsReady, _this.planBenefitsReady) || other.planBenefitsReady == _this.planBenefitsReady)&&const DeepCollectionEquality().equals(other.productIds, _this.productIds)&&(identical(other.plan, _this.plan) || other.plan == _this.plan)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.validUntilMs, _this.validUntilMs) || other.validUntilMs == _this.validUntilMs)&&(identical(other.grantSource, _this.grantSource) || other.grantSource == _this.grantSource)&&(identical(other.paidStatus, _this.paidStatus) || other.paidStatus == _this.paidStatus)&&(identical(other.paidPlan, _this.paidPlan) || other.paidPlan == _this.paidPlan)&&(identical(other.paidSource, _this.paidSource) || other.paidSource == _this.paidSource)&&const DeepCollectionEquality().equals(other.paidStores, _this.paidStores)&&(identical(other.nextProductId, _this.nextProductId) || other.nextProductId == _this.nextProductId)&&(identical(other.autoRenew, _this.autoRenew) || other.autoRenew == _this.autoRenew)&&(identical(other.paidExpiresAtMs, _this.paidExpiresAtMs) || other.paidExpiresAtMs == _this.paidExpiresAtMs));
 }
 
 
 @override
 int get hashCode {
   final _this = this as BillingStatus;
-  return Object.hash(runtimeType,_this.appAccountToken,_this.purchasesEnabled,const DeepCollectionEquality().hash(_this.productIds),_this.plan,_this.status,_this.validUntilMs,_this.grantSource,_this.paidStatus,_this.paidPlan,_this.paidSource,const DeepCollectionEquality().hash(_this.paidStores),_this.nextProductId,_this.autoRenew,_this.paidExpiresAtMs);
+  return Object.hash(runtimeType,_this.appAccountToken,_this.purchasesEnabled,_this.planBenefitsReady,const DeepCollectionEquality().hash(_this.productIds),_this.plan,_this.status,_this.validUntilMs,_this.grantSource,_this.paidStatus,_this.paidPlan,_this.paidSource,const DeepCollectionEquality().hash(_this.paidStores),_this.nextProductId,_this.autoRenew,_this.paidExpiresAtMs);
 }
 
 @override
 String toString() {
   final _this = this as BillingStatus;
-  return 'BillingStatus(appAccountToken: ${_this.appAccountToken}, purchasesEnabled: ${_this.purchasesEnabled}, productIds: ${_this.productIds}, plan: ${_this.plan}, status: ${_this.status}, validUntilMs: ${_this.validUntilMs}, grantSource: ${_this.grantSource}, paidStatus: ${_this.paidStatus}, paidPlan: ${_this.paidPlan}, paidSource: ${_this.paidSource}, paidStores: ${_this.paidStores}, nextProductId: ${_this.nextProductId}, autoRenew: ${_this.autoRenew}, paidExpiresAtMs: ${_this.paidExpiresAtMs})';
+  return 'BillingStatus(appAccountToken: ${_this.appAccountToken}, purchasesEnabled: ${_this.purchasesEnabled}, planBenefitsReady: ${_this.planBenefitsReady}, productIds: ${_this.productIds}, plan: ${_this.plan}, status: ${_this.status}, validUntilMs: ${_this.validUntilMs}, grantSource: ${_this.grantSource}, paidStatus: ${_this.paidStatus}, paidPlan: ${_this.paidPlan}, paidSource: ${_this.paidSource}, paidStores: ${_this.paidStores}, nextProductId: ${_this.nextProductId}, autoRenew: ${_this.autoRenew}, paidExpiresAtMs: ${_this.paidExpiresAtMs})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $BillingStatusCopyWith<$Res>  {
   factory $BillingStatusCopyWith(BillingStatus value, $Res Function(BillingStatus) _then) = _$BillingStatusCopyWithImpl;
 @useResult
 $Res call({
- String appAccountToken, bool purchasesEnabled, List<String> productIds, String plan, String status, int validUntilMs, String? grantSource, String? paidStatus, String? paidPlan, String? paidSource, List<String> paidStores, String? nextProductId, bool autoRenew, int paidExpiresAtMs
+ String appAccountToken, bool purchasesEnabled, bool planBenefitsReady, List<String> productIds, String plan, String status, int validUntilMs, String? grantSource, String? paidStatus, String? paidPlan, String? paidSource, List<String> paidStores, String? nextProductId, bool autoRenew, int paidExpiresAtMs
 });
 
 
@@ -68,10 +68,11 @@ class _$BillingStatusCopyWithImpl<$Res>
 
 /// Create a copy of BillingStatus
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? appAccountToken = null,Object? purchasesEnabled = null,Object? productIds = null,Object? plan = null,Object? status = null,Object? validUntilMs = null,Object? grantSource = freezed,Object? paidStatus = freezed,Object? paidPlan = freezed,Object? paidSource = freezed,Object? paidStores = null,Object? nextProductId = freezed,Object? autoRenew = null,Object? paidExpiresAtMs = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? appAccountToken = null,Object? purchasesEnabled = null,Object? planBenefitsReady = null,Object? productIds = null,Object? plan = null,Object? status = null,Object? validUntilMs = null,Object? grantSource = freezed,Object? paidStatus = freezed,Object? paidPlan = freezed,Object? paidSource = freezed,Object? paidStores = null,Object? nextProductId = freezed,Object? autoRenew = null,Object? paidExpiresAtMs = null,}) {
   return _then(BillingStatus(
 appAccountToken: null == appAccountToken ? _self.appAccountToken : appAccountToken // ignore: cast_nullable_to_non_nullable
 as String,purchasesEnabled: null == purchasesEnabled ? _self.purchasesEnabled : purchasesEnabled // ignore: cast_nullable_to_non_nullable
+as bool,planBenefitsReady: null == planBenefitsReady ? _self.planBenefitsReady : planBenefitsReady // ignore: cast_nullable_to_non_nullable
 as bool,productIds: null == productIds ? _self.productIds : productIds // ignore: cast_nullable_to_non_nullable
 as List<String>,plan: null == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
@@ -169,10 +170,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String appAccountToken,  bool purchasesEnabled,  List<String> productIds,  String plan,  String status,  int validUntilMs,  String? grantSource,  String? paidStatus,  String? paidPlan,  String? paidSource,  List<String> paidStores,  String? nextProductId,  bool autoRenew,  int paidExpiresAtMs)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String appAccountToken,  bool purchasesEnabled,  bool planBenefitsReady,  List<String> productIds,  String plan,  String status,  int validUntilMs,  String? grantSource,  String? paidStatus,  String? paidPlan,  String? paidSource,  List<String> paidStores,  String? nextProductId,  bool autoRenew,  int paidExpiresAtMs)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _BillingStatus() when $default != null:
-return $default(_that.appAccountToken,_that.purchasesEnabled,_that.productIds,_that.plan,_that.status,_that.validUntilMs,_that.grantSource,_that.paidStatus,_that.paidPlan,_that.paidSource,_that.paidStores,_that.nextProductId,_that.autoRenew,_that.paidExpiresAtMs);case _:
+return $default(_that.appAccountToken,_that.purchasesEnabled,_that.planBenefitsReady,_that.productIds,_that.plan,_that.status,_that.validUntilMs,_that.grantSource,_that.paidStatus,_that.paidPlan,_that.paidSource,_that.paidStores,_that.nextProductId,_that.autoRenew,_that.paidExpiresAtMs);case _:
   return orElse();
 
 }
@@ -190,10 +191,10 @@ return $default(_that.appAccountToken,_that.purchasesEnabled,_that.productIds,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String appAccountToken,  bool purchasesEnabled,  List<String> productIds,  String plan,  String status,  int validUntilMs,  String? grantSource,  String? paidStatus,  String? paidPlan,  String? paidSource,  List<String> paidStores,  String? nextProductId,  bool autoRenew,  int paidExpiresAtMs)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String appAccountToken,  bool purchasesEnabled,  bool planBenefitsReady,  List<String> productIds,  String plan,  String status,  int validUntilMs,  String? grantSource,  String? paidStatus,  String? paidPlan,  String? paidSource,  List<String> paidStores,  String? nextProductId,  bool autoRenew,  int paidExpiresAtMs)  $default,) {final _that = this;
 switch (_that) {
 case _BillingStatus():
-return $default(_that.appAccountToken,_that.purchasesEnabled,_that.productIds,_that.plan,_that.status,_that.validUntilMs,_that.grantSource,_that.paidStatus,_that.paidPlan,_that.paidSource,_that.paidStores,_that.nextProductId,_that.autoRenew,_that.paidExpiresAtMs);case _:
+return $default(_that.appAccountToken,_that.purchasesEnabled,_that.planBenefitsReady,_that.productIds,_that.plan,_that.status,_that.validUntilMs,_that.grantSource,_that.paidStatus,_that.paidPlan,_that.paidSource,_that.paidStores,_that.nextProductId,_that.autoRenew,_that.paidExpiresAtMs);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -210,10 +211,10 @@ return $default(_that.appAccountToken,_that.purchasesEnabled,_that.productIds,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String appAccountToken,  bool purchasesEnabled,  List<String> productIds,  String plan,  String status,  int validUntilMs,  String? grantSource,  String? paidStatus,  String? paidPlan,  String? paidSource,  List<String> paidStores,  String? nextProductId,  bool autoRenew,  int paidExpiresAtMs)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String appAccountToken,  bool purchasesEnabled,  bool planBenefitsReady,  List<String> productIds,  String plan,  String status,  int validUntilMs,  String? grantSource,  String? paidStatus,  String? paidPlan,  String? paidSource,  List<String> paidStores,  String? nextProductId,  bool autoRenew,  int paidExpiresAtMs)?  $default,) {final _that = this;
 switch (_that) {
 case _BillingStatus() when $default != null:
-return $default(_that.appAccountToken,_that.purchasesEnabled,_that.productIds,_that.plan,_that.status,_that.validUntilMs,_that.grantSource,_that.paidStatus,_that.paidPlan,_that.paidSource,_that.paidStores,_that.nextProductId,_that.autoRenew,_that.paidExpiresAtMs);case _:
+return $default(_that.appAccountToken,_that.purchasesEnabled,_that.planBenefitsReady,_that.productIds,_that.plan,_that.status,_that.validUntilMs,_that.grantSource,_that.paidStatus,_that.paidPlan,_that.paidSource,_that.paidStores,_that.nextProductId,_that.autoRenew,_that.paidExpiresAtMs);case _:
   return null;
 
 }
@@ -225,11 +226,12 @@ return $default(_that.appAccountToken,_that.purchasesEnabled,_that.productIds,_t
 
 
 class _BillingStatus extends BillingStatus {
-  const _BillingStatus({this.appAccountToken = '', this.purchasesEnabled = false,  List<String> productIds = const [], this.plan = 'free', this.status = 'expired', this.validUntilMs = 0, this.grantSource, this.paidStatus, this.paidPlan, this.paidSource,  List<String> paidStores = const [], this.nextProductId, this.autoRenew = false, this.paidExpiresAtMs = 0}): _productIds = productIds,_paidStores = paidStores,super._();
+  const _BillingStatus({this.appAccountToken = '', this.purchasesEnabled = false, this.planBenefitsReady = false,  List<String> productIds = const [], this.plan = 'free', this.status = 'expired', this.validUntilMs = 0, this.grantSource, this.paidStatus, this.paidPlan, this.paidSource,  List<String> paidStores = const [], this.nextProductId, this.autoRenew = false, this.paidExpiresAtMs = 0}): _productIds = productIds,_paidStores = paidStores,super._();
   
 
 @override@JsonKey() final  String appAccountToken;
 @override@JsonKey() final  bool purchasesEnabled;
+@override@JsonKey() final  bool planBenefitsReady;
  final  List<String> _productIds;
 @override@JsonKey() List<String> get productIds {
   if (_productIds is EqualUnmodifiableListView) return _productIds;
@@ -265,18 +267,18 @@ _$BillingStatusCopyWith<_BillingStatus> get copyWith => __$BillingStatusCopyWith
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BillingStatus&&(identical(other.appAccountToken, appAccountToken) || other.appAccountToken == appAccountToken)&&(identical(other.purchasesEnabled, purchasesEnabled) || other.purchasesEnabled == purchasesEnabled)&&const DeepCollectionEquality().equals(other.productIds, _productIds)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.status, status) || other.status == status)&&(identical(other.validUntilMs, validUntilMs) || other.validUntilMs == validUntilMs)&&(identical(other.grantSource, grantSource) || other.grantSource == grantSource)&&(identical(other.paidStatus, paidStatus) || other.paidStatus == paidStatus)&&(identical(other.paidPlan, paidPlan) || other.paidPlan == paidPlan)&&(identical(other.paidSource, paidSource) || other.paidSource == paidSource)&&const DeepCollectionEquality().equals(other.paidStores, _paidStores)&&(identical(other.nextProductId, nextProductId) || other.nextProductId == nextProductId)&&(identical(other.autoRenew, autoRenew) || other.autoRenew == autoRenew)&&(identical(other.paidExpiresAtMs, paidExpiresAtMs) || other.paidExpiresAtMs == paidExpiresAtMs));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BillingStatus&&(identical(other.appAccountToken, appAccountToken) || other.appAccountToken == appAccountToken)&&(identical(other.purchasesEnabled, purchasesEnabled) || other.purchasesEnabled == purchasesEnabled)&&(identical(other.planBenefitsReady, planBenefitsReady) || other.planBenefitsReady == planBenefitsReady)&&const DeepCollectionEquality().equals(other.productIds, _productIds)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.status, status) || other.status == status)&&(identical(other.validUntilMs, validUntilMs) || other.validUntilMs == validUntilMs)&&(identical(other.grantSource, grantSource) || other.grantSource == grantSource)&&(identical(other.paidStatus, paidStatus) || other.paidStatus == paidStatus)&&(identical(other.paidPlan, paidPlan) || other.paidPlan == paidPlan)&&(identical(other.paidSource, paidSource) || other.paidSource == paidSource)&&const DeepCollectionEquality().equals(other.paidStores, _paidStores)&&(identical(other.nextProductId, nextProductId) || other.nextProductId == nextProductId)&&(identical(other.autoRenew, autoRenew) || other.autoRenew == autoRenew)&&(identical(other.paidExpiresAtMs, paidExpiresAtMs) || other.paidExpiresAtMs == paidExpiresAtMs));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,appAccountToken,purchasesEnabled,const DeepCollectionEquality().hash(_productIds),plan,status,validUntilMs,grantSource,paidStatus,paidPlan,paidSource,const DeepCollectionEquality().hash(_paidStores),nextProductId,autoRenew,paidExpiresAtMs);
+    return Object.hash(runtimeType,appAccountToken,purchasesEnabled,planBenefitsReady,const DeepCollectionEquality().hash(_productIds),plan,status,validUntilMs,grantSource,paidStatus,paidPlan,paidSource,const DeepCollectionEquality().hash(_paidStores),nextProductId,autoRenew,paidExpiresAtMs);
 }
 
 @override
 String toString() {
-    return 'BillingStatus(appAccountToken: $appAccountToken, purchasesEnabled: $purchasesEnabled, productIds: $productIds, plan: $plan, status: $status, validUntilMs: $validUntilMs, grantSource: $grantSource, paidStatus: $paidStatus, paidPlan: $paidPlan, paidSource: $paidSource, paidStores: $paidStores, nextProductId: $nextProductId, autoRenew: $autoRenew, paidExpiresAtMs: $paidExpiresAtMs)';
+    return 'BillingStatus(appAccountToken: $appAccountToken, purchasesEnabled: $purchasesEnabled, planBenefitsReady: $planBenefitsReady, productIds: $productIds, plan: $plan, status: $status, validUntilMs: $validUntilMs, grantSource: $grantSource, paidStatus: $paidStatus, paidPlan: $paidPlan, paidSource: $paidSource, paidStores: $paidStores, nextProductId: $nextProductId, autoRenew: $autoRenew, paidExpiresAtMs: $paidExpiresAtMs)';
 }
 
 
@@ -287,7 +289,7 @@ abstract mixin class _$BillingStatusCopyWith<$Res> implements $BillingStatusCopy
   factory _$BillingStatusCopyWith(_BillingStatus value, $Res Function(_BillingStatus) _then) = __$BillingStatusCopyWithImpl;
 @override @useResult
 $Res call({
- String appAccountToken, bool purchasesEnabled, List<String> productIds, String plan, String status, int validUntilMs, String? grantSource, String? paidStatus, String? paidPlan, String? paidSource, List<String> paidStores, String? nextProductId, bool autoRenew, int paidExpiresAtMs
+ String appAccountToken, bool purchasesEnabled, bool planBenefitsReady, List<String> productIds, String plan, String status, int validUntilMs, String? grantSource, String? paidStatus, String? paidPlan, String? paidSource, List<String> paidStores, String? nextProductId, bool autoRenew, int paidExpiresAtMs
 });
 
 
@@ -304,10 +306,11 @@ class __$BillingStatusCopyWithImpl<$Res>
 
 /// Create a copy of BillingStatus
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? appAccountToken = null,Object? purchasesEnabled = null,Object? productIds = null,Object? plan = null,Object? status = null,Object? validUntilMs = null,Object? grantSource = freezed,Object? paidStatus = freezed,Object? paidPlan = freezed,Object? paidSource = freezed,Object? paidStores = null,Object? nextProductId = freezed,Object? autoRenew = null,Object? paidExpiresAtMs = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? appAccountToken = null,Object? purchasesEnabled = null,Object? planBenefitsReady = null,Object? productIds = null,Object? plan = null,Object? status = null,Object? validUntilMs = null,Object? grantSource = freezed,Object? paidStatus = freezed,Object? paidPlan = freezed,Object? paidSource = freezed,Object? paidStores = null,Object? nextProductId = freezed,Object? autoRenew = null,Object? paidExpiresAtMs = null,}) {
   return _then(_BillingStatus(
 appAccountToken: null == appAccountToken ? _self.appAccountToken : appAccountToken // ignore: cast_nullable_to_non_nullable
 as String,purchasesEnabled: null == purchasesEnabled ? _self.purchasesEnabled : purchasesEnabled // ignore: cast_nullable_to_non_nullable
+as bool,planBenefitsReady: null == planBenefitsReady ? _self.planBenefitsReady : planBenefitsReady // ignore: cast_nullable_to_non_nullable
 as bool,productIds: null == productIds ? _self._productIds : productIds // ignore: cast_nullable_to_non_nullable
 as List<String>,plan: null == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
@@ -597,7 +600,7 @@ as String,
 /// @nodoc
 mixin _$StorePurchase {
 
- String get key; StorePurchasePhase get phase; String get signedTransaction; String get store; String? get error;
+ String get key; StorePurchasePhase get phase; String get signedTransaction; String? get productId; String get store; String? get error;
 /// Create a copy of StorePurchase
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -609,20 +612,20 @@ $StorePurchaseCopyWith<StorePurchase> get copyWith => _$StorePurchaseCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as StorePurchase;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is StorePurchase&&(identical(other.key, _this.key) || other.key == _this.key)&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.signedTransaction, _this.signedTransaction) || other.signedTransaction == _this.signedTransaction)&&(identical(other.store, _this.store) || other.store == _this.store)&&(identical(other.error, _this.error) || other.error == _this.error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is StorePurchase&&(identical(other.key, _this.key) || other.key == _this.key)&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.signedTransaction, _this.signedTransaction) || other.signedTransaction == _this.signedTransaction)&&(identical(other.productId, _this.productId) || other.productId == _this.productId)&&(identical(other.store, _this.store) || other.store == _this.store)&&(identical(other.error, _this.error) || other.error == _this.error));
 }
 
 
 @override
 int get hashCode {
   final _this = this as StorePurchase;
-  return Object.hash(runtimeType,_this.key,_this.phase,_this.signedTransaction,_this.store,_this.error);
+  return Object.hash(runtimeType,_this.key,_this.phase,_this.signedTransaction,_this.productId,_this.store,_this.error);
 }
 
 @override
 String toString() {
   final _this = this as StorePurchase;
-  return 'StorePurchase(key: ${_this.key}, phase: ${_this.phase}, signedTransaction: ${_this.signedTransaction}, store: ${_this.store}, error: ${_this.error})';
+  return 'StorePurchase(key: ${_this.key}, phase: ${_this.phase}, signedTransaction: ${_this.signedTransaction}, productId: ${_this.productId}, store: ${_this.store}, error: ${_this.error})';
 }
 
 
@@ -633,7 +636,7 @@ abstract mixin class $StorePurchaseCopyWith<$Res>  {
   factory $StorePurchaseCopyWith(StorePurchase value, $Res Function(StorePurchase) _then) = _$StorePurchaseCopyWithImpl;
 @useResult
 $Res call({
- String key, StorePurchasePhase phase, String signedTransaction, String store, String? error
+ String key, StorePurchasePhase phase, String signedTransaction, String? productId, String store, String? error
 });
 
 
@@ -650,12 +653,13 @@ class _$StorePurchaseCopyWithImpl<$Res>
 
 /// Create a copy of StorePurchase
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? phase = null,Object? signedTransaction = null,Object? store = null,Object? error = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? phase = null,Object? signedTransaction = null,Object? productId = freezed,Object? store = null,Object? error = freezed,}) {
   return _then(StorePurchase(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as StorePurchasePhase,signedTransaction: null == signedTransaction ? _self.signedTransaction : signedTransaction // ignore: cast_nullable_to_non_nullable
-as String,store: null == store ? _self.store : store // ignore: cast_nullable_to_non_nullable
+as String,productId: freezed == productId ? _self.productId : productId // ignore: cast_nullable_to_non_nullable
+as String?,store: null == store ? _self.store : store // ignore: cast_nullable_to_non_nullable
 as String,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -742,10 +746,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  StorePurchasePhase phase,  String signedTransaction,  String store,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  StorePurchasePhase phase,  String signedTransaction,  String? productId,  String store,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _StorePurchase() when $default != null:
-return $default(_that.key,_that.phase,_that.signedTransaction,_that.store,_that.error);case _:
+return $default(_that.key,_that.phase,_that.signedTransaction,_that.productId,_that.store,_that.error);case _:
   return orElse();
 
 }
@@ -763,10 +767,10 @@ return $default(_that.key,_that.phase,_that.signedTransaction,_that.store,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  StorePurchasePhase phase,  String signedTransaction,  String store,  String? error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  StorePurchasePhase phase,  String signedTransaction,  String? productId,  String store,  String? error)  $default,) {final _that = this;
 switch (_that) {
 case _StorePurchase():
-return $default(_that.key,_that.phase,_that.signedTransaction,_that.store,_that.error);case _:
+return $default(_that.key,_that.phase,_that.signedTransaction,_that.productId,_that.store,_that.error);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -783,10 +787,10 @@ return $default(_that.key,_that.phase,_that.signedTransaction,_that.store,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  StorePurchasePhase phase,  String signedTransaction,  String store,  String? error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  StorePurchasePhase phase,  String signedTransaction,  String? productId,  String store,  String? error)?  $default,) {final _that = this;
 switch (_that) {
 case _StorePurchase() when $default != null:
-return $default(_that.key,_that.phase,_that.signedTransaction,_that.store,_that.error);case _:
+return $default(_that.key,_that.phase,_that.signedTransaction,_that.productId,_that.store,_that.error);case _:
   return null;
 
 }
@@ -798,12 +802,13 @@ return $default(_that.key,_that.phase,_that.signedTransaction,_that.store,_that.
 
 
 class _StorePurchase implements StorePurchase {
-  const _StorePurchase({required this.key, required this.phase, required this.signedTransaction, this.store = 'app_store', this.error});
+  const _StorePurchase({required this.key, required this.phase, required this.signedTransaction, this.productId, this.store = 'app_store', this.error});
   
 
 @override final  String key;
 @override final  StorePurchasePhase phase;
 @override final  String signedTransaction;
+@override final  String? productId;
 @override@JsonKey() final  String store;
 @override final  String? error;
 
@@ -817,18 +822,18 @@ _$StorePurchaseCopyWith<_StorePurchase> get copyWith => __$StorePurchaseCopyWith
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StorePurchase&&(identical(other.key, key) || other.key == key)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.signedTransaction, signedTransaction) || other.signedTransaction == signedTransaction)&&(identical(other.store, store) || other.store == store)&&(identical(other.error, error) || other.error == error));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StorePurchase&&(identical(other.key, key) || other.key == key)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.signedTransaction, signedTransaction) || other.signedTransaction == signedTransaction)&&(identical(other.productId, productId) || other.productId == productId)&&(identical(other.store, store) || other.store == store)&&(identical(other.error, error) || other.error == error));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,key,phase,signedTransaction,store,error);
+    return Object.hash(runtimeType,key,phase,signedTransaction,productId,store,error);
 }
 
 @override
 String toString() {
-    return 'StorePurchase(key: $key, phase: $phase, signedTransaction: $signedTransaction, store: $store, error: $error)';
+    return 'StorePurchase(key: $key, phase: $phase, signedTransaction: $signedTransaction, productId: $productId, store: $store, error: $error)';
 }
 
 
@@ -839,7 +844,7 @@ abstract mixin class _$StorePurchaseCopyWith<$Res> implements $StorePurchaseCopy
   factory _$StorePurchaseCopyWith(_StorePurchase value, $Res Function(_StorePurchase) _then) = __$StorePurchaseCopyWithImpl;
 @override @useResult
 $Res call({
- String key, StorePurchasePhase phase, String signedTransaction, String store, String? error
+ String key, StorePurchasePhase phase, String signedTransaction, String? productId, String store, String? error
 });
 
 
@@ -856,12 +861,13 @@ class __$StorePurchaseCopyWithImpl<$Res>
 
 /// Create a copy of StorePurchase
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? phase = null,Object? signedTransaction = null,Object? store = null,Object? error = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? phase = null,Object? signedTransaction = null,Object? productId = freezed,Object? store = null,Object? error = freezed,}) {
   return _then(_StorePurchase(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as StorePurchasePhase,signedTransaction: null == signedTransaction ? _self.signedTransaction : signedTransaction // ignore: cast_nullable_to_non_nullable
-as String,store: null == store ? _self.store : store // ignore: cast_nullable_to_non_nullable
+as String,productId: freezed == productId ? _self.productId : productId // ignore: cast_nullable_to_non_nullable
+as String?,store: null == store ? _self.store : store // ignore: cast_nullable_to_non_nullable
 as String,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,
   ));

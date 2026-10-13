@@ -40,6 +40,16 @@ class StoreOperationsRepositoryImpl implements StoreOperationsRepository {
   }
 
   @override
+  Stream<BrandTemplate> watchEffectiveBrandTemplate() async* {
+    final cached = await _local.loadBrandTemplate(effective: true);
+    if (cached != null) yield cached.toEntity();
+    await for (final model in _realtime.watchBrandTemplate(effective: true)) {
+      await _local.saveBrandTemplate(model, effective: true);
+      yield model.toEntity();
+    }
+  }
+
+  @override
   Stream<List<WorkoutSchedule>> watchSchedules() async* {
     final cached = await _local.loadSchedules();
     if (cached.isNotEmpty) {
@@ -133,6 +143,6 @@ StoreOperationsRepository storeOperationsRepository(Ref ref) {
   return StoreOperationsRepositoryImpl(
     StoreOperationsRealtimeDataSource(database, ownerId),
     StoreBrandStorageDataSource(FirebaseStorage.instance, auth),
-    StoreOperationsLocalDataSource(SharedPreferencesAsync()),
+    StoreOperationsLocalDataSource(SharedPreferencesAsync(), ownerId: ownerId),
   );
 }

@@ -128,6 +128,7 @@ try {
   assert.equal((await db.doc('aiTimerBudgets/2026-10').get()).data().spentMicros, spentBefore + AI_TIMER_RESERVE);
   const key = readSlideDesignPrompt(input).key;
   assert.equal((await db.doc(`users/failure/aiSlidesJobs/${key}`).get()).data().status, 'failed');
+  await db.doc('subscriptionEntitlements/free').set({plan:'free',status:'active',validUntilMs:now+3600000});
   await assert.rejects(handleAiSlideDesigns({...options('free'), recognize}), {code: 'permission-denied'});
   await db.doc('subscriptionEntitlements/metered').update({plan: 'free'});
   await assert.rejects(handleAiSlideDesigns({...options('metered'), recognize}), {code: 'permission-denied'});

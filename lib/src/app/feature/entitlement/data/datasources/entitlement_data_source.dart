@@ -57,7 +57,7 @@ class EntitlementDataSource {
             .listen(
               (snapshot) {
                 model = StoreEntitlementModel.fromJson(snapshot.data() ?? {});
-                confirmed = !snapshot.metadata.isFromCache;
+                confirmed = snapshot.exists && !snapshot.metadata.isFromCache;
                 emit();
               },
               onError: (Object error, StackTrace stack) {

@@ -7,6 +7,7 @@ abstract class BillingStatus with _$BillingStatus {
   const factory BillingStatus({
     @Default('') String appAccountToken,
     @Default(false) bool purchasesEnabled,
+    @Default(false) bool planBenefitsReady,
     @Default([]) List<String> productIds,
     @Default('free') String plan,
     @Default('expired') String status,
@@ -53,6 +54,7 @@ abstract class StorePurchase with _$StorePurchase {
     required String key,
     required StorePurchasePhase phase,
     required String signedTransaction,
+    String? productId,
     @Default('app_store') String store,
     String? error,
   }) = _StorePurchase;

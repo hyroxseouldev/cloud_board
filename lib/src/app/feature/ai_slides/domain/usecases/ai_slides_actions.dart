@@ -32,8 +32,8 @@ class AiSlidesActions {
       );
     }
     final access = await repository.access();
-    if (!access.premium) {
-      throw const AiSlidesFailure('수업 내용 자동 정리는 프리미엄 기능이에요.');
+    if (!access.canRequest) {
+      throw const AiSlidesFailure('AI 슬라이드 도우미는 Plus와 Premium에서 이용할 수 있어요.');
     }
     if (!access.enabled) {
       throw const AiSlidesFailure('내용 정리 기능을 준비 중이에요. 직접 입력해서 만들 수 있어요.');

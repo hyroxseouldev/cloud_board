@@ -4,11 +4,19 @@ part 'ai_slides.freezed.dart';
 
 @freezed
 abstract class AiSlidesAccess with _$AiSlidesAccess {
+  const AiSlidesAccess._();
+  bool get canRequest => allowed ?? premium;
+  int get usedRequests => used ?? (limit - remaining).clamp(0, limit);
   const factory AiSlidesAccess({
     required bool premium,
     required bool enabled,
     required int remaining,
     required int limit,
+    bool? allowed,
+    String? plan,
+    int? used,
+    DateTime? resetsAt,
+    String? availabilityReason,
   }) = _AiSlidesAccess;
 }
 

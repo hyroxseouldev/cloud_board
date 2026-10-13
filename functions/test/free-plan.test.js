@@ -16,7 +16,7 @@ test('only explicit server enrollment creates Free access; missing access remain
 
 test('Plus expands to three without changing product identity or Premium', () => {
   assert.equal(planAccess('plus').maxActiveDisplays, 3);
-  assert.equal(planAccess('plus').maxFavorites, 3);
+  assert.equal(planAccess('plus').maxFavorites, 30);
   assert.equal(planAccess('premium').displaysUnlimited, true);
 });
 

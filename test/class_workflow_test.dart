@@ -259,7 +259,7 @@ void main() {
           serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
           playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),
           androidTvProvider.overrideWith((ref) async => true),
-          brandTemplateProvider.overrideWith(
+          effectiveBrandTemplateProvider.overrideWith(
             (ref) => Stream.value(BrandTemplate.initial()),
           ),
         ],

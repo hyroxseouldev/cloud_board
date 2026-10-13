@@ -46,6 +46,7 @@ BrandTemplateModel _$BrandTemplateModelFromJson(
         unknownValue: StandbyImageFit.contain,
       ) ??
       StandbyImageFit.contain,
+  showCloudBoardLogo: json['showCloudBoardLogo'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$BrandTemplateModelToJson(
@@ -59,6 +60,7 @@ Map<String, dynamic> _$BrandTemplateModelToJson(
   'standbyBackgroundColor': instance.standbyBackgroundColor,
   'standbyMessage': instance.standbyMessage,
   'logoUrl': instance.logoUrl,
+  'showCloudBoardLogo': instance.showCloudBoardLogo,
   'promotionImageUrls': instance.promotionImageUrls,
   'promotionDurationMinutes': instance.promotionDurationMinutes,
   'standbyTransition': _$StandbyTransitionEnumMap[instance.standbyTransition]!,

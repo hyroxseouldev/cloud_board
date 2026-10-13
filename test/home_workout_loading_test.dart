@@ -188,6 +188,17 @@ void main() {
         await tester.pump(const Duration(milliseconds: 151));
         await tester.pump();
         expect(find.byType(WorkoutListSkeleton), findsOneWidget);
+        final firstSkeletonRow = find
+            .descendant(
+              of: find.byType(WorkoutListSkeleton),
+              matching: find.byType(RepaintBoundary),
+            )
+            .first;
+        expect(
+          tester.getRect(firstSkeletonRow).overlaps(Offset.zero & size),
+          isTrue,
+          reason: 'Loading rows must remain visible without scrolling.',
+        );
         expect(find.byType(ShaderMask), findsNothing);
         final brand = find.text(AppBrand.name);
         expect(brand, findsOneWidget);
@@ -197,6 +208,19 @@ void main() {
         expect(brandBounds.height, lessThanOrEqualTo(kToolbarHeight));
         expect(tester.binding.hasScheduledFrame, isFalse);
         expect(tester.takeException(), isNull);
+        if (size.width == 320) {
+          const explanation = '현재 보관한 수업 수입니다. 삭제하면 새 수업을 저장할 수 있어요.';
+          expect(find.text(explanation), findsNothing);
+          final usageHelp = find.byTooltip('저장 수업 — / 확인 중 · 사용량 안내');
+          expect(usageHelp.hitTestable(), findsOneWidget);
+          await tester.tap(usageHelp);
+          await tester.pumpAndSettle();
+          expect(find.text(explanation), findsOneWidget);
+          await tester.tap(find.text('닫기'));
+          await tester.pumpAndSettle();
+          expect(find.text(explanation), findsNothing);
+          expect(tester.takeException(), isNull);
+        }
         repository.respond(0, homeCatalog());
         await tester.pumpAndSettle();
         expect(find.byType(WorkoutListSkeleton), findsNothing);

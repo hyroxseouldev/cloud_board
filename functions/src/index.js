@@ -407,3 +407,33 @@ export const recordOperationTelemetry = onCall({region, timeoutSeconds: 30, maxI
   const logger = await import('firebase-functions/logger');
   return recordOperation({db, realtime, auth: request.auth, payload: request.data, emit: entry => logger.write(entry)});
 });
+
+// Quota-checked saves atomically commit content, summary and account usage.
+export const saveWorkout = onCall({region, timeoutSeconds: 60, maxInstances: 10}, async request => {
+  const {saveWorkout: save} = await import('./workout-save.js');
+  return save(db, request.auth?.uid, request.data);
+});
+export const syncWorkoutPlanUsage = onDocumentWritten({region, document: 'users/{uid}/workouts/{id}', retry: true, maxInstances: 3}, async event => {
+  const {reconcilePlanUsage} = await import('./plan-usage.js');
+  await reconcilePlanUsage(db, event.params.uid);
+});
+export const syncSlidePlanUsage = onDocumentWritten({region, document: 'users/{uid}/slideTemplates/{id}', retry: true, maxInstances: 3}, async event => {
+  const {reconcilePlanUsage} = await import('./plan-usage.js');
+  await reconcilePlanUsage(db, event.params.uid);
+});
+
+export const getPlanUsage = onCall({region, timeoutSeconds: 30, maxInstances: 5}, async request => {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+  const {reconcilePlanUsage} = await import('./plan-usage.js');
+  const result = await reconcilePlanUsage(db, request.auth.uid);
+  if (!result) throw new HttpsError('permission-denied', '탈퇴 처리 중인 계정입니다.');
+  return result;
+});
+export const cloudboardSaveBrandConfig = onCall({region, timeoutSeconds: 30, maxInstances: 5}, async request => {
+  const {saveBrandConfig} = await import('./standby-branding.js');
+  return saveBrandConfig(db, realtime, request);
+});
+export const syncStandbyBranding = onDocumentWritten({region, document: 'subscriptionEntitlements/{uid}', retry: true, maxInstances: 3}, async event => {
+  const {projectStandbyBranding} = await import('./standby-branding.js');
+  await projectStandbyBranding(db, realtime, event.params.uid);
+});

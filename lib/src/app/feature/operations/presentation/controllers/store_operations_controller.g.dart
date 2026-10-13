@@ -48,6 +48,46 @@ final class BrandTemplateProvider
 
 String _$brandTemplateHash() => r'25add325aa4fce962dbe5b45eae62cea056e9f74';
 
+@ProviderFor(effectiveBrandTemplate)
+final effectiveBrandTemplateProvider = EffectiveBrandTemplateProvider._();
+
+final class EffectiveBrandTemplateProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<BrandTemplate>,
+          BrandTemplate,
+          Stream<BrandTemplate>
+        >
+    with $FutureModifier<BrandTemplate>, $StreamProvider<BrandTemplate> {
+  EffectiveBrandTemplateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'effectiveBrandTemplateProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$effectiveBrandTemplateHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<BrandTemplate> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<BrandTemplate> create(Ref ref) {
+    return effectiveBrandTemplate(ref);
+  }
+}
+
+String _$effectiveBrandTemplateHash() =>
+    r'5fb85c4c7d985366551be124fe1d4ed9b1c98b6d';
+
 @ProviderFor(workoutSchedules)
 final workoutSchedulesProvider = WorkoutSchedulesProvider._();
 

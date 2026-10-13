@@ -46,7 +46,7 @@ final class AiTimerAccessProvider
   }
 }
 
-String _$aiTimerAccessHash() => r'34ece791786cd1a327676df7ed03ccf7b5112859';
+String _$aiTimerAccessHash() => r'3a123938c350047730be45c1bdebc9014081bc88';
 
 @ProviderFor(AiTimerController)
 final aiTimerControllerProvider = AiTimerControllerProvider._();

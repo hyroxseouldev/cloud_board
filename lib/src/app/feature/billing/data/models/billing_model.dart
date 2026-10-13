@@ -7,6 +7,7 @@ class BillingModel {
   const BillingModel({
     this.appAccountToken = '',
     this.purchasesEnabled = false,
+    this.planBenefitsReady = false,
     this.productIds = const [],
     this.plan = 'free',
     this.status = 'expired',
@@ -17,6 +18,7 @@ class BillingModel {
   });
   final String appAccountToken, plan, status;
   final bool purchasesEnabled;
+  final bool planBenefitsReady;
   final List<String> productIds;
   final int validUntilMs;
   final String? grantSource;
@@ -27,6 +29,7 @@ class BillingModel {
   BillingStatus toEntity() => BillingStatus(
     appAccountToken: appAccountToken,
     purchasesEnabled: purchasesEnabled,
+    planBenefitsReady: planBenefitsReady,
     productIds: productIds,
     plan: plan,
     status: status,

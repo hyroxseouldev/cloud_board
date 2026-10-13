@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 
@@ -261,7 +263,14 @@ class SlideLibraryScreen extends HookConsumerWidget {
 
     Future<bool> perform(Future<bool> Function() action) async {
       final success = await action();
-      if (!success) notice(actions.lastError ?? '변경하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      if (!success && context.mounted) {
+        final failure = PlanLimitFailure.from(actions.lastFailure);
+        if (failure != null) {
+          await showPlanLimitNotice(context, failure);
+        } else {
+          notice(actions.lastError ?? '변경하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        }
+      }
       return success;
     }
 
@@ -394,7 +403,17 @@ class SlideLibraryScreen extends HookConsumerWidget {
       final detail = await controller.prepare(item.id);
       if (detail == null || !context.mounted) return;
       if (action == 'duplicate') {
+        if (!await allowPlanAddition(context, ref, 'workouts') ||
+            !context.mounted) {
+          return;
+        }
         await controller.duplicate(detail, newId());
+        if (context.mounted) {
+          final failure = PlanLimitFailure.from(
+            ref.read(workoutActionControllerProvider).error,
+          );
+          if (failure != null) await showPlanLimitNotice(context, failure);
+        }
         return;
       }
       final target = await showDialog<String>(
@@ -416,13 +435,17 @@ class SlideLibraryScreen extends HookConsumerWidget {
     }
 
     Future<void> createSlide() async {
+      if (!await allowPlanAddition(context, ref, 'savedSlides') ||
+          !context.mounted) {
+        return;
+      }
       final name = await libraryNameDialog(
         context,
         title: '슬라이드 저장',
-        initial: '새 슬라이드',
+        initial: actions.pendingNewDraft?.name ?? '새 슬라이드',
       );
       if (name == null || !context.mounted) return;
-      final module = WorkoutModule.empty(newId())
+      final module = (actions.pendingNewDraft ?? WorkoutModule.empty(newId()))
           .copyWith(name: name, category: selected ?? '', favorite: true);
       if (await perform(() => actions.createTemplate(module)) &&
           context.mounted) {
@@ -540,6 +563,9 @@ class SlideLibraryScreen extends HookConsumerWidget {
                                     ],
                                   ),
                                 ),
+                              if (tab.index == 1)
+                                const PlanUsageNotice(resource: 'savedSlides'),
+                              if (tab.index == 0) const PlanUsageNotice(),
                               if (tab.index == 1)
                                 const Padding(
                                   padding: EdgeInsets.only(top: 8),

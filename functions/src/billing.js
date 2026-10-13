@@ -5,6 +5,8 @@ import {HttpsError} from 'firebase-functions/v2/https';
 import {appleGrant, billingSource, products, purchasesAllowed, resolveGrants, freeGrant, hasPaidOrTrialHistory, tokenPattern} from './billing-policy.js';
 import {latestAppleSubscription, verifyApplePayload} from './apple-store.js';
 import {appleApiReady} from './apple-billing-config.js';
+import {projectPlanPolicy, planPolicyVersion} from './plan-policy.js';
+import {planSalesReady} from './billing-catalog.js';
 
 const fail = (code, message) => new HttpsError(code, message);
 const accountRef = (db, uid) => db.doc(`billingAccounts/${uid}`);
@@ -37,7 +39,7 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
   const livePilot = (await realtime.ref(`legacyPilotAccess/${uid}`).get()).val();
   await db.runTransaction(async tx => {
     const accessRef = db.doc(`subscriptionEntitlements/${uid}`), aRef = accountRef(db, uid);
-    const [lock, account, access, trial, tester, subscriptions, progress, playSubscriptions, free, freePolicy] = await Promise.all([
+    const [lock, account, access, trial, tester, subscriptions, progress, playSubscriptions, free, freePolicy, policy] = await Promise.all([
       tx.get(db.doc(`accountDeletions/${uid}`)), tx.get(aRef), tx.get(accessRef),
       tx.get(db.doc(`onboardingTrials/${uid}`)), tx.get(db.doc(`billingTesters/${uid}`)),
       tx.get(db.collection('appStoreSubscriptions').where('uid', '==', uid)),
@@ -45,6 +47,7 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
       tx.get(db.collection('googlePlaySubscriptions').where('uid', '==', uid)),
       tx.get(db.doc(`onboardingFree/${uid}`)),
       tx.get(db.doc('appConfig/freePlan')),
+      tx.get(db.doc('appConfig/planPolicy')),
     ]);
     if (lock.exists || !account.exists || account.data().deleted) return;
     const data = account.data(), previous = access.data();
@@ -66,7 +69,7 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
     const grants = [baseline, baseline?.managed ? null : data.oldRealtime, livePilot,
       trial.exists ? {source: 'app_trial', plan: 'premium', status: 'trialing', validUntilMs: trial.data().endsAtMs} : null,
       ...apple.map(d => d.grant), ...play.map(d => d.grant), freeGrant(freeEnrollment)];
-    const result = {...resolveGrants(grants, now), ...(webGrant ? {webGrant} : {}),
+    const result = {...projectPlanPolicy(resolveGrants(grants, now), previous, policy.data()), ...(webGrant ? {webGrant} : {}),
       storeId: progress.data()?.storeId ?? previous?.storeId ?? baseline?.storeId ?? null};
     const comparable = previous ? Object.fromEntries(Object.keys(result).map(k => [k, previous[k]])) : null;
     // Merely opening the page must not turn a new user's pending trial into a
@@ -81,7 +84,7 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
     const renewable = g => g.validUntilMs > now || g.autoRenew || ['billing_retry', 'paused', 'pending'].includes(g.status);
     paidGrants.sort((a, b) => Number(renewable(b)) - Number(renewable(a)) || b.expiresAtMs - a.expiresAtMs);
     const paid = paidGrants[0];
-    tx.set(summaryRef(db, uid), {plan: result.plan, status: result.status,
+    tx.set(summaryRef(db, uid), {plan: result.plan, status: result.status, policyVersion: result.policyVersion ?? '',
       validUntilMs: result.validUntilMs, grantSource: result.grantSource ?? null,
       paid: paid ?? null, paidStores: [...new Set(paidGrants.map(g => g.source))], updatedAtMs: now});
   });
@@ -216,9 +219,15 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
     !['app_trial', 'app_free', 'app_store', 'google_play'].includes(summary.data()?.grantSource);
   const eligible = progress.data()?.phoneVerified === true && !existingPaid && !legacyActive;
   const storeReady = adapter.store === 'google_play' || appleApiReady();
-  const enabled = storeReady && purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;
+  const planBenefitsReady = summary.data()?.policyVersion === planPolicyVersion;
+  const settings = config.data();
+  const sandboxTester = tester.data()?.enabled === true && (adapter.store === 'google_play'
+    ? settings?.googlePlaySandboxPurchasesEnabled === true && settings?.googlePlayPurchasesEnabled !== true
+    : settings?.sandboxPurchasesEnabled === true && settings?.purchasesEnabled !== true);
+  const catalogReady = !planBenefitsReady || planSalesReady(settings, adapter.store, Date.now(), sandboxTester);
+  const enabled = storeReady && catalogReady && purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;
   if (action === 'prepare' && (!enabled || !products[input.productId])) throw fail('failed-precondition', '지금은 새 구독을 시작할 수 없습니다. 이용 상태를 확인해 주세요.');
-  return {appAccountToken: account.appAccountToken, purchasesEnabled: enabled,
+  return {appAccountToken: account.appAccountToken, purchasesEnabled: enabled, planBenefitsReady,
     productIds: Object.keys(products), ...summary.data()};
 }
 

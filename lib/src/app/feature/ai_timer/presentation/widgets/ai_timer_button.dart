@@ -145,16 +145,20 @@ class _AiTimerSheet extends HookConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              !value.premium
-                  ? '프리미엄 전용 기능이에요.'
+              !value.canRequest
+                  ? '이미지 타이머 인식은 Premium에서 월 100회 이용할 수 있어요. AI 슬라이드 도우미와 별도로 계산해요.'
                   : !value.enabled
-                  ? 'AI 기능을 준비 중이에요. 타이머는 직접 설정할 수 있어요.'
+                  ? value.availabilityReason == 'feature-disabled'
+                        ? 'AI 기능을 잠시 점검하고 있어요. 타이머는 직접 설정할 수 있어요.'
+                        : 'AI 기능을 준비 중이에요. 타이머는 직접 설정할 수 있어요.'
                   : '선택한 이미지를 OpenAI로 분석해 운동 시간, 휴식, 세트를 읽어요. 결과를 확인한 뒤 적용해 주세요.',
             ),
             const SizedBox(height: 12),
-            if (value.premium && value.enabled) ...[
+            if (value.availabilityReason == 'service-limit')
+              const Text('서비스 제공 한도로 새 요청이 잠시 중단됐어요. 개인 사용량은 차감되지 않아요.'),
+            if (value.canRequest && value.enabled) ...[
               Text(
-                '이번 달 ${value.remaining}/${value.limit}회 남음 · 매월 1일 초기화',
+                '이번 달 ${value.usedRequests}/${value.limit}회 사용 · ${value.remaining}회 남음\n이미지 요청마다 1회 · 매월 1일 00:00 KST 초기화',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 4),
@@ -166,7 +170,7 @@ class _AiTimerSheet extends HookConsumerWidget {
               ),
             ],
             const SizedBox(height: 20),
-            if (!value.premium)
+            if (!value.canRequest)
               FilledButton(
                 onPressed: () {
                   Navigator.pop(context);

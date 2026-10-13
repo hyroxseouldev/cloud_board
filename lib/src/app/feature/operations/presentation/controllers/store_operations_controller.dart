@@ -22,6 +22,10 @@ Stream<BrandTemplate> brandTemplate(Ref ref) =>
     ref.watch(storeOperationsRepositoryProvider).watchBrandTemplate();
 
 @Riverpod(keepAlive: true)
+Stream<BrandTemplate> effectiveBrandTemplate(Ref ref) =>
+    ref.watch(storeOperationsRepositoryProvider).watchEffectiveBrandTemplate();
+
+@Riverpod(keepAlive: true)
 Stream<List<WorkoutSchedule>> workoutSchedules(Ref ref) =>
     ref.watch(storeOperationsRepositoryProvider).watchSchedules();
 
