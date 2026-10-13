@@ -58,6 +58,40 @@ void main() {
     expect(source.requiredExisting, [false, false]);
     expect(source.records.length, 2);
   });
+
+  test(
+    'failed image refresh does not commit a revision or replace cached content',
+    () async {
+      final source = _Source();
+      final storage = _Storage();
+      final repo = await _repository(_Auth(), source, storage: storage);
+      final original = _workout('existing').copyWith(
+        modules: [
+          WorkoutModule.empty('slide').copyWith(
+            designTemplate: 'studio-v1-numbered',
+            text: 'Run 200m',
+            imageSource: 'https://example.com/previous.png',
+            designFingerprint: 'v1:previous',
+          ),
+        ],
+      );
+      source.records[('owner', original.id)] = WorkoutModel.fromEntity(
+        original,
+      );
+      expect(await repo.loadOne(original.id), original);
+      storage.error = StateError('PNG upload failed');
+      final edited = original.copyWith(name: 'Unsaved class name');
+      await expectLater(repo.save(edited), throwsStateError);
+      expect(source.requiredExisting, isEmpty);
+      expect(source.records[('owner', original.id)]!.toEntity(), original);
+      expect(await repo.loadOne(original.id), original);
+      expect(edited.name, 'Unsaved class name');
+
+      storage.error = null;
+      expect((await repo.save(edited)).name, edited.name);
+      expect(source.requiredExisting, [true]);
+    },
+  );
 }
 
 Workout _workout(String id) => Workout.empty(
@@ -65,13 +99,16 @@ Workout _workout(String id) => Workout.empty(
   const WorkoutAuthor(id: 'owner', displayName: '', photoUrl: null),
 );
 
-Future<WorkoutRepositoryImpl> _repository(_Auth auth, _Source source) async =>
-    WorkoutRepositoryImpl(
-      auth,
-      source,
-      _Storage(),
-      WorkoutLocalDataSource(await SharedPreferences.getInstance()),
-    );
+Future<WorkoutRepositoryImpl> _repository(
+  _Auth auth,
+  _Source source, {
+  _Storage? storage,
+}) async => WorkoutRepositoryImpl(
+  auth,
+  source,
+  storage ?? _Storage(),
+  WorkoutLocalDataSource(await SharedPreferences.getInstance()),
+);
 
 class _Source extends WorkoutFirestoreDataSource {
   _Source() : super(_Firestore());
@@ -113,12 +150,16 @@ class _Source extends WorkoutFirestoreDataSource {
 }
 
 class _Storage implements WorkoutStorageDataSource {
+  Object? error;
   @override
   Future<Workout> syncImages(
     String userId,
     Workout workout, {
     void Function(int completed, int total)? onProgress,
-  }) async => workout;
+  }) async {
+    if (error != null) throw error!;
+    return workout;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

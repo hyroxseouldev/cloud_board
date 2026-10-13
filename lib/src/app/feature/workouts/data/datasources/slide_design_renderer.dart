@@ -8,9 +8,10 @@ import 'package:crypto/crypto.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design_typography.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/original_slide_renderer.dart';
 
-const slideDesignMinimumFontSize = 36.0;
+const slideDesignMinimumFontSize = SlideDesignTypography.minimumReadable;
 
 /// Shared geometry for the live timer and the space left clear by the artwork.
 class SlideTimerGeometry {
@@ -115,7 +116,9 @@ class SlideDesignTextBounds {
     required this.fontFamily,
     required this.fontWeight,
     required this.color,
+    this.italic,
   });
+  final bool? italic;
   final String role, value, fontFamily;
   final Rect rect;
   final double fontSize;
@@ -383,26 +386,26 @@ _Plan _planColumns(
   bool cards,
 ) {
   final sections = _splitLargeSection(sourceSections, columns);
-  final gap = 36.0 * module.designSpacing;
+  final gap = 30.0 * module.designSpacing;
   final padding = cards ? 22.0 : 0.0;
   final columnWidth = math.max(
     1.0,
     (region.width - (columns - 1) * gap) / columns,
   );
   final lineWidth = math.max(1.0, columnWidth - padding * 2);
-  final titleHeightLimit = math.max(1.0, math.min(156.0, region.height * 0.22));
-  var titleSize = 104.0;
+  final titleHeightLimit = math.max(1.0, math.min(128.0, region.height * 0.22));
+  var titleSize = SlideDesignTypography.legacyTitleMax;
   while (titleSize > 12 &&
       _textHeight(module, module.name, titleSize, region.width) >
           titleHeightLimit) {
     titleSize -= 2;
   }
   final titleHeight = _textHeight(module, module.name, titleSize, region.width);
-  final bodyTop = region.top + titleHeight + 30;
+  final bodyTop = region.top + titleHeight + 24;
   final availableHeight = math.max(1.0, region.bottom - bodyTop);
   final numbered = slideDesignKind(module) == 'numbered';
   final sectionSizes = <double>[];
-  var fontSize = columns == 1 ? 76.0 : 62.0;
+  var fontSize = SlideDesignTypography.legacyBodyMax(columns);
   var partition = <List<int>>[];
   var fits = false;
   // New drafts use the readable floor exposed by metrics. The lower fallback is
@@ -444,6 +447,7 @@ _Plan _planColumns(
       module.name,
       Rect.fromLTWH(region.left, region.top, region.width, titleHeight),
       titleSize,
+      role: 'title',
       accent: true,
     ),
   ];
@@ -477,6 +481,7 @@ _Plan _planColumns(
             section.heading,
             Rect.fromLTWH(x + padding, y, lineWidth, height),
             fontSize * 1.06,
+            role: 'section',
             accent: true,
           ),
         );
@@ -522,6 +527,25 @@ _Plan _planColumns(
       timerExclusion: exclusion,
       textBounds: region,
       sections: List.unmodifiable(bounds),
+      textRuns: List.unmodifiable([
+        for (final item in text)
+          SlideDesignTextBounds(
+            role: item.role,
+            value: item.value,
+            rect: item.rect,
+            fontSize: item.fontSize,
+            fontFamily: 'Pretendard',
+            fontWeight: _style(
+              module,
+              item.fontSize,
+              _foreground(module),
+            ).fontWeight!.value,
+            italic: module.designItalic,
+            color: item.accent
+                ? module.designAccentColor ?? 0xFFFF343A
+                : _foreground(module).toARGB32(),
+          ),
+      ]),
       warning: readable
           ? null
           : empty
@@ -606,7 +630,7 @@ TextStyle _studioStyle(
         ]
       : null,
   fontStyle: title
-      ? (_studioFamily(module) == 'banner'
+      ? (_studioFamily(module) == 'banner' && module.designItalic
             ? FontStyle.italic
             : FontStyle.normal)
       : label
@@ -710,7 +734,7 @@ _DrawText _fitStudioMotif(
 }
 
 /// Studio layouts share measurements with the export painter but deliberately
-/// do not change the v1/v2 renderer. Content, headings and decoration remain
+/// retain their own layout geometry. Content, headings and decoration remain
 /// separate: no exercise is inferred from a motif or removed to make it fit.
 _Plan _measureStudioPlan(WorkoutModule module) {
   final family = _studioFamily(module);
@@ -741,24 +765,26 @@ _Plan _measureStudioPlan(WorkoutModule module) {
   final labelWidth = label.isEmpty
       ? 0.0
       : contentWidth * (banner ? 0.29 : 0.25);
-  final titleTop = region.top + (editorial ? 32 : 0);
-  final headerMaxHeight = math.min(144.0, region.height * 0.23);
+  final titleTop = region.top + (editorial ? 26 : 0);
+  final headerMaxHeight = math.min(
+    SlideDesignTypography.headerHeightMax,
+    region.height * 0.23,
+  );
   final title = _fitStudioText(
     module,
     module.name,
     Rect.fromLTWH(
       contentLeft,
       titleTop,
-      math.max(1, contentWidth - labelWidth - (label.isEmpty ? 0 : 36)),
+      math.max(
+        1,
+        contentWidth -
+            labelWidth -
+            (label.isEmpty ? 0 : SlideDesignTypography.titleLabelGap),
+      ),
       headerMaxHeight,
     ),
-    editorial
-        ? 132
-        : focus
-        ? 112
-        : banner
-        ? 100
-        : 92,
+    SlideDesignTypography.titleMax(family),
     titleColor,
     role: 'title',
     title: true,
@@ -771,11 +797,11 @@ _Plan _measureStudioPlan(WorkoutModule module) {
       label,
       Rect.fromLTWH(
         region.right - labelWidth,
-        titleTop + 12,
+        titleTop + 10,
         labelWidth,
-        headerMaxHeight - 12,
+        headerMaxHeight - 10,
       ),
-      banner ? 52 : 38,
+      SlideDesignTypography.headerLabelMax(family),
       banner ? titleColor : foreground,
       role: 'headerLabel',
       label: true,
@@ -793,7 +819,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
           0,
           math.max(0, region.top - 64),
           SlideDesignPainter.size.width,
-          headerBottom + 28,
+          headerBottom + 24,
         ),
         accent,
       ),
@@ -820,13 +846,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
     );
   }
 
-  var bodyTop =
-      headerBottom +
-      (editorial
-          ? 44
-          : banner
-          ? 64
-          : 40);
+  var bodyTop = headerBottom + SlideDesignTypography.bodyTopGap(family);
   final subtitle = module.designSubtitle.trim();
   if (subtitle.isNotEmpty) {
     final subtitleRun = _fitStudioText(
@@ -836,21 +856,15 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         contentLeft,
         bodyTop,
         contentWidth,
-        math.min(136.0, region.height * .2),
+        math.min(112.0, region.height * .2),
       ),
-      banner
-          ? 66
-          : editorial
-          ? 70
-          : focus
-          ? 66
-          : 52,
+      SlideDesignTypography.subtitleMax(family),
       editorial ? foreground : accentText,
       role: 'subtitle',
       label: !editorial,
     );
     text.add(subtitleRun);
-    bodyTop = subtitleRun.rect.bottom + (editorial ? 42 : 38);
+    bodyTop = subtitleRun.rect.bottom + SlideDesignTypography.subtitleGap;
   }
 
   final sourceSections = parseSlideDesignSections(module.text);
@@ -871,13 +885,13 @@ _Plan _measureStudioPlan(WorkoutModule module) {
       ? (sections.length > 4 && region.width >= 1500 ? 3 : 2)
       : 1;
   final arranged = cards ? sections : _splitLargeSection(sections, columns);
-  final columnGap = cards ? 24.0 : 44.0;
+  final columnGap = cards ? 24.0 : SlideDesignTypography.columnGap;
   final bodyWidth = math.max(1.0, region.width - titleInset);
   final columnWidth = math.max(
     1.0,
     (bodyWidth - (columns - 1) * columnGap) / columns,
   );
-  final padding = cards ? 28.0 : 0.0;
+  final padding = cards ? SlideDesignTypography.cardPadding : 0.0;
   final numbered = slideDesignKind(module) == 'numbered';
   final hasMotif =
       editorial && (module.designStyle?.motif.trim().isNotEmpty ?? false);
@@ -887,9 +901,11 @@ _Plan _measureStudioPlan(WorkoutModule module) {
       ? columnWidth * .76
       : columnWidth;
   final availableHeight = math.max(1.0, region.bottom - bodyTop);
-  // Short daily notes should fill the artwork, not inherit the density of a
-  // six-station reference. Measure down from display-sized text for every note.
-  var fontSize = cards ? 104.0 : 112.0;
+  // Start from role-specific caps; dense content is measured independently,
+  // never scaled down again after fitting.
+  var fontSize = cards
+      ? SlideDesignTypography.cardBodyMax
+      : SlideDesignTypography.bodyMax;
   var heights = <double>[];
   var partition = <List<int>>[];
   var fits = false;
@@ -903,17 +919,25 @@ _Plan _measureStudioPlan(WorkoutModule module) {
     final bodyStyle = _studioStyle(module, fontSize, foreground);
     final headingStyle = _studioStyle(
       module,
-      fontSize * 1.04,
+      fontSize * SlideDesignTypography.sectionScale,
       accentText,
       label: true,
     );
-    badgeSize = numbered ? fontSize * 1.2 : 0;
+    badgeSize = numbered ? fontSize * SlideDesignTypography.badgeScale : 0;
     lineWidth = math.max(
       1,
-      motifBodyWidth - padding * 2 - (numbered ? badgeSize + 34 : 0),
+      motifBodyWidth -
+          padding * 2 -
+          (numbered ? badgeSize + SlideDesignTypography.badgeTextGap : 0),
     );
-    rowGap = fontSize * (banner ? .45 : .32) * module.designSpacing;
-    sectionGap = cards ? 24 : fontSize * .55;
+    rowGap = SlideDesignTypography.rowGap(
+      fontSize,
+      family,
+      module.designSpacing,
+    );
+    sectionGap = cards
+        ? 24
+        : SlideDesignTypography.sectionGap(fontSize, module.designSpacing);
     heights = [
       for (final section in arranged)
         padding * 2 +
@@ -957,9 +981,9 @@ _Plan _measureStudioPlan(WorkoutModule module) {
     if (fits || fontSize == 8) break;
   }
 
-  // Distribute the small remainder between rows, keeping both the first and
-  // last exercise aligned with the available body region. Dense notes still
-  // keep every source row and fail the readability check rather than dropping it.
+  // A short list stays aligned at the top. Only a bounded part of the spare
+  // space may increase its row gaps; smaller text must not spread rows apart.
+  // Dense notes retain every row and warn instead of dropping content.
   if (!cards &&
       columns == 1 &&
       arranged.length == 1 &&
@@ -967,8 +991,15 @@ _Plan _measureStudioPlan(WorkoutModule module) {
       fits) {
     final gaps = arranged.single.lines.length - 1;
     final extra = math.max(0.0, availableHeight - heights.single);
-    rowGap += extra / gaps;
-    heights[0] += extra;
+    final addedGap = math.min(
+      extra / gaps,
+      math.max(
+        0.0,
+        SlideDesignTypography.maxRowGap(module.designSpacing) - rowGap,
+      ),
+    );
+    rowGap += addedGap;
+    heights[0] += addedGap * gaps;
   }
   final placements = <({int index, int column, double top, double height})>[];
   if (cards) {
@@ -1033,7 +1064,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
     if (section.heading.isNotEmpty) {
       final style = _studioStyle(
         module,
-        fontSize * 1.04,
+        fontSize * SlideDesignTypography.sectionScale,
         accentText,
         label: true,
       );
@@ -1046,7 +1077,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         _DrawText(
           section.heading,
           Rect.fromLTWH(x + padding, y, columnWidth - padding * 2, height),
-          fontSize * 1.04,
+          fontSize * SlideDesignTypography.sectionScale,
           style: style,
           role: 'section',
         ),
@@ -1063,7 +1094,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         shapes.add(_DrawShape(badge, accent, radius: banner ? 8 : 12));
         final badgeStyle = _studioStyle(
           module,
-          fontSize * .78,
+          fontSize * SlideDesignTypography.numberScale,
           _onColor(accent),
           label: true,
         );
@@ -1081,7 +1112,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
               badgeSize,
               numberHeight,
             ),
-            fontSize * .78,
+            fontSize * SlideDesignTypography.numberScale,
             style: badgeStyle,
             role: 'number',
             align: TextAlign.center,
@@ -1092,7 +1123,9 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         _DrawText(
           line,
           Rect.fromLTWH(
-            x + padding + (numbered ? badgeSize + 34 : 0),
+            x +
+                padding +
+                (numbered ? badgeSize + SlideDesignTypography.badgeTextGap : 0),
             y + (rowHeight - height) / 2,
             lineWidth,
             height,
@@ -1136,6 +1169,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         fontFamily: item.style!.fontFamily!,
         fontWeight: item.style!.fontWeight!.value,
         color: item.style!.color!.toARGB32(),
+        italic: item.style!.fontStyle == FontStyle.italic,
       ),
   ];
   final contentRuns = runs.where((run) => run.role != 'number').toList();
@@ -1176,6 +1210,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
             fontFamily: item.style!.fontFamily!,
             fontWeight: item.style!.fontWeight!.value,
             color: item.style!.color!.toARGB32(),
+            italic: item.style!.fontStyle == FontStyle.italic,
           ),
       ]),
       warning: readable
@@ -1277,7 +1312,7 @@ class SlideDesignPainter extends CustomPainter {
 final _renderCache = <String, Future<String>>{};
 
 /// Increment when paint/layout/font assets change even with identical inputs.
-const slideDesignRendererVersion = 1;
+const slideDesignRendererVersion = 2;
 String slideDesignFingerprint(WorkoutModule module) =>
     'v$slideDesignRendererVersion:${sha256.convert(utf8.encode(_renderKey(module)))}';
 

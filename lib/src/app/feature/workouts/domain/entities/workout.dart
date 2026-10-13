@@ -122,6 +122,10 @@ abstract class WorkoutModule with _$WorkoutModule {
     restSeconds: 0,
     text: '',
     imageSource: '',
+    // New slides use the current defaults; persisted-schema fallbacks above
+    // remain unchanged so loading older content preserves its chosen style.
+    designFontWeight: 700,
+    designItalic: false,
     showTimer: true,
     beep: true,
     coverImage: false,

@@ -292,7 +292,9 @@ void main() {
           original,
         );
         expect(
-          await renderSlideDesign(module.copyWith(designItalic: false)),
+          await renderSlideDesign(
+            module.copyWith(designItalic: !module.designItalic),
+          ),
           isNot(original),
         );
         expect(

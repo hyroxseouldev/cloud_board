@@ -145,6 +145,11 @@ class ExploreScreen extends HookConsumerWidget {
               Text(template.description),
               const SizedBox(height: 16),
               WorkoutSlidePreview(module: workout.modules.first, isRest: false),
+              const SizedBox(height: 8),
+              const Text(
+                '예시 · 자유롭게 수정하세요',
+                style: TextStyle(fontSize: 13, color: AppColors.muted),
+              ),
               const SizedBox(height: 12),
               Text(
                 '${workout.modules.length}개 슬라이드 · 저장하면 ${workoutDurationText(workout)} 수업',

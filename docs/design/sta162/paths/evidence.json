@@ -1,0 +1,2051 @@
+{
+  "catalog-banner": {
+    "fingerprint": "v2:1e9a94ade16c9224e42d598bf5050e10569969c2f79011ad6738f81a3dca0888",
+    "pngBytes": 94803,
+    "metrics": {
+      "minFontSize": 40.0,
+      "warning": null,
+      "columns": 1,
+      "textBounds": [
+        96.0,
+        64.0,
+        1728.0,
+        920.0
+      ],
+      "timerExclusion": null,
+      "sections": [
+        {
+          "heading": "",
+          "lines": [
+            "Ski 250m + Run 250m",
+            "Goblet Squat 12",
+            "DB Press 10",
+            "Wall Ball 20"
+          ],
+          "rect": [
+            96.0,
+            288.0,
+            1728.0,
+            556.0
+          ]
+        }
+      ],
+      "textRuns": [
+        {
+          "role": "title",
+          "value": "오늘의 클래스",
+          "fontSize": 84.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            64.0,
+            1198.88,
+            89.0
+          ]
+        },
+        {
+          "role": "headerLabel",
+          "value": "DAILY TRAINING",
+          "fontSize": 40.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            1322.88,
+            74.0,
+            501.1199999999999,
+            47.0
+          ]
+        },
+        {
+          "role": "subtitle",
+          "value": "6 min ON / 90 sec OFF",
+          "fontSize": 48.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            201.0,
+            1728.0,
+            57.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "1",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            299.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "Ski 250m + Run 250m",
+          "fontSize": 92.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            230.72,
+            288.0,
+            1593.28,
+            109.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "2",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            448.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "Goblet Squat 12",
+          "fontSize": 92.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            230.72,
+            437.0,
+            1593.28,
+            109.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "3",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            597.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "DB Press 10",
+          "fontSize": 92.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            230.72,
+            586.0,
+            1593.28,
+            109.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "4",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            746.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "Wall Ball 20",
+          "fontSize": 92.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            230.72,
+            735.0,
+            1593.28,
+            109.0
+          ]
+        }
+      ]
+    },
+    "sameTimerAndSets": true
+  },
+  "interval-warmup": {
+    "fingerprint": "v2:2fd920197baa916c9bd8febff3f8f48f62655e3761a11b5dac050f685ffc96b8",
+    "pngBytes": 46680,
+    "metrics": {
+      "minFontSize": 40.0,
+      "warning": null,
+      "columns": 1,
+      "textBounds": [
+        96.0,
+        64.0,
+        1306.8,
+        920.0
+      ],
+      "timerExclusion": [
+        1438.8,
+        366.0,
+        348.0,
+        483.6
+      ],
+      "sections": [
+        {
+          "heading": "",
+          "lines": [
+            "가볍게 걷기",
+            "어깨 돌리기",
+            "맨몸 스쿼트"
+          ],
+          "rect": [
+            96.0,
+            201.0,
+            1306.8,
+            407.0
+          ]
+        }
+      ],
+      "textRuns": [
+        {
+          "role": "title",
+          "value": "WARM UP",
+          "fontSize": 84.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            64.0,
+            899.828,
+            89.0
+          ]
+        },
+        {
+          "role": "headerLabel",
+          "value": "STARTER CLASS",
+          "fontSize": 40.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            1023.828,
+            74.0,
+            378.972,
+            47.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "1",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            212.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "가볍게 걷기",
+          "fontSize": 92.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            230.72,
+            201.0,
+            1172.08,
+            109.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "2",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            361.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "어깨 돌리기",
+          "fontSize": 92.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            230.72,
+            350.0,
+            1172.08,
+            109.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "3",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            510.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "맨몸 스쿼트",
+          "fontSize": 92.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            230.72,
+            499.0,
+            1172.08,
+            109.0
+          ]
+        }
+      ]
+    },
+    "sameTimerAndSets": true
+  },
+  "24-rows-single": {
+    "minFontSize": 18.0,
+    "warning": "글씨가 너무 작아져요. 배치를 바꾸거나 문장을 간결하게 다듬어 주세요. 타이머가 있다면 크기와 위치도 조절할 수 있어요.",
+    "columns": 1,
+    "textBounds": [
+      96.0,
+      64.0,
+      1728.0,
+      920.0
+    ],
+    "timerExclusion": null,
+    "sections": [
+      {
+        "heading": "",
+        "lines": [
+          "운동 1 · 10회",
+          "운동 2 · 10회",
+          "운동 3 · 10회",
+          "운동 4 · 10회",
+          "운동 5 · 10회",
+          "운동 6 · 10회",
+          "운동 7 · 10회",
+          "운동 8 · 10회",
+          "운동 9 · 10회",
+          "운동 10 · 10회",
+          "운동 11 · 10회",
+          "운동 12 · 10회",
+          "운동 13 · 10회",
+          "운동 14 · 10회",
+          "운동 15 · 10회",
+          "운동 16 · 10회",
+          "운동 17 · 10회",
+          "운동 18 · 10회",
+          "운동 19 · 10회",
+          "운동 20 · 10회",
+          "운동 21 · 10회",
+          "운동 22 · 10회",
+          "운동 23 · 10회",
+          "운동 24 · 10회"
+        ],
+        "rect": [
+          96.0,
+          288.0,
+          1728.0,
+          696.0
+        ]
+      }
+    ],
+    "textRuns": [
+      {
+        "role": "title",
+        "value": "오늘의 클래스",
+        "fontSize": 84.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          64.0,
+          1198.88,
+          89.0
+        ]
+      },
+      {
+        "role": "headerLabel",
+        "value": "DAILY TRAINING",
+        "fontSize": 40.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1322.88,
+          74.0,
+          501.1199999999999,
+          47.0
+        ]
+      },
+      {
+        "role": "subtitle",
+        "value": "6 min ON / 90 sec OFF",
+        "fontSize": 48.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          201.0,
+          1728.0,
+          57.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "1",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          290.44,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 1 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          288.0,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "2",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          319.7878260869565,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 2 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          317.3478260869565,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "3",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          349.135652173913,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 3 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          346.695652173913,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "4",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          378.4834782608695,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 4 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          376.0434782608695,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "5",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          407.831304347826,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 5 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          405.391304347826,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "6",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          437.1791304347825,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 6 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          434.7391304347825,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "7",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          466.526956521739,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 7 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          464.086956521739,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "8",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          495.8747826086955,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 8 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          493.4347826086955,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "9",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          525.2226086956521,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 9 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          522.782608695652,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "10",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          554.5704347826086,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 10 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          552.1304347826085,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "11",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          583.9182608695651,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 11 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          581.478260869565,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "12",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          613.2660869565216,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 12 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          610.8260869565215,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "13",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          642.6139130434781,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 13 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          640.173913043478,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "14",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          671.9617391304346,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 14 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          669.5217391304345,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "15",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          701.3095652173911,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 15 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          698.869565217391,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "16",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          730.6573913043476,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 16 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          728.2173913043475,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "17",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          760.0052173913041,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 17 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          757.565217391304,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "18",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          789.3530434782606,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 18 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          786.9130434782605,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "19",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          818.7008695652171,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 19 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          816.260869565217,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "20",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          848.0486956521736,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 20 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          845.6086956521735,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "21",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          877.3965217391301,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 21 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          874.95652173913,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "22",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          906.7443478260866,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 22 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          904.3043478260865,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "23",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          936.0921739130431,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 23 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          933.652173913043,
+          1679.12,
+          21.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "24",
+        "fontSize": 13.68,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          965.4399999999996,
+          20.879999999999995,
+          16.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 24 · 10회",
+        "fontSize": 18.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          144.88,
+          962.9999999999995,
+          1679.12,
+          21.0
+        ]
+      }
+    ]
+  },
+  "24-rows-columns": {
+    "minFontSize": 36.0,
+    "warning": null,
+    "columns": 2,
+    "textBounds": [
+      96.0,
+      64.0,
+      1728.0,
+      920.0
+    ],
+    "timerExclusion": null,
+    "sections": [
+      {
+        "heading": "",
+        "lines": [
+          "운동 1 · 10회",
+          "운동 2 · 10회",
+          "운동 3 · 10회",
+          "운동 4 · 10회",
+          "운동 5 · 10회",
+          "운동 6 · 10회",
+          "운동 7 · 10회",
+          "운동 8 · 10회",
+          "운동 9 · 10회",
+          "운동 10 · 10회",
+          "운동 11 · 10회",
+          "운동 12 · 10회"
+        ],
+        "rect": [
+          96.0,
+          288.0,
+          846.0,
+          662.4
+        ]
+      },
+      {
+        "heading": "",
+        "lines": [
+          "운동 13 · 10회",
+          "운동 14 · 10회",
+          "운동 15 · 10회",
+          "운동 16 · 10회",
+          "운동 17 · 10회",
+          "운동 18 · 10회",
+          "운동 19 · 10회",
+          "운동 20 · 10회",
+          "운동 21 · 10회",
+          "운동 22 · 10회",
+          "운동 23 · 10회",
+          "운동 24 · 10회"
+        ],
+        "rect": [
+          978.0,
+          288.0,
+          846.0,
+          662.4
+        ]
+      }
+    ],
+    "textRuns": [
+      {
+        "role": "title",
+        "value": "오늘의 클래스",
+        "fontSize": 84.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          64.0,
+          1198.88,
+          89.0
+        ]
+      },
+      {
+        "role": "headerLabel",
+        "value": "DAILY TRAINING",
+        "fontSize": 40.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1322.88,
+          74.0,
+          501.1199999999999,
+          47.0
+        ]
+      },
+      {
+        "role": "subtitle",
+        "value": "6 min ON / 90 sec OFF",
+        "fontSize": 48.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          201.0,
+          1728.0,
+          57.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "1",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          292.88,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 1 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          288.0,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "2",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          349.28,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 2 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          344.4,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "3",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          405.67999999999995,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 3 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          400.79999999999995,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "4",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          462.0799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 4 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          457.19999999999993,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "5",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          518.4799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 5 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          513.5999999999999,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "6",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          574.8799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 6 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          569.9999999999999,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "7",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          631.2799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 7 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          626.3999999999999,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "8",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          687.6799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 8 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          682.7999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "9",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          744.0799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 9 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          739.1999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "10",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          800.4799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 10 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          795.5999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "11",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          856.8799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 11 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          851.9999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "12",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          96.0,
+          913.2799999999997,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 12 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          165.76,
+          908.3999999999997,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "13",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          292.88,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 13 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          288.0,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "14",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          349.28,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 14 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          344.4,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "15",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          405.67999999999995,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 15 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          400.79999999999995,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "16",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          462.0799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 16 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          457.19999999999993,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "17",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          518.4799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 17 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          513.5999999999999,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "18",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          574.8799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 18 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          569.9999999999999,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "19",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          631.2799999999999,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 19 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          626.3999999999999,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "20",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          687.6799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 20 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          682.7999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "21",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          744.0799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 21 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          739.1999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "22",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          800.4799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 22 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          795.5999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "23",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          856.8799999999998,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 23 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          851.9999999999998,
+          776.24,
+          42.0
+        ]
+      },
+      {
+        "role": "number",
+        "value": "24",
+        "fontSize": 27.36,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          978.0,
+          913.2799999999997,
+          41.75999999999999,
+          32.0
+        ]
+      },
+      {
+        "role": "body",
+        "value": "운동 24 · 10회",
+        "fontSize": 36.0,
+        "fontWeight": 700,
+        "fontFamily": "Pretendard",
+        "italic": false,
+        "rect": [
+          1047.76,
+          908.3999999999997,
+          776.24,
+          42.0
+        ]
+      }
+    ]
+  },
+  "existing-user-warmup": {
+    "weight": 900,
+    "italic": true,
+    "subtitle": "예시 · 자유롭게 수정하세요",
+    "metrics": {
+      "minFontSize": 40.0,
+      "warning": null,
+      "columns": 1,
+      "textBounds": [
+        96.0,
+        64.0,
+        1306.8,
+        920.0
+      ],
+      "timerExclusion": [
+        1438.8,
+        366.0,
+        348.0,
+        483.6
+      ],
+      "sections": [
+        {
+          "heading": "",
+          "lines": [
+            "가볍게 걷기",
+            "어깨 돌리기",
+            "맨몸 스쿼트"
+          ],
+          "rect": [
+            96.0,
+            288.0,
+            1306.8,
+            407.0
+          ]
+        }
+      ],
+      "textRuns": [
+        {
+          "role": "title",
+          "value": "WARM UP",
+          "fontSize": 84.0,
+          "fontWeight": 900,
+          "fontFamily": "Pretendard",
+          "italic": true,
+          "rect": [
+            96.0,
+            64.0,
+            899.828,
+            89.0
+          ]
+        },
+        {
+          "role": "headerLabel",
+          "value": "STARTER CLASS",
+          "fontSize": 40.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            1023.828,
+            74.0,
+            378.972,
+            47.0
+          ]
+        },
+        {
+          "role": "subtitle",
+          "value": "예시 · 자유롭게 수정하세요",
+          "fontSize": 48.0,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            201.0,
+            1306.8,
+            57.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "1",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            299.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "가볍게 걷기",
+          "fontSize": 92.0,
+          "fontWeight": 900,
+          "fontFamily": "Pretendard",
+          "italic": true,
+          "rect": [
+            230.72,
+            288.0,
+            1172.08,
+            109.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "2",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            448.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "어깨 돌리기",
+          "fontSize": 92.0,
+          "fontWeight": 900,
+          "fontFamily": "Pretendard",
+          "italic": true,
+          "rect": [
+            230.72,
+            437.0,
+            1172.08,
+            109.0
+          ]
+        },
+        {
+          "role": "number",
+          "value": "3",
+          "fontSize": 69.92,
+          "fontWeight": 700,
+          "fontFamily": "Pretendard",
+          "italic": false,
+          "rect": [
+            96.0,
+            597.86,
+            106.72,
+            83.0
+          ]
+        },
+        {
+          "role": "body",
+          "value": "맨몸 스쿼트",
+          "fontSize": 92.0,
+          "fontWeight": 900,
+          "fontFamily": "Pretendard",
+          "italic": true,
+          "rect": [
+            230.72,
+            586.0,
+            1172.08,
+            109.0
+          ]
+        }
+      ]
+    }
+  }
+}

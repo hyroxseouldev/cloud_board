@@ -207,71 +207,65 @@ void main() {
     }
   });
 
-  test(
-    'actual catalog previews use readable poster scale and fill the slide body',
-    () {
-      for (final design in aiSlideDesignCatalog) {
-        final module = previewAiSlide(
-          applyAiSlideTheme(aiSlideDesignSample, design.theme),
-        );
-        final metrics = measureSlideDesign(module);
-        final body = metrics.textRuns
-            .where((run) => run.role == 'body')
-            .toList();
-        expect(metrics.readable, isTrue, reason: design.id);
-        expect(body.map((run) => run.value), aiSlideDesignSample.lines);
+  test('catalog previews keep readable type and bounded gaps without stretching short lists', () {
+    for (final design in aiSlideDesignCatalog) {
+      final module = previewAiSlide(
+        applyAiSlideTheme(aiSlideDesignSample, design.theme),
+      );
+      final metrics = measureSlideDesign(module);
+      final body = metrics.textRuns.where((run) => run.role == 'body').toList();
+      expect(metrics.readable, isTrue, reason: design.id);
+      expect(body.map((run) => run.value), aiSlideDesignSample.lines);
+      expect(
+        body.every((run) => run.fontSize >= 80),
+        isTrue,
+        reason: '${design.id} should remain legible in a catalog thumbnail',
+      );
+      if (module.designStyle!.family == 'cards' ||
+          module.designLayout == 'cards') {
+        final cards = metrics.sections;
+        expect(cards, hasLength(4));
+        expect(cards[0].rect.top, closeTo(cards[1].rect.top, .01));
+        expect(cards[2].rect.top, closeTo(cards[3].rect.top, .01));
+        expect(cards[2].rect.top, greaterThan(cards[0].rect.bottom));
+        expect(cards.last.rect.bottom, greaterThan(960));
         expect(
-          body.every((run) => run.fontSize >= 80),
+          cards.every(
+            (card) => (card.rect.height - cards.first.rect.height).abs() < .01,
+          ),
           isTrue,
-          reason: '${design.id} should remain legible in a catalog thumbnail',
         );
-        if (module.designStyle!.family == 'cards' ||
-            module.designLayout == 'cards') {
-          final cards = metrics.sections;
-          expect(cards, hasLength(4));
-          expect(cards[0].rect.top, closeTo(cards[1].rect.top, .01));
-          expect(cards[2].rect.top, closeTo(cards[3].rect.top, .01));
-          expect(cards[2].rect.top, greaterThan(cards[0].rect.bottom));
-          expect(cards.last.rect.bottom, greaterThan(960));
+      } else if (module.designLayout == 'columns') {
+        expect(metrics.columns, 2);
+        expect(metrics.sections, hasLength(2));
+        expect(metrics.sections.first.lines, aiSlideDesignSample.lines.take(2));
+        expect(metrics.sections.last.lines, aiSlideDesignSample.lines.skip(2));
+        expect(
+          metrics.sections.first.rect.right,
+          lessThan(metrics.sections.last.rect.left),
+        );
+        expect(
+          metrics.sections.first.rect.top,
+          closeTo(metrics.sections.last.rect.top, .01),
+        );
+      } else {
+        for (var i = 1; i < body.length; i++) {
           expect(
-            cards.every(
-              (card) =>
-                  (card.rect.height - cards.first.rect.height).abs() < .01,
-            ),
-            isTrue,
+            body[i].rect.top - body[i - 1].rect.bottom,
+            lessThanOrEqualTo(48.01),
+            reason: '${design.id}: spare space must not spread the rows',
           );
-        } else if (module.designLayout == 'columns') {
-          expect(metrics.columns, 2);
-          expect(metrics.sections, hasLength(2));
-          expect(
-            metrics.sections.first.lines,
-            aiSlideDesignSample.lines.take(2),
-          );
-          expect(
-            metrics.sections.last.lines,
-            aiSlideDesignSample.lines.skip(2),
-          );
-          expect(
-            metrics.sections.first.rect.right,
-            lessThan(metrics.sections.last.rect.left),
-          );
-          expect(
-            metrics.sections.first.rect.top,
-            closeTo(metrics.sections.last.rect.top, .01),
-          );
-        } else {
-          expect(body.last.rect.bottom, greaterThan(950));
-          expect(body.last.rect.bottom - body.first.rect.top, greaterThan(540));
         }
-        for (final motif in metrics.decorationRuns) {
-          expect(motif.value, isNot(contains('\n')));
-          expect(motif.rect.height, lessThan(motif.fontSize * 1.5));
-        }
+        expect(body.last.rect.bottom, lessThan(metrics.textBounds.bottom));
       }
-      final dolpa = measureSlideDesign(referenceModule(referenceCases().last));
-      expect(dolpa.decorationRuns.single.value, '突\n破');
-    },
-  );
+      for (final motif in metrics.decorationRuns) {
+        expect(motif.value, isNot(contains('\n')));
+        expect(motif.rect.height, lessThan(motif.fontSize * 1.5));
+      }
+    }
+    final dolpa = measureSlideDesign(referenceModule(referenceCases().last));
+    expect(dolpa.decorationRuns.single.value, '突\n破');
+  });
 
   test('timer geometry is excluded from every painted content role in every family', () {
     final source = referenceModule(referenceCases().last).copyWith(

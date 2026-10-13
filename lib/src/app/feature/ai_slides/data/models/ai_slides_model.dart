@@ -70,6 +70,10 @@ class AiSlideModel {
   AiSlideDraft toEntity() => AiSlideDraft(
     title: title,
     layout: layout,
+    // A fresh content-only response has no saved visual preference. Keep
+    // legacy draft decoding separate, and allow the chosen theme to override.
+    designFontWeight: 700,
+    designItalic: false,
     lines: sections == null
         ? lines
         : [

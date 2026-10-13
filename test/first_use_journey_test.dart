@@ -18,6 +18,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/sl
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_rehearsal_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -57,11 +58,21 @@ void main() {
         );
         importer.values[owned.id] = owned.copyWith(
           name: '수정한 수업',
-          modules: [owned.modules.first.copyWith(workSeconds: 123)],
+          modules: [
+            owned.modules.first.copyWith(
+              workSeconds: 123,
+              designSubtitle: '코치가 직접 작성한 안내',
+              designFontWeight: 900,
+              designItalic: true,
+            ),
+          ],
         );
         final retry = await action(template, _author, owned: true);
         expect(retry.name, '수정한 수업');
         expect(retry.modules.first.workSeconds, 123);
+        expect(retry.modules.first.designSubtitle, '코치가 직접 작성한 안내');
+        expect(retry.modules.first.designFontWeight, 900);
+        expect(retry.modules.first.designItalic, isTrue);
         final sample = await action(template, _author);
         expect(isStarterWorkout(sample.id), isTrue);
         expect(sample.modules, original.modules);
@@ -258,6 +269,15 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(find.text('예시 · 자유롭게 수정하세요'), 180);
+        expect(find.text('예시 · 자유롭게 수정하세요').hitTestable(), findsOneWidget);
+        expect(
+          find.ancestor(
+            of: find.text('예시 · 자유롭게 수정하세요'),
+            matching: find.byType(WorkoutSlidePreview),
+          ),
+          findsNothing,
+        );
         expect(find.text('인터벌 수업'), findsNothing);
         await tester.scrollUntilVisible(find.text('다른 예시·시작 목적 선택'), 180);
         await tester.pumpAndSettle();
