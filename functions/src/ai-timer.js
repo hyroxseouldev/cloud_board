@@ -1,5 +1,7 @@
 import {createHash} from 'node:crypto';
 import {HttpsError} from 'firebase-functions/v2/https';
+import {FieldValue} from 'firebase-admin/firestore';
+import {requirePlanEntitlement} from './plan-policy.js';
 
 export const AI_TIMER_MODEL = 'gpt-6-luna';
 export const AI_TIMER_VERSION = 'timer-v2';
@@ -128,14 +130,14 @@ export async function requestAiTimer(image, apiKey, fetchImpl = fetch) {
 }
 
 export async function handleAiTimer(options) {
-  return handleMeteredAi({...options, feature: 'aiTimer', action: 'analyze', limit: AI_TIMER_USER_LIMIT,
+  return handleMeteredAi({...options, feature: 'aiTimer', operation: 'timer', action: 'analyze',
     parse: readAiTimerImage, validate: validateAiTimerResult, recognize: options.recognize ?? requestAiTimer});
 }
 
 // Timer recognition and themed slide generation share the same atomic budget.
 // Only server-owned callers select a feature, parser, validator, or quota.
 export async function handleMeteredAi({db, uid, input, apiKey, now = Date.now(),
-  feature, action, limit, parse, validate, recognize}) {
+  feature, operation = feature, action, parse, validate, recognize}) {
   if (!uid) throw fail('unauthenticated', '로그인 후 이용해 주세요.', 'signed-out');
   if (!['status', action].includes(input?.action)) throw fail('invalid-argument', '올바른 요청이 아닙니다.', 'invalid-action');
   const month = aiTimerMonth(now);
@@ -146,60 +148,111 @@ export async function handleMeteredAi({db, uid, input, apiKey, now = Date.now(),
   const budgetRef = db.doc(`aiTimerBudgets/${month.id}`);
   const image = input.action === action ? parse(input) : null;
   const jobRef = image ? db.doc(`users/${uid}/${feature}Jobs/${image.key}`) : null;
-  const claim = await db.runTransaction(async tx => {
-    const [access, lock, config, usage, budget] = await tx.getAll(accessRef, lockRef, configRef, usageRef, budgetRef);
-    if (lock.exists) throw fail('permission-denied', '이용할 수 없는 계정입니다.', 'account-deleted');
-    const premium = isAiTimerPremium(access.data(), now);
-    const enabled = Boolean(apiKey) && config.data()?.enabled !== false;
-    const used = usage.data()?.used ?? 0;
-    const status = {premium, enabled, remaining: Math.max(0, limit - used),
-      limit: limit, resetsAtMs: month.resetsAtMs};
-    if (input.action === 'status') return {status};
-    if (!premium) throw fail('permission-denied', '프리미엄 이용자만 AI 기능을 사용할 수 있어요.', 'premium-required');
-    if (!enabled) throw fail('failed-precondition', 'AI 기능을 준비 중입니다. 잠시 후 다시 이용해 주세요.', 'not-configured');
-    const job = (await tx.get(jobRef)).data();
-    // Always verify entitlement before returning an account-scoped cached result.
-    if (job?.status === 'completed' && job.expiresAtMs > now) return {status, result: job.result, cached: true};
-    if (job?.status === 'processing' && job.startedAtMs + 90000 > now) {
-      throw fail('aborted', '같은 내용을 처리 중입니다. 잠시 후 다시 눌러 주세요.', 'in-progress');
-    }
-    if ((job?.retryAfterMs ?? 0) > now || (usage.data()?.lastAttemptMs ?? 0) + 5000 > now) {
-      throw fail('resource-exhausted', '잠시 기다린 뒤 다시 시도해 주세요.', 'cooldown');
-    }
-    if (used >= limit) throw fail('resource-exhausted', '이번 달 AI 요청을 모두 사용했어요. 다음 달에 다시 이용해 주세요.', 'user-limit');
-    const spent = budget.data()?.spentMicros ?? 0, calls = budget.data()?.calls ?? 0;
-    const attempts = usage.data()?.attempts ?? 0;
-    if (attempts >= limit * 2) {
-      throw fail('resource-exhausted', '반복 요청이 많아 이번 달 요청을 잠시 제한했어요. 다음 달에 다시 이용해 주세요.', 'attempt-limit');
-    }
-    if (spent + AI_TIMER_RESERVE > AI_TIMER_BUDGET || calls >= AI_TIMER_GLOBAL_LIMIT) {
-      throw fail('resource-exhausted', '이번 달 AI 요청 제공 한도에 도달했어요. 다음 달에 다시 이용해 주세요.', 'service-limit');
-    }
-    // Charge a conservative reservation immediately. If the worker crashes, it
-    // remains charged; a client retry cannot turn uncertain provider work free.
-    tx.set(budgetRef, {spentMicros: spent + AI_TIMER_RESERVE, calls: calls + 1}, {merge: true});
-    tx.set(usageRef, {used: used + 1, attempts: attempts + 1, lastAttemptMs: now}, {merge: true});
-    tx.set(jobRef, {status: 'processing', startedAtMs: now, month: month.id});
-    return {status: {...status, remaining: Math.max(0, status.remaining - 1)}};
-  });
-  if (!image || claim.cached) return {...claim.status, ...(claim.result ? {result: claim.result, cached: true} : {})};
+  let claim;
+  try {
+    claim = await db.runTransaction(async tx => {
+      const [access, lock, config, usage, budget] = await tx.getAll(accessRef, lockRef, configRef, usageRef, budgetRef);
+      if (lock.exists) throw fail('permission-denied', '이용할 수 없는 계정입니다.', 'account-deleted');
+      const entitlement = requirePlanEntitlement(access.data(), now);
+      const limit = (feature === 'aiSlides' ? entitlement.aiSlidesMonthlyLimit : entitlement.aiTimerMonthlyLimit) ?? 0;
+      const premium = entitlement.plan === 'premium';
+      const allowed = limit > 0;
+      const enabled = Boolean(apiKey) && config.data()?.enabled !== false;
+      const used = usage.data()?.used ?? 0;
+      if (!Number.isSafeInteger(used) || used < 0) {
+        throw fail('failed-precondition', '사용량을 확인하지 못했어요. 잠시 후 다시 확인해 주세요.', 'usage-unavailable');
+      }
+      const spent = budget.data()?.spentMicros ?? 0, calls = budget.data()?.calls ?? 0;
+      const serviceLimited = spent + AI_TIMER_RESERVE > AI_TIMER_BUDGET || calls >= AI_TIMER_GLOBAL_LIMIT;
+      const availabilityReason = config.data()?.enabled === false ? 'feature-disabled'
+        : !apiKey ? 'not-configured' : serviceLimited ? 'service-limit' : null;
+      const status = {premium, allowed, plan: entitlement.plan, enabled, used,
+        remaining: Math.max(0, limit - used), limit, resetsAtMs: month.resetsAtMs,
+        availabilityReason, policyVersion: entitlement.policyVersion};
+      if (input.action === 'status') return {status};
+      if (!allowed) throw new HttpsError('permission-denied', feature === 'aiSlides'
+        ? 'AI 슬라이드 도우미는 Plus와 Premium에서 사용할 수 있어요.'
+        : '이미지 타이머 인식은 Premium에서 월 100회 사용할 수 있어요.',
+        {reason: feature === 'aiSlides' ? 'plan-required' : 'premium-required', ...status});
+      if (!enabled) throw new HttpsError('failed-precondition', availabilityReason === 'feature-disabled'
+        ? 'AI 기능을 잠시 점검하고 있어요. 직접 편집은 계속 사용할 수 있어요.'
+        : 'AI 기능을 준비 중입니다. 잠시 후 다시 이용해 주세요.',
+        {reason: availabilityReason, ...status});
+      const job = (await tx.get(jobRef)).data();
+      // Always verify entitlement before returning an account-scoped cached result.
+      if (job?.status === 'completed' && job.expiresAtMs > now) return {status, result: job.result, cached: true};
+      if (job?.status === 'processing' && job.startedAtMs + 90000 > now) {
+        throw fail('aborted', '같은 내용을 처리 중입니다. 잠시 후 다시 눌러 주세요.', 'in-progress');
+      }
+      if ((job?.retryAfterMs ?? 0) > now || (usage.data()?.lastAttemptMs ?? 0) + 5000 > now) {
+        throw fail('resource-exhausted', '잠시 기다린 뒤 다시 시도해 주세요.', 'cooldown');
+      }
+      if (used >= limit) throw new HttpsError('resource-exhausted',
+        `이번 달 AI 요청 ${used}/${limit}회를 사용했어요. 매월 1일 00:00 KST에 초기화돼요.`,
+        {reason: 'user-limit', ...status});
+      const attempts = usage.data()?.attempts ?? 0;
+      if (attempts >= limit * 2) {
+        throw fail('resource-exhausted', '반복 요청이 많아 이번 달 요청을 잠시 제한했어요. 다음 달에 다시 이용해 주세요.', 'attempt-limit');
+      }
+      if (serviceLimited) {
+        throw new HttpsError('resource-exhausted', '서비스의 AI 제공 한도에 도달했어요. 개인 사용량은 차감되지 않았어요. 잠시 후 다시 확인해 주세요.',
+          {reason: 'service-limit', stopReason: calls >= AI_TIMER_GLOBAL_LIMIT ? 'calls' : 'budget', ...status});
+      }
+      // Charge a conservative reservation immediately. If the worker crashes, it
+      // remains charged; a client retry cannot turn uncertain provider work free.
+      tx.set(budgetRef, {spentMicros: spent + AI_TIMER_RESERVE, calls: calls + 1}, {merge: true});
+      tx.set(usageRef, {used: used + 1, attempts: attempts + 1, lastAttemptMs: now}, {merge: true});
+      tx.set(jobRef, {status: 'processing', startedAtMs: now, month: month.id});
+      return {status: {...status, used: used + 1, remaining: Math.max(0, status.remaining - 1)}};
+    });
+  } catch (error) {
+    await recordAiMetric(db, month.id, operation, metricOutcome(error));
+    throw error;
+  }
+  if (!image || claim.cached) {
+    if (claim.cached) await recordAiMetric(db, month.id, operation, 'cached');
+    return {...claim.status, ...(claim.result ? {result: claim.result, cached: true} : {})};
+  }
+  await recordAiMetric(db, month.id, operation, 'provider_started');
   let answer, error;
   try { answer = await recognize(image, apiKey); answer.result = validate(answer.result); }
   catch (e) { error = e instanceof HttpsError ? e : fail('internal', '생성을 완료하지 못했습니다. 다시 시도해 주세요.', 'analysis-failed'); }
-  await db.runTransaction(async tx => {
+  const settled = await db.runTransaction(async tx => {
     const [job, usage, budget, lock] = await tx.getAll(jobRef, usageRef, budgetRef, lockRef);
     // Account deletion owns cleanup; never recreate its data after an API call.
-    if (lock.exists || job.data()?.startedAtMs !== now || job.data()?.status !== 'processing') return;
+    if (lock.exists || job.data()?.startedAtMs !== now || job.data()?.status !== 'processing') return false;
     if (error) {
-      tx.set(jobRef, {status: 'failed', retryAfterMs: Date.now() + 60000}, {merge: true});
+      tx.set(jobRef, {status: 'failed', retryAfterMs: now + 60000}, {merge: true});
       tx.set(usageRef, {used: Math.max(0, (usage.data()?.used ?? 1) - 1)}, {merge: true});
       // Unknown provider cost remains reserved; failed analyses refund user quota only.
     } else {
       const cost = Number.isSafeInteger(answer.costMicros) && answer.costMicros >= 0 ? answer.costMicros : AI_TIMER_RESERVE;
       tx.set(budgetRef, {spentMicros: Math.max(0, (budget.data()?.spentMicros ?? AI_TIMER_RESERVE) - AI_TIMER_RESERVE + cost)}, {merge: true});
-      tx.set(jobRef, {status: 'completed', result: answer.result, expiresAtMs: Date.now() + 30 * 86400000}, {merge: true});
+      tx.set(jobRef, {status: 'completed', result: answer.result, expiresAtMs: now + 30 * 86400000}, {merge: true});
     }
+    return true;
   });
+  if (error && settled) await recordAiMetric(db, month.id, operation, 'quota_refunded');
+  await recordAiMetric(db, month.id, operation, error ? metricOutcome(error) : 'completed');
   if (error) throw error;
   return {...claim.status, result: answer.result, cached: false};
+}
+
+// Aggregate operational counters contain no uid, prompt, image, provider body,
+// or key. Metrics are best-effort and must never change the request outcome.
+function metricOutcome(error) {
+  const reason = error?.details?.reason;
+  if (['user-limit', 'attempt-limit', 'service-limit', 'feature-disabled', 'not-configured',
+    'entitlement-unavailable', 'usage-unavailable', 'in-progress', 'cooldown',
+    'plan-required', 'premium-required', 'account-deleted'].includes(reason)) return reason.replaceAll('-', '_');
+  if (reason?.startsWith('provider-')) return 'provider_failed';
+  return 'request_failed';
+}
+async function recordAiMetric(db, month, operation, outcome) {
+  const safeOperation = ['timer', 'content', 'design'].includes(operation) ? operation : 'other';
+  try {
+    await db.doc(`aiRequestMetrics/${month}`).set({
+      [safeOperation]: {[outcome]: FieldValue.increment(1)},
+    }, {merge: true});
+  } catch { /* Monitoring failure cannot charge or reject an otherwise valid request. */ }
 }

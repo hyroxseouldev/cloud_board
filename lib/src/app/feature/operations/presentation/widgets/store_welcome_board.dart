@@ -1,4 +1,6 @@
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
+import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +33,63 @@ class StoreWelcomeBoard extends StatelessWidget {
       : const DisplayPreferences();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final scale = math.min(
+        constraints.maxWidth / 1280,
+        constraints.maxHeight / 720,
+      );
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildBoard(context),
+          if (brand.showCloudBoardLogo)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 20 * scale),
+                child: SizedBox(
+                  width: 240 * scale,
+                  height: 56 * scale,
+                  child: FittedBox(
+                    child: Container(
+                      key: const ValueKey('standby-cloudboard-logo'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F5EF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SoftRhythmMark(size: 32),
+                          SizedBox(width: 10),
+                          Text(
+                            AppBrand.name,
+                            style: TextStyle(
+                              fontFamily: 'Pretendard',
+                              decoration: TextDecoration.none,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2B332E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+
+  Widget _buildBoard(BuildContext context) {
     final clock =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     if (brand.standbyFullscreen && brand.promotionImageUrls.isNotEmpty) {
@@ -205,7 +263,10 @@ class StoreWelcomeBoard extends StatelessWidget {
               ),
               padding: const EdgeInsets.all(48),
               child: DefaultTextStyle(
-                style: const TextStyle(color: Color(0xFF171717)),
+                style: const TextStyle(
+                  fontFamily: 'Pretendard',
+                  color: Color(0xFF171717),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

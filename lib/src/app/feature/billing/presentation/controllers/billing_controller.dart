@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/billing/domain/entities/billing_status.dart';
 import 'package:cloud_board/src/app/feature/billing/domain/usecases/billing_actions.dart';
@@ -25,8 +26,20 @@ Future<List<BillingOffer>> billingOffers(Ref ref) async {
 @Riverpod(keepAlive: true)
 class BillingPurchaseController extends _$BillingPurchaseController {
   final _unverified = <String, StorePurchase>{};
+  // Only in-memory transaction keys; bounded and reset at the account boundary.
+  // A previous purchase may be redelivered during a new checkout of the same SKU.
+  final _verifiedTransactions = <String>{};
+  void _rememberVerified(String key) {
+    _verifiedTransactions.add(key);
+    if (_verifiedTransactions.length > 256) {
+      _verifiedTransactions.remove(_verifiedTransactions.first);
+    }
+  }
+
   Future<void> _queue = Future.value();
   bool _recovering = false;
+  OperationAttempt? _checkout;
+  String? _checkoutProduct;
   @override
   BillingActivity build() {
     final actions = ref.watch(billingActionsProvider);
@@ -51,6 +64,9 @@ class BillingPurchaseController extends _$BillingPurchaseController {
     ref.onDispose(() => unawaited(subscription.cancel()));
     ref.listen(authStateProvider, (before, after) {
       if (before?.value?.id != after.value?.id) {
+        _checkout = null;
+        _checkoutProduct = null;
+        _verifiedTransactions.clear();
         state = BillingActivity(needsVerification: _unverified.isNotEmpty);
         if (after.value != null) {
           unawaited(retry());
@@ -77,6 +93,12 @@ class BillingPurchaseController extends _$BillingPurchaseController {
   }
 
   Future<void> _handle(StorePurchase purchase) async {
+    final checkout = _checkout;
+    final transactionKey = '${purchase.store}:${purchase.key}';
+    final belongsToCheckout =
+        checkout != null &&
+        purchase.productId == _checkoutProduct &&
+        !_verifiedTransactions.contains(transactionKey);
     if (purchase.phase == StorePurchasePhase.pending) {
       state = BillingActivity(
         busy: purchase.store != 'google_play',
@@ -87,6 +109,15 @@ class BillingPurchaseController extends _$BillingPurchaseController {
     }
     if (purchase.phase == StorePurchasePhase.canceled ||
         purchase.phase == StorePurchasePhase.error) {
+      if (belongsToCheckout) {
+        if (purchase.phase == StorePurchasePhase.canceled) {
+          _checkout?.cancel();
+        } else {
+          _checkout?.failure('unexpected');
+        }
+        _checkout = null;
+        _checkoutProduct = null;
+      }
       state = BillingActivity(
         needsVerification: _unverified.isNotEmpty,
         message: purchase.phase == StorePurchasePhase.canceled
@@ -113,6 +144,23 @@ class BillingPurchaseController extends _$BillingPurchaseController {
     if (!ref.mounted) return;
     if (!result.hasError) _unverified.remove(purchase.key);
     if (ref.read(authStateProvider).value?.id != uid) return;
+    if (!result.hasError) _rememberVerified(transactionKey);
+    // A restore or repeated store event is not another upgrade conversion.
+    // Keep the attempt pending on verification failure so a retry can finish it.
+    if (!result.hasError &&
+        belongsToCheckout &&
+        identical(checkout, _checkout) &&
+        purchase.phase == StorePurchasePhase.purchased) {
+      if (result.value == null) {
+        _checkout?.success();
+      } else {
+        // Retired-account acknowledgement drains the store transaction but
+        // does not grant this account a paid plan.
+        _checkout?.failure('failed-precondition');
+      }
+      _checkout = null;
+      _checkoutProduct = null;
+    }
     state = BillingActivity(
       needsVerification: _unverified.isNotEmpty,
       message: result.hasError
@@ -137,11 +185,21 @@ class BillingPurchaseController extends _$BillingPurchaseController {
 
   Future<void> purchase(String id) async {
     if (state.busy || state.needsVerification) return;
+    _checkout = ref
+        .read(operationTelemetryProvider)
+        .start('plan.upgrade.purchase');
+    _checkoutProduct = id;
+    final checkout = _checkout;
     state = const BillingActivity(busy: true, message: '스토어 결제 화면을 여는 중이에요.');
     final result = await AsyncValue.guard(
       () => ref.read(billingActionsProvider).purchase(id),
     );
     if (ref.mounted && result.hasError) {
+      if (identical(checkout, _checkout)) {
+        _checkout?.failure(result.error);
+        _checkout = null;
+        _checkoutProduct = null;
+      }
       state = BillingActivity(message: '${result.error}', error: true);
     }
   }

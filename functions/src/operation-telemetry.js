@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {Timestamp} from 'firebase-admin/firestore';
 import {HttpsError} from 'firebase-functions/v2/https';
 
-export const operationActions = ['workout.save', 'tv.prepare', 'playback.control.submit', 'playback.control.ack'];
+export const operationActions = ['slides.save', 'workout.import', 'plan.upgrade.purchase', 'plan.workouts.usage', 'plan.workouts.limit', 'plan.workouts.manage', 'plan.workouts.upgrade', 'plan.savedSlides.usage', 'plan.savedSlides.limit', 'plan.savedSlides.manage', 'plan.savedSlides.upgrade', 'workout.save', 'tv.prepare', 'playback.control.submit', 'playback.control.ack'];
 const outcomes = ['attempt', 'success', 'failure', 'cancelled'];
 const allowed = new Set(['accountId', 'operationId', 'action', 'outcome', 'startedAt', 'occurredAt', 'durationMs', 'platform', 'version', 'build', 'code']);
 const codes = new Set(['permission-denied', 'unauthenticated', 'unavailable', 'deadline-exceeded', 'resource-exhausted', 'aborted', 'not-found', 'failed-precondition', 'revision_conflict', 'session_changed', 'timeout', 'cancelled', 'unexpected']);

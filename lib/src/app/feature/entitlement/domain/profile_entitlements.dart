@@ -11,6 +11,7 @@ Map<String, dynamic> profileEntitlements(
       'subscriptionPlan': 'free',
       'subscriptionStatus': 'free',
       'displayLimit': 0,
+      'planPolicyKnown': false,
     };
   }
   final until = (access['validUntilMs'] as num?)?.toInt() ?? 0;
@@ -29,6 +30,8 @@ Map<String, dynamic> profileEntitlements(
   final status = access['status'];
   return {
     ...?profile,
+    'planPolicyKnown':
+        valid && access['policyVersion'] == 'plan-entitlements-v2',
     'partnerTier': !valid || free
         ? 'free'
         : status == 'trialing'

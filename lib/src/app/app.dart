@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:cloud_board/src/app/feature/app_update/presentation/widgets/app_update_gate.dart';
@@ -113,6 +114,8 @@ class XonBoardApp extends HookConsumerWidget {
       );
     });
     ref.listen(workoutActionControllerProvider, (previous, next) {
+      // The invoking editor/list owns the actionable quota dialog and draft.
+      if (PlanLimitFailure.from(next.error) != null) return;
       showActionResult(
         previous,
         next,

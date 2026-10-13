@@ -419,7 +419,8 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       if (displayMode) {
         return StoreWelcomeBoard(
           brand:
-              ref.watch(brandTemplateProvider).value ?? BrandTemplate.initial(),
+              ref.watch(effectiveBrandTemplateProvider).value ??
+              BrandTemplate.initial(),
           now: standbyNow.value,
           connected: isConnected,
         );

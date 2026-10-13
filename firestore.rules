@@ -169,6 +169,10 @@ service cloud.firestore {
           && designId.size() > 0 && designId.size() <= 120 && designId.matches('^[A-Za-z0-9_-]+$')
           && validAiSlideDesign(request.resource.data, userId);
       }
+      match /planUsage/{documentId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
       match /catalog/{documentId} {
         allow read: if isOwner(userId);
         // Only the verified admin migration can activate a complete catalog.
@@ -194,7 +198,11 @@ service cloud.firestore {
       // It grants no asset permission; Storage and the scoped client lookup do.
       match /workouts/{workoutId} {
         allow read, delete: if isOwner(userId);
+        // Legacy accounts remain compatible until their server-owned policy
+        // projection activates v2. All v2 creates use saveWorkout atomically.
         allow create: if isOwner(userId)
+          && (!exists(/databases/$(database)/documents/subscriptionEntitlements/$(userId))
+            || get(/databases/$(database)/documents/subscriptionEntitlements/$(userId)).data.get('policyVersion', '') != 'plan-entitlements-v2')
           && request.resource.data.ownerId == userId
           && request.resource.data.author.id == userId
           && request.resource.data.id == workoutId;

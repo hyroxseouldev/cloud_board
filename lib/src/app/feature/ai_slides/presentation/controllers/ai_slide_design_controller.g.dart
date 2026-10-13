@@ -135,7 +135,7 @@ final class AiSlideDesignControllerProvider
 }
 
 String _$aiSlideDesignControllerHash() =>
-    r'74fc1072afedf8ca358493d3f84e172fddd65cab';
+    r'd1ebb52e7f1aa1cc2260f39541ebd03cb8af7c86';
 
 abstract class _$AiSlideDesignController
     extends $Notifier<AiSlideDesignStudioState> {

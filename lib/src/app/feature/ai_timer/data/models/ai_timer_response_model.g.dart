@@ -18,6 +18,10 @@ AiTimerResponseModel _$AiTimerResponseModelFromJson(
       ? null
       : AiTimerSuggestionModel.fromJson(json['result'] as Map<String, dynamic>),
   cached: json['cached'] as bool? ?? false,
+  allowed: json['allowed'] as bool?,
+  plan: json['plan'] as String?,
+  used: (json['used'] as num?)?.toInt(),
+  availabilityReason: json['availabilityReason'] as String?,
 );
 
 AiTimerSuggestionModel _$AiTimerSuggestionModelFromJson(

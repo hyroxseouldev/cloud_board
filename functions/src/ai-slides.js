@@ -200,7 +200,7 @@ export async function requestAiSlides(source, apiKey, fetchImpl = fetch) {
 
 export function handleAiSlides(options) {
   let source;
-  return handleMeteredAi({...options, feature: 'aiSlides', action: 'generate', limit: AI_SLIDES_LIMIT,
+  return handleMeteredAi({...options, feature: 'aiSlides', operation: 'content', action: 'generate',
     parse: input => (source = readSlidePrompt(input)), validate: result => validateSlides(result, source),
     recognize: options.recognize ?? requestAiSlides});
 }

@@ -117,9 +117,8 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
     final allowed =
         !access.isLoading &&
         !access.hasError &&
-        access.value?.premium == true &&
-        access.value?.enabled == true &&
-        (access.value?.remaining ?? 0) > 0;
+        access.value?.canRequest == true &&
+        access.value?.enabled == true;
     final warning = validation ?? metrics?.warning;
     final canAdd =
         module != null &&

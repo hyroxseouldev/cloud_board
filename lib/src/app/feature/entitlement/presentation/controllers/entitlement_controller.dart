@@ -1,8 +1,19 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/entities/store_entitlement.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/usecases/entitlement_actions.dart';
 part 'entitlement_controller.g.dart';
+
+/// The management owner, scoped across sign-out and account changes. Unknown
+/// or cached access stays distinguishable from a server-confirmed Free plan.
+@Riverpod(keepAlive: true)
+Stream<StoreEntitlement?> planAccess(Ref ref) {
+  if (Firebase.apps.isEmpty) return Stream.value(null);
+  final owner = ref.watch(accountOwnerIdProvider).value;
+  if (owner == null) return Stream.value(null);
+  return ref.watch(entitlementActionsProvider).watch(owner);
+}
 
 @Riverpod(keepAlive: true)
 Stream<StoreEntitlement?> storeEntitlement(Ref ref) {

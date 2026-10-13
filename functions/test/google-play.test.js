@@ -83,6 +83,6 @@ test('cross-store and trial resolution uses each plan own expiry and standard li
   assert.equal(resolveGrants([plus, premium], now).validUntilMs, now + 1000);
   const fallback = resolveGrants([plus, premium], now + 1000);
   assert.equal(fallback.plan, 'plus'); assert.equal(fallback.maxActiveDisplays, 3);
-  assert.equal(fallback.maxFavorites, 3);
+  assert.equal(fallback.maxFavorites, 30);
   assert.equal(resolveGrants([plus], end).canStartClass, false);
 });

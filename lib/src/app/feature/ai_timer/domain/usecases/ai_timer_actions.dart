@@ -18,9 +18,9 @@ class AiTimerActions {
   Future<AiTimerAccess> access() => repository.access();
   Future<AiTimerSuggestion> recognize(String source) async {
     final access = await repository.access();
-    if (!access.premium) {
+    if (!access.canRequest) {
       throw const AiTimerFailure(
-        '프리미엄 이용자만 사용할 수 있어요.',
+        '이미지 타이머 인식은 Premium에서 월 100회 이용할 수 있어요.',
         code: 'premium-required',
       );
     }

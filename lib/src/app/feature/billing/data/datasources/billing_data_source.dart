@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import 'package:cloud_board/src/app/feature/billing/domain/entities/billing_status.dart';
 
 class BillingDataSource {
@@ -52,6 +55,7 @@ class BillingDataSource {
               key: key,
               phase: StorePurchasePhase.values.byName(item.status.name),
               signedTransaction: item.verificationData.serverVerificationData,
+              productId: item.productID,
               store: store,
               error: item.error == null
                   ? null
@@ -74,6 +78,7 @@ class BillingDataSource {
     for (final item in response.productDetails) {
       if (!ids.contains(item.id)) continue;
       if (store == 'google_play' && !isMonthlyPlayProduct(item)) continue;
+      if (store == 'app_store' && !isMonthlyAppleProduct(item)) continue;
       _products[item.id] = item;
     }
     return _products.values
@@ -133,4 +138,23 @@ bool isMonthlyPlayProduct(ProductDetails product) {
       offer.pricingPhases.single.billingPeriod == 'P1M' &&
       offer.pricingPhases.single.recurrenceMode ==
           RecurrenceMode.infiniteRecurring;
+}
+
+// A product ID ending in monthly is not evidence of its billing period.
+// Keep the localized store price, and label it /월 only after this check.
+bool isMonthlyAppleProduct(ProductDetails product) {
+  if (product is AppStoreProduct2Details) {
+    final subscription = product.sk2Product.subscription;
+    return product.sk2Product.type == SK2ProductType.autoRenewable &&
+        subscription?.subscriptionPeriod.value == 1 &&
+        subscription?.subscriptionPeriod.unit ==
+            SK2SubscriptionPeriodUnit.month;
+  }
+  if (product is AppStoreProductDetails) {
+    final period = product.skProduct.subscriptionPeriod;
+    return product.skProduct.subscriptionGroupIdentifier != null &&
+        period?.numberOfUnits == 1 &&
+        period?.unit == SKSubscriptionPeriodUnit.month;
+  }
+  return false;
 }

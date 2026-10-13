@@ -50,12 +50,14 @@
           }
         },
         "operations": {
-          ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
+          ".read": "((auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()) && !((root.child('subscriptionAccess').child($uid).child('policyVersion').val() === 'plan-entitlements-v2' || root.child('users').child($uid).child('operations').child('brandProjection').child('policyVersion').val() === 'plan-entitlements-v2'))",
           "brand": {
-            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()"
+            ".write": "(auth != null && auth.uid === $uid && !root.child('accountDeletions').child($uid).exists()) && !((root.child('subscriptionAccess').child($uid).child('policyVersion').val() === 'plan-entitlements-v2' || root.child('users').child($uid).child('operations').child('brandProjection').child('policyVersion').val() === 'plan-entitlements-v2'))",
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()"
           },
           "schedules": {
-            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()"
+            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()",
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()"
           },
           "events": {
             ".indexOn": [
@@ -63,7 +65,16 @@
             ],
             "$eventId": {
               ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && newData.child('deviceId').val() === root.child('displayAccess').child(auth.uid).child('deviceId').val() && (newData.child('type').val() === 'device_online' || newData.child('type').val() === 'device_offline')))) && !root.child('accountDeletions').child($uid).exists()"
-            }
+            },
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()"
+          },
+          "brandConfig": {
+            ".read": "auth != null && auth.uid === $uid && !root.child('accountDeletions').child($uid).exists()",
+            ".write": false
+          },
+          "brandProjection": {
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
+            ".write": false
           }
         },
         "playbackSnapshots": {

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 
@@ -12,19 +15,28 @@ class StoreOperationsRealtimeDataSource {
   DatabaseReference get _operations =>
       _database.ref('users/${_requireOwnerId()}/operations');
 
-  Stream<BrandTemplateModel> watchBrandTemplate() {
+  Stream<BrandTemplateModel> watchBrandTemplate({bool effective = false}) {
     if (_ownerId == null) {
       return Stream.value(
         BrandTemplateModel.fromEntity(BrandTemplate.initial()),
       );
     }
-    return _operations.child('brand').onValue.map((event) {
-      final value = event.snapshot.value;
+    final brands = _operations
+        .child('brand')
+        .onValue
+        .map((event) => event.snapshot.value);
+    final values = effective
+        ? brands
+        : configuredBrandValues(
+            _operations
+                .child('brandConfig')
+                .onValue
+                .map((event) => event.snapshot.value),
+            () => brands,
+          );
+    return values.map((value) {
       if (value == null) {
         return BrandTemplateModel.fromEntity(BrandTemplate.initial());
-      }
-      if (value is! Map) {
-        return BrandTemplateModel.fromJson(const <String, dynamic>{});
       }
       return BrandTemplateModel.fromJson(_stringMap(value));
     });
@@ -80,8 +92,12 @@ class StoreOperationsRealtimeDataSource {
         });
   }
 
-  Future<void> saveBrandTemplate(BrandTemplateModel model) =>
-      _operations.child('brand').set(model.toJson());
+  Future<void> saveBrandTemplate(BrandTemplateModel model) async {
+    _requireOwnerId();
+    await FirebaseFunctions.instanceFor(region: 'asia-northeast3')
+        .httpsCallable('cloudboardSaveBrandConfig')
+        .call({'brand': model.toJson()});
+  }
 
   Future<void> saveSchedule(WorkoutScheduleModel model) =>
       _operations.child('schedules/${model.id}').set(model.toJson());
@@ -139,4 +155,38 @@ Object? _normalizeValue(Object? value) {
   if (value is Map) return _stringMap(value);
   if (value is List) return value.map(_normalizeValue).toList();
   return value;
+}
+
+/// Legacy clients still write `brand`. Keep that subscription live until a
+/// server-owned original exists, then stop reading the effective projection.
+Stream<Object?> configuredBrandValues(
+  Stream<Object?> configured,
+  Stream<Object?> Function() legacy,
+) {
+  late StreamController<Object?> output;
+  StreamSubscription<Object?>? configSubscription;
+  StreamSubscription<Object?>? legacySubscription;
+  var hasConfig = false;
+  output = StreamController<Object?>(
+    onListen: () {
+      configSubscription = configured.listen((value) {
+        hasConfig = value != null;
+        if (hasConfig) {
+          final previous = legacySubscription;
+          legacySubscription = null;
+          if (previous != null) unawaited(previous.cancel());
+          output.add(value);
+        } else {
+          legacySubscription ??= legacy().listen((value) {
+            if (!hasConfig && !output.isClosed) output.add(value);
+          }, onError: output.addError);
+        }
+      }, onError: output.addError);
+    },
+    onCancel: () async {
+      await configSubscription?.cancel();
+      await legacySubscription?.cancel();
+    },
+  );
+  return output.stream;
 }

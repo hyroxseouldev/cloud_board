@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -109,6 +110,8 @@ class SubscriptionScreen extends HookConsumerWidget {
                               data.status == 'active') ...[
                             const SizedBox(height: 12),
                             const Text('TV 한 대로 무료 운영 · 기간 제한 없이 · 카드 등록 없이'),
+                            if (data.planBenefitsReady)
+                              const Text('수업 7개 · 재사용 슬라이드 3개 보관 · 기본 대기 화면'),
                           ],
                           if (data.status == 'trialing') ...[
                             const SizedBox(height: 12),
@@ -170,6 +173,7 @@ class SubscriptionScreen extends HookConsumerWidget {
                   for (final plan in ['plus', 'premium']) ...[
                     _PlanCard(
                       plan: plan,
+                      benefitsReady: data.planBenefitsReady,
                       offer: offers.value
                           ?.where((o) => o.id.contains('.$plan.'))
                           .firstOrNull,
@@ -261,11 +265,13 @@ class SubscriptionScreen extends HookConsumerWidget {
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
+    required this.benefitsReady,
     required this.offer,
     required this.enabled,
     required this.onPurchase,
   });
   final String plan;
+  final bool benefitsReady;
   final BillingOffer? offer;
   final bool enabled;
   final Future<void> Function(String) onPurchase;
@@ -286,7 +292,26 @@ class _PlanCard extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          Text(premium ? '센터 디스플레이·저장 슬라이드 제한 없이' : 'TV 동시 3대 · 저장 슬라이드 3개'),
+          Text(
+            benefitsReady
+                ? premium
+                      ? 'TV·수업 보관·재사용 슬라이드 플랜 한도 없음'
+                      : 'TV 동시 3대 · 수업 보관 한도 없음 · 재사용 슬라이드 30개'
+                : premium
+                ? '센터 디스플레이·저장 슬라이드 제한 없이'
+                : 'TV 동시 3대 · 저장 슬라이드 3개',
+          ),
+          if (benefitsReady) ...[
+            const SizedBox(height: 8),
+            const Text('대기 화면 배경·문구·센터 로고 설정 · ${AppBrand.name} 로고 숨기기'),
+            Text('AI 슬라이드 도우미 · 내용 정리와 디자인 제안 합산 월 ${premium ? 30 : 10}회'),
+            if (premium) const Text('이미지 타이머 인식 · 별도 월 100회'),
+            const SizedBox(height: 8),
+            const Text('매월 1일 한국 시간 00:00 초기화 · 플랜 변경 시 사용량 유지'),
+          ] else ...[
+            const SizedBox(height: 8),
+            const Text('확장된 저장 한도와 AI 슬라이드 도우미는 새 요금제 출시 후 안내해 드릴게요.'),
+          ],
           const SizedBox(height: 16),
           FilledButton(
             onPressed: enabled && offer != null

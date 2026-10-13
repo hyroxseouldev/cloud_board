@@ -3,6 +3,63 @@ import 'package:cloud_board/src/app/feature/entitlement/domain/entities/store_en
 import 'package:cloud_board/src/app/feature/entitlement/data/models/store_entitlement_model.dart';
 
 void main() {
+  test('unknown and expired policy never become Free or unlimited', () {
+    final base = <String, dynamic>{
+      'policyVersion': 'plan-entitlements-v2',
+      'status': 'active',
+      'plan': 'free',
+      'validUntilMs': 1000,
+      'maxWorkouts': 7,
+      'workoutsUnlimited': false,
+      'maxSavedSlides': 3,
+      'savedSlidesUnlimited': false,
+      'idleScreenCustomization': 'basic',
+      'aiSlidesMonthlyLimit': 0,
+      'aiTimerMonthlyLimit': 0,
+    };
+    expect(
+      StoreEntitlementModel.fromJson({}).toEntity('a', true, 0).policyKnown,
+      isFalse,
+    );
+    expect(
+      StoreEntitlementModel.fromJson(base).toEntity('a', true, 999).policyKnown,
+      isTrue,
+    );
+    expect(
+      StoreEntitlementModel.fromJson(base)
+          .toEntity('a', true, 1000)
+          .policyKnown,
+      isFalse,
+    );
+    final cached = StoreEntitlementModel.fromJson(base)
+        .toEntity('a', false, 999);
+    expect(cached.policyKnown, isTrue);
+    expect(cached.serverConfirmed, isFalse);
+    expect(
+      StoreEntitlementModel.fromJson({...base, 'status': 'revoked'})
+          .toEntity('a', true, 999)
+          .policyKnown,
+      isFalse,
+    );
+    expect(
+      StoreEntitlementModel.fromJson({...base, 'maxWorkouts': null})
+          .toEntity('a', true, 999)
+          .policyKnown,
+      isFalse,
+    );
+    expect(
+      StoreEntitlementModel.fromJson({
+        ...base,
+        'plan': 'premium',
+        'maxWorkouts': null,
+        'workoutsUnlimited': true,
+        'maxSavedSlides': null,
+        'savedSlidesUnlimited': true,
+      }).toEntity('a', true, 999).policyKnown,
+      isTrue,
+    );
+  });
+
   test(
     'access is bound to the current account and expires at the exact boundary',
     () {

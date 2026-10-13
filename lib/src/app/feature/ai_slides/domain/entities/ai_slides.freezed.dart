@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AiSlidesAccess {
 
- bool get premium; bool get enabled; int get remaining; int get limit;
+ bool get premium; bool get enabled; int get remaining; int get limit; bool? get allowed; String? get plan; int? get used; DateTime? get resetsAt; String? get availabilityReason;
 /// Create a copy of AiSlidesAccess
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $AiSlidesAccessCopyWith<AiSlidesAccess> get copyWith => _$AiSlidesAccessCopyWith
 @override
 bool operator ==(Object other) {
   final _this = this as AiSlidesAccess;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlidesAccess&&(identical(other.premium, _this.premium) || other.premium == _this.premium)&&(identical(other.enabled, _this.enabled) || other.enabled == _this.enabled)&&(identical(other.remaining, _this.remaining) || other.remaining == _this.remaining)&&(identical(other.limit, _this.limit) || other.limit == _this.limit));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlidesAccess&&(identical(other.premium, _this.premium) || other.premium == _this.premium)&&(identical(other.enabled, _this.enabled) || other.enabled == _this.enabled)&&(identical(other.remaining, _this.remaining) || other.remaining == _this.remaining)&&(identical(other.limit, _this.limit) || other.limit == _this.limit)&&(identical(other.allowed, _this.allowed) || other.allowed == _this.allowed)&&(identical(other.plan, _this.plan) || other.plan == _this.plan)&&(identical(other.used, _this.used) || other.used == _this.used)&&(identical(other.resetsAt, _this.resetsAt) || other.resetsAt == _this.resetsAt)&&(identical(other.availabilityReason, _this.availabilityReason) || other.availabilityReason == _this.availabilityReason));
 }
 
 
 @override
 int get hashCode {
   final _this = this as AiSlidesAccess;
-  return Object.hash(runtimeType,_this.premium,_this.enabled,_this.remaining,_this.limit);
+  return Object.hash(runtimeType,_this.premium,_this.enabled,_this.remaining,_this.limit,_this.allowed,_this.plan,_this.used,_this.resetsAt,_this.availabilityReason);
 }
 
 @override
 String toString() {
   final _this = this as AiSlidesAccess;
-  return 'AiSlidesAccess(premium: ${_this.premium}, enabled: ${_this.enabled}, remaining: ${_this.remaining}, limit: ${_this.limit})';
+  return 'AiSlidesAccess(premium: ${_this.premium}, enabled: ${_this.enabled}, remaining: ${_this.remaining}, limit: ${_this.limit}, allowed: ${_this.allowed}, plan: ${_this.plan}, used: ${_this.used}, resetsAt: ${_this.resetsAt}, availabilityReason: ${_this.availabilityReason})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $AiSlidesAccessCopyWith<$Res>  {
   factory $AiSlidesAccessCopyWith(AiSlidesAccess value, $Res Function(AiSlidesAccess) _then) = _$AiSlidesAccessCopyWithImpl;
 @useResult
 $Res call({
- bool premium, bool enabled, int remaining, int limit
+ bool premium, bool enabled, int remaining, int limit, bool? allowed, String? plan, int? used, DateTime? resetsAt, String? availabilityReason
 });
 
 
@@ -68,13 +68,18 @@ class _$AiSlidesAccessCopyWithImpl<$Res>
 
 /// Create a copy of AiSlidesAccess
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,Object? allowed = freezed,Object? plan = freezed,Object? used = freezed,Object? resetsAt = freezed,Object? availabilityReason = freezed,}) {
   return _then(AiSlidesAccess(
 premium: null == premium ? _self.premium : premium // ignore: cast_nullable_to_non_nullable
 as bool,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
 as bool,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
 as int,limit: null == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
-as int,
+as int,allowed: freezed == allowed ? _self.allowed : allowed // ignore: cast_nullable_to_non_nullable
+as bool?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
+as String?,used: freezed == used ? _self.used : used // ignore: cast_nullable_to_non_nullable
+as int?,resetsAt: freezed == resetsAt ? _self.resetsAt : resetsAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,availabilityReason: freezed == availabilityReason ? _self.availabilityReason : availabilityReason // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -159,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit,  bool? allowed,  String? plan,  int? used,  DateTime? resetsAt,  String? availabilityReason)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AiSlidesAccess() when $default != null:
-return $default(_that.premium,_that.enabled,_that.remaining,_that.limit);case _:
+return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.allowed,_that.plan,_that.used,_that.resetsAt,_that.availabilityReason);case _:
   return orElse();
 
 }
@@ -180,10 +185,10 @@ return $default(_that.premium,_that.enabled,_that.remaining,_that.limit);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit,  bool? allowed,  String? plan,  int? used,  DateTime? resetsAt,  String? availabilityReason)  $default,) {final _that = this;
 switch (_that) {
 case _AiSlidesAccess():
-return $default(_that.premium,_that.enabled,_that.remaining,_that.limit);case _:
+return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.allowed,_that.plan,_that.used,_that.resetsAt,_that.availabilityReason);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +205,10 @@ return $default(_that.premium,_that.enabled,_that.remaining,_that.limit);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool premium,  bool enabled,  int remaining,  int limit)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool premium,  bool enabled,  int remaining,  int limit,  bool? allowed,  String? plan,  int? used,  DateTime? resetsAt,  String? availabilityReason)?  $default,) {final _that = this;
 switch (_that) {
 case _AiSlidesAccess() when $default != null:
-return $default(_that.premium,_that.enabled,_that.remaining,_that.limit);case _:
+return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.allowed,_that.plan,_that.used,_that.resetsAt,_that.availabilityReason);case _:
   return null;
 
 }
@@ -214,14 +219,19 @@ return $default(_that.premium,_that.enabled,_that.remaining,_that.limit);case _:
 /// @nodoc
 
 
-class _AiSlidesAccess implements AiSlidesAccess {
-  const _AiSlidesAccess({required this.premium, required this.enabled, required this.remaining, required this.limit});
+class _AiSlidesAccess extends AiSlidesAccess {
+  const _AiSlidesAccess({required this.premium, required this.enabled, required this.remaining, required this.limit, this.allowed, this.plan, this.used, this.resetsAt, this.availabilityReason}): super._();
   
 
 @override final  bool premium;
 @override final  bool enabled;
 @override final  int remaining;
 @override final  int limit;
+@override final  bool? allowed;
+@override final  String? plan;
+@override final  int? used;
+@override final  DateTime? resetsAt;
+@override final  String? availabilityReason;
 
 /// Create a copy of AiSlidesAccess
 /// with the given fields replaced by the non-null parameter values.
@@ -233,18 +243,18 @@ _$AiSlidesAccessCopyWith<_AiSlidesAccess> get copyWith => __$AiSlidesAccessCopyW
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlidesAccess&&(identical(other.premium, premium) || other.premium == premium)&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.remaining, remaining) || other.remaining == remaining)&&(identical(other.limit, limit) || other.limit == limit));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlidesAccess&&(identical(other.premium, premium) || other.premium == premium)&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.remaining, remaining) || other.remaining == remaining)&&(identical(other.limit, limit) || other.limit == limit)&&(identical(other.allowed, allowed) || other.allowed == allowed)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.used, used) || other.used == used)&&(identical(other.resetsAt, resetsAt) || other.resetsAt == resetsAt)&&(identical(other.availabilityReason, availabilityReason) || other.availabilityReason == availabilityReason));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,premium,enabled,remaining,limit);
+    return Object.hash(runtimeType,premium,enabled,remaining,limit,allowed,plan,used,resetsAt,availabilityReason);
 }
 
 @override
 String toString() {
-    return 'AiSlidesAccess(premium: $premium, enabled: $enabled, remaining: $remaining, limit: $limit)';
+    return 'AiSlidesAccess(premium: $premium, enabled: $enabled, remaining: $remaining, limit: $limit, allowed: $allowed, plan: $plan, used: $used, resetsAt: $resetsAt, availabilityReason: $availabilityReason)';
 }
 
 
@@ -255,7 +265,7 @@ abstract mixin class _$AiSlidesAccessCopyWith<$Res> implements $AiSlidesAccessCo
   factory _$AiSlidesAccessCopyWith(_AiSlidesAccess value, $Res Function(_AiSlidesAccess) _then) = __$AiSlidesAccessCopyWithImpl;
 @override @useResult
 $Res call({
- bool premium, bool enabled, int remaining, int limit
+ bool premium, bool enabled, int remaining, int limit, bool? allowed, String? plan, int? used, DateTime? resetsAt, String? availabilityReason
 });
 
 
@@ -272,13 +282,18 @@ class __$AiSlidesAccessCopyWithImpl<$Res>
 
 /// Create a copy of AiSlidesAccess
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,Object? allowed = freezed,Object? plan = freezed,Object? used = freezed,Object? resetsAt = freezed,Object? availabilityReason = freezed,}) {
   return _then(_AiSlidesAccess(
 premium: null == premium ? _self.premium : premium // ignore: cast_nullable_to_non_nullable
 as bool,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
 as bool,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
 as int,limit: null == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
-as int,
+as int,allowed: freezed == allowed ? _self.allowed : allowed // ignore: cast_nullable_to_non_nullable
+as bool?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
+as String?,used: freezed == used ? _self.used : used // ignore: cast_nullable_to_non_nullable
+as int?,resetsAt: freezed == resetsAt ? _self.resetsAt : resetsAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,availabilityReason: freezed == availabilityReason ? _self.availabilityReason : availabilityReason // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

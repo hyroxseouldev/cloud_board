@@ -8,6 +8,54 @@ part of 'entitlement_controller.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// The management owner, scoped across sign-out and account changes. Unknown
+/// or cached access stays distinguishable from a server-confirmed Free plan.
+
+@ProviderFor(planAccess)
+final planAccessProvider = PlanAccessProvider._();
+
+/// The management owner, scoped across sign-out and account changes. Unknown
+/// or cached access stays distinguishable from a server-confirmed Free plan.
+
+final class PlanAccessProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<StoreEntitlement?>,
+          StoreEntitlement?,
+          Stream<StoreEntitlement?>
+        >
+    with
+        $FutureModifier<StoreEntitlement?>,
+        $StreamProvider<StoreEntitlement?> {
+  /// The management owner, scoped across sign-out and account changes. Unknown
+  /// or cached access stays distinguishable from a server-confirmed Free plan.
+  PlanAccessProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'planAccessProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$planAccessHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<StoreEntitlement?> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<StoreEntitlement?> create(Ref ref) {
+    return planAccess(ref);
+  }
+}
+
+String _$planAccessHash() => r'054d0f90bc4701e52c65ce12532fed69b6a5993a';
 
 @ProviderFor(storeEntitlement)
 final storeEntitlementProvider = StoreEntitlementProvider._();

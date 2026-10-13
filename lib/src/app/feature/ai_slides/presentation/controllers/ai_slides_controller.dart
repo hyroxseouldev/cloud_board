@@ -12,9 +12,16 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_
 part 'ai_slides_controller.g.dart';
 
 @riverpod
-Future<AiSlidesAccess> aiSlidesAccess(Ref ref) {
+Future<AiSlidesAccess> aiSlidesAccess(Ref ref) async {
   ref.watch(aiSlidesOwnerIdProvider);
-  return ref.watch(aiSlidesActionsProvider).access();
+  final access = await ref.watch(aiSlidesActionsProvider).access();
+  // An editor left open across 00:00 KST must refresh the server-owned month.
+  final delay = access.resetsAt?.difference(DateTime.now());
+  if (ref.mounted && delay != null && delay > Duration.zero) {
+    final timer = Timer(delay, ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return access;
 }
 
 /// An anonymous display must never share its linked account's editing cache.

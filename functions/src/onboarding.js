@@ -3,6 +3,7 @@ import {isDeepStrictEqual} from 'node:util';
 import {Timestamp} from 'firebase-admin/firestore';
 import {HttpsError} from 'firebase-functions/v2/https';
 import {startFreePlan} from './free-plan.js';
+import {planAccess, projectPlanPolicy} from './plan-policy.js';
 import {hasPaidOrTrialHistory} from './billing-policy.js';
 const fail = (code, message) => new HttpsError(code, message);
 // One calendar month in Asia/Seoul, stored as UTC. Clamp missing days at month end.
@@ -172,7 +173,7 @@ export async function startOnboardingTrial(db,realtime,uid,now=Date.now()) {
     const previous=a.data();
     if(legacy?.validUntilMs>now || (previous?.plan!=='free' && previous?.validUntilMs>now)) return;
     // Any historical paid/trial grant is preserved. No automatic retrial.
-    const [billing,account]=await tx.getAll(db.doc(`users/${uid}/billing/summary`),db.doc(`billingAccounts/${uid}`));
+    const [billing,account,planPolicy]=await tx.getAll(db.doc(`users/${uid}/billing/summary`),db.doc(`billingAccounts/${uid}`),db.doc('appConfig/planPolicy'));
     if(billing.data()?.paid || hasPaidOrTrialHistory(previous?.webGrant) || hasPaidOrTrialHistory(account.data()?.baseline) ||
       (previous?.managed===true && previous.plan!=='free' && previous?.status!=='pending_connection' && previous?.status!=='awaiting_web'))
       throw fail('failed-precondition','기존 이용 이력이 있습니다. 프로필에서 이용 상태를 확인해 주세요.');
@@ -181,7 +182,7 @@ export async function startOnboardingTrial(db,realtime,uid,now=Date.now()) {
     tx.set(access,{storeId:p.data().storeId,managed:true,source:'app_trial',status:'trialing',plan:'premium',
       validUntilMs:endsAtMs,revision:(previous?.revision??0)+1,canPrepare:true,canPairDisplay:true,canStartClass:true,
       displaysUnlimited:true,maxActiveDisplays:null,favoritesUnlimited:true,maxFavorites:null,idleScreenCustomization:'custom',
-      displayLimit:2147483647,policyVersion:'native-trial-1month-v1',updatedAt:Timestamp.fromMillis(now),
+      ...projectPlanPolicy({...planAccess('premium'),plan:'premium'},previous,planPolicy.data()),updatedAt:Timestamp.fromMillis(now),
       ...(previous?.webGrant ? {webGrant:previous.webGrant} : {})});
   });
   if(legacy?.validUntilMs>now) return;

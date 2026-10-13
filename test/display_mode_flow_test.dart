@@ -142,7 +142,7 @@ void main() {
             ),
             playbackConnectionProvider.overrideWith((ref) => connection.stream),
             serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
-            brandTemplateProvider.overrideWith(
+            effectiveBrandTemplateProvider.overrideWith(
               (ref) => Stream.value(BrandTemplate.initial()),
             ),
             workoutSchedulesProvider.overrideWith((ref) => Stream.value([])),
@@ -198,6 +198,88 @@ void main() {
   );
 
   testWidgets(
+    'brand downgrade waits for standby and cannot black out or replace active class',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final sessions = StreamController<PlaybackSession?>.broadcast();
+      final brands = StreamController<BrandTemplate>.broadcast();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            androidTvProvider.overrideWith((_) async => true),
+            accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
+            deviceIdProvider.overrideWith((_) async => 'tv'),
+            deviceModeControllerProvider.overrideWith(_Mode.new),
+            devicePairingControllerProvider.overrideWith(_Pair.new),
+            devicePairingActionsProvider.overrideWithValue(_PairActions()),
+            displayDevicesProvider.overrideWith(
+              (_) => Stream.value([device('auto')]),
+            ),
+            activePlaybackSessionProvider.overrideWith((_) => sessions.stream),
+            playbackConnectionProvider.overrideWith((_) => Stream.value(true)),
+            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+            effectiveBrandTemplateProvider.overrideWith((_) => brands.stream),
+            workoutSchedulesProvider.overrideWith((_) => Stream.value([])),
+          ],
+          child: const MaterialApp(home: DisplayModeScreen()),
+        ),
+      );
+      await tester.pump();
+      final current = running();
+      sessions.add(current);
+      brands.add(
+        BrandTemplate.initial().copyWith(
+          storeName: 'Paid center',
+          showCloudBoardLogo: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutPlayerScreen), findsOneWidget);
+      final player = tester.element(find.byType(WorkoutPlayerScreen));
+      brands.add(
+        BrandTemplate.initial().copyWith(
+          storeName: 'Free standby',
+          showCloudBoardLogo: true,
+          blackScreenStartMinutes: 0,
+          blackScreenEndMinutes: 1439,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(WorkoutPlayerScreen)), same(player));
+      expect(find.byType(StoreWelcomeBoard), findsNothing);
+      expect(find.text('Plus 알아보기'), findsNothing);
+      // A regular Free projection turns off custom black-screen scheduling.
+      brands.add(
+        BrandTemplate.initial().copyWith(
+          storeName: 'Free standby',
+          showCloudBoardLogo: true,
+        ),
+      );
+      sessions.add(null);
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutPlayerScreen), findsNothing);
+      expect(
+        tester
+            .widget<StoreWelcomeBoard>(find.byType(StoreWelcomeBoard))
+            .brand
+            .storeName,
+        'Free standby',
+      );
+      expect(
+        find.byKey(const ValueKey('standby-cloudboard-logo')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await sessions.close();
+      await brands.close();
+    },
+  );
+
+  testWidgets(
     'TV paints a silent identification card and ACKs only while idle and connected',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 720);
@@ -236,7 +318,7 @@ void main() {
             activePlaybackSessionProvider.overrideWith((_) => sessions.stream),
             playbackConnectionProvider.overrideWith((_) => connection.stream),
             serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
-            brandTemplateProvider.overrideWith(
+            effectiveBrandTemplateProvider.overrideWith(
               (_) => Stream.value(BrandTemplate.initial()),
             ),
             workoutSchedulesProvider.overrideWith((_) => Stream.value([])),
@@ -319,7 +401,7 @@ void main() {
                 (ref) => Stream.value(true),
               ),
               serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
-              brandTemplateProvider.overrideWith(
+              effectiveBrandTemplateProvider.overrideWith(
                 (ref) => Stream.value(BrandTemplate.initial()),
               ),
               workoutSchedulesProvider.overrideWith((ref) => Stream.value([])),
@@ -385,7 +467,7 @@ void main() {
             ),
             playbackConnectionProvider.overrideWith((ref) => connection.stream),
             serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
-            brandTemplateProvider.overrideWith((ref) {
+            effectiveBrandTemplateProvider.overrideWith((ref) {
               subscriptions++;
               return Stream.value(brand);
             }),

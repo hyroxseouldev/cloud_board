@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AiTimerAccess {
 
- bool get premium; bool get enabled; int get remaining; int get limit; DateTime get resetsAt;
+ bool get premium; bool get enabled; int get remaining; int get limit; DateTime get resetsAt; bool? get allowed; String? get plan; int? get used; String? get availabilityReason;
 /// Create a copy of AiTimerAccess
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $AiTimerAccessCopyWith<AiTimerAccess> get copyWith => _$AiTimerAccessCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as AiTimerAccess;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiTimerAccess&&(identical(other.premium, _this.premium) || other.premium == _this.premium)&&(identical(other.enabled, _this.enabled) || other.enabled == _this.enabled)&&(identical(other.remaining, _this.remaining) || other.remaining == _this.remaining)&&(identical(other.limit, _this.limit) || other.limit == _this.limit)&&(identical(other.resetsAt, _this.resetsAt) || other.resetsAt == _this.resetsAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiTimerAccess&&(identical(other.premium, _this.premium) || other.premium == _this.premium)&&(identical(other.enabled, _this.enabled) || other.enabled == _this.enabled)&&(identical(other.remaining, _this.remaining) || other.remaining == _this.remaining)&&(identical(other.limit, _this.limit) || other.limit == _this.limit)&&(identical(other.resetsAt, _this.resetsAt) || other.resetsAt == _this.resetsAt)&&(identical(other.allowed, _this.allowed) || other.allowed == _this.allowed)&&(identical(other.plan, _this.plan) || other.plan == _this.plan)&&(identical(other.used, _this.used) || other.used == _this.used)&&(identical(other.availabilityReason, _this.availabilityReason) || other.availabilityReason == _this.availabilityReason));
 }
 
 
 @override
 int get hashCode {
   final _this = this as AiTimerAccess;
-  return Object.hash(runtimeType,_this.premium,_this.enabled,_this.remaining,_this.limit,_this.resetsAt);
+  return Object.hash(runtimeType,_this.premium,_this.enabled,_this.remaining,_this.limit,_this.resetsAt,_this.allowed,_this.plan,_this.used,_this.availabilityReason);
 }
 
 @override
 String toString() {
   final _this = this as AiTimerAccess;
-  return 'AiTimerAccess(premium: ${_this.premium}, enabled: ${_this.enabled}, remaining: ${_this.remaining}, limit: ${_this.limit}, resetsAt: ${_this.resetsAt})';
+  return 'AiTimerAccess(premium: ${_this.premium}, enabled: ${_this.enabled}, remaining: ${_this.remaining}, limit: ${_this.limit}, resetsAt: ${_this.resetsAt}, allowed: ${_this.allowed}, plan: ${_this.plan}, used: ${_this.used}, availabilityReason: ${_this.availabilityReason})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $AiTimerAccessCopyWith<$Res>  {
   factory $AiTimerAccessCopyWith(AiTimerAccess value, $Res Function(AiTimerAccess) _then) = _$AiTimerAccessCopyWithImpl;
 @useResult
 $Res call({
- bool premium, bool enabled, int remaining, int limit, DateTime resetsAt
+ bool premium, bool enabled, int remaining, int limit, DateTime resetsAt, bool? allowed, String? plan, int? used, String? availabilityReason
 });
 
 
@@ -68,14 +68,18 @@ class _$AiTimerAccessCopyWithImpl<$Res>
 
 /// Create a copy of AiTimerAccess
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,Object? resetsAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,Object? resetsAt = null,Object? allowed = freezed,Object? plan = freezed,Object? used = freezed,Object? availabilityReason = freezed,}) {
   return _then(AiTimerAccess(
 premium: null == premium ? _self.premium : premium // ignore: cast_nullable_to_non_nullable
 as bool,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
 as bool,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
 as int,limit: null == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
 as int,resetsAt: null == resetsAt ? _self.resetsAt : resetsAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,allowed: freezed == allowed ? _self.allowed : allowed // ignore: cast_nullable_to_non_nullable
+as bool?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
+as String?,used: freezed == used ? _self.used : used // ignore: cast_nullable_to_non_nullable
+as int?,availabilityReason: freezed == availabilityReason ? _self.availabilityReason : availabilityReason // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -160,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit,  DateTime resetsAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit,  DateTime resetsAt,  bool? allowed,  String? plan,  int? used,  String? availabilityReason)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AiTimerAccess() when $default != null:
-return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.resetsAt);case _:
+return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.resetsAt,_that.allowed,_that.plan,_that.used,_that.availabilityReason);case _:
   return orElse();
 
 }
@@ -181,10 +185,10 @@ return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.re
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit,  DateTime resetsAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool premium,  bool enabled,  int remaining,  int limit,  DateTime resetsAt,  bool? allowed,  String? plan,  int? used,  String? availabilityReason)  $default,) {final _that = this;
 switch (_that) {
 case _AiTimerAccess():
-return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.resetsAt);case _:
+return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.resetsAt,_that.allowed,_that.plan,_that.used,_that.availabilityReason);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -201,10 +205,10 @@ return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.re
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool premium,  bool enabled,  int remaining,  int limit,  DateTime resetsAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool premium,  bool enabled,  int remaining,  int limit,  DateTime resetsAt,  bool? allowed,  String? plan,  int? used,  String? availabilityReason)?  $default,) {final _that = this;
 switch (_that) {
 case _AiTimerAccess() when $default != null:
-return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.resetsAt);case _:
+return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.resetsAt,_that.allowed,_that.plan,_that.used,_that.availabilityReason);case _:
   return null;
 
 }
@@ -215,15 +219,19 @@ return $default(_that.premium,_that.enabled,_that.remaining,_that.limit,_that.re
 /// @nodoc
 
 
-class _AiTimerAccess implements AiTimerAccess {
-  const _AiTimerAccess({required this.premium, required this.enabled, required this.remaining, required this.limit, required this.resetsAt});
-
+class _AiTimerAccess extends AiTimerAccess {
+  const _AiTimerAccess({required this.premium, required this.enabled, required this.remaining, required this.limit, required this.resetsAt, this.allowed, this.plan, this.used, this.availabilityReason}): super._();
+  
 
 @override final  bool premium;
 @override final  bool enabled;
 @override final  int remaining;
 @override final  int limit;
 @override final  DateTime resetsAt;
+@override final  bool? allowed;
+@override final  String? plan;
+@override final  int? used;
+@override final  String? availabilityReason;
 
 /// Create a copy of AiTimerAccess
 /// with the given fields replaced by the non-null parameter values.
@@ -235,18 +243,18 @@ _$AiTimerAccessCopyWith<_AiTimerAccess> get copyWith => __$AiTimerAccessCopyWith
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiTimerAccess&&(identical(other.premium, premium) || other.premium == premium)&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.remaining, remaining) || other.remaining == remaining)&&(identical(other.limit, limit) || other.limit == limit)&&(identical(other.resetsAt, resetsAt) || other.resetsAt == resetsAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiTimerAccess&&(identical(other.premium, premium) || other.premium == premium)&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.remaining, remaining) || other.remaining == remaining)&&(identical(other.limit, limit) || other.limit == limit)&&(identical(other.resetsAt, resetsAt) || other.resetsAt == resetsAt)&&(identical(other.allowed, allowed) || other.allowed == allowed)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.used, used) || other.used == used)&&(identical(other.availabilityReason, availabilityReason) || other.availabilityReason == availabilityReason));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,premium,enabled,remaining,limit,resetsAt);
+    return Object.hash(runtimeType,premium,enabled,remaining,limit,resetsAt,allowed,plan,used,availabilityReason);
 }
 
 @override
 String toString() {
-    return 'AiTimerAccess(premium: $premium, enabled: $enabled, remaining: $remaining, limit: $limit, resetsAt: $resetsAt)';
+    return 'AiTimerAccess(premium: $premium, enabled: $enabled, remaining: $remaining, limit: $limit, resetsAt: $resetsAt, allowed: $allowed, plan: $plan, used: $used, availabilityReason: $availabilityReason)';
 }
 
 
@@ -257,7 +265,7 @@ abstract mixin class _$AiTimerAccessCopyWith<$Res> implements $AiTimerAccessCopy
   factory _$AiTimerAccessCopyWith(_AiTimerAccess value, $Res Function(_AiTimerAccess) _then) = __$AiTimerAccessCopyWithImpl;
 @override @useResult
 $Res call({
- bool premium, bool enabled, int remaining, int limit, DateTime resetsAt
+ bool premium, bool enabled, int remaining, int limit, DateTime resetsAt, bool? allowed, String? plan, int? used, String? availabilityReason
 });
 
 
@@ -274,14 +282,18 @@ class __$AiTimerAccessCopyWithImpl<$Res>
 
 /// Create a copy of AiTimerAccess
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,Object? resetsAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? premium = null,Object? enabled = null,Object? remaining = null,Object? limit = null,Object? resetsAt = null,Object? allowed = freezed,Object? plan = freezed,Object? used = freezed,Object? availabilityReason = freezed,}) {
   return _then(_AiTimerAccess(
 premium: null == premium ? _self.premium : premium // ignore: cast_nullable_to_non_nullable
 as bool,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
 as bool,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
 as int,limit: null == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
 as int,resetsAt: null == resetsAt ? _self.resetsAt : resetsAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,allowed: freezed == allowed ? _self.allowed : allowed // ignore: cast_nullable_to_non_nullable
+as bool?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
+as String?,used: freezed == used ? _self.used : used // ignore: cast_nullable_to_non_nullable
+as int?,availabilityReason: freezed == availabilityReason ? _self.availabilityReason : availabilityReason // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -495,7 +507,7 @@ return $default(_that.name,_that.workSeconds,_that.restSeconds,_that.sets,_that.
 
 class _AiTimerSuggestion implements AiTimerSuggestion {
   const _AiTimerSuggestion({this.name, this.workSeconds, this.restSeconds, this.sets,  List<String> warnings = const [], this.cached = false, required this.remaining}): _warnings = warnings;
-
+  
 
 @override final  String? name;
 @override final  int? workSeconds;

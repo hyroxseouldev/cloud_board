@@ -42,6 +42,9 @@ const draft = AiSlideDraft(
 
 class FakeAiSlidesRepository implements AiSlidesRepository {
   bool premium = true;
+  bool? allowed;
+  int limit = 30;
+  int remaining = 30;
   int calls = 0;
   int accessCalls = 0;
   Object? accessFailure;
@@ -58,9 +61,10 @@ class FakeAiSlidesRepository implements AiSlidesRepository {
     if (accessFailure != null) throw accessFailure!;
     return AiSlidesAccess(
       premium: premium,
+      allowed: allowed,
       enabled: true,
-      remaining: 30,
-      limit: 30,
+      remaining: remaining,
+      limit: limit,
     );
   }
 
@@ -236,6 +240,40 @@ void main() {
   }
 
   testWidgets(
+    'Plus can request one slide and sees shared monthly request units',
+    (tester) async {
+      final repository = FakeAiSlidesRepository()
+        ..premium = false
+        ..allowed = true
+        ..limit = 10
+        ..remaining = 2;
+      await mount(tester, repository, (_) {});
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.byKey(const ValueKey('ai-generation-usage')));
+      expect(find.text('AI 슬라이드 도우미 · 이번 달 8/10회 사용 · 2회 남음'), findsOneWidget);
+      expect(find.textContaining('내용 1회 + 디자인 1회 = 2회'), findsOneWidget);
+      expect(find.textContaining('00:00 KST'), findsOneWidget);
+      await generate(tester);
+      expect(repository.calls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'Plus with no remaining quota may still retrieve a server cached result',
+    () async {
+      final repository = FakeAiSlidesRepository()
+        ..premium = false
+        ..allowed = true
+        ..limit = 10
+        ..remaining = 0;
+      await AiSlidesActions(repository).generate('Run 1km');
+      expect(repository.calls, 1);
+    },
+  );
+
+  testWidgets(
     'shared usage recovers with retry and survives generation mode changes',
     (tester) async {
       final repository = FakeAiSlidesRepository()
@@ -249,14 +287,17 @@ void main() {
       await reveal(tester, find.text('새로고침'));
       await tester.tap(find.text('새로고침'));
       await tester.pumpAndSettle();
-      expect(find.text('이번 달 30회 남음 · 총 30회'), findsOneWidget);
+      expect(find.text('AI 슬라이드 도우미 · 이번 달 0/30회 사용 · 30회 남음'), findsOneWidget);
       final reads = repository.accessCalls;
       for (final mode in ['스타일 제안', '이미지로 시작', '수업 메모']) {
         await tester.ensureVisible(find.text(mode).first);
         await tester.pumpAndSettle();
         await tester.tap(find.text(mode).first);
         await tester.pumpAndSettle();
-        expect(find.text('이번 달 30회 남음 · 총 30회'), findsOneWidget);
+        expect(
+          find.text('AI 슬라이드 도우미 · 이번 달 0/30회 사용 · 30회 남음'),
+          findsOneWidget,
+        );
       }
       expect(repository.accessCalls, reads);
       await tester.enterText(

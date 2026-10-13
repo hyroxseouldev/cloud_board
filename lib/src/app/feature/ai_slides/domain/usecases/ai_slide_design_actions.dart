@@ -31,9 +31,9 @@ class AiSlideDesignActions {
       throw const AiSlidesFailure('10MB 이하의 참고 이미지를 선택해 주세요.');
     }
     final access = await repository.access(ownerId);
-    if (!access.premium) {
+    if (!access.canRequest) {
       throw const AiSlidesFailure(
-        '디자인 추천과 이미지 스타일 가져오기는 프리미엄 기능이에요. 기본 디자인은 바로 이용할 수 있어요.',
+        'AI 슬라이드 도우미는 Plus와 Premium에서 이용할 수 있어요. 기본 디자인은 바로 이용할 수 있어요.',
       );
     }
     if (!access.enabled) {

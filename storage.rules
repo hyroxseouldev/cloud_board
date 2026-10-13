@@ -7,6 +7,16 @@ service firebase.storage {
       return request.auth != null && request.auth.uid == userId
         && !firestore.exists(/databases/(default)/documents/accountDeletions/$(userId));
     }
+    function canCustomizeBrand(userId) {
+      let path = /databases/(default)/documents/subscriptionEntitlements/$(userId);
+      // Preserve installed clients until the account's v2 projection activates.
+      return !firestore.exists(path)
+        || firestore.get(path).data.get('policyVersion', '') != 'plan-entitlements-v2'
+        || (firestore.get(path).data.get('validUntilMs', 0) > request.time.toMillis()
+          && firestore.get(path).data.get('status', '') in ['active', 'trialing', 'grace_period', 'canceling', 'past_due']
+          && firestore.get(path).data.get('idleScreenCustomization', '') == 'custom'
+          && firestore.get(path).data.get('canUseCenterLogo', false) == true);
+    }
     match /users/{userId}/profile/{allPaths=**} {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId)
@@ -18,6 +28,7 @@ service firebase.storage {
     match /users/{userId}/brand/{allPaths=**} {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId)
+        && canCustomizeBrand(userId)
         && (request.resource == null
           || (request.resource.size < 10 * 1024 * 1024
             && request.resource.contentType.matches('image/.*')));

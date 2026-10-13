@@ -28,5 +28,11 @@
     "text": "CloudBoardClassControls",
     "occurrences": 1,
     "reason": "Existing Flutter plugin registration identifier, not user display text."
+  },
+  {
+    "file": "functions/src/standby-branding.js",
+    "text": "showCloudBoardLogo",
+    "occurrences": 1,
+    "reason": "Persisted branding payload field name; client/TV compatibility contract, not product display text."
   }
 ]

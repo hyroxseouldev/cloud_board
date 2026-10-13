@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/ai_timer/domain/entities/ai_timer_result.dart';
@@ -5,8 +7,15 @@ import 'package:cloud_board/src/app/feature/ai_timer/domain/usecases/ai_timer_ac
 part 'ai_timer_controller.g.dart';
 
 @riverpod
-Future<AiTimerAccess> aiTimerAccess(Ref ref) =>
-    ref.watch(aiTimerActionsProvider).access();
+Future<AiTimerAccess> aiTimerAccess(Ref ref) async {
+  final access = await ref.watch(aiTimerActionsProvider).access();
+  final delay = access.resetsAt.difference(DateTime.now());
+  if (ref.mounted && delay > Duration.zero) {
+    final timer = Timer(delay, ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return access;
+}
 
 @riverpod
 class AiTimerController extends _$AiTimerController {

@@ -71,9 +71,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
     final canGenerate =
         access?.isLoading == false &&
         access?.hasError == false &&
-        access?.value?.premium == true &&
-        access?.value?.enabled == true &&
-        (access?.value?.remaining ?? 0) > 0;
+        access?.value?.canRequest == true &&
+        access?.value?.enabled == true;
     final busy =
         state.generating ||
         picking.value ||
@@ -597,13 +596,24 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  '이번 달 생성 사용량',
-                  style: TextStyle(
-                    fontSize: 12,
-                    letterSpacing: -0.12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '이번 달 요청 사용량',
+                        style: TextStyle(
+                          fontSize: 12,
+                          letterSpacing: -0.12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '사용량 새로고침',
+                      onPressed: () => ref.invalidate(aiSlidesAccessProvider),
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 access!.when(
@@ -634,11 +644,14 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                     ],
                   ),
                   data: (value) => Text(
-                    !value.premium
-                        ? '생성 기능은 프리미엄에서 이용할 수 있어요.'
+                    !value.canRequest
+                        ? 'AI 슬라이드 도우미 · Plus 월 10회 / Premium 월 30회'
                         : !value.enabled
-                        ? '생성 기능을 준비 중이에요.'
-                        : '이번 달 ${value.remaining}회 남음 · 총 ${value.limit}회',
+                        ? value.availabilityReason == 'feature-disabled'
+                              ? 'AI 슬라이드 도우미를 잠시 점검하고 있어요.'
+                              : 'AI 슬라이드 도우미를 준비 중이에요.'
+                        : 'AI 슬라이드 도우미 · 이번 달 ${value.usedRequests}/${value.limit}회 사용 · ${value.remaining}회 남음'
+                              '${value.availabilityReason == 'service-limit' ? '\n서비스 제공 한도로 새 요청이 잠시 중단됐어요.' : ''}',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -647,7 +660,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  '수업 메모 · 스타일 제안 · 이미지로 시작이 함께 사용해요.',
+                  '내용 정리와 디자인 제안은 합산해 요청마다 1회 사용해요. 내용 1회 + 디자인 1회 = 2회이며, 슬라이드 장수와는 무관해요.\n매월 1일 00:00 KST 초기화 · 같은 요청의 저장된 결과는 추가 차감 없이 다시 확인할 수 있어요.',
                   style: TextStyle(fontSize: 11),
                 ),
               ],

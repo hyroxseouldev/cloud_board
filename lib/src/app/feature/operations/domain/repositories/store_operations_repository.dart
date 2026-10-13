@@ -4,6 +4,7 @@ import 'package:cloud_board/src/app/feature/operations/domain/entities/store_ope
 
 abstract interface class StoreOperationsRepository {
   Stream<BrandTemplate> watchBrandTemplate();
+  Stream<BrandTemplate> watchEffectiveBrandTemplate();
   Stream<List<WorkoutSchedule>> watchSchedules();
   Stream<List<OperationEvent>> watchEvents();
   Future<void> saveBrandTemplate(BrandTemplate template);

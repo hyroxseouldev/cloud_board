@@ -1,12 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {favoriteLimit, mutateSlideLibrary, normalizeLibraryValue} from '../src/slide-library.js';
-test('plus caps favorite registration and only trusted premium removes limit', () => {
-  assert.equal(favoriteLimit({plan:'plus', maxFavorites:999}),3);
-  assert.equal(favoriteLimit({plan:'premium', favoritesUnlimited:true}),null);
-  assert.equal(favoriteLimit({plan:'premium'}),3);
-  assert.equal(favoriteLimit({plan:'legacy'}),null);
-  assert.equal(favoriteLimit(null),3);
+test('versioned saved-slide limits distinguish Free, Plus, Premium and unavailable access', () => {
+  const active = {validUntilMs:2000, status:'active', policyVersion:'plan-entitlements-v2'};
+  assert.equal(favoriteLimit({...active,plan:'free'},1000),3);
+  assert.equal(favoriteLimit({...active,plan:'plus',maxFavorites:999},1000),30);
+  assert.equal(favoriteLimit({...active,plan:'premium'},1000),null);
+  assert.equal(favoriteLimit({...active,plan:'legacy',maxFavorites:null},1000),null);
+  assert.throws(()=>favoriteLimit(null,1000),{code:'failed-precondition'});
 });
 test('unauthenticated, mismatched account and invalid payload rejected before accessing database', async () => {
   await assert.rejects(mutateSlideLibrary(null,null,{}), {code:'unauthenticated'});
@@ -72,8 +73,12 @@ test('legacy library edit after DTO roundtrip saves complete studio style and de
   const documents = new Map([[path, {value: stored}], ['users/owner/libraryState/index', {savedCount: 1, favoriteCount: 0}]]);
   const db = {
     doc: path => ({path}),
-    collection: path => ({doc: id => ({path: `${path}/${id}`})}),
+    collection: path => ({path, select: () => ({path}), doc: id => ({path: `${path}/${id}`})}),
     runTransaction: async run => run({
+      get: async ref => {
+        const rows = [...documents].filter(([path]) => path.startsWith(`${ref.path}/`) && !path.slice(ref.path.length + 1).includes('/'));
+        return {size: rows.length, docs: rows.map(([, value]) => ({data: () => value}))};
+      },
       getAll: async (...refs) => refs.map(ref => ({exists: documents.has(ref.path), data: () => documents.get(ref.path)})),
       set: (ref, value, options) => documents.set(ref.path, options?.merge ? {...documents.get(ref.path), ...value} : value),
     }),
@@ -114,8 +119,12 @@ function fingerprintedLibrary(kind) {
   const documents = new Map([[path, {value: current}], [indexPath, {savedCount: 1, favoriteCount: 0}]]);
   const db = {
     doc: path => ({path}),
-    collection: path => ({doc: id => ({path: `${path}/${id}`})}),
+    collection: path => ({path, select: () => ({path}), doc: id => ({path: `${path}/${id}`})}),
     runTransaction: async run => run({
+      get: async ref => {
+        const rows = [...documents].filter(([path]) => path.startsWith(`${ref.path}/`) && !path.slice(ref.path.length + 1).includes('/'));
+        return {size: rows.length, docs: rows.map(([, value]) => ({data: () => value}))};
+      },
       getAll: async (...refs) => refs.map(ref => ({exists: documents.has(ref.path), data: () => documents.get(ref.path)})),
       set: (ref, value, options) => documents.set(ref.path, options?.merge ? {...documents.get(ref.path), ...value} : value),
     }),

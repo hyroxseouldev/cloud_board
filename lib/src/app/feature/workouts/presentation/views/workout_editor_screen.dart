@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_recovery_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_recovery_repository.dart';
@@ -445,9 +447,20 @@ class _EditorBody extends HookConsumerWidget {
       recoveryActions.record(value, isNew: !hasPersisted.value);
       await recoveryActions.flush();
       if (!context.mounted) return null;
+      if (!hasPersisted.value &&
+          !await allowPlanAddition(context, ref, 'workouts')) {
+        return null;
+      }
+      if (!context.mounted) return null;
       final saved = await ref
           .read(workoutActionControllerProvider.notifier)
           .save(value);
+      if (saved == null && context.mounted) {
+        final failure = PlanLimitFailure.from(
+          ref.read(workoutActionControllerProvider).error,
+        );
+        if (failure != null) await showPlanLimitNotice(context, failure);
+      }
       if (saved != null && context.mounted) {
         hasPersisted.value = true;
         draft.value = saved;
@@ -570,15 +583,30 @@ class _EditorBody extends HookConsumerWidget {
     }
 
     Future<void> saveTemplate(WorkoutModule module) async {
+      if (!await allowPlanAddition(context, ref, 'savedSlides') ||
+          !context.mounted) {
+        return;
+      }
       final templateName = await showDialog<({String name, bool favorite})>(
         context: context,
-        builder: (_) => _SlideTemplateNameDialog(initialName: module.name),
+        builder: (_) => _SlideTemplateNameDialog(
+          initialName:
+              ref.read(templatesProvider.notifier).pendingNewDraft?.name ??
+              module.name,
+        ),
       );
       if (templateName == null || !context.mounted) return;
       final saved = await ref
           .read(templatesProvider.notifier)
           .save(module, templateName.name, favorite: templateName.favorite);
       if (!context.mounted) return;
+      final failure = PlanLimitFailure.from(
+        ref.read(templatesProvider.notifier).lastFailure,
+      );
+      if (!saved && failure != null) {
+        await showPlanLimitNotice(context, failure);
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

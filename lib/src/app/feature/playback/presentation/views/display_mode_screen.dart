@@ -56,7 +56,7 @@ class DisplayModeScreen extends HookConsumerWidget {
     void refreshDisplayData() {
       ref.invalidate(activePlaybackSessionProvider);
       ref.invalidate(displayDevicesProvider);
-      ref.invalidate(brandTemplateProvider);
+      ref.invalidate(effectiveBrandTemplateProvider);
       ref.invalidate(workoutSchedulesProvider);
     }
 
@@ -69,7 +69,8 @@ class DisplayModeScreen extends HookConsumerWidget {
     final deviceId = ref.watch(deviceIdProvider).value;
     final devices = ref.watch(displayDevicesProvider).value ?? const [];
     final brand =
-        ref.watch(brandTemplateProvider).value ?? BrandTemplate.initial();
+        ref.watch(effectiveBrandTemplateProvider).value ??
+        BrandTemplate.initial();
     final schedules =
         ref.watch(workoutSchedulesProvider).value ?? const <WorkoutSchedule>[];
     useEffect(() {
@@ -85,8 +86,8 @@ class DisplayModeScreen extends HookConsumerWidget {
         if (ref.read(displayDevicesProvider).hasError) {
           ref.invalidate(displayDevicesProvider);
         }
-        if (ref.read(brandTemplateProvider).hasError) {
-          ref.invalidate(brandTemplateProvider);
+        if (ref.read(effectiveBrandTemplateProvider).hasError) {
+          ref.invalidate(effectiveBrandTemplateProvider);
         }
         if (ref.read(workoutSchedulesProvider).hasError) {
           ref.invalidate(workoutSchedulesProvider);
