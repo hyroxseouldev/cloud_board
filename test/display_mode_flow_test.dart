@@ -17,6 +17,7 @@ import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairin
 import 'package:cloud_board/src/app/feature/device/presentation/views/display_settings_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_refresh_button.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
@@ -25,6 +26,8 @@ import 'package:cloud_board/src/app/feature/playback/presentation/views/display_
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_player_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
 
 class _Mode extends DeviceModeController {
   @override
@@ -206,10 +209,25 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       final sessions = StreamController<PlaybackSession?>.broadcast();
       final brands = StreamController<BrandTemplate>.broadcast();
+      // An active player ticks every 100 ms and is not expected to settle.
+      // Wait for the actual rendered state, with a small bounded frame budget.
+      Future<void> pumpUntil(bool Function() ready, String reason) async {
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (ready()) return;
+        }
+        expect(ready(), isTrue, reason: reason);
+      }
+
+      final canvasFinder = find.byType(WorkoutSlideCanvas);
+      bool playerReady() =>
+          canvasFinder.evaluate().length == 1 &&
+          !tester.widget<WorkoutSlideCanvas>(canvasFinder).isPaused;
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             androidTvProvider.overrideWith((_) async => true),
+            playerClockProvider.overrideWith((_) => tester.binding.clock.now),
             accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
             deviceIdProvider.overrideWith((_) async => 'tv'),
             deviceModeControllerProvider.overrideWith(_Mode.new),
@@ -228,7 +246,9 @@ void main() {
         ),
       );
       await tester.pump();
-      final current = running();
+      final current = running().copyWith(
+        anchorServerMs: tester.binding.clock.now().millisecondsSinceEpoch,
+      );
       sessions.add(current);
       brands.add(
         BrandTemplate.initial().copyWith(
@@ -236,18 +256,40 @@ void main() {
           showCloudBoardLogo: false,
         ),
       );
-      await tester.pumpAndSettle();
+      await pumpUntil(playerReady, 'The running slide must render');
       expect(find.byType(WorkoutPlayerScreen), findsOneWidget);
       final player = tester.element(find.byType(WorkoutPlayerScreen));
-      brands.add(
-        BrandTemplate.initial().copyWith(
-          storeName: 'Free standby',
-          showCloudBoardLogo: true,
-          blackScreenStartMinutes: 0,
-          blackScreenEndMinutes: 1439,
-        ),
+      final container = ProviderScope.containerOf(player);
+      final timer = playerControllerProvider(
+        current.workout,
+        sessionId: current.id,
+        canControl: false,
       );
-      await tester.pumpAndSettle();
+      final beforeRemaining = container.read(timer).remainingMs;
+      final now = DateTime.now();
+      final minute = now.hour * 60 + now.minute;
+      final downgraded = BrandTemplate.initial().copyWith(
+        storeName: 'Free standby',
+        showCloudBoardLogo: true,
+        blackScreenStartMinutes: (minute + 1435) % 1440,
+        blackScreenEndMinutes: (minute + 5) % 1440,
+      );
+      expect(isBlackScreenTime(downgraded, now), isTrue);
+      brands.add(downgraded);
+      await pumpUntil(
+        () =>
+            container.read(effectiveBrandTemplateProvider).value ==
+                downgraded &&
+            playerReady(),
+        'The brand update must arrive while the running slide remains visible',
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(container.read(timer).remainingMs, lessThan(beforeRemaining));
+      expect(container.read(timer).isPaused, isFalse);
+      expect(
+        tester.widget<WorkoutSlideCanvas>(canvasFinder).module,
+        current.workout.modules.single,
+      );
       expect(tester.element(find.byType(WorkoutPlayerScreen)), same(player));
       expect(find.byType(StoreWelcomeBoard), findsNothing);
       expect(find.text('Plus 알아보기'), findsNothing);
@@ -259,7 +301,10 @@ void main() {
         ),
       );
       sessions.add(null);
-      await tester.pumpAndSettle();
+      await pumpUntil(
+        () => find.byType(StoreWelcomeBoard).evaluate().length == 1,
+        'The latest brand must render after the session ends',
+      );
       expect(find.byType(WorkoutPlayerScreen), findsNothing);
       expect(
         tester
