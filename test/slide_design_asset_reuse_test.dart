@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_design_renderer.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_storage_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/slide_editor_actions.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -95,7 +100,148 @@ class _Storage extends WorkoutStorageDataSource {
   }
 }
 
+/// Runs the production painter and sync path; only the remote upload is fake.
+class _RenderedStorage extends WorkoutStorageDataSource {
+  _RenderedStorage(this.firebase, List<String> prepared)
+    : super(
+        firebase,
+        prepareDesign: (module) async {
+          prepared.add(module.id);
+          return prepareSlideDesign(module);
+        },
+      );
+
+  final _Firebase firebase;
+  final uploaded = <String, String>{};
+  bool failUpload = false;
+
+  @override
+  Future<String> uploadImage(
+    String userId,
+    String workoutId,
+    String source,
+  ) async {
+    if (failUpload) throw StateError('Upload unavailable');
+    final digest = sha256.convert(base64Decode(source.split(',').last));
+    final path = 'users/$userId/workouts/$workoutId/images/$digest';
+    firebase.assets.add(path);
+    final url = await _Reference(firebase, path).getDownloadURL();
+    uploaded[url] = source;
+    return url;
+  }
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final operation in ['resave', 'duplicate', 'library insertion']) {
+    test(
+      '$operation refreshes v1 PNGs and preserves explicit user edits',
+      () async {
+        expect(slideDesignRendererVersion, greaterThan(1));
+        final firebase = _Firebase();
+        final oldPath = 'users/u/workouts/w/images/${'a' * 64}';
+        firebase.assets.add(oldPath);
+        final original = fixture(1).modules.single.copyWith(
+          text: 'Run 200m\nRest 30s',
+          designTemplate: operation == 'resave'
+              ? 'stationd-v2-list'
+              : 'studio-v1-numbered',
+          designStyle: operation == 'resave'
+              ? null
+              : const SlideDesignStyle(fontFamily: 'serif', titleWeight: 900),
+          designFontWeight: 800,
+          designItalic: true,
+          designSubtitle: 'My coaching cue',
+          workSeconds: 40,
+          restSeconds: 20,
+          sets: 6,
+          imageSource: await _Reference(firebase, oldPath).getDownloadURL(),
+          designFingerprint: 'v1:${'b' * 64}:${'a' * 64}',
+        );
+        final input = switch (operation) {
+          'duplicate' => original.copyWith(id: 'copied-slide'),
+          'library insertion' => replaceSlideWithTemplate(
+            WorkoutModule.empty('target-slide'),
+            original,
+          ),
+          _ => original,
+        };
+        final workout = fixture(1).copyWith(
+          id: operation == 'resave' ? 'w' : 'new-workout',
+          modules: [input],
+        );
+        final prepared = <String>[];
+        final storage = _RenderedStorage(firebase, prepared);
+        final saved = await storage.syncImages('u', workout);
+        final slide = saved.modules.single;
+        expect(prepared, [input.id]);
+        expect(slide.imageSource, isNot(original.imageSource));
+        expect(
+          slide.designFingerprint,
+          startsWith('v$slideDesignRendererVersion:'),
+        );
+        expect(
+          storage.uploaded[slide.imageSource],
+          await renderSlideDesign(input),
+          reason: 'stored PNG must match the current preview painter',
+        );
+        expect(
+          slide.copyWith(
+            imageSource: input.imageSource,
+            designFingerprint: input.designFingerprint,
+            appearance: slide.appearance.copyWith(
+              showTitle: input.appearance.showTitle,
+              showBody: input.appearance.showBody,
+            ),
+          ),
+          input,
+          reason: 'content, timing and explicit styles are unchanged',
+        );
+        expect(
+          firebase.assets,
+          contains(oldPath),
+          reason: 'existing playback snapshots may still use the earlier PNG',
+        );
+        expect(workout.modules.single, input);
+
+        final decoded = WorkoutModel.fromJson(
+          WorkoutModel.fromEntity(saved).toJson(),
+        ).toEntity();
+        clearSlideDesignRenderCache();
+        await storage.syncImages('u', decoded);
+        expect(prepared, [input.id], reason: 'the upgraded PNG is reusable');
+        expect(storage.uploaded.length, 1);
+      },
+    );
+  }
+
+  test(
+    'failed v1 PNG refresh leaves the original workout available for retry',
+    () async {
+      final firebase = _Firebase();
+      final original = fixture(1).copyWith(
+        modules: [
+          fixture(1).modules.single.copyWith(
+            imageSource: 'https://example.com/saved-v1.png',
+            designFingerprint: 'v1:earlier-render',
+          ),
+        ],
+      );
+      final before = WorkoutModel.fromEntity(original).toJson();
+      final storage = _RenderedStorage(firebase, [])..failUpload = true;
+      await expectLater(storage.syncImages('u', original), throwsStateError);
+      expect(WorkoutModel.fromEntity(original).toJson(), before);
+      expect(storage.uploaded, isEmpty);
+      storage.failUpload = false;
+      final retried = await storage.syncImages('u', original);
+      expect(
+        retried.modules.single.designFingerprint,
+        startsWith('v$slideDesignRendererVersion:'),
+      );
+    },
+  );
+
   for (final count in [1, 8, 9, 30]) {
     test(
       '$count persisted slides reuse scoped assets after renderer/service restart',
@@ -234,7 +380,7 @@ void main() {
       module.copyWith(designAccentColor: 0xFFFF0000),
       module.copyWith(designLayout: 'columns'),
       module.copyWith(designFontWeight: 500),
-      module.copyWith(designItalic: false),
+      module.copyWith(designItalic: !module.designItalic),
       module.copyWith(designSpacing: 1.2),
       module.copyWith(designHeaderLabel: 'DAY'),
       module.copyWith(designSubtitle: 'SUB'),

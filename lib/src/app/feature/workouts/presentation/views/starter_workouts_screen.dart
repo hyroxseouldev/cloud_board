@@ -129,6 +129,11 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
             ),
             const SizedBox(height: 16),
             WorkoutSlidePreview(module: workout.modules.first, isRest: false),
+            const SizedBox(height: 8),
+            Text(
+              '예시 · 자유롭게 수정하세요',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
             if (workout.modules.length > 1)
               ExpansionTile(
