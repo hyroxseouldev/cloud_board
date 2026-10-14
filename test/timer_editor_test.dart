@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_editor_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -64,6 +65,20 @@ Future<ProviderContainer> openEditor(
 Future<void> input(WidgetTester tester, String key, String value) async {
   final field = find.byKey(ValueKey(key));
   await reveal(tester, key);
+  if (tester.widget(field) is! TextField) {
+    final parts = value.split(':').map(int.parse).toList();
+    assert(parts.length == 2 && parts[0] <= 999 && parts[1] <= 59);
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    for (final part in [('minutes', parts[0]), ('seconds', parts[1])]) {
+      final picker = tester.widget<CupertinoPicker>(
+        find.byKey(ValueKey('$key-${part.$1}-wheel')),
+      );
+      picker.scrollController!.jumpToItem(part.$2);
+      await tester.pumpAndSettle();
+    }
+    return;
+  }
   await tester.enterText(field, value);
   tester.testTextInput.hide();
   await tester.pumpAndSettle();

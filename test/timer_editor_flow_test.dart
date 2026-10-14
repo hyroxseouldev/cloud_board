@@ -114,11 +114,11 @@ void main() {
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(
-        tester
-            .widget<TextField>(find.byKey(const ValueKey('timer-work')))
-            .controller!
-            .text,
-        '02:30',
+        find.descendant(
+          of: find.byKey(const ValueKey('timer-work')),
+          matching: find.text('02:30'),
+        ),
+        findsOneWidget,
       );
       expect(container.read(fixture.provider).module, fixture.original);
       await fixture.tap(tester, 'apply-timer-editor');
@@ -139,7 +139,9 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       final container = await fixture.openEditor(tester, (_) async => true);
       await fixture.tap(tester, 'slide-timer-summary');
-      await fixture.input(tester, 'timer-work', '10:99');
+      // Time wheels cannot create malformed mm:ss. Integer count validation
+      // still keeps Apply disabled while its numeric keyboard is visible.
+      await fixture.input(tester, 'timer-repeats', '0');
       tester.view.viewInsets = const FakeViewPadding(bottom: 220);
       await tester.pumpAndSettle();
       final apply = find.byKey(const ValueKey('apply-timer-editor'));
@@ -147,6 +149,7 @@ void main() {
       expect(tester.getRect(apply).bottom, lessThanOrEqualTo(348));
       expect(container.read(fixture.provider).module, fixture.original);
       tester.view.resetViewInsets();
+      await fixture.input(tester, 'timer-repeats', '2');
       await fixture.input(tester, 'timer-work', '02:00');
       expect(tester.widget<FilledButton>(apply).onPressed, isNotNull);
       await fixture.tap(tester, 'apply-timer-editor');
