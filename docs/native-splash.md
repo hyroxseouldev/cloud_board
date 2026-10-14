@@ -105,3 +105,15 @@ observed in this sample. Direct engine-frame timing and physical-device
 interactive timing still require a release profiling pass.
 
 Recordings, measurement results and remaining device checks are attached to STA-53.
+
+## STA-169 런타임 로딩
+
+OS launch의 정적 원본과 128 logical px 크기는 유지한다. Flutter 초기화 및
+인증 복원 화면은 같은 원본을 1.8초 동안 0.97–1.00 scale / 0.80–1.00 opacity로
+호흡시키며 별도 원형 스피너는 표시하지 않는다. 동작 줄이기, 접근성 탐색,
+background, 가려진 route에서는 정적 원본이고 초기화 완료를 애니메이션 때문에
+지연하지 않는다. 로컬 decode의 first-frame hold와 실패/빠른 dispose 해제는 유지한다.
+
+웹 HTML도 같은 Flutter asset bundle의 원본을 표시하고 실제 `flutter-first-frame`
+이벤트에서 제거한다. 스크립트/엔진 실패에는 retry를 제공한다. 상세 범위·검증 및
+실기기 미검증 경계는 [STA-169 검토](design/sta169/review.md)를 따른다.

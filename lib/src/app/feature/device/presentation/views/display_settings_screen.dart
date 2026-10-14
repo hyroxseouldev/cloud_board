@@ -1,7 +1,6 @@
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
@@ -54,18 +53,16 @@ class DisplaySettingsScreen extends HookConsumerWidget {
                   ? '동시 송출 한도에 도달했습니다. 송출 중인 TV를 먼저 끄거나 구독 관리에서 한도를 확인해 주세요.'
                   : diagnosticMessage(error),
             ),
-            action: kDebugMode
-                ? SnackBarAction(
-                    label: '상세',
-                    onPressed: () => showErrorDetails(
-                      context,
-                      ref.read(errorReporterProvider),
-                      next.error!,
-                      next.stackTrace,
-                      'pairing.action',
-                    ),
-                  )
-                : null,
+            action: SnackBarAction(
+              label: '문제 문의하기',
+              onPressed: () => openSupportForError(
+                context,
+                ref.read(errorReporterProvider),
+                next.error!,
+                next.stackTrace,
+                'pairing.action',
+              ),
+            ),
           ),
         );
       }
