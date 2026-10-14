@@ -27,6 +27,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/standby_branding.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/branding_plan_notice.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/audience_branding_copy.dart';
 
 class StoreOperationsScreen extends HookConsumerWidget {
   const StoreOperationsScreen({super.key, this.guard});
@@ -101,6 +102,9 @@ class _BrandSettingsTab extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(brandTemplateProvider);
     final plan = ref.watch(planAccessProvider).value;
+    final classBrandingAvailable = audienceClassBrandingAvailable(
+      ref.watch(audienceBrandingProvider),
+    );
     final action = ref.watch(storeOperationsActionControllerProvider);
     final storeName = useTextEditingController();
     final message = useTextEditingController();
@@ -238,7 +242,9 @@ class _BrandSettingsTab extends HookConsumerWidget {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('${AppBrand.name} 로고 표시'),
-                      subtitle: const Text('Plus와 Premium에서 숨길 수 있습니다.'),
+                      subtitle: Text(
+                        audienceLogoSettingDescription(classBrandingAvailable),
+                      ),
                       value: value.showCloudBoardLogo,
                       onChanged: (show) => draft.value = value.copyWith(
                         showCloudBoardLogo: show,

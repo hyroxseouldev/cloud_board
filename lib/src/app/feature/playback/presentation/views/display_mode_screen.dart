@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
 import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
 import 'package:cloud_board/src/app/feature/app_update/presentation/widgets/app_update_gate.dart';
@@ -57,6 +59,7 @@ class DisplayModeScreen extends HookConsumerWidget {
       ref.invalidate(activePlaybackSessionProvider);
       ref.invalidate(displayDevicesProvider);
       ref.invalidate(effectiveBrandTemplateProvider);
+      ref.invalidate(audienceBrandingForOwnerProvider);
       ref.invalidate(workoutSchedulesProvider);
     }
 
@@ -71,6 +74,7 @@ class DisplayModeScreen extends HookConsumerWidget {
     final brand =
         ref.watch(effectiveBrandTemplateProvider).value ??
         BrandTemplate.initial();
+    final audienceBranding = ref.watch(audienceBrandingProvider);
     final schedules =
         ref.watch(workoutSchedulesProvider).value ?? const <WorkoutSchedule>[];
     useEffect(() {
@@ -358,6 +362,7 @@ class DisplayModeScreen extends HookConsumerWidget {
                       .refresh(),
                   connected: connected,
                   brand: brand,
+                  audienceBranding: audienceBranding,
                   schedules: schedules,
                   now: now.value,
                   onTestSound: () async {
@@ -465,6 +470,7 @@ class _DisplayStandby extends StatelessWidget {
     required this.connected,
     required this.onTestSound,
     required this.brand,
+    required this.audienceBranding,
     required this.schedules,
     required this.now,
   });
@@ -477,6 +483,7 @@ class _DisplayStandby extends StatelessWidget {
   final bool connected;
   final Future<void> Function() onTestSound;
   final BrandTemplate brand;
+  final AudienceBranding? audienceBranding;
   final List<WorkoutSchedule> schedules;
   final DateTime now;
 
@@ -485,15 +492,22 @@ class _DisplayStandby extends StatelessWidget {
     final next = nextSchedule(schedules, now);
     final nextDate = next == null ? null : _nextScheduleDate(next, now);
     if (currentDevice?.paired == true) {
-      return StoreWelcomeBoard(
-        brand: brand,
-        displayPreferences:
-            currentDevice?.preferences ?? const DisplayPreferences(),
-        now: now,
-        connected: connected,
-        nextClass: next == null || nextDate == null
-            ? null
-            : '${nextDate.month}/${nextDate.day} ${nextDate.hour.toString().padLeft(2, '0')}:${nextDate.minute.toString().padLeft(2, '0')} · ${next.workoutName}',
+      return AudienceLogoFrame(
+        branding: audienceBranding,
+        scene: AudienceLogoScene.standby,
+        preferences: currentDevice?.preferences ?? const DisplayPreferences(),
+        backgroundColor: StoreWelcomeBoard.canvasColor(brand),
+        child: StoreWelcomeBoard(
+          brand: brand,
+          showProductLogo: audienceBranding == null,
+          displayPreferences:
+              currentDevice?.preferences ?? const DisplayPreferences(),
+          now: now,
+          connected: connected,
+          nextClass: next == null || nextDate == null
+              ? null
+              : '${nextDate.month}/${nextDate.day} ${nextDate.hour.toString().padLeft(2, '0')}:${nextDate.minute.toString().padLeft(2, '0')} · ${next.workoutName}',
+        ),
       );
     }
     return Scaffold(

@@ -20,6 +20,7 @@ class StoreWelcomeBoard extends StatelessWidget {
     required this.now,
     this.nextClass,
     this.connected = true,
+    this.showProductLogo = true,
     this.displayPreferences = const DisplayPreferences(),
   });
 
@@ -27,6 +28,12 @@ class StoreWelcomeBoard extends StatelessWidget {
   final DateTime now;
   final String? nextClass;
   final bool connected;
+  final bool showProductLogo;
+
+  static Color canvasColor(BrandTemplate brand) =>
+      brand.standbyFullscreen && brand.promotionImageUrls.isNotEmpty
+      ? Color(brand.standbyBackgroundColor)
+      : const Color(0xFFF7F5EF);
   final DisplayPreferences displayPreferences;
   DisplayPreferences get preferences => displayPreferences.enabled
       ? displayPreferences
@@ -43,7 +50,7 @@ class StoreWelcomeBoard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           _buildBoard(context),
-          if (brand.showCloudBoardLogo)
+          if (showProductLogo && brand.showCloudBoardLogo)
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(

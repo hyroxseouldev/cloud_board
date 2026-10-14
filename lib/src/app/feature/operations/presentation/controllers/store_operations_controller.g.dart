@@ -9,6 +9,140 @@ part of 'store_operations_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(audienceBrandingForOwner)
+final audienceBrandingForOwnerProvider = AudienceBrandingForOwnerFamily._();
+
+final class AudienceBrandingForOwnerProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<AudienceBranding?>,
+          AudienceBranding?,
+          Stream<AudienceBranding?>
+        >
+    with
+        $FutureModifier<AudienceBranding?>,
+        $StreamProvider<AudienceBranding?> {
+  AudienceBrandingForOwnerProvider._({
+    required AudienceBrandingForOwnerFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'audienceBrandingForOwnerProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$audienceBrandingForOwnerHash();
+
+  @override
+  String toString() {
+    return r'audienceBrandingForOwnerProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<AudienceBranding?> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<AudienceBranding?> create(Ref ref) {
+    final argument = this.argument as String;
+    return audienceBrandingForOwner(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is AudienceBrandingForOwnerProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$audienceBrandingForOwnerHash() =>
+    r'04a0335fa134432ea2fe69647e13a99bf4ebb8e0';
+
+final class AudienceBrandingForOwnerFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<AudienceBranding?>, String> {
+  AudienceBrandingForOwnerFamily._()
+    : super(
+        retry: null,
+        name: r'audienceBrandingForOwnerProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  AudienceBrandingForOwnerProvider call(String ownerId) =>
+      AudienceBrandingForOwnerProvider._(argument: ownerId, from: this);
+
+  @override
+  String toString() => r'audienceBrandingForOwnerProvider';
+}
+
+/// Synchronous owner filtering prevents retained AsyncData from a previous
+/// account appearing for even one frame during sign-out or TV re-pairing.
+
+@ProviderFor(audienceBranding)
+final audienceBrandingProvider = AudienceBrandingProvider._();
+
+/// Synchronous owner filtering prevents retained AsyncData from a previous
+/// account appearing for even one frame during sign-out or TV re-pairing.
+
+final class AudienceBrandingProvider
+    extends
+        $FunctionalProvider<
+          AudienceBranding?,
+          AudienceBranding?,
+          AudienceBranding?
+        >
+    with $Provider<AudienceBranding?> {
+  /// Synchronous owner filtering prevents retained AsyncData from a previous
+  /// account appearing for even one frame during sign-out or TV re-pairing.
+  AudienceBrandingProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'audienceBrandingProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$audienceBrandingHash();
+
+  @$internal
+  @override
+  $ProviderElement<AudienceBranding?> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  AudienceBranding? create(Ref ref) {
+    return audienceBranding(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AudienceBranding? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AudienceBranding?>(value),
+    );
+  }
+}
+
+String _$audienceBrandingHash() => r'9107f4aa74e8dbba2ebee05b3f768e246e2a9011';
+
 @ProviderFor(brandTemplate)
 final brandTemplateProvider = BrandTemplateProvider._();
 

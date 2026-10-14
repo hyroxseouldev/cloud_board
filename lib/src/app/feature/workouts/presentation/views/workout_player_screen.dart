@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_load_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
@@ -192,6 +193,9 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         ),
       ),
     );
+    final audienceBranding = displayMode
+        ? ref.watch(audienceBrandingProvider)
+        : null;
     final state = ref.read(provider);
     final actions = ref.read(provider.notifier);
     final playbackAction = ref.watch(playbackActionControllerProvider);
@@ -417,12 +421,21 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     );
     if (state.briefing) {
       if (displayMode) {
-        return StoreWelcomeBoard(
-          brand:
-              ref.watch(effectiveBrandTemplateProvider).value ??
-              BrandTemplate.initial(),
-          now: standbyNow.value,
-          connected: isConnected,
+        final brand =
+            ref.watch(effectiveBrandTemplateProvider).value ??
+            BrandTemplate.initial();
+        return AudienceLogoFrame(
+          branding: audienceBranding,
+          scene: AudienceLogoScene.standby,
+          preferences: displayPreferences,
+          backgroundColor: StoreWelcomeBoard.canvasColor(brand),
+          child: StoreWelcomeBoard(
+            brand: brand,
+            showProductLogo: audienceBranding == null,
+            displayPreferences: displayPreferences,
+            now: standbyNow.value,
+            connected: isConnected,
+          ),
         );
       }
       return PopScope(
@@ -462,18 +475,24 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         },
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: WorkoutCountdown(
-            workout: workout,
-            seconds: (state.countdownMs / 1000).ceil(),
-            slideName: currentMediaStep?.module.name,
-            slide: currentMediaStep?.module,
-            onPause: displayMode ? null : () => unawaited(actions.toggle()),
-            onStartNow: displayMode
-                ? null
-                : () => unawaited(actions.skipCountdown()),
-            isPaused: state.isPaused,
-            actionsEnabled:
-                !playbackAction.isLoading && (sessionId == null || isConnected),
+          body: AudienceLogoFrame(
+            branding: audienceBranding,
+            scene: AudienceLogoScene.countdown,
+            preferences: displayPreferences,
+            child: WorkoutCountdown(
+              workout: workout,
+              seconds: (state.countdownMs / 1000).ceil(),
+              slideName: currentMediaStep?.module.name,
+              slide: currentMediaStep?.module,
+              onPause: displayMode ? null : () => unawaited(actions.toggle()),
+              onStartNow: displayMode
+                  ? null
+                  : () => unawaited(actions.skipCountdown()),
+              isPaused: state.isPaused,
+              actionsEnabled:
+                  !playbackAction.isLoading &&
+                  (sessionId == null || isConnected),
+            ),
           ),
         ),
       );
@@ -665,73 +684,78 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                 backgroundColor: Colors.black,
                 body: ColoredBox(
                   color: Colors.black,
-                  child: Center(
-                    child: DisplayViewport(
-                      preferences: displayPreferences,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final scale = math.min(
-                            constraints.maxWidth / 1280,
-                            constraints.maxHeight / 720,
-                          );
-                          return Stack(
-                            children: [
-                              Positioned.fill(
-                                child: WorkoutSlideCanvas(
-                                  module: module,
-                                  displayPreferences: displayPreferences,
-                                  isRest: step.isRest,
-                                  secondsLeft: state.secondsLeft,
-                                  remainingMs: state.remainingMs,
-                                  durationMs: step.duration * 1000,
-                                  set: step.set,
-                                  totalSets: step.totalSets,
-                                  positionLabel: step.positionLabel,
-                                  isPaused: state.isPaused,
-                                  brandL: workout.brandL,
-                                  brandR: workout.brandR,
-                                  scale: scale,
-                                  showLoadingIndicator: true,
-                                  timer: _PlayerTimer(
-                                    workout: workout,
-                                    startModule: startModule,
-                                    sessionId: sessionId,
-                                    displayMode: displayMode,
+                  child: AudienceLogoFrame(
+                    branding: audienceBranding,
+                    scene: AudienceLogoScene.classContent,
+                    preferences: displayPreferences,
+                    child: Center(
+                      child: DisplayViewport(
+                        preferences: displayPreferences,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final scale = math.min(
+                              constraints.maxWidth / 1280,
+                              constraints.maxHeight / 720,
+                            );
+                            return Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: WorkoutSlideCanvas(
+                                    module: module,
+                                    displayPreferences: displayPreferences,
+                                    isRest: step.isRest,
+                                    secondsLeft: state.secondsLeft,
+                                    remainingMs: state.remainingMs,
+                                    durationMs: step.duration * 1000,
+                                    set: step.set,
+                                    totalSets: step.totalSets,
+                                    positionLabel: step.positionLabel,
+                                    isPaused: state.isPaused,
+                                    brandL: workout.brandL,
+                                    brandR: workout.brandR,
+                                    scale: scale,
+                                    showLoadingIndicator: true,
+                                    timer: _PlayerTimer(
+                                      workout: workout,
+                                      startModule: startModule,
+                                      sessionId: sessionId,
+                                      displayMode: displayMode,
+                                      scale: scale,
+                                    ),
+                                  ),
+                                ),
+                                if (state.isPaused)
+                                  Positioned(
+                                    top: 42 * scale,
+                                    right: 34 * scale,
+                                    child: Chip(
+                                      label: Text(
+                                        actions.forTimeEnded
+                                            ? (state.timerCompleted
+                                                  ? '운동 완료'
+                                                  : '제한시간 도달')
+                                            : '일시정지',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16 * scale,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      backgroundColor: Colors.black87,
+                                    ),
+                                  ),
+                                Positioned(
+                                  top: 42 * scale,
+                                  left: 34 * scale,
+                                  child: _ConnectionChip(
+                                    connected: isConnected,
                                     scale: scale,
                                   ),
                                 ),
-                              ),
-                              if (state.isPaused)
-                                Positioned(
-                                  top: 42 * scale,
-                                  right: 34 * scale,
-                                  child: Chip(
-                                    label: Text(
-                                      actions.forTimeEnded
-                                          ? (state.timerCompleted
-                                                ? '운동 완료'
-                                                : '제한시간 도달')
-                                          : '일시정지',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16 * scale,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                    backgroundColor: Colors.black87,
-                                  ),
-                                ),
-                              Positioned(
-                                top: 42 * scale,
-                                left: 34 * scale,
-                                child: _ConnectionChip(
-                                  connected: isConnected,
-                                  scale: scale,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

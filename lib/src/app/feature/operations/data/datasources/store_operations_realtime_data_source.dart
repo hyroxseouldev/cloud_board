@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
+import 'package:cloud_board/src/app/feature/operations/data/models/audience_branding_model.dart';
 
 class StoreOperationsRealtimeDataSource {
   const StoreOperationsRealtimeDataSource(this._database, this._ownerId);
@@ -14,6 +15,17 @@ class StoreOperationsRealtimeDataSource {
 
   DatabaseReference get _operations =>
       _database.ref('users/${_requireOwnerId()}/operations');
+
+  Stream<AudienceBrandingModel?> watchAudienceBranding() {
+    if (_ownerId == null) return Stream.value(null);
+    return _operations
+        .child('brandProjection')
+        .onValue
+        .map(
+          (event) =>
+              AudienceBrandingModel.parse(event.snapshot.value, _ownerId),
+        );
+  }
 
   Stream<BrandTemplateModel> watchBrandTemplate({bool effective = false}) {
     if (_ownerId == null) {
