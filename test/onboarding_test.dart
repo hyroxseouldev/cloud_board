@@ -89,6 +89,45 @@ void main() {
       expect(container.read(onboardingActionProvider).isLoading, isFalse);
     },
   );
+  test('verification completion from before A to B to A cannot grant access or celebrate', () async {
+    final users = StreamController<AuthUser?>();
+    final repository = FakeOnboarding(const CenterOnboarding())
+      ..verifyGate = Completer<void>();
+    final container = ProviderContainer(
+      retry: (_, _) => null,
+      overrides: [
+        authStateProvider.overrideWith((_) => users.stream),
+        onboardingRepositoryProvider.overrideWith((_) => repository),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await users.close();
+    });
+    container.listen(onboardingControllerProvider, (_, _) {});
+    container.listen(onboardingActionProvider, (_, _) {});
+    container.listen(onboardingCompletionProvider, (_, _) {});
+    users.add(onboardingUser);
+    await container.pump();
+    await container.read(onboardingControllerProvider.future);
+    final verifying = container
+        .read(onboardingActionProvider.notifier)
+        .verifyCode('123456');
+    users.add(onboardingUser.copyWith(id: 'other'));
+    await container.pump();
+    await container.read(onboardingControllerProvider.future);
+    users.add(onboardingUser);
+    await container.pump();
+    await container.read(onboardingControllerProvider.future);
+    repository.verifyGate!.complete();
+    expect(await verifying, isFalse);
+    expect(
+      container.read(onboardingControllerProvider).requireValue.serviceReady,
+      isFalse,
+    );
+    expect(container.read(onboardingCompletionProvider), isFalse);
+  });
+
   test('DTO roundtrip retains purpose, unknown choices and saved progress', () {
     const p = CenterProfile(
       purpose: 'exploring',

@@ -198,7 +198,7 @@ void main() {
       );
       expect(Uri.parse(restoring).path, '/auth-loading');
       users.add(null);
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
       expect(
         await redirect(restoring),
         '/login?starter=team&purpose=preparing',
@@ -210,7 +210,9 @@ void main() {
         '/profile',
         '/explore/play/private',
       ]) {
-        expect(await redirect(path), '/login');
+        final redirected = Uri.parse(await redirect(path));
+        expect(redirected.path, '/login');
+        expect(redirected.queryParameters['from'], path);
       }
       expect(await redirect('/explore'), '/explore');
       expect(
@@ -219,28 +221,31 @@ void main() {
       );
       expect(
         await redirect('/starter-workouts?starter=https://evil.invalid'),
-        '/login',
+        '/login?from=%2Fstarter-workouts%3Fstarter%3Dhttps%3A%2F%2Fevil.invalid',
       );
       users.add(_user.copyWith(needsOnboarding: true));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
       expect(
         await redirect('/login/email?starter=team&purpose=preparing'),
         '/onboarding?starter=team&purpose=preparing',
       );
       expect(await redirect('/explore/play/team'), '/explore/play/team');
-      expect(await redirect('/editor/new'), '/onboarding');
+      expect(
+        Uri.parse(await redirect('/editor/new')).queryParameters['from'],
+        '/editor/new',
+      );
       needsSetup = false;
       container.invalidate(onboardingRequiredProvider);
       await tester.pump(const Duration(milliseconds: 1));
       await container.read(onboardingRequiredProvider.future);
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
       expect(
         await redirect('/login?starter=team'),
         '/starter-workouts?starter=team',
       );
       expect(await redirect('/login?from=https://evil.invalid'), '/');
-      await tester.pump();
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
     },
   );
 
@@ -329,11 +334,11 @@ void main() {
       final subscription = container.listen(first, (_, _) {});
       addTearDown(subscription.close);
       container.read(first.notifier).play();
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
       await tester.ensureVisible(find.text('다음 슬라이드'));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
       await tester.tap(find.text('다음 슬라이드'));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
       expect(container.read(first).playing, isFalse);
       expect(
         tester

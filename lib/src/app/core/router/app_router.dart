@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/exploration_controller.dart';
 import 'package:cloud_board/src/app/feature/support/presentation/views/support_screen.dart';
 import 'package:cloud_board/src/app/core/router/main_tab_page.dart';
 import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
@@ -26,7 +27,8 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 import 'package:cloud_board/src/app/feature/auth/presentation/views/login_screen.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/views/email_login_screen.dart';
 import 'package:cloud_board/src/app/feature/update_news/presentation/views/update_news_screen.dart';
-import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/views/auth_entry_screen.dart';
+import 'package:cloud_board/src/app/core/router/auth_entry_routes.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/views/device_mode_home_screen.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/views/user_profile_screen.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/views/store_operations_screen.dart';
@@ -41,8 +43,17 @@ part 'app_router.g.dart';
 GoRouter appRouter(Ref ref) {
   final authRefresh = ValueNotifier(0);
   final mainNavigationKey = GlobalKey<StatefulNavigationShellState>();
-  ref.listen(authStateProvider, (_, _) => authRefresh.value++);
+  String? entryOwnerId;
+  var entryOwnerChanged = false;
+  ref.listen(authStateProvider, (_, next) {
+    final id = next.value?.id;
+    if (entryOwnerId != null && id != null && id != entryOwnerId) {
+      entryOwnerChanged = true;
+    }
+    authRefresh.value++;
+  });
   ref.listen(onboardingRequiredProvider, (_, _) => authRefresh.value++);
+  ref.listen(explorationControllerProvider, (_, _) => authRefresh.value++);
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
   final imageCreationGuard = ExitGuard();
@@ -58,48 +69,108 @@ GoRouter appRouter(Ref ref) {
       // Support remains reachable when sign-in/onboarding itself fails. The
       // form requires a signed-in account before enabling server submission.
       if (state.uri.path == '/support') return null;
-      final starter = starterFromKey(state.uri.queryParameters['starter']);
-      final purpose = explorationPurpose(state.uri.queryParameters['purpose']);
       final auth = ref.read(authStateProvider);
       final isLoginRoute =
-          state.matchedLocation == '/login' ||
-          state.matchedLocation == '/login/email';
-      final isLoadingRoute = state.matchedLocation == '/auth-loading';
-      if (auth.isLoading) {
-        if (isLoadingRoute) return null;
-        return Uri(
-          path: '/auth-loading',
-          queryParameters: {'from': state.uri.toString()},
-        ).toString();
+          state.uri.path == '/login' || state.uri.path == '/login/email';
+      final isLoadingRoute = state.uri.path == '/auth-loading';
+      final isOnboardingRoute = state.uri.path == '/onboarding';
+      final explicitOnboarding =
+          isOnboardingRoute &&
+          (state.uri.queryParameters['verify'] == 'true' ||
+              state.uri.queryParameters['edit'] == 'true');
+      final isEntryRoute = isLoginRoute || isLoadingRoute || isOnboardingRoute;
+      if (isEntryRoute) entryOwnerId ??= auth.value?.id;
+      if (entryOwnerChanged &&
+          isEntryRoute &&
+          state.uri.queryParameters.containsKey('from')) {
+        // Clear the route itself as well as the automatic return decision: the
+        // onboarding completion button must not inherit another owner's target.
+        final query = {...state.uri.queryParameters}..remove('from');
+        return state.uri.replace(queryParameters: query).toString();
+      }
+      final original = isEntryRoute
+          ? (explicitOnboarding
+                ? state.uri.toString()
+                : entryReturnLocation(state.uri.queryParameters['from']))
+          : state.uri.toString();
+      final originalUri = original == null ? null : Uri.parse(original);
+      final starter = starterFromKey(
+        state.uri.queryParameters['starter'] ??
+            originalUri?.queryParameters['starter'],
+      );
+      final purpose = explorationPurpose(
+        state.uri.queryParameters['purpose'] ??
+            originalUri?.queryParameters['purpose'],
+      );
+      final fallback = starterLocation(
+        starter == null ? '/' : '/starter-workouts',
+        starter,
+        purpose: purpose,
+      );
+      var destination = entryOwnerChanged ? fallback : original ?? fallback;
+      String enter(String path) {
+        entryOwnerId ??= auth.value?.id;
+        if (path == '/onboarding' &&
+            Uri.parse(destination).path == '/onboarding') {
+          return destination;
+        }
+        final location = starterLocation(path, starter, purpose: purpose);
+        return destination == fallback
+            ? location
+            : withEntryReturn(location, destination);
+      }
+
+      if (auth.isLoading || auth.hasError) {
+        return isLoadingRoute ? null : enter('/auth-loading');
       }
       final isLoggedIn = auth.value != null;
-      if (isLoadingRoute) {
-        final destination = Uri.tryParse(
-          state.uri.queryParameters['from'] ?? '/',
-        );
-        if (destination == null ||
-            destination.hasScheme ||
-            destination.hasAuthority ||
-            !destination.path.startsWith('/') ||
-            destination.path == '/auth-loading') {
-          return '/';
-        }
-        return destination.toString();
+      if (!isLoggedIn) {
+        return isLoginRoute ? null : enter('/login');
       }
-      if (!isLoggedIn && !isLoginRoute) {
-        return starterLocation('/login', starter, purpose: purpose);
-      }
-      if (isLoggedIn && auth.value?.needsOnboarding == true) {
+      if (auth.value?.needsOnboarding == true) {
         final onboarding = ref.read(onboardingRequiredProvider);
-        if (onboarding.value != false && state.uri.path != '/onboarding') {
-          return starterLocation('/onboarding', starter, purpose: purpose);
+        // AsyncValue can retain the previous account's ready value/error while
+        // refreshing. Neither is a current server decision.
+        if (onboarding.isLoading || onboarding.hasError) {
+          return isLoadingRoute || isOnboardingRoute
+              ? null
+              : enter('/auth-loading');
+        }
+        if (onboarding.value != false) {
+          return isOnboardingRoute ? null : enter('/onboarding');
         }
       }
-      if (isLoggedIn && isLoginRoute) {
-        return starter == null
-            ? '/'
-            : starterLocation('/starter-workouts', starter, purpose: purpose);
+      if (isOnboardingRoute) {
+        if (explicitOnboarding || ref.read(onboardingCompletionProvider)) {
+          return null;
+        }
       }
+      if (isEntryRoute) {
+        // This local continuation used to be restored by OnboardingScreen.
+        // Explicit URLs take priority, and stale account data is never resumed.
+        if (!entryOwnerChanged && original == null && starter == null) {
+          final exploration = ref.read(explorationControllerProvider);
+          if (exploration.isLoading) {
+            return isLoadingRoute ? null : enter('/auth-loading');
+          }
+          final progress = exploration.hasError ? null : exploration.value;
+          final saved = progress?.pendingImport == true
+              ? starterFromKey(progress?.templateKey)
+              : null;
+          if (saved != null) {
+            destination = starterLocation(
+              '/starter-workouts',
+              saved,
+              purpose: purpose ?? progress?.purpose,
+            );
+          }
+        }
+        entryOwnerId = null;
+        entryOwnerChanged = false;
+        return destination;
+      }
+      entryOwnerId = null;
+      entryOwnerChanged = false;
       return null;
     },
     routes: [
@@ -130,12 +201,13 @@ GoRouter appRouter(Ref ref) {
       ),
       GoRoute(
         path: '/auth-loading',
-        builder: (_, _) => const AppStartupScreen(),
+        builder: (_, _) => const AuthEntryScreen(),
       ),
       GoRoute(
         path: '/onboarding',
         onExit: (_, _) => onboardingGuard.confirm(),
         builder: (_, state) => OnboardingScreen(
+          returnTo: entryReturnLocation(state.uri.queryParameters['from']),
           editing: state.uri.queryParameters['edit'] == 'true',
           verifyPhone: state.uri.queryParameters['verify'] == 'true',
           guard: onboardingGuard,
@@ -147,6 +219,7 @@ GoRouter appRouter(Ref ref) {
         path: '/login',
         builder: (_, state) => WebPageFrame(
           child: LoginScreen(
+            returnTo: entryReturnLocation(state.uri.queryParameters['from']),
             starter: starterFromKey(state.uri.queryParameters['starter']),
             purpose: explorationPurpose(state.uri.queryParameters['purpose']),
           ),
@@ -156,6 +229,9 @@ GoRouter appRouter(Ref ref) {
             path: 'email',
             builder: (_, state) => WebPageFrame(
               child: EmailLoginScreen(
+                returnTo: entryReturnLocation(
+                  state.uri.queryParameters['from'],
+                ),
                 starter: starterFromKey(state.uri.queryParameters['starter']),
                 purpose: explorationPurpose(
                   state.uri.queryParameters['purpose'],
