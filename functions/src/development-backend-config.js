@@ -15,6 +15,8 @@ export const developmentFunctionNames = Object.freeze([
   'verifyDisplayConnection', 'requestDisplayRecovery', 'reportDisplayRecovery',
   'pairDisplayConnection', 'unpairDisplayConnection',
   'auditDisplayDeviceBinding', 'auditDisplayAccessBinding',
+  'cloudboardPrepareSupportAttachment', 'cloudboardSubmitSupportTicket',
+  'notifySupportTicket', 'retrySupportTicketNotifications', 'cleanupSupportTicketUploads',
 ]);
 
 export function onboardingSecretBindings(projectId) {

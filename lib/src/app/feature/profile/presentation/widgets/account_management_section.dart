@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/widgets/app_version_tile.dart';
@@ -188,6 +189,14 @@ class AccountManagementSection extends HookConsumerWidget {
                         ),
                   enabled: !opening.value && !deleting,
                   onTap: requestDeletion,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.help_outline_rounded),
+                  title: const Text('문의하기'),
+                  subtitle: const Text('문제 상황과 스크린샷 보내기'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/support'),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,

@@ -1,3 +1,4 @@
+import {prepareSupportAttachment, submitSupportTicket, deliverSupportNotification, retrySupportNotifications, cleanupSupportUploads, deleteSupportData, supportSecretBindings, sendResendEmail} from './support-tickets.js';
 import {firebaseProject} from './firebase-environment.js';
 import {developmentProject, developmentOnboardingSecret, onboardingSecretBindings} from './development-backend-config.js';
 import {assertDevelopmentSmsTester, sendDevelopmentOnboardingSms} from './development-onboarding.js';
@@ -60,6 +61,7 @@ const services={
     await deleteBillingData(db,uid);
     const {deleteOnboardingData}=await import('./onboarding.js');
     await deleteOnboardingData(db,uid);
+    await deleteSupportData(db, uid);
     await db.recursiveDelete(db.doc(`users/${uid}`));
     await db.doc(`clientDiagnosticLimits/${uid}`).delete();
     await db.doc(`operationTelemetryLimits/${uid}`).delete();
@@ -77,6 +79,8 @@ const services={
       realtime.ref('pairingCodes').orderByChild('ownerId').equalTo(uid).get(),
     ]);
     if(files[0].length||user.exists||live.exists()||access.exists()||codes.exists()) throw new Error('cleanup-incomplete');
+    if (!(await db.collection('supportNotificationOutbox').where('ownerId', '==', uid).limit(1).get()).empty ||
+        (await db.doc(`supportRateLimits/${uid}`).get()).exists) throw new Error('cleanup-incomplete');
     const collections=await db.doc(`users/${uid}`).listCollections();
     for(const collection of collections) if(!(await collection.limit(1).get()).empty) throw new Error('cleanup-incomplete');
   },
@@ -482,3 +486,27 @@ export const auditDisplayAccessBinding = onValueWritten({region: 'asia-southeast
   const {auditDisplayBindingChange} = await import('./display-recovery.js');
   await auditDisplayBindingChange(realtime, event, 'access');
 });
+
+// Support persistence does not depend on email setup or provider availability.
+export const cloudboardPrepareSupportAttachment = onCall({region, maxInstances: 5}, request =>
+  prepareSupportAttachment({db, auth: request.auth, payload: request.data}));
+export const cloudboardSubmitSupportTicket = onCall({region, timeoutSeconds: 60, memory: '256MiB', maxInstances: 5}, request =>
+  submitSupportTicket({db, realtime, bucket, auth: request.auth, payload: request.data}));
+const supportSecrets = supportSecretBindings();
+async function supportDeliveryOptions() {
+  const config = (await db.doc('supportConfig/email').get()).data();
+  // Both deployment intent and private runtime config are required. Development
+  // defaults to no delivery; merely deploying the module never sends mail.
+  const ready = process.env.SUPPORT_EMAIL_DELIVERY_ENABLED === 'true' &&
+    supportSecrets.length > 0 && !!process.env.SUPPORT_EMAIL_API_KEY;
+  return {db, config, projectId, send: ready ? (envelope, key) =>
+    sendResendEmail(envelope, key, {apiKey: process.env.SUPPORT_EMAIL_API_KEY}) : null};
+}
+export const notifySupportTicket = onDocumentCreated({region, document: 'supportNotificationOutbox/{id}',
+  secrets: supportSecrets, retry: true, timeoutSeconds: 120, maxInstances: 5}, async event =>
+  deliverSupportNotification({...await supportDeliveryOptions(), id: event.params.id}));
+export const retrySupportTicketNotifications = onSchedule({region, schedule: 'every 5 minutes',
+  secrets: supportSecrets, timeoutSeconds: 540, maxInstances: 1}, async () =>
+  retrySupportNotifications(await supportDeliveryOptions()));
+export const cleanupSupportTicketUploads = onSchedule({region, schedule: 'every 24 hours',
+  timeoutSeconds: 540, maxInstances: 1}, () => cleanupSupportUploads({db, bucket}));
