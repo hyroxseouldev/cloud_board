@@ -1,0 +1,195 @@
+{
+  "format": 1,
+  "sourceCommit": "020371ce14f5f3ec3be87ee4b7947f58e488481f",
+  "verifiedAt": "2026-10-14T08:32:04.691157+00:00",
+  "firebase": {
+    "checkedAt": "2026-10-14T08:13:54.244Z",
+    "sha": "020371ce14f5f3ec3be87ee4b7947f58e488481f",
+    "runId": "38530731453",
+    "attempt": "1",
+    "scope": "full",
+    "completedAt": "2026-10-14T08:12:01.759Z",
+    "manifestHash": "bb1c4f4012f970fa5ac020b5a70cb65e79802b09671ed3d4875528e9ae048459",
+    "smoke": {
+      "format": 1,
+      "runId": "38530731453-1",
+      "status": "success",
+      "phase": "isolation",
+      "cleanup": "success",
+      "checks": [
+        "workout",
+        "storage",
+        "tv",
+        "isolation"
+      ],
+      "startedAt": "2026-10-14T08:11:27.218Z",
+      "finishedAt": "2026-10-14T08:11:53.649Z"
+    },
+    "rules": {
+      "format": 1,
+      "status": "success",
+      "checkedAt": "2026-10-14T08:12:01.298Z",
+      "services": {
+        "firestore": {
+          "sourceHash": "011cf28252675a9858a99858d26fae7fd9daf335aa778bd0b77cfd1d4aa2d511",
+          "version": "projects/cloud-board-stationd/rulesets/34adc4c1-2800-41f6-b1c1-93bc9fd88eb5",
+          "updateTime": "2026-10-14T08:11:25.511579Z"
+        },
+        "storage": {
+          "sourceHash": "e4f1c5a64cc559d5ff39054322153a3e6ba7bd851e4ea24fd043901e7017455a",
+          "version": "projects/cloud-board-stationd/rulesets/75d48629-38bb-4845-b346-040c7045c008",
+          "updateTime": "2026-10-14T08:11:25.247891Z"
+        },
+        "database": {
+          "sourceHash": "73f3ccad6a46ec327fcf9d14c3c9cb51627dd55b69dfc537f801cb145c45a194",
+          "semanticHash": "a72f7032d1eb69428248b8707e22ceedc0c5206da68e79d16f2bcdc9b20cc6b9",
+          "version": "a72f7032d1eb69428248b8707e22ceedc0c5206da68e79d16f2bcdc9b20cc6b9"
+        }
+      }
+    },
+    "liveWeb": {
+      "url": "https://cloud-board-stationd.web.app/version.json",
+      "version": "1.1.1",
+      "build": "178.1",
+      "sha256": "784eb3d9bae34ae7ded20c6b57710f53c7e245941c45eb8a13265790e348ba0b"
+    }
+  },
+  "nativeUploads": {
+    "ios": {
+      "platform": "ios",
+      "package": "com.sunmkim.cloudboard",
+      "firebaseProject": "cloud-board-stationd",
+      "version": "1.1.1",
+      "build": "555",
+      "dartArchitectures": [
+        "cpu-16777228-0"
+      ],
+      "artifactSha256": "7a086a0bbd149711cafed01ed290ddbddc62c017a95006f91ed5cf8f00f40a46",
+      "artifact": "cloud_board.ipa",
+      "productionBindingVerified": true,
+      "sourceCommit": "020371ce14f5f3ec3be87ee4b7947f58e488481f",
+      "workflowRunId": "38530731452",
+      "artifactId": "11879492919",
+      "uploadCompletedAt": "2026-10-14T08:24:59Z",
+      "channel": "testflight",
+      "storeProcessingVerified": false
+    },
+    "android": {
+      "platform": "android-tv",
+      "package": "com.sunmkim.cloudboard",
+      "firebaseProject": "cloud-board-stationd",
+      "version": "1.1.1",
+      "build": "69",
+      "minSdk": 24,
+      "targetSdk": 36,
+      "dartArchitectures": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86_64"
+      ],
+      "uploadCertificateSha256": "25:DB:96:FB:58:18:5A:A1:52:87:4B:18:76:02:FE:0C:D6:4C:D5:F7:BA:DB:36:E0:BB:6C:A3:03:42:95:EE:71",
+      "artifactSha256": "372179beea1ef67507344f9c071f4f5d8c7f661c776749d8b42a00a4a4a458f4",
+      "artifact": "app-production-release.aab",
+      "productionBindingVerified": true,
+      "sourceCommit": "020371ce14f5f3ec3be87ee4b7947f58e488481f",
+      "workflowRunId": "38530731410",
+      "artifactId": "11879393832",
+      "metadataArtifactId": "11879339134",
+      "uploadCompletedAt": "2026-10-14T08:28:17Z",
+      "channel": "internal",
+      "sharedTvBundle": true,
+      "storePublicAvailabilityVerified": false
+    }
+  },
+  "companion": {
+    "smoke": {
+      "checkedAt": "2026-10-14T08:16:26.523Z",
+      "sourceCommit": "4fa45fcf916696909969d35050c722401295e91b",
+      "results": [
+        {
+          "path": "/api/config",
+          "status": 200,
+          "audienceBranding": {
+            "version": "audience-logo-v1",
+            "scope": "standby"
+          },
+          "planSalesReady": false,
+          "billingMode": "test"
+        },
+        {
+          "path": "/api/auth/get-session",
+          "status": 200,
+          "loggedOut": true
+        },
+        {
+          "path": "/api/me",
+          "status": 401
+        }
+      ]
+    },
+    "functions": {
+      "checkedAt": "2026-10-14T08:19:23.646Z",
+      "sourceCommit": "14c436c6072fe6348e352dabfb0ea1e47dd62de6",
+      "functions": [
+        {
+          "name": "cloudboardAuth",
+          "state": "ACTIVE",
+          "updateTime": "2026-10-14T08:14:02.542169122Z"
+        },
+        {
+          "name": "cloudboardPairDisplay",
+          "state": "ACTIVE",
+          "updateTime": "2026-10-14T08:14:29.178548474Z"
+        },
+        {
+          "name": "cloudboardSetDisplayState",
+          "state": "ACTIVE",
+          "updateTime": "2026-10-14T08:14:30.152801012Z"
+        },
+        {
+          "name": "cloudboardLinkAccount",
+          "state": "ACTIVE",
+          "updateTime": "2026-10-14T08:14:27.197425639Z"
+        }
+      ],
+      "cliExit": 1,
+      "cliPostDeployNote": "All selected functions deployed successfully; no asia-southeast1 artifact cleanup policy configured. Existing retention policy was preserved."
+    }
+  },
+  "artifacts": {
+    "contracts": {
+      "id": "11878012922",
+      "workflowRunId": "38530731453"
+    },
+    "releaseReceipt": {
+      "id": "11879040822",
+      "workflowRunId": "38530731453"
+    }
+  },
+  "runtimePolicyChanges": [],
+  "publicStoreSubmissionPerformed": false,
+  "installedWorkflowInventory": [
+    {
+      "platforms": [
+        "ios"
+      ],
+      "runId": "38530731452",
+      "sha": "020371ce14f5f3ec3be87ee4b7947f58e488481f"
+    },
+    {
+      "platforms": [
+        "android",
+        "tv"
+      ],
+      "runId": "38530731410",
+      "sha": "020371ce14f5f3ec3be87ee4b7947f58e488481f"
+    },
+    {
+      "platforms": [
+        "web"
+      ],
+      "runId": "38530731453",
+      "sha": "020371ce14f5f3ec3be87ee4b7947f58e488481f"
+    }
+  ]
+}
