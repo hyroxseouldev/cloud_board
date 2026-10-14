@@ -14,6 +14,10 @@ export const requiredSuites = [
   'test/display_mode_flow_test.dart',
   'test/workout_preflight_dialog_test.dart',
   'test/playback_ack_test.dart',
+  'test/playback_recovery_test.dart',
+  'test/playback_recovery_view_test.dart',
+  'test/playback_split_protocol_test.dart',
+  'test/playback_partial_disconnect_test.dart',
 ];
 
 // A green command with no tests, ignored failures or skipped cases is not proof.

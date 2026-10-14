@@ -499,10 +499,12 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
         previous,
         next,
       ) {
-        if (received.isCompleted) return;
+        // Invalidation retains the previous error/value while a fresh stream
+        // loads. It must not decide this handshake before the new result.
+        if (received.isCompleted || next.isLoading) return;
         if (next.hasError) {
           received.completeError(next.error!, next.stackTrace);
-        } else if (!next.isLoading) {
+        } else {
           received.complete();
         }
       }, fireImmediately: true);

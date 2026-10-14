@@ -36,7 +36,11 @@ class PlaybackRealtimeDataSource {
   final _refreshes = StreamController<PlaybackSessionModel?>.broadcast();
   bool _recovering = false;
   int _generation = 0;
+  // A verified null is a server-confirmed deletion, not an unknown value.
+  bool _hasVerified = false;
   PlaybackSessionModel? _verified;
+  PlaybackSessionModel? _accepted;
+  int _acceptedVersion = 0;
   String? _removedSessionId;
   bool _disposed = false;
 
@@ -53,7 +57,6 @@ class PlaybackRealtimeDataSource {
     if (_disposed) throw StateError('계정 연결이 변경되었습니다.');
     final read = serverRead;
     if (read == null) throw StateError('서버 상태 확인을 사용할 수 없습니다.');
-    final previousId = _lastWireState?['id'] as String?;
     _recovering = true;
     final generation = ++_generation;
     final elapsed = Stopwatch()..start();
@@ -73,30 +76,50 @@ class PlaybackRealtimeDataSource {
       debugPrint(
         'Playback recovery: transport connected in ${elapsed.elapsedMilliseconds}ms',
       );
-      final value = await read('users/${_requireOwnerId()}/activeSession');
-      if (value is Map &&
-          value['schemaVersion'] == 2 &&
-          !_snapshots.containsKey(value['snapshotId'])) {
-        final id = value['id'];
-        if (id is! String || value['snapshotId'] != id) {
-          throw const FormatException('수업 자료 버전이 일치하지 않습니다.');
-        }
-        _rememberSnapshot(
-          id,
-          _stringMap(
-            await read('users/${_requireOwnerId()}/playbackSnapshots/$id'),
-          ),
-        );
-      }
-      final model = value == null ? null : _decode(value);
+      final model = await _readServerSession(read);
       if (generation != _generation) throw StateError('수업 상태 확인이 취소되었습니다.');
-      _verified = model;
-      _removedSessionId = model == null ? previousId : null;
+      _hasVerified = true;
+      _acceptActive(model);
       _refreshes.add(model);
       return model;
     } finally {
       if (generation == _generation) _recovering = false;
     }
+  }
+
+  Future<PlaybackSessionModel?> _readServerSession(
+    Future<Object?> Function(String path) read,
+  ) async {
+    final value = await read('users/${_requireOwnerId()}/activeSession');
+    if (value is Map &&
+        value['schemaVersion'] == 2 &&
+        !_snapshots.containsKey(value['snapshotId'])) {
+      final id = value['id'];
+      if (id is! String || value['snapshotId'] != id) {
+        throw const FormatException('수업 자료 버전이 일치하지 않습니다.');
+      }
+      _rememberSnapshot(
+        id,
+        _stringMap(
+          await read('users/${_requireOwnerId()}/playbackSnapshots/$id'),
+        ),
+      );
+    }
+    return value == null ? null : _decode(value);
+  }
+
+  void _acceptActive(PlaybackSessionModel? model) {
+    // Repeated SDK receipts of the same revision are not a newer state. In
+    // particular they must not supersede an in-flight deletion confirmation.
+    if ((_accepted?.id, _accepted?.revision, _accepted?.anchorServerMs) !=
+        (model?.id, model?.revision, model?.anchorServerMs)) {
+      ++_acceptedVersion;
+    }
+    _removedSessionId = model == null
+        ? _accepted?.id ?? _removedSessionId
+        : null;
+    _accepted = model;
+    if (_hasVerified) _verified = model;
   }
 
   final FirebaseDatabase _database;
@@ -166,13 +189,47 @@ class PlaybackRealtimeDataSource {
   Stream<PlaybackSessionModel?> watchActive() {
     if (_ownerId == null) return Stream.value(null);
     return Stream.multi((sink) {
+      if (_disposed) {
+        sink.close();
+        return;
+      }
+      // Recovery invalidates the Riverpod subscription. Broadcast refreshes do
+      // not replay, and repository cache is deliberately suppressed after a
+      // remote receipt. Seed verified state from the first SDK event, after any
+      // null/non-null contradiction is confirmed, so recovery cannot report
+      // success before a failed confirmation has reached the controller.
+      var first = true;
       final remote = _active.onValue
           .asyncMap((event) async {
+            final initial = first;
+            first = false;
             final generation = _generation;
+            final acceptedVersion = _acceptedVersion;
             final value = event.snapshot.value;
-            if (_recovering) return (deliver: false, model: null);
+            if (_recovering || _disposed) return (deliver: false, model: null);
             if (value != null) await _ensureSnapshot(value);
-            final model = value == null ? null : _decode(value);
+            var model = value == null ? null : _decode(value);
+            // The first SDK event may be cached. A null/non-null contradiction
+            // cannot distinguish a real deletion/new class from an old cache.
+            // Confirm only that ambiguous case, without restarting transport or
+            // sending a control. Known removed IDs are already safe to ignore.
+            if (initial &&
+                _hasVerified &&
+                (model == null) != (_verified == null) &&
+                (model == null || model.id != _removedSessionId)) {
+              try {
+                model = await _readServerSession(serverRead!);
+              } catch (_) {
+                if (_disposed || generation != _generation || _recovering) {
+                  return (deliver: false, model: null);
+                }
+                if (acceptedVersion == _acceptedVersion) rethrow;
+              }
+              // Another subscription may have accepted a newer SDK state while
+              // this confirmation was pending. Deliver that state to this sink
+              // too; never replace it with a delayed read or error.
+              if (acceptedVersion != _acceptedVersion) model = _verified;
+            }
             final verified = _verified;
             final stale =
                 model != null &&
@@ -180,18 +237,23 @@ class PlaybackRealtimeDataSource {
                 (model.id == verified.id
                     ? model.revision < verified.revision
                     : model.anchorServerMs < verified.anchorServerMs);
+            final rejected =
+                stale || (model != null && model.id == _removedSessionId);
             return (
               deliver:
+                  !_disposed &&
                   !_recovering &&
                   generation == _generation &&
-                  !stale &&
-                  (model == null || model.id != _removedSessionId),
-              model: model,
+                  (!rejected || (initial && _hasVerified)),
+              model: rejected ? _verified : model,
             );
           })
           .listen(
             (event) {
-              if (event.deliver) sink.add(event.model);
+              if (event.deliver) {
+                _acceptActive(event.model);
+                sink.add(event.model);
+              }
             },
             onError: sink.addError,
             onDone: sink.close,

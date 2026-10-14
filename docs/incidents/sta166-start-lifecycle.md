@@ -26,7 +26,7 @@
 - `schedule_runner_initialization_test.dart`: 실제 generated actions의 지연 예약 시작과 최초 조회 중 계정 변경, 준비 검증 및 예약 선점 조건 유지.
 - 기존 display-preparation/ACK 및 Firebase 계약: 응답 검증·출시 클라이언트·TV 권한. STA-170의 연결 식별자 복구 계약은 함께 실행한다.
 
-`class-start-regressions.yml`은 VM 및 Chrome에서 명시한 필수 파일을 실행하고, 실제 machine 이벤트에 성공 완료·실행된 테스트가 있는지 확인한다. fail/error/skip/missing/0건은 모두 실패다. web `firebase-required`, 개발 Firebase 배포, Android 업로드, iOS 업로드가 이 job 성공을 필요로 한다. 최종 10개 필수 파일과 전체 앱 테스트의 결과는 통합 PR의 검증 항목과 Checks에서 관리한다. 각 CI run/attempt의 `class-start-*` artifact에 후보 SHA, 플랫폼, suite, 실행 수와 원본 결과를 보관한다. Firebase 계약 게이트와 기존 exact-SHA backend 검증도 유지한다.
+`class-start-regressions.yml`은 VM 및 Chrome에서 명시한 필수 파일을 실행하고, 실제 machine 이벤트에 성공 완료·실행된 테스트가 있는지 확인한다. fail/error/skip/missing/0건은 모두 실패다. web `firebase-required`, 개발 Firebase 배포, Android 업로드, iOS 업로드가 이 job 성공을 필요로 한다. TV 일부 미응답과 컨트롤러 재연결까지 포함한 필수 파일 및 전체 앱 테스트의 결과는 통합 PR의 검증 항목과 Checks에서 관리한다. 각 CI run/attempt의 `class-start-*` artifact에 후보 SHA, 플랫폼, suite, 실행 수와 원본 결과를 보관한다. Firebase 계약 게이트와 기존 exact-SHA backend 검증도 유지한다.
 
 ## 실기기 검수와 운영 승인
 

@@ -208,7 +208,7 @@ final class PlaybackRecoveryControllerProvider
 }
 
 String _$playbackRecoveryControllerHash() =>
-    r'0af01ab0d20993e70dd2db2f62bfdeaf87cd8a4b';
+    r'3a535486e948b02301bde9355dc905d25a6cebe7';
 
 /// Blocks controller commands until a foreground server handshake completes.
 
