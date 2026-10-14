@@ -149,7 +149,7 @@ final class PlaybackActionControllerProvider
 }
 
 String _$playbackActionControllerHash() =>
-    r'16afe8c2d7743c3d9289d88f4c42209da77f38a4';
+    r'5499f414879c7b9146112684a448ec6571efa2c5';
 
 abstract class _$PlaybackActionController
     extends $Notifier<AsyncValue<String?>> {

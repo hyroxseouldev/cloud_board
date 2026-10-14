@@ -254,7 +254,7 @@ void main() {
             1,
           ),
         );
-        expect(find.byTooltip('미리 재생'), findsOneWidget);
+        expect(find.byTooltip('이 기기에서 연습'), findsOneWidget);
         expect(find.text('시험 재생'), findsNothing);
         expect(find.text('슬라이드 설정'), findsNothing);
         expect(

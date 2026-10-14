@@ -15,7 +15,10 @@ records the immutable GCS ZIP object generations and SHA-256 digests retrieved
 from all four live functions on 2026-10-14. Each archive's 23 supporting runtime
 modules exactly matches the TypeScript build here. The four exported handler
 ASTs also match; only inactive exports/imports and the local dev launcher were
-removed. Existing SQL schema and historical account/payment logic are preserved.
+removed. This describes the original STA-172 baseline. The reviewed
+[STA-176 pairing bridge](sta176-legacy-pairing-bridge.md) changes only the pairing
+handler and service, with separate compiled hashes; the historical baseline
+is preserved. Existing SQL schema and historical account/payment logic are preserved.
 
 [Read-only inventory](release/sta172/read-only-inventory-2026-10-14.json) was
 refreshed at approximately 23:05 KST:
@@ -84,7 +87,15 @@ Complete a local release evidence JSON (keep `checks` pending until performed):
   "appVersions": { "released": "version/build/platform", "candidate": "version/build/platform" },
   "tvVersion": "version/build and three device identifiers",
   "infrastructureReview": "pending",
+  "pairingBackend": {
+    "project": "cloud-board-stationd",
+    "region": "asia-northeast3",
+    "function": "pairDisplayConnection",
+    "sourceSha": "40-character deployed canonical-backend commit",
+    "smoke": "pending"
+  },
   "checks": {
+    "legacyPairingBridge": "pending",
     "googleAppleLogin": "pending",
     "phoneFreeActivation": "pending",
     "legacyAccountEntitlement": "pending",
@@ -165,7 +176,8 @@ deploy only the same four exports using the same config and bindings. Never
 restore the old index wholesale (it contains inactive schedules/triggers), revert
 data or roll back Firebase rules as part of this server-source migration.
 
-Local tests validate callable guards, pairing retries/slot preservation, display
+Local tests validate callable guards and the authenticated pairing bridge (the
+canonical backend owns pairing retries/slot preservation), display
 activation transactions, in-memory SQL account links, historical pricing/periods,
 HTTP business logic and deployment drift blockers. Five inherited Neon integration
 suites are skipped; no native Google/Apple flow or physical three-TV test is claimed.

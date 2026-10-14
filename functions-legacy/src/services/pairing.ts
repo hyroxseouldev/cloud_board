@@ -1,99 +1,91 @@
-import type { Database } from 'firebase-admin/database';
-import { HttpsError } from 'firebase-functions/v2/https';
+import { randomUUID } from 'node:crypto';
+import { HttpsError, type FunctionsErrorCode } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { modernPlan } from './plan-entitlements.js';
-export async function pairDisplay(database: Database, uid: string, input: unknown) {
-  const parsed = z
-    .object({
-      code: z.string().regex(/^\d{6}$/),
-      name: z.string().trim().max(60).default(''),
-      zoneName: z.string().trim().max(60).default(''),
-    })
-    .safeParse(input);
+
+const project = 'cloud-board-stationd';
+const endpoint = `https://asia-northeast3-${project}.cloudfunctions.net/pairDisplayConnection`;
+const unavailable = () => new HttpsError('unavailable', '기기 연결을 잠시 후 다시 시도해 주세요.');
+const errors: Record<string, readonly [FunctionsErrorCode, string]> = {
+  INVALID_ARGUMENT: ['invalid-argument', '연결 코드와 기기 이름을 확인해 주세요.'],
+  UNAUTHENTICATED: ['unauthenticated', '다시 로그인해 주세요.'],
+  PERMISSION_DENIED: ['permission-denied', '기기를 연결할 수 있는 계정인지 확인해 주세요.'],
+  FAILED_PRECONDITION: ['failed-precondition', '구독 상태와 TV의 새 연결 코드를 확인해 주세요.'],
+  RESOURCE_EXHAUSTED: ['resource-exhausted', '등록 가능한 디스플레이 수를 확인해 주세요.'],
+  ALREADY_EXISTS: ['already-exists', '이미 연결된 기기인지 확인해 주세요.'],
+  NOT_FOUND: ['not-found', 'TV의 새 연결 코드를 확인해 주세요.'],
+  ABORTED: ['aborted', '연결 상태가 변경되었습니다. 다시 시도해 주세요.'],
+};
+
+async function responseBody(response: Response): Promise<unknown> {
+  // Never retain or log an arbitrary upstream error page. The real callable
+  // response is tiny; cap streamed bytes as well as any declared content length.
+  const limit = 16 * 1024;
+  if (Number(response.headers.get('content-length')) > limit || !response.body)
+    throw unavailable();
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0, body = '';
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      size += chunk.value.byteLength;
+      if (size > limit) {
+        await reader.cancel();
+        throw unavailable();
+      }
+      body += decoder.decode(chunk.value, { stream: true });
+    }
+    return JSON.parse(body + decoder.decode());
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// Only call after the legacy callable has verified this original Firebase ID
+// token with checkRevoked=true. The canonical callable independently checks it.
+// This module deliberately has no Admin database writes or legacy fallback.
+export async function pairDisplay(
+  bearer: string,
+  input: unknown,
+  transport: typeof fetch = fetch,
+) {
+  const parsed = z.object({
+    code: z.string().regex(/^\d{6}$/),
+    name: z.string().trim().max(60).default(''),
+    zoneName: z.string().trim().max(60).default(''),
+  }).safeParse(input);
   if (!parsed.success)
     throw new HttpsError('invalid-argument', '연결 코드와 기기 이름을 확인해 주세요.');
-  const { code, name, zoneName } = parsed.data;
-  if ((await database.ref(`accountDeletions/${uid}`).get()).exists())
-    throw new HttpsError('permission-denied', '삭제 처리 중인 계정입니다.');
-  const access = (await database.ref(`subscriptionAccess/${uid}`).get()).val();
-  if (!access?.managed)
-    throw new HttpsError('failed-precondition', '구독 연결 상태를 확인해 주세요.');
-  if (access.status !== 'pending_connection' && !(access.validUntilMs > Date.now()))
-    throw new HttpsError(
-      'failed-precondition',
-      '디스플레이를 새로 등록하려면 구독을 확인해 주세요.',
-    );
-  const plan = modernPlan(access);
-  const limit = plan ? null : Math.min(3, Number(access.displayLimit) || 0);
-  if (limit !== null && limit < 1)
-    throw new HttpsError('permission-denied', '등록 가능한 디스플레이가 없습니다.');
-  const pairingRef = database.ref(`pairingCodes/${code}`);
-  const claimed = await pairingRef.transaction((current) => {
-    // Cold RTDB transaction caches initially contain null. Return null once so
-    // the server can compare and retry with its actual pairing code contents.
-    if (current === null) return null;
-    if (typeof current.deviceId !== 'string' || typeof current.displayUid !== 'string') return;
-    if (current.claimed && current.ownerId !== uid) return;
-    if (!current.claimed && current.expiresAtMs <= Date.now()) return;
-    return {
-      ...current,
-      claimed: true,
-      ownerId: uid,
-      claimedAtMs: current.claimedAtMs || Date.now(),
-    };
-  });
-  if (!claimed.committed || !claimed.snapshot.exists())
-    throw new HttpsError(
-      'failed-precondition',
-      '만료되었거나 사용 중인 연결 코드입니다. 새 코드를 확인해 주세요.',
-    );
-  const pairing = claimed.snapshot.val(),
-    deviceId = pairing.deviceId,
-    displayUid = pairing.displayUid;
-  if (/[.#$\[\]/]/.test(deviceId) || /[.#$\[\]/]/.test(displayUid))
-    throw new HttpsError('invalid-argument', '기기 식별자를 확인해 주세요.');
-  const devices = database.ref(`users/${uid}/devices`),
-    now = Date.now();
-  // All managed-device creation is server-only. One transaction serializes
-  // concurrent registrations, including attempts from different controllers.
-  const reserved = await devices.transaction((current) => {
-    const values = current || {};
-    if (values[deviceId]) return values[deviceId].displayUid === displayUid ? values : undefined;
-    if (limit !== null && Object.keys(values).length >= limit) return;
-    return {
-      ...values,
-      [deviceId]: {
-        id: deviceId,
-        displayUid,
-        mode: 'display',
-        name: name || '매장 디스플레이',
-        zoneId: 'main',
-        zoneName: zoneName || '메인 구역',
-        paired: true,
-        pairedAtMs: now,
-        pairingCode: code,
-        online: true,
-        onlineSinceMs: now,
-        lastSeenAtMs: now,
-        displayState:
-          (plan === 'plus' || plan === 'free') &&
-          Object.values(values).filter(
-            (d: any) => d.paired === true && (d.displayState ?? 'auto') === 'auto',
-          ).length >= access.maxActiveDisplays
-            ? 'black'
-            : 'auto',
-      },
-    };
-  });
-  if (!reserved.committed)
-    throw new HttpsError(
-      'resource-exhausted',
-      '등록 디스플레이는 최대 3대입니다. 기존 연결을 해제한 뒤 다시 시도해 주세요.',
-    );
-  // A failed network response can be retried with the same code and device;
-  // the reservation is kept so an uncertain result cannot oversubscribe slots.
-  await database
-    .ref(`displayAccess/${displayUid}`)
-    .update({ ownerId: uid, deviceId, pairingCode: code, pairedAtMs: now });
-  return { paired: true, deviceId };
+  // The runtime project and destination must agree; never send an emulator or
+  // another project's bearer to production, nor accept a caller-provided URL.
+  if (process.env.GCLOUD_PROJECT !== project) throw unavailable();
+  if (!bearer) throw new HttpsError('unauthenticated', '다시 로그인해 주세요.');
+  let response: Response, body: any;
+  try {
+    response = await transport(endpoint, {
+      method: 'POST',
+      redirect: 'error',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bearer}` },
+      body: JSON.stringify({ data: { ...parsed.data, operationId: `legacy-${randomUUID()}` } }),
+      // Leave time to return a sanitized error within the legacy 30s timeout.
+      // Native fetch applies this deadline to both headers and response body.
+      signal: AbortSignal.timeout(20_000),
+    });
+    body = await responseBody(response);
+  } catch {
+    throw unavailable();
+  }
+  if (body && typeof body === 'object' && 'error' in body) {
+    const status = body.error?.status;
+    const mapped = typeof status === 'string' && Object.hasOwn(errors, status) ? errors[status] : undefined;
+    // Never forward upstream messages/details (which may contain identifiers).
+    if (mapped) throw new HttpsError(...mapped);
+    throw unavailable();
+  }
+  if (!response.ok || body?.result?.paired !== true ||
+      typeof body.result.deviceId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(body.result.deviceId))
+    throw unavailable();
+  // Keep the installed app's exact response shape, even if the new API expands.
+  return { paired: true, deviceId: body.result.deviceId as string };
 }
