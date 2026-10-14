@@ -33,6 +33,17 @@ test('anonymous diagnostics require a paired display',async()=>{
  if(paired) assert.equal((await task).accepted,true);else await assert.rejects(task,{code:'permission-denied'});
  }
 });
+test('preparation diagnostics retain stage and Firebase code without allowing pairing details', () => {
+ const clean = validateDiagnostic({...event(), context: {
+  action:'tv.prepare.response', preparationStage:'response', operationId:'a'.repeat(32),
+  firebaseCode:'permission-denied', firebasePlugin:'firebase_database',
+  displayUid:'private-display', pairingCode:'123456',
+ }}, now);
+ assert.deepEqual(clean.context, {
+  action:'tv.prepare.response', preparationStage:'response', operationId:'a'.repeat(32),
+  firebaseCode:'permission-denied', firebasePlugin:'firebase_database',
+ });
+});
 test('real Functions logger preserves the exact marker used by the save alert', () => {
  const script = `
    import * as logger from 'firebase-functions/logger';

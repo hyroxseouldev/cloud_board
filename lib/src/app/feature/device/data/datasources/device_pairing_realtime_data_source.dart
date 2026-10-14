@@ -54,6 +54,7 @@ class DevicePairingRealtimeDataSource {
         ownerId: pairedOwnerId,
         deviceId: pairedDeviceId,
         pairingCode: (access['pairingCode'] as String?) ?? '000000',
+        displayUid: user.uid,
       );
       return DevicePairing(
         code: (access['pairingCode'] as String?) ?? '000000',
@@ -406,6 +407,7 @@ class DevicePairingRealtimeDataSource {
     required String ownerId,
     required String deviceId,
     required String pairingCode,
+    required String displayUid,
   }) async {
     final deviceRef = _database.ref('users/$ownerId/devices/$deviceId');
     final previousDevice = await deviceRef.get();
@@ -414,6 +416,26 @@ class DevicePairingRealtimeDataSource {
         : const <String, dynamic>{};
     if (!isRegisteredDisplay(previousData)) {
       throw StateError('디스플레이 연결이 해제되었습니다. 새 연결 코드를 확인해 주세요.');
+    }
+    if (previousData['id'] != deviceId ||
+        previousData['pairingCode'] != pairingCode ||
+        (previousData['displayUid'] != null &&
+            previousData['displayUid'] != displayUid)) {
+      throw StateError('디스플레이 연결 정보가 변경되었습니다. 새 연결 코드를 확인해 주세요.');
+    }
+    if (previousData['displayUid'] == null) {
+      // Legacy paired records may lack the reverse identity link. The rule for
+      // this single field requires this authenticated TV's existing owner,
+      // device and pairing-code mapping. It cannot create or reassign a device.
+      final repaired = await deviceRef.child('displayUid').runTransaction((
+        value,
+      ) {
+        if (value != null && value != displayUid) return Transaction.abort();
+        return Transaction.success(displayUid);
+      }, applyLocally: false);
+      if (!repaired.committed || repaired.snapshot.value != displayUid) {
+        throw StateError('디스플레이 연결 정보를 확인하지 못했습니다. 다시 시도해 주세요.');
+      }
     }
     final wasOnline = previousData['online'] == true;
     final previousOfflineEventKey =
@@ -438,7 +460,8 @@ class DevicePairingRealtimeDataSource {
       if (current == null) return Transaction.success(null);
       if (current is! Map ||
           !isRegisteredDisplay(current) ||
-          current['pairingCode'] != pairingCode) {
+          current['pairingCode'] != pairingCode ||
+          current['displayUid'] != displayUid) {
         return Transaction.abort();
       }
       return Transaction.success({...current, ...updates});

@@ -17,6 +17,7 @@ const context = (event = 'push', message = 'Release', bootstrapped = 'true', upl
     vars: {GOOGLE_PLAY_BOOTSTRAPPED: bootstrapped},
     inputs: {upload_to_play: upload, upload_to_testflight: upload},
     needs: {
+      class_start_regressions: {result: 'success'},
       backend_ready: {result: scheduled && upload ? 'success' : 'skipped'},
       verify: {result: scheduled ? 'success' : 'skipped'},
     },

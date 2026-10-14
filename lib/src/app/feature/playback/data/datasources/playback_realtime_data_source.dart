@@ -26,10 +26,12 @@ class PlaybackRealtimeDataSource {
     this.serverRead,
     this.onAncillaryFailure,
     this.allowSplitPlayback,
+    this.isCurrentAccount,
   });
 
   final Future<Object?> Function(String path)? serverRead;
   final Future<bool> Function()? allowSplitPlayback;
+  final bool Function()? isCurrentAccount;
   final void Function(Object error, StackTrace stack)? onAncillaryFailure;
   final _refreshes = StreamController<PlaybackSessionModel?>.broadcast();
   bool _recovering = false;
@@ -234,9 +236,18 @@ class PlaybackRealtimeDataSource {
     PlaybackSessionModel model, {
     bool scheduled = false,
     int? scheduledAtMs,
+    void Function()? ensureCurrent,
   }) async {
+    void ensureStartCurrent() {
+      _ensureStartAccount();
+      ensureCurrent?.call();
+    }
+
+    ensureStartCurrent();
     await waitForPlaybackConnection(watchConnected());
+    ensureStartCurrent();
     final devices = (await _user.child('devices').get()).value;
+    ensureStartCurrent();
     for (final id in model.targetDeviceIds) {
       if (devices is! Map || !isRegisteredDisplay(devices[id])) {
         throw StateError('연결이 완료된 디스플레이만 재생할 수 있습니다.');
@@ -274,6 +285,7 @@ class PlaybackRealtimeDataSource {
     final split =
         supportsSplitPlayback(devices) &&
         (await allowSplitPlayback?.call() ?? true);
+    ensureStartCurrent();
     final documents = PlaybackStartDocuments(model, split: split);
     final json = documents.state;
     if (split) {
@@ -301,13 +313,17 @@ class PlaybackRealtimeDataSource {
     // Snapshot creation is immutable. Acquire the active slot transactionally;
     // two controllers starting together must never silently replace each other.
     final offset = await _serverOffset();
+    ensureStartCurrent();
     final previous = (await _active.get()).value;
+    ensureStartCurrent();
     if (previous != null) await _ensureSnapshot(previous);
+    ensureStartCurrent();
     if (split) {
       await _user
           .child('playbackSnapshots/${model.id}')
           .set(updates.remove('playbackSnapshots/${model.id}'));
     }
+    ensureStartCurrent();
     updates.remove('activeSession');
     final startExpiresAt =
         DateTime.now().millisecondsSinceEpoch + offset + 6000;
@@ -321,6 +337,13 @@ class PlaybackRealtimeDataSource {
         .runTransaction((current) {
           rejection = null;
           rejectionStack = null;
+          try {
+            ensureStartCurrent();
+          } catch (error, stack) {
+            rejection = error;
+            rejectionStack = stack;
+            return Transaction.abort();
+          }
           if (DateTime.now().millisecondsSinceEpoch + offset >=
               startExpiresAt) {
             rejection = const PlaybackFailure(
@@ -368,11 +391,13 @@ class PlaybackRealtimeDataSource {
     }
     // Ancillary display/event writes must not turn an acknowledged start into
     // an apparent failure (and provoke a duplicate start).
-    unawaited(
-      _user.update(updates).catchError((Object error, StackTrace stack) {
-        onAncillaryFailure?.call(error, stack);
-      }),
-    );
+    if (canUseAccount) {
+      unawaited(
+        _user.update(updates).catchError((Object error, StackTrace stack) {
+          onAncillaryFailure?.call(error, stack);
+        }),
+      );
+    }
     return _decode(result.snapshot.value);
   }
 
@@ -544,6 +569,17 @@ class PlaybackRealtimeDataSource {
   // and can fail with permission-denied even when the client is connected.
   Future<int> _serverOffset() =>
       watchServerTimeOffset().first.timeout(const Duration(seconds: 3));
+
+  bool get canUseAccount => !_disposed && isCurrentAccount?.call() != false;
+
+  void _ensureStartAccount() {
+    if (!canUseAccount) {
+      throw const PlaybackFailure(
+        'start_cancelled',
+        '계정 연결이 변경되어 수업 시작을 취소했어요.',
+      );
+    }
+  }
 
   String _requireOwnerId() {
     final ownerId = _ownerId;

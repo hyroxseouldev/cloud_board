@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
@@ -65,6 +67,83 @@ void main() {
     expect(database.writes, 0);
     expect(database.transactions, 0);
   });
+
+  for (final boundary in [
+    'active-read',
+    'snapshot-write',
+    'transaction-retry',
+  ]) {
+    test('cancelled start cannot commit after $boundary', () async {
+      database.values['users/coach/devices'] = {
+        'tv': {'paired': true, 'playbackProtocol': 2},
+      };
+      var current = true;
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      Future<void> pause() async {
+        entered.complete();
+        await release.future;
+      }
+
+      if (boundary == 'active-read') {
+        database.beforeGet = (path) async {
+          if (path.endsWith('/activeSession')) await pause();
+        };
+      } else if (boundary == 'snapshot-write') {
+        database.beforeSet = (path) async {
+          if (path.contains('/playbackSnapshots/')) await pause();
+        };
+      } else {
+        database.beforeTransactionRetry = () => current = false;
+      }
+      final starting = source.start(
+        model,
+        ensureCurrent: () {
+          if (!current) {
+            throw const PlaybackFailure('start_cancelled', 'cancelled');
+          }
+        },
+      );
+      final rejected = expectLater(
+        starting,
+        throwsA(
+          isA<PlaybackFailure>().having(
+            (e) => e.code,
+            'code',
+            'start_cancelled',
+          ),
+        ),
+      );
+      if (boundary != 'transaction-retry') {
+        await entered.future;
+        current = false;
+        release.complete();
+      }
+      await rejected;
+      expect(database.values['users/coach/activeSession'], isNull);
+      expect(database.values['users/coach/operations/events/event'], isNull);
+      expect(database.transactions, boundary == 'transaction-retry' ? 1 : 0);
+    });
+  }
+
+  test(
+    'cancellation after acknowledged commit cannot turn start into failure',
+    () async {
+      var current = true;
+      database.afterCommit = () => current = false;
+      final started = await source.start(
+        model,
+        ensureCurrent: () {
+          if (!current) {
+            throw const PlaybackFailure('start_cancelled', 'cancelled');
+          }
+        },
+      );
+      expect(started.id, 'class');
+      expect(database.values['users/coach/activeSession'], isNotNull);
+      expect(database.transactions, 1);
+    },
+  );
 
   test('registration guard remains enforced after metadata fix', () async {
     database.values['users/coach/devices'] = {
@@ -149,6 +228,8 @@ class _Database extends Fake implements FirebaseDatabase {
       'tv': {'paired': true},
     },
   };
+  Future<void> Function(String)? beforeGet, beforeSet;
+  void Function()? beforeTransactionRetry, afterCommit;
   int metadataGets = 0;
   int writes = 0;
   int transactions = 0;
@@ -173,6 +254,7 @@ class _Reference extends Fake implements DatabaseReference {
       Stream.value(_Event(database.values[path]));
   @override
   Future<DataSnapshot> get() async {
+    await database.beforeGet?.call(path);
     if (path.startsWith('.info/')) {
       database.metadataGets++;
       throw FirebaseException(
@@ -185,6 +267,7 @@ class _Reference extends Fake implements DatabaseReference {
 
   @override
   Future<void> set(Object? value) async {
+    await database.beforeSet?.call(path);
     database.writes++;
     database.values[path] = value;
   }
@@ -208,11 +291,16 @@ class _Reference extends Fake implements DatabaseReference {
     bool applyLocally = true,
   }) async {
     database.transactions++;
-    final transaction = handler(database.values[path]);
+    var transaction = handler(database.values[path]);
+    if (database.beforeTransactionRetry != null && !transaction.aborted) {
+      database.beforeTransactionRetry!();
+      transaction = handler(database.values[path]);
+    }
     if (transaction.aborted) return _Result(false, database.values[path]);
     final value = Map<String, dynamic>.from(transaction.value! as Map)
       ..['anchorServerMs'] = DateTime.now().millisecondsSinceEpoch;
     database.values[path] = value;
+    database.afterCommit?.call();
     return _Result(true, value);
   }
 }
