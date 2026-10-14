@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_identification_overlay.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
@@ -351,6 +352,10 @@ class DisplayModeScreen extends HookConsumerWidget {
                   allowPlayback &&
                   session.briefing != true)
                 player
+              else if (identify)
+                // The opaque identification surface owns layout while visible.
+                // Do not lay out hidden center content at system text scaling.
+                const SizedBox.expand()
               else
                 _DisplayStandby(
                   isLoading: active.isLoading,
@@ -373,47 +378,10 @@ class DisplayModeScreen extends HookConsumerWidget {
                 ),
               if (identify)
                 Positioned.fill(
-                  child: ColoredBox(
-                    color: Colors.white,
-                    child: SafeArea(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.tv_rounded, size: 64),
-                              const SizedBox(height: 20),
-                              const Text(
-                                'TV 연결 확인',
-                                style: TextStyle(fontSize: 28),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                currentDevice.name,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                currentDevice.identificationId!.substring(
-                                  currentDevice.identificationId!.length - 4,
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 64,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                '관리 기기에서 이 TV가 맞는지 확인해 주세요. 소리는 재생되지 않습니다.',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                  child: DisplayIdentificationOverlay(
+                    deviceName: currentDevice.name,
+                    code: currentDevice.identificationId!.substring(
+                      currentDevice.identificationId!.length - 4,
                     ),
                   ),
                 ),
