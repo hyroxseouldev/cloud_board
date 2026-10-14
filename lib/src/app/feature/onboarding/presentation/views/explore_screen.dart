@@ -229,7 +229,7 @@ class ExploreScreen extends HookConsumerWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                '내 수업을 계정에 저장할 때 로그인·인증을 안내해요. 예시를 보는 것만으로 프리미엄 1개월 무료 이용이 시작되지는 않아요.',
+                '내 수업을 계정에 저장할 때 로그인·휴대폰 인증을 안내해요. 예시는 인증 없이 둘러볼 수 있어요.',
                 style: TextStyle(
                   fontSize: 13,
                   height: 1.5,

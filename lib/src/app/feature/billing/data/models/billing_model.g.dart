@@ -19,6 +19,7 @@ BillingModel _$BillingModelFromJson(Map<String, dynamic> json) => BillingModel(
   status: json['status'] as String? ?? 'expired',
   validUntilMs: (json['validUntilMs'] as num?)?.toInt() ?? 0,
   grantSource: json['grantSource'] as String?,
+  phoneRequired: json['phoneRequired'] as bool?,
   paid: json['paid'] as Map<String, dynamic>?,
   paidStores:
       (json['paidStores'] as List<dynamic>?)

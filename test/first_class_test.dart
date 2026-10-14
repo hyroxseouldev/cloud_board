@@ -57,6 +57,26 @@ DisplayDevice device({
 );
 
 void main() {
+  test(
+    'optional center questionnaire does not delay TV setup or completed class',
+    () {
+      const ready = FirstClassProgress(
+        sessionId: 'test',
+        savedWorkoutId: 'w',
+        rehearsedWorkoutId: 'w',
+      );
+      expect(ready.centerReady, isFalse);
+      expect(ready.next(onlineTv: false), FirstClassNext.connect);
+      final complete = ready.copyWith(
+        verifiedDeviceId: 'tv',
+        playedSessionId: 'session',
+      );
+      expect(complete.complete, isTrue);
+      expect(complete.completedCount, 3);
+      expect(complete.next(onlineTv: true), FirstClassNext.repeat);
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(
     () => SharedPreferencesAsyncPlatform.instance =

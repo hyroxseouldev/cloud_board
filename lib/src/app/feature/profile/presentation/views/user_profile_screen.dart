@@ -107,7 +107,7 @@ class UserProfileScreen extends HookConsumerWidget {
                       spacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text('센터 정보'),
+                        Text(phoneVerified ? '센터 정보 · 선택' : '휴대폰 인증하기'),
                         if (phoneVerified)
                           const Tooltip(
                             message: '휴대폰 인증 완료',
@@ -126,10 +126,14 @@ class UserProfileScreen extends HookConsumerWidget {
                           ? '인증 정보를 확인하지 못했습니다 · 센터 정보에서 다시 확인'
                           : phoneVerified
                           ? '휴대폰 인증 완료 · 센터 정보 수정'
-                          : '휴대폰 인증과 센터 정보 확인',
+                          : 'Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.',
                     ),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/onboarding?edit=true'),
+                    onTap: () => context.push(
+                      phoneVerified
+                          ? '/onboarding?edit=true'
+                          : '/onboarding?verify=true',
+                    ),
                   ),
                 ],
               ),

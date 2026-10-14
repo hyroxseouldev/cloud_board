@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/billing/data/models/billing_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
@@ -63,6 +65,58 @@ class FakeBillingSource extends BillingDataSource {
 }
 
 void main() {
+  test(
+    'billing phone verification distinguishes server required from unknown',
+    () {
+      expect(BillingModel.fromJson({}).toEntity().phoneRequired, isNull);
+      expect(
+        BillingModel.fromJson({'phoneRequired': true}).toEntity().phoneRequired,
+        isTrue,
+      );
+      expect(
+        BillingModel.fromJson({'phoneRequired': false})
+            .toEntity()
+            .phoneRequired,
+        isFalse,
+      );
+    },
+  );
+  testWidgets(
+    'unverified subscription offers SMS rather than a premium trial',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authStateProvider.overrideWith(
+              (_) => Stream.value(
+                const AuthUser(
+                  id: 'owner',
+                  email: '',
+                  displayName: '',
+                  photoUrl: null,
+                ),
+              ),
+            ),
+            billingActionsProvider.overrideWith(
+              (_) => BillingActions(
+                FirebaseBillingRepository(FakeBillingSource()),
+              ),
+            ),
+            billingStatusProvider.overrideWith(
+              (_) async => const BillingStatus(phoneRequired: true),
+            ),
+            billingOffersProvider.overrideWith((_) async => []),
+          ],
+          child: const MaterialApp(home: SubscriptionScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.'), findsOneWidget);
+      expect(find.text('휴대폰 인증하기'), findsOneWidget);
+      expect(find.textContaining('1개월'), findsNothing);
+    },
+  );
+
   testWidgets(
     'upgrade conversion is verified once; duplicate restore and cancellation stay distinct',
     (tester) async {

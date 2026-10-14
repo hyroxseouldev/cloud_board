@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
@@ -124,10 +125,20 @@ class SubscriptionScreen extends HookConsumerWidget {
                                 ),
                               ),
                           ],
+                          if (data.phoneRequired == true) ...[
+                            const SizedBox(height: 12),
+                            const Text('Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.'),
+                            const SizedBox(height: 8),
+                            FilledButton(
+                              onPressed: () =>
+                                  context.push('/onboarding?verify=true'),
+                              child: const Text('휴대폰 인증하기'),
+                            ),
+                          ],
                           if (data.status == 'trialing') ...[
                             const SizedBox(height: 12),
                             const Text(
-                              '1개월 무료 체험은 자동으로 결제되지 않아요.\n유료 구독을 선택하면 바로 결제가 시작되며, 남은 체험 기간이 유료 구독 기간에 더해지지는 않아요.',
+                              '기존 무료 체험은 자동으로 결제되지 않아요.\n유료 구독을 선택하면 바로 결제가 시작되며, 남은 체험 기간이 유료 구독 기간에 더해지지는 않아요.',
                             ),
                           ],
                           if (data.paidStatus != null) ...[
@@ -171,7 +182,7 @@ class SubscriptionScreen extends HookConsumerWidget {
                       child: Text(
                         data.paidStatus != null
                             ? '기존 구독의 갱신·해지는 $storeLabel 구독 관리에서 할 수 있어요.'
-                            : '유료 구독은 준비 중이에요. 기존 이용 권한과 무료 체험은 그대로 유지돼요.',
+                            : '유료 구독은 준비 중이에요. 기존 이용 권한은 그대로 유지돼요.',
                       ),
                     ),
                   if (!supported)

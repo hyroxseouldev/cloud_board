@@ -30,14 +30,19 @@ abstract class FirstClassProgress with _$FirstClassProgress {
     FirstClassStep.display => verifiedDeviceId != null,
     FirstClassStep.playback => playedSessionId != null,
   };
-  int get completedCount => FirstClassStep.values.where(done).length;
-  bool get complete => completedCount == FirstClassStep.values.length;
+  int get completedCount => const [
+    FirstClassStep.workout,
+    FirstClassStep.display,
+    FirstClassStep.playback,
+  ].where(done).length;
+  bool get complete => completedCount == 3;
 
   FirstClassNext next({required bool onlineTv}) {
     if (playedSessionId != null) return FirstClassNext.repeat;
     if (savedWorkoutId == null) return FirstClassNext.explore;
     if (rehearsedWorkoutId != savedWorkoutId) return FirstClassNext.rehearse;
-    if (!centerReady) return FirstClassNext.center;
+    // Center questionnaires are optional; verified service access is checked
+    // by the server independently of this local preparation checklist.
     if (verifiedDeviceId == null || !onlineTv) return FirstClassNext.connect;
     return FirstClassNext.play;
   }

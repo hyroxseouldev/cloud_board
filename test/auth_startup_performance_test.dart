@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
+
 import 'package:cloud_board/src/app/feature/auth/data/datasources/firebase_auth_data_source.dart';
 import 'package:cloud_board/src/app/feature/auth/data/datasources/user_profile_firestore_data_source.dart';
 import 'package:cloud_board/src/app/feature/auth/data/repositories/firebase_auth_repository.dart';
@@ -28,6 +30,25 @@ void main() {
       await auth.users.close();
     },
   );
+  test(
+    'all restored owner accounts reconcile access while anonymous TVs do not',
+    () async {
+      final auth = _AuthSource();
+      final profiles = _Profiles()..pending.complete();
+      final repository = FirebaseAuthRepository(auth, profiles);
+      final received = <AuthUser?>[];
+      final subscription = repository.authStateChanges().listen(received.add);
+      auth.users.add(
+        _User(),
+      ); // Creation timestamp 0 predates onboarding launch.
+      auth.users.add(_User(anonymous: true));
+      await Future<void>.delayed(Duration.zero);
+      expect(received.map((u) => u?.needsOnboarding), [true, false]);
+      expect(profiles.calls, 1);
+      await subscription.cancel();
+      await auth.users.close();
+    },
+  );
 }
 
 class _AuthSource implements FirebaseAuthDataSource {
@@ -52,6 +73,8 @@ class _Profiles implements UserProfileFirestoreDataSource {
 }
 
 class _User implements User {
+  _User({this.anonymous = false});
+  final bool anonymous;
   @override
   String get uid => 'u';
   @override
@@ -63,7 +86,7 @@ class _User implements User {
   @override
   String? get photoURL => null;
   @override
-  bool get isAnonymous => false;
+  bool get isAnonymous => anonymous;
   @override
   List<UserInfo> get providerData => [];
   @override

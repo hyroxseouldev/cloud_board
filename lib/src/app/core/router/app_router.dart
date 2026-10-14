@@ -133,6 +133,7 @@ GoRouter appRouter(Ref ref) {
         onExit: (_, _) => onboardingGuard.confirm(),
         builder: (_, state) => OnboardingScreen(
           editing: state.uri.queryParameters['edit'] == 'true',
+          verifyPhone: state.uri.queryParameters['verify'] == 'true',
           guard: onboardingGuard,
           starter: starterFromKey(state.uri.queryParameters['starter']),
           purpose: explorationPurpose(state.uri.queryParameters['purpose']),

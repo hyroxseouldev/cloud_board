@@ -88,9 +88,12 @@ String playbackErrorMessage(Object? error) {
     };
   }
   if (error is StateError &&
-      error.message ==
-          '프로필의 센터 정보 · 온보딩에서 무료 체험을 시작하거나 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.') {
-    return '프로필의 센터 정보에서 무료 체험이나 이용 상태를 확인한 뒤 수업을 시작해 주세요.';
+      const [
+        '프로필에서 휴대폰 인증과 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.',
+        // Compatibility with errors retained by an older running client.
+        '프로필의 센터 정보 · 온보딩에서 무료 체험을 시작하거나 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.',
+      ].contains(error.message)) {
+    return '프로필에서 휴대폰 인증과 이용 상태를 확인한 뒤 수업을 시작해 주세요.';
   }
   return workoutErrorMessage(
     error,

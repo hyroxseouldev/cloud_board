@@ -14,9 +14,9 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/first_class_progress.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 
-const _titles = ['센터 정보 확인', '첫 수업 저장', 'TV 연결 확인', 'TV에서 첫 재생'];
+const _titles = ['센터 정보 확인 · 선택', '첫 수업 저장', 'TV 연결 확인', 'TV에서 첫 재생'];
 const _details = [
-  '가입 때 입력한 센터 정보와 이용 상태를 확인하세요.',
+  '센터 정보는 선택 사항이며 프로필에서 나중에 입력할 수 있어요.',
   '예시를 가져오거나 새 수업을 만들고 저장하세요.',
   'QR·코드로 연결하고 이름과 확인 번호를 확인하세요.',
   '저장한 수업을 TV로 보내면 TV 응답 후 완료됩니다.',
@@ -293,7 +293,7 @@ class FirstClassScreen extends HookConsumerWidget {
               const SizedBox(height: 20),
               ExpansionTile(
                 title: const Text('센터·TV 준비와 도움말'),
-                subtitle: Text('${progress.completedCount}/4 완료 · 실제 TV 수업 준비'),
+                subtitle: Text('${progress.completedCount}/3 완료 · 실제 TV 수업 준비'),
                 children: [
                   for (final step in FirstClassStep.values)
                     Padding(

@@ -110,11 +110,8 @@ class FirebaseAuthRepository implements AuthRepository {
               : user.displayName ?? '사용자',
           photoUrl: user.photoURL,
           hasPassword: user.providerData.any((p) => p.providerId == 'password'),
-          needsOnboarding:
-              !user.isAnonymous &&
-              (user.metadata.creationTime?.isAfter(
-                    DateTime.utc(2026, 9, 25, 11),
-                  ) ??
-                  false),
+          // Every owner session reconciles server verification/access. Account
+          // age and local questionnaire completion are not access signals.
+          needsOnboarding: !user.isAnonymous,
         );
 }

@@ -13,11 +13,13 @@ class BillingModel {
     this.status = 'expired',
     this.validUntilMs = 0,
     this.grantSource,
+    this.phoneRequired,
     this.paid,
     this.paidStores = const [],
   });
   final String appAccountToken, plan, status;
   final bool purchasesEnabled;
+  final bool? phoneRequired;
   final bool planBenefitsReady;
   final List<String> productIds;
   final int validUntilMs;
@@ -35,6 +37,7 @@ class BillingModel {
     status: status,
     validUntilMs: validUntilMs,
     grantSource: grantSource,
+    phoneRequired: phoneRequired,
     paidStatus: paid?['status'] as String?,
     paidPlan: paid?['plan'] as String?,
     paidSource: paid?['source'] as String?,

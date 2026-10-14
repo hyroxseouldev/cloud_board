@@ -1,10 +1,11 @@
 import {createHmac, randomInt, randomUUID, timingSafeEqual} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {Timestamp} from 'firebase-admin/firestore';
+import {getDatabase} from 'firebase-admin/database';
 import {HttpsError} from 'firebase-functions/v2/https';
 import {startFreePlan} from './free-plan.js';
-import {planAccess, projectPlanPolicy} from './plan-policy.js';
-import {hasPaidOrTrialHistory} from './billing-policy.js';
+import {billingAccount, refreshEntitlements} from './billing.js';
+import {hasVerifiedPhone} from './verified-free-policy.js';
 const fail = (code, message) => new HttpsError(code, message);
 // One calendar month in Asia/Seoul, stored as UTC. Clamp missing days at month end.
 export function trialEnd(start) {
@@ -120,22 +121,38 @@ export async function verifyOnboardingCode(db,uid,code,secret,now=Date.now()) {
 }
 export async function readOnboarding(db,uid,now=Date.now(),realtime) {
   await assertUnlocked(db,uid);
+  const [prior, accessBefore, account] = await db.getAll(stateRef(db,uid),
+    db.doc(`subscriptionEntitlements/${uid}`), db.doc(`billingAccounts/${uid}`));
+  if (account.data()?.deleted) throw fail('permission-denied','삭제 처리 중인 계정입니다.');
+  const verified=hasVerifiedPhone(prior.data(), accessBefore.data()?.webGrant, account.data()?.baseline);
+  const database = realtime ?? getDatabase();
+  // A load/relaunch repairs interrupted activation. An unverified read also
+  // removes stale Free grants, while preserving independently valid paid access.
+  if (verified) await startFreePlan(db,database,uid,now);
+  else {
+    await billingAccount(db,database,uid);
+    await refreshEntitlements(db,database,uid,now);
+  }
   const progress=(await stateRef(db,uid).get()).data();
-  if(!progress?.phoneVerified) return {phoneRequired:true,serverNowMs:now};
-  const [center,trial,entitlement,freePolicy,billing,account]=await Promise.all([db.doc(`centers/${progress.storeId}`).get(),db.doc(`onboardingTrials/${uid}`).get(),db.doc(`subscriptionEntitlements/${uid}`).get(),db.doc('appConfig/freePlan').get(),db.doc(`users/${uid}/billing/summary`).get(),db.doc(`billingAccounts/${uid}`).get()]);
-  if(center.data()?.ownerUid!==uid) throw fail('permission-denied','센터 정보를 확인할 수 없습니다.');
-  const t=trial.data(), access=entitlement.data();
-  const legacy=realtime ? (await realtime.ref(`legacyPilotAccess/${uid}`).get()).val() : null;
-  const hasLegacyAccess=legacy?.validUntilMs>now;
-  return {phoneRequired:false,storeId:progress.storeId,profile:center.data().profile,revision:center.data().revision,
-    step:progress.step,completed:progress.completed,deferred:progress.deferred,status:access?.status??'pending_connection',
-    hasAccess:access?.validUntilMs>now || hasLegacyAccess,
-    freeAvailable:freePolicy.data()?.enrollmentEnabled!==false,
-    freeActive:access?.plan==='free' && access?.canStartClass===true && access.validUntilMs>now,
-    trialEligible:!hasLegacyAccess && !t && !billing.data()?.paid &&
-      !hasPaidOrTrialHistory(access?.webGrant) && !hasPaidOrTrialHistory(account.data()?.baseline) &&
-      (!access?.managed || access.plan==='free' || ['pending_connection','awaiting_web'].includes(access.status)),
-    trialStartedAtMs:t?.startedAtMs??0,trialEndsAtMs:t?.endsAtMs??0,serverNowMs:now,suggestedTrialEndsAtMs:+trialEnd(new Date(now))};
+  const [center,trial,entitlement,wire]=await Promise.all([
+    progress?.storeId ? db.doc(`centers/${progress.storeId}`).get() : null,
+    db.doc(`onboardingTrials/${uid}`).get(),db.doc(`subscriptionEntitlements/${uid}`).get(),
+    database.ref(`subscriptionAccess/${uid}`).get()]);
+  const t=trial.data(), access=entitlement.data(), projected=wire.val();
+  const activationReady=access?.canStartClass===true && access.validUntilMs>now &&
+    projected?.canStartClass===true && projected.validUntilMs>now &&
+    projected.plan===access.plan && projected.validUntilMs===access.validUntilMs &&
+    projected.revision===access.revision && projected.source===access.source &&
+    projected.status===access.status && projected.policyVersion===access.policyVersion;
+  if (verified && !activationReady) throw fail('unavailable','인증은 완료되었습니다. 이용 상태를 다시 확인해 주세요.');
+  const ownedCenter=center?.data()?.ownerUid===uid ? center.data() : null;
+  return {phoneRequired:!verified,activationReady,storeId:progress?.storeId??null,
+    profile:ownedCenter?.profile??{},revision:ownedCenter?.revision??0,
+    step:progress?.step??0,completed:progress?.completed??false,deferred:progress?.deferred??false,
+    status:access?.status??'pending_connection',hasAccess:activationReady,freeAvailable:verified,
+    freeActive:verified && activationReady && access.plan==='free',trialEligible:false,
+    trialStartedAtMs:t?.startedAtMs??0,trialEndsAtMs:t?.endsAtMs??0,
+    serverNowMs:now,suggestedTrialEndsAtMs:0};
 }
 export async function saveOnboarding(db,uid,input,now=Date.now()) {
   const profile=validateProfile(input.profile,input.action==='complete');
@@ -156,44 +173,10 @@ export async function saveOnboarding(db,uid,input,now=Date.now()) {
       deferred:input.action==='defer'||p.data().deferred,updatedAt:Timestamp.fromMillis(now)});
   });
 }
+// Compatibility action for installed clients. It never creates or extends a
+// trial; existing server trials remain read-only grants until their own expiry.
 export async function startOnboardingTrial(db,realtime,uid,now=Date.now()) {
-  // Keep legacy grants unchanged; this is a Firebase-native entitlement issuer.
-  const legacy=(await realtime.ref(`legacyPilotAccess/${uid}`).get()).val();
-  await db.runTransaction(async tx=>{
-    const progress=stateRef(db,uid), trial=db.doc(`onboardingTrials/${uid}`), access=db.doc(`subscriptionEntitlements/${uid}`);
-    const [lock,p,t,a]=await tx.getAll(db.doc(`accountDeletions/${uid}`),progress,trial,access);
-    if(lock.exists||!p.data()?.phoneVerified) throw fail('permission-denied','문자 인증을 먼저 완료해 주세요.');
-    const center=db.doc(`centers/${p.data().storeId}`), c=await tx.get(center);
-    if(c.data()?.ownerUid!==uid) throw fail('permission-denied','센터 정보를 확인할 수 없습니다.');
-    validateProfile(c.data().profile,true);
-    if(t.exists) {
-      if(t.data().endsAtMs<=now) throw fail('failed-precondition','이미 1개월 무료 이용을 사용했어요. Free로 계속 이용할 수 있어요.');
-      return; // Idempotent across retries, concurrent devices and reinstalls.
-    }
-    const previous=a.data();
-    if(legacy?.validUntilMs>now || (previous?.plan!=='free' && previous?.validUntilMs>now)) return;
-    // Any historical paid/trial grant is preserved. No automatic retrial.
-    const [billing,account,planPolicy]=await tx.getAll(db.doc(`users/${uid}/billing/summary`),db.doc(`billingAccounts/${uid}`),db.doc('appConfig/planPolicy'));
-    if(billing.data()?.paid || hasPaidOrTrialHistory(previous?.webGrant) || hasPaidOrTrialHistory(account.data()?.baseline) ||
-      (previous?.managed===true && previous.plan!=='free' && previous?.status!=='pending_connection' && previous?.status!=='awaiting_web'))
-      throw fail('failed-precondition','기존 이용 이력이 있습니다. 프로필에서 이용 상태를 확인해 주세요.');
-    const startedAtMs=now,endsAtMs=+trialEnd(new Date(now));
-    tx.create(trial,{storeId:p.data().storeId,startedAtMs,endsAtMs,policyVersion:'native-trial-1month-v1'});
-    tx.set(access,{storeId:p.data().storeId,managed:true,source:'app_trial',status:'trialing',plan:'premium',
-      validUntilMs:endsAtMs,revision:(previous?.revision??0)+1,canPrepare:true,canPairDisplay:true,canStartClass:true,
-      displaysUnlimited:true,maxActiveDisplays:null,favoritesUnlimited:true,maxFavorites:null,idleScreenCustomization:'custom',
-      ...projectPlanPolicy({...planAccess('premium'),plan:'premium'},previous,planPolicy.data()),updatedAt:Timestamp.fromMillis(now),
-      ...(previous?.webGrant ? {webGrant:previous.webGrant} : {})});
-  });
-  if(legacy?.validUntilMs>now) return;
-  await syncNativeTrial(db,realtime,uid);
-  if ((await db.doc(`onboardingTrials/${uid}`).get()).exists) {
-    const {billingAccount,refreshEntitlements}=await import('./billing.js');
-    await billingAccount(db,realtime,uid);
-    await refreshEntitlements(db,realtime,uid,now);
-  }
-  const [a,r]=await Promise.all([db.doc(`subscriptionEntitlements/${uid}`).get(),realtime.ref(`subscriptionAccess/${uid}`).get()]);
-  if(!(a.data()?.validUntilMs>now)||!(r.val()?.validUntilMs>now)) throw fail('failed-precondition','이용 권한을 확인하지 못했습니다. 다시 시도해 주세요.');
+  await startFreePlan(db,realtime,uid,now);
 }
 export async function syncNativeTrial(db,realtime,uid) {
   if((await db.doc(`accountDeletions/${uid}`).get()).exists) return;
