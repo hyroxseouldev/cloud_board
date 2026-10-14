@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/router/auth_entry_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
@@ -12,9 +13,15 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/email_
 enum _EmailMode { login, signup, reset }
 
 class EmailLoginScreen extends HookConsumerWidget {
-  const EmailLoginScreen({super.key, this.starter, this.purpose});
+  const EmailLoginScreen({
+    super.key,
+    this.starter,
+    this.purpose,
+    this.returnTo,
+  });
   final StarterWorkout? starter;
   final String? purpose;
+  final String? returnTo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -75,7 +82,10 @@ class EmailLoginScreen extends HookConsumerWidget {
             ? null
             : BackButton(
                 onPressed: () => context.go(
-                  starterLocation('/login', starter, purpose: purpose),
+                  withEntryReturn(
+                    starterLocation('/login', starter, purpose: purpose),
+                    returnTo,
+                  ),
                 ),
               ),
       ),

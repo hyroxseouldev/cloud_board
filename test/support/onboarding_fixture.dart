@@ -32,15 +32,17 @@ class FakeOnboarding implements OnboardingRepository {
   CenterOnboarding value;
   Object? loadError, verifyError;
   bool fail = false;
-  Completer<void>? saveGate, verifyGate;
+  Completer<void>? loadGate, saveGate, verifyGate;
   int saves = 0, loads = 0, verifications = 0;
   String? sentPhone, submittedCode;
   CenterOnboarding? verifiedValue;
   @override
   Future<CenterOnboarding> load() async {
     loads++;
-    if (loadError != null) throw loadError!;
-    return value;
+    final response = value, error = loadError;
+    await loadGate?.future;
+    if (error != null) throw error;
+    return response;
   }
 
   @override
