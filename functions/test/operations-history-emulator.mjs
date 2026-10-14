@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {initializeTestEnvironment, assertFails, assertSucceeds} from '@firebase/rules-unit-testing';
 import {ref, set, get, query, orderByChild, startAt, endBefore} from 'firebase/database';
-assert.match(process.env.FIREBASE_DATABASE_EMULATOR_HOST ?? '', /^(127\.0\.0\.1|localhost):\d+$/);
-const [host, port] = process.env.FIREBASE_DATABASE_EMULATOR_HOST.split(':');
-const env = await initializeTestEnvironment({projectId: 'demo-cloudboard-operations', database: {
-  host, port: Number(port), rules: fs.readFileSync('database.rules.json', 'utf8'),
+import {emulatorAddress, requireDemo} from '../../tool/firebase/common.mjs';
+const projectId = requireDemo(process.env.GCLOUD_PROJECT);
+const env = await initializeTestEnvironment({projectId, database: {
+  ...emulatorAddress(process.env.FIREBASE_DATABASE_EMULATOR_HOST),
+  rules: fs.readFileSync(new URL('../../database.rules.json', import.meta.url), 'utf8'),
 }});
 try {
   await env.withSecurityRulesDisabled(async context => {

@@ -168,6 +168,14 @@
       ]
     },
     {
+      "id": "operations-history",
+      "file": "functions/test/operations-history-emulator.mjs",
+      "project": "demo-cloudboard-operations",
+      "coverage": [
+        "database"
+      ]
+    },
+    {
       "id": "free-plan",
       "file": "functions/test/free-plan-emulator.mjs",
       "project": "demo-cloudboard-free",
