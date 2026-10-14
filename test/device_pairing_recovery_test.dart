@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_pairing_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
@@ -277,12 +278,15 @@ void main() {
         db.read('users/owner/operations/events/event-1-offline'),
         isNull,
       );
-      final events = db.read('users/owner/operations/events')! as Map;
+      // Match the JSON transport's nested string-keyed maps before decoding.
+      final events = jsonDecode(
+        jsonEncode(db.read('users/owner/operations/events')),
+      ) as Map<String, dynamic>;
       final incident = buildOperationIncidents(
         events.values.map(
-          (value) => OperationEventModel.fromJson(
-            Map<String, dynamic>.from(value as Map),
-          ).toEntity(),
+          (value) =>
+              OperationEventModel.fromJson(value as Map<String, dynamic>)
+                  .toEntity(),
         ),
       ).single;
       expectSync(incident.event.id, 'event-0-offline');

@@ -374,6 +374,8 @@ void main() {
         isFalse,
       );
       expect(harness.container.read(onboardingCompletionProvider), isFalse);
+      // The read creates an auto-disposed provider; drain its disposal timer.
+      await tester.pump(const Duration(milliseconds: 1));
     },
   );
 
