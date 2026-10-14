@@ -1,4 +1,8 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
+
 import 'dart:async';
+
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
@@ -13,11 +17,41 @@ import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile
 
 part 'device_pairing_controller.g.dart';
 
-@Riverpod(keepAlive: true)
+Duration? _noAutomaticPairingRetry(int attempt, Object error) => null;
+
+@Riverpod(keepAlive: true, retry: _noAutomaticPairingRetry)
+Stream<DisplayConnectionState> displayConnectionState(Ref ref) =>
+    ref.watch(devicePairingActionsProvider).watchConnectionState();
+
+@Riverpod(keepAlive: true, retry: _noAutomaticPairingRetry)
 class DevicePairingController extends _$DevicePairingController {
   @override
   Future<DevicePairing> build() {
     ref.watch(devicePairingActionsProvider);
+    final connection = ref.watch(displayConnectionStateProvider);
+    _epoch++;
+    if (connection.hasError) {
+      Error.throwWithStackTrace(
+        connection.error!,
+        connection.stackTrace ?? StackTrace.current,
+      );
+    }
+    final current = connection.value;
+    if (current?.phase == DisplayConnectionPhase.failed) {
+      ref
+          .read(errorReporterProvider)
+          .capture(
+            current!.error!,
+            current.stack ?? StackTrace.current,
+            action: 'pairing.verify',
+          );
+      // A terminal generation stays stopped. Only explicit refresh or a new
+      // physical connection may start another bounded verification cycle.
+      Error.throwWithStackTrace(
+        current.error!,
+        current.stack ?? StackTrace.current,
+      );
+    }
     return _issue();
   }
 
@@ -26,20 +60,31 @@ class DevicePairingController extends _$DevicePairingController {
   Future<void> refresh() async {
     final epoch = ++_epoch;
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(_issue);
+    final result = await AsyncValue.guard(() => _issue(retryConnection: true));
     if (ref.mounted && epoch == _epoch) state = result;
   }
 
-  Future<DevicePairing> _issue() async {
+  Future<DevicePairing> _issue({bool retryConnection = false}) async {
+    final epoch = _epoch;
     try {
       return await ref
           .read(devicePairingActionsProvider)
-          .issue(deviceId: await ref.read(deviceIdProvider.future));
+          .issue(
+            deviceId: await ref.read(deviceIdProvider.future),
+            retryConnection: retryConnection,
+          );
     } catch (error, stack) {
-      if (ref.mounted) {
+      if (ref.mounted && epoch == _epoch) {
+        final phase = ref.read(displayConnectionStateProvider).value?.phase;
         ref
             .read(errorReporterProvider)
-            .capture(error, stack, action: 'pairing.issue_code');
+            .capture(
+              error,
+              stack,
+              action: phase == null || phase == DisplayConnectionPhase.idle
+                  ? 'pairing.issue_code'
+                  : 'pairing.verify',
+            );
       }
       rethrow;
     }
@@ -154,5 +199,16 @@ class DeviceClaimController extends _$DeviceClaimController {
           displayState: displayState,
           replaceDeviceIds: replaceDeviceIds,
         ),
+  );
+}
+
+/// Re-evaluates stale heartbeats even when the database emits no new values.
+@riverpod
+Stream<int> displayHealthNow(Ref ref) async* {
+  final offset = ref.watch(serverTimeOffsetProvider).value ?? 0;
+  yield DateTime.now().millisecondsSinceEpoch + offset;
+  yield* Stream.periodic(
+    const Duration(seconds: 5),
+    (_) => DateTime.now().millisecondsSinceEpoch + offset,
   );
 }

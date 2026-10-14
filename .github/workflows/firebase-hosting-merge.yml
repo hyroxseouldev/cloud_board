@@ -92,6 +92,20 @@ jobs:
       - name: Test alternate brand and historical data in an isolated copy
         run: node tool/brand-smoke.mjs
 
+      - name: Require TV recovery regressions without missing or skipped cases
+        run: |
+          node --test tool/tv-recovery-check.test.mjs
+          node tool/tv-recovery-check.mjs
+
+      - name: Retain TV recovery regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-recovery-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/sta176/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
 
@@ -114,6 +128,7 @@ jobs:
           test/workout_catalog_incremental_test.dart
           test/original_slide_cache_test.dart
           test/slide_design_asset_reuse_test.dart
+          test/slide_editor_bottom_tabs_test.dart
 
       - name: Test client compatibility and rollout regressions in Chrome
         run: >-

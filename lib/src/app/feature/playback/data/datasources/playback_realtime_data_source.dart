@@ -93,8 +93,10 @@ class PlaybackRealtimeDataSource {
       debugPrint(
         'Playback recovery: transport connected in ${elapsed.elapsedMilliseconds}ms',
       );
-      final model = await _readServerSession(read);
-      if (generation != _generation) throw StateError('수업 상태 확인이 취소되었습니다.');
+      final model = await _readServerSession(read, generation: generation);
+      if (_disposed || generation != _generation) {
+        throw StateError('수업 상태 확인이 취소되었습니다.');
+      }
       _hasVerified = true;
       _acceptActive(model);
       _refreshes.add(model);
@@ -105,9 +107,19 @@ class PlaybackRealtimeDataSource {
   }
 
   Future<PlaybackSessionModel?> _readServerSession(
-    Future<Object?> Function(String path) read,
-  ) async {
-    final value = await read('users/${_requireOwnerId()}/activeSession');
+    Future<Object?> Function(String path) read, {
+    required int generation,
+  }) async {
+    void ensureCurrent() {
+      if (_disposed || generation != _generation) {
+        throw StateError('수업 상태 확인이 취소되었습니다.');
+      }
+    }
+
+    ensureCurrent();
+    final value = await read('users/${_requireOwnerId()}/activeSession')
+        .timeout(const Duration(seconds: 8));
+    ensureCurrent();
     if (value is Map &&
         value['schemaVersion'] == 2 &&
         !_snapshots.containsKey(value['snapshotId'])) {
@@ -115,13 +127,13 @@ class PlaybackRealtimeDataSource {
       if (id is! String || value['snapshotId'] != id) {
         throw const FormatException('수업 자료 버전이 일치하지 않습니다.');
       }
-      _rememberSnapshot(
-        id,
-        _stringMap(
-          await read('users/${_requireOwnerId()}/playbackSnapshots/$id'),
-        ),
-      );
+      final snapshot = await read(
+        'users/${_requireOwnerId()}/playbackSnapshots/$id',
+      ).timeout(const Duration(seconds: 8));
+      ensureCurrent();
+      _rememberSnapshot(id, _stringMap(snapshot));
     }
+    ensureCurrent();
     return value == null ? null : _decode(value);
   }
 
@@ -235,7 +247,10 @@ class PlaybackRealtimeDataSource {
                 (model == null) != (_verified == null) &&
                 (model == null || model.id != _removedSessionId)) {
               try {
-                model = await _readServerSession(serverRead!);
+                model = await _readServerSession(
+                  serverRead!,
+                  generation: generation,
+                );
               } catch (_) {
                 if (_disposed || generation != _generation || _recovering) {
                   return (deliver: false, model: null);

@@ -12,6 +12,9 @@ export const developmentFunctionNames = Object.freeze([
   'manageLibraryFolder', 'cleanupClientDiagnostics', 'recordOperationTelemetry',
   'saveWorkout', 'getPlanUsage', 'syncWorkoutPlanUsage', 'syncSlidePlanUsage',
   'cloudboardSaveBrandConfig', 'syncStandbyBranding',
+  'verifyDisplayConnection', 'requestDisplayRecovery', 'reportDisplayRecovery',
+  'pairDisplayConnection', 'unpairDisplayConnection',
+  'auditDisplayDeviceBinding', 'auditDisplayAccessBinding',
   'cloudboardPrepareSupportAttachment', 'cloudboardSubmitSupportTicket',
   'notifySupportTicket', 'retrySupportTicketNotifications', 'cleanupSupportTicketUploads',
 ]);

@@ -1,0 +1,215 @@
+{
+  "format": 1,
+  "sha": "2a76aceda6df4cfb45e3b1a757d1f466717cfbd8",
+  "runId": "local",
+  "attempt": "1",
+  "manifestHash": "c46d2ef894aba992fb4a99492f8b4257c1f31a52e556c3d2e5aeaf44be9eaf82",
+  "startedAt": "2026-10-14T15:49:28.594Z",
+  "status": "success",
+  "suites": [
+    {
+      "id": "library",
+      "file": "functions/test/slide-library-emulator.mjs",
+      "project": "demo-cloudboard-library",
+      "status": "success",
+      "durationMs": 11710
+    },
+    {
+      "id": "workout-save",
+      "file": "functions/test/workout-save-emulator.mjs",
+      "project": "demo-cloudboard-workouts",
+      "status": "success",
+      "durationMs": 7602
+    },
+    {
+      "id": "settings",
+      "file": "functions/test/workout-settings-emulator.mjs",
+      "project": "demo-cloudboard-settings",
+      "status": "success",
+      "durationMs": 9220
+    },
+    {
+      "id": "ai-timer",
+      "file": "functions/test/ai-timer-emulator.mjs",
+      "project": "demo-cloudboard-ai",
+      "status": "success",
+      "durationMs": 5054
+    },
+    {
+      "id": "ai-slides",
+      "file": "functions/test/ai-slides-emulator.mjs",
+      "project": "demo-cloudboard-ai",
+      "status": "success",
+      "durationMs": 3557
+    },
+    {
+      "id": "ai-theme",
+      "file": "functions/test/ai-slides-theme-emulator.mjs",
+      "project": "demo-cloudboard-ai",
+      "status": "success",
+      "durationMs": 749
+    },
+    {
+      "id": "ai-designs",
+      "file": "functions/test/ai-slide-designs-emulator.mjs",
+      "project": "demo-cloudboard-design-tests",
+      "status": "success",
+      "durationMs": 6835
+    },
+    {
+      "id": "first-class",
+      "file": "functions/test/first-class-emulator.mjs",
+      "project": "demo-cloudboard-first-class",
+      "status": "success",
+      "durationMs": 16831
+    },
+    {
+      "id": "onboarding",
+      "file": "functions/test/onboarding-emulator.mjs",
+      "project": "demo-cloudboard-onboarding",
+      "status": "success",
+      "durationMs": 11032
+    },
+    {
+      "id": "billing",
+      "file": "functions/test/billing-emulator.mjs",
+      "project": "demo-cloudboard-billing",
+      "status": "success",
+      "durationMs": 5171
+    },
+    {
+      "id": "google-play",
+      "file": "functions/test/google-play-emulator.mjs",
+      "project": "demo-cloudboard-billing",
+      "status": "success",
+      "durationMs": 2146
+    },
+    {
+      "id": "playback",
+      "file": "functions/test/performance-emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 2929
+    },
+    {
+      "id": "android-command",
+      "file": "functions/test/android-controls-emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 3038
+    },
+    {
+      "id": "thumbnail",
+      "file": "functions/test/workout-thumbnail-emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 1425
+    },
+    {
+      "id": "account-deletion",
+      "file": "functions/test/emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 2231
+    },
+    {
+      "id": "storage",
+      "file": "functions/test/storage-rules-emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 3858
+    },
+    {
+      "id": "app-contracts",
+      "file": "functions/test/app-contracts-emulator.mjs",
+      "project": "demo-cloudboard-contracts",
+      "status": "success",
+      "durationMs": 6108
+    },
+    {
+      "id": "mutation-recovery",
+      "file": "functions/test/rules-mutation-emulator.mjs",
+      "project": "demo-cloudboard-mutations",
+      "status": "success",
+      "durationMs": 1192
+    },
+    {
+      "id": "release-smoke",
+      "file": "functions/test/release-smoke-emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 4376
+    },
+    {
+      "id": "display-preparation",
+      "file": "functions/test/display-preparation-emulator.mjs",
+      "project": "demo-cloudboard-preparation",
+      "status": "success",
+      "durationMs": 1030
+    },
+    {
+      "id": "free-plan",
+      "file": "functions/test/free-plan-emulator.mjs",
+      "project": "demo-cloudboard-free",
+      "status": "success",
+      "durationMs": 6076
+    },
+    {
+      "id": "free-display-rules",
+      "file": "functions/test/free-display-rules-emulator.mjs",
+      "project": "demo-cloudboard-free-displays",
+      "status": "success",
+      "durationMs": 653
+    },
+    {
+      "id": "plan-quotas",
+      "file": "functions/test/plan-quotas-emulator.mjs",
+      "project": "demo-cloudboard-plan-quotas",
+      "status": "success",
+      "durationMs": 11348
+    },
+    {
+      "id": "ai-plan-quota",
+      "file": "functions/test/ai-plan-quota-emulator.mjs",
+      "project": "demo-cloudboard-ai-plans",
+      "status": "success",
+      "durationMs": 4084
+    },
+    {
+      "id": "verified-free",
+      "file": "functions/test/verified-free-emulator.mjs",
+      "project": "demo-cloudboard-verified-free",
+      "status": "success",
+      "durationMs": 12149
+    },
+    {
+      "id": "verified-free-rules",
+      "file": "functions/test/verified-free-rules-emulator.mjs",
+      "project": "demo-cloudboard-verified-free",
+      "status": "success",
+      "durationMs": 932
+    },
+    {
+      "id": "standby-branding",
+      "file": "functions/test/standby-branding-emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 4443
+    },
+    {
+      "id": "support-tickets",
+      "file": "functions/test/support-tickets-emulator.mjs",
+      "project": "demo-cloudboard",
+      "status": "success",
+      "durationMs": 8328
+    },
+    {
+      "id": "display-recovery",
+      "file": "functions/test/display-recovery-emulator.mjs",
+      "project": "demo-cloudboard-recovery",
+      "status": "success",
+      "durationMs": 861
+    }
+  ],
+  "scope": "Local emulator contract run; no production deployment or physical device validation."
+}

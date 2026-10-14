@@ -1,13 +1,22 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {initializeTestEnvironment, assertSucceeds, assertFails} from '@firebase/rules-unit-testing';
-import {ref, set, get, update, runTransaction} from 'firebase/database';
+import {ref, set, get, update} from 'firebase/database';
+import {initializeApp} from 'firebase-admin/app';
+import {getDatabase} from 'firebase-admin/database';
+import {mutateDisplayConnection} from '../src/display-recovery.js';
 import {emulatorAddress, requireDemo} from '../../tool/firebase/common.mjs';
 const projectId = requireDemo('demo-cloudboard-preparation');
 const env = await initializeTestEnvironment({projectId, database: {
   ...emulatorAddress(process.env.FIREBASE_DATABASE_EMULATOR_HOST),
   rules: readFileSync(new URL('../../database.rules.json', import.meta.url), 'utf8'),
 }});
+const adminApp = initializeApp({projectId, databaseURL: `https://${projectId}.firebaseio.com`}, 'preparation-contracts');
+const admin = getDatabase(adminApp);
+const tvAuth = {uid: 'tv-user', token: {firebase: {sign_in_provider: 'anonymous'}}};
+const verify = operationId => mutateDisplayConnection(admin, tvAuth, 'verify', {
+  deviceId: 'tv', operationId, connectionId: operationId, appVersion: '1.2.0', appBuild: '220',
+});
 const owner = env.authenticatedContext('owner', {firebase: {sign_in_provider: 'password'}}).database();
 const tv = env.authenticatedContext('tv-user', {firebase: {sign_in_provider: 'anonymous'}}).database();
 const foreign = env.authenticatedContext('foreign').database();
@@ -55,8 +64,8 @@ try {
   await env.withSecurityRulesDisabled(c => update(ref(c.database(), 'users/owner/devices/tv'), {paired: false}));
   await assertFails(get(ref(tv, `${path}/request`)));
   await assertFails(set(ref(tv, `${path}/responses/tv`), ready));
-  // STA-170: an existing mapped TV could heartbeat while a missing reverse UID
-  // denied both preparation subscription and ACK. Synthetic identifiers only.
+  // STA-170/176: a missing reverse UID must recover before heartbeat,
+  // preparation subscription and ACK. Synthetic identifiers only.
   await env.clearDatabase();
   const devicePath = 'users/owner/devices/tv';
   const paired = {id: 'tv', mode: 'display', paired: true, pairingCode: '123456',
@@ -70,12 +79,12 @@ try {
     await set(ref(c.database(), 'subscriptionAccess/owner'), {plan: 'premium', validUntilMs: Date.now() + 600000});
   });
   const recoveryRequest = {...request, expiresAtMs: Date.now() + 60000};
-  await assertSucceeds(update(ref(tv, devicePath), {online: true, lastSeenAtMs: Date.now()}));
+  await assertFails(update(ref(tv, devicePath), {online: true, lastSeenAtMs: Date.now()}));
   await assertSucceeds(set(ref(owner, `${path}/request`), recoveryRequest));
   await assertFails(get(ref(tv, `${path}/request`)));
   await assertFails(set(ref(tv, `${path}/responses/tv`), {...ready, checkedAtMs: Date.now()}));
-  // Remove the legacy broad-write allowance: only the new UID field rule can
-  // authorize repair. It never grants write access to any sibling field.
+  // Repair remains server-only even for legacy pilot accounts. The server
+  // checks both binding directions and audits the exact identity change.
   await env.withSecurityRulesDisabled(c => set(ref(c.database(), 'legacyPilotAccess/owner'), null));
   await assertFails(set(ref(owner, `${path}/request`), {...recoveryRequest, revision: 2}));
   await assertFails(update(ref(tv, devicePath), {displayUid: 'tv-user', name: 'unrelated edit'}));
@@ -83,14 +92,22 @@ try {
   await assertFails(set(ref(foreign, `${devicePath}/displayUid`), 'foreign'));
   const nonAnonymous = env.authenticatedContext('tv-user', {firebase: {sign_in_provider: 'password'}}).database();
   await assertFails(set(ref(nonAnonymous, `${devicePath}/displayUid`), 'tv-user'));
+  await assertFails(set(ref(tv, `${devicePath}/displayUid`), 'tv-user'));
   const beforeRepair = (await get(ref(owner, devicePath))).val();
-  const repaired = await assertSucceeds(runTransaction(ref(tv, `${devicePath}/displayUid`),
-    current => current === null || current === 'tv-user' ? 'tv-user' : undefined,
-    {applyLocally: false}));
-  assert.equal(repaired.committed, true);
-  assert.deepEqual((await get(ref(owner, devicePath))).val(), {...beforeRepair, displayUid: 'tv-user'});
-  await assertSucceeds(runTransaction(ref(tv, `${devicePath}/displayUid`), current => current,
-    {applyLocally: false})); // relaunch/retry is idempotent
+  const repaired = await verify('prepare-repair');
+  assert.equal(repaired.status, 'repaired');
+  const repairedDevice = (await get(ref(owner, devicePath))).val();
+  const {connectionVerification, recoveryProtocol, ...preserved} = repairedDevice;
+  assert.deepEqual(preserved, {...beforeRepair, displayUid: 'tv-user'});
+  assert.equal(recoveryProtocol, 1);
+  assert.equal(connectionVerification.connectionId, 'prepare-repair');
+  const [audit] = Object.values((await admin.ref('displayConnectionAudit').get()).val());
+  assert.equal(audit.path, 'verified_display_repair');
+  assert.equal(audit.before.displayUid, undefined);
+  assert.equal(audit.after.displayUid, 'tv-user');
+  assert.deepEqual(await verify('prepare-repair'), repaired); // response-loss retry is idempotent
+  assert.deepEqual((await get(ref(owner, devicePath))).val(), repairedDevice);
+  await assertSucceeds(update(ref(tv, devicePath), {online: true, lastSeenAtMs: Date.now()}));
   await assertSucceeds(get(ref(tv, `${path}/request`)));
   await assertSucceeds(set(ref(tv, `${path}/responses/tv`), {...ready, checkedAtMs: Date.now()}));
   // Another valid TV is excluded using the existing target selection. Its old
@@ -117,7 +134,7 @@ try {
   assert.deepEqual((await get(ref(tv, 'users/owner/activeSession/targetDeviceIds'))).val(), ['tv']);
   assert.equal((await get(ref(excluded, 'users/owner/activeSession/targetDeviceIds'))).val().includes('excluded'), false);
 
-  for (const broken of ['wrong-code', 'missing-code', 'invalid-code', 'wrong-device', 'wrong-owner', 'revoked', 'other-uid', 'unpaired', 'deleting', 'deleting-display']) {
+  for (const broken of ['wrong-code', 'missing-code', 'invalid-code', 'wrong-device', 'wrong-owner', 'revoked', 'tombstoned', 'other-uid', 'unpaired', 'deleting', 'deleting-display']) {
     await env.withSecurityRulesDisabled(async c => {
       await set(ref(c.database(), devicePath), {...paired, ...(broken === 'other-uid' ? {displayUid: 'new-auth'} : {}),
         ...(broken === 'invalid-code' ? {pairingCode: 'invalid'} : {}),
@@ -127,9 +144,15 @@ try {
           ...(broken === 'missing-code' ? {} : {pairingCode: broken === 'wrong-code' ? '654321' : broken === 'invalid-code' ? 'invalid' : '123456'})});
       await set(ref(c.database(), 'accountDeletions/owner'), broken === 'deleting' ? true : null);
       await set(ref(c.database(), 'accountDeletions/tv-user'), broken === 'deleting-display' ? true : null);
+      await set(ref(c.database(), 'displayConnectionRevocations/tv-user'),
+        broken === 'tombstoned' ? {'123456': {serverAtMs: Date.now()}} : null);
     });
     await assertFails(set(ref(tv, `${devicePath}/displayUid`), 'tv-user'));
+    const before = (await admin.ref().get()).val();
+    await assert.rejects(verify(`rejected-${broken}`), error =>
+      ['connection_conflict', 'connection_missing', 'device_unpaired', 'account_unavailable'].includes(error.details?.code));
+    assert.deepEqual((await admin.ref().get()).val(), before);
   }
-  console.log('PASS: STA-170 missing UID denies readiness before repair; UID-only mapped recovery, retry, exclusion/start and forged/revoked repair rejection');
+  console.log('PASS: STA-170/176 missing UID denies readiness before audited server repair; idempotent retry, exclusion/start and forged/revoked repair rejection');
   console.log('PASS: preparation ownership, exact candidate/revision, media readiness, stale ACK, unpair and active-class isolation');
-} finally { await env.cleanup(); }
+} finally { await adminApp.delete(); await env.cleanup(); }

@@ -54,8 +54,9 @@ enum FirstClassNext { explore, rehearse, center, connect, play, repeat }
 /// Require a playing session, an explicitly selected target and its current ACK.
 bool hasFirstPlaybackAck(
   PlaybackSession session,
-  List<DisplayDevice> devices,
-) =>
+  List<DisplayDevice> devices, {
+  int? nowMs,
+}) =>
     session.status == PlaybackStatus.playing &&
     !session.briefing &&
     session.workout.modules.isNotEmpty &&
@@ -64,7 +65,7 @@ bool hasFirstPlaybackAck(
       (device) =>
           session.targetDeviceIds.contains(device.id) &&
           device.paired &&
-          device.online &&
+          device.recentlySeen(nowMs ?? DateTime.now().millisecondsSinceEpoch) &&
           device.displayState == 'auto' &&
           device.currentSessionId == session.id &&
           device.acknowledgedRevision >= session.revision,

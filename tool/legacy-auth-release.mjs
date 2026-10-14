@@ -11,6 +11,8 @@ import { parse } from '../functions-legacy/node_modules/dotenv/lib/main.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const baselineFile = resolve(root, 'functions-legacy/migration-baseline.json');
 export const baseline = JSON.parse(readFileSync(baselineFile, 'utf8'));
+const sourceChangeFile = resolve(root, 'functions-legacy/sta176-pairing-bridge.json');
+export const sourceChanges = JSON.parse(readFileSync(sourceChangeFile, 'utf8'));
 export const functionNames = baseline.functions.map(f => f.name).sort();
 export const selector = functionNames.map(name => `functions:${baseline.codebase}:${name}`).join(',');
 export const sha256 = value => createHash('sha256').update(value).digest('hex');
@@ -79,6 +81,22 @@ export function verifyAfter(before, after) {
   }
 }
 
+// Preserve the production migration baseline. Only this explicitly reviewed
+// bridge delta may replace a handler/support module; the other three handlers,
+// all other modules, dependency lock and deployment contracts stay pinned.
+export function validateSourceChanges(changes) {
+  assert.deepEqual(Object.keys(changes).sort(), ['baselineSha256', 'exportDeclarationSha256', 'format', 'issue', 'migratedIndexSha256', 'supportingModuleSha256'].sort());
+  assert.equal(changes.format, 1); assert.equal(changes.issue, 'STA-176');
+  assert.equal(changes.baselineSha256, sha256(readFileSync(baselineFile)), 'Migration baseline changed');
+  assert.deepEqual(Object.keys(changes.exportDeclarationSha256), ['cloudboardPairDisplay'], 'Only the pairing handler may change');
+  assert.deepEqual(Object.keys(changes.supportingModuleSha256), ['lib/services/pairing.js'], 'Only the pairing service may change');
+  for (const hash of [changes.migratedIndexSha256, ...Object.values(changes.exportDeclarationSha256), ...Object.values(changes.supportingModuleSha256)])
+    assert.match(hash, /^[a-f0-9]{64}$/, 'Missing reviewed bridge digest');
+  assert.notEqual(changes.migratedIndexSha256, baseline.migratedIndexSha256, 'Missing bridge entrypoint');
+  assert.notEqual(changes.exportDeclarationSha256.cloudboardPairDisplay, baseline.exportDeclarationSha256.cloudboardPairDisplay, 'Missing bridge handler');
+  assert.notEqual(changes.supportingModuleSha256['lib/services/pairing.js'], baseline.supportingModuleSha256['lib/services/pairing.js'], 'Old non-atomic pairing service is forbidden');
+}
+
 export async function checkSource() {
   const config = json('firebase.legacy-auth.json');
   assert.deepEqual(Object.keys(config), ['functions'], 'Legacy deployment may only contain Functions');
@@ -89,9 +107,11 @@ export async function checkSource() {
   assert(config.functions[0].predeploy.some(command => command.includes('legacy-auth-release.mjs') && command.endsWith(' predeploy')), 'Missing predeploy guard');
   assert.equal(sha256(readFileSync(resolve(root, 'functions-legacy/package-lock.json'))), baseline.dependencyLockSha256, 'Production dependency lock changed');
   const modulePath = resolve(root, 'functions-legacy/lib/index.js');
-  assert.equal(sha256(readFileSync(modulePath)), baseline.migratedIndexSha256, 'Migrated entrypoint changed beyond the reviewed export removal');
-  assert.deepEqual(declarationHashes(readFileSync(modulePath, 'utf8')), baseline.exportDeclarationSha256, 'Active handlers differ from deployed source');
-  for (const [file, hash] of Object.entries(baseline.supportingModuleSha256))
+  validateSourceChanges(sourceChanges);
+  assert.equal(sha256(readFileSync(modulePath)), sourceChanges.migratedIndexSha256, 'Entrypoint differs from the reviewed pairing bridge');
+  assert.deepEqual(declarationHashes(readFileSync(modulePath, 'utf8')), { ...baseline.exportDeclarationSha256, ...sourceChanges.exportDeclarationSha256 }, 'Active handlers differ from the reviewed source');
+  const supportingModules = { ...baseline.supportingModuleSha256, ...sourceChanges.supportingModuleSha256 };
+  for (const [file, hash] of Object.entries(supportingModules))
     assert.equal(sha256(readFileSync(resolve(root, 'functions-legacy', file))), hash, `Deployed support module changed: ${file}`);
   const functions = await import(pathToFileURL(modulePath));
   assert.deepEqual(Object.keys(functions).sort(), functionNames, 'Only the four currently ACTIVE functions may be exported');
@@ -105,7 +125,8 @@ export async function checkSource() {
     assert(expected.name === 'cloudboardAuth' ? endpoint.httpsTrigger : endpoint.callableTrigger);
     assert(!endpoint.eventTrigger && !endpoint.scheduleTrigger, 'Dormant trigger revival');
   }
-  return digest({ index: sha256(readFileSync(modulePath)), ...baseline.supportingModuleSha256,
+  return digest({ index: sha256(readFileSync(modulePath)), ...supportingModules,
+    reviewedSourceChanges: sha256(readFileSync(sourceChangeFile)),
     lock: baseline.dependencyLockSha256, config: sha256(readFileSync(resolve(root, 'firebase.legacy-auth.json'))) });
 }
 
@@ -182,6 +203,12 @@ export function validateReleaseEvidence(evidence, candidateDigest) {
   for (const check of ['googleAppleLogin', 'phoneFreeActivation', 'legacyAccountEntitlement', 'pairDisplay', 'setDisplayState', 'threeTvClassLifecycle'])
     assert.equal(evidence.checks?.[check], 'passed', `Missing native regression: ${check}`);
   assert.equal(evidence.infrastructureReview, 'passed', 'Review Scheduler, Eventarc, Secret IAM and shared credentials before deploy');
+  assert.equal(evidence.pairingBackend?.project, baseline.project, 'Verify the canonical pairing backend project');
+  assert.equal(evidence.pairingBackend?.region, 'asia-northeast3', 'Verify the canonical pairing backend region');
+  assert.equal(evidence.pairingBackend?.function, 'pairDisplayConnection', 'Verify the canonical pairing endpoint');
+  assert.match(evidence.pairingBackend?.sourceSha || '', /^[a-f0-9]{40}$/, 'Record the canonical backend source SHA');
+  assert.equal(evidence.pairingBackend?.smoke, 'passed', 'Deploy and verify the canonical pairing backend before this bridge');
+  assert.equal(evidence.checks?.legacyPairingBridge, 'passed', 'Missing released-app bridge regression');
 }
 
 async function main(command) {

@@ -9,7 +9,6 @@ import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dar
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -523,11 +522,13 @@ class PlaybackActionController extends _$PlaybackActionController {
 }
 
 /// Blocks controller commands until a foreground server handshake completes.
+/// Every caller joins the same read-only handshake. Cancellation invalidates its
+/// result; a later generation waits for it to finish before opening a new one.
 @Riverpod(keepAlive: true)
 class PlaybackRecoveryController extends _$PlaybackRecoveryController {
   int _epoch = 0;
-  bool _running = false;
-  bool _retryQueued = false;
+  int? _flightEpoch;
+  Future<void>? _flight;
   String? _incidentId;
   String? _displayIncidentId;
   String? _displayInterruptedSessionId;
@@ -613,30 +614,58 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
   }
 
   @override
-  AsyncValue<void> build() => const AsyncData(null);
+  AsyncValue<void> build() {
+    ref.onDispose(() => ++_epoch);
+    return const AsyncData(null);
+  }
 
   void suspend() {
     ++_epoch;
     state = const AsyncLoading();
   }
 
-  Future<void> recover({bool restartTransport = true}) async {
-    _syncTelemetryOwner();
-    if (_running) {
-      _retryQueued = true;
-      return;
-    }
-    _running = true;
+  Future<bool> recoverConfirmed({bool restartTransport = false}) async {
     final epoch = _epoch;
+    await recover(restartTransport: restartTransport);
+    return ref.mounted &&
+        epoch == _epoch &&
+        !state.isLoading &&
+        !state.hasError &&
+        state.hasValue;
+  }
+
+  Future<void> recover({bool restartTransport = true}) {
+    _syncTelemetryOwner();
+    final pending = _flight;
+    if (pending != null) {
+      if (_flightEpoch == _epoch) return pending;
+      final epoch = _epoch;
+      return pending.then<void>((_) async {
+        if (!ref.mounted || epoch != _epoch) return;
+        await recover(restartTransport: restartTransport);
+      });
+    }
+    final epoch = _epoch;
+    _flightEpoch = epoch;
+    final task = _recover(epoch, restartTransport: restartTransport);
+    return _flight = task.whenComplete(() {
+      _flight = null;
+      _flightEpoch = null;
+    });
+  }
+
+  Future<void> _recover(int epoch, {required bool restartTransport}) async {
     final elapsed = Stopwatch()..start();
     state = const AsyncLoading();
-    final actionsSubscription = ref.listen(playbackActionsProvider, (_, _) {});
+    final actionsSubscription = ref.listen(playbackActionsProvider, (
+      old,
+      next,
+    ) {
+      if (!identical(old, next)) suspend();
+    });
     try {
       final actions = ref.read(playbackActionsProvider);
       await actions.recover(restartTransport: restartTransport);
-      debugPrint(
-        'Playback recovery: server confirmed in ${elapsed.elapsedMilliseconds}ms',
-      );
       if (!ref.mounted || epoch != _epoch) return;
       if (!identical(actions, ref.read(playbackActionsProvider))) {
         throw StateError('계정이 변경되었습니다. 다시 확인해 주세요.');
@@ -705,16 +734,6 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
       }
     } finally {
       actionsSubscription.close();
-      _running = false;
-      if (ref.mounted) {
-        debugPrint(
-          'Playback recovery: completed in ${elapsed.elapsedMilliseconds}ms; ready=${state.hasValue}',
-        );
-      }
-      if (_retryQueued && ref.mounted) {
-        _retryQueued = false;
-        unawaited(recover());
-      }
     }
   }
 }

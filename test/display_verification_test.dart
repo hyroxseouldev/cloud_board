@@ -46,13 +46,14 @@ DisplayDevice tv(
   String? ack, {
   String id = 'tv',
   String nonce = 'attempt-4321',
+  int? seenAtMs,
 }) => DisplayDevice(
   id: id,
   name: '메인 TV',
   zoneId: 'main',
   zoneName: 'main',
   online: true,
-  lastSeenAtMs: 0,
+  lastSeenAtMs: seenAtMs ?? DateTime.now().millisecondsSinceEpoch,
   currentSessionId: null,
   acknowledgedRevision: 0,
   paired: true,
@@ -105,6 +106,18 @@ void main() {
       devices.add([tv('old-attempt'), tv('attempt-4321', id: 'other')]);
       await tester.pumpAndSettle();
       expect(canConfirm(), isFalse);
+      devices.add([
+        tv(
+          'attempt-4321',
+          seenAtMs: DateTime.now().millisecondsSinceEpoch - 76000,
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(
+        canConfirm(),
+        isFalse,
+        reason: 'A stale heartbeat cannot confirm even a matching ACK',
+      );
       devices.add([tv('attempt-4321')]);
       await tester.pumpAndSettle();
       expect(canConfirm(), isTrue);

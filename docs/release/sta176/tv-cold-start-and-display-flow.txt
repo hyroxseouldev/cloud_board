@@ -1,0 +1,14 @@
+00:00 +0: loading <workspace>/test/tv_playback_lifecycle_test.dart
+00:00 +0: <workspace>/test/tv_playback_lifecycle_test.dart: wake retries automatically after the first server failure
+00:00 +1: <workspace>/test/tv_playback_lifecycle_test.dart: three network disconnects each recover without replaying a class command
+00:00 +2: <workspace>/test/tv_playback_lifecycle_test.dart: wake backoff is bounded and a later background cancels all retry timers
+00:00 +3: <workspace>/test/tv_playback_lifecycle_test.dart: cold start stays muted until the first server confirmation
+00:00 +4: <workspace>/test/tv_playback_lifecycle_test.dart: foreground-only gate is TV-specific: true
+00:00 +5: <workspace>/test/tv_playback_lifecycle_test.dart: foreground-only gate is TV-specific: false
+00:05 +6: <workspace>/test/display_mode_flow_test.dart: TV update appears only in confirmed standby and yields to a class, recovery or connection loss
+00:06 +7: <workspace>/test/display_mode_flow_test.dart: brand downgrade waits for standby and cannot black out or replace active class
+00:06 +8: <workspace>/test/display_mode_flow_test.dart: TV paints a silent identification card and ACKs only while idle and connected
+00:06 +9: <workspace>/test/display_mode_flow_test.dart: Display to Control replaces route and retains device at Size(390.0, 844.0)
+00:07 +10: <workspace>/test/display_mode_flow_test.dart: Display to Control replaces route and retains device at Size(834.0, 1194.0)
+00:07 +11: <workspace>/test/display_mode_flow_test.dart: OFF uses standby, ON follows live session, ended session cannot return; reconnect and resume refresh
+00:07 +12: All tests passed!

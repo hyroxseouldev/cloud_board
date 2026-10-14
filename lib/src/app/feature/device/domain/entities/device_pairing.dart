@@ -2,6 +2,19 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/display_prefe
 
 import 'dart:math';
 
+class DisplayPreparationHealth {
+  const DisplayPreparationHealth({
+    this.stage = '',
+    this.code = '',
+    this.attempt = 0,
+    this.checkedAtMs = 0,
+    this.requestId,
+  });
+  final String stage, code;
+  final int attempt, checkedAtMs;
+  final String? requestId;
+}
+
 class DevicePairing {
   const DevicePairing({
     required this.code,
@@ -40,6 +53,12 @@ class DisplayDevice {
     this.appPlatform = '',
     this.playbackProtocol = 1,
     this.preparationProtocol = 0,
+    this.recoveryProtocol = 0,
+    this.connectionId,
+    this.verifiedConnectionId,
+    this.verifiedAtMs = 0,
+    this.readyAtMs = 0,
+    this.preparationHealth = const DisplayPreparationHealth(),
   });
 
   final String id;
@@ -60,7 +79,21 @@ class DisplayDevice {
   final int lastCommandAtMs;
   final int onlineSinceMs;
   final String appVersion, appBuild, appPlatform;
-  final int playbackProtocol, preparationProtocol;
+  final int playbackProtocol, preparationProtocol, recoveryProtocol;
+  final String? connectionId, verifiedConnectionId;
+  final int verifiedAtMs, readyAtMs;
+  final DisplayPreparationHealth preparationHealth;
+  bool connectionAuthenticated(int nowMs) =>
+      recentlySeen(nowMs) &&
+      connectionId != null &&
+      connectionId == verifiedConnectionId &&
+      verifiedAtMs > 0 &&
+      verifiedAtMs <= nowMs + 5000;
+  bool playbackReady(int nowMs) =>
+      preparationHealth.code.isEmpty &&
+      connectionAuthenticated(nowMs) &&
+      readyAtMs >= verifiedAtMs &&
+      readyAtMs <= nowMs + 5000;
   bool recentlySeen(int nowMs) =>
       online &&
       lastSeenAtMs > 0 &&

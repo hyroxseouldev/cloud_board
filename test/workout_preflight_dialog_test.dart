@@ -301,14 +301,14 @@ void main() {
           name: '테스트 운동',
           modules: [WorkoutModule.empty('module').copyWith(name: '스쿼트')],
         );
-    const devices = [
+    final devices = [
       DisplayDevice(
         id: 'display-a',
         name: '메인 TV',
         zoneId: 'main',
         zoneName: '메인 구역',
         online: true,
-        lastSeenAtMs: 1,
+        lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
         currentSessionId: null,
         acknowledgedRevision: 0,
         paired: true,
@@ -319,7 +319,7 @@ void main() {
         zoneId: 'main',
         zoneName: '메인 구역',
         online: true,
-        lastSeenAtMs: 1,
+        lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
         currentSessionId: null,
         acknowledgedRevision: 0,
         paired: true,
@@ -428,5 +428,13 @@ class _PreparationRepository implements DisplayPreparationRepository {
     required bool audioReady,
   }) async {}
   @override
-  Future<void> heartbeat(String deviceId) async {}
+  Future<void> heartbeat(String deviceId, {bool ready = false}) async {}
+  @override
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  }) async {}
 }

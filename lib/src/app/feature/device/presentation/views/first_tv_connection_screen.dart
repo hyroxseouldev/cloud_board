@@ -14,6 +14,9 @@ class FirstTvConnectionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(firstClassScopeProvider);
     final devices = ref.watch(displayDevicesProvider);
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
     return Scaffold(
       appBar: AppBar(title: const Text('TV 첫 연결')),
       body: SafeArea(
@@ -91,7 +94,7 @@ class FirstTvConnectionScreen extends ConsumerWidget {
                 child: ListTile(
                   title: Text(device.name),
                   subtitle: Text(
-                    '${device.zoneName} · ${device.online ? '온라인 · 응답 확인하기' : '오프라인 · TV 앱과 인터넷 확인'}',
+                    '${device.zoneName} · ${device.recentlySeen(nowMs) ? '온라인 · 응답 확인하기' : '오프라인 · TV 앱과 인터넷 확인'}',
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => showDialog<void>(

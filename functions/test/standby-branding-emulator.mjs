@@ -27,6 +27,8 @@ try {
  await env.withSecurityRulesDisabled(async c=>{
   await set(databaseRef(c.database(),base),{brand:{storeName:'CloudBoard'},brandConfig:{storeName:'Original center',logoUrl:'https://example.org/old.png'},brandProjection:{policyVersion:'plan-entitlements-v2'}});
   await set(databaseRef(c.database(),'displayAccess/branding-tv'),{ownerId:uid,deviceId:'display'});
+  await set(databaseRef(c.database(),`users/${uid}/devices/display`),{id:'display',mode:'display',paired:true,
+    displayUid:'branding-tv',online:true,lastSeenAtMs:Date.now()});
  });
  for(const plan of ['free','plus','premium']){
   await seed(plan);

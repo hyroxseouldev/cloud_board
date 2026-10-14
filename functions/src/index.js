@@ -5,6 +5,7 @@ import {assertDevelopmentSmsTester, sendDevelopmentOnboardingSms} from './develo
 import {setGlobalOptions} from 'firebase-functions/v2';
 import {prunePlaybackSnapshots} from './playback-snapshots.js';
 import {onDocumentWritten, onDocumentCreated} from 'firebase-functions/v2/firestore';
+import {onValueWritten} from 'firebase-functions/v2/database';
 import {syncWorkoutSummary, backfillCatalog} from './workout-catalog.js';
 import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
@@ -451,6 +452,40 @@ export const syncStandbyBranding = onDocumentWritten({region, document: 'subscri
   await projectStandbyBranding(db, realtime, event.params.uid);
 });
 
+async function displayConnectionCall(request, action) {
+  const requestStartedAtMs = Date.now();
+  if (!request.auth) throw new HttpsError('unauthenticated', '로그인 상태를 확인해 주세요.', {code: 'permission_denied'});
+  // Callable token signature validation alone does not detect a disabled or
+  // revoked TV identity. Recheck before any privileged binding mutation.
+  const bearer = request.rawRequest.headers.authorization?.replace(/^Bearer /i, '');
+  try {
+    const verified = await auth.verifyIdToken(bearer || '', true);
+    if (verified.uid !== request.auth.uid) throw new Error('identity-mismatch');
+  } catch {
+    throw new HttpsError('unauthenticated', '인증 상태를 다시 확인해 주세요.', {code: 'permission_denied'});
+  }
+  const {mutateDisplayConnection} = await import('./display-recovery.js');
+  return mutateDisplayConnection(realtime, request.auth, action, request.data, {requestStartedAtMs});
+}
+const displayConnectionOptions = {region, timeoutSeconds: 30, maxInstances: 3, concurrency: 10, memory: '512MiB'};
+export const verifyDisplayConnection = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'verify'));
+export const requestDisplayRecovery = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'request'));
+export const reportDisplayRecovery = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'report'));
+export const pairDisplayConnection = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'pair'));
+export const unpairDisplayConnection = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'unpair'));
+
+// Database audit listeners must use the RTDB's own region. They do not repair
+// data or grant access; delayed/reordered deliveries retain their event time.
+export const auditDisplayDeviceBinding = onValueWritten({region: 'asia-southeast1',
+  instance: `${projectId}-default-rtdb`, ref: '/users/{ownerId}/devices/{deviceId}', retry: true, maxInstances: 3}, async event => {
+  const {auditDisplayBindingChange} = await import('./display-recovery.js');
+  await auditDisplayBindingChange(realtime, event, 'device');
+});
+export const auditDisplayAccessBinding = onValueWritten({region: 'asia-southeast1',
+  instance: `${projectId}-default-rtdb`, ref: '/displayAccess/{displayUid}', retry: true, maxInstances: 3}, async event => {
+  const {auditDisplayBindingChange} = await import('./display-recovery.js');
+  await auditDisplayBindingChange(realtime, event, 'access');
+});
 
 // Support persistence does not depend on email setup or provider availability.
 export const cloudboardPrepareSupportAttachment = onCall({region, maxInstances: 5}, request =>

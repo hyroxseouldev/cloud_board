@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_recovery_dialog.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
@@ -31,6 +32,9 @@ class DisplaySettingsScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider);
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
     final pendingRemoval = useState<String?>(null);
     final changingOutput = useState(false);
     final removed = useState<Set<String>>({});
@@ -114,14 +118,14 @@ class DisplaySettingsScreen extends HookConsumerWidget {
                     ? 'TV 상태를 확인하지 못했습니다. 아래에서 다시 불러와 주세요.'
                     : devices.value?.isEmpty == true
                     ? 'TV 앱을 열고 QR 또는 6자리 코드로 첫 화면을 연결하세요.'
-                    : '등록 ${devices.value?.length ?? 0}대 · 온라인 ${devices.value?.where((device) => device.online).length ?? 0}대',
+                    : '등록 ${devices.value?.length ?? 0}대 · 온라인 ${devices.value?.where((device) => device.recentlySeen(nowMs)).length ?? 0}대',
                 style: const TextStyle(color: AppColors.secondaryText),
               ),
               if (devices.hasValue && devices.value!.isNotEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 4),
                   child: Text(
-                    '온라인 표시는 TV 응답 확인과 다릅니다. TV 메뉴에서 확인 번호를 보내세요.',
+                    '최근 서버 응답을 기준으로 표시합니다. 수업 준비와 연결 권한은 TV 메뉴의 연결 복구에서 확인하세요.',
                     style: TextStyle(
                       color: AppColors.secondaryText,
                       fontSize: 12,
@@ -206,6 +210,7 @@ class DisplaySettingsScreen extends HookConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _DisplayTile(
                       device: device,
+                      nowMs: nowMs,
                       busy: busy || pendingRemoval.value != null,
                       removing: pendingRemoval.value == device.id,
                       onToggle: (enabled) async {
@@ -283,6 +288,8 @@ class DisplaySettingsScreen extends HookConsumerWidget {
                           if (context.mounted) changingOutput.value = false;
                         }
                       },
+                      onRecover: () =>
+                          showDisplayRecovery(context, ref, device),
                       onVerify: () => showDialog<void>(
                         context: context,
                         builder: (dialogContext) => AppAlertDialog(
@@ -358,6 +365,7 @@ class DisplaySettingsScreen extends HookConsumerWidget {
 class _DisplayTile extends StatelessWidget {
   const _DisplayTile({
     required this.device,
+    required this.nowMs,
     required this.busy,
     required this.removing,
     required this.onRemove,
@@ -365,14 +373,17 @@ class _DisplayTile extends StatelessWidget {
     required this.onPreferences,
     required this.onToggle,
     required this.onVerify,
+    required this.onRecover,
   });
   final DisplayDevice device;
+  final int nowMs;
   final bool busy;
   final bool removing;
   final VoidCallback onRemove;
   final VoidCallback onRename;
   final VoidCallback onPreferences;
   final VoidCallback onVerify;
+  final VoidCallback onRecover;
   final ValueChanged<bool> onToggle;
 
   @override
@@ -415,11 +426,11 @@ class _DisplayTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   AppContentTransition(
                     transitionKey:
-                        '${device.online}:${device.appBuild}:${device.lastSeenAtMs}',
+                        '${device.recentlySeen(nowMs)}:${device.appBuild}:${device.lastSeenAtMs}',
                     child: Text(
-                      '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}\n'
-                      '${device.displayState == 'auto' ? '송출 켜짐' : '송출 꺼짐'} · ${device.recentlySeen(DateTime.now().millisecondsSinceEpoch) ? '최근 응답 수신' : 'TV 응답 확인 필요'}'
-                      '${device.online ? '' : '\nTV 앱과 인터넷 연결을 확인해 주세요.'}',
+                      '${device.zoneName} · ${device.recentlySeen(nowMs) ? '온라인' : '오프라인'}\n'
+                      '${device.displayState == 'auto' ? '송출 켜짐' : '송출 꺼짐'} · ${device.recentlySeen(nowMs) ? '최근 응답 수신' : 'TV 응답 확인 필요'}'
+                      '${device.recentlySeen(nowMs) ? '' : '\nTV 앱과 인터넷 연결을 확인해 주세요.'}',
                       style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 12,
@@ -444,7 +455,9 @@ class _DisplayTile extends StatelessWidget {
                 tooltip: '디스플레이 메뉴',
                 enabled: !busy,
                 icon: const Icon(Icons.more_vert, color: AppColors.muted),
-                onSelected: (value) => value == 'verify'
+                onSelected: (value) => value == 'recover'
+                    ? onRecover()
+                    : value == 'verify'
                     ? onVerify()
                     : value == 'rename'
                     ? onRename()
@@ -452,6 +465,7 @@ class _DisplayTile extends StatelessWidget {
                     ? onPreferences()
                     : onRemove(),
                 itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'recover', child: Text('연결 복구')),
                   PopupMenuItem(value: 'verify', child: Text('TV 응답 확인')),
                   PopupMenuItem(value: 'rename', child: Text('이름 수정')),
                   PopupMenuItem(value: 'preferences', child: Text('화면 맞춤')),

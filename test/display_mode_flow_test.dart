@@ -76,6 +76,7 @@ class _RecoverPair extends DevicePairingController {
 
 class _PreparationStreams implements DisplayPreparationRepository {
   int subscriptions = 0;
+  int heartbeats = 0;
   @override
   Stream<DisplayPreparation?> watchRequest(String deviceId) {
     subscriptions++;
@@ -83,7 +84,18 @@ class _PreparationStreams implements DisplayPreparationRepository {
   }
 
   @override
-  Future<void> heartbeat(String deviceId) async {}
+  Future<void> heartbeat(String deviceId, {bool ready = false}) async {
+    heartbeats++;
+  }
+
+  @override
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  }) async {}
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -206,6 +218,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(preparation.subscriptions, 0);
+      expect(preparation.heartbeats, 0);
       connection.add(false);
       await tester.pumpAndSettle();
       connection.add(true);
@@ -217,9 +230,11 @@ void main() {
         0,
         reason: 'Heartbeat/device cache alone cannot bypass pending UID repair',
       );
+      expect(preparation.heartbeats, 0);
       pairing.recovered.complete();
       await tester.pumpAndSettle();
       expect(preparation.subscriptions, 1);
+      expect(preparation.heartbeats, 1);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await connection.close();

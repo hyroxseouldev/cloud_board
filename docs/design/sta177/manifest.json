@@ -1,0 +1,130 @@
+{
+  "baselineCommit": "73da574c54f3dad503a236c7053af3777934c062",
+  "capture": "Flutter production SlideEditorScreen, local draft fixture, Pretendard/MaterialIcons fonts, DPR 2",
+  "keyboard": "Injected 300 logical px view inset; OS keyboard itself is not rendered",
+  "artifacts": [
+    {
+      "file": "after/desktop.png",
+      "width": 2880,
+      "height": 1800,
+      "sha256": "011bf8eb4dc9f4130081c08ffc1f623c7260d2ca8596e4179f5c8fbcc5a673c6"
+    },
+    {
+      "file": "after/keyboard.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "28fac805962c492479215ef7607bbb0d933568b62db7784ae18a3f94023de7c4"
+    },
+    {
+      "file": "after/landscape.png",
+      "width": 1688,
+      "height": 780,
+      "sha256": "ee043382ffe5a5714988a56dffc08aa0b7dbae6cb00839e83fb84b758a6ae5d0"
+    },
+    {
+      "file": "after/large-text.png",
+      "width": 640,
+      "height": 1688,
+      "sha256": "8a3879b8390eab9ce799d1c12553176f1ef3859a9dea738137b12b8bdef9d229"
+    },
+    {
+      "file": "after/phone.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "83b1deb2dcc5554c5a63914899ae53210e2b7c2b8d0964fdf70a4ba66a4cb5e0"
+    },
+    {
+      "file": "after/small.png",
+      "width": 640,
+      "height": 1136,
+      "sha256": "ddc86dcaaed6f8bc990b7fee7d88de47c6da9ccff7ca33b0b328f55c88bd91c0"
+    },
+    {
+      "file": "after/tablet.png",
+      "width": 1668,
+      "height": 2388,
+      "sha256": "c5f40f2f9dbd5a08816b7c7de7153cb929bf9b01f39796ce631d46541dfdb4f9"
+    },
+    {
+      "file": "before/desktop.png",
+      "width": 2880,
+      "height": 1800,
+      "sha256": "91c8bc32edcf357445ea3d5f466fd71b4b7bdc810a40a415243a4461a6867fd7"
+    },
+    {
+      "file": "before/keyboard.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "7a8dc5eb54ddfd58b5098a63a24e372baa005e6e00223b025b4f9e42826ee9c6"
+    },
+    {
+      "file": "before/landscape.png",
+      "width": 1688,
+      "height": 780,
+      "sha256": "ce34149d4c75316d848f4ac4933421590054c37c9481d7bedb520c53d73fb73a"
+    },
+    {
+      "file": "before/large-text.png",
+      "width": 640,
+      "height": 1688,
+      "sha256": "4ca8d99832e877ec4c724c0520e05fe30fca51fb1b295cbf59373a4956098eae"
+    },
+    {
+      "file": "before/phone.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "debccc340f6563a7045bfeb1dac5c69d4d375c052ad4edd3c1b1aa6da08fbbbc"
+    },
+    {
+      "file": "before/small.png",
+      "width": 640,
+      "height": 1136,
+      "sha256": "68baa54222dc3c3c8735522c8c0b77e7b9a7ddfb4b8b61f00c1f1fc02801e6e1"
+    },
+    {
+      "file": "before/tablet.png",
+      "width": 1668,
+      "height": 2388,
+      "sha256": "9585376c52a6eb5bae83a7ae0d39212a2e59c9f222d5cc28797410f5cbd84b97"
+    },
+    {
+      "file": "comparison-keyboard.png",
+      "width": 804,
+      "height": 888,
+      "sha256": "252ce8bba8b2dbaed9f226b0f4f4c49bee9da8b43f705955856a0a9b6e3c2986"
+    },
+    {
+      "file": "comparison-landscape.png",
+      "width": 1304,
+      "height": 340,
+      "sha256": "3b961c4ac53ae47b211a87bca2dfdac964b430c8e07b183fb8ebba85f0394c11"
+    },
+    {
+      "file": "comparison-large-text.png",
+      "width": 804,
+      "height": 1073,
+      "sha256": "8466a4342bd7c83cd416777c4e447a0df7f6408c642205ba2a99809c5bb6a3cb"
+    },
+    {
+      "file": "comparison-phone.png",
+      "width": 804,
+      "height": 888,
+      "sha256": "c1fa85be21921e182d767b091353af5e83616a3167c70f0c56803b3a21e222b0"
+    },
+    {
+      "file": "reference.png",
+      "width": 1325,
+      "height": 159,
+      "sha256": "3023670e878b584f3ff201acd275358f67c46468ae7ba9bebd251d26a3bebec0"
+    }
+  ],
+  "sourceSha256": "ea66d4921d4efdb3c387f04c5f43ebcfcec9949d9a1623af29aaff461748fe3f",
+  "verification": {
+    "focusedVmPassed": 34,
+    "focusedChromePassed": 34,
+    "finalNewVmPassed": 14,
+    "beforeCapturePassed": 1,
+    "afterCapturePassed": 1,
+    "analyze": "No issues found"
+  }
+}

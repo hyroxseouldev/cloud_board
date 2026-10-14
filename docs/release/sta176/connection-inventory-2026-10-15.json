@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "mode": "read_only",
+  "projectId": "cloud-board-stationd",
+  "startedAt": "2026-10-14T15:08:28.781Z",
+  "completedAt": "2026-10-14T15:08:30.877Z",
+  "ownerCount": 4,
+  "registeredDeviceCount": 3,
+  "counts": {
+    "healthy": 3
+  },
+  "orphanMappings": 1,
+  "causeOfHistoricalMissingUid": "unconfirmed",
+  "records": [
+    {
+      "ownerHash": "931b4476214f3f50",
+      "deviceHash": "8cffae06a48d9871",
+      "status": "healthy",
+      "authStatus": "anonymous_identity",
+      "hasDisplayUid": true,
+      "matchingMappingCount": 1,
+      "appVersion": "1.1.1",
+      "recoveryProtocol": 0
+    },
+    {
+      "ownerHash": "931b4476214f3f50",
+      "deviceHash": "38fc55db98adbd46",
+      "status": "healthy",
+      "authStatus": "anonymous_identity",
+      "hasDisplayUid": true,
+      "matchingMappingCount": 1,
+      "appVersion": "1.1.0",
+      "recoveryProtocol": 0
+    },
+    {
+      "ownerHash": "931b4476214f3f50",
+      "deviceHash": "ce5429545f262ac3",
+      "status": "healthy",
+      "authStatus": "anonymous_identity",
+      "hasDisplayUid": true,
+      "matchingMappingCount": 1,
+      "appVersion": "1.1.1",
+      "recoveryProtocol": 0
+    }
+  ]
+}

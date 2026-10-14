@@ -15,6 +15,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+// Browser async* error delivery crosses a host microtask boundary that the
+// fake frame clock alone cannot drain. Yield one event-loop turn, then render
+// the resulting provider state; retry delays still use tester.pump durations.
+Future<void> _settlePreparation(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pumpAndSettle();
+}
+
 DisplayPreparation _candidate({
   String session = 'candidate',
   bool expired = false,
@@ -78,7 +87,15 @@ class _Repository implements DisplayPreparationRepository {
   }
 
   @override
-  Future<void> heartbeat(String deviceId) async {}
+  Future<void> heartbeat(String deviceId, {bool ready = false}) async {}
+  @override
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  }) async {}
   @override
   Future<void> cancel(String sessionId) async {}
   @override
@@ -144,7 +161,7 @@ class _Fixture {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settlePreparation(tester);
     await telemetry.flush();
   }
 
@@ -164,12 +181,12 @@ void main() {
       f.repository.responseGate = Completer<void>();
       await f.mount(tester);
       stream.add(f.repository.candidate);
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       expect(f.repository.responses, ['candidate']);
       stream.addError(StateError('connection denied'));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       f.repository.responseGate!.complete();
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
       expect(
         f.events.where((e) => e['action'] == 'tv.prepare').last['outcome'],
@@ -178,7 +195,7 @@ void main() {
       f.repository.requestStream = null;
       f.repository.responseGate = null;
       await tester.pump(const Duration(seconds: 15));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
       expect(f.repository.responses, ['candidate', 'candidate']);
       expect(f.events.last['outcome'], 'success');
@@ -194,14 +211,23 @@ void main() {
       f.repository.responseGate = Completer<void>();
       await f.mount(tester);
       await tester.pump(const Duration(seconds: 8));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
-      expect(f.events.last['code'], 'prepare_response');
-      expect(f.diagnostics.events.single.error, isA<TimeoutException>());
+      expect(f.events.any((e) => e['outcome'] == 'success'), isFalse);
+      expect(f.diagnostics.events.first.error, isA<TimeoutException>());
       expect(
-        f.diagnostics.events.single.context['preparationStage'],
+        f.diagnostics.events.first.context['preparationStage'],
         'response',
       );
+      for (final backoff in [1, 2, 4]) {
+        await tester.pump(Duration(seconds: backoff));
+        await _settlePreparation(tester);
+        await tester.pump(const Duration(seconds: 8));
+        await _settlePreparation(tester);
+      }
+      await f.telemetry.flush();
+      expect(f.repository.responses, hasLength(4));
+      expect(f.events.last['code'], 'prepare_response');
       f.repository.responseGate!.complete();
       await tester.pump();
       await f.telemetry.flush();
@@ -225,7 +251,7 @@ void main() {
       expect(f.events.map((e) => e['outcome']), ['attempt']);
       f.repository.responseError = error;
       f.repository.responseGate!.complete();
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
       expect(f.events.map((e) => e['outcome']), ['attempt', 'failure']);
       expect(f.events.last['code'], 'prepare_response');
@@ -247,13 +273,21 @@ void main() {
     'failed response retries after reconnect and only then records success',
     (tester) async {
       final f = _Fixture();
-      f.repository.responseError = StateError('offline');
+      f.repository.responseError = FirebaseException(
+        plugin: 'firebase_database',
+        code: 'unavailable',
+      );
       await f.mount(tester);
+      for (final backoff in [1, 2, 4]) {
+        await tester.pump(Duration(seconds: backoff));
+        await _settlePreparation(tester);
+      }
+      await f.telemetry.flush();
       expect(f.events.last['code'], 'prepare_response');
       await f.mount(tester, connected: false);
       f.repository.responseError = null;
       await f.mount(tester);
-      expect(f.repository.responses, ['candidate', 'candidate']);
+      expect(f.repository.responses, List.filled(5, 'candidate'));
       expect(f.events.map((e) => e['outcome']), [
         'attempt',
         'failure',
@@ -271,7 +305,7 @@ void main() {
         final f = _Fixture();
         final error = FirebaseException(
           plugin: 'firebase_database',
-          code: 'permission-denied',
+          code: reconnect ? 'permission-denied' : 'unavailable',
         );
         f.repository.streamError = error;
         await f.mount(tester);
@@ -283,8 +317,8 @@ void main() {
         if (reconnect) {
           await f.mount(tester);
         } else {
-          await tester.pump(const Duration(seconds: 15));
-          await tester.pumpAndSettle();
+          await tester.pump(const Duration(seconds: 1));
+          await _settlePreparation(tester);
           await f.telemetry.flush();
         }
         expect(f.repository.subscriptions, greaterThanOrEqualTo(2));
@@ -294,6 +328,56 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'permission denial stops request retries until a foreground scope restart',
+    (tester) async {
+      final f = _Fixture();
+      f.repository.streamError = FirebaseException(
+        plugin: 'firebase_database',
+        code: 'permission-denied',
+      );
+      await f.mount(tester);
+      expect(f.repository.subscriptions, 1);
+      f.repository.streamError = null;
+      await tester.pump(const Duration(seconds: 30));
+      await _settlePreparation(tester);
+      expect(f.repository.subscriptions, 1);
+      expect(f.repository.responses, isEmpty);
+      await f.mount(tester, foreground: false);
+      await f.mount(tester);
+      expect(f.repository.subscriptions, 2);
+      expect(f.repository.responses, ['candidate']);
+      await f.close(tester);
+    },
+  );
+
+  testWidgets(
+    'request transport retry budget remains exhausted until a new connection scope',
+    (tester) async {
+      final f = _Fixture();
+      f.repository.streamError = FirebaseException(
+        plugin: 'firebase_database',
+        code: 'unavailable',
+      );
+      await f.mount(tester);
+      for (final backoff in [1, 2, 4]) {
+        await tester.pump(Duration(seconds: backoff));
+        await _settlePreparation(tester);
+      }
+      expect(f.repository.subscriptions, 4);
+      f.repository.streamError = null;
+      await tester.pump(const Duration(seconds: 30));
+      await _settlePreparation(tester);
+      expect(f.repository.subscriptions, 4);
+      expect(f.repository.responses, isEmpty);
+      await f.mount(tester, connected: false);
+      await f.mount(tester);
+      expect(f.repository.subscriptions, 5);
+      expect(f.repository.responses, ['candidate']);
+      await f.close(tester);
+    },
+  );
 
   testWidgets(
     'pairing recovery must finish before request stream or ACK starts',
@@ -319,7 +403,7 @@ void main() {
       f.repository.candidate = _candidate(session: 'current');
       f.repository.responseGate = Completer<void>();
       f.container.invalidate(displayPreparationRequestProvider('tv'));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       expect(f.repository.responses, ['current']);
       await tester.pumpWidget(const SizedBox());
       f.repository.responseGate!.complete();

@@ -43,13 +43,14 @@ DisplayDevice device({
   int revision = 1,
   bool online = true,
   String mode = 'auto',
+  int? seenAtMs,
 }) => DisplayDevice(
   id: id,
   name: 'TV',
   zoneId: 'main',
   zoneName: 'main',
   online: online,
-  lastSeenAtMs: 0,
+  lastSeenAtMs: seenAtMs ?? DateTime.now().millisecondsSinceEpoch,
   currentSessionId: sessionId,
   acknowledgedRevision: revision,
   paired: true,
@@ -82,6 +83,18 @@ void main() {
     () => SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty(),
   );
+
+  test('an old online flag cannot prove the current class reached a TV', () {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    expect(
+      hasFirstPlaybackAck(session, [device(seenAtMs: now - 75000)], nowMs: now),
+      isFalse,
+    );
+    expect(
+      hasFirstPlaybackAck(session, [device(seenAtMs: now)], nowMs: now),
+      isTrue,
+    );
+  });
 
   test('progress survives recreation, isolated by user and center', () async {
     FirstClassRepositoryImpl repository() => FirstClassRepositoryImpl(

@@ -33,6 +33,130 @@ Map<String, dynamic> session({int revision = 1, String status = 'playing'}) => {
 };
 
 void main() {
+  for (final stalledPath in ['activeSession', 'playbackSnapshots']) {
+    testWidgets(
+      'recovery bounds a stalled $stalledPath REST read to eight seconds',
+      (tester) async {
+        final db = _Database(session());
+        final pending = Completer<Object?>();
+        final source = PlaybackRealtimeDataSource(
+          db,
+          'u',
+          serverRead: (path) {
+            if (stalledPath == 'activeSession' ||
+                path.contains('/playbackSnapshots/')) {
+              return pending.future;
+            }
+            return Future.value({
+              ...session(),
+              'schemaVersion': 2,
+              'snapshotId': 's',
+            });
+          },
+        );
+        final failure = expectLater(
+          source.recover(restartTransport: false),
+          throwsA(isA<TimeoutException>()),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 8));
+        await failure;
+        await source.dispose();
+        await db.events.close();
+      },
+    );
+  }
+  testWidgets('automatic manual and remote callers join one actual handshake', (
+    tester,
+  ) async {
+    final actions = _BarrierActions();
+    final container = ProviderContainer(
+      overrides: [
+        playbackActionsProvider.overrideWith((_) => actions),
+        activePlaybackSessionProvider.overrideWith((_) => Stream.value(null)),
+        serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+      ],
+    );
+    final controller = container.read(
+      playbackRecoveryControllerProvider.notifier,
+    );
+    final first = controller.recover(restartTransport: false);
+    var manualDone = false;
+    final manual = controller.recover().then((_) => manualDone = true);
+    final remote = controller.recoverConfirmed();
+    await tester.pump();
+    expect(actions.pending.length, 1);
+    expect(
+      manualDone,
+      isFalse,
+      reason: 'A joined request must wait for real server confirmation',
+    );
+    actions.pending.single.complete();
+    await tester.pump();
+    await first;
+    await manual;
+    expect(await remote, isTrue);
+    expect(actions.pending.length, 1);
+    container.dispose();
+  });
+
+  testWidgets(
+    'background/account cancellation ignores late result and serializes next generation',
+    (tester) async {
+      final actions = _BarrierActions();
+      final container = ProviderContainer(
+        overrides: [
+          playbackActionsProvider.overrideWith((_) => actions),
+          activePlaybackSessionProvider.overrideWith((_) => Stream.value(null)),
+          serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+        ],
+      );
+      final controller = container.read(
+        playbackRecoveryControllerProvider.notifier,
+      );
+      final old = controller.recoverConfirmed();
+      controller.suspend();
+      final current = controller.recoverConfirmed();
+      expect(actions.pending.length, 1);
+      actions.pending.first.complete();
+      await tester.pump();
+      expect(await old, isFalse);
+      expect(actions.pending.length, 2);
+      expect(
+        container.read(playbackRecoveryControllerProvider).isLoading,
+        isTrue,
+      );
+      actions.pending.last.complete();
+      await tester.pump();
+      expect(await current, isTrue);
+      container.dispose();
+    },
+  );
+
+  test(
+    'confirmed completed session survives stale cached resubscription',
+    () async {
+      final db = _Database(session());
+      final source = PlaybackRealtimeDataSource(
+        db,
+        'u',
+        serverRead: (_) async => session(revision: 9, status: 'completed'),
+      );
+      await source.recover(restartTransport: false);
+      final seen = <PlaybackSessionModel?>[];
+      final subscription = source.watchActive().listen(seen.add);
+      await Future<void>.delayed(Duration.zero);
+      expect(seen.single?.status, 'completed');
+      expect(seen.single?.revision, 9);
+      db.events.add(_Event(session(revision: 2)));
+      await Future<void>.delayed(Duration.zero);
+      expect(seen.length, 1);
+      await subscription.cancel();
+      await source.dispose();
+      await db.events.close();
+    },
+  );
+
   test('repository forwards contradiction read errors', () async {
     final db = RecoveryDatabase(null);
     var fail = false;
@@ -596,4 +720,14 @@ class _Snapshot extends Fake implements DataSnapshot {
   _Snapshot(this.value);
   @override
   final Object? value;
+}
+
+class _BarrierActions extends Fake implements PlaybackActions {
+  final pending = <Completer<void>>[];
+  @override
+  Future<void> recover({required bool restartTransport}) {
+    final completer = Completer<void>();
+    pending.add(completer);
+    return completer.future;
+  }
 }

@@ -76,18 +76,21 @@ class FirstClassController extends _$FirstClassController {
     if (scope == null || progress == null || progress.playedSessionId != null) {
       return;
     }
+    final nowMs =
+        DateTime.now().millisecondsSinceEpoch +
+        (ref.read(serverTimeOffsetProvider).value ?? 0);
     final session = ref.read(activePlaybackSessionProvider).value;
     final devices = ref.read(displayDevicesProvider).value ?? const [];
     if (session == null ||
         session.ownerId != scope.userId ||
         progress.savedWorkoutId != session.workout.id ||
-        !hasFirstPlaybackAck(session, devices)) {
+        !hasFirstPlaybackAck(session, devices, nowMs: nowMs)) {
       return;
     }
     final target = devices.firstWhere(
       (d) =>
           session.targetDeviceIds.contains(d.id) &&
-          d.online &&
+          d.recentlySeen(nowMs) &&
           d.paired &&
           d.displayState == 'auto' &&
           d.currentSessionId == session.id &&

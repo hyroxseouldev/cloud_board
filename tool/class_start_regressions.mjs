@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {mkdirSync, writeFileSync, existsSync} from 'node:fs';
+import {mkdirSync, writeFileSync, existsSync, rmSync} from 'node:fs';
 import {spawn} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 
@@ -45,14 +45,22 @@ export function validateTestEvents(events, suites = requiredSuites) {
 }
 
 async function run(platform) {
+  mkdirSync('build/class-start', {recursive: true});
+  // Even a missing suite or launch failure must invalidate earlier evidence.
+  rmSync(`build/class-start/${platform}.json`, {force: true});
+  rmSync(`build/class-start/${platform}.jsonl`, {force: true});
   for (const suite of requiredSuites) assert(existsSync(suite), `Missing required suite ${suite}`);
   const args = ['test', '--machine', ...(platform === 'chrome' ? ['--platform', 'chrome'] : []), ...requiredSuites];
   const child = spawn(process.env.FLUTTER_BIN || 'flutter', args, {stdio: ['ignore', 'pipe', 'inherit']});
   let output = '';
   child.stdout.on('data', data => { output += data; });
-  const code = await new Promise((resolve, reject) => { child.on('error', reject); child.on('exit', resolve); });
-  mkdirSync('build/class-start', {recursive: true});
-  writeFileSync(`build/class-start/${platform}.jsonl`, output);
+  let code;
+  try {
+    // close waits for stdout to drain, including the failing run's last events.
+    code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+  } finally {
+    writeFileSync(`build/class-start/${platform}.jsonl`, output);
+  }
   assert.equal(code, 0, `Flutter ${platform} failed; see build/class-start/${platform}.jsonl`);
   const events = output.split('\n').filter(line => line.trim().startsWith('{')).map(line => JSON.parse(line));
   const result = validateTestEvents(events);

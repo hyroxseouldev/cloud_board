@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -17,8 +18,14 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
   final DevicePairingRealtimeDataSource _dataSource;
 
   @override
-  Future<DevicePairing> issue({required String deviceId}) =>
-      _dataSource.issue(deviceId: deviceId);
+  Stream<DisplayConnectionState> watchConnectionState() =>
+      _dataSource.watchConnectionState();
+
+  @override
+  Future<DevicePairing> issue({
+    required String deviceId,
+    bool retryConnection = false,
+  }) => _dataSource.issue(deviceId: deviceId, retryConnection: retryConnection);
 
   @override
   Stream<List<DisplayDevice>> watchDevices() => _dataSource.watchDevices();
@@ -80,12 +87,13 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
 @Riverpod(keepAlive: true)
 DevicePairingRepository devicePairingRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
-  final ownerId = ref.watch(accountOwnerIdProvider).value;
+  final owner = ref.watch(accountOwnerIdProvider);
+  final ownerId = owner.isLoading || owner.hasError ? null : owner.value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
-  return DevicePairingRepositoryImpl(
-    DevicePairingRealtimeDataSource(database, auth, ownerId),
-  );
+  final source = DevicePairingRealtimeDataSource(database, auth, ownerId);
+  ref.onDispose(source.dispose);
+  return DevicePairingRepositoryImpl(source);
 }

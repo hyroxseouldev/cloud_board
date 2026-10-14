@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 
@@ -200,7 +201,12 @@ class ScheduleRunnerController extends _$ScheduleRunnerController {
         if (workout == null || workout.modules.isEmpty) continue;
         final targets = schedule.targetDeviceIds.isEmpty
             ? devices
-                  .where((item) => item.online)
+                  .where(
+                    (item) => item.recentlySeen(
+                      DateTime.now().millisecondsSinceEpoch +
+                          (ref.read(serverTimeOffsetProvider).value ?? 0),
+                    ),
+                  )
                   .map((item) => item.id)
                   .toList()
             : schedule.targetDeviceIds;
