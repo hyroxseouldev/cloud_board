@@ -1,6 +1,7 @@
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/operation_event_recorder.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 
 import 'dart:async';
@@ -45,6 +46,9 @@ class DisplayPreparationController extends _$DisplayPreparationController {
     unawaited(_subscription?.cancel());
     if (!ref.mounted || epoch != _epoch) return;
     state = const DisplayPreparationState(loading: true);
+    final reporter = ref.read(errorReporterProvider);
+    final telemetry = ref.read(operationTelemetryProvider);
+    final attempt = telemetry.start('tv.prepare.request');
     try {
       final repository = ref.read(displayPreparationRepositoryProvider);
       final now = DateTime.now();
@@ -59,6 +63,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
         ),
       );
       await repository.request(request).timeout(const Duration(seconds: 8));
+      attempt.success();
       if (!ref.mounted || epoch != _epoch) return;
       state = DisplayPreparationState(request: request);
       _subscription = repository.watchReceipts().listen(
@@ -104,7 +109,20 @@ class DisplayPreparationController extends _$DisplayPreparationController {
             }
           }
         },
-        onError: (Object _) {
+        onError: (Object error, StackTrace stack) {
+          final failure = telemetry.start('tv.prepare.receipts');
+          failure.failure('prepare_receipts');
+          reporter.capture(
+            error,
+            stack,
+            action: 'tv.prepare.receipts',
+            context: {
+              'operationId': failure.id,
+              'preparationStage': 'receipts',
+              'sessionId': request.sessionId,
+              'expectedRevision': request.revision,
+            },
+          );
           if (ref.mounted && epoch == _epoch) {
             state = DisplayPreparationState(
               request: request,
@@ -114,15 +132,18 @@ class DisplayPreparationController extends _$DisplayPreparationController {
         },
       );
     } catch (error, stack) {
+      attempt.failure('prepare_request');
+      final diagnostic = reporter.capture(
+        error,
+        stack,
+        action: 'tv.prepare.request',
+        context: {
+          'operationId': attempt.id,
+          'preparationStage': 'request',
+          'workoutId': workout.id,
+        },
+      );
       if (ref.mounted && epoch == _epoch) {
-        final diagnostic = ref
-            .read(errorReporterProvider)
-            .capture(
-              error,
-              stack,
-              action: 'display.preparation',
-              context: {'workoutId': workout.id},
-            );
         recordOperationEvent(
           ref,
           type: 'preparation_failed',

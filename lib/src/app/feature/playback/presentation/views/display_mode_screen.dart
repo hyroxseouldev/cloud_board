@@ -57,6 +57,10 @@ class DisplayModeScreen extends HookConsumerWidget {
     // Firebase subscriptions refresh live; resubscribe after reconnect/resume,
     // including streams that previously terminated with an error.
     void refreshDisplayData() {
+      if (ref.read(devicePairingControllerProvider).hasError &&
+          !ref.read(devicePairingControllerProvider).isLoading) {
+        unawaited(ref.read(devicePairingControllerProvider.notifier).refresh());
+      }
       ref.invalidate(activePlaybackSessionProvider);
       ref.invalidate(displayDevicesProvider);
       ref.invalidate(effectiveBrandTemplateProvider);
@@ -99,6 +103,13 @@ class DisplayModeScreen extends HookConsumerWidget {
         }
         if (ref.read(playbackConnectionProvider).hasError) {
           ref.invalidate(playbackConnectionProvider);
+        }
+        if (ref.read(playbackConnectionProvider).value == true &&
+            ref.read(devicePairingControllerProvider).hasError &&
+            !ref.read(devicePairingControllerProvider).isLoading) {
+          unawaited(
+            ref.read(devicePairingControllerProvider.notifier).refresh(),
+          );
         }
       });
       return retry.cancel;
@@ -154,6 +165,9 @@ class DisplayModeScreen extends HookConsumerWidget {
       ref,
       deviceId: deviceId,
       paired:
+          pairing.hasValue &&
+          !pairing.isLoading &&
+          !pairing.hasError &&
           currentDevice?.paired == true &&
           (currentDevice?.preparationProtocol ?? 0) >= 1,
       standby:

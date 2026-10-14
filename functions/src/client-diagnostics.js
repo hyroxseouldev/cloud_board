@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {HttpsError} from 'firebase-functions/v2/https';
 import {Timestamp} from 'firebase-admin/firestore';
 
-const keys = new Set(['action', 'role', 'platform', 'version', 'build', 'workoutId', 'sessionId', 'commandId', 'expectedRevision', 'observedRevision', 'stepIndex', 'stepCount', 'moduleIndex', 'moduleCount', 'status', 'remainingMs', 'countdownMs', 'connected', 'recovering', 'retryCount', 'elapsedMs', 'lastReceiptMs', 'ackRevision', 'firebaseCode', 'firebasePlugin']);
+const keys = new Set(['action', 'role', 'platform', 'version', 'build', 'workoutId', 'sessionId', 'commandId', 'operationId', 'startStage', 'preparationStage', 'expectedRevision', 'observedRevision', 'stepIndex', 'stepCount', 'moduleIndex', 'moduleCount', 'status', 'remainingMs', 'countdownMs', 'connected', 'recovering', 'retryCount', 'elapsedMs', 'lastReceiptMs', 'ackRevision', 'firebaseCode', 'firebasePlugin']);
 // logger.error(string, details) replaces message with an SDK-generated stack.
 // Keep the existing alert's exact marker stable with logger.write instead.
 export function clientDiagnosticLogEntry(event) {

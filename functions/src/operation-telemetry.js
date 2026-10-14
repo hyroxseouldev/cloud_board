@@ -2,10 +2,10 @@ import {createHash} from 'node:crypto';
 import {Timestamp} from 'firebase-admin/firestore';
 import {HttpsError} from 'firebase-functions/v2/https';
 
-export const operationActions = ['slides.save', 'workout.import', 'plan.upgrade.purchase', 'plan.workouts.usage', 'plan.workouts.limit', 'plan.workouts.manage', 'plan.workouts.upgrade', 'plan.savedSlides.usage', 'plan.savedSlides.limit', 'plan.savedSlides.manage', 'plan.savedSlides.upgrade', 'workout.save', 'tv.prepare', 'playback.control.submit', 'playback.control.ack'];
+export const operationActions = ['slides.save', 'workout.import', 'plan.upgrade.purchase', 'plan.workouts.usage', 'plan.workouts.limit', 'plan.workouts.manage', 'plan.workouts.upgrade', 'plan.savedSlides.usage', 'plan.savedSlides.limit', 'plan.savedSlides.manage', 'plan.savedSlides.upgrade', 'workout.save', 'tv.prepare', 'tv.prepare.request', 'tv.prepare.receipts', 'tv.prepare.listen', 'playback.control.submit', 'playback.control.ack'];
 const outcomes = ['attempt', 'success', 'failure', 'cancelled'];
 const allowed = new Set(['accountId', 'operationId', 'action', 'outcome', 'startedAt', 'occurredAt', 'durationMs', 'platform', 'version', 'build', 'code']);
-const codes = new Set(['permission-denied', 'unauthenticated', 'unavailable', 'deadline-exceeded', 'resource-exhausted', 'aborted', 'not-found', 'failed-precondition', 'revision_conflict', 'session_changed', 'timeout', 'cancelled', 'unexpected']);
+const codes = new Set(['permission-denied', 'unauthenticated', 'unavailable', 'deadline-exceeded', 'resource-exhausted', 'aborted', 'not-found', 'failed-precondition', 'revision_conflict', 'session_changed', 'prepare_request', 'prepare_receipts', 'prepare_listen', 'prepare_images', 'prepare_audio', 'prepare_response', 'start_access', 'start_device', 'start_preferences', 'start_preparation', 'start_session', 'start_cancelled', 'timeout', 'cancelled', 'unexpected']);
 const fail = message => new HttpsError('invalid-argument', message);
 export function validateOperation(payload, now = Date.now()) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||

@@ -82,15 +82,15 @@ class DisplayPreparationActions {
 }
 
 @riverpod
-DisplayPreparationActions displayPreparationActions(Ref ref) =>
-    DisplayPreparationActions(
-      ref.watch(displayPreparationRepositoryProvider),
-      ref.watch(devicePairingRepositoryProvider),
-      serverNow: () async => preparationServerNow(
-        await ref
-            .read(playbackRepositoryProvider)
-            .watchServerTimeOffset()
-            .first
-            .timeout(const Duration(seconds: 5)),
+DisplayPreparationActions displayPreparationActions(Ref ref) {
+  final playback = ref.watch(playbackRepositoryProvider);
+  return DisplayPreparationActions(
+    ref.watch(displayPreparationRepositoryProvider),
+    ref.watch(devicePairingRepositoryProvider),
+    serverNow: () async => preparationServerNow(
+      await playback.watchServerTimeOffset().first.timeout(
+        const Duration(seconds: 5),
       ),
-    );
+    ),
+  );
+}

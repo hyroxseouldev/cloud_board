@@ -67,3 +67,17 @@ test('quota funnel and purchase actions retain privacy and dedupe contract',()=>
     assert.throws(()=>validateOperation({...event(),action,email:'private@example.com'},now),{code:'invalid-argument'});
   }
 });
+
+test('preparation stages have bounded failure codes and reject private payload dimensions', () => {
+  for (const [action, code] of [
+    ['tv.prepare.request', 'prepare_request'],
+    ['tv.prepare.receipts', 'prepare_receipts'],
+    ['tv.prepare.listen', 'prepare_listen'],
+    ...['prepare_images', 'prepare_audio', 'prepare_response'].map(code => ['tv.prepare', code]),
+  ]) {
+    const payload = {...event(), action, outcome: 'failure', code};
+    assert.equal(validateOperation(payload, now).code, code);
+    assert.throws(() => validateOperation({...payload, deviceId: 'private-device'}, now), {code: 'invalid-argument'});
+    assert.throws(() => validateOperation({...payload, code: 'database/private-user/secret'}, now), {code: 'invalid-argument'});
+  }
+});
