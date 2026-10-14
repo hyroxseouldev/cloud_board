@@ -18,6 +18,14 @@ const _ready = (
   failureCode: null,
 );
 
+// Browser async* error delivery crosses a host event-loop turn. Drain it
+// without advancing the fake clock that controls the retry backoff assertions.
+Future<void> _settleRequestStream(WidgetTester tester) async {
+  await tester.pump();
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pump();
+}
+
 void main() {
   test(
     'receipt retries reuse prepared media and only finish after heartbeat',
@@ -206,11 +214,13 @@ void main() {
         displayPreparationRequestProvider('tv'),
         (_, _) {},
       );
-      await tester.pump();
+      await _settleRequestStream(tester);
       expect(repository.calls, 1);
       await tester.pump(const Duration(seconds: 1));
+      await _settleRequestStream(tester);
       expect(repository.calls, 2);
       await tester.pump(const Duration(seconds: 2));
+      await _settleRequestStream(tester);
       expect(repository.calls, 3);
       expect(
         container.read(displayPreparationRequestProvider('tv')).hasError,
@@ -241,8 +251,9 @@ void main() {
         displayPreparationRequestProvider('tv'),
         (_, _) {},
       );
-      await tester.pump();
+      await _settleRequestStream(tester);
       await tester.pump(const Duration(seconds: 40));
+      await _settleRequestStream(tester);
       expect(repository.calls, 1);
       expect(
         container.read(displayPreparationRequestProvider('tv')).hasError,
