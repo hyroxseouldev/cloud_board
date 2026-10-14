@@ -210,6 +210,10 @@ void main() {
       final pending = source.issue(deviceId: 'tv');
       await tester.pump();
       await pending;
+      final oldDisconnect = {
+        ...db.presenceDisconnects,
+        ...db.operationDisconnects,
+      };
       db.connection.add(false);
       await tester.pump();
       db.connection.add(true);
@@ -234,6 +238,76 @@ void main() {
       expectSync(db.operationDisconnects.keys, [
         'users/owner/operations/events/event-1-offline',
       ]);
+      // The old socket may already have queued its disconnect before its hook
+      // was cancelled. Deliver that payload after the new connection is ready.
+      oldDisconnect.forEach(db.write);
+      expectSync(
+        db.read('users/owner/devices/tv/presence/event-0/online'),
+        isFalse,
+      );
+      expectSync(
+        db.read('users/owner/devices/tv/presence/event-1/online'),
+        isTrue,
+      );
+      expectSync(db.device['currentConnectionId'], 'event-1');
+      expectSync(db.device['online'], isTrue);
+      expectSync(db.device['pendingOfflineEventKey'], 'event-1-offline');
+      expectSync(
+        (db.device['connectionVerification'] as Map)['connectionId'],
+        'event-1',
+      );
+      expectSync(
+        db.read('users/owner/operations/events/event-0-offline/connectionId'),
+        'event-0',
+      );
+      expectSync(
+        db.read('users/owner/operations/events/event-1-offline'),
+        isNull,
+      );
+      source.dispose();
+    },
+  );
+
+  testWidgets(
+    'delayed failed offline telemetry does not block or retry verified presence',
+    (tester) async {
+      db.failOfflineEvent = true;
+      db.operationDisconnectBarrier = Completer<void>();
+      final source = DevicePairingRealtimeDataSource(db, _Auth(), 'owner');
+      final pending = source.issue(deviceId: 'tv');
+      var ready = false;
+      unawaited(pending.then((_) => ready = true));
+      await tester.pump();
+      expectSync(ready, isTrue, reason: 'Telemetry cannot delay TV readiness');
+      expectSync((await pending).deviceId, 'tv');
+      expectSync(db.device['currentConnectionId'], 'event-0');
+      expectSync(db.device['online'], isTrue);
+      expectSync(db.operationDisconnects, isEmpty);
+      expectSync(db.read('users/owner/operations/events'), isNull);
+      expectSync(db.log, [
+        'disconnect:users/owner/devices/tv/presence/event-0',
+        'verify:event-0',
+        'transaction:users/owner/devices/tv',
+        'disconnect-attempt:users/owner/operations/events/event-0-offline',
+      ]);
+
+      db.operationDisconnectBarrier!.complete();
+      await tester.pump();
+      expectSync(db.failedOperationDisconnects, {
+        'users/owner/operations/events/event-0-offline',
+      });
+      expectSync(db.operationDisconnects, isEmpty);
+      // Publication reserves the event ID; it is not proof of hook success.
+      expectSync(db.device['pendingOfflineEventKey'], 'event-0-offline');
+      expectSync(
+        db.read('users/owner/operations/events/event-0-online/connectionId'),
+        'event-0',
+      );
+      await tester.pump(const Duration(seconds: 8));
+      expectSync(db.log.where((entry) => entry.startsWith('verify:')), [
+        'verify:event-0',
+      ]);
+      expectSync(db.transactions, ['users/owner/devices/tv']);
       source.dispose();
     },
   );
@@ -640,10 +714,14 @@ class _Database extends Fake implements FirebaseDatabase {
   };
   final connection = StreamController<bool>.broadcast();
   final log = <String>[], transactions = <String>[];
+  final presenceDisconnects = <String, Object?>{};
   final operationDisconnects = <String, Object?>{};
+  final failedOperationDisconnects = <String>{};
   Completer<void>? disconnectBarrier, publishBarrier, accessReadBarrier;
+  Completer<void>? operationDisconnectBarrier;
   int accessReads = 0, accessWrites = 0;
   bool failPublishOnce = false, removeBeforePublish = false;
+  bool failOfflineEvent = false;
   int serial = 0;
   Map get device => read('users/owner/devices/tv')! as Map;
   Object? read(String path) {
@@ -715,11 +793,11 @@ class _Reference extends Fake implements DatabaseReference {
       expectSync(event['connectionId'], db.device['currentConnectionId']);
       expectSync(event['id'], key);
       expectSync(event['eventId'], key);
+      final offlinePath =
+          'users/owner/operations/events/${event['connectionId']}-offline';
       expectSync(
-        db.operationDisconnects.containsKey(
-          'users/owner/operations/events/${event['connectionId']}-offline',
-        ),
-        isTrue,
+        db.operationDisconnects.containsKey(offlinePath),
+        !db.failedOperationDisconnects.contains(offlinePath),
       );
       db.log.add('set:$path');
     }
@@ -800,6 +878,7 @@ class _Disconnect extends Fake implements OnDisconnect {
       });
       db.log.add('disconnect:$path');
       if (db.disconnectBarrier != null) await db.disconnectBarrier!.future;
+      db.presenceDisconnects[path] = value;
       return;
     }
     expectSync(path, startsWith('users/owner/operations/events/'));
@@ -826,6 +905,14 @@ class _Disconnect extends Fake implements OnDisconnect {
       'deviceId': 'tv',
       'scheduled': false,
     });
+    if (db.operationDisconnectBarrier != null) {
+      db.log.add('disconnect-attempt:$path');
+      await db.operationDisconnectBarrier!.future;
+    }
+    if (db.failOfflineEvent) {
+      db.failedOperationDisconnects.add(path);
+      throw FirebaseException(plugin: 'firebase_database', code: 'unavailable');
+    }
     db.operationDisconnects[path] = value;
     db.log.add('disconnect:$path');
   }
