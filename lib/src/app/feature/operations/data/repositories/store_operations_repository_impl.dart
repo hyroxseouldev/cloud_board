@@ -13,6 +13,8 @@ import 'package:cloud_board/src/app/feature/operations/data/datasources/store_op
 import 'package:cloud_board/src/app/feature/operations/data/datasources/store_operations_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
+import 'package:cloud_board/src/app/feature/operations/data/repositories/audience_branding_stream.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/repositories/store_operations_repository.dart';
 import 'package:cloud_board/src/app/feature/playback/data/repositories/playback_repository_impl.dart';
 
@@ -22,12 +24,27 @@ class StoreOperationsRepositoryImpl implements StoreOperationsRepository {
   const StoreOperationsRepositoryImpl(
     this._realtime,
     this._storage,
-    this._local,
-  );
+    this._local, {
+    this._audienceMemory,
+  });
 
   final StoreOperationsRealtimeDataSource _realtime;
   final StoreBrandStorageDataSource _storage;
   final StoreOperationsLocalDataSource _local;
+  final AudienceBrandingMemory? _audienceMemory;
+
+  @override
+  Stream<AudienceBranding?> watchAudienceBranding() {
+    final ownerId = _local.ownerId;
+    if (ownerId == null) return Stream.value(null);
+    return watchConfirmedAudienceBranding(
+      ownerId: ownerId,
+      loadCached: _local.loadAudienceBranding,
+      saveCached: _local.saveAudienceBranding,
+      watchRemote: _realtime.watchAudienceBranding,
+      memory: _audienceMemory,
+    );
+  }
 
   @override
   Stream<BrandTemplate> watchBrandTemplate() async* {
@@ -133,6 +150,10 @@ class StoreOperationsRepositoryImpl implements StoreOperationsRepository {
 }
 
 @Riverpod(keepAlive: true)
+AudienceBrandingMemory audienceBrandingMemory(Ref ref, String ownerId) =>
+    AudienceBrandingMemory();
+
+@Riverpod(keepAlive: true)
 StoreOperationsRepository storeOperationsRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
   final ownerId = ref.watch(accountOwnerIdProvider).value;
@@ -144,5 +165,8 @@ StoreOperationsRepository storeOperationsRepository(Ref ref) {
     StoreOperationsRealtimeDataSource(database, ownerId),
     StoreBrandStorageDataSource(FirebaseStorage.instance, auth),
     StoreOperationsLocalDataSource(SharedPreferencesAsync(), ownerId: ownerId),
+    audienceMemory: ownerId == null
+        ? null
+        : ref.watch(audienceBrandingMemoryProvider(ownerId)),
   );
 }

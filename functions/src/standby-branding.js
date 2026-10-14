@@ -2,6 +2,26 @@ import {HttpsError} from 'firebase-functions/v2/https';
 import {requirePlanEntitlement, planPolicyVersion} from './plan-policy.js';
 import {AppBrand} from './config/app-brand.js';
 
+export const audienceLogoVersion = 'audience-logo-v1';
+export function audienceBrandingEnabled(config, uid) {
+  return config?.version === audienceLogoVersion && config.enabled === true &&
+    (config.allAccounts === true || (Array.isArray(config.ownerIds) && config.ownerIds.includes(uid)));
+}
+export function audienceBrandingPublicReady(config) {
+  return config?.version === audienceLogoVersion && config.enabled === true && config.allAccounts === true;
+}
+
+// Branding compatibility is deliberately narrower than changing quota/AI policy.
+// Existing server-issued pilots and legacy grants keep their own capabilities.
+export function requireBrandEntitlement(entitlement, now = Date.now()) {
+  const legacy = ['legacy', 'cloudboard_pro'].includes(entitlement?.plan);
+  const pilot = entitlement?.status === 'pilot' && entitlement.plan !== 'free' &&
+    [entitlement.source, entitlement.grantSource].includes('pilot');
+  const compatible = pilot || (legacy && entitlement.status === 'legacy');
+  const access = requirePlanEntitlement(compatible ? {...entitlement, status: 'active'} : entitlement, now);
+  return {...access, status: entitlement.status};
+}
+
 export const defaultStandbyBrand = Object.freeze({
   storeName: AppBrand.name, standbyMessage: '다음 수업을 준비하고 있습니다',
   logoUrl: null, promotionImageUrls: [], primaryColorValue: 0xFF526B60,
@@ -35,9 +55,18 @@ export function validateBrandConfig(input) {
 }
 
 export function applyBrandEntitlement(config, entitlement, now = Date.now()) {
-  const access = requirePlanEntitlement(entitlement, now);
+  const access = requireBrandEntitlement(entitlement, now);
+  // A legacy entitlement without an explicit branding capability is unknown,
+  // not a new Free restriction. Preserve the previous confirmed projection.
+  if (['legacy', 'cloudboard_pro'].includes(access.plan) &&
+      (typeof access.canHideCloudBoardLogo !== 'boolean' || typeof access.canUseCenterLogo !== 'boolean')) {
+    throw new HttpsError('failed-precondition', '브랜드 권한을 확인하지 못했습니다.', {reason: 'entitlement-unavailable'});
+  }
   if (access.idleScreenCustomization === 'basic') return {...defaultStandbyBrand};
-  if (access.idleScreenCustomization !== 'custom') throw new HttpsError('failed-precondition', '브랜드 권한을 확인하지 못했습니다.', {reason: 'entitlement-unavailable'});
+  if (access.idleScreenCustomization !== 'custom' &&
+      !(access.idleScreenCustomization === 'legacy' && ['legacy', 'cloudboard_pro'].includes(access.plan))) {
+    throw new HttpsError('failed-precondition', '브랜드 권한을 확인하지 못했습니다.', {reason: 'entitlement-unavailable'});
+  }
   // Existing config remains untouched, including old clients' missing fields.
   return {...defaultStandbyBrand, ...config,
     logoUrl: access.canUseCenterLogo === true ? config?.logoUrl ?? null : null,
@@ -47,7 +76,8 @@ export function applyBrandEntitlement(config, entitlement, now = Date.now()) {
 // Projection never destroys custom settings. Unknown/expired access leaves the
 // last confirmed payload intact until the entitlement writer resolves a grant.
 export async function projectStandbyBranding(db, realtime, uid, now = Date.now()) {
-  const [lock, snapshot] = await db.getAll(db.doc(`accountDeletions/${uid}`), db.doc(`subscriptionEntitlements/${uid}`));
+  const [lock, snapshot, rollout] = await db.getAll(db.doc(`accountDeletions/${uid}`),
+    db.doc(`subscriptionEntitlements/${uid}`), db.doc('appConfig/audienceBranding'));
   if (lock.exists) return false;
   const entitlement = snapshot.data();
   if (entitlement?.policyVersion !== planPolicyVersion) return false;
@@ -61,9 +91,16 @@ export async function projectStandbyBranding(db, realtime, uid, now = Date.now()
     if ((previous.brandProjection?.revision ?? -1) > revision) return undefined;
     // The first projection snapshots the old payload before applying Free.
     const config = previous.brandConfig ?? previous.brand ?? {...defaultStandbyBrand};
-    return {...previous, brandConfig: config,
-      brand: applyBrandEntitlement(config, entitlement, now),
-      brandProjection: {revision, policyVersion: planPolicyVersion, plan: entitlement.plan, appliedAtMs: now}};
+    const brand = applyBrandEntitlement(config, entitlement, now);
+    return {...previous, brandConfig: config, brand,
+      // One atomic payload for audience clients: do not combine a separate
+      // entitlement/config stream to decide visibility (paired TVs cannot read it).
+      brandProjection: {ownerId: uid, revision,
+        projectionRevision: (previous.brandProjection?.projectionRevision ?? 0) + 1,
+        policyVersion: planPolicyVersion,
+        plan: entitlement.plan, appliedAtMs: now, validUntilMs: entitlement.validUntilMs,
+        audienceLogoVersion, audienceLogoScope: audienceBrandingEnabled(rollout.data(), uid)
+          ? 'all-audience' : 'standby', showCloudBoardLogo: brand.showCloudBoardLogo}};
   });
   if ((await db.doc(`accountDeletions/${uid}`).get()).exists) {
     await realtime.ref(`users/${uid}/operations`).remove();
@@ -80,7 +117,7 @@ export async function saveBrandConfig(db, realtime, request, now = Date.now()) {
   if (lock.exists) throw new HttpsError('permission-denied', '계정 삭제 중입니다.');
   // The v2 rollout is per account. Unmigrated accounts keep their installed
   // brand writer behavior; this callable is not an implicit plan migration.
-  const access = requirePlanEntitlement(snapshot.data(), now);
+  const access = requireBrandEntitlement(snapshot.data(), now);
   if (snapshot.data()?.policyVersion !== planPolicyVersion) {
     const result = await realtime.ref(`users/${uid}/operations`).transaction(current => {
       // A missing/regressed mirror must never reopen a migrated account.

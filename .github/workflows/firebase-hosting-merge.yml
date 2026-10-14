@@ -123,6 +123,8 @@ jobs:
           test/playback_recovery_test.dart
           test/app_update_test.dart
           test/display_mode_flow_test.dart
+          test/audience_branding_data_test.dart
+          test/audience_logo_test.dart
           test/display_preparation_test.dart
           test/operation_telemetry_test.dart
           test/playback_ack_test.dart

@@ -34,5 +34,11 @@
     "text": "showCloudBoardLogo",
     "occurrences": 1,
     "reason": "Persisted branding payload field name; client/TV compatibility contract, not product display text."
+  },
+  {
+    "file": "lib/src/app/feature/operations/data/models/audience_branding_model.dart",
+    "text": "showCloudBoardLogo",
+    "occurrences": 1,
+    "reason": "Server-owned audience projection field name, validated before decoding; not product display text."
   }
 ]
