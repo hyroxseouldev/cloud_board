@@ -45,8 +45,15 @@ GoRouter appRouter(Ref ref) {
   final mainNavigationKey = GlobalKey<StatefulNavigationShellState>();
   String? entryOwnerId;
   var entryOwnerChanged = false;
-  ref.listen(authStateProvider, (_, next) {
+  ref.listen(authStateProvider, (previous, next) {
+    final previousId = previous?.value?.id;
     final id = next.value?.id;
+    // A normal service page has no active entry owner. Capture its account
+    // before sign-out/auth loss so the login return still belongs to that user.
+    // Keep it through null: A -> null -> A may resume, A -> null -> B may not.
+    if (entryOwnerId == null && previousId != null && id != previousId) {
+      entryOwnerId = previousId;
+    }
     if (entryOwnerId != null && id != null && id != entryOwnerId) {
       entryOwnerChanged = true;
     }
@@ -169,9 +176,12 @@ GoRouter appRouter(Ref ref) {
         entryOwnerChanged = false;
         return destination;
       }
+      // Auth updates may coalesce before the router visits a login route. A
+      // different account must also leave the previous owner's service page.
+      final changedOwner = entryOwnerChanged;
       entryOwnerId = null;
       entryOwnerChanged = false;
-      return null;
+      return changedOwner ? fallback : null;
     },
     routes: [
       GoRoute(

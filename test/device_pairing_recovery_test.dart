@@ -12,6 +12,8 @@ import 'package:cloud_board/src/app/feature/playback/presentation/controllers/pl
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_functions_platform_interface/cloud_functions_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -204,7 +206,7 @@ void main() {
   );
 
   testWidgets(
-    'reconnect registers a new disconnect hook and revalidates the same pairing',
+    'reconnect records recovery even before the old disconnect arrives',
     (tester) async {
       final source = DevicePairingRealtimeDataSource(db, _Auth(), 'owner');
       final pending = source.issue(deviceId: 'tv');
@@ -216,6 +218,11 @@ void main() {
       };
       db.connection.add(false);
       await tester.pump();
+      expectSync(
+        db.read('users/owner/devices/tv/presence/event-0/online'),
+        isTrue,
+        reason: 'The previous socket has not delivered its disconnect yet',
+      );
       db.connection.add(true);
       await tester.pump();
       expectSync(db.device['currentConnectionId'], 'event-1');
@@ -233,11 +240,17 @@ void main() {
           'transaction:users/owner/devices/tv',
           'disconnect:users/owner/operations/events/event-1-offline',
           'cancel:users/owner/operations/events/event-0-offline',
+          'set:users/owner/operations/events/event-1-online',
         ]),
       );
       expectSync(db.operationDisconnects.keys, [
         'users/owner/operations/events/event-1-offline',
       ]);
+      final online =
+          db.read('users/owner/operations/events/event-1-online')! as Map;
+      expectSync(online['connectionId'], 'event-1');
+      expectSync(online['recoveryOfEventId'], 'event-0-offline');
+      expectSync(online['incidentId'], 'event-0-offline');
       // The old socket may already have queued its disconnect before its hook
       // was cancelled. Deliver that payload after the new connection is ready.
       oldDisconnect.forEach(db.write);
@@ -263,6 +276,26 @@ void main() {
       expectSync(
         db.read('users/owner/operations/events/event-1-offline'),
         isNull,
+      );
+      final events = db.read('users/owner/operations/events')! as Map;
+      final incident = buildOperationIncidents(
+        events.values.map(
+          (value) => OperationEventModel.fromJson(
+            Map<String, dynamic>.from(value as Map),
+          ).toEntity(),
+        ),
+      ).single;
+      expectSync(incident.event.id, 'event-0-offline');
+      expectSync(incident.recovery?.id, 'event-1-online');
+      expectSync(incident.recoveryLabel, '복구 확인');
+      await source.issue(deviceId: 'tv');
+      expectSync(
+        db.log.where(
+          (entry) =>
+              entry == 'set:users/owner/operations/events/event-1-online',
+        ),
+        hasLength(1),
+        reason: 'Reusing a ready connection must not duplicate its event',
       );
       source.dispose();
     },

@@ -497,7 +497,6 @@ class DevicePairingRealtimeDataSource {
       publish: (id, isCurrent) async {
         final eventRef = _database.ref('users/$ownerId/operations/events');
         final offlineEvent = eventRef.child('$id-offline');
-        var wasOnline = false;
         String? previousOfflineEventKey;
         final result = await deviceRef.runTransaction((current) {
           if (!sameIdentity() || !isCurrent()) return Transaction.abort();
@@ -511,10 +510,6 @@ class DevicePairingRealtimeDataSource {
           final presence = current['presence'] is Map
               ? Map<Object?, Object?>.from(current['presence'] as Map)
               : <Object?, Object?>{};
-          final previousPresence = presence[current['currentConnectionId']];
-          wasOnline = current['presenceProtocol'] == 1
-              ? previousPresence is Map && previousPresence['online'] == true
-              : current['online'] == true;
           previousOfflineEventKey =
               current['pendingOfflineEventKey'] as String?;
           presence[id] = {
@@ -548,7 +543,6 @@ class DevicePairingRealtimeDataSource {
             connectionId: id,
             deviceId: deviceId,
             snapshot: Map<dynamic, dynamic>.from(result.snapshot.value! as Map),
-            wasOnline: wasOnline,
             previousOfflineEventKey: previousOfflineEventKey,
             isCurrent: () => sameIdentity() && isCurrent(),
           ),
@@ -570,7 +564,6 @@ class DevicePairingRealtimeDataSource {
     required String connectionId,
     required String deviceId,
     required Map<dynamic, dynamic> snapshot,
-    required bool wasOnline,
     required String? previousOfflineEventKey,
     required bool Function() isCurrent,
   }) async {
@@ -602,7 +595,10 @@ class DevicePairingRealtimeDataSource {
     } catch (_) {
       // Missing telemetry is never a failed connection or a shared state write.
     }
-    if (!isCurrent() || wasOnline) return;
+    if (!isCurrent()) return;
+    // An old socket's disconnect may arrive after this connection is ready.
+    // Record every verified connection with its stable ID, even when the old
+    // presence still says online, so its delayed offline event has a recovery.
     try {
       final onlineEvent = eventRef.child('$connectionId-online');
       final payload = {

@@ -272,6 +272,111 @@ void main() {
     },
   );
 
+  for (final nextOwner in ['owner', 'other']) {
+    testWidgets(
+      'normal private page return after sign-out is scoped to $nextOwner',
+      (tester) async {
+        final harness = await _EntryHarness.create(
+          tester,
+          FakeOnboarding(confirmedFree),
+        );
+        addTearDown(harness.dispose);
+        harness.users.add(onboardingUser);
+        await _frames(tester);
+        const destination =
+            '/player/account-a-workout?start=2&session=account-a-session#step';
+        expect(await harness.redirect(destination), destination);
+
+        harness.users.add(null);
+        await _frames(tester);
+        final login = Uri.parse(await harness.redirect(destination));
+        expect(login.path, '/login');
+        expect(login.queryParameters['from'], destination);
+        final email = withEntryReturn('/login/email', destination);
+        expect(await harness.redirect(email), email);
+
+        harness.users.add(onboardingUser.copyWith(id: nextOwner));
+        await _frames(tester);
+        expect(
+          await harness.redirect(email),
+          nextOwner == onboardingUser.id ? destination : '/',
+        );
+      },
+    );
+  }
+
+  testWidgets(
+    'coalesced sign-out and another login cannot retain the normal private page',
+    (tester) async {
+      final harness = await _EntryHarness.create(
+        tester,
+        FakeOnboarding(confirmedFree),
+      );
+      addTearDown(harness.dispose);
+      harness.users.add(onboardingUser);
+      await _frames(tester);
+      const destination = '/player/account-a-workout?session=account-a-session';
+      expect(await harness.redirect(destination), destination);
+
+      // Both auth events arrive before navigation processes the signed-out state.
+      harness.users.add(null);
+      harness.users.add(onboardingUser.copyWith(id: 'other'));
+      await _frames(tester);
+      expect(await harness.redirect(destination), '/');
+      expect(await harness.redirect('/profile'), '/profile');
+    },
+  );
+
+  testWidgets(
+    'late account A lookup cannot restore its private return or complete account B entry',
+    (tester) async {
+      final repo = FakeOnboarding(confirmedFree);
+      final harness = await _EntryHarness.create(tester, repo);
+      addTearDown(harness.dispose);
+      harness.users.add(onboardingUser);
+      await _frames(tester);
+      const destination = '/player/account-a-workout?session=account-a-session';
+      expect(await harness.redirect(destination), destination);
+
+      final oldLoad = Completer<void>();
+      repo.loadGate = oldLoad;
+      harness.container.invalidate(onboardingControllerProvider);
+      await _frames(tester);
+      harness.users.add(null);
+      await _frames(tester);
+      final login = await harness.redirect(destination);
+      expect(Uri.parse(login).queryParameters['from'], destination);
+
+      final newLoad = Completer<void>();
+      repo.loadGate = newLoad;
+      repo.value = const CenterOnboarding();
+      harness.users.add(onboardingUser.copyWith(id: 'other'));
+      await _frames(tester);
+      final waiting = await harness.redirect(login);
+      expect(Uri.parse(waiting).path, '/auth-loading');
+      expect(Uri.parse(waiting).queryParameters.containsKey('from'), isFalse);
+
+      oldLoad.complete();
+      await _frames(tester);
+      expect(
+        harness.container.read(onboardingRequiredProvider).isLoading,
+        isTrue,
+      );
+      expect(await harness.redirect(waiting), waiting);
+      newLoad.complete();
+      await _frames(tester);
+      expect(await harness.redirect(waiting), '/onboarding');
+      expect(
+        harness.container
+            .read(onboardingControllerProvider)
+            .requireValue
+            .serviceReady,
+        isFalse,
+      );
+      expect(harness.container.read(onboardingCompletionProvider), isFalse);
+    },
+  );
+
   testWidgets(
     'account change removes a private return from an unfinished verification route',
     (tester) async {
