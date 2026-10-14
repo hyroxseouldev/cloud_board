@@ -93,6 +93,14 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!widget.isTv) return;
+    if (state != AppLifecycleState.resumed) {
+      ref
+          .read(playbackRecoveryControllerProvider.notifier)
+          .recordDisplayVisibility(
+            visible: false,
+            shutdown: state == AppLifecycleState.detached,
+          );
+    }
     _block();
     if (state == AppLifecycleState.resumed) {
       if (_eligible) {
@@ -161,6 +169,9 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
           return;
         }
         ref.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+        ref
+            .read(playbackRecoveryControllerProvider.notifier)
+            .recordDisplayVisibility(visible: true);
       } catch (_) {
         // Audio initialization must never release an obsolete foreground gate.
       }

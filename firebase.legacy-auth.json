@@ -1,0 +1,17 @@
+{
+  "functions": [
+    {
+      "source": "functions-legacy",
+      "codebase": "cloudboard-auth",
+      "runtime": "nodejs22",
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build",
+        "node \"$PROJECT_DIR/tool/legacy-auth-release.mjs\" predeploy"
+      ],
+      "ignore": [
+        "node_modules", ".git", ".env*", ".secret*", "test", "tools",
+        "drizzle", "src", "*-debug.log", "tsconfig.json", "migration-baseline.json", "README.md"
+      ]
+    }
+  ]
+}

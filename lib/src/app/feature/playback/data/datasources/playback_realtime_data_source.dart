@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/operations/data/operation_event_writer.dart';
+import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/core/services/realtime_connection.dart';
 import 'package:cloud_board/src/app/core/services/event_id.dart';
@@ -26,14 +28,28 @@ class PlaybackRealtimeDataSource {
     this.serverRead,
     this.onAncillaryFailure,
     this.allowSplitPlayback,
+    this.appVersion,
     this.isCurrentAccount,
   });
 
+  final String? appVersion;
   final Future<Object?> Function(String path)? serverRead;
   final Future<bool> Function()? allowSplitPlayback;
   final bool Function()? isCurrentAccount;
   final void Function(Object error, StackTrace stack)? onAncillaryFailure;
   final _refreshes = StreamController<PlaybackSessionModel?>.broadcast();
+  late final _eventWriter = OperationEventWriter(
+    (event) => _user
+        .child('operations/events/${event.eventId ?? event.id}')
+        .set(OperationEventModel.fromEntity(event).toJson()),
+  );
+
+  void _recordOperation(Map<String, dynamic> payload) {
+    unawaited(
+      _eventWriter.record(OperationEventModel.fromJson(payload).toEntity()),
+    );
+  }
+
   bool _recovering = false;
   int _generation = 0;
   // A verified null is a server-confirmed deletion, not an unknown value.
@@ -46,6 +62,7 @@ class PlaybackRealtimeDataSource {
 
   Future<void> dispose() {
     _disposed = true;
+    _eventWriter.dispose();
     ++_generation;
     return _refreshes.close();
   }
@@ -368,20 +385,9 @@ class PlaybackRealtimeDataSource {
     if (split) {
       _rememberSnapshot(model.id, model.workoutSnapshot);
     }
-    final event = _user.child('operations/events').push();
     final updates = <String, Object?>{
       'activeSession': json,
       if (split) 'playbackSnapshots/${model.id}': documents.snapshot,
-      'operations/events/${event.key}': {
-        'id': event.key,
-        'type': model.briefing ? 'briefing_opened' : 'playback_started',
-        'occurredAtMs': ServerValue.timestamp,
-        'deviceId': model.updatedByDeviceId,
-        'workoutId': model.workoutSnapshot['id'],
-        'workoutName': model.workoutSnapshot['name'],
-        'scheduled': scheduled,
-        'scheduledAtMs': scheduledAtMs,
-      },
     };
     for (final deviceId in model.targetDeviceIds) {
       updates['devices/$deviceId/displayState'] = 'auto';
@@ -468,14 +474,47 @@ class PlaybackRealtimeDataSource {
     }
     // Ancillary display/event writes must not turn an acknowledged start into
     // an apparent failure (and provoke a duplicate start).
+    final started = _decode(result.snapshot.value);
     if (canUseAccount) {
       unawaited(
         _user.update(updates).catchError((Object error, StackTrace stack) {
           onAncillaryFailure?.call(error, stack);
         }),
       );
+      final eventId = '${model.id}-${model.briefing ? 'briefing' : 'started'}';
+      _recordOperation({
+        'id': eventId,
+        'eventId': eventId,
+        'schemaVersion': 2,
+        'type': model.briefing ? 'briefing_opened' : 'playback_started',
+        'occurredAtMs': started.anchorServerMs,
+        'sessionId': model.id,
+        'phase': 'server_approval',
+        'deviceId': model.updatedByDeviceId,
+        'deviceRole': 'controller',
+        'appVersion': appVersion,
+        'workoutId': model.workoutSnapshot['id'],
+        'workoutName': model.workoutSnapshot['name'],
+        'scheduled': scheduled,
+        'scheduledAtMs': scheduledAtMs,
+        'targetDeviceIds': model.targetDeviceIds,
+        'targetDeviceNames': {
+          for (final id in model.targetDeviceIds)
+            if (devices is Map &&
+                devices[id] is Map &&
+                devices[id]['name'] is String)
+              id: devices[id]['name'],
+        },
+        'targetDeviceVersions': {
+          for (final id in model.targetDeviceIds)
+            if (devices is Map &&
+                devices[id] is Map &&
+                devices[id]['appVersion'] is String)
+              id: devices[id]['appVersion'],
+        },
+      });
     }
-    return _decode(result.snapshot.value);
+    return started;
   }
 
   Future<PlaybackSessionModel> update({
@@ -621,24 +660,32 @@ class PlaybackRealtimeDataSource {
         rejectionStack ?? StackTrace.current,
       );
     }
-    if (shouldRecordCompletion || shouldRecordStart) {
-      final event = _user.child('operations/events').push();
-      unawaited(
-        event
-            .set({
-              'id': event.key,
-              'type': shouldRecordStart
-                  ? 'playback_started'
-                  : 'playback_completed',
-              'occurredAtMs': ServerValue.timestamp,
-              'deviceId': deviceId,
-              'workoutId': workoutId,
-              'workoutName': workoutName,
-              'scheduled': false,
-            })
-            .catchError((Object _) {}),
-      );
-    }
+    final confirmed = _decode(result.snapshot.value);
+    final eventId = shouldRecordStart
+        ? '$expectedSessionId-started'
+        : shouldRecordCompletion
+        ? '$expectedSessionId-completed'
+        : commandId;
+    _recordOperation({
+      'id': eventId,
+      'eventId': eventId,
+      'schemaVersion': 2,
+      'type': shouldRecordStart
+          ? 'playback_started'
+          : shouldRecordCompletion
+          ? 'playback_completed'
+          : 'command_approved',
+      'occurredAtMs': confirmed.anchorServerMs,
+      'sessionId': expectedSessionId,
+      'phase': 'server_approval',
+      'deviceId': deviceId,
+      'deviceRole': 'controller',
+      'appVersion': appVersion,
+      'workoutId': workoutId,
+      'workoutName': workoutName,
+      'targetDeviceIds': confirmed.targetDeviceIds,
+      'scheduled': false,
+    });
     return _decode(result.snapshot.value);
   }
 

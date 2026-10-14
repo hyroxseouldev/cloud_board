@@ -1,0 +1,209 @@
+{
+  "format": 1,
+  "issue": "STA-172",
+  "project": "cloud-board-stationd",
+  "codebase": "cloudboard-auth",
+  "region": "asia-southeast1",
+  "source": {
+    "repository": "hyroxseouldev/cloudboard-landing",
+    "commit": "4fa45fcf916696909969d35050c722401295e91b"
+  },
+  "checkedAt": "2026-10-14T14:06:52.374Z",
+  "functions": [
+    {
+      "name": "cloudboardAuth",
+      "runtime": "nodejs22",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "serviceAccount": "428540903054-compute@developer.gserviceaccount.com",
+      "timeoutSeconds": 180,
+      "maxInstances": 3,
+      "concurrency": 20,
+      "secretNames": [
+        "BETTER_AUTH_SECRET",
+        "BILLING_ENCRYPTION_KEY",
+        "CLOUDBOARD_GATEWAY_SECRET",
+        "DATABASE_URL",
+        "GOOGLE_CLIENT_SECRET",
+        "SOLAPI_API_KEY",
+        "SOLAPI_API_SECRET",
+        "TOSS_SECRET_KEY"
+      ],
+      "environmentVariableNames": [
+        "ADMIN_USER_IDS",
+        "APPLICATIONS_ENABLED",
+        "AUTH_TRUSTED_ORIGINS",
+        "BETTER_AUTH_URL",
+        "BILLING_MODE",
+        "ENTITLEMENT_SYNC_ENABLED",
+        "EVENTARC_CLOUD_EVENT_SOURCE",
+        "FIREBASE_CONFIG",
+        "FUNCTION_TARGET",
+        "GCLOUD_PROJECT",
+        "GOOGLE_CLIENT_ID",
+        "LIVE_BILLING_APPROVED",
+        "LOG_EXECUTION_ID",
+        "NEON_BRANCH_NAME",
+        "SOLAPI_FROM",
+        "TOSS_CLIENT_KEY"
+      ],
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-428540903054-asia-southeast1",
+          "object": "cloudboardAuth/function-source.zip",
+          "generation": "1791965562704699"
+        }
+      },
+      "archiveSha256": "3e7d7edebbd96953acbbe2ad6b0c93df962063db85331f4f1b04053c6fa4e628"
+    },
+    {
+      "name": "cloudboardLinkAccount",
+      "runtime": "nodejs22",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "serviceAccount": "428540903054-compute@developer.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "maxInstances": 3,
+      "concurrency": 80,
+      "secretNames": [
+        "BETTER_AUTH_SECRET",
+        "DATABASE_URL"
+      ],
+      "environmentVariableNames": [
+        "ADMIN_USER_IDS",
+        "APPLICATIONS_ENABLED",
+        "AUTH_TRUSTED_ORIGINS",
+        "BETTER_AUTH_URL",
+        "BILLING_MODE",
+        "ENTITLEMENT_SYNC_ENABLED",
+        "EVENTARC_CLOUD_EVENT_SOURCE",
+        "FIREBASE_CONFIG",
+        "FUNCTION_TARGET",
+        "GCLOUD_PROJECT",
+        "GOOGLE_CLIENT_ID",
+        "LIVE_BILLING_APPROVED",
+        "LOG_EXECUTION_ID",
+        "NEON_BRANCH_NAME",
+        "SOLAPI_FROM",
+        "TOSS_CLIENT_KEY"
+      ],
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-428540903054-asia-southeast1",
+          "object": "cloudboardLinkAccount/function-source.zip",
+          "generation": "1791965561708958"
+        }
+      },
+      "archiveSha256": "3e7d7edebbd96953acbbe2ad6b0c93df962063db85331f4f1b04053c6fa4e628"
+    },
+    {
+      "name": "cloudboardPairDisplay",
+      "runtime": "nodejs22",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "serviceAccount": "428540903054-compute@developer.gserviceaccount.com",
+      "timeoutSeconds": 30,
+      "maxInstances": 3,
+      "concurrency": 80,
+      "secretNames": [],
+      "environmentVariableNames": [
+        "ADMIN_USER_IDS",
+        "APPLICATIONS_ENABLED",
+        "AUTH_TRUSTED_ORIGINS",
+        "BETTER_AUTH_URL",
+        "BILLING_MODE",
+        "ENTITLEMENT_SYNC_ENABLED",
+        "EVENTARC_CLOUD_EVENT_SOURCE",
+        "FIREBASE_CONFIG",
+        "FUNCTION_SIGNATURE_TYPE",
+        "FUNCTION_TARGET",
+        "GCLOUD_PROJECT",
+        "GOOGLE_CLIENT_ID",
+        "LIVE_BILLING_APPROVED",
+        "LOG_EXECUTION_ID",
+        "NEON_BRANCH_NAME",
+        "SOLAPI_FROM",
+        "TOSS_CLIENT_KEY"
+      ],
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-428540903054-asia-southeast1",
+          "object": "cloudboardPairDisplay/function-source.zip",
+          "generation": "1791965654484678"
+        }
+      },
+      "archiveSha256": "3e7d7edebbd96953acbbe2ad6b0c93df962063db85331f4f1b04053c6fa4e628"
+    },
+    {
+      "name": "cloudboardSetDisplayState",
+      "runtime": "nodejs22",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "serviceAccount": "428540903054-compute@developer.gserviceaccount.com",
+      "timeoutSeconds": 30,
+      "maxInstances": 3,
+      "concurrency": 80,
+      "secretNames": [],
+      "environmentVariableNames": [
+        "ADMIN_USER_IDS",
+        "APPLICATIONS_ENABLED",
+        "AUTH_TRUSTED_ORIGINS",
+        "BETTER_AUTH_URL",
+        "BILLING_MODE",
+        "ENTITLEMENT_SYNC_ENABLED",
+        "EVENTARC_CLOUD_EVENT_SOURCE",
+        "FIREBASE_CONFIG",
+        "FUNCTION_SIGNATURE_TYPE",
+        "FUNCTION_TARGET",
+        "GCLOUD_PROJECT",
+        "GOOGLE_CLIENT_ID",
+        "LIVE_BILLING_APPROVED",
+        "LOG_EXECUTION_ID",
+        "NEON_BRANCH_NAME",
+        "SOLAPI_FROM",
+        "TOSS_CLIENT_KEY"
+      ],
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-428540903054-asia-southeast1",
+          "object": "cloudboardSetDisplayState/function-source.zip",
+          "generation": "1791965654575728"
+        }
+      },
+      "archiveSha256": "3e7d7edebbd96953acbbe2ad6b0c93df962063db85331f4f1b04053c6fa4e628"
+    }
+  ],
+  "exportDeclarationSha256": {
+    "cloudboardAuth": "a853a94b23cf84f25bdce144c7027da3d3d47b1f21b9b90b9bc8d0c3d94d9d21",
+    "cloudboardSetDisplayState": "fd78abf3beeb36f6a1f4709c50b13dc72e4efb1b3089eef19664dd2d5996d436",
+    "cloudboardPairDisplay": "38e9b48ea525ce6faf781382061ef958db668b30d23ed07fa6aacd095404bfa8",
+    "cloudboardLinkAccount": "43dbeadff5cc86449cfdc1f836d52793e6d5454f2bc61d77b5ee9d28591aab03"
+  },
+  "supportingModuleSha256": {
+    "lib/api.js": "acd4144384b3c5834e68701e6d94921741f9e58f1bcc8f5b9b216c18d9751b2f",
+    "lib/auth.js": "3a2f13d32dfc3095c69a1dc5893aacf76251e06bb79b0e26d7cd4e2bd52e6137",
+    "lib/config.js": "26a93f51f19cc5de6685cbcda0c22a64fd11e68ab4e2dbe297fb9cc8df9e3d59",
+    "lib/db/business-schema.js": "04316a9b9478faeee0eb837531b44f95140f1175cac5b6d526863ef49ba50be6",
+    "lib/db/index.js": "71bd8cd1601348684d044504eefd41968ea8f32edc5e0e08ab641f182dffb4e7",
+    "lib/db/schema.js": "d7b82017d79bd917c0e9b626c0573b491b6bc6fdcdac778bce9067cf67ac61c5",
+    "lib/http.js": "eaafa2042f041061a691042bb788330b331f9e030b687910f6c4fabfd9ba5504",
+    "lib/services/account.js": "831d788f3f342c7576cc9d08a027f46d6cee73d58151cbb71adf7a26d6ec96d4",
+    "lib/services/applications.js": "3b65e22ce069b954946c6616495e6c48ad87cbcc6f00d221e7a2cc2e8d489e95",
+    "lib/services/audience-branding.js": "40718f56dfb25223031b00f6e03a1605b27a6e4bbfad7a8e76c7a46420cb4460",
+    "lib/services/core.js": "681253dffb6bb114764ae99cb85d351d73452f6ced8b499348b2d58189d024c1",
+    "lib/services/display-activation.js": "774af4f196d9587377271fa5960c2b6a6dcdedffdf57da5ec84039c5b6202e0a",
+    "lib/services/firebase.js": "0b9fa983f0883fd97f6fc4470303b173c2a9d95caaa0333c450b174b4591eac4",
+    "lib/services/onboarding.js": "1423c5fd7572b6e3de08ebed7d3e224f855f71a3e8c11e7ff79bdb245112cb56",
+    "lib/services/pairing.js": "b1f274cd7c6d4b58a01633f54d507a4a2cb3a0649558d0092fcdeaa2dffa49e6",
+    "lib/services/plan-catalog.js": "ec3b278a526977e2377e716309097f2d4cb9beec4aa564a89f12c90751376ad8",
+    "lib/services/plan-entitlements.js": "7ed01b1e12d5d1d0877acea51db8ec17e5af3cc819e3d13e93fa735000f1c382",
+    "lib/services/sms.js": "0e3bed6ac11f9677a99b7b31b2f452201977cd528f3f2de63e8c4aa2334c7240",
+    "lib/services/subscriptions.js": "1261b344f9d045b4559a3c7d0cb6e6d0a8d84d9abff166e454397a6c80682b29",
+    "lib/services/sync.js": "37a8185df62e9b0ac4b7f39fb6645755e6b464c152d47b36310a6f12e5abf2e1",
+    "lib/services/toss.js": "df7313f10583cc0caf1c8bb3363691b0d938e21a8407417f9c9ebfde53502486",
+    "lib/services/verification-proof.js": "74a14c0da044eb51a5ed89fe12ef89b0e49316b3df468da2e429b9e83662e76a",
+    "lib/services/verified-access.js": "ed3ff948f2e10a7e18fe29f155a05578007c0af59b9eed3b107085286b462d15"
+  },
+  "dependencyLockSha256": "3d57ece4e87ba1c00504a8191ed75d96d5e2e32eb26ae0e4aecefa03d6411cec",
+  "migratedIndexSha256": "e3abc2c2b49bfd621c46338085abd28c0f78b025d7c35f838bee3b9b8a9b9e93"
+}

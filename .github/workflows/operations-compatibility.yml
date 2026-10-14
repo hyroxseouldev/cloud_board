@@ -1,0 +1,88 @@
+name: Operations and legacy server compatibility
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: operations-compatibility-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  operations-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --prefix functions
+      - name: Full history query and center/device isolation
+        run: >-
+          npx --yes firebase-tools@15.29.0 emulators:exec
+          --config firebase.deletion-test.json --only database
+          --project demo-cloudboard-operations
+          'node functions/test/operations-history-emulator.mjs'
+  legacy-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions-legacy/package-lock.json
+      - run: npm ci --prefix functions-legacy
+      - run: npm run check --prefix functions-legacy
+      - run: node tool/legacy-auth-release.mjs check
+      - run: node --test tool/legacy-auth-release.test.mjs
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - name: Operations, account menus, entitlements and playback regressions
+        run: >-
+          flutter test
+          test/operation_history_ui_test.dart
+          test/operations_history_test.dart
+          test/operations_history_data_test.dart
+          test/operations_history_scope_test.dart
+          test/operation_event_recorder_test.dart
+          test/operations_metrics_test.dart
+          test/store_operations_screen_test.dart
+          test/update_news_test.dart
+          test/account_management_section_test.dart
+          test/plan_resource_limit_test.dart
+          test/plan_usage_notice_test.dart
+          test/plan_usage_branding_test.dart
+          test/store_entitlement_test.dart
+          test/profile_plan_entitlements_test.dart
+          test/display_preparation_test.dart
+          test/device_pairing_test.dart
+          test/playback_ack_test.dart
+          test/playback_recovery_test.dart
+          test/playback_command_throttle_test.dart
+          test/playback_metadata_test.dart
+          test/pilot_playback_regression_test.dart
+          test/tv_playback_lifecycle_test.dart

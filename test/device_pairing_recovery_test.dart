@@ -114,12 +114,26 @@ void main() {
         'disconnect:users/owner/devices/tv/presence/event-0',
         'verify:event-0',
         'transaction:users/owner/devices/tv',
+        'disconnect:users/owner/operations/events/event-0-offline',
+        'set:users/owner/operations/events/event-0-online',
       ]);
       expectSync(db.device['displayUid'], 'display');
       expectSync(db.device['name'], 'Keep TV name');
       expectSync(db.device['preferences'], {'volume': .5});
       expectSync(db.device['preparationProtocol'], 1);
       expectSync(db.device['currentConnectionId'], 'event-0');
+      expectSync(db.device['pendingOfflineEventKey'], 'event-0-offline');
+      final online =
+          db.read('users/owner/operations/events/event-0-online')! as Map;
+      expectSync(online['type'], 'device_online');
+      expectSync(online['connectionId'], 'event-0');
+      expectSync(online['occurredAtMs'], _Database.serverNow);
+      expectSync(online['deviceName'], 'Keep TV name');
+      expectSync(online['recoveryOfEventId'], isNull);
+      expectSync(
+        db.read('users/owner/operations/events/event-0-offline'),
+        isNull,
+      );
       expectSync(db.read('displayAccess/display'), {
         'ownerId': 'owner',
         'deviceId': 'tv',
@@ -143,6 +157,7 @@ void main() {
       final pending = source.issue(deviceId: 'tv');
       await tester.pump();
       expectSync(db.device['displayUid'], 'display');
+      expectSync(db.operationDisconnects, isEmpty);
       await tester.pump(const Duration(seconds: 1));
       await pending;
       expectSync(db.log.where((line) => line.startsWith('verify:')), [
@@ -151,6 +166,9 @@ void main() {
       ]);
       expectSync(db.device['pairingCode'], '123456');
       expectSync(db.device['currentConnectionId'], 'event-1');
+      expectSync(db.operationDisconnects.keys, [
+        'users/owner/operations/events/event-1-offline',
+      ]);
       expectSync(
         db.transactions.where((path) => path.endsWith('/displayUid')),
         isEmpty,
@@ -177,6 +195,19 @@ void main() {
       ]);
       expectSync(db.device['displayUid'], 'display');
       expectSync(db.device['pairingCode'], '123456');
+      expectSync(
+        db.log,
+        containsAllInOrder([
+          'disconnect:users/owner/devices/tv/presence/event-1',
+          'verify:event-1',
+          'transaction:users/owner/devices/tv',
+          'disconnect:users/owner/operations/events/event-1-offline',
+          'cancel:users/owner/operations/events/event-0-offline',
+        ]),
+      );
+      expectSync(db.operationDisconnects.keys, [
+        'users/owner/operations/events/event-1-offline',
+      ]);
       source.dispose();
     },
   );
@@ -215,6 +246,8 @@ void main() {
       expect(db.accessWrites, 1);
       expect((db.read('displayAccess/display') as Map)['pairingCode'], code);
       expect(db.log.where((entry) => entry.startsWith('verify:')), isEmpty);
+      expect(db.operationDisconnects, isEmpty);
+      expect(db.read('users/owner/operations/events'), isNull);
       listener.close();
       await fixture.close(tester);
     },
@@ -244,6 +277,9 @@ void main() {
       expect(fixture.state.isLoading, isTrue);
       expect(fixture.preparation.subscriptions, 1);
       expect(fixture.preparation.heartbeats, 1);
+      expect(db.operationDisconnects.keys, [
+        'users/owner/operations/events/event-0-offline',
+      ]);
       gate.complete();
       await tester.pumpAndSettle();
       expect(
@@ -252,6 +288,11 @@ void main() {
         reason: 'verification alone cannot bypass presence publish',
       );
       expect(fixture.preparation.heartbeats, 1);
+      expect(
+        db.operationDisconnects.keys,
+        ['users/owner/operations/events/event-0-offline'],
+        reason: 'operations hooks also wait for verified presence publication',
+      );
       db.publishBarrier!.complete();
       await tester.pumpAndSettle();
       expect(
@@ -262,6 +303,9 @@ void main() {
       );
       expect(fixture.preparation.subscriptions, 2);
       expect(fixture.preparation.heartbeats, 2);
+      expect(db.operationDisconnects.keys, [
+        'users/owner/operations/events/event-1-offline',
+      ]);
       expect(
         db.log.where((e) => e.startsWith('verify:')),
         hasLength(2),
@@ -414,6 +458,8 @@ void main() {
       await failure;
       expectSync(db.device, before);
       expectSync(db.transactions, isEmpty);
+      expectSync(db.operationDisconnects, isEmpty);
+      expectSync(db.read('users/owner/operations/events'), isNull);
       source.dispose();
     },
   );
@@ -436,6 +482,8 @@ void main() {
     await tester.pump(const Duration(seconds: 20));
     await failure;
     expectSync(db.read('users/owner/devices/tv'), isNull);
+    expectSync(db.operationDisconnects, isEmpty);
+    expectSync(db.read('users/owner/operations/events'), isNull);
     expectSync(
       db.transactions.where((path) => path.endsWith('/displayUid')),
       isEmpty,
@@ -460,6 +508,8 @@ void main() {
       await failure;
       expectSync(db.transactions, isEmpty);
       expectSync(db.device['displayUid'], isNull);
+      expectSync(db.operationDisconnects, isEmpty);
+      expectSync(db.read('users/owner/operations/events'), isNull);
     },
   );
 }
@@ -484,6 +534,7 @@ class _User extends Fake implements User {
 }
 
 class _Database extends Fake implements FirebaseDatabase {
+  static const serverNow = 1000;
   final Map<String, Object?> root = {
     'displayAccess': <String, Object?>{
       'display': <String, Object?>{
@@ -511,6 +562,7 @@ class _Database extends Fake implements FirebaseDatabase {
   };
   final connection = StreamController<bool>.broadcast();
   final log = <String>[], transactions = <String>[];
+  final operationDisconnects = <String, Object?>{};
   Completer<void>? disconnectBarrier, publishBarrier, accessReadBarrier;
   int accessReads = 0, accessWrites = 0;
   bool failPublishOnce = false, removeBeforePublish = false;
@@ -533,8 +585,20 @@ class _Database extends Fake implements FirebaseDatabase {
     if (value == null) {
       node.remove(keys.last);
     } else {
-      node[keys.last] = value;
+      node[keys.last] = _resolveServerValues(value);
     }
+  }
+
+  Object? _resolveServerValues(Object? value) {
+    if (value is Map) {
+      if (value.length == 1 && value['.sv'] == 'timestamp') return serverNow;
+      return {
+        for (final entry in value.entries)
+          entry.key: _resolveServerValues(entry.value),
+      };
+    }
+    if (value is List) return value.map(_resolveServerValues).toList();
+    return value;
   }
 
   @override
@@ -563,8 +627,24 @@ class _Reference extends Fake implements DatabaseReference {
 
   @override
   Future<void> set(Object? value) async {
-    expectSync(path, 'displayAccess/display');
-    db.accessWrites++;
+    if (path == 'displayAccess/display') {
+      db.accessWrites++;
+    } else {
+      expectSync(path, startsWith('users/owner/operations/events/'));
+      final event = value! as Map;
+      expectSync(event['type'], 'device_online');
+      expectSync(event['deviceId'], 'tv');
+      expectSync(event['connectionId'], db.device['currentConnectionId']);
+      expectSync(event['id'], key);
+      expectSync(event['eventId'], key);
+      expectSync(
+        db.operationDisconnects.containsKey(
+          'users/owner/operations/events/${event['connectionId']}-offline',
+        ),
+        isTrue,
+      );
+      db.log.add('set:$path');
+    }
     db.write(path, value);
   }
 
@@ -635,9 +715,48 @@ class _Disconnect extends Fake implements OnDisconnect {
   final String path;
   @override
   Future<void> set(Object? value, [Object? priority]) async {
-    expectSync(value, {'online': false, 'lastSeenAtMs': ServerValue.timestamp});
+    if (path.startsWith('users/owner/devices/tv/presence/')) {
+      expectSync(value, {
+        'online': false,
+        'lastSeenAtMs': ServerValue.timestamp,
+      });
+      db.log.add('disconnect:$path');
+      if (db.disconnectBarrier != null) await db.disconnectBarrier!.future;
+      return;
+    }
+    expectSync(path, startsWith('users/owner/operations/events/'));
+    final key = path.split('/').last;
+    final connectionId = key.replaceFirst(RegExp(r'-offline$'), '');
+    expectSync(db.device['displayUid'], 'display');
+    expectSync(
+      (db.device['connectionVerification'] as Map)['connectionId'],
+      connectionId,
+    );
+    expectSync(db.device['currentConnectionId'], connectionId);
+    expectSync(value, {
+      'id': key,
+      'eventId': key,
+      'incidentId': key,
+      'connectionId': connectionId,
+      'phase': 'server_connection',
+      'schemaVersion': 2,
+      'deviceRole': 'display',
+      'deviceName': 'Keep TV name',
+      'appVersion': '1.1.1',
+      'type': 'device_offline',
+      'occurredAtMs': ServerValue.timestamp,
+      'deviceId': 'tv',
+      'scheduled': false,
+    });
+    db.operationDisconnects[path] = value;
     db.log.add('disconnect:$path');
-    if (db.disconnectBarrier != null) await db.disconnectBarrier!.future;
+  }
+
+  @override
+  Future<void> cancel() async {
+    expectSync(path, startsWith('users/owner/operations/events/'));
+    db.operationDisconnects.remove(path);
+    db.log.add('cancel:$path');
   }
 }
 
