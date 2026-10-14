@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
 import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
 import 'package:flutter/foundation.dart';
@@ -118,14 +117,14 @@ void main() {
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is Semantics && widget.properties.label == AppBrand.name,
+              widget is Semantics && widget.properties.label == '앱 준비 중',
         ),
         findsOneWidget,
       );
       final mark = find.byType(SoftRhythmMark);
       expect(tester.getSize(mark), const Size.square(128));
       expect(tester.getCenter(mark), Offset(size.width / 2, size.height / 2));
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

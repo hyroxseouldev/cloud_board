@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
+import 'package:cloud_board/src/app/core/widgets/soft_rhythm_loading_mark.dart';
 
 /// Shares the native launch artwork and canvas without a timed splash delay.
 /// The mark stays centered when loading changes to a retry action.
@@ -65,55 +66,52 @@ class _AppStartupScreenState extends State<AppStartupScreen> {
         builder: (context, constraints) => Stack(
           children: [
             Center(
-              child: Semantics(
-                label: AppBrand.name,
-                image: true,
-                child: const SoftRhythmMark(size: AppStartupScreen.markSize),
-              ),
+              child: widget.onRetry == null
+                  ? const SoftRhythmLoadingMark(size: AppStartupScreen.markSize)
+                  : Semantics(
+                      label: AppBrand.name,
+                      image: true,
+                      child: const SoftRhythmMark(
+                        size: AppStartupScreen.markSize,
+                      ),
+                    ),
             ),
-            Positioned(
-              top:
-                  constraints.maxHeight / 2 +
-                  AppStartupScreen.markSize / 2 +
-                  24,
-              left: 24,
-              right: 24,
-              bottom: 0,
-              child: SafeArea(
-                top: false,
-                minimum: const EdgeInsets.only(bottom: 16),
-                child: SingleChildScrollView(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 360),
-                      child: widget.onRetry == null
-                          ? const SizedBox.square(
-                              dimension: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                semanticsLabel: '앱 준비 중',
-                              ),
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '앱을 준비하지 못했습니다.\n연결을 확인하고 다시 시도해 주세요.',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 12),
-                                FilledButton(
-                                  autofocus: true,
-                                  onPressed: widget.onRetry,
-                                  child: const Text('다시 시도'),
-                                ),
-                              ],
+            if (widget.onRetry != null)
+              Positioned(
+                top:
+                    constraints.maxHeight / 2 +
+                    AppStartupScreen.markSize / 2 +
+                    24,
+                left: 24,
+                right: 24,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  minimum: const EdgeInsets.only(bottom: 16),
+                  child: SingleChildScrollView(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 360),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              '앱을 준비하지 못했습니다.\n연결을 확인하고 다시 시도해 주세요.',
+                              textAlign: TextAlign.center,
                             ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              autofocus: true,
+                              onPressed: widget.onRetry,
+                              child: const Text('다시 시도'),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
