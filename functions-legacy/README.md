@@ -32,9 +32,11 @@ integration tests remain skipped. They do not count as release verification.
 migration command is run by build, test, predeploy or deployment.
 
 The checked-in baseline records the exact predecessor commit and all four live
-source ZIP generations/digests. All 23 supporting compiled modules and the four
-active handler declarations match the deployed sources. The entrypoint differs
-only by removing inactive exports/imports. Dependency versions retain the live
+source ZIP generations/digests. The original STA-172 migration matched all 23 supporting modules and four
+active handlers. STA-176 adds one reviewed exception: `cloudboardPairDisplay`
+and `services/pairing` now forward to the atomic canonical pairing callable.
+`sta176-pairing-bridge.json` pins only that compiled delta; the original baseline
+remains unchanged, and every other module/handler remains baseline-checked. Dependency versions retain the live
 lock; upgrades need their own compatibility review.
 
 Read [migration/release/cleanup procedures](../docs/legacy-auth-migration.md)
@@ -43,3 +45,11 @@ include this codebase. The migration guard blocks wrong projects, unexpected
 exports, changed contracts, runtime config or secret versions, live drift and
 missing app/TV regression evidence. Keep generated `lib/`, credentials and `.env*`
 out of Git. Do not copy the old landing environment into CI secrets.
+
+Read [STA-176 bridge validation and rollout](../docs/sta176-legacy-pairing-bridge.md)
+before releasing this candidate. The fixed target is production project
+`cloud-board-stationd`, region `asia-northeast3`, `pairDisplayConnection`.
+Other runtime projects fail closed. Local tests stub all network access; no
+isolated development deployment or production rollout has been performed.
+Deploy and verify the canonical backend first. The release evidence now also
+requires `pairingBackend` metadata/smoke and `checks.legacyPairingBridge`.

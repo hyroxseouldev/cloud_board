@@ -1,0 +1,28 @@
+STA-176 legacy pairing bridge — local verification, 2026-10-15
+Worktree: /tmp/cloudboard-sta176-legacy
+Base: PR62 head 0dc9a24; branch hyroxseouldev/sta176-legacy-pairing
+Node: 22 (npx --yes --package=node@22 -- <command>)
+
+npm ci --prefix functions-legacy --no-audit --no-fund
+Result: exit 0; dependency lock unchanged.
+
+npm run check --prefix functions-legacy
+Result: exit 0; TypeScript build passed.
+Node tests: 56 total, 51 passed, 5 inherited Neon-only skipped,
+0 failed, 0 cancelled, 0 todo. New bridge tests: 24 passed, 0 skipped.
+Full local log: /tmp/sta176-legacy-check.log
+
+node tool/legacy-auth-release.mjs check
+{"status":"passed","candidateDigest":"57c35c3622216f3ecaa340b5650c330f7fb8ddd131002f08e60556f9f38e0b60","functions":["cloudboardAuth","cloudboardLinkAccount","cloudboardPairDisplay","cloudboardSetDisplayState"]}
+
+node --test tool/legacy-auth-release.test.mjs
+Result: exit 0; 15 passed, 0 failed, 0 cancelled, 0 skipped, 0 todo.
+Full local log: /tmp/sta176-legacy-release-tests.log
+
+git diff --check
+Result: exit 0.
+
+All bridge HTTP and authentication tests use local mocks. No live endpoint
+request, deployment, native build, physical TV test or production rollout was
+performed. The test project name is synthetic configuration for mocked transport;
+it is not evidence of a deployed development or production service.

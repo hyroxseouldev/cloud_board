@@ -2,7 +2,7 @@ name: Operations and legacy server compatibility
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, hyroxseouldev/feature-team2]
   push:
     branches: [develop]
 
