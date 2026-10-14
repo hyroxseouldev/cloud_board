@@ -20,6 +20,7 @@ DisplayDevice device(
   int preparation = 1,
   bool online = true,
   int seen = now,
+  DisplayPreparationHealth health = const DisplayPreparationHealth(),
 }) => DisplayDevice(
   id: id,
   name: id,
@@ -32,6 +33,7 @@ DisplayDevice device(
   paired: true,
   playbackProtocol: protocol,
   preparationProtocol: preparation,
+  preparationHealth: health,
 );
 DisplayPreparation request({List<String> targets = const ['tv']}) =>
     prepareDisplayCandidate(
@@ -68,6 +70,42 @@ DisplayPreparationProof proof(
 );
 
 void main() {
+  test('failed heartbeat or response health cannot reuse a successful receipt as ready', () {
+    final candidate = request();
+    for (final stage in [
+      'heartbeat',
+      'response_write',
+      'request_read',
+      'media',
+    ]) {
+      final failed = device(
+        'tv',
+        health: DisplayPreparationHealth(
+          stage: stage,
+          code: 'unavailable',
+          attempt: 4,
+          checkedAtMs: now,
+          requestId: candidate.sessionId,
+        ),
+      );
+      expect(
+        displayPreparationStatus(failed, 1, candidate, receipt(candidate), now),
+        DisplayPreparationStatus.failed,
+      );
+    }
+    final previous = device(
+      'tv',
+      health: const DisplayPreparationHealth(
+        stage: 'media',
+        code: 'unavailable',
+        requestId: 'previous-request',
+      ),
+    );
+    expect(
+      displayPreparationStatus(previous, 1, candidate, receipt(candidate), now),
+      DisplayPreparationStatus.ready,
+    );
+  });
   test('server offset aligns skewed phone and TV with receipt expiry', () {
     const local = now - 300000;
     final corrected = preparationServerNow(300000, localNowMs: local);
@@ -211,16 +249,72 @@ void main() {
       nowMs: now,
     );
   });
+  test(
+    'stale legacy TV cannot start with an explicit UI confirmation',
+    () async {
+      final candidate = request();
+      final stale = device('tv', preparation: 0, seen: now - 75000);
+      final actions = DisplayPreparationActions(
+        _Preparation(),
+        _Devices([stale]),
+        serverNow: () async => now,
+      );
+      expect(
+        displayPreparationStatus(stale, 1, null, null, now),
+        DisplayPreparationStatus.offline,
+      );
+      await expectLater(
+        actions.verifyStart(workout, ['tv'], proof(candidate, legacy: ['tv'])),
+        throwsStateError,
+      );
+      // Supported installed clients without the new UI proof retain their
+      // existing direct-start compatibility path.
+      await actions.verifyStart(workout, ['tv'], null);
+    },
+  );
+  test(
+    'a current health failure blocks start despite a successful receipt',
+    () async {
+      final candidate = request();
+      final repository = _Preparation()
+        ..value = candidate
+        ..acks = {'tv': receipt(candidate)};
+      final actions = DisplayPreparationActions(
+        repository,
+        _Devices([
+          device(
+            'tv',
+            health: DisplayPreparationHealth(
+              stage: 'heartbeat',
+              code: 'unavailable',
+              attempt: 4,
+              checkedAtMs: now,
+              requestId: candidate.sessionId,
+            ),
+          ),
+        ]),
+        serverNow: () async => now,
+      );
+      expect(receipt(candidate).readyFor(candidate, now), isTrue);
+      await expectLater(
+        actions.verifyStart(workout, ['tv'], proof(candidate)),
+        throwsStateError,
+      );
+    },
+  );
   test('image or audio failure cannot become readiness, and cancellation emits nothing', () async {
     final r = request();
     var audioCalls = 0;
+    final failures = <(String, Object, StackTrace)>[];
+    final imageError = StateError('image');
     final imageFailure = await prepareDisplayMedia(
       r,
-      images: (_) async => throw StateError('image'),
+      images: (_) async => throw imageError,
       audio: (_) async {
         audioCalls++;
       },
       cancelled: () => false,
+      onError: (stage, error, stack) => failures.add((stage, error, stack)),
     );
     expect(imageFailure!.ready, isFalse);
     expect(audioCalls, 0);
@@ -229,9 +323,16 @@ void main() {
       images: (_) async => 0,
       audio: (_) async => throw StateError('native source'),
       cancelled: () => false,
+      onError: (stage, error, stack) => failures.add((stage, error, stack)),
     );
     expect(audioFailure!.ready, isFalse);
     expect(audioFailure.audioReady, isFalse);
+    expect(failures.map((failure) => failure.$1), ['images', 'audio']);
+    expect(failures.first.$2, same(imageError));
+    expect(
+      failures.every((failure) => failure.$3.toString().isNotEmpty),
+      isTrue,
+    );
     var cancelled = false;
     expect(
       await prepareDisplayMedia(

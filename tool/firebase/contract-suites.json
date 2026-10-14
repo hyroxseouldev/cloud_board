@@ -131,6 +131,10 @@
       "project": "demo-cloudboard",
       "coverage": [
         "firestore"
+      ],
+      "requires": [
+        "firestore",
+        "storage"
       ]
     },
     {
@@ -163,6 +167,14 @@
       "id": "display-preparation",
       "file": "functions/test/display-preparation-emulator.mjs",
       "project": "demo-cloudboard-preparation",
+      "coverage": [
+        "database"
+      ]
+    },
+    {
+      "id": "operations-history",
+      "file": "functions/test/operations-history-emulator.mjs",
+      "project": "demo-cloudboard-operations",
       "coverage": [
         "database"
       ]
@@ -224,6 +236,28 @@
       "project": "demo-cloudboard",
       "coverage": [
         "firestore",
+        "database"
+      ]
+    },
+    {
+      "id": "support-tickets",
+      "file": "functions/test/support-tickets-emulator.mjs",
+      "project": "demo-cloudboard",
+      "coverage": [
+        "firestore",
+        "database"
+      ],
+      "requires": [
+        "firestore",
+        "database",
+        "storage"
+      ]
+    },
+    {
+      "id": "display-recovery",
+      "file": "functions/test/display-recovery-emulator.mjs",
+      "project": "demo-cloudboard-recovery",
+      "coverage": [
         "database"
       ]
     }

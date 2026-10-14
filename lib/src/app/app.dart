@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
@@ -63,6 +65,7 @@ class XonBoardApp extends HookConsumerWidget {
           ? errorMessage?.call(next.error) ?? '$errorPrefix. 잠시 후 다시 시도해 주세요.'
           : next.value;
       if (message == null) return;
+      final supportOwnerId = ref.read(authStateProvider).value?.id;
       _scaffoldMessengerKey.currentState
         ?..hideCurrentSnackBar()
         ..showSnackBar(
@@ -70,6 +73,35 @@ class XonBoardApp extends HookConsumerWidget {
             content: Text(message),
             behavior: SnackBarBehavior.floating,
             backgroundColor: isError ? Colors.red.shade800 : null,
+            action: isError
+                ? SnackBarAction(
+                    label: '문제 문의하기',
+                    onPressed: () {
+                      if (ref.read(authStateProvider).value?.id !=
+                          supportOwnerId) {
+                        ref.read(appRouterProvider).push('/support');
+                        return;
+                      }
+                      final reporter = ref.read(errorReporterProvider);
+                      final event =
+                          reporter.eventFor(next.error) ??
+                          reporter.capture(
+                            next.error!,
+                            next.stackTrace ?? StackTrace.current,
+                            action: 'ui.action',
+                          );
+                      ref
+                          .read(appRouterProvider)
+                          .push(
+                            '/support',
+                            extra: {
+                              ...supportDiagnosticsForEvent(event),
+                              '_supportOwnerId': supportOwnerId,
+                            },
+                          );
+                    },
+                  )
+                : null,
           ),
         );
     }

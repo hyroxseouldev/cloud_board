@@ -14,5 +14,12 @@ abstract interface class DisplayPreparationRepository {
     required int imageCount,
     required bool audioReady,
   });
-  Future<void> heartbeat(String deviceId);
+  Future<void> heartbeat(String deviceId, {bool ready = false});
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  });
 }

@@ -21,6 +21,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  class_start_regressions:
+    uses: ./.github/workflows/class-start-regressions.yml
+
   backend_ready:
     name: Wait for verified backend deployment
     if: >-
@@ -41,10 +44,10 @@ jobs:
         run: node tool/release_backend_gate.mjs
 
   upload:
-    needs: backend_ready
+    needs: [backend_ready, class_start_regressions]
     name: Build and upload to internal testing
     if: >-
-      always() && !cancelled() &&
+      always() && !cancelled() && needs.class_start_regressions.result == 'success' &&
       (needs.backend_ready.result == 'success' ||
       (github.event_name == 'workflow_dispatch' && !inputs.upload_to_play))
     permissions:
@@ -124,6 +127,20 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Require TV recovery regressions without missing or skipped cases
+        run: |
+          node --test tool/tv-recovery-check.test.mjs
+          node tool/tv-recovery-check.mjs
+
+      - name: Retain TV recovery regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-recovery-android-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/sta176/
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test

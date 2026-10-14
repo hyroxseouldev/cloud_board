@@ -9,6 +9,48 @@ part of 'device_pairing_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(displayConnectionState)
+final displayConnectionStateProvider = DisplayConnectionStateProvider._();
+
+final class DisplayConnectionStateProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<DisplayConnectionState>,
+          DisplayConnectionState,
+          Stream<DisplayConnectionState>
+        >
+    with
+        $FutureModifier<DisplayConnectionState>,
+        $StreamProvider<DisplayConnectionState> {
+  DisplayConnectionStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: _noAutomaticPairingRetry,
+        name: r'displayConnectionStateProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$displayConnectionStateHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<DisplayConnectionState> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<DisplayConnectionState> create(Ref ref) {
+    return displayConnectionState(ref);
+  }
+}
+
+String _$displayConnectionStateHash() =>
+    r'45d3f24a89183a87c6c491558d37b8005ef829ad';
+
 @ProviderFor(DevicePairingController)
 final devicePairingControllerProvider = DevicePairingControllerProvider._();
 
@@ -18,7 +60,7 @@ final class DevicePairingControllerProvider
     : super(
         from: null,
         argument: null,
-        retry: null,
+        retry: _noAutomaticPairingRetry,
         name: r'devicePairingControllerProvider',
         isAutoDispose: false,
         dependencies: null,
@@ -34,7 +76,7 @@ final class DevicePairingControllerProvider
 }
 
 String _$devicePairingControllerHash() =>
-    r'6df3d98be8026904f6ccfe625805eee29b513551';
+    r'a3352355b25c224835491ffd18f966228476fed9';
 
 abstract class _$DevicePairingController extends $AsyncNotifier<DevicePairing> {
   FutureOr<DevicePairing> build();
@@ -147,3 +189,41 @@ abstract class _$DeviceClaimController extends $Notifier<AsyncValue<void>> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// Re-evaluates stale heartbeats even when the database emits no new values.
+
+@ProviderFor(displayHealthNow)
+final displayHealthNowProvider = DisplayHealthNowProvider._();
+
+/// Re-evaluates stale heartbeats even when the database emits no new values.
+
+final class DisplayHealthNowProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, Stream<int>>
+    with $FutureModifier<int>, $StreamProvider<int> {
+  /// Re-evaluates stale heartbeats even when the database emits no new values.
+  DisplayHealthNowProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'displayHealthNowProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$displayHealthNowHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<int> create(Ref ref) {
+    return displayHealthNow(ref);
+  }
+}
+
+String _$displayHealthNowHash() => r'fd5e0ac44687f5b48631be6e63b59ac61fc75301';

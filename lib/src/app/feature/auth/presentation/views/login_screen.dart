@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/router/auth_entry_routes.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
@@ -16,9 +17,10 @@ import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_c
 import 'package:cloud_board/src/app/feature/auth/presentation/widgets/auth_error_notice.dart';
 
 class LoginScreen extends HookConsumerWidget {
-  const LoginScreen({super.key, this.starter, this.purpose});
+  const LoginScreen({super.key, this.starter, this.purpose, this.returnTo});
   final StarterWorkout? starter;
   final String? purpose;
+  final String? returnTo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -67,7 +69,10 @@ class LoginScreen extends HookConsumerWidget {
         onApple: () => signIn('apple'),
         onGoogle: () => signIn('google'),
         onEmail: () => context.push(
-          starterLocation('/login/email', starter, purpose: purpose),
+          withEntryReturn(
+            starterLocation('/login/email', starter, purpose: purpose),
+            returnTo,
+          ),
         ),
         onAccountHelp: () => _showAccountHelp(context),
         errorNotice: authState.hasError
@@ -233,10 +238,13 @@ class LoginScreen extends HookConsumerWidget {
                             onPressed: busy
                                 ? null
                                 : () => context.push(
-                                    starterLocation(
-                                      '/login/email',
-                                      starter,
-                                      purpose: purpose,
+                                    withEntryReturn(
+                                      starterLocation(
+                                        '/login/email',
+                                        starter,
+                                        purpose: purpose,
+                                      ),
+                                      returnTo,
                                     ),
                                   ),
                           ),

@@ -1,0 +1,22 @@
+{
+  "sha": "local",
+  "platform": "vm",
+  "suites": [
+    "test/playback_start_lifecycle_test.dart",
+    "test/playback_start_commit_test.dart",
+    "test/playback_metadata_test.dart",
+    "test/schedule_runner_initialization_test.dart",
+    "test/display_preparation_test.dart",
+    "test/device_pairing_recovery_test.dart",
+    "test/display_preparation_recovery_test.dart",
+    "test/display_mode_flow_test.dart",
+    "test/workout_preflight_dialog_test.dart",
+    "test/playback_ack_test.dart",
+    "test/playback_recovery_test.dart",
+    "test/playback_recovery_view_test.dart",
+    "test/playback_split_protocol_test.dart",
+    "test/playback_partial_disconnect_test.dart"
+  ],
+  "tests": 143,
+  "scope": "Local merged working tree after 2a76ace; final candidate SHA is verified by PR #63 CI. No production deployment or physical device validation."
+}

@@ -84,7 +84,10 @@ class _CheckDevice extends HookConsumerWidget {
     final confirmed =
         request != null &&
         !expired &&
-        device?.online == true &&
+        device?.recentlySeen(
+              now.value + (ref.watch(serverTimeOffsetProvider).value ?? 0),
+            ) ==
+            true &&
         device?.identificationId == request.nonce &&
         device?.identificationAck == request.nonce;
     return Column(

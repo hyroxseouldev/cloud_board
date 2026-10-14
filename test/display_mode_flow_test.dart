@@ -11,6 +11,9 @@ import 'package:cloud_board/src/app/feature/app_update/presentation/controllers/
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
+import 'package:cloud_board/src/app/feature/device/domain/repositories/display_preparation_repository.dart';
+import 'package:cloud_board/src/app/feature/device/data/repositories/display_preparation_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
@@ -46,6 +49,55 @@ class _Pair extends DevicePairingController {
     deviceId: 'tv',
     expiresAtMs: 9999999999999,
   );
+}
+
+class _RecoverPair extends DevicePairingController {
+  final recovered = Completer<void>();
+  int refreshes = 0;
+  @override
+  Future<DevicePairing> build() async =>
+      throw StateError('temporary pairing repair failure');
+  @override
+  Future<void> refresh() async {
+    refreshes++;
+    state = const AsyncLoading();
+    await recovered.future;
+    if (ref.mounted) {
+      state = const AsyncData(
+        DevicePairing(
+          code: '123456',
+          deviceId: 'tv',
+          expiresAtMs: 9999999999999,
+        ),
+      );
+    }
+  }
+}
+
+class _PreparationStreams implements DisplayPreparationRepository {
+  int subscriptions = 0;
+  int heartbeats = 0;
+  @override
+  Stream<DisplayPreparation?> watchRequest(String deviceId) {
+    subscriptions++;
+    return Stream.value(null);
+  }
+
+  @override
+  Future<void> heartbeat(String deviceId, {bool ready = false}) async {
+    heartbeats++;
+  }
+
+  @override
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  }) async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _PairActions implements DevicePairingActions {
@@ -117,6 +169,78 @@ class _ControlledRecovery extends PlaybackRecoveryController {
 }
 
 void main() {
+  testWidgets(
+    'failed TV identity repair retries on reconnect; preparation waits for repaired identity',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final connection = StreamController<bool>.broadcast();
+      final pairing = _RecoverPair();
+      final preparation = _PreparationStreams();
+      final tv = DisplayDevice(
+        id: 'tv',
+        name: 'TV',
+        zoneId: 'main',
+        zoneName: '',
+        online: true,
+        lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
+        currentSessionId: null,
+        acknowledgedRevision: 0,
+        paired: true,
+        preparationProtocol: 1,
+        playbackProtocol: 5,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            androidTvProvider.overrideWith((_) async => false),
+            accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
+            deviceIdProvider.overrideWith((_) async => 'tv'),
+            deviceModeControllerProvider.overrideWith(_Mode.new),
+            devicePairingControllerProvider.overrideWith(() => pairing),
+            devicePairingActionsProvider.overrideWithValue(_PairActions()),
+            displayPreparationRepositoryProvider.overrideWithValue(preparation),
+            displayDevicesProvider.overrideWith((_) => Stream.value([tv])),
+            activePlaybackSessionProvider.overrideWith(
+              (_) => Stream.value(null),
+            ),
+            playbackConnectionProvider.overrideWith((_) => connection.stream),
+            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+            effectiveBrandTemplateProvider.overrideWith(
+              (_) => Stream.value(BrandTemplate.initial()),
+            ),
+            workoutSchedulesProvider.overrideWith((_) => Stream.value([])),
+          ],
+          child: const MaterialApp(home: DisplayModeScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(preparation.subscriptions, 0);
+      expect(preparation.heartbeats, 0);
+      connection.add(false);
+      await tester.pumpAndSettle();
+      connection.add(true);
+      await tester.pump();
+      await tester.pump();
+      expect(pairing.refreshes, 1);
+      expect(
+        preparation.subscriptions,
+        0,
+        reason: 'Heartbeat/device cache alone cannot bypass pending UID repair',
+      );
+      expect(preparation.heartbeats, 0);
+      pairing.recovered.complete();
+      await tester.pumpAndSettle();
+      expect(preparation.subscriptions, 1);
+      expect(preparation.heartbeats, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await connection.close();
+    },
+  );
+
   testWidgets(
     'TV update appears only in confirmed standby and yields to a class, recovery or connection loss',
     (tester) async {

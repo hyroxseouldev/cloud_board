@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
+import 'package:cloud_board/src/app/feature/support/domain/entities/support_ticket.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -18,17 +22,34 @@ class ErrorDetailsButton extends ConsumerWidget {
   final String action;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!kDebugMode || error == null) return const SizedBox.shrink();
-    return TextButton.icon(
-      icon: const Icon(Icons.info_outline, size: 18),
-      label: const Text('오류 상세'),
-      onPressed: () => showErrorDetails(
-        context,
-        ref.read(errorReporterProvider),
-        error!,
-        stack,
-        action,
-      ),
+    if (error == null) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 8,
+      children: [
+        TextButton.icon(
+          icon: const Icon(Icons.help_outline_rounded, size: 18),
+          label: const Text('문제 문의하기'),
+          onPressed: () => openSupportForError(
+            context,
+            ref.read(errorReporterProvider),
+            error!,
+            stack,
+            action,
+          ),
+        ),
+        if (kDebugMode)
+          TextButton.icon(
+            icon: const Icon(Icons.info_outline, size: 18),
+            label: const Text('오류 상세'),
+            onPressed: () => showErrorDetails(
+              context,
+              ref.read(errorReporterProvider),
+              error!,
+              stack,
+              action,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -44,6 +65,7 @@ Future<void> showErrorDetails(
       reporter.eventFor(error) ??
       reporter.capture(error, stack ?? StackTrace.current, action: action);
   if (!kDebugMode) return;
+  final supportContext = context;
   return showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
@@ -70,6 +92,13 @@ Future<void> showErrorDetails(
           child: const Text('복사'),
         ),
         TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            openSupportForError(supportContext, reporter, error, stack, action);
+          },
+          child: const Text('문제 문의하기'),
+        ),
+        TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('닫기'),
         ),
@@ -77,3 +106,56 @@ Future<void> showErrorDetails(
     ),
   );
 }
+
+Future<void> openSupportForError(
+  BuildContext context,
+  ErrorReporter reporter,
+  Object error,
+  StackTrace? stack,
+  String action,
+) async {
+  final event =
+      reporter.eventFor(error) ??
+      reporter.capture(error, stack ?? StackTrace.current, action: action);
+  final isTv = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(androidTvProvider).value;
+  if (isTv == true) {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('연결된 기기에서 문의해 주세요'),
+        content: Text(
+          '휴대폰이나 웹의 더보기 → 문의하기에서 TV 진단을 함께 보낼 수 있어요.\n\n오류 ID: ${event.id}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
+  if (!context.mounted) return;
+  await context.push(
+    '/support',
+    extra: {
+      ...supportDiagnosticsForEvent(event),
+      '_supportOwnerId': ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(authStateProvider).value?.id,
+    },
+  );
+}
+
+Map<String, Object?> supportDiagnosticsForEvent(DiagnosticEvent event) =>
+    filterSupportDiagnostics({
+      ...event.context,
+      'errorId': event.id,
+      'occurredAtMs': event.occurredAt.millisecondsSinceEpoch,
+      'code': event.code,
+    });

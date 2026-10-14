@@ -1,0 +1,156 @@
+{
+  "issue": "STA-179",
+  "base": "06fbd656b9ba92fd0bfbf61b6f84fe8c5ccab835",
+  "sdk": "Flutter 3.47.0 / Dart 3.13.0",
+  "referenceOriginal": "/Users/sunmkim/orca/workspaces/cloud_board/goldfish/output/design/timer-input-2026-10-15/selected-wheel-picker.png",
+  "captureDpr": 2,
+  "captureNotes": "small-custom, large-text-custom and landscape-custom are scrolled wheel editing states. Others are initial states. Capture uses actual production widgets and loaded Pretendard. Post-capture lint changes replace deprecated mounted/semantics API calls and add braces; visual/layout source unchanged.",
+  "images": [
+    {
+      "path": "docs/design/sta179/comparison-reference.png",
+      "pixels": [
+        1584,
+        1746
+      ],
+      "sha256": "555a243ef11a1f6a64cff348834b6c2cb7785bba01705c9869f823b860134f13"
+    },
+    {
+      "path": "docs/design/sta179/implemented/desktop-custom.png",
+      "pixels": [
+        2880,
+        1800
+      ],
+      "sha256": "3e3f4aefebfa1a951e16d0d929a943f156f94f6135037a1958a1fcd105800346"
+    },
+    {
+      "path": "docs/design/sta179/implemented/landscape-custom.png",
+      "pixels": [
+        1688,
+        780
+      ],
+      "sha256": "15858875ed2a50eeedd264a685c058a89b7422271532129fa7652381cbabd636"
+    },
+    {
+      "path": "docs/design/sta179/implemented/large-text-custom.png",
+      "pixels": [
+        640,
+        1688
+      ],
+      "sha256": "ad4bbc0e81be06d075bbdd2297b85a308604c98c1c21ead4983536c8ec677ebe"
+    },
+    {
+      "path": "docs/design/sta179/implemented/phone-amrap.png",
+      "pixels": [
+        780,
+        1688
+      ],
+      "sha256": "3c46dc18014ac9770c5f18597cb8b7346c9415e56383ff7a9bc21cddd0e54ad1"
+    },
+    {
+      "path": "docs/design/sta179/implemented/phone-custom.png",
+      "pixels": [
+        780,
+        1688
+      ],
+      "sha256": "d77e67109ce0368a3604bbcbc8dba873642197061960df0a234c22a559a298d4"
+    },
+    {
+      "path": "docs/design/sta179/implemented/phone-emom.png",
+      "pixels": [
+        780,
+        1688
+      ],
+      "sha256": "935947bda0f0204d2c91d9adcc416d13d810fda4b8f12424e687bf1fe0134102"
+    },
+    {
+      "path": "docs/design/sta179/implemented/small-custom.png",
+      "pixels": [
+        640,
+        1136
+      ],
+      "sha256": "af29f8b34c96e4341491ccf646eac9c7c6cd17c77f680e081ddb481ccd43e82f"
+    },
+    {
+      "path": "docs/design/sta179/implemented/tablet-custom.png",
+      "pixels": [
+        1668,
+        2388
+      ],
+      "sha256": "5b39e4924039efea57f39a1a372e976588b3309a205e6caabfa9356a1087c44c"
+    },
+    {
+      "path": "docs/design/sta179/reference.png",
+      "pixels": [
+        853,
+        1844
+      ],
+      "sha256": "2fde6685ad45da8786c0f3b59975f09c943f504126f26ccee37d03aef808a8c2"
+    },
+    {
+      "path": "docs/design/sta179/responsive-contact-sheet.jpg",
+      "pixels": [
+        1680,
+        1880
+      ],
+      "sha256": "f3fd89097b27045cfb03d4f22d285f64e46d93f13a84e83e3246562158794e18"
+    }
+  ],
+  "sources": [
+    {
+      "path": "lib/src/app/feature/workouts/presentation/widgets/timer_duration_wheel.dart",
+      "sha256": "65bd7dcb4deaf456a156388934c271a803d032db20e658000e02c819ff7b21cc"
+    },
+    {
+      "path": "lib/src/app/feature/workouts/presentation/widgets/timer_editor_fields.dart",
+      "sha256": "11e06d6b9c9e26be954e59399782db0d80662f59540579aaa2751273ea1d7f1a"
+    },
+    {
+      "path": "lib/src/app/feature/workouts/presentation/views/timer_editor_screen.dart",
+      "sha256": "b140f161bf98675a70e30860ac4fb03a15597e839ab0b21fcd04e6aaefa1315b"
+    },
+    {
+      "path": "test/timer_duration_wheel_test.dart",
+      "sha256": "3d9190a2ca1c89160f6f56c0a2bf8adf0d74e5384c9e9797a4a0ee57eb3b25c2"
+    },
+    {
+      "path": "test/timer_editor_test.dart",
+      "sha256": "cbf100edeb821e5b089e84b05129475516b5fc6d8db6c53f2e38014739c75f4b"
+    },
+    {
+      "path": "test/timer_editor_flow_test.dart",
+      "sha256": "a6b01d7fc437f8c3395b03fe8f766ce6726ab5487c43760894b3d24c2cbec953"
+    },
+    {
+      "path": "tool/sta179_capture_test.dart",
+      "sha256": "22aa7d68b1ccecf93998a74077437af2101496ae1351c13fca1d7b024ed7721a"
+    },
+    {
+      "path": "tool/sta146_148_capture_test.dart",
+      "sha256": "a304cc3e2bad2dc4ef04440c9dfa3f369337f080aa5429cf81569c14aec8643b"
+    },
+    {
+      "path": ".github/workflows/firebase-hosting-merge.yml",
+      "sha256": "6842bc9b828b4671842bcaef94ce8dd665f59c0d927c7ce875d0103fe44edaf1"
+    }
+  ],
+  "validation": {
+    "vm": {
+      "passed": 63,
+      "log": "/tmp/sta179-vm-final.log"
+    },
+    "chrome": {
+      "passed": 63,
+      "log": "/tmp/sta179-chrome.log"
+    },
+    "captureAndWheel": {
+      "passed": 16,
+      "captures": 8,
+      "log": "/tmp/sta179-capture-final.log"
+    },
+    "analyze": {
+      "result": "No issues found",
+      "log": "/tmp/sta179-analyze-final.log"
+    },
+    "physicalDevices": "deferred by user; no physical or screen reader claim"
+  }
+}

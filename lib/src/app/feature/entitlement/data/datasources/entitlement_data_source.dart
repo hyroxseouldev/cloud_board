@@ -24,9 +24,10 @@ class EntitlementDataSource {
     Timer? expiry;
     var model = const StoreEntitlementModel();
     var confirmed = false;
+    var receivedSnapshot = false;
     var offset = 0;
     void emit() {
-      if (out.isClosed) return;
+      if (out.isClosed || !receivedSnapshot) return;
       final now = DateTime.now().millisecondsSinceEpoch + offset;
       out.add(model.toEntity(uid, confirmed, now));
       expiry?.cancel();
@@ -38,7 +39,6 @@ class EntitlementDataSource {
 
     out = StreamController<StoreEntitlement>(
       onListen: () {
-        out.add(StoreEntitlement(ownerId: uid));
         clock =
             FirebaseDatabase.instanceFor(
               app: Firebase.app(),
@@ -56,9 +56,19 @@ class EntitlementDataSource {
             .snapshots(includeMetadataChanges: true)
             .listen(
               (snapshot) {
-                model = StoreEntitlementModel.fromJson(snapshot.data() ?? {});
-                confirmed = snapshot.exists && !snapshot.metadata.isFromCache;
-                emit();
+                receivedSnapshot = true;
+                try {
+                  model = StoreEntitlementModel.fromJson(snapshot.data() ?? {});
+                  confirmed = snapshot.exists && !snapshot.metadata.isFromCache;
+                  emit();
+                } catch (error, stack) {
+                  // Malformed snapshots must not retain a prior valid grant or
+                  // escape the stream's recoverable error/retry presentation.
+                  model = const StoreEntitlementModel();
+                  confirmed = false;
+                  expiry?.cancel();
+                  out.addError(error, stack);
+                }
               },
               onError: (Object error, StackTrace stack) {
                 confirmed = false;

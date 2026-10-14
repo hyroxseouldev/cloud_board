@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/widgets/app_version_tile.dart';
@@ -6,7 +7,6 @@ import 'package:cloud_board/src/app/feature/billing/presentation/views/subscript
 import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
-import 'package:cloud_board/src/app/feature/update_news/presentation/widgets/update_news_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -191,6 +191,14 @@ class AccountManagementSection extends HookConsumerWidget {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.help_outline_rounded),
+                  title: const Text('문의하기'),
+                  subtitle: const Text('문제 상황과 스크린샷 보내기'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/support'),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   title: const Text('계정 삭제 안내 및 문의'),
                   trailing: const Icon(Icons.open_in_new_rounded, size: 20),
                   enabled: !opening.value && !deleting,
@@ -212,7 +220,6 @@ class AccountManagementSection extends HookConsumerWidget {
                   enabled: !opening.value,
                   onTap: () => open(AppLinks.privacy),
                 ),
-                const UpdateNewsTile(),
                 const AppVersionTile(),
               ],
             ),

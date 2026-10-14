@@ -1,8 +1,13 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 
 abstract interface class DevicePairingRepository {
-  Future<DevicePairing> issue({required String deviceId});
+  Stream<DisplayConnectionState> watchConnectionState();
+  Future<DevicePairing> issue({
+    required String deviceId,
+    bool retryConnection = false,
+  });
   Stream<List<DisplayDevice>> watchDevices();
   Future<void> claim({
     required String code,

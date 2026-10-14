@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/operations/data/operation_event_writer.dart';
+import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/core/services/realtime_connection.dart';
 import 'package:cloud_board/src/app/core/services/event_id.dart';
@@ -26,20 +28,41 @@ class PlaybackRealtimeDataSource {
     this.serverRead,
     this.onAncillaryFailure,
     this.allowSplitPlayback,
+    this.appVersion,
+    this.isCurrentAccount,
   });
 
+  final String? appVersion;
   final Future<Object?> Function(String path)? serverRead;
   final Future<bool> Function()? allowSplitPlayback;
+  final bool Function()? isCurrentAccount;
   final void Function(Object error, StackTrace stack)? onAncillaryFailure;
   final _refreshes = StreamController<PlaybackSessionModel?>.broadcast();
+  late final _eventWriter = OperationEventWriter(
+    (event) => _user
+        .child('operations/events/${event.eventId ?? event.id}')
+        .set(OperationEventModel.fromEntity(event).toJson()),
+  );
+
+  void _recordOperation(Map<String, dynamic> payload) {
+    unawaited(
+      _eventWriter.record(OperationEventModel.fromJson(payload).toEntity()),
+    );
+  }
+
   bool _recovering = false;
   int _generation = 0;
+  // A verified null is a server-confirmed deletion, not an unknown value.
+  bool _hasVerified = false;
   PlaybackSessionModel? _verified;
+  PlaybackSessionModel? _accepted;
+  int _acceptedVersion = 0;
   String? _removedSessionId;
   bool _disposed = false;
 
   Future<void> dispose() {
     _disposed = true;
+    _eventWriter.dispose();
     ++_generation;
     return _refreshes.close();
   }
@@ -51,7 +74,6 @@ class PlaybackRealtimeDataSource {
     if (_disposed) throw StateError('계정 연결이 변경되었습니다.');
     final read = serverRead;
     if (read == null) throw StateError('서버 상태 확인을 사용할 수 없습니다.');
-    final previousId = _lastWireState?['id'] as String?;
     _recovering = true;
     final generation = ++_generation;
     final elapsed = Stopwatch()..start();
@@ -71,30 +93,62 @@ class PlaybackRealtimeDataSource {
       debugPrint(
         'Playback recovery: transport connected in ${elapsed.elapsedMilliseconds}ms',
       );
-      final value = await read('users/${_requireOwnerId()}/activeSession');
-      if (value is Map &&
-          value['schemaVersion'] == 2 &&
-          !_snapshots.containsKey(value['snapshotId'])) {
-        final id = value['id'];
-        if (id is! String || value['snapshotId'] != id) {
-          throw const FormatException('수업 자료 버전이 일치하지 않습니다.');
-        }
-        _rememberSnapshot(
-          id,
-          _stringMap(
-            await read('users/${_requireOwnerId()}/playbackSnapshots/$id'),
-          ),
-        );
+      final model = await _readServerSession(read, generation: generation);
+      if (_disposed || generation != _generation) {
+        throw StateError('수업 상태 확인이 취소되었습니다.');
       }
-      final model = value == null ? null : _decode(value);
-      if (generation != _generation) throw StateError('수업 상태 확인이 취소되었습니다.');
-      _verified = model;
-      _removedSessionId = model == null ? previousId : null;
+      _hasVerified = true;
+      _acceptActive(model);
       _refreshes.add(model);
       return model;
     } finally {
       if (generation == _generation) _recovering = false;
     }
+  }
+
+  Future<PlaybackSessionModel?> _readServerSession(
+    Future<Object?> Function(String path) read, {
+    required int generation,
+  }) async {
+    void ensureCurrent() {
+      if (_disposed || generation != _generation) {
+        throw StateError('수업 상태 확인이 취소되었습니다.');
+      }
+    }
+
+    ensureCurrent();
+    final value = await read('users/${_requireOwnerId()}/activeSession')
+        .timeout(const Duration(seconds: 8));
+    ensureCurrent();
+    if (value is Map &&
+        value['schemaVersion'] == 2 &&
+        !_snapshots.containsKey(value['snapshotId'])) {
+      final id = value['id'];
+      if (id is! String || value['snapshotId'] != id) {
+        throw const FormatException('수업 자료 버전이 일치하지 않습니다.');
+      }
+      final snapshot = await read(
+        'users/${_requireOwnerId()}/playbackSnapshots/$id',
+      ).timeout(const Duration(seconds: 8));
+      ensureCurrent();
+      _rememberSnapshot(id, _stringMap(snapshot));
+    }
+    ensureCurrent();
+    return value == null ? null : _decode(value);
+  }
+
+  void _acceptActive(PlaybackSessionModel? model) {
+    // Repeated SDK receipts of the same revision are not a newer state. In
+    // particular they must not supersede an in-flight deletion confirmation.
+    if ((_accepted?.id, _accepted?.revision, _accepted?.anchorServerMs) !=
+        (model?.id, model?.revision, model?.anchorServerMs)) {
+      ++_acceptedVersion;
+    }
+    _removedSessionId = model == null
+        ? _accepted?.id ?? _removedSessionId
+        : null;
+    _accepted = model;
+    if (_hasVerified) _verified = model;
   }
 
   final FirebaseDatabase _database;
@@ -164,13 +218,50 @@ class PlaybackRealtimeDataSource {
   Stream<PlaybackSessionModel?> watchActive() {
     if (_ownerId == null) return Stream.value(null);
     return Stream.multi((sink) {
+      if (_disposed) {
+        sink.close();
+        return;
+      }
+      // Recovery invalidates the Riverpod subscription. Broadcast refreshes do
+      // not replay, and repository cache is deliberately suppressed after a
+      // remote receipt. Seed verified state from the first SDK event, after any
+      // null/non-null contradiction is confirmed, so recovery cannot report
+      // success before a failed confirmation has reached the controller.
+      var first = true;
       final remote = _active.onValue
           .asyncMap((event) async {
+            final initial = first;
+            first = false;
             final generation = _generation;
+            final acceptedVersion = _acceptedVersion;
             final value = event.snapshot.value;
-            if (_recovering) return (deliver: false, model: null);
+            if (_recovering || _disposed) return (deliver: false, model: null);
             if (value != null) await _ensureSnapshot(value);
-            final model = value == null ? null : _decode(value);
+            var model = value == null ? null : _decode(value);
+            // The first SDK event may be cached. A null/non-null contradiction
+            // cannot distinguish a real deletion/new class from an old cache.
+            // Confirm only that ambiguous case, without restarting transport or
+            // sending a control. Known removed IDs are already safe to ignore.
+            if (initial &&
+                _hasVerified &&
+                (model == null) != (_verified == null) &&
+                (model == null || model.id != _removedSessionId)) {
+              try {
+                model = await _readServerSession(
+                  serverRead!,
+                  generation: generation,
+                );
+              } catch (_) {
+                if (_disposed || generation != _generation || _recovering) {
+                  return (deliver: false, model: null);
+                }
+                if (acceptedVersion == _acceptedVersion) rethrow;
+              }
+              // Another subscription may have accepted a newer SDK state while
+              // this confirmation was pending. Deliver that state to this sink
+              // too; never replace it with a delayed read or error.
+              if (acceptedVersion != _acceptedVersion) model = _verified;
+            }
             final verified = _verified;
             final stale =
                 model != null &&
@@ -178,18 +269,23 @@ class PlaybackRealtimeDataSource {
                 (model.id == verified.id
                     ? model.revision < verified.revision
                     : model.anchorServerMs < verified.anchorServerMs);
+            final rejected =
+                stale || (model != null && model.id == _removedSessionId);
             return (
               deliver:
+                  !_disposed &&
                   !_recovering &&
                   generation == _generation &&
-                  !stale &&
-                  (model == null || model.id != _removedSessionId),
-              model: model,
+                  (!rejected || (initial && _hasVerified)),
+              model: rejected ? _verified : model,
             );
           })
           .listen(
             (event) {
-              if (event.deliver) sink.add(event.model);
+              if (event.deliver) {
+                _acceptActive(event.model);
+                sink.add(event.model);
+              }
             },
             onError: sink.addError,
             onDone: sink.close,
@@ -234,9 +330,18 @@ class PlaybackRealtimeDataSource {
     PlaybackSessionModel model, {
     bool scheduled = false,
     int? scheduledAtMs,
+    void Function()? ensureCurrent,
   }) async {
+    void ensureStartCurrent() {
+      _ensureStartAccount();
+      ensureCurrent?.call();
+    }
+
+    ensureStartCurrent();
     await waitForPlaybackConnection(watchConnected());
+    ensureStartCurrent();
     final devices = (await _user.child('devices').get()).value;
+    ensureStartCurrent();
     for (final id in model.targetDeviceIds) {
       if (devices is! Map || !isRegisteredDisplay(devices[id])) {
         throw StateError('연결이 완료된 디스플레이만 재생할 수 있습니다.');
@@ -274,25 +379,15 @@ class PlaybackRealtimeDataSource {
     final split =
         supportsSplitPlayback(devices) &&
         (await allowSplitPlayback?.call() ?? true);
+    ensureStartCurrent();
     final documents = PlaybackStartDocuments(model, split: split);
     final json = documents.state;
     if (split) {
       _rememberSnapshot(model.id, model.workoutSnapshot);
     }
-    final event = _user.child('operations/events').push();
     final updates = <String, Object?>{
       'activeSession': json,
       if (split) 'playbackSnapshots/${model.id}': documents.snapshot,
-      'operations/events/${event.key}': {
-        'id': event.key,
-        'type': model.briefing ? 'briefing_opened' : 'playback_started',
-        'occurredAtMs': ServerValue.timestamp,
-        'deviceId': model.updatedByDeviceId,
-        'workoutId': model.workoutSnapshot['id'],
-        'workoutName': model.workoutSnapshot['name'],
-        'scheduled': scheduled,
-        'scheduledAtMs': scheduledAtMs,
-      },
     };
     for (final deviceId in model.targetDeviceIds) {
       updates['devices/$deviceId/displayState'] = 'auto';
@@ -301,13 +396,17 @@ class PlaybackRealtimeDataSource {
     // Snapshot creation is immutable. Acquire the active slot transactionally;
     // two controllers starting together must never silently replace each other.
     final offset = await _serverOffset();
+    ensureStartCurrent();
     final previous = (await _active.get()).value;
+    ensureStartCurrent();
     if (previous != null) await _ensureSnapshot(previous);
+    ensureStartCurrent();
     if (split) {
       await _user
           .child('playbackSnapshots/${model.id}')
           .set(updates.remove('playbackSnapshots/${model.id}'));
     }
+    ensureStartCurrent();
     updates.remove('activeSession');
     final startExpiresAt =
         DateTime.now().millisecondsSinceEpoch + offset + 6000;
@@ -321,6 +420,13 @@ class PlaybackRealtimeDataSource {
         .runTransaction((current) {
           rejection = null;
           rejectionStack = null;
+          try {
+            ensureStartCurrent();
+          } catch (error, stack) {
+            rejection = error;
+            rejectionStack = stack;
+            return Transaction.abort();
+          }
           if (DateTime.now().millisecondsSinceEpoch + offset >=
               startExpiresAt) {
             rejection = const PlaybackFailure(
@@ -368,12 +474,47 @@ class PlaybackRealtimeDataSource {
     }
     // Ancillary display/event writes must not turn an acknowledged start into
     // an apparent failure (and provoke a duplicate start).
-    unawaited(
-      _user.update(updates).catchError((Object error, StackTrace stack) {
-        onAncillaryFailure?.call(error, stack);
-      }),
-    );
-    return _decode(result.snapshot.value);
+    final started = _decode(result.snapshot.value);
+    if (canUseAccount) {
+      unawaited(
+        _user.update(updates).catchError((Object error, StackTrace stack) {
+          onAncillaryFailure?.call(error, stack);
+        }),
+      );
+      final eventId = '${model.id}-${model.briefing ? 'briefing' : 'started'}';
+      _recordOperation({
+        'id': eventId,
+        'eventId': eventId,
+        'schemaVersion': 2,
+        'type': model.briefing ? 'briefing_opened' : 'playback_started',
+        'occurredAtMs': started.anchorServerMs,
+        'sessionId': model.id,
+        'phase': 'server_approval',
+        'deviceId': model.updatedByDeviceId,
+        'deviceRole': 'controller',
+        'appVersion': appVersion,
+        'workoutId': model.workoutSnapshot['id'],
+        'workoutName': model.workoutSnapshot['name'],
+        'scheduled': scheduled,
+        'scheduledAtMs': scheduledAtMs,
+        'targetDeviceIds': model.targetDeviceIds,
+        'targetDeviceNames': {
+          for (final id in model.targetDeviceIds)
+            if (devices is Map &&
+                devices[id] is Map &&
+                devices[id]['name'] is String)
+              id: devices[id]['name'],
+        },
+        'targetDeviceVersions': {
+          for (final id in model.targetDeviceIds)
+            if (devices is Map &&
+                devices[id] is Map &&
+                devices[id]['appVersion'] is String)
+              id: devices[id]['appVersion'],
+        },
+      });
+    }
+    return started;
   }
 
   Future<PlaybackSessionModel> update({
@@ -519,24 +660,32 @@ class PlaybackRealtimeDataSource {
         rejectionStack ?? StackTrace.current,
       );
     }
-    if (shouldRecordCompletion || shouldRecordStart) {
-      final event = _user.child('operations/events').push();
-      unawaited(
-        event
-            .set({
-              'id': event.key,
-              'type': shouldRecordStart
-                  ? 'playback_started'
-                  : 'playback_completed',
-              'occurredAtMs': ServerValue.timestamp,
-              'deviceId': deviceId,
-              'workoutId': workoutId,
-              'workoutName': workoutName,
-              'scheduled': false,
-            })
-            .catchError((Object _) {}),
-      );
-    }
+    final confirmed = _decode(result.snapshot.value);
+    final eventId = shouldRecordStart
+        ? '$expectedSessionId-started'
+        : shouldRecordCompletion
+        ? '$expectedSessionId-completed'
+        : commandId;
+    _recordOperation({
+      'id': eventId,
+      'eventId': eventId,
+      'schemaVersion': 2,
+      'type': shouldRecordStart
+          ? 'playback_started'
+          : shouldRecordCompletion
+          ? 'playback_completed'
+          : 'command_approved',
+      'occurredAtMs': confirmed.anchorServerMs,
+      'sessionId': expectedSessionId,
+      'phase': 'server_approval',
+      'deviceId': deviceId,
+      'deviceRole': 'controller',
+      'appVersion': appVersion,
+      'workoutId': workoutId,
+      'workoutName': workoutName,
+      'targetDeviceIds': confirmed.targetDeviceIds,
+      'scheduled': false,
+    });
     return _decode(result.snapshot.value);
   }
 
@@ -544,6 +693,17 @@ class PlaybackRealtimeDataSource {
   // and can fail with permission-denied even when the client is connected.
   Future<int> _serverOffset() =>
       watchServerTimeOffset().first.timeout(const Duration(seconds: 3));
+
+  bool get canUseAccount => !_disposed && isCurrentAccount?.call() != false;
+
+  void _ensureStartAccount() {
+    if (!canUseAccount) {
+      throw const PlaybackFailure(
+        'start_cancelled',
+        '계정 연결이 변경되어 수업 시작을 취소했어요.',
+      );
+    }
+  }
 
   String _requireOwnerId() {
     final ownerId = _ownerId;

@@ -1,6 +1,7 @@
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/update_news/presentation/widgets/update_news_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -102,6 +103,14 @@ class MoreScreen extends ConsumerWidget {
                 '/subscription',
               ),
               const Divider(height: 1),
+              group('도움말'),
+              destination(
+                '문의하기',
+                '문제 상황과 스크린샷 보내기',
+                Icons.help_outline_rounded,
+                '/support',
+              ),
+              const Divider(height: 1),
               group('시작과 소식'),
               destination(
                 '첫 수업 준비',
@@ -117,11 +126,12 @@ class MoreScreen extends ConsumerWidget {
                 '/explore',
               ),
               const Divider(height: 1),
-              destination(
-                '업데이트 소식',
-                '${AppBrand.name}의 새로운 기능',
-                Icons.campaign_outlined,
-                '/profile/updates',
+              const UpdateNewsTile(
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 8,
+                ),
+                subtitle: '${AppBrand.name}의 새로운 기능',
               ),
             ],
           ),

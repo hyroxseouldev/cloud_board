@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/onboarding/domain/repositories/onboarding_repository.dart';
+import 'package:cloud_board/src/app/feature/onboarding/data/repositories/onboarding_repository.dart';
+
 import 'workout_recovery_fixture.dart';
 
 // Production router and screens with local data. No Firebase/session writes.
@@ -88,6 +91,7 @@ class NavigationPreviewData {
     bool active = true,
     int count = 3,
     String imageSource = '',
+    OnboardingRepository? onboarding,
   }) {
     repository = NavigationWorkoutRepository(
       navigationWorkouts(count: count, imageSource: imageSource),
@@ -101,11 +105,16 @@ class NavigationPreviewData {
       overrides: [
         memoryWorkoutRecovery,
         authStateProvider.overrideWith((ref) async* {
-          yield previewUser;
+          yield onboarding == null
+              ? previewUser
+              : previewUser.copyWith(needsOnboarding: true);
           yield* users.stream;
         }),
         accountOwnerIdProvider.overrideWith((ref) => Stream.value(null)),
-        onboardingRequiredProvider.overrideWith((ref) async => false),
+        if (onboarding == null)
+          onboardingRequiredProvider.overrideWith((ref) async => false)
+        else
+          onboardingRepositoryProvider.overrideWith((ref) => onboarding),
         firstClassControllerProvider.overrideWith(_NoFirstClass.new),
         deviceModeControllerProvider.overrideWith(NavigationMode.new),
         androidTvProvider.overrideWith((ref) async => false),

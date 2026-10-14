@@ -6,14 +6,21 @@ import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/feature/update_news/presentation/controllers/update_news_controller.dart';
 
 class UpdateNewsTile extends ConsumerWidget {
-  const UpdateNewsTile({super.key});
+  const UpdateNewsTile({
+    super.key,
+    this.contentPadding = EdgeInsets.zero,
+    this.subtitle,
+  });
+
+  final EdgeInsetsGeometry contentPadding;
+  final String? subtitle;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unread =
         ref.watch(updateNewsControllerProvider).value?.hasUnread ?? false;
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.auto_awesome_outlined),
+      contentPadding: contentPadding,
+      leading: const Icon(Icons.campaign_outlined, color: AppColors.accent),
       title: Row(
         children: [
           const Flexible(child: Text('업데이트 소식')),
@@ -33,6 +40,9 @@ class UpdateNewsTile extends ConsumerWidget {
           ],
         ],
       ),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      subtitleTextStyle: Theme.of(context).textTheme.bodyMedium
+          ?.copyWith(color: AppColors.secondaryText),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () => context.push('/profile/updates'),
     );

@@ -149,7 +149,7 @@ final class PlaybackActionControllerProvider
 }
 
 String _$playbackActionControllerHash() =>
-    r'e6c8f3efd29e17963e82d5e028a602b9520f22f9';
+    r'5499f414879c7b9146112684a448ec6571efa2c5';
 
 abstract class _$PlaybackActionController
     extends $Notifier<AsyncValue<String?>> {
@@ -171,15 +171,21 @@ abstract class _$PlaybackActionController
 }
 
 /// Blocks controller commands until a foreground server handshake completes.
+/// Every caller joins the same read-only handshake. Cancellation invalidates its
+/// result; a later generation waits for it to finish before opening a new one.
 
 @ProviderFor(PlaybackRecoveryController)
 final playbackRecoveryControllerProvider =
     PlaybackRecoveryControllerProvider._();
 
 /// Blocks controller commands until a foreground server handshake completes.
+/// Every caller joins the same read-only handshake. Cancellation invalidates its
+/// result; a later generation waits for it to finish before opening a new one.
 final class PlaybackRecoveryControllerProvider
     extends $NotifierProvider<PlaybackRecoveryController, AsyncValue<void>> {
   /// Blocks controller commands until a foreground server handshake completes.
+  /// Every caller joins the same read-only handshake. Cancellation invalidates its
+  /// result; a later generation waits for it to finish before opening a new one.
   PlaybackRecoveryControllerProvider._()
     : super(
         from: null,
@@ -208,9 +214,11 @@ final class PlaybackRecoveryControllerProvider
 }
 
 String _$playbackRecoveryControllerHash() =>
-    r'0af01ab0d20993e70dd2db2f62bfdeaf87cd8a4b';
+    r'46f6bfda29d0e8a4bbeda26f51cee0ed911921e2';
 
 /// Blocks controller commands until a foreground server handshake completes.
+/// Every caller joins the same read-only handshake. Cancellation invalidates its
+/// result; a later generation waits for it to finish before opening a new one.
 
 abstract class _$PlaybackRecoveryController
     extends $Notifier<AsyncValue<void>> {

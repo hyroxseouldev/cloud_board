@@ -4,11 +4,12 @@ import {readFileSync} from 'node:fs';
 const load = name => readFileSync(new URL(`../../.github/workflows/${name}-main.yml`, import.meta.url), 'utf8');
 const job = (source, name) => source.split(`\n  ${name}:\n`)[1]?.split(/\n  \w+:\n/)[0];
 const jobIf = block => block.match(/    if: >-\n((?:      .*\n)+)/)?.[1].trim();
-function evaluate(expression, {manual, upload, backend, verify = 'success', bootstrapped = true} = {}) {
+function evaluate(expression, {manual, upload, backend, verify = 'success', regressions = 'success', bootstrapped = true} = {}) {
   let code = expression.replace(/github\.event_name/g, JSON.stringify(manual ? 'workflow_dispatch' : 'push'))
     .replace(/inputs\.upload_to_(?:play|testflight)/g, String(upload))
     .replace(/needs\.backend_ready\.result/g, JSON.stringify(backend))
     .replace(/needs\.verify\.result/g, JSON.stringify(verify))
+    .replace(/needs\.class_start_regressions\.result/g, JSON.stringify(regressions))
     .replace(/vars\.GOOGLE_PLAY_BOOTSTRAPPED/g, JSON.stringify(String(bootstrapped)))
     .replace(/github\.event\.head_commit\.message/g, "''");
   return Function('contains', 'always', 'cancelled', `return (${code})`)((text, match) => text.includes(match), () => true, () => false);
@@ -24,6 +25,10 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert.equal(evaluate(build, {manual: true, upload: true, backend: 'failure'}), false);
     assert.equal(evaluate(build, {manual: false, upload: false, backend: 'failure'}), false);
     assert.equal(evaluate(build, {manual: false, upload: false, backend: 'success'}), true);
+    for (const regressions of ['failure', 'skipped', 'cancelled', null]) {
+      assert.equal(evaluate(build, {manual: true, upload: false, backend: 'skipped', regressions}), false);
+      assert.equal(evaluate(build, {manual: true, upload: true, backend: 'success', regressions}), false);
+    }
     if (workflow === 'testflight') assert.equal(evaluate(build, {manual: true, upload: false, backend: 'skipped', verify: 'failure'}), false);
     const step = source.slice(source.indexOf(`      - name: ${uploader}`)).split('\n      - name:')[0];
     const condition = step.match(/        if: (?:>-\n)?([\s\S]*?)\n        (?:uses|env):/)[1].trim();

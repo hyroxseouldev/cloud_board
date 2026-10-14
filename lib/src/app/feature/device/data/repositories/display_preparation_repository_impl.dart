@@ -40,13 +40,29 @@ class DisplayPreparationRepositoryImpl implements DisplayPreparationRepository {
     audioReady: audioReady,
   );
   @override
-  Future<void> heartbeat(String deviceId) => source.heartbeat(deviceId);
+  Future<void> heartbeat(String deviceId, {bool ready = false}) =>
+      source.heartbeat(deviceId, ready: ready);
+  @override
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  }) => source.reportHealth(
+    deviceId,
+    stage: stage,
+    code: code,
+    attempt: attempt,
+    requestId: requestId,
+  );
 }
 
 @riverpod
 DisplayPreparationRepository displayPreparationRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
-  final owner = ref.watch(accountOwnerIdProvider).value;
+  final scope = ref.watch(accountOwnerIdProvider);
+  final owner = scope.isLoading || scope.hasError ? null : scope.value;
   if (owner == null) throw StateError('연결된 센터를 확인해 주세요.');
   return DisplayPreparationRepositoryImpl(
     DisplayPreparationDataSource(

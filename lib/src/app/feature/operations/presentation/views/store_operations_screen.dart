@@ -1,6 +1,6 @@
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/operations_report_tab.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/account_workout_settings_tab.dart';
@@ -75,7 +75,7 @@ class StoreOperationsScreen extends HookConsumerWidget {
             const _BrandSettingsTab(),
             const _ScheduleTab(),
             const _RemoteDisplaysTab(),
-            const _ReportTab(),
+            const OperationsReportTab(),
           ])
             _KeepAliveOperationsTab(child: child),
         ],
@@ -673,163 +673,64 @@ class _RemoteDisplayCard extends ConsumerWidget {
   final DisplayDevice device;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              Icons.circle,
-              size: 13,
-              color: device.online ? Colors.green : Colors.grey,
-            ),
-            title: Text(
-              device.name,
-              style: const TextStyle(
-                letterSpacing: -0.16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text(
-              '${device.zoneName} · ${device.online ? '온라인' : '오프라인'} · ${_displayStateLabel(device.displayState)}',
-            ),
-          ),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: 'auto',
-                icon: Icon(Icons.play_circle_outline),
-                label: Text('자동'),
-              ),
-              ButtonSegment(
-                value: 'standby',
-                icon: Icon(Icons.wallpaper_rounded),
-                label: Text('대기'),
-              ),
-              ButtonSegment(
-                value: 'black',
-                icon: Icon(Icons.brightness_1_rounded),
-                label: Text('검은 화면'),
-              ),
-            ],
-            selected: {device.displayState},
-            onSelectionChanged: device.online
-                ? (selected) => ref
-                      .read(deviceClaimControllerProvider.notifier)
-                      .setDisplayState(
-                        deviceId: device.id,
-                        displayState: selected.first,
-                      )
-                : null,
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _ReportTab extends ConsumerWidget {
-  const _ReportTab();
-
-  @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final report = ref.watch(operationsReportProvider);
-    final events = ref.watch(operationEventsProvider);
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _MetricCard(
-              label: '오늘 수업',
-              value: '${report.todayPlaybackCount}회',
-              icon: Icons.today_rounded,
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.circle,
+                size: 13,
+                color: device.recentlySeen(nowMs) ? Colors.green : Colors.grey,
+              ),
+              title: Text(
+                device.name,
+                style: const TextStyle(
+                  letterSpacing: -0.16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                '${device.zoneName} · ${device.recentlySeen(nowMs) ? '온라인' : '오프라인'} · ${_displayStateLabel(device.displayState)}',
+              ),
             ),
-            _MetricCard(
-              label: '이번 달 수업',
-              value: '${report.monthPlaybackCount}회',
-              icon: Icons.calendar_month_rounded,
-            ),
-            _MetricCard(
-              label: '예약 정시 시작',
-              value: report.scheduledPlaybackCount == 0
-                  ? '-'
-                  : '${(report.onTimePlaybackCount / report.scheduledPlaybackCount * 100).round()}%',
-              icon: Icons.timer_outlined,
-            ),
-            _MetricCard(
-              label: '온라인 누적',
-              value: _durationLabel(report.onlineDuration),
-              icon: Icons.wifi_rounded,
-            ),
-            _MetricCard(
-              label: '연결 끊김',
-              value: '${report.disconnectCount}회',
-              icon: Icons.wifi_off_rounded,
-            ),
-            _MetricCard(
-              label: '최다 워크아웃',
-              value: report.mostPlayedWorkoutName == null
-                  ? '-'
-                  : '${report.mostPlayedWorkoutName}\n${report.mostPlayedWorkoutCount}회',
-              icon: Icons.star_outline_rounded,
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'auto',
+                  icon: Icon(Icons.play_circle_outline),
+                  label: Text('자동'),
+                ),
+                ButtonSegment(
+                  value: 'standby',
+                  icon: Icon(Icons.wallpaper_rounded),
+                  label: Text('대기'),
+                ),
+                ButtonSegment(
+                  value: 'black',
+                  icon: Icon(Icons.brightness_1_rounded),
+                  label: Text('검은 화면'),
+                ),
+              ],
+              selected: {device.displayState},
+              onSelectionChanged: device.recentlySeen(nowMs)
+                  ? (selected) => ref
+                        .read(deviceClaimControllerProvider.notifier)
+                        .setDisplayState(
+                          deviceId: device.id,
+                          displayState: selected.first,
+                        )
+                  : null,
             ),
           ],
         ),
-        const SizedBox(height: 28),
-        const _SectionHeader(
-          title: '최근 운영 기록',
-          subtitle: '최대 1,000개의 최근 이벤트를 기준으로 계산합니다.',
-        ),
-        events.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('운영 기록을 불러오지 못했습니다. $error'),
-          data: (items) {
-            final visible = items
-                .where((e) => !e.type.startsWith('onboarding_'))
-                .toList();
-            return visible.isEmpty
-                ? const Text('아직 기록이 없습니다. 수업을 시작하면 자동으로 쌓입니다.')
-                : Column(
-                    children: visible.take(30).map(_EventTile.new).toList(),
-                  );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _EventTile extends StatelessWidget {
-  const _EventTile(this.event);
-  final OperationEvent event;
-
-  @override
-  Widget build(BuildContext context) {
-    final date = DateTime.fromMillisecondsSinceEpoch(event.occurredAtMs);
-    final title = switch (event.type) {
-      'playback_started' =>
-        '${isStarterWorkout(event.workoutId) ? '예시 · ' : ''}${event.workoutName ?? '워크아웃'} 재생 시작',
-      'playback_completed' => '${event.workoutName ?? '워크아웃'} 재생 종료',
-      'device_online' => '디스플레이 연결됨',
-      'device_offline' => '디스플레이 연결 끊김',
-      _ => event.type,
-    };
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        event.type.contains('device')
-            ? Icons.connected_tv_rounded
-            : Icons.play_circle_outline_rounded,
-      ),
-      title: Text(title),
-      subtitle: Text(
-        '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}${event.scheduled ? ' · 예약 재생' : ''}',
       ),
     );
   }
@@ -894,46 +795,6 @@ class _ImageSettingTile extends StatelessWidget {
           ),
         TextButton(onPressed: onPressed, child: Text(actionLabel)),
       ],
-    ),
-  );
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(
-      minWidth: 180,
-      maxWidth: 180,
-      minHeight: 130,
-    ),
-    child: Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
-      ),
     ),
   );
 }
@@ -1009,7 +870,3 @@ String _displayStateLabel(String value) => switch (value) {
   'black' => '검은 화면',
   _ => '자동 재생',
 };
-String _durationLabel(Duration duration) {
-  if (duration.inMinutes < 60) return '${duration.inMinutes}분';
-  return '${duration.inHours}시간 ${duration.inMinutes.remainder(60)}분';
-}

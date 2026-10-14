@@ -48,6 +48,9 @@ export function requireSuccess(needs, required) {
   assert.deepEqual(Object.keys(needs).sort(), [...required].sort());
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
 }
+export function requireReleaseJobs(needs) {
+  requireSuccess(needs, ['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions']);
+}
 export function validateReaderReport(report) {
   assert.equal(report.format, 1);
   assert.equal(report.status, 'success', 'Released readers did not pass');
@@ -153,7 +156,7 @@ export async function github(path, {method = 'GET', body} = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const command = process.argv[2];
   if (command === 'aggregate') {
-    requireSuccess(JSON.parse(process.env.REQUIRED_JOBS || '{}'), ['app_validation', 'firebase_contracts', 'deployment_plan']);
+    requireReleaseJobs(JSON.parse(process.env.REQUIRED_JOBS || '{}'));
     mkdirSync('build/release/rules', {recursive: true});
     for (const file of ruleFiles) copyFileSync(file, `build/release/rules/${file}`);
     writeJson('build/release/manifest.json', makeManifest());

@@ -143,3 +143,47 @@ node functions/tools/workout-save-alert.mjs cloud-board-stationd ALERT_EMAIL --a
 
 The image creation route owns a fresh, in-memory session. It asks before discarding
 unfinished content; explicitly saved class templates remain in the library.
+
+## Legacy app/TV server ownership
+
+The active `cloudboard-auth` functions previously maintained in the landing
+repository are now source-controlled in `functions-legacy/`. The three callable
+endpoints and existing HTTP API retain their names, `asia-southeast1` region,
+codebase, contracts and shared Secret bindings. `firebase.legacy-auth.json` and
+its deployment guard are separate from the default `account-deletion` release.
+See [migration and landing cleanup](docs/legacy-auth-migration.md) for source
+parity, local checks, the reviewed deployment plan and recovery procedure.
+
+The landing is a static introduction/download site. Its old Vercel variable
+copies can be removed only through the project-specific cleanup plan; they are
+separate from Firebase originals shared by app onboarding, account linking and
+historical billing. The source migration does not deploy or retire these services.
+
+## Operations history
+
+The operations report queries the selected calendar interval in `Asia/Seoul`,
+including more than 1,000 stored events, and pages the displayed records in groups
+of 50. Device/workout filters affect the summary; the event-type filter affects
+the list. Historical device names and versions come from event snapshots.
+
+Counts describe recorded session starts and end commands, excluding example
+workouts; an end command does not prove a class was completed by every TV.
+Connection time sums TV intervals with both a start and an end, so three TVs
+connected for one hour count as three hours. Missing boundaries are partial data.
+Server disconnection, TV receipt confirmation and observed playback interruption
+are distinct events. Recovery requires a compatible event with an explicit
+incident link. Missing causes, versions and recovery times remain unknown.
+
+Queries that fail or are still loading do not show zero statistics. An empty
+stored history is not proof that no classes or incidents occurred. The former
+scheduled-start percentage is replaced by recorded counts because historical
+schedule changes and missed occurrences are not available for a reliable denominator.
+Telemetry retries reuse the event ID, cannot block playback, and retain the
+existing account/paired-TV access boundaries. The detail view passes existing
+error/session IDs to the STA-171 support route when it is available; until then,
+it offers a copyable support record without creating another notification service.
+
+The `Operations and legacy server compatibility` workflow runs the targeted
+client/server regressions for `develop` PRs. Native login/billing and the physical
+three-TV prepare/start/pause/resume/end matrix remain release checks; widget,
+contract and emulator tests do not substitute for those checks.

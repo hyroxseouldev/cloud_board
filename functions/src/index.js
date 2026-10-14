@@ -1,9 +1,11 @@
+import {prepareSupportAttachment, submitSupportTicket, deliverSupportNotification, retrySupportNotifications, cleanupSupportUploads, deleteSupportData, supportSecretBindings, sendResendEmail} from './support-tickets.js';
 import {firebaseProject} from './firebase-environment.js';
 import {developmentProject, developmentOnboardingSecret, onboardingSecretBindings} from './development-backend-config.js';
 import {assertDevelopmentSmsTester, sendDevelopmentOnboardingSms} from './development-onboarding.js';
 import {setGlobalOptions} from 'firebase-functions/v2';
 import {prunePlaybackSnapshots} from './playback-snapshots.js';
 import {onDocumentWritten, onDocumentCreated} from 'firebase-functions/v2/firestore';
+import {onValueWritten} from 'firebase-functions/v2/database';
 import {syncWorkoutSummary, backfillCatalog} from './workout-catalog.js';
 import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
@@ -59,6 +61,7 @@ const services={
     await deleteBillingData(db,uid);
     const {deleteOnboardingData}=await import('./onboarding.js');
     await deleteOnboardingData(db,uid);
+    await deleteSupportData(db, uid);
     await db.recursiveDelete(db.doc(`users/${uid}`));
     await db.doc(`clientDiagnosticLimits/${uid}`).delete();
     await db.doc(`operationTelemetryLimits/${uid}`).delete();
@@ -76,6 +79,8 @@ const services={
       realtime.ref('pairingCodes').orderByChild('ownerId').equalTo(uid).get(),
     ]);
     if(files[0].length||user.exists||live.exists()||access.exists()||codes.exists()) throw new Error('cleanup-incomplete');
+    if (!(await db.collection('supportNotificationOutbox').where('ownerId', '==', uid).limit(1).get()).empty ||
+        (await db.doc(`supportRateLimits/${uid}`).get()).exists) throw new Error('cleanup-incomplete');
     const collections=await db.doc(`users/${uid}`).listCollections();
     for(const collection of collections) if(!(await collection.limit(1).get()).empty) throw new Error('cleanup-incomplete');
   },
@@ -446,3 +451,62 @@ export const syncStandbyBranding = onDocumentWritten({region, document: 'subscri
   const {projectStandbyBranding} = await import('./standby-branding.js');
   await projectStandbyBranding(db, realtime, event.params.uid);
 });
+
+async function displayConnectionCall(request, action) {
+  const requestStartedAtMs = Date.now();
+  if (!request.auth) throw new HttpsError('unauthenticated', '로그인 상태를 확인해 주세요.', {code: 'permission_denied'});
+  // Callable token signature validation alone does not detect a disabled or
+  // revoked TV identity. Recheck before any privileged binding mutation.
+  const bearer = request.rawRequest.headers.authorization?.replace(/^Bearer /i, '');
+  try {
+    const verified = await auth.verifyIdToken(bearer || '', true);
+    if (verified.uid !== request.auth.uid) throw new Error('identity-mismatch');
+  } catch {
+    throw new HttpsError('unauthenticated', '인증 상태를 다시 확인해 주세요.', {code: 'permission_denied'});
+  }
+  const {mutateDisplayConnection} = await import('./display-recovery.js');
+  return mutateDisplayConnection(realtime, request.auth, action, request.data, {requestStartedAtMs});
+}
+const displayConnectionOptions = {region, timeoutSeconds: 30, maxInstances: 3, concurrency: 10, memory: '512MiB'};
+export const verifyDisplayConnection = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'verify'));
+export const requestDisplayRecovery = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'request'));
+export const reportDisplayRecovery = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'report'));
+export const pairDisplayConnection = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'pair'));
+export const unpairDisplayConnection = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'unpair'));
+
+// Database audit listeners must use the RTDB's own region. They do not repair
+// data or grant access; delayed/reordered deliveries retain their event time.
+export const auditDisplayDeviceBinding = onValueWritten({region: 'asia-southeast1',
+  instance: `${projectId}-default-rtdb`, ref: '/users/{ownerId}/devices/{deviceId}', retry: true, maxInstances: 3}, async event => {
+  const {auditDisplayBindingChange} = await import('./display-recovery.js');
+  await auditDisplayBindingChange(realtime, event, 'device');
+});
+export const auditDisplayAccessBinding = onValueWritten({region: 'asia-southeast1',
+  instance: `${projectId}-default-rtdb`, ref: '/displayAccess/{displayUid}', retry: true, maxInstances: 3}, async event => {
+  const {auditDisplayBindingChange} = await import('./display-recovery.js');
+  await auditDisplayBindingChange(realtime, event, 'access');
+});
+
+// Support persistence does not depend on email setup or provider availability.
+export const cloudboardPrepareSupportAttachment = onCall({region, maxInstances: 5}, request =>
+  prepareSupportAttachment({db, auth: request.auth, payload: request.data}));
+export const cloudboardSubmitSupportTicket = onCall({region, timeoutSeconds: 60, memory: '256MiB', maxInstances: 5}, request =>
+  submitSupportTicket({db, realtime, bucket, auth: request.auth, payload: request.data}));
+const supportSecrets = supportSecretBindings();
+async function supportDeliveryOptions() {
+  const config = (await db.doc('supportConfig/email').get()).data();
+  // Both deployment intent and private runtime config are required. Development
+  // defaults to no delivery; merely deploying the module never sends mail.
+  const ready = process.env.SUPPORT_EMAIL_DELIVERY_ENABLED === 'true' &&
+    supportSecrets.length > 0 && !!process.env.SUPPORT_EMAIL_API_KEY;
+  return {db, config, projectId, send: ready ? (envelope, key) =>
+    sendResendEmail(envelope, key, {apiKey: process.env.SUPPORT_EMAIL_API_KEY}) : null};
+}
+export const notifySupportTicket = onDocumentCreated({region, document: 'supportNotificationOutbox/{id}',
+  secrets: supportSecrets, retry: true, timeoutSeconds: 120, maxInstances: 5}, async event =>
+  deliverSupportNotification({...await supportDeliveryOptions(), id: event.params.id}));
+export const retrySupportTicketNotifications = onSchedule({region, schedule: 'every 5 minutes',
+  secrets: supportSecrets, timeoutSeconds: 540, maxInstances: 1}, async () =>
+  retrySupportNotifications(await supportDeliveryOptions()));
+export const cleanupSupportTicketUploads = onSchedule({region, schedule: 'every 24 hours',
+  timeoutSeconds: 540, maxInstances: 1}, () => cleanupSupportUploads({db, bucket}));

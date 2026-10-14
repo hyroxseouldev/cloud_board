@@ -526,6 +526,8 @@ class _SlideEditorBody extends HookConsumerWidget {
     );
 
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+    // Scaffold removes the inset from its resized body's MediaQuery.
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     final settings = Form(
       key: form,
       child: section.value == 4
@@ -1034,15 +1036,13 @@ class _SlideEditorBody extends HookConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           titleSpacing: 0,
-          title:
-              MediaQuery.sizeOf(context).height < 540 ||
-                  MediaQuery.viewInsetsOf(context).bottom > 0
+          title: MediaQuery.sizeOf(context).height < 540 || keyboardVisible
               ? titleButton
               : const Text('슬라이드 편집'),
           actions: [
             IconButton(
               key: const ValueKey('slide-preview-rehearse'),
-              tooltip: '미리 재생',
+              tooltip: '이 기기에서 연습',
               onPressed: busy.value ? null : rehearse,
               style: IconButton.styleFrom(
                 minimumSize: const Size(48, 48),
@@ -1081,159 +1081,134 @@ class _SlideEditorBody extends HookConsumerWidget {
         ),
         body: AbsorbPointer(
           absorbing: busy.value,
-          child: Column(
-            children: [
-              if (state.recovery != null)
-                MaterialBanner(
-                  content: const Text('이 기기에 저장하지 않은 편집 내용이 있습니다.'),
-                  actions: [
-                    TextButton(
-                      onPressed: actions.dismissRecovery,
-                      child: const Text('버리기'),
+          child: LayoutBuilder(
+            builder: (context, bodyConstraints) => Column(
+              children: [
+                // Long recovery/error notices must not push the section tabs
+                // behind the keyboard on short or enlarged-text viewports.
+                if (state.recovery != null ||
+                    error.value != null ||
+                    state.storageError != null)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: bodyConstraints.maxHeight * .3,
                     ),
-                    TextButton(
-                      onPressed: () => resetFields(actions.restore),
-                      child: const Text('복원'),
-                    ),
-                  ],
-                ),
-              if ((error.value != null && !largeText) ||
-                  state.storageError != null)
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    (largeText ? null : error.value) ?? state.storageError!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                    child: SingleChildScrollView(
+                      key: const ValueKey('slide-editor-notices'),
+                      child: Column(
+                        children: [
+                          if (state.recovery != null)
+                            MaterialBanner(
+                              content: const Text('이 기기에 저장하지 않은 편집 내용이 있습니다.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: actions.dismissRecovery,
+                                  child: const Text('버리기'),
+                                ),
+                                TextButton(
+                                  onPressed: () => resetFields(actions.restore),
+                                  child: const Text('복원'),
+                                ),
+                              ],
+                            ),
+                          if ((error.value != null && !largeText) ||
+                              state.storageError != null)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                (largeText ? null : error.value) ??
+                                    state.storageError!,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              const Divider(height: 1),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxHeight < 180) {
-                      // Keyboard, large text and a recovery/error notice can
-                      // leave less room than the tabs themselves need. Let the
-                      // section controls scroll without clipping their labels.
-                      return SingleChildScrollView(
-                        child: Column(
+                const Divider(height: 1),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxHeight < 180) {
+                        return settings;
+                      }
+                      if (constraints.maxWidth >= 700 &&
+                          constraints.maxHeight < 400) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            MediaQuery.removePadding(
-                              context: context,
-                              removeBottom: true,
-                              child: editorTabs,
-                            ),
-                            SizedBox(height: 260, child: settings),
+                            Expanded(child: preview),
+                            Expanded(child: settings),
                           ],
-                        ),
-                      );
-                    }
-                    if (constraints.maxWidth >= 700 &&
-                        constraints.maxHeight < 400) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        );
+                      }
+                      return Column(
                         children: [
-                          Expanded(child: preview),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                MediaQuery.removePadding(
-                                  context: context,
-                                  removeBottom: true,
-                                  child: editorTabs,
-                                ),
-                                Expanded(child: settings),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    return Column(
-                      children: [
-                        if (constraints.maxHeight >= 280 &&
-                            MediaQuery.sizeOf(context).height >= 540 &&
-                            MediaQuery.viewInsetsOf(context).bottom == 0)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                titleButton,
-                                Semantics(
-                                  liveRegion: true,
-                                  child: Text(
-                                    busy.value
-                                        ? workoutSaveProgressLabel(
-                                            uploadProgress,
-                                          )
-                                        : error.value != null
-                                        ? '저장 실패 · 편집 내용 유지됨'
-                                        : state.dirty || needsInitialSave.value
-                                        ? '변경사항 있음'
-                                        : '저장됨',
-                                    key: const ValueKey('slide-save-status'),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: SlideEditorStyle.muted,
+                          if (constraints.maxHeight >= 280 &&
+                              MediaQuery.sizeOf(context).height >= 540 &&
+                              !keyboardVisible)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  titleButton,
+                                  Semantics(
+                                    liveRegion: true,
+                                    child: Text(
+                                      busy.value
+                                          ? workoutSaveProgressLabel(
+                                              uploadProgress,
+                                            )
+                                          : error.value != null
+                                          ? '저장 실패 · 편집 내용 유지됨'
+                                          : state.dirty ||
+                                                needsInitialSave.value
+                                          ? '변경사항 있음'
+                                          : '저장됨',
+                                      key: const ValueKey('slide-save-status'),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: SlideEditorStyle.muted,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (MediaQuery.viewInsetsOf(context).bottom == 0 &&
-                            constraints.maxHeight >= 400) ...[
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: largeText
-                                  ? (constraints.maxHeight * .24).clamp(0, 110)
-                                  : constraints.maxHeight * .32,
-                            ),
-                            child: preview,
-                          ),
-                          if (MediaQuery.textScalerOf(context).scale(14) <=
-                              20) ...[
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: TextButton.icon(
-                                onPressed: busy.value ? null : rehearse,
-                                icon: const Icon(Icons.play_circle_outline),
-                                label: const Text('이 기기에서 연습'),
+                                ],
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-                              child: Text(
-                                '이 기기에서만 재생되며 TV에는 반영되지 않아요.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: SlideEditorStyle.muted,
-                                ),
+                          if (!keyboardVisible &&
+                              constraints.maxHeight >= 400) ...[
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: largeText
+                                    ? (constraints.maxHeight * .24).clamp(
+                                        0,
+                                        110,
+                                      )
+                                    : constraints.maxHeight * .32,
                               ),
+                              child: preview,
                             ),
                           ],
-                        ],
-                        MediaQuery.removePadding(
-                          context: context,
-                          removeBottom: true,
-                          child: editorTabs,
-                        ),
-                        Expanded(
-                          child: FadeTransition(
-                            opacity: sectionOpacity,
-                            child: settings,
+                          Expanded(
+                            child: FadeTransition(
+                              opacity: sectionOpacity,
+                              child: settings,
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+                // This is the only tab bar in every responsive layout. Keeping
+                // it inside the resized body also keeps it above the keyboard;
+                // AppBottomTabBar owns the bottom SafeArea exactly once.
+                editorTabs,
+              ],
+            ),
           ),
         ),
       ),

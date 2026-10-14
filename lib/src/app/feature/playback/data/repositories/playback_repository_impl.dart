@@ -31,6 +31,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   final String? _ownerId;
   PlaybackSessionModel? _latest;
   bool _received = false;
+  int _acceptedVersion = 0;
 
   bool _accept(PlaybackSessionModel? value) {
     final previous = _latest;
@@ -42,6 +43,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     }
     _latest = value;
     _received = true;
+    ++_acceptedVersion;
     return true;
   }
 
@@ -124,6 +126,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     bool scheduled = false,
     bool briefing = false,
     int? scheduledAtMs,
+    void Function()? ensureCurrent,
   }) async {
     final ownerId = _ownerId;
     if (ownerId == null) throw StateError('로그인이 필요합니다.');
@@ -140,13 +143,26 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       deviceId: deviceId,
       briefing: briefing,
     );
+    final acceptedBeforeStart = _acceptedVersion;
     final started = await _dataSource.start(
       model,
       scheduled: scheduled,
       scheduledAtMs: scheduledAtMs,
+      ensureCurrent: ensureCurrent,
     );
-    _accept(started);
-    await _local.save(started);
+    // A stream/command can deliver a newer state before the start ACK. Do not
+    // replace its checkpoint (including a cleared/replaced session) with that
+    // late response. The confirmed start still succeeds for the caller.
+    final canAccept =
+        _acceptedVersion == acceptedBeforeStart ||
+        (_latest?.id == started.id && _latest!.revision <= started.revision);
+    if (_dataSource.canUseAccount && canAccept && _accept(started)) {
+      try {
+        await _local.save(started);
+      } catch (error, stack) {
+        _dataSource.onAncillaryFailure?.call(error, stack);
+      }
+    }
     return started.toEntity();
   }
 
@@ -235,17 +251,22 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 @Riverpod(keepAlive: true)
 PlaybackRepository playbackRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
-  final ownerId = ref.watch(accountOwnerIdProvider).value;
+  final owner = ref.watch(accountOwnerIdProvider);
+  final ownerId = owner.isLoading || owner.hasError ? null : owner.value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
+  final runtimePolicy = ref.watch(runtimeFeaturePolicyServiceProvider);
   final source = PlaybackRealtimeDataSource(
     database,
     ownerId,
-    allowSplitPlayback: () => ref
-        .read(runtimeFeaturePolicyServiceProvider)
-        .allows(RuntimeFeature.splitPlayback, ownerId: ownerId ?? ''),
+    appVersion: ref.read(errorReporterProvider).defaults['version']?.toString(),
+    allowSplitPlayback: () => runtimePolicy.allows(
+      RuntimeFeature.splitPlayback,
+      ownerId: ownerId ?? '',
+    ),
+    isCurrentAccount: () => auth.currentUser?.uid == ownerId,
     onAncillaryFailure: (error, stack) {
       if (ref.mounted) {
         ref
@@ -270,6 +291,12 @@ PlaybackRepository playbackRepository(Ref ref) {
             .timeout(const Duration(seconds: 6));
         if (auth.currentUser?.uid != user.uid) {
           throw StateError('로그인 계정이 변경되었습니다.');
+        }
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          throw FirebaseException(
+            plugin: 'database',
+            code: 'permission-denied',
+          );
         }
         if (response.statusCode != 200) {
           throw StateError('최신 수업 상태를 확인하지 못했습니다.');

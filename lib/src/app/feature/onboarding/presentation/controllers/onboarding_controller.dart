@@ -18,27 +18,52 @@ class OnboardingController extends _$OnboardingController {
   void replace(CenterOnboarding value) => state = AsyncData(value);
 }
 
+/// Kept alive only by the current onboarding view, never persisted across launch.
+/// A returning account's load does not create a new activation celebration.
+@riverpod
+class OnboardingCompletion extends _$OnboardingCompletion {
+  @override
+  bool build() {
+    ref.watch(authStateProvider.select((value) => value.value?.id));
+    return false;
+  }
+
+  void show() => state = true;
+}
+
 @riverpod
 class OnboardingAction extends _$OnboardingAction {
+  int _generation = 0;
   @override
   AsyncValue<void> build() {
+    _generation++;
     ref.watch(authStateProvider.select((value) => value.value?.id));
     return const AsyncData(null);
   }
 
-  Future<bool> run(Future<CenterOnboarding?> Function() operation) async {
+  Future<bool> run(
+    Future<CenterOnboarding?> Function() operation, {
+    bool showCompletion = false,
+  }) async {
     if (state.isLoading) return false;
     final userId = ref.read(authStateProvider).value?.id;
+    final generation = _generation;
     state = const AsyncLoading();
     final result = await AsyncValue.guard<void>(() async {
       final value = await operation();
       if (ref.mounted &&
+          generation == _generation &&
           ref.read(authStateProvider).value?.id == userId &&
           value != null) {
+        if (showCompletion && value.serviceReady) {
+          ref.read(onboardingCompletionProvider.notifier).show();
+        }
         ref.read(onboardingControllerProvider.notifier).replace(value);
       }
     });
-    if (!ref.mounted || ref.read(authStateProvider).value?.id != userId) {
+    if (!ref.mounted ||
+        generation != _generation ||
+        ref.read(authStateProvider).value?.id != userId) {
       return false;
     }
     state = result;
@@ -49,8 +74,10 @@ class OnboardingAction extends _$OnboardingAction {
     await ref.read(onboardingActionsProvider).sendCode(phone);
     return null;
   });
-  Future<bool> verifyCode(String code) =>
-      run(() => ref.read(onboardingActionsProvider).verifyCode(code));
+  Future<bool> verifyCode(String code) => run(
+    () => ref.read(onboardingActionsProvider).verifyCode(code),
+    showCompletion: true,
+  );
   Future<bool> save(
     CenterProfile profile,
     int step, {
@@ -65,8 +92,11 @@ class OnboardingAction extends _$OnboardingAction {
           action,
         ),
   );
-  Future<bool> reload() =>
-      run(() => ref.read(onboardingActionsProvider).load());
+  Future<bool> reload() => run(
+    () => ref.read(onboardingActionsProvider).load(),
+    showCompletion:
+        ref.read(onboardingControllerProvider).value?.serviceReady != true,
+  );
 }
 
 @riverpod

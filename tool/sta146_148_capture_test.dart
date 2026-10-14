@@ -28,6 +28,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_rehearsal_screen.dart';
 
 import '../test/support/ai_slides_editor_fakes.dart';
+import '../test/timer_editor_test.dart' as timer_fixture;
 import '../test/support/main_navigation_fixture.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
@@ -348,7 +349,9 @@ void main() {
         await tester.pumpAndSettle();
       }
       await capture(tester, key, 'sta147-timer');
-      await tester.enterText(find.byKey(const ValueKey('timer-work')), '01:00');
+      await timer_fixture.input(tester, 'timer-work', '01:00');
+      await timer_fixture.reveal(tester, 'timer-repeats');
+      await tester.enterText(find.byKey(const ValueKey('timer-repeats')), '2');
       tester.view.viewInsets = const FakeViewPadding(bottom: 480);
       await tester.pumpAndSettle();
       await capture(tester, key, 'sta147-keyboard');

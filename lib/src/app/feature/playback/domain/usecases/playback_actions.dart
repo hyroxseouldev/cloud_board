@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/display_preparation_actions.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -11,8 +12,14 @@ import 'package:cloud_board/src/app/feature/playback/domain/repositories/playbac
 part 'playback_actions.g.dart';
 
 class PlaybackActions {
-  const PlaybackActions(this._repository, {this.preferences, this.preparation});
-  final DisplayPreparationActions Function()? preparation;
+  const PlaybackActions(
+    this._repository, {
+    this.preferences,
+    this.preparation,
+    this.isCurrent,
+  });
+  final bool Function()? isCurrent;
+  final DisplayPreparationActions? preparation;
   final WorkoutPreferencesActions? preferences;
   final PlaybackRepository _repository;
 
@@ -31,13 +38,31 @@ class PlaybackActions {
     bool briefing = false,
     int? scheduledAtMs,
     DisplayPreparationProof? preparationProof,
+    void Function()? ensureCurrent,
+    void Function(String stage)? onStage,
   }) async {
+    void checkCurrent() {
+      if (isCurrent?.call() == false) {
+        throw const PlaybackFailure(
+          'start_cancelled',
+          '수업 연결이 변경되어 시작을 취소했어요. 다시 확인해 주세요.',
+        );
+      }
+      ensureCurrent?.call();
+    }
+
+    checkCurrent();
+    onStage?.call('preferences');
     final effective = await preferences?.apply(workout, fresh: true) ?? workout;
-    await preparation?.call().verifyStart(
+    checkCurrent();
+    onStage?.call('preparation');
+    await preparation?.verifyStart(
       effective,
       targetDeviceIds,
       preparationProof,
     );
+    checkCurrent();
+    onStage?.call('session');
     return _repository.start(
       workout: effective,
       targetDeviceIds: targetDeviceIds,
@@ -47,6 +72,7 @@ class PlaybackActions {
       scheduled: scheduled,
       briefing: briefing,
       scheduledAtMs: scheduledAtMs,
+      ensureCurrent: checkCurrent,
     );
   }
 
@@ -77,8 +103,13 @@ class PlaybackActions {
 }
 
 @riverpod
-PlaybackActions playbackActions(Ref ref) => PlaybackActions(
-  ref.watch(playbackRepositoryProvider),
-  preferences: ref.watch(workoutPreferencesActionsProvider),
-  preparation: () => ref.read(displayPreparationActionsProvider),
-);
+PlaybackActions playbackActions(Ref ref) {
+  var current = true;
+  ref.onDispose(() => current = false);
+  return PlaybackActions(
+    ref.watch(playbackRepositoryProvider),
+    preferences: ref.watch(workoutPreferencesActionsProvider),
+    preparation: ref.watch(displayPreparationActionsProvider),
+    isCurrent: () => current,
+  );
+}

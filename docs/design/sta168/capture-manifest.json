@@ -1,0 +1,143 @@
+{
+  "baselineCommit": "38a2f60",
+  "source": "Flutter production widgets, local fixture, DPR 2",
+  "sources": {
+    "lib/src/app/feature/workouts/presentation/widgets/workout_interval_slider_track.dart": "69f193b79bfa2fffcf680779c1eeee9b7752030eee0b2faf94cff14b97d578f2",
+    "lib/src/app/feature/workouts/presentation/widgets/workout_control_panel.dart": "a43329ca15f84962d1bfaf9831f9484361f8cf36a967384c2b8523690a075b21",
+    "tool/sta168_capture_test.dart": "df982f271046230f9e6b8e236e98e05890e011dec2e5972be775a1def1f0abee"
+  },
+  "captures": [
+    {
+      "file": "after/desktop.png",
+      "width": 2880,
+      "height": 1800,
+      "sha256": "60f0a75b50a4a0d96258f5d386cbe4f493a2b825427538e1add1705f776cdc84"
+    },
+    {
+      "file": "after/phone-11s.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "9b80048fe6f0f67061edf6da77e1c7ac360dad117341b65c88f83754c151b287"
+    },
+    {
+      "file": "after/phone-complete.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "6ab8d5df41fe1d8995562540165bd76f9b8e5f1869b52a7db138d214c673beb0"
+    },
+    {
+      "file": "after/phone-disabled.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "ab3a2fe2f3bccd59ed0e9cb7cd04bd8fcdf8b43b35688aa324afbfc90d4ccc69"
+    },
+    {
+      "file": "after/phone-half.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "8f8a887d671e1d44d2cbedf3dab8056e83a8658ba02747d70fa70335e5acdcca"
+    },
+    {
+      "file": "after/phone-intervals.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "dbcc7ea2648bce4fd219b4c542f53ee471f39aed2bdb02923d65b6fa500e0803"
+    },
+    {
+      "file": "after/phone-zero.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "a3a3ddec59b5599fe5a2c36f8779c4b313a8c609c74403d4d4e36ec43c32ca58"
+    },
+    {
+      "file": "after/small-text2x.png",
+      "width": 640,
+      "height": 1688,
+      "sha256": "55c95f6fc137bd768ac50042fa21af21cde47bb5650b1cb725a88a58c048db2f"
+    },
+    {
+      "file": "after/tablet.png",
+      "width": 1668,
+      "height": 2388,
+      "sha256": "299498c5348b934b33b60f675245abc3643d4ea0a74e216e6e7c96d29fc31bbd"
+    },
+    {
+      "file": "before/desktop.png",
+      "width": 2880,
+      "height": 1800,
+      "sha256": "f316218b1d46e2b54cba58e8f67a298d49f3443a232c0fdef9e3c3c34a4b2d27"
+    },
+    {
+      "file": "before/phone-11s.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "d5a6a688edb0c9e92c34243cf422d6e76e6c3b14b5e099e0109152c75e6ae0a7"
+    },
+    {
+      "file": "before/phone-complete.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "9ba46c017fc457850abaa8f0182da5e053f46dd61abf436e6cfe3b53e24c513c"
+    },
+    {
+      "file": "before/phone-disabled.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "5302c5f7aa7292c59fffde10aafc6f37a3b4a1a176dbcb5f54d8a7655c4d1596"
+    },
+    {
+      "file": "before/phone-half.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "068139712e1d4b309718a97cc7a3722cef728650ed51a0abc25af61673f7ac91"
+    },
+    {
+      "file": "before/phone-intervals.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "93431268331044b38d52d8f74a863719dfab49e4005f6b6d8f8b88636fc0b99c"
+    },
+    {
+      "file": "before/phone-zero.png",
+      "width": 780,
+      "height": 1688,
+      "sha256": "c4d37030c840e5ebb96ffa526bbb24b667b984533813c6c44abb872b4f92ad56"
+    },
+    {
+      "file": "before/small-text2x.png",
+      "width": 640,
+      "height": 1688,
+      "sha256": "31a9b69088d195d6285c9876303a77109f1bfc90fe5c755352b564a46b271d61"
+    },
+    {
+      "file": "before/tablet.png",
+      "width": 1668,
+      "height": 2388,
+      "sha256": "62dfcb631b92c9969b81042a21359ad653a811779279791665b0151f6a056d4c"
+    },
+    {
+      "file": "comparison-intervals.png",
+      "width": 1580,
+      "height": 610,
+      "sha256": "cd0c235868dc0658b86dd14900e3e30a8673d84c45a069399f747e4fc990caec"
+    },
+    {
+      "file": "comparison-phone-11s.png",
+      "width": 820,
+      "height": 904,
+      "sha256": "8fac96e3f66a50eeb426f13f815df8fd8afa522d917744fcc894af511f624f8d"
+    },
+    {
+      "file": "comparison-progress.png",
+      "width": 1580,
+      "height": 1170,
+      "sha256": "3fb24feefa96d36d26657f81db1476cfd589ca76ce8952bbe464d3eb583e8bae"
+    },
+    {
+      "file": "comparison-responsive.png",
+      "width": 1180,
+      "height": 950,
+      "sha256": "0ec9c180f5d1be066d5298f8c34bef3b4b065ed022e670e1b7c5a300f3012394"
+    }
+  ]
+}

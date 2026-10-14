@@ -1,0 +1,52 @@
+/* Mirrors AppColors.canvas and SoftRhythmLoadingMark; guarded by the contract
+   test in tool/startup_loading.test.mjs. No additional logo or remote asset. */
+html, body { margin: 0; background: #F7F5EF; }
+#app-startup {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: #F7F5EF;
+  color: #2B332E;
+  font-family: system-ui, sans-serif;
+}
+.startup-mark {
+  position: absolute;
+  left: calc(50% - 64px);
+  top: calc(50% - 64px);
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  animation: soft-rhythm-breathe 1800ms ease-in-out infinite;
+}
+@keyframes soft-rhythm-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(.97); opacity: .80; }
+}
+#app-startup[data-paused] .startup-mark,
+#app-startup[data-failed] .startup-mark { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .startup-mark { animation: none; }
+}
+#startup-error {
+  position: absolute;
+  top: calc(50% + 88px);
+  bottom: 0;
+  left: 24px;
+  right: 24px;
+  overflow-y: auto;
+  text-align: center;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+#startup-error p { max-width: 360px; margin: 0 auto 12px; line-height: 1.5; }
+#startup-retry {
+  min-height: 48px;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: 12px;
+  background: #526B60;
+  color: #FFFDF8;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+#startup-retry:focus-visible { outline: 2px solid #2B332E; outline-offset: 3px; }

@@ -1,4 +1,3 @@
-import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/display_preparation_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
@@ -47,12 +46,15 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider).value ?? const [];
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
     final onlineDevices = devices
         .where((item) => item.paired && item.displayState == 'auto')
         .toList();
     final selectedDeviceIds = useState<Set<String>>(
       onlineDevices
-          .where((device) => device.online)
+          .where((device) => device.recentlySeen(nowMs))
           .map((device) => device.id)
           .toSet(),
     );
@@ -95,7 +97,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
       final retained = selectedDeviceIds.value.intersection(onlineDeviceIds);
       final next = !initializedDeviceSelection.value && retained.isEmpty
           ? onlineDevices
-                .where((device) => device.online)
+                .where((device) => device.recentlySeen(nowMs))
                 .map((device) => device.id)
                 .toSet()
           : retained;
@@ -115,10 +117,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     final legacy = selected.where((d) => d.preparationProtocol < 1).toList();
     final legacyConfirmed = useState(false);
     final retry = useState(0);
-    final offset = modern.isEmpty
-        ? 0
-        : ref.watch(serverTimeOffsetProvider).value ?? 0;
-    final clock = useState(DateTime.now().millisecondsSinceEpoch);
     final signature = (selectedDeviceIds.value.toList()..sort()).join('|');
     final fingerprint = preparationFingerprint(
       workout,
@@ -144,14 +142,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
       }
       return null;
     }, [workout, signature, retry.value]);
-    useEffect(() {
-      if (modern.isEmpty) return null;
-      final timer = Timer.periodic(
-        const Duration(seconds: 1),
-        (_) => clock.value = DateTime.now().millisecondsSinceEpoch,
-      );
-      return timer.cancel;
-    }, [modern.isNotEmpty]);
     final requiredProtocol = requiredTimingProtocol(workout);
     final matchingRequest = preparation.request?.manifestHash == fingerprint
         ? preparation.request
@@ -161,7 +151,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
       requiredProtocol,
       matchingRequest,
       preparation.receipts[device.id],
-      preparationServerNow(offset, localNowMs: clock.value),
+      nowMs,
     );
     final allPrepared = selected.every(
       (d) => switch (statusOf(d)) {
@@ -232,10 +222,10 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                 ),
               ),
               _CheckTile(
-                ok: onlineDevices.any((d) => d.online),
-                title: !onlineDevices.any((d) => d.online)
+                ok: onlineDevices.any((d) => d.recentlySeen(nowMs)),
+                title: !onlineDevices.any((d) => d.recentlySeen(nowMs))
                     ? '온라인 디스플레이 없음'
-                    : '${onlineDevices.where((d) => d.online).length}대 온라인',
+                    : '${onlineDevices.where((d) => d.recentlySeen(nowMs)).length}대 온라인',
                 subtitle: selectedDeviceIds.value.isEmpty
                     ? '이 기기에서만 재생합니다. TV에는 수업을 보내지 않아요.'
                     : '${selectedDeviceIds.value.length}대를 선택했습니다.',
@@ -249,7 +239,9 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                       ),
                   title:
                       'TV ${selected.length}대 중 ${modern.where((d) => statusOf(d) == DisplayPreparationStatus.ready).length}대 준비 완료',
-                  subtitle: preparation.error ?? '선택한 수업의 이미지와 소리를 각 TV에서 확인해요. 준비되지 않은 TV는 재시도하거나 체크를 해제해 주세요.',
+                  subtitle:
+                      '${preparation.error ?? '선택한 수업의 이미지와 소리를 각 TV에서 확인해요.'}\n'
+                      '준비되지 않은 TV는 체크를 해제하면 제외하고 수업을 시작할 수 있어요.',
                 ),
                 TextButton(
                   onPressed: preparation.loading ? null : () => retry.value++,

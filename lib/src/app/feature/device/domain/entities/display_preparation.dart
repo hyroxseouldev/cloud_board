@@ -132,12 +132,16 @@ DisplayPreparationStatus displayPreparationStatus(
   DisplayPreparationReceipt? receipt,
   int nowMs,
 ) {
-  if (!device.online) return DisplayPreparationStatus.offline;
+  if (!device.recentlySeen(nowMs)) return DisplayPreparationStatus.offline;
   if (device.playbackProtocol < requiredProtocol) {
     return DisplayPreparationStatus.updateRequired;
   }
   if (device.preparationProtocol < 1) return DisplayPreparationStatus.legacy;
-  if (!device.recentlySeen(nowMs)) return DisplayPreparationStatus.offline;
+  final health = device.preparationHealth;
+  if (health.code.isNotEmpty &&
+      (health.requestId == null || health.requestId == request?.sessionId)) {
+    return DisplayPreparationStatus.failed;
+  }
   if (request == null) return DisplayPreparationStatus.waiting;
   if (request.expired(nowMs)) return DisplayPreparationStatus.expired;
   if (receipt?.readyFor(request, nowMs) == true) {

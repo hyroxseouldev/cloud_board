@@ -27,6 +27,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  class_start_regressions:
+    uses: ./.github/workflows/class-start-regressions.yml
+
   deployment_plan:
     name: Verify deployment target
     runs-on: ubuntu-latest
@@ -63,7 +66,7 @@ jobs:
       - name: Verify product display configuration and identifier contracts
         run: |
           node tool/brand.mjs --check
-          node --test tool/brand.test.mjs tool/brand-platforms.test.mjs tool/ios-firebase-environment.test.mjs
+          node --test tool/brand.test.mjs tool/brand-platforms.test.mjs tool/ios-firebase-environment.test.mjs tool/startup_loading.test.mjs
 
       - name: Verify Firebase environment isolation
         run: node tool/firebase/environments.mjs check
@@ -89,6 +92,20 @@ jobs:
       - name: Test alternate brand and historical data in an isolated copy
         run: node tool/brand-smoke.mjs
 
+      - name: Require TV recovery regressions without missing or skipped cases
+        run: |
+          node --test tool/tv-recovery-check.test.mjs
+          node tool/tv-recovery-check.mjs
+
+      - name: Retain TV recovery regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-recovery-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/sta176/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
 
@@ -99,7 +116,7 @@ jobs:
         run: flutter test
 
       - name: Test web command and diagnostic regressions in Chrome
-        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_editing_test.dart test/timer_editor_flow_test.dart test/main_navigation_test.dart
+        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_editing_test.dart test/timer_editor_flow_test.dart test/main_navigation_test.dart test/soft_rhythm_loading_mark_test.dart test/app_startup_screen_test.dart test/startup_performance_test.dart
 
       - name: Test preparation and library regressions in Chrome
         run: >-
@@ -111,6 +128,8 @@ jobs:
           test/workout_catalog_incremental_test.dart
           test/original_slide_cache_test.dart
           test/slide_design_asset_reuse_test.dart
+          test/slide_editor_bottom_tabs_test.dart
+          test/timer_duration_wheel_test.dart
 
       - name: Test client compatibility and rollout regressions in Chrome
         run: >-
@@ -129,6 +148,9 @@ jobs:
           test/operation_telemetry_test.dart
           test/playback_ack_test.dart
           test/onboarding_test.dart
+
+      - name: Test support submission and account boundaries in Chrome
+        run: flutter test --platform chrome test/support_ticket_test.dart test/support_screen_test.dart test/error_reporter_test.dart test/auth_router_test.dart
 
       - name: Test account deletion functions
         run: |
@@ -243,7 +265,7 @@ jobs:
   firebase_required:
     name: firebase-required
     if: always()
-    needs: [app_validation, firebase_contracts, deployment_plan]
+    needs: [app_validation, firebase_contracts, deployment_plan, class_start_regressions]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -255,7 +277,7 @@ jobs:
         with:
           node-version: '22'
       - name: Reject failed, skipped, cancelled or missing jobs
-        run: node --input-type=module -e "import {requireSuccess} from './tool/firebase/release.mjs'; requireSuccess(JSON.parse(process.env.REQUIRED_JOBS), ['app_validation', 'firebase_contracts', 'deployment_plan'])"
+        run: node --input-type=module -e "import {requireReleaseJobs} from './tool/firebase/release.mjs'; requireReleaseJobs(JSON.parse(process.env.REQUIRED_JOBS))"
       - uses: actions/download-artifact@v4
         with:
           name: firebase-web-${{ github.run_id }}-${{ github.run_attempt }}
@@ -309,6 +331,10 @@ jobs:
           node tool/firebase/release.mjs current
           node tool/firebase/release.mjs verify
           node functions/tools/release-smoke.mjs preflight
+      - name: Require physical class-start approval before production changes
+        env:
+          CLASS_START_PHYSICAL_APPROVAL: ${{ vars.CLASS_START_PHYSICAL_APPROVAL }}
+        run: node tool/release/class_start_physical_gate.mjs
       - name: Authenticate Firebase rule deployment
         uses: google-github-actions/auth@v2
         with:

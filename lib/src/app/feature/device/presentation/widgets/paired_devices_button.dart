@@ -9,7 +9,12 @@ class PairedDevicesButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider).value ?? const [];
-    final onlineCount = devices.where((device) => device.online).length;
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
+    final onlineCount = devices
+        .where((device) => device.recentlySeen(nowMs))
+        .length;
     return Badge(
       isLabelVisible: devices.isNotEmpty,
       label: Text('$onlineCount/${devices.length}'),

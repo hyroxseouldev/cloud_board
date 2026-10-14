@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "issue": "STA-176",
+  "baselineSha256": "44170f059b2060e405bbb06916fcafb554d4ae92f38685a0844de2d966396380",
+  "migratedIndexSha256": "3151f8b1af202a99835a6b76e138b7d411c1cfc387c14ee9c79b49ca7d538d20",
+  "exportDeclarationSha256": {
+    "cloudboardPairDisplay": "3086cacdcbe99ff276408d0f4a8edd868b29e282d649dc59b344c3fdf6cf7a3b"
+  },
+  "supportingModuleSha256": {
+    "lib/services/pairing.js": "c7237e4379812ac5ffb2e01e4cfe8802730b68e3d5eedc040544daf36fc72dcb"
+  }
+}

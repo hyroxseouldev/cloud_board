@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/views/store_operations_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -38,6 +39,11 @@ void main() {
             ),
             operationEventsProvider.overrideWith(
               (ref) => Stream.value(const <OperationEvent>[]),
+            ),
+            operationEventsInRangeProvider.overrideWith(
+              (ref, range) => Stream.value(
+                const OperationEventBatch(events: [], isComplete: true),
+              ),
             ),
             displayDevicesProvider.overrideWith(
               (ref) => Stream.value(const []),

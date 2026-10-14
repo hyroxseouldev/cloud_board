@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -12,8 +13,13 @@ class DevicePairingActions {
 
   final DevicePairingRepository _repository;
 
-  Future<DevicePairing> issue({required String deviceId}) =>
-      _repository.issue(deviceId: deviceId);
+  Stream<DisplayConnectionState> watchConnectionState() =>
+      _repository.watchConnectionState();
+
+  Future<DevicePairing> issue({
+    required String deviceId,
+    bool retryConnection = false,
+  }) => _repository.issue(deviceId: deviceId, retryConnection: retryConnection);
 
   Future<void> claim({
     required String code,

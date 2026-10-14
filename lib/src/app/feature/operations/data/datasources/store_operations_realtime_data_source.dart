@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
@@ -103,6 +105,39 @@ class StoreOperationsRealtimeDataSource {
           return events;
         });
   }
+
+  /// Query the entire selected interval using the occurredAtMs index. UI pages
+  /// are slices of this complete range, never a last-1,000 approximation.
+  Stream<List<OperationEventModel>> watchEventsInRange(
+    OperationEventRange range,
+  ) {
+    if (_ownerId == null) return Stream.error(StateError('연결된 매장을 확인해 주세요.'));
+    return _operations
+        .child('events')
+        .orderByChild('occurredAtMs')
+        .startAt(range.startAtMs)
+        .endBefore(range.endBeforeMs)
+        .onValue
+        .map((event) {
+          final value = event.snapshot.value;
+          if (value == null) return const <OperationEventModel>[];
+          if (value is! Map || value.values.any((item) => item is! Map)) {
+            throw const FormatException('일부 운영 기록을 읽지 못했습니다. 다시 조회해 주세요.');
+          }
+          return value.entries
+              .map(
+                (entry) => OperationEventModel.fromJson(
+                  _stringMap(entry.value)
+                    ..putIfAbsent('id', () => entry.key.toString()),
+                ),
+              )
+              .toList();
+        });
+  }
+
+  Future<void> recordDetailedEvent(OperationEventModel event) => _operations
+      .child('events/${event.eventId ?? event.id}')
+      .set(event.toJson());
 
   Future<void> saveBrandTemplate(BrandTemplateModel model) async {
     _requireOwnerId();

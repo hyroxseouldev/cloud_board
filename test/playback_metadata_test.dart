@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
@@ -6,6 +8,8 @@ import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/playback_recovery_fixture.dart';
 
 void main() {
   late _Database database;
@@ -29,12 +33,38 @@ void main() {
     );
   });
 
+  tearDown(() => source.dispose());
+
+  test('slow telemetry cannot delay an acknowledged class start', () async {
+    final pending = Completer<void>();
+    database.eventGate = pending.future;
+    final started = await source
+        .start(model)
+        .timeout(const Duration(seconds: 1));
+    expect(started.id, 'class');
+    expect(pending.isCompleted, isFalse);
+    pending.complete();
+    await database.firstEventWritten.future.timeout(const Duration(seconds: 1));
+    expect(
+      database.values['users/coach/operations/events/class-started'],
+      isNotNull,
+    );
+  });
+
   test(
     'class starts and pauses when metadata get is denied but SDK events work',
     () async {
       final started = await source.start(model);
       expect(started.id, 'class');
-      expect(database.writes, 1);
+      await database.firstEventWritten.future.timeout(
+        const Duration(seconds: 1),
+      );
+      expect(database.writes, 2); // Display update and independent telemetry.
+      final recorded =
+          database.values['users/coach/operations/events/class-started'] as Map;
+      expect(recorded['sessionId'], 'class');
+      expect(recorded['phase'], 'server_approval');
+      expect(recorded['eventId'], 'class-started');
       expect(await source.hasRunningSession(), isTrue);
       final paused = await source.update(
         status: 'paused',
@@ -47,6 +77,36 @@ void main() {
       expect(paused.remainingMs, inInclusiveRange(58000, 60000));
       expect(database.metadataGets, 0);
       expect(database.transactions, 2);
+    },
+  );
+
+  test(
+    'recovery transport records telemetry separately from playback writes',
+    () async {
+      final recoveryDb = RecoveryDatabase(recoverySession());
+      final recoverySource = PlaybackRealtimeDataSource(recoveryDb, 'owner');
+      addTearDown(() async {
+        await recoverySource.dispose();
+        await recoveryDb.events.close();
+      });
+      final paused = await recoverySource.update(
+        status: 'paused',
+        deviceId: 'phone',
+        expectedSessionId: 'class',
+        expectedRevision: 1,
+      );
+      expect(paused.status, 'paused');
+      expect(recoveryDb.transactions, 1);
+      expect(recoveryDb.writes, 1);
+      expect(recoveryDb.operationEventWrites, 1);
+      final event = recoveryDb.operationEvents.values.single;
+      expect(
+        recoveryDb.operationEvents.keys.single,
+        'users/owner/operations/events/${event['eventId']}',
+      );
+      expect(event['sessionId'], 'class');
+      expect(event['type'], 'command_approved');
+      expect(event['phase'], 'server_approval');
     },
   );
 
@@ -65,6 +125,113 @@ void main() {
     expect(database.writes, 0);
     expect(database.transactions, 0);
   });
+
+  for (final boundary in [
+    'active-read',
+    'snapshot-write',
+    'transaction-retry',
+  ]) {
+    test('cancelled start cannot commit after $boundary', () async {
+      database.values['users/coach/devices'] = {
+        'tv': {'paired': true, 'playbackProtocol': 2},
+      };
+      var current = true;
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      Future<void> pause() async {
+        entered.complete();
+        await release.future;
+      }
+
+      if (boundary == 'active-read') {
+        database.beforeGet = (path) async {
+          if (path.endsWith('/activeSession')) await pause();
+        };
+      } else if (boundary == 'snapshot-write') {
+        database.beforeSet = (path) async {
+          if (path.contains('/playbackSnapshots/')) await pause();
+        };
+      } else {
+        database.beforeTransactionRetry = () => current = false;
+      }
+      final starting = source.start(
+        model,
+        ensureCurrent: () {
+          if (!current) {
+            throw const PlaybackFailure('start_cancelled', 'cancelled');
+          }
+        },
+      );
+      final rejected = expectLater(
+        starting,
+        throwsA(
+          isA<PlaybackFailure>().having(
+            (e) => e.code,
+            'code',
+            'start_cancelled',
+          ),
+        ),
+      );
+      if (boundary != 'transaction-retry') {
+        await entered.future;
+        current = false;
+        release.complete();
+      }
+      await rejected;
+      expect(database.values['users/coach/activeSession'], isNull);
+      expect(
+        database.values.keys.where(
+          (path) => path.contains('/operations/events/'),
+        ),
+        isEmpty,
+      );
+      expect(database.transactions, boundary == 'transaction-retry' ? 1 : 0);
+    });
+  }
+
+  test(
+    'cancellation after acknowledged commit cannot turn start into failure',
+    () async {
+      var current = true;
+      database.afterCommit = () => current = false;
+      final started = await source.start(
+        model,
+        ensureCurrent: () {
+          if (!current) {
+            throw const PlaybackFailure('start_cancelled', 'cancelled');
+          }
+        },
+      );
+      expect(started.id, 'class');
+      expect(database.values['users/coach/activeSession'], isNotNull);
+      expect(database.transactions, 1);
+    },
+  );
+
+  test(
+    'account change after committed start skips ancillary writes and telemetry',
+    () async {
+      var current = true;
+      source.dispose();
+      source = PlaybackRealtimeDataSource(
+        database,
+        'coach',
+        isCurrentAccount: () => current,
+      );
+      database.afterCommit = () => current = false;
+      final started = await source.start(model);
+      expect(started.id, 'class');
+      expect(database.values['users/coach/activeSession'], isNotNull);
+      expect(database.transactions, 1);
+      expect(database.writes, 0);
+      expect(
+        database.values.keys.where(
+          (path) => path.contains('/operations/events/'),
+        ),
+        isEmpty,
+      );
+    },
+  );
 
   test('registration guard remains enforced after metadata fix', () async {
     database.values['users/coach/devices'] = {
@@ -149,6 +316,10 @@ class _Database extends Fake implements FirebaseDatabase {
       'tv': {'paired': true},
     },
   };
+  Future<void>? eventGate;
+  final firstEventWritten = Completer<void>();
+  Future<void> Function(String)? beforeGet, beforeSet;
+  void Function()? beforeTransactionRetry, afterCommit;
   int metadataGets = 0;
   int writes = 0;
   int transactions = 0;
@@ -173,6 +344,7 @@ class _Reference extends Fake implements DatabaseReference {
       Stream.value(_Event(database.values[path]));
   @override
   Future<DataSnapshot> get() async {
+    await database.beforeGet?.call(path);
     if (path.startsWith('.info/')) {
       database.metadataGets++;
       throw FirebaseException(
@@ -185,8 +357,16 @@ class _Reference extends Fake implements DatabaseReference {
 
   @override
   Future<void> set(Object? value) async {
+    await database.beforeSet?.call(path);
+    if (path.contains('/operations/events/') && database.eventGate != null) {
+      await database.eventGate;
+    }
     database.writes++;
     database.values[path] = value;
+    if (path.contains('/operations/events/') &&
+        !database.firstEventWritten.isCompleted) {
+      database.firstEventWritten.complete();
+    }
   }
 
   @override
@@ -208,11 +388,16 @@ class _Reference extends Fake implements DatabaseReference {
     bool applyLocally = true,
   }) async {
     database.transactions++;
-    final transaction = handler(database.values[path]);
+    var transaction = handler(database.values[path]);
+    if (database.beforeTransactionRetry != null && !transaction.aborted) {
+      database.beforeTransactionRetry!();
+      transaction = handler(database.values[path]);
+    }
     if (transaction.aborted) return _Result(false, database.values[path]);
     final value = Map<String, dynamic>.from(transaction.value! as Map)
       ..['anchorServerMs'] = DateTime.now().millisecondsSinceEpoch;
     database.values[path] = value;
+    database.afterCommit?.call();
     return _Result(true, value);
   }
 }

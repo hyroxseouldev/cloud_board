@@ -47,7 +47,7 @@ final class DisplayPreparationControllerProvider
 }
 
 String _$displayPreparationControllerHash() =>
-    r'0e38647cd496dfdc9155dfd86377637b8cafbe77';
+    r'8b4e0c3aa58cfa045a8da184ddb967bfbd0f7834';
 
 abstract class _$DisplayPreparationController
     extends $Notifier<DisplayPreparationState> {
@@ -86,7 +86,7 @@ final class DisplayPreparationRequestProvider
     required DisplayPreparationRequestFamily super.from,
     required String super.argument,
   }) : super(
-         retry: null,
+         retry: _noAutomaticPreparationRetry,
          name: r'displayPreparationRequestProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -128,13 +128,13 @@ final class DisplayPreparationRequestProvider
 }
 
 String _$displayPreparationRequestHash() =>
-    r'7e0c20342c405ab5273425ba8da1a9ce77b1c8a3';
+    r'46e815dc121bd8082b7f5e0b8796f41352fb704e';
 
 final class DisplayPreparationRequestFamily extends $Family
     with $FunctionalFamilyOverride<Stream<DisplayPreparation?>, String> {
   DisplayPreparationRequestFamily._()
     : super(
-        retry: null,
+        retry: _noAutomaticPreparationRetry,
         name: r'displayPreparationRequestProvider',
         dependencies: null,
         $allTransitiveDependencies: null,

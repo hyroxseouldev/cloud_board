@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 
 import 'dart:async';
@@ -14,6 +16,7 @@ import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_
 import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/usecases/store_operations_actions.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/usecases/playback_actions.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 
@@ -50,6 +53,21 @@ Stream<List<WorkoutSchedule>> workoutSchedules(Ref ref) =>
 @Riverpod(keepAlive: true)
 Stream<List<OperationEvent>> operationEvents(Ref ref) =>
     ref.watch(storeOperationsRepositoryProvider).watchEvents();
+
+@riverpod
+Stream<OperationEventBatch> operationEventsInRange(
+  Ref ref,
+  OperationEventRange range,
+) {
+  final account = ref.watch(accountOwnerIdProvider);
+  // AsyncValue may retain the prior center while the next account resolves.
+  // Invalidate immediately and never construct a query with that retained ID.
+  if (account.isLoading) return const Stream.empty();
+  if (account.hasError || account.value == null) {
+    return Stream.error(StateError('연결된 매장을 확인해 주세요.'));
+  }
+  return ref.watch(storeOperationsRepositoryProvider).watchEventsInRange(range);
+}
 
 @riverpod
 OperationsReport operationsReport(Ref ref) => buildOperationsReport(
@@ -101,8 +119,14 @@ class StoreOperationsActionController
 
 @Riverpod(keepAlive: true)
 class ScheduleRunnerController extends _$ScheduleRunnerController {
+  int _runEpoch = 0;
+
   @override
-  AsyncValue<void> build() => const AsyncData(null);
+  AsyncValue<void> build() {
+    ++_runEpoch;
+    ref.onDispose(() => ++_runEpoch);
+    return const AsyncData(null);
+  }
 
   Future<void> runDue() async {
     if (state.isLoading) return;
@@ -111,8 +135,11 @@ class ScheduleRunnerController extends _$ScheduleRunnerController {
     if (account.isLoading || account.hasError || ownerId == null) return;
     // Cover every await, including the initial session query, and lock before it.
     state = const AsyncLoading();
-    final result = await AsyncValue.guard(() => _runDueForOwner(ownerId));
-    if (ref.mounted) state = result;
+    final epoch = _runEpoch;
+    final result = await AsyncValue.guard(
+      () => _runDueForOwner(ownerId, epoch),
+    );
+    if (ref.mounted && epoch == _runEpoch) state = result;
   }
 
   bool _isCurrentOwner(String ownerId) {
@@ -121,57 +148,95 @@ class ScheduleRunnerController extends _$ScheduleRunnerController {
     return !account.isLoading && !account.hasError && account.value == ownerId;
   }
 
-  Future<void> _runDueForOwner(String ownerId) async {
-    final now = DateTime.now();
-    final schedules = await ref.read(workoutSchedulesProvider.future);
-    if (!_isCurrentOwner(ownerId)) return;
-    final due = schedules
-        .where(
-          (item) =>
-              isScheduleDue(item, now) &&
-              item.lastOccurrenceKey != scheduleOccurrenceKey(item, now),
-        )
-        .toList();
-    if (due.isEmpty) return;
-    if (await ref.read(playbackActionsProvider).hasRunningSession()) return;
-    if (!_isCurrentOwner(ownerId)) return;
-    final devices = await ref.read(displayDevicesProvider.future);
-    if (!_isCurrentOwner(ownerId)) return;
-    final deviceId = await ref.read(deviceIdProvider.future);
-    if (!_isCurrentOwner(ownerId)) return;
-    for (final schedule in due) {
-      final workout = await ref.read(
-        workoutDetailProvider(schedule.workoutId).future,
-      );
-      if (!_isCurrentOwner(ownerId)) return;
-      if (workout == null || workout.modules.isEmpty) continue;
-      final targets = schedule.targetDeviceIds.isEmpty
-          ? devices.where((item) => item.online).map((item) => item.id).toList()
-          : schedule.targetDeviceIds;
-      if (targets.isEmpty) continue;
-      final occurrenceKey = scheduleOccurrenceKey(schedule, now);
-      final claimed = await ref
-          .read(storeOperationsActionsProvider)
-          .claimOccurrence(schedule.id, occurrenceKey);
-      if (!_isCurrentOwner(ownerId)) return;
-      if (!claimed) continue;
-      final steps = buildPlayerSteps(workout);
-      await ref
-          .read(playbackActionsProvider)
-          .start(
-            workout: workout,
-            targetDeviceIds: targets,
-            stepIndex: 0,
-            durationMs: steps.first.duration * 1000,
-            deviceId: deviceId,
-            scheduled: true,
-            scheduledAtMs: scheduledDateTime(
-              schedule,
-              now,
-            ).millisecondsSinceEpoch,
-          );
-      // Another due schedule must not replace the class that just started.
-      return;
+  Future<void> _runDueForOwner(String ownerId, int epoch) async {
+    var cancelled = false;
+    bool isCurrent() =>
+        !cancelled && epoch == _runEpoch && _isCurrentOwner(ownerId);
+    void ensureCurrent() {
+      if (!isCurrent()) {
+        throw const PlaybackFailure(
+          'start_cancelled',
+          '계정이나 예약 연결이 변경되어 시작을 취소했어요. 다시 확인해 주세요.',
+        );
+      }
+    }
+
+    // Observe account changes before even the initial schedules await. A quick
+    // A→B→A change must not let an old asynchronous run resume for A.
+    final accountSubscription = ref.listen(accountOwnerIdProvider, (_, next) {
+      if (next.isLoading || next.hasError || next.value != ownerId) {
+        cancelled = true;
+      }
+    });
+    void Function()? closeActions;
+    try {
+      final now = DateTime.now();
+      final schedules = await ref.read(workoutSchedulesProvider.future);
+      if (!isCurrent()) return;
+      final due = schedules
+          .where(
+            (item) =>
+                isScheduleDue(item, now) &&
+                item.lastOccurrenceKey != scheduleOccurrenceKey(item, now),
+          )
+          .toList();
+      if (due.isEmpty) return;
+      // Retain the same generated actions and dependencies from the first
+      // session query through start. No eligible schedule means no playback read.
+      closeActions = ref.listen(playbackActionsProvider, (before, next) {
+        if (before != null && !identical(before, next)) cancelled = true;
+      }).close;
+      final actions = ref.read(playbackActionsProvider);
+      if (await actions.hasRunningSession()) return;
+      if (!isCurrent()) return;
+      final devices = await ref.read(displayDevicesProvider.future);
+      if (!isCurrent()) return;
+      final deviceId = await ref.read(deviceIdProvider.future);
+      if (!isCurrent()) return;
+      for (final schedule in due) {
+        final workout = await ref.read(
+          workoutDetailProvider(schedule.workoutId).future,
+        );
+        if (!isCurrent()) return;
+        if (workout == null || workout.modules.isEmpty) continue;
+        final targets = schedule.targetDeviceIds.isEmpty
+            ? devices
+                  .where(
+                    (item) => item.recentlySeen(
+                      DateTime.now().millisecondsSinceEpoch +
+                          (ref.read(serverTimeOffsetProvider).value ?? 0),
+                    ),
+                  )
+                  .map((item) => item.id)
+                  .toList()
+            : schedule.targetDeviceIds;
+        if (targets.isEmpty) continue;
+        final occurrenceKey = scheduleOccurrenceKey(schedule, now);
+        final claimed = await ref
+            .read(storeOperationsActionsProvider)
+            .claimOccurrence(schedule.id, occurrenceKey);
+        if (!isCurrent()) return;
+        if (!claimed) continue;
+        final steps = buildPlayerSteps(workout);
+        await actions.start(
+          workout: workout,
+          targetDeviceIds: targets,
+          stepIndex: 0,
+          durationMs: steps.first.duration * 1000,
+          deviceId: deviceId,
+          scheduled: true,
+          ensureCurrent: ensureCurrent,
+          scheduledAtMs: scheduledDateTime(
+            schedule,
+            now,
+          ).millisecondsSinceEpoch,
+        );
+        // Another due schedule must not replace the class that just started.
+        return;
+      }
+    } finally {
+      closeActions?.call();
+      accountSubscription.close();
     }
   }
 }
