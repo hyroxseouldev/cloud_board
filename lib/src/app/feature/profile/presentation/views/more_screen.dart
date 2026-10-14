@@ -103,6 +103,14 @@ class MoreScreen extends ConsumerWidget {
                 '/subscription',
               ),
               const Divider(height: 1),
+              group('도움말'),
+              destination(
+                '문의하기',
+                '문제 상황과 스크린샷 보내기',
+                Icons.help_outline_rounded,
+                '/support',
+              ),
+              const Divider(height: 1),
               group('시작과 소식'),
               destination(
                 '첫 수업 준비',

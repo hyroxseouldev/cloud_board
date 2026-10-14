@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/support/presentation/views/support_screen.dart';
 import 'package:cloud_board/src/app/core/router/main_tab_page.dart';
 import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/views/more_screen.dart';
@@ -54,6 +55,9 @@ GoRouter appRouter(Ref ref) {
     refreshListenable: authRefresh,
     redirect: (context, state) {
       if (isExplorationPath(state.uri.path)) return null;
+      // Support remains reachable when sign-in/onboarding itself fails. The
+      // form requires a signed-in account before enabling server submission.
+      if (state.uri.path == '/support') return null;
       final starter = starterFromKey(state.uri.queryParameters['starter']);
       final purpose = explorationPurpose(state.uri.queryParameters['purpose']);
       final auth = ref.read(authStateProvider);
@@ -236,6 +240,18 @@ GoRouter appRouter(Ref ref) {
                 ],
               ),
             ],
+          ),
+          GoRoute(
+            path: '/support',
+            builder: (_, state) => SupportScreen(
+              initialAccountId: state.extra is Map<String, Object?>
+                  ? (state.extra as Map<String, Object?>)['_supportOwnerId']
+                        as String?
+                  : null,
+              initialDiagnostics: state.extra is Map<String, Object?>
+                  ? state.extra as Map<String, Object?>
+                  : const {},
+            ),
           ),
           GoRoute(
             path: '/first-class',

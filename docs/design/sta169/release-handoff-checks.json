@@ -1,0 +1,9 @@
+{
+  "realEntry": "lib/main.dart release",
+  "firstFrameAtMs": 1026.699999988079,
+  "htmlRemoved": true,
+  "externalServices": "blocked; only CanvasKit served from local build",
+  "flutterRoots": 1,
+  "routeAfterInitialization": "/login",
+  "timingNote": "Local observed event timestamp only; not a device/performance benchmark."
+}

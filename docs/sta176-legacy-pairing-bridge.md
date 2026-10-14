@@ -11,8 +11,8 @@ The old service reserved a device and then wrote `displayAccess` using a separat
 Admin operation. An already-running invocation could finish that second write
 after an installed client's direct RTDB unpair. The bridge removes both writes
 from this codebase and delegates to the canonical root transaction in
-[STA-176 PR #63](https://github.com/hyroxseouldev/cloud_board/pull/63), primary
-candidate `caf4e19`. That transaction serializes pairing with unpair and enforces
+[STA-176 PR #63](https://github.com/hyroxseouldev/cloud_board/pull/63). That
+transaction serializes pairing with unpair and enforces
 the current binding, entitlement and revocation checks.
 
 ## Wire contract and failure behavior
@@ -55,11 +55,12 @@ exceptions and a return to the original pairing implementation. All other
 baseline module hashes, the dependency lock, export list, settings and secret
 bindings remain checked. The candidate digest includes this reviewed delta.
 
-The existing `operations-compatibility.yml` now runs for pull requests targeting
-both `develop` and `hyroxseouldev/feature-team2`, so this stacked PR receives the
-same legacy build/test/source/release checks. There is no `continue-on-error` on
-those steps. Repository branch-protection configuration is outside this patch;
-its required-check settings were not changed or verified here.
+The source migration in PR #62 is now merged into `develop` (`06fbd65`). This
+follow-up targets `develop` and includes that base. The existing
+`operations-compatibility.yml` runs the legacy build/test/source/release checks
+for this target; there is no `continue-on-error` on those steps. Repository
+branch-protection configuration is outside this patch; its required-check
+settings were not changed or verified here.
 
 Predeploy additionally requires canonical backend project/region/function,
 deployed source SHA and successful smoke evidence in `pairingBackend`, plus
@@ -78,9 +79,9 @@ or an isolated development Firebase project.
 | Check | Result | Local log |
 | --- | --- | --- |
 | `npm ci --prefix functions-legacy --no-audit --no-fund` | Passed; unchanged dependency lock | `/tmp/sta176-legacy-install.log` |
-| `npm run check --prefix functions-legacy` | TypeScript build passed; 51 passed, 5 inherited Neon-only skips, 0 failures | `/tmp/sta176-legacy-check.log` |
-| `node tool/legacy-auth-release.mjs check` | Passed; reviewed candidate digest emitted | `/tmp/sta176-legacy-source-check.log` |
-| `node --test tool/legacy-auth-release.test.mjs` | 15 passed, 0 skips/failures | `/tmp/sta176-legacy-release-tests.log` |
+| `npm run check --prefix functions-legacy` | TypeScript build passed; 51 passed, 5 inherited Neon-only skips, 0 failures | `/tmp/sta176-legacy-develop-check.log` |
+| `node tool/legacy-auth-release.mjs check` | Passed; reviewed candidate digest emitted | `/tmp/sta176-legacy-develop-source-check.log` |
+| `node --test tool/legacy-auth-release.test.mjs` | 15 passed, 0 skips/failures | `/tmp/sta176-legacy-develop-release-tests.log` |
 
 The checked candidate digest is
 `57c35c3622216f3ecaa340b5650c330f7fb8ddd131002f08e60556f9f38e0b60`.

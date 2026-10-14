@@ -18,6 +18,82 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets('TV request error retains manual exclusion guidance and retry', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _PreparationRepository()..failRequest = true;
+    final workout =
+        Workout.empty(
+          'w',
+          const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+        ).copyWith(
+          name: '수업',
+          modules: [WorkoutModule.empty('m').copyWith(name: '스쿼트')],
+        );
+    final device = DisplayDevice(
+      id: 'a',
+      name: 'TV a',
+      zoneId: 'main',
+      zoneName: '',
+      online: true,
+      lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
+      currentSessionId: null,
+      acknowledgedRevision: 0,
+      paired: true,
+      preparationProtocol: 1,
+      playbackProtocol: 5,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          displayDevicesProvider.overrideWith((_) => Stream.value([device])),
+          serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+          displayPreparationRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          theme: XonTheme.light,
+          home: WorkoutPreflightDialog(workout: workout),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('TV 준비 요청을 보내지 못했어요.'), findsOneWidget);
+    expect(
+      find.textContaining('준비되지 않은 TV는 체크를 해제하면 제외하고 수업을 시작할 수 있어요.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('PRIVATE_REQUEST_ERROR'), findsNothing);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<CheckboxListTile>(
+            find.widgetWithText(CheckboxListTile, 'TV a'),
+          )
+          .value,
+      isTrue,
+    );
+    repository.failRequest = false;
+    await tester.tap(find.text('TV 준비 다시 확인'));
+    await tester.pumpAndSettle();
+    expect(find.text('TV 1대 중 1대 준비 완료'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+          .onPressed,
+      isNotNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'one failed TV blocks start until explicitly excluded and new candidate acknowledged',
     (tester) async {
@@ -26,6 +102,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final repository = _PreparationRepository();
+      WorkoutPreflightSelection? selected;
       final workout =
           Workout.empty(
             'w',
@@ -61,10 +138,20 @@ void main() {
           ],
           child: MaterialApp(
             theme: XonTheme.light,
-            home: WorkoutPreflightDialog(workout: workout),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () async =>
+                      selected = await showWorkoutPreflight(context, workout),
+                  child: const Text('준비 열기'),
+                ),
+              ),
+            ),
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('준비 열기'));
       await tester.pumpAndSettle();
       expect(find.text('TV 2대 중 1대 준비 완료'), findsOneWidget);
       expect(
@@ -104,6 +191,13 @@ void main() {
             .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
             .onPressed,
         isNotNull,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '수업 시작'));
+      await tester.pumpAndSettle();
+      expect(selected!.targetDeviceIds, ['a']);
+      expect(
+        selected!.preparation!.manifestHash,
+        repository.value!.manifestHash,
       );
       expect(tester.takeException(), isNull);
     },
@@ -294,8 +388,10 @@ final _onePixelPng = base64Decode(
 
 class _PreparationRepository implements DisplayPreparationRepository {
   DisplayPreparation? value;
+  bool failRequest = false;
   @override
   Future<void> request(DisplayPreparation request) async {
+    if (failRequest) throw StateError('PRIVATE_REQUEST_ERROR');
     value = request;
   }
 

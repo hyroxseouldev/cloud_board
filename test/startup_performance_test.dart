@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_board/src/app/bootstrap.dart';
 import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
+import 'package:cloud_board/src/app/core/widgets/soft_rhythm_loading_mark.dart';
 import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,7 +24,8 @@ void main() {
         ),
       );
       expect(find.byType(AppStartupScreen), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(SoftRhythmLoadingMark), findsOneWidget);
       expect(find.text('TV ready'), findsNothing);
       expect(calls, 1);
       await tester.pump(const Duration(seconds: 30));
@@ -32,6 +34,9 @@ void main() {
       initialization.completeError(StateError('offline'));
       await tester.pump();
       expect(find.text('다시 시도'), findsOneWidget);
+      expect(find.byType(SoftRhythmLoadingMark), findsNothing);
+      await tester.pumpAndSettle();
+      expect(tester.binding.transientCallbackCount, 0);
       initialization = Completer<bool>();
       await tester.tap(find.text('다시 시도'));
       await tester.pump();
@@ -46,6 +51,22 @@ void main() {
       expect(find.byType(AppStartupScreen), findsNothing);
     },
   );
+
+  testWidgets('immediate initialization never waits for a breathing cycle', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      AppBootstrap(
+        initialize: () async => false,
+        builder: (_) => const MaterialApp(home: Text('Ready now')),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Ready now'), findsOneWidget);
+    expect(find.byType(SoftRhythmLoadingMark), findsNothing);
+    await tester.pumpAndSettle();
+    expect(tester.binding.transientCallbackCount, 0);
+  });
 
   test(
     'media initialization is lazy and exit during initialization hides last',
