@@ -253,6 +253,15 @@ export const cloudboardAppOnboarding = onCall({
       : sendOnboardingSms});
 });
 
+// Verification can commit before the callable response or projection succeeds.
+// A retried event completes activation without asking for another SMS code.
+export const syncVerifiedFreeAccess = onDocumentWritten({
+  region, document: 'users/{uid}/onboarding/progress', retry: true, maxInstances: 3,
+}, async event => {
+  const {syncVerifiedFree} = await import('./free-plan.js');
+  await syncVerifiedFree(db, realtime, event.params.uid);
+});
+
 // Retrying projection repairs a dropped connection between the two Firebase stores.
 export const syncAppTrialAccess = onDocumentWritten({
   region, document: 'subscriptionEntitlements/{uid}', retry: true, maxInstances: 3,

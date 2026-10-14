@@ -39,7 +39,7 @@ try {
   await assertFails(setDoc(doc(env.authenticatedContext('owner').firestore(),'appContent/updateNews'),feed));
   await assertFails(getDoc(doc(publicClient,'appContent/internal')));
   await assert.rejects(handleOnboarding({db,realtime,auth:{uid:'anon',token:{firebase:{sign_in_provider:'anonymous'}}},input:{},secret,send}),{code:'unauthenticated'});
-  // Exploration/preparation may defer after purpose selection. Neither grants access nor starts a trial.
+  // Verified exploration/preparation may defer; it receives Free without a trial.
   for (const [purpose, phone] of [['exploring', '+821066667777'], ['preparing', '+821077778888']]) {
     const uid = `intent-${purpose}`;
     await register(uid, phone);
@@ -49,8 +49,9 @@ try {
     assert.equal(resumed.deferred, true);
     assert.equal(resumed.completed, false);
     assert.equal((await db.doc(`onboardingTrials/${uid}`).get()).exists, false);
-    assert.equal((await realtime.ref(`subscriptionAccess/${uid}`).get()).exists(), false);
-    await assert.rejects(startOnboardingTrial(db, realtime, uid), {code:'invalid-argument'});
+    assert.equal((await realtime.ref(`subscriptionAccess/${uid}`).get()).val().plan, 'free');
+    await startOnboardingTrial(db, realtime, uid);
+    assert.equal((await db.doc(`onboardingTrials/${uid}`).get()).exists, false);
   }
   // Email/password identities follow the same SMS ownership and trial gates.
   const emailRequest = input => handleOnboarding({db,realtime,auth:{uid:'email-owner',token:{firebase:{sign_in_provider:'password'}}},input,secret,send});
@@ -61,26 +62,30 @@ try {
   assert.equal(emailState.phoneRequired,false);
   await emailRequest({action:'complete',profile,revision:0,step:3});
   await emailRequest({action:'startTrial'});
-  assert.equal((await realtime.ref('subscriptionAccess/email-owner').get()).val().plan,'premium');
+  assert.equal((await realtime.ref('subscriptionAccess/email-owner').get()).val().plan,'free');
+  assert.equal(emailState.activationReady,true);
+  assert.equal(emailState.trialEligible,false);
   await register('owner','+821011112222');
   let state=await readOnboarding(db,'owner');
   assert.equal(state.phoneRequired,false);assert.equal(state.step,0);
   const centerId=state.storeId;
   await verifyOnboardingCode(db,'owner','111111',secret); // verified retry cannot create another center
   assert.equal((await readOnboarding(db,'owner')).storeId,centerId);
-  await assert.rejects(startOnboardingTrial(db,realtime,'owner'),{code:'invalid-argument'});
+  await startOnboardingTrial(db,realtime,'owner');
   await saveOnboarding(db,'owner',{action:'defer',profile,revision:0,step:1});
   state=await readOnboarding(db,'owner');assert.equal(state.profile.centerName,'테스트 센터');assert.equal(state.deferred,true);
   await assert.rejects(saveOnboarding(db,'owner',{action:'save',profile,revision:0,step:2}),{code:'aborted'});
   await Promise.all([startOnboardingTrial(db,realtime,'owner'),startOnboardingTrial(db,realtime,'owner')]);
-  const first=(await db.doc('onboardingTrials/owner').get()).data();
+  const first=(await db.doc('onboardingFree/owner').get()).data();
   await startOnboardingTrial(db,realtime,'owner');
-  assert.deepEqual((await db.doc('onboardingTrials/owner').get()).data(),first);
-  assert.equal((await realtime.ref('subscriptionAccess/owner').get()).val().plan,'premium');
+  assert.deepEqual((await db.doc('onboardingFree/owner').get()).data(),first);
+  assert.equal((await db.doc('onboardingTrials/owner').get()).exists,false);
+  assert.equal((await realtime.ref('subscriptionAccess/owner').get()).val().plan,'free');
   await saveOnboarding(db,'owner',{action:'complete',profile,revision:1,step:3});
   assert.equal((await readOnboarding(db,'owner')).completed,true);
   // Expiry never extends on retry; input data stays readable.
-  await assert.rejects(startOnboardingTrial(db,realtime,'owner',first.endsAtMs),{code:'failed-precondition'});
+  await startOnboardingTrial(db,realtime,'owner',Date.now()+31*86400000);
+  assert.equal((await db.doc('onboardingTrials/owner').get()).exists,false);
   assert.equal((await readOnboarding(db,'owner')).profile.centerName,'테스트 센터');
   await sendOnboardingCode(db,'other','+821011112222',secret,send);
   await assert.rejects(verifyOnboardingCode(db,'other',codes.get('+821011112222'),secret),{code:'invalid-argument'});
@@ -94,7 +99,8 @@ try {
   const paid={managed:true,plan:'plus',source:'app_store',status:'active',validUntilMs:Date.now()+99999999,revision:50};
   await db.doc('subscriptionEntitlements/paid').set(paid);await realtime.ref('subscriptionAccess/paid').set(paid);
   await startOnboardingTrial(db,realtime,'paid');
-  assert.deepEqual((await db.doc('subscriptionEntitlements/paid').get()).data(),paid);
+  assert.equal((await db.doc('subscriptionEntitlements/paid').get()).data().validUntilMs,paid.validUntilMs);
+  assert.equal((await db.doc('subscriptionEntitlements/paid').get()).data().plan,paid.plan);
   assert.equal((await db.doc('onboardingTrials/paid').get()).exists,false);
   await register('pilot','+821044445555');
   await saveOnboarding(db,'pilot',{action:'save',profile,revision:0,step:2});
@@ -118,7 +124,8 @@ try {
   assert.equal((await db.doc(`centers/${centerId}`).get()).exists,false);
   assert.equal((await db.doc('subscriptionEntitlements/owner').get()).exists,false);
   assert.equal((await db.collection('onboardingPhoneOwners').where('uid','==','owner').get()).empty,true);
+  const paidBeforeDelete=(await db.doc('subscriptionEntitlements/paid').get()).data();
   await deleteOnboardingData(db,'paid');
-  assert.deepEqual((await db.doc('subscriptionEntitlements/paid').get()).data(),paid);
-  console.log('PASS: SMS ownership/attempts/cooldown, resume/conflicts, concurrent trial, expiry, paid protection, rules and deletion lock');
+  assert.deepEqual((await db.doc('subscriptionEntitlements/paid').get()).data(),paidBeforeDelete);
+  console.log('PASS: SMS ownership/attempts/cooldown, resume/conflicts, concurrent automatic Free, no new trial, paid protection, rules and deletion lock');
 } finally {await env.cleanup();await db.terminate();await deleteApp(app);}

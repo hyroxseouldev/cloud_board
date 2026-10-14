@@ -41,7 +41,10 @@ export function appleGrant(t, renewal, status, now = Date.now()) {
 
 // Use the selected grant's OWN expiry. A longer Plus grant cannot extend Premium.
 export function resolveGrants(grants, now = Date.now()) {
-  const active = grants.filter(g => g && Number.isSafeInteger(g.validUntilMs) && g.validUntilMs > now);
+  const active = grants.filter(g => g && Number.isSafeInteger(g.validUntilMs) && g.validUntilMs > now &&
+    (g.status == null || ['active', 'trialing', 'grace_period', 'canceling', 'past_due'].includes(g.status) ||
+      (g.source === 'pilot' && g.status === 'pilot' && g.plan !== 'free') ||
+      (!['free', 'plus', 'premium'].includes(g.plan) && g.status === 'legacy')));
   const rank = g => g.plan === 'premium' ? 3 : g.plan === 'free' ? 0 : g.plan === 'plus' ? 1 : 2;
   active.sort((a, b) => rank(b) - rank(a) || b.validUntilMs - a.validUntilMs);
   const winner = active[0];

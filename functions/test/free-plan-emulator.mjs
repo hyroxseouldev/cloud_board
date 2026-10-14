@@ -29,7 +29,7 @@ try {
   await Promise.all([startFreePlan(db, realtime, 'owner'), startFreePlan(db, realtime, 'owner')]);
   assert.equal((await access('owner')).maxActiveDisplays, 1);
   assert.equal((await db.doc('onboardingTrials/owner').get()).exists, false);
-  assert.equal((await readOnboarding(db, 'owner')).trialEligible, true);
+  assert.equal((await readOnboarding(db, 'owner')).trialEligible, false);
   // Free access must not be mistaken for an active legacy paid grant. Preparing
   // a purchase respects the store kill switch without replacing Free access.
   const prepare = () => handleBilling(db, realtime, 'owner', {
@@ -37,7 +37,13 @@ try {
   }, {store: 'google_play'});
   await assert.rejects(prepare(), {code: 'failed-precondition'});
   await db.doc('appConfig/billing').set({legalReady: true,
-    googlePlayProductsReady: true, googlePlayPurchasesEnabled: true});
+    googlePlayProductsReady: true, googlePlayPurchasesEnabled: true,
+    planCatalog: {google_play: {version:'monthly-krw-2026-10',policyVersion:'plan-entitlements-v2',
+      sandboxVerified:true,taxInclusive:true,currency:'KRW',period:'P1M',verifiedAtMs:1,
+      evidenceUrl:'https://example.invalid/local-fixture',products: {
+        plus:{id:'com.sunmkim.cloudboard.plus.monthly',amount:49000,active:true},
+        premium:{id:'com.sunmkim.cloudboard.premium.monthly',amount:99000,active:true},
+      }}}});
   const purchase = await prepare();
   assert.equal(purchase.purchasesEnabled, true);
   assert.equal(purchase.grantSource, 'app_free');
@@ -45,7 +51,10 @@ try {
   assert.equal((await db.doc('onboardingTrials/owner').get()).exists, false);
   const first = (await db.doc('onboardingFree/owner').get()).data();
   await startOnboardingTrial(db, realtime, 'owner');
-  const trial = (await db.doc('onboardingTrials/owner').get()).data();
+  assert.equal((await db.doc('onboardingTrials/owner').get()).exists, false);
+  const trial = {startedAtMs: Date.now() - 1000, endsAtMs: Date.now() + 100000};
+  await db.doc('onboardingTrials/owner').set(trial); // Existing pre-migration grant only.
+  await refreshEntitlements(db, realtime, 'owner');
   assert.equal((await access('owner')).plan, 'premium');
   await startFreePlan(db, realtime, 'owner');
   assert.equal((await access('owner')).plan, 'premium');
@@ -53,7 +62,8 @@ try {
   await refreshEntitlements(db, realtime, 'owner', trial.endsAtMs);
   assert.equal((await access('owner')).plan, 'free');
   assert.equal((await readOnboarding(db, 'owner', trial.endsAtMs)).trialEligible, false);
-  await assert.rejects(startOnboardingTrial(db, realtime, 'owner', trial.endsAtMs), {code: 'failed-precondition'});
+  await startOnboardingTrial(db, realtime, 'owner', trial.endsAtMs);
+  assert.deepEqual((await db.doc('onboardingTrials/owner').get()).data(), trial);
   await account('paid');
   const until = Date.now() + 100000;
   await db.doc('subscriptionEntitlements/paid').set({source: 'legacy', managed: true, plan: 'legacy', validUntilMs: until, maxActiveDisplays: 4, displayLimit: 4});
@@ -63,14 +73,14 @@ try {
   await refreshEntitlements(db, realtime, 'paid', until);
   assert.equal((await access('paid')).plan, 'free');
   assert.equal((await readOnboarding(db, 'paid', until)).trialEligible, false);
-  await assert.rejects(startOnboardingTrial(db, realtime, 'paid', until), {code: 'failed-precondition'});
+  await startOnboardingTrial(db, realtime, 'paid', until);
 
   // SQL grant revisions are source-local. A newer projection must still consume
   // a low-numbered web grant, retain it, and honor its later cancellation.
   const web = {source: 'live', managed: true, plan: 'plus', status: 'active',
     validUntilMs: until, revision: 2, storeId: 'web-store', displaysUnlimited: false,
     maxActiveDisplays: 1, displayLimit: 1, canStartClass: true, canPairDisplay: true,
-    trialUsed: true, paidHistory: true};
+    trialUsed: true, paidHistory: true, phoneVerified: true};
   await db.doc('subscriptionEntitlements/web-only').set({...web, revision: 40, webGrant: web});
   await realtime.ref('subscriptionAccess/web-only').set({...web, revision: 40});
   await syncBillingEntitlement(db, realtime, 'web-only');
@@ -91,7 +101,8 @@ try {
   assert.equal((await db.doc('subscriptionEntitlements/web-only').get()).data().revision, projectedWeb.revision);
   await account('web-only');
   assert.equal((await readOnboarding(db, 'web-only')).trialEligible, false);
-  await assert.rejects(startOnboardingTrial(db, realtime, 'web-only'), {code: 'failed-precondition'});
+  await startOnboardingTrial(db, realtime, 'web-only');
+  assert.equal((await db.doc('onboardingTrials/web-only').get()).exists, false);
 
   // A delayed web expiry cannot replace a native paid entitlement. Its own
   // expiry still falls back to Free and neither source's history is erased.
@@ -116,7 +127,7 @@ try {
   await realtime.ref('subscriptionAccess/web-pending').set(pending);
   await syncBillingEntitlement(db, realtime, 'web-pending');
   assert.equal((await db.doc('onboardingFree/web-pending').get()).exists, false);
-  assert.equal((await access('web-pending')).status, 'pending_connection');
+  assert.equal((await access('web-pending')).canStartClass, false);
   for (const uid of ['web-deleting', 'web-deleted']) {
     await db.doc(`subscriptionEntitlements/${uid}`).set({webGrant: canceledWeb});
     if (uid === 'web-deleting') await db.doc(`accountDeletions/${uid}`).set({status: 'pending'});
@@ -128,7 +139,8 @@ try {
   assert.equal((await db.doc('billingAccounts/web-deleting').get()).exists, false);
   await db.doc('appConfig/freePlan').set({enrollmentEnabled: false});
   await account('blocked');
-  await assert.rejects(startFreePlan(db, realtime, 'blocked'), {code: 'failed-precondition'});
+  await startFreePlan(db, realtime, 'blocked');
+  assert.equal((await access('blocked')).plan, 'free');
   await startFreePlan(db, realtime, 'owner'); // Enrollment switch never revokes existing users.
   assert.equal((await access('owner')).canStartClass, true);
   const client = env.authenticatedContext('owner').firestore();
@@ -137,5 +149,5 @@ try {
   }
   await db.doc('accountDeletions/owner').set({status: 'pending'});
   await assert.rejects(startFreePlan(db, realtime, 'owner'), {code: 'permission-denied'});
-  console.log('PASS Free: verified enrollment, concurrency, Free purchase preparation, paid/trial priority, web/native expiry fallback, source-local revisions, no retrial, enrollment switch, server-only grants');
+  console.log('PASS Free: verified enrollment, concurrency, Free purchase preparation, paid/trial priority, web/native expiry fallback, source-local revisions, no retrial, retired manual enrollment switch, server-only grants');
 } finally {await env.cleanup(); await db.terminate(); await deleteApp(app);}

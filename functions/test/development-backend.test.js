@@ -45,7 +45,7 @@ test('development deploy includes app-called core functions and plan projection 
     }
   }
   assert(appCalls.has('saveWorkout'), 'The actual app save path must be covered');
-  for (const name of [...appCalls, 'syncWorkoutPlanUsage', 'syncSlidePlanUsage', 'syncStandbyBranding']) {
+  for (const name of [...appCalls, 'syncWorkoutPlanUsage', 'syncSlidePlanUsage', 'syncStandbyBranding', 'syncVerifiedFreeAccess']) {
     assert(developmentFunctionNames.includes(name), `Development deployment is missing ${name}`);
   }
 });

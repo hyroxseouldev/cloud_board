@@ -201,6 +201,24 @@
       ]
     },
     {
+      "id": "verified-free",
+      "file": "functions/test/verified-free-emulator.mjs",
+      "project": "demo-cloudboard-verified-free",
+      "coverage": [
+        "firestore",
+        "database"
+      ]
+    },
+    {
+      "id": "verified-free-rules",
+      "file": "functions/test/verified-free-rules-emulator.mjs",
+      "project": "demo-cloudboard-verified-free",
+      "coverage": [
+        "firestore",
+        "database"
+      ]
+    },
+    {
       "id": "standby-branding",
       "file": "functions/test/standby-branding-emulator.mjs",
       "project": "demo-cloudboard",

@@ -7,7 +7,7 @@ export const developmentOnboardingSecret = 'CLOUDBOARD_DEVELOPMENT_ONBOARDING_SE
 export const developmentFunctionNames = Object.freeze([
   'deleteMyAccount', 'retryAccountDeletions', 'syncWorkoutCatalog',
   'syncLegacyWorkoutSettings', 'cleanupPlaybackSnapshots', 'updateSlideLibrary',
-  'syncSlideLibraryPlan', 'cloudboardAppOnboarding', 'syncAppTrialAccess',
+  'syncSlideLibraryPlan', 'cloudboardAppOnboarding', 'syncAppTrialAccess', 'syncVerifiedFreeAccess',
   'cleanupOnboardingVerification', 'reportClientDiagnostic', 'listLibraryFolders',
   'manageLibraryFolder', 'cleanupClientDiagnostics', 'recordOperationTelemetry',
   'saveWorkout', 'getPlanUsage', 'syncWorkoutPlanUsage', 'syncSlidePlanUsage',

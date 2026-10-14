@@ -2,11 +2,12 @@ import {AppBrand} from './config/app-brand.js';
 import {randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {HttpsError} from 'firebase-functions/v2/https';
-import {appleGrant, billingSource, products, purchasesAllowed, resolveGrants, freeGrant, hasPaidOrTrialHistory, tokenPattern} from './billing-policy.js';
+import {appleGrant, billingSource, products, purchasesAllowed, resolveGrants, freeGrant, tokenPattern} from './billing-policy.js';
 import {latestAppleSubscription, verifyApplePayload} from './apple-store.js';
 import {appleApiReady} from './apple-billing-config.js';
 import {projectPlanPolicy, planPolicyVersion} from './plan-policy.js';
 import {planSalesReady} from './billing-catalog.js';
+import {hasVerifiedPhone, hasWebEntitlement, isFreeGrant, verifiedFreePolicyVersion} from './verified-free-policy.js';
 
 const fail = (code, message) => new HttpsError(code, message);
 const accountRef = (db, uid) => db.doc(`billingAccounts/${uid}`);
@@ -24,7 +25,7 @@ export async function billingAccount(db, realtime, uid) {
     if (account.exists) return account.data();
     const appAccountToken = randomUUID();
     const {webGrant, ...currentAccess} = current.data() ?? {};
-    const baseline = webGrant ?? (currentAccess.source !== billingSource ? clean(currentAccess) : {});
+    const baseline = hasWebEntitlement(webGrant) ? webGrant : (currentAccess.source !== billingSource ? clean(currentAccess) : {});
     // Snapshot existing server grants before switching to the billing projection.
     const oldRealtime = legacy?.source !== billingSource ? clean(legacy) : {};
     const value = {appAccountToken, deleted: false, createdAtMs: Date.now(), baseline,
@@ -39,14 +40,13 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
   const livePilot = (await realtime.ref(`legacyPilotAccess/${uid}`).get()).val();
   await db.runTransaction(async tx => {
     const accessRef = db.doc(`subscriptionEntitlements/${uid}`), aRef = accountRef(db, uid);
-    const [lock, account, access, trial, tester, subscriptions, progress, playSubscriptions, free, freePolicy, policy] = await Promise.all([
+    const [lock, account, access, trial, tester, subscriptions, progress, playSubscriptions, free, policy] = await Promise.all([
       tx.get(db.doc(`accountDeletions/${uid}`)), tx.get(aRef), tx.get(accessRef),
       tx.get(db.doc(`onboardingTrials/${uid}`)), tx.get(db.doc(`billingTesters/${uid}`)),
       tx.get(db.collection('appStoreSubscriptions').where('uid', '==', uid)),
       tx.get(db.doc(`users/${uid}/onboarding/progress`)),
       tx.get(db.collection('googlePlaySubscriptions').where('uid', '==', uid)),
       tx.get(db.doc(`onboardingFree/${uid}`)),
-      tx.get(db.doc('appConfig/freePlan')),
       tx.get(db.doc('appConfig/planPolicy')),
     ]);
     if (lock.exists || !account.exists || account.data().deleted) return;
@@ -55,26 +55,35 @@ export async function refreshEntitlements(db, realtime, uid, now = Date.now()) {
     // stores its latest grant here, so cancellation replaces an old snapshot
     // without ever replacing a native paid/trial projection directly.
     const webGrant = previous?.webGrant;
-    const baseline = webGrant ?? (previous && previous.source !== billingSource ? clean(previous) : data.baseline);
+    const baseline = hasWebEntitlement(webGrant) ? webGrant : (previous && previous.source !== billingSource ? clean(previous) : data.baseline);
     const apple = subscriptions.docs.map(d => d.data()).filter(d => d.environment === 'Production' || tester.data()?.enabled === true);
     const play = playSubscriptions.docs.map(d => d.data()).filter(d => !d.deleted && !d.replacedBy &&
       (d.environment === 'Production' || tester.data()?.enabled === true));
-    const nativeHistory = progress.data()?.phoneVerified === true &&
-      (trial.exists || apple.length > 0 || play.length > 0);
-    const enrollFallback = !free.exists && freePolicy.data()?.enrollmentEnabled !== false &&
-      (nativeHistory || hasPaidOrTrialHistory(baseline));
+    const verified = hasVerifiedPhone(progress.data(), webGrant, data.baseline);
+    // Latch the linked server proof in the native server-owned record. Web
+    // expiry/revision updates do not require another phone verification.
+    if (verified && progress.data()?.phoneVerified !== true) {
+      tx.set(db.doc(`users/${uid}/onboarding/progress`), {phoneVerified: true}, {merge: true});
+    }
+    const enrollFallback = verified && free.data()?.enabled !== true;
     const freeEnrollment = enrollFallback ? {enabled: true} : free.data();
     if (enrollFallback) tx.set(db.doc(`onboardingFree/${uid}`),
-      {enabled: true, startedAtMs: now, policyVersion: 'free-tv1-v1'});
+      {enabled: true, startedAtMs: now, policyVersion: verifiedFreePolicyVersion});
     const grants = [baseline, baseline?.managed ? null : data.oldRealtime, livePilot,
       trial.exists ? {source: 'app_trial', plan: 'premium', status: 'trialing', validUntilMs: trial.data().endsAtMs} : null,
-      ...apple.map(d => d.grant), ...play.map(d => d.grant), freeGrant(freeEnrollment)];
-    const result = {...projectPlanPolicy(resolveGrants(grants, now), previous, policy.data()), ...(webGrant ? {webGrant} : {}),
+      ...apple.map(d => d.grant), ...play.map(d => d.grant), freeGrant(freeEnrollment)]
+      .filter(grant => verified || !isFreeGrant(grant));
+    const resolved = resolveGrants(grants, now);
+    // Verified Free uses the already approved Free policy, even while paid-plan
+    // rollout is disabled. A preserved paid/trial grant keeps its own policy.
+    const result = {...projectPlanPolicy(resolved, previous,
+      verified && resolved.plan === 'free' && resolved.canStartClass
+        ? {enabled: true, version: planPolicyVersion} : policy.data()), ...(webGrant ? {webGrant} : {}),
       storeId: progress.data()?.storeId ?? previous?.storeId ?? baseline?.storeId ?? null};
     const comparable = previous ? Object.fromEntries(Object.keys(result).map(k => [k, previous[k]])) : null;
-    // Merely opening the page must not turn a new user's pending trial into a
-    // historical expired grant, or migrate any legacy account before a purchase.
-    if ((free.exists || enrollFallback || subscriptions.size > 0 || playSubscriptions.size > 0 || previous?.source === billingSource) && !isDeepStrictEqual(comparable, result)) {
+    // Always publish an explicit denial for unverified/missing grants. Neither
+    // a historical Free marker nor an old RTDB snapshot can activate an account.
+    if (!isDeepStrictEqual(comparable, result)) {
       tx.set(accessRef, {...result, revision: (previous?.revision ?? 0) + 1});
     }
     const futureEnds = grants.filter(g => g?.validUntilMs > now).map(g => g.validUntilMs);
@@ -209,9 +218,10 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
     }
   } else if (!['load', 'prepare'].includes(action)) throw fail('invalid-argument', '지원하지 않는 요청입니다.');
   await refreshEntitlements(db, realtime, uid);
-  const [config, tester, summary, progress] = await Promise.all([
+  const [config, tester, summary, progress, access] = await Promise.all([
     db.doc('appConfig/billing').get(), db.doc(`billingTesters/${uid}`).get(),
     summaryRef(db, uid).get(), db.doc(`users/${uid}/onboarding/progress`).get(),
+    db.doc(`subscriptionEntitlements/${uid}`).get(),
   ]);
   const paid = summary.data()?.paid;
   const existingPaid = paid && (paid.validUntilMs > Date.now() || paid.autoRenew || ['billing_retry', 'paused', 'pending'].includes(paid.status));
@@ -228,6 +238,7 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
   const enabled = storeReady && catalogReady && purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;
   if (action === 'prepare' && (!enabled || !products[input.productId])) throw fail('failed-precondition', '지금은 새 구독을 시작할 수 없습니다. 이용 상태를 확인해 주세요.');
   return {appAccountToken: account.appAccountToken, purchasesEnabled: enabled, planBenefitsReady,
+    phoneRequired: !hasVerifiedPhone(progress.data(), access.data()?.webGrant, account.baseline),
     productIds: Object.keys(products), ...summary.data()};
 }
 

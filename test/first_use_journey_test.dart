@@ -144,7 +144,7 @@ void main() {
     final practiced = saved.copyWith(rehearsedWorkoutId: 'w');
     expect(practiced.completedCount, 1);
     expect(practiced.playedSessionId, isNull);
-    expect(practiced.next(onlineTv: false), FirstClassNext.center);
+    expect(practiced.next(onlineTv: false), FirstClassNext.connect);
     final ready = practiced.copyWith(centerReady: true, verifiedDeviceId: 'tv');
     expect(ready.next(onlineTv: false), FirstClassNext.connect);
     expect(ready.next(onlineTv: true), FirstClassNext.play);
