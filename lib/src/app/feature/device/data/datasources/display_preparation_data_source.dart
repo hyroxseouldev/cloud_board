@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:cloud_board/src/app/feature/device/data/models/display_preparation_model.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
@@ -21,10 +22,15 @@ class DisplayPreparationDataSource {
     }, applyLocally: false);
   }
 
-  Stream<DisplayPreparation?> watchRequest() => _root
-      .child('request')
-      .onValue
-      .map((e) => decodeDisplayPreparation(e.snapshot.value));
+  Stream<DisplayPreparation?> watchRequest() =>
+      _root.child('request').onValue.map((e) {
+        final value = e.snapshot.value;
+        final request = decodeDisplayPreparation(value);
+        if (value != null && request == null) {
+          throw const FormatException('Invalid preparation request');
+        }
+        return request;
+      });
   Map<String, DisplayPreparationReceipt> _receipts(Object? value) =>
       value is Map
       ? {
@@ -53,7 +59,39 @@ class DisplayPreparationDataSource {
     'imageCount': imageCount,
     'audioReady': audioReady,
   });
-  Future<void> heartbeat(String deviceId) => database
-      .ref('users/$ownerId/devices/$deviceId')
-      .update({'lastSeenAtMs': ServerValue.timestamp, 'online': true});
+  Future<void> heartbeat(String deviceId, {bool ready = false}) =>
+      updateDisplayHeartbeat(database, ownerId, deviceId, ready: ready);
+
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  }) async {
+    final target = database.ref(
+      'users/$ownerId/devices/$deviceId/preparationHealth',
+    );
+    if (stage != null && code == null) {
+      // A successful heartbeat must not erase a media/response failure.
+      await target.runTransaction(
+        (value) => value is Map && value['stage'] == stage
+            ? Transaction.success(null)
+            : Transaction.abort(),
+        applyLocally: false,
+      );
+      return;
+    }
+    await target.set(
+      stage == null
+          ? null
+          : {
+              'stage': stage,
+              'code': code ?? 'unexpected',
+              'attempt': attempt.clamp(1, 10),
+              'checkedAtMs': ServerValue.timestamp,
+              'requestId': ?requestId,
+            },
+    );
+  }
 }

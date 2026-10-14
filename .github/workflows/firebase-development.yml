@@ -41,10 +41,21 @@ jobs:
         run: |
           node tool/firebase/environments.mjs check
           flutter pub get
+          node --test tool/tv-recovery-check.test.mjs
+          node tool/tv-recovery-check.mjs
           npm ci --prefix functions
           npm test --prefix functions
           node --test tool/firebase/*.test.mjs
           node tool/firebase_contracts.mjs
+      - name: Retain TV recovery regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-recovery-development-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/sta176/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Build and stamp development web
         run: node tool/firebase/environments.mjs build development
       - uses: actions/upload-artifact@v4

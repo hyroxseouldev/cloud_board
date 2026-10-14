@@ -74,6 +74,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Require TV recovery regressions without missing or skipped cases
+        run: |
+          node --test tool/tv-recovery-check.test.mjs
+          node tool/tv-recovery-check.mjs
+
+      - name: Retain TV recovery regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-recovery-ios-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/sta176/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
 

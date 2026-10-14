@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_recovery.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_identification_overlay.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
@@ -137,7 +138,24 @@ class DisplayModeScreen extends HookConsumerWidget {
         .where((item) => item.id == deviceId)
         .firstOrNull;
 
-    final session = active.value;
+    final ownerScope = ref.watch(accountOwnerIdProvider);
+    final scopeReady =
+        !ownerScope.isLoading &&
+        !ownerScope.hasError &&
+        ownerScope.value != null;
+    final session = scopeReady && !active.isLoading && !active.hasError
+        ? active.value
+        : null;
+    useDisplayRecovery(
+      context,
+      ref,
+      deviceId: deviceId,
+      paired:
+          scopeReady &&
+          currentDevice?.paired == true &&
+          (currentDevice?.recoveryProtocol ?? 0) >= 1,
+      connected: connected,
+    );
     final targetsThisDevice =
         session == null ||
         (session.targetDeviceIds.isEmpty
@@ -154,6 +172,7 @@ class DisplayModeScreen extends HookConsumerWidget {
       ref,
       deviceId: deviceId,
       paired:
+          scopeReady &&
           currentDevice?.paired == true &&
           (currentDevice?.preparationProtocol ?? 0) >= 1,
       standby:
@@ -181,6 +200,10 @@ class DisplayModeScreen extends HookConsumerWidget {
             isBlackScreenTime(brand, now.value));
     final allowPlayback =
         foreground &&
+        scopeReady &&
+        recovery.hasValue &&
+        !recovery.isLoading &&
+        !recovery.hasError &&
         currentDevice?.paired == true &&
         remoteState == RemoteDisplayState.auto.name;
     final identify =

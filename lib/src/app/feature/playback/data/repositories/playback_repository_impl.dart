@@ -235,7 +235,8 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 @Riverpod(keepAlive: true)
 PlaybackRepository playbackRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
-  final ownerId = ref.watch(accountOwnerIdProvider).value;
+  final owner = ref.watch(accountOwnerIdProvider);
+  final ownerId = owner.isLoading || owner.hasError ? null : owner.value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
@@ -270,6 +271,12 @@ PlaybackRepository playbackRepository(Ref ref) {
             .timeout(const Duration(seconds: 6));
         if (auth.currentUser?.uid != user.uid) {
           throw StateError('로그인 계정이 변경되었습니다.');
+        }
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          throw FirebaseException(
+            plugin: 'database',
+            code: 'permission-denied',
+          );
         }
         if (response.statusCode != 200) {
           throw StateError('최신 수업 상태를 확인하지 못했습니다.');

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 
 import 'dart:async';
@@ -84,8 +86,58 @@ class DisplayPreparationController extends _$DisplayPreparationController {
   }
 }
 
-@riverpod
+// This stream owns its bounded retries. Riverpod's default error retry would
+// restart a denied subscription indefinitely and defeat the permission stop.
+Duration? _noAutomaticPreparationRetry(int attempt, Object error) => null;
+
+@Riverpod(retry: _noAutomaticPreparationRetry)
 Stream<DisplayPreparation?> displayPreparationRequest(
   Ref ref,
   String deviceId,
-) => ref.watch(displayPreparationRepositoryProvider).watchRequest(deviceId);
+) async* {
+  final repository = ref.watch(displayPreparationRepositoryProvider);
+  var cancelled = false;
+  ref.onDispose(() => cancelled = true);
+  for (var attempt = 1; attempt <= 4; attempt++) {
+    if (cancelled) return;
+    try {
+      await for (final request in repository.watchRequest(deviceId)) {
+        if (cancelled) return;
+        unawaited(
+          repository
+              .reportHealth(deviceId, stage: 'request_read')
+              .catchError((Object _) {}),
+        );
+        yield request;
+      }
+      return;
+    } catch (error, stack) {
+      if (cancelled) return;
+      final code = operationFailureCode(error);
+      ref
+          .read(errorReporterProvider)
+          .capture(
+            error,
+            stack,
+            action: 'tv.prepare.request_read',
+            context: {'attempt': attempt, 'code': code},
+          );
+      unawaited(
+        repository
+            .reportHealth(
+              deviceId,
+              stage: 'request_read',
+              code: code,
+              attempt: attempt,
+            )
+            .catchError((Object _) {}),
+      );
+      if (code == 'permission-denied' ||
+          code == 'unauthenticated' ||
+          attempt == 4) {
+        rethrow;
+      }
+      await Future<void>.delayed(Duration(seconds: 1 << (attempt - 1)));
+    }
+  }
+}

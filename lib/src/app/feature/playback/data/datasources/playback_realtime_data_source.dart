@@ -35,6 +35,7 @@ class PlaybackRealtimeDataSource {
   bool _recovering = false;
   int _generation = 0;
   PlaybackSessionModel? _verified;
+  bool _hasVerified = false;
   String? _removedSessionId;
   bool _disposed = false;
 
@@ -71,7 +72,8 @@ class PlaybackRealtimeDataSource {
       debugPrint(
         'Playback recovery: transport connected in ${elapsed.elapsedMilliseconds}ms',
       );
-      final value = await read('users/${_requireOwnerId()}/activeSession');
+      final value = await read('users/${_requireOwnerId()}/activeSession')
+          .timeout(const Duration(seconds: 8));
       if (value is Map &&
           value['schemaVersion'] == 2 &&
           !_snapshots.containsKey(value['snapshotId'])) {
@@ -82,13 +84,18 @@ class PlaybackRealtimeDataSource {
         _rememberSnapshot(
           id,
           _stringMap(
-            await read('users/${_requireOwnerId()}/playbackSnapshots/$id'),
+            await read('users/${_requireOwnerId()}/playbackSnapshots/$id')
+                .timeout(const Duration(seconds: 8)),
           ),
         );
+      }
+      if (_disposed || generation != _generation) {
+        throw StateError('수업 상태 확인이 취소되었습니다.');
       }
       final model = value == null ? null : _decode(value);
       if (generation != _generation) throw StateError('수업 상태 확인이 취소되었습니다.');
       _verified = model;
+      _hasVerified = true;
       _removedSessionId = model == null ? previousId : null;
       _refreshes.add(model);
       return model;
@@ -164,6 +171,9 @@ class PlaybackRealtimeDataSource {
   Stream<PlaybackSessionModel?> watchActive() {
     if (_ownerId == null) return Stream.value(null);
     return Stream.multi((sink) {
+      // A refreshed subscriber must receive the server-confirmed state even if
+      // its first SDK event is an older cache entry that we correctly reject.
+      if (_hasVerified && !_recovering) sink.add(_verified);
       final remote = _active.onValue
           .asyncMap((event) async {
             final generation = _generation;

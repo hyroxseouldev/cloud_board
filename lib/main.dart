@@ -28,7 +28,14 @@ void runCloudBoard({
       initialize: () =>
           _initialize(firebaseOptions, configureFirebase, localPreview),
       builder: (isTv) => ProviderScope(
-        overrides: [androidTvProvider.overrideWith((ref) async => isTv)],
+        overrides: [
+          androidTvProvider.overrideWith((ref) async => isTv),
+          // The first TV frame must never expose a cached class before its
+          // foreground server handshake. Browser/controller audio is unchanged.
+          tvPlaybackVisibleProvider.overrideWith(
+            () => TvPlaybackVisible(initiallyVisible: !isTv),
+          ),
+        ],
         child: TvPlaybackLifecycle(isTv: isTv, child: const XonBoardApp()),
       ),
     ),

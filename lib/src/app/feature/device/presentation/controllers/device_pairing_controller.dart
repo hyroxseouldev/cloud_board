@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -154,5 +156,16 @@ class DeviceClaimController extends _$DeviceClaimController {
           displayState: displayState,
           replaceDeviceIds: replaceDeviceIds,
         ),
+  );
+}
+
+/// Re-evaluates stale heartbeats even when the database emits no new values.
+@riverpod
+Stream<int> displayHealthNow(Ref ref) async* {
+  final offset = ref.watch(serverTimeOffsetProvider).value ?? 0;
+  yield DateTime.now().millisecondsSinceEpoch + offset;
+  yield* Stream.periodic(
+    const Duration(seconds: 5),
+    (_) => DateTime.now().millisecondsSinceEpoch + offset,
   );
 }

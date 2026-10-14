@@ -673,62 +673,67 @@ class _RemoteDisplayCard extends ConsumerWidget {
   final DisplayDevice device;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              Icons.circle,
-              size: 13,
-              color: device.online ? Colors.green : Colors.grey,
-            ),
-            title: Text(
-              device.name,
-              style: const TextStyle(
-                letterSpacing: -0.16,
-                fontWeight: FontWeight.w600,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.circle,
+                size: 13,
+                color: device.recentlySeen(nowMs) ? Colors.green : Colors.grey,
+              ),
+              title: Text(
+                device.name,
+                style: const TextStyle(
+                  letterSpacing: -0.16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                '${device.zoneName} · ${device.recentlySeen(nowMs) ? '온라인' : '오프라인'} · ${_displayStateLabel(device.displayState)}',
               ),
             ),
-            subtitle: Text(
-              '${device.zoneName} · ${device.online ? '온라인' : '오프라인'} · ${_displayStateLabel(device.displayState)}',
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'auto',
+                  icon: Icon(Icons.play_circle_outline),
+                  label: Text('자동'),
+                ),
+                ButtonSegment(
+                  value: 'standby',
+                  icon: Icon(Icons.wallpaper_rounded),
+                  label: Text('대기'),
+                ),
+                ButtonSegment(
+                  value: 'black',
+                  icon: Icon(Icons.brightness_1_rounded),
+                  label: Text('검은 화면'),
+                ),
+              ],
+              selected: {device.displayState},
+              onSelectionChanged: device.recentlySeen(nowMs)
+                  ? (selected) => ref
+                        .read(deviceClaimControllerProvider.notifier)
+                        .setDisplayState(
+                          deviceId: device.id,
+                          displayState: selected.first,
+                        )
+                  : null,
             ),
-          ),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: 'auto',
-                icon: Icon(Icons.play_circle_outline),
-                label: Text('자동'),
-              ),
-              ButtonSegment(
-                value: 'standby',
-                icon: Icon(Icons.wallpaper_rounded),
-                label: Text('대기'),
-              ),
-              ButtonSegment(
-                value: 'black',
-                icon: Icon(Icons.brightness_1_rounded),
-                label: Text('검은 화면'),
-              ),
-            ],
-            selected: {device.displayState},
-            onSelectionChanged: device.online
-                ? (selected) => ref
-                      .read(deviceClaimControllerProvider.notifier)
-                      .setDisplayState(
-                        deviceId: device.id,
-                        displayState: selected.first,
-                      )
-                : null,
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ReportTab extends ConsumerWidget {

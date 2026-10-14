@@ -45,18 +45,23 @@ class DisplayPreparationActions {
         proof.manifestHash != preparationFingerprint(workout, targets)) {
       throw StateError('수업 내용이나 설정이 바뀌었어요. 수업 준비를 다시 확인해 주세요.');
     }
-    for (final old in selected.where((d) => d.preparationProtocol < 1)) {
-      if (!proof.legacyDeviceIds.contains(old.id) || !old.online) {
-        throw StateError('구형 TV의 화면을 직접 확인하거나 재생 대상에서 제외해 주세요.');
-      }
-    }
-    if (modern.isEmpty) return;
-    final request = await repository.current();
-    final receipts = await repository.receipts();
+    // Resolve optional modern evidence before reading the server clock, so
+    // both manual legacy confirmations and media receipts use the same final
+    // freshness check immediately before starting.
+    final request = modern.isEmpty ? null : await repository.current();
+    final receipts = modern.isEmpty
+        ? const <String, DisplayPreparationReceipt>{}
+        : await repository.receipts();
     final now =
         nowMs ??
         await serverNow?.call() ??
         DateTime.now().millisecondsSinceEpoch;
+    for (final old in selected.where((d) => d.preparationProtocol < 1)) {
+      if (!proof.legacyDeviceIds.contains(old.id) || !old.recentlySeen(now)) {
+        throw StateError('구형 TV의 화면을 직접 확인하거나 재생 대상에서 제외해 주세요.');
+      }
+    }
+    if (modern.isEmpty) return;
     if (request == null ||
         request.sessionId != proof.sessionId ||
         request.revision != proof.revision ||
@@ -73,8 +78,8 @@ class DisplayPreparationActions {
     }
     if (modern.any(
       (d) =>
-          !d.recentlySeen(now) ||
-          receipts[d.id]?.readyFor(request, now) != true,
+          displayPreparationStatus(d, required, request, receipts[d.id], now) !=
+          DisplayPreparationStatus.ready,
     )) {
       throw StateError('아직 준비되지 않은 TV가 있어요. 재시도하거나 대상에서 제외해 주세요.');
     }

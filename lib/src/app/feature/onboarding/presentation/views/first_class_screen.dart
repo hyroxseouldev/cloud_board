@@ -44,9 +44,12 @@ class FirstClassScreen extends HookConsumerWidget {
     final busy = useState(false);
     final actions = ref.read(firstClassControllerProvider.notifier);
     final devices = ref.watch(displayDevicesProvider);
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
     final onlineTv =
         devices.value?.any(
-          (d) => d.online && d.paired && d.displayState == 'auto',
+          (d) => d.recentlySeen(nowMs) && d.paired && d.displayState == 'auto',
         ) ??
         false;
     final next = progress?.next(
@@ -54,7 +57,7 @@ class FirstClassScreen extends HookConsumerWidget {
           devices.value?.any(
             (d) =>
                 d.id == progress.verifiedDeviceId &&
-                d.online &&
+                d.recentlySeen(nowMs) &&
                 d.paired &&
                 d.displayState == 'auto',
           ) ??
@@ -419,11 +422,14 @@ class FirstClassHomeCard extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final devices = ref.watch(displayDevicesProvider).value ?? [];
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
     final next = progress.next(
       onlineTv: devices.any(
         (d) =>
             d.id == progress.verifiedDeviceId &&
-            d.online &&
+            d.recentlySeen(nowMs) &&
             d.paired &&
             d.displayState == 'auto',
       ),

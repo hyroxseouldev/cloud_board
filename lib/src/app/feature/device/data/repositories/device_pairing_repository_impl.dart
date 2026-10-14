@@ -80,12 +80,13 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
 @Riverpod(keepAlive: true)
 DevicePairingRepository devicePairingRepository(Ref ref) {
   final auth = FirebaseAuth.instance;
-  final ownerId = ref.watch(accountOwnerIdProvider).value;
+  final owner = ref.watch(accountOwnerIdProvider);
+  final ownerId = owner.isLoading || owner.hasError ? null : owner.value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
-  return DevicePairingRepositoryImpl(
-    DevicePairingRealtimeDataSource(database, auth, ownerId),
-  );
+  final source = DevicePairingRealtimeDataSource(database, auth, ownerId);
+  ref.onDispose(source.dispose);
+  return DevicePairingRepositoryImpl(source);
 }

@@ -86,7 +86,7 @@ final class DisplayPreparationRequestProvider
     required DisplayPreparationRequestFamily super.from,
     required String super.argument,
   }) : super(
-         retry: null,
+         retry: _noAutomaticPreparationRetry,
          name: r'displayPreparationRequestProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -128,13 +128,13 @@ final class DisplayPreparationRequestProvider
 }
 
 String _$displayPreparationRequestHash() =>
-    r'7e0c20342c405ab5273425ba8da1a9ce77b1c8a3';
+    r'1e15164f605e01d48f911f3c6502e2b052906c85';
 
 final class DisplayPreparationRequestFamily extends $Family
     with $FunctionalFamilyOverride<Stream<DisplayPreparation?>, String> {
   DisplayPreparationRequestFamily._()
     : super(
-        retry: null,
+        retry: _noAutomaticPreparationRetry,
         name: r'displayPreparationRequestProvider',
         dependencies: null,
         $allTransitiveDependencies: null,

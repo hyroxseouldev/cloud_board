@@ -3,6 +3,8 @@ import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
 
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/device/domain/usecases/display_presence_coordinator.dart';
+
 import 'package:cloud_board/src/app/core/services/realtime_connection.dart'
     show waitForPlaybackConnection;
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
@@ -13,15 +15,19 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 
 class DevicePairingRealtimeDataSource {
-  const DevicePairingRealtimeDataSource(
-    this._database,
-    this._auth,
-    this._ownerId,
-  );
+  DevicePairingRealtimeDataSource(this._database, this._auth, this._ownerId);
 
   final FirebaseDatabase _database;
   final FirebaseAuth _auth;
   final String? _ownerId;
+  DisplayPresenceCoordinator? _presence;
+  String? _presenceDevice;
+  bool _disposed = false;
+
+  void dispose() {
+    _disposed = true;
+    _presence?.dispose();
+  }
 
   DatabaseReference get _root => _database.ref();
 
@@ -110,34 +116,9 @@ class DevicePairingRealtimeDataSource {
           value.entries.where((entry) => isRegisteredDisplay(entry.value)).map((
             entry,
           ) {
-            final item = Map<String, dynamic>.from(entry.value as Map);
-            return DisplayDevice(
-              id: (item['id'] as String?) ?? entry.key.toString(),
-              name: (item['name'] as String?) ?? '연결 대기 디스플레이',
-              zoneId: (item['zoneId'] as String?) ?? 'main',
-              zoneName: (item['zoneName'] as String?) ?? '메인 구역',
-              online: item['online'] == true,
-              appVersion: (item['appVersion'] as String?) ?? '',
-              appBuild: (item['appBuild'] as String?) ?? '',
-              appPlatform: (item['appPlatform'] as String?) ?? '',
-              playbackProtocol:
-                  (item['playbackProtocol'] as num?)?.toInt() ?? 1,
-              preparationProtocol:
-                  (item['preparationProtocol'] as num?)?.toInt() ?? 0,
-              lastSeenAtMs: (item['lastSeenAtMs'] as num?)?.round() ?? 0,
-              currentSessionId: item['currentSessionId'] as String?,
-              acknowledgedRevision:
-                  (item['acknowledgedRevision'] as num?)?.round() ?? 0,
-              paired: isRegisteredDisplay(item),
-              pairingCode: (item['pairingCode'] as String?) ?? '',
-              identificationId: item['identificationId'] as String?,
-              identificationExpiresAtMs:
-                  (item['identificationExpiresAtMs'] as num?)?.round() ?? 0,
-              identificationAck: item['identificationAck'] as String?,
-              displayState: (item['displayState'] as String?) ?? 'auto',
-              preferences: decodeDisplayPreferences(item['preferences']),
-              lastCommandAtMs: (item['lastCommandAtMs'] as num?)?.round() ?? 0,
-              onlineSinceMs: (item['onlineSinceMs'] as num?)?.round() ?? 0,
+            return decodeDisplayDevice(
+              entry.key.toString(),
+              entry.value as Map,
             );
           }).toList()..sort((a, b) => a.name.compareTo(b.name));
       return devices;
@@ -195,24 +176,27 @@ class DevicePairingRealtimeDataSource {
         )) {
       return;
     }
-    final access = await _database.ref('subscriptionAccess/${owner.uid}').get();
-    if (access.value is Map && (access.value! as Map)['managed'] == true) {
-      try {
-        await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
-            .httpsCallable(
-              'cloudboardPairDisplay',
-              options: HttpsCallableOptions(
-                timeout: const Duration(seconds: 15),
-              ),
-            )
-            .call<void>({
-              'code': normalizedCode,
-              'name': name.trim(),
-              'zoneName': zoneName.trim(),
-            });
-      } on FirebaseFunctionsException {
-        rethrow;
-      }
+    final globalPairing = await _database
+        .ref('pairingCodes/$normalizedCode')
+        .get();
+    if (globalPairing.exists) {
+      final installation = await displayInstallationInfo();
+      await FirebaseFunctions.instanceFor(
+            app: _auth.app,
+            region: 'asia-northeast3',
+          )
+          .httpsCallable(
+            'pairDisplayConnection',
+            options: HttpsCallableOptions(timeout: const Duration(seconds: 15)),
+          )
+          .call<void>({
+            'code': normalizedCode,
+            'name': name.trim(),
+            'zoneName': zoneName.trim(),
+            'operationId': _root.push().key!,
+            'appVersion': installation['appVersion'] ?? '',
+            'appBuild': installation['appBuild'] ?? '',
+          });
       return;
     }
     final pilot = await _database
@@ -222,66 +206,33 @@ class DevicePairingRealtimeDataSource {
         (pilot.value as num) <= DateTime.now().millisecondsSinceEpoch) {
       throw StateError('Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.');
     }
-    final pairingRef = _database.ref('pairingCodes/$normalizedCode');
-    final initialSnapshot = await pairingRef.get();
-    if (!initialSnapshot.exists) {
-      await _claimLegacy(code: normalizedCode, name: name, zoneName: zoneName);
-      return;
-    }
-    _requireAvailablePairing(initialSnapshot.value);
-
-    final pairing = Map<String, dynamic>.from(initialSnapshot.value! as Map);
-    final deviceId = pairing['deviceId'] as String?;
-    final displayUid = pairing['displayUid'] as String?;
-    if (deviceId == null || displayUid == null) {
-      throw StateError('연결 코드에 기기 정보가 없습니다. 디스플레이에서 새 코드를 만들어 주세요.');
-    }
-    await _root.update({
-      'pairingCodes/$normalizedCode/claimed': true,
-      'pairingCodes/$normalizedCode/claimedAtMs': ServerValue.timestamp,
-      'pairingCodes/$normalizedCode/ownerId': owner.uid,
-      'displayAccess/$displayUid/ownerId': owner.uid,
-      'displayAccess/$displayUid/deviceId': deviceId,
-      'displayAccess/$displayUid/pairingCode': normalizedCode,
-      'displayAccess/$displayUid/pairedAtMs': ServerValue.timestamp,
-      'users/${owner.uid}/devices/$deviceId': {
-        'id': deviceId,
-        'displayUid': displayUid,
-        'mode': 'display',
-        'name': name.trim().isEmpty ? '매장 디스플레이' : name.trim(),
-        'zoneId': 'main',
-        'zoneName': zoneName.trim().isEmpty ? '메인 구역' : zoneName.trim(),
-        'paired': true,
-        'pairedAtMs': ServerValue.timestamp,
-        'pairingCode': normalizedCode,
-        'online': true,
-        'onlineSinceMs': ServerValue.timestamp,
-        'lastSeenAtMs': ServerValue.timestamp,
-        'displayState': 'auto',
-      },
-    });
+    await _claimLegacy(code: normalizedCode, name: name, zoneName: zoneName);
   }
 
   Future<void> unpair(String deviceId) async {
     await _connected();
-    final deviceRef = _ownerRef.child('devices/$deviceId');
-    final snapshot = await deviceRef.get();
-    final value = snapshot.value;
-    final updates = <String, Object?>{
-      'users/${_ownerId!}/devices/$deviceId': null,
-    };
-    if (value is Map) {
-      final code = value['pairingCode'];
-      final displayUid = value['displayUid'];
-      if (code is String) {
-        updates[displayUid is String
-                ? 'pairingCodes/$code'
-                : 'users/$_ownerId/pairingCodes/$code'] =
-            null;
-      }
-      if (displayUid is String) updates['displayAccess/$displayUid'] = null;
+    final current = (await _ownerRef.child('devices/$deviceId').get()).value;
+    if (current == null) return;
+    if (current is! Map || current['pairingCode'] is! String) {
+      throw StateError('연결 정보를 확인하지 못했습니다. 목록을 새로 확인해 주세요.');
     }
-    await _root.update(updates);
+    final expectedPairingCode = current['pairingCode'] as String;
+    final installation = await displayInstallationInfo();
+    await FirebaseFunctions.instanceFor(
+          app: _auth.app,
+          region: 'asia-northeast3',
+        )
+        .httpsCallable(
+          'unpairDisplayConnection',
+          options: HttpsCallableOptions(timeout: const Duration(seconds: 15)),
+        )
+        .call<void>({
+          'deviceId': deviceId,
+          'expectedPairingCode': expectedPairingCode,
+          'operationId': _root.push().key!,
+          'appVersion': installation['appVersion'] ?? '',
+          'appBuild': installation['appBuild'] ?? '',
+        });
   }
 
   Future<void> rename({
@@ -395,80 +346,121 @@ class DevicePairingRealtimeDataSource {
     required String deviceId,
     required String sessionId,
     required int revision,
-  }) => _ownerRef.child('devices/$deviceId').update({
-    'currentSessionId': sessionId,
-    'acknowledgedRevision': revision,
-    'lastSeenAtMs': ServerValue.timestamp,
-    'online': true,
-  });
+  }) async {
+    final result = await _ownerRef.child('devices/$deviceId').runTransaction((
+      current,
+    ) {
+      if (current == null) return Transaction.success(null);
+      if (_disposed ||
+          current is! Map ||
+          !isRegisteredDisplay(current) ||
+          current['id'] != deviceId) {
+        return Transaction.abort();
+      }
+      return Transaction.success({
+        ...current,
+        'currentSessionId': sessionId,
+        'acknowledgedRevision': revision,
+      });
+    }, applyLocally: false);
+    if (!result.committed || !result.snapshot.exists) {
+      throw StateError('디스플레이 연결이 변경되었습니다.');
+    }
+    await updateDisplayHeartbeat(_database, _ownerId!, deviceId, ready: true);
+  }
 
   Future<void> _markOnline({
     required String ownerId,
     required String deviceId,
     required String pairingCode,
   }) async {
+    if (_disposed) throw StateError('디스플레이 연결이 변경되었습니다.');
+    if (_presenceDevice == deviceId &&
+        _presence != null &&
+        !_presence!.exhausted) {
+      return _presence!.firstReady.timeout(const Duration(seconds: 20));
+    }
+    _presence?.dispose();
+    _presenceDevice = deviceId;
+    final uid = _auth.currentUser?.uid;
+    final anonymous = _auth.currentUser?.isAnonymous == true;
     final deviceRef = _database.ref('users/$ownerId/devices/$deviceId');
-    final previousDevice = await deviceRef.get();
-    final previousData = previousDevice.value is Map
-        ? Map<String, dynamic>.from(previousDevice.value! as Map)
-        : const <String, dynamic>{};
-    if (!isRegisteredDisplay(previousData)) {
-      throw StateError('디스플레이 연결이 해제되었습니다. 새 연결 코드를 확인해 주세요.');
-    }
-    final wasOnline = previousData['online'] == true;
-    final previousOfflineEventKey =
-        previousData['pendingOfflineEventKey'] as String?;
-    final eventRef = _database.ref('users/$ownerId/operations/events');
-    final onlineEvent = eventRef.push();
-    final offlineEvent = eventRef.push();
-    final updates = <String, Object?>{
-      'id': deviceId,
-      'mode': 'display',
-      'pairingCode': pairingCode,
-      'paired': true,
-      'online': true,
-      'lastSeenAtMs': ServerValue.timestamp,
-      'pendingOfflineEventKey': offlineEvent.key,
-      'playbackProtocol': 5,
-      'preparationProtocol': _auth.currentUser?.isAnonymous == true ? 1 : 0,
-      ...await displayInstallationInfo(),
-    };
-    if (!wasOnline) updates['onlineSinceMs'] = ServerValue.timestamp;
-    final result = await deviceRef.runTransaction((current) {
-      if (current == null) return Transaction.success(null);
-      if (current is! Map ||
-          !isRegisteredDisplay(current) ||
-          current['pairingCode'] != pairingCode) {
-        return Transaction.abort();
-      }
-      return Transaction.success({...current, ...updates});
-    }, applyLocally: false);
-    if (!result.committed || !result.snapshot.exists) {
-      throw StateError('디스플레이 연결이 변경되었습니다. 새 연결 코드를 확인해 주세요.');
-    }
-    if (!wasOnline) {
-      await onlineEvent.set({
-        'id': onlineEvent.key,
-        'type': 'device_online',
-        'occurredAtMs': ServerValue.timestamp,
-        'deviceId': deviceId,
-        'scheduled': false,
-      });
-    }
-    if (previousOfflineEventKey != null) {
-      await eventRef.child(previousOfflineEventKey).onDisconnect().cancel();
-    }
-    await deviceRef.onDisconnect().update({
-      'online': false,
-      'lastSeenAtMs': ServerValue.timestamp,
-    });
-    await offlineEvent.onDisconnect().set({
-      'id': offlineEvent.key,
-      'type': 'device_offline',
-      'occurredAtMs': ServerValue.timestamp,
-      'deviceId': deviceId,
-      'scheduled': false,
-    });
+    final installation = await displayInstallationInfo();
+    bool sameIdentity() => !_disposed && _auth.currentUser?.uid == uid;
+    final coordinator = DisplayPresenceCoordinator(
+      newConnectionId: () => deviceRef.child('presence').push().key!,
+      registerDisconnect: (id) async {
+        if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
+        // This one-shot hook belongs only to this physical connection. A late
+        // disconnect cannot change the pointer or a newer connection's state.
+        await deviceRef.child('presence/$id').onDisconnect().set({
+          'online': false,
+          'lastSeenAtMs': ServerValue.timestamp,
+        });
+      },
+      verify: (id) async {
+        if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
+        await FirebaseFunctions.instanceFor(
+              app: _auth.app,
+              region: 'asia-northeast3',
+            )
+            .httpsCallable(
+              'verifyDisplayConnection',
+              options: HttpsCallableOptions(
+                timeout: const Duration(seconds: 10),
+              ),
+            )
+            .call<Object?>({
+              'deviceId': deviceId,
+              'operationId': id,
+              'connectionId': id,
+              'appVersion': installation['appVersion'] ?? '',
+              'appBuild': installation['appBuild'] ?? '',
+            });
+      },
+      publish: (id, isCurrent) async {
+        final result = await deviceRef.runTransaction((current) {
+          if (!sameIdentity() || !isCurrent()) return Transaction.abort();
+          if (current == null) return Transaction.success(null);
+          if (current is! Map ||
+              !isRegisteredDisplay(current) ||
+              current['pairingCode'] != pairingCode ||
+              (anonymous && current['displayUid'] != uid)) {
+            return Transaction.abort();
+          }
+          final presence = current['presence'] is Map
+              ? Map<Object?, Object?>.from(current['presence'] as Map)
+              : <Object?, Object?>{};
+          presence[id] = {
+            'online': true,
+            'lastSeenAtMs': ServerValue.timestamp,
+          };
+          return Transaction.success({
+            ...current,
+            'presence': presence,
+            'currentConnectionId': id,
+            'presenceProtocol': 1,
+            'online': true,
+            'lastSeenAtMs': ServerValue.timestamp,
+            'onlineSinceMs': ServerValue.timestamp,
+            'playbackProtocol': 5,
+            'preparationProtocol': anonymous ? 1 : 0,
+            ...installation,
+          });
+        }, applyLocally: false);
+        if (!result.committed || !result.snapshot.exists) {
+          throw StateError('디스플레이 연결이 해제되었거나 변경되었습니다.');
+        }
+      },
+    );
+    _presence = coordinator;
+    coordinator.start(
+      _database
+          .ref('.info/connected')
+          .onValue
+          .map((event) => event.snapshot.value == true),
+    );
+    await coordinator.firstReady.timeout(const Duration(seconds: 20));
   }
 
   Future<DevicePairing> _issueLegacy({required String deviceId}) async {
@@ -479,9 +471,20 @@ class DevicePairingRealtimeDataSource {
         ? Map<String, dynamic>.from(previousDevice.value! as Map)
         : const <String, dynamic>{};
     final previousPairingCode = previousData['pairingCode'] as String?;
-    final previousOfflineEventKey =
-        previousData['pendingOfflineEventKey'] as String?;
-    final wasOnline = previousData['online'] == true;
+    if (isRegisteredDisplay(previousData) && previousPairingCode != null) {
+      await _markOnline(
+        ownerId: _ownerId!,
+        deviceId: deviceId,
+        pairingCode: previousPairingCode,
+      );
+      return DevicePairing(
+        code: previousPairingCode,
+        deviceId: deviceId,
+        expiresAtMs: DateTime.now()
+            .add(const Duration(days: 3650))
+            .millisecondsSinceEpoch,
+      );
+    }
     final expiresAtMs = DateTime.now()
         .add(const Duration(minutes: 10))
         .millisecondsSinceEpoch;
@@ -500,28 +503,15 @@ class DevicePairingRealtimeDataSource {
       });
       if (!result.committed) continue;
 
-      final onlineEvent = userRef.child('operations/events').push();
-      final offlineEvent = userRef.child('operations/events').push();
       final updates = <String, Object?>{
         'devices/$deviceId/id': deviceId,
         'devices/$deviceId/mode': 'display',
         'devices/$deviceId/pairingCode': code,
         'devices/$deviceId/pairingExpiresAtMs': expiresAtMs,
-        'devices/$deviceId/online': true,
+        'devices/$deviceId/online': false,
         'devices/$deviceId/lastSeenAtMs': ServerValue.timestamp,
-        'devices/$deviceId/pendingOfflineEventKey': offlineEvent.key,
         'devices/$deviceId/playbackProtocol': 5,
       };
-      if (!wasOnline) {
-        updates['devices/$deviceId/onlineSinceMs'] = ServerValue.timestamp;
-        updates['operations/events/${onlineEvent.key}'] = {
-          'id': onlineEvent.key,
-          'type': 'device_online',
-          'occurredAtMs': ServerValue.timestamp,
-          'deviceId': deviceId,
-          'scheduled': false,
-        };
-      }
       if (!previousDevice.exists) {
         updates['devices/$deviceId/displayState'] = 'auto';
       }
@@ -529,23 +519,6 @@ class DevicePairingRealtimeDataSource {
       if (previousPairingCode != null && previousPairingCode != code) {
         await userRef.child('pairingCodes/$previousPairingCode').remove();
       }
-      if (previousOfflineEventKey != null) {
-        await userRef
-            .child('operations/events/$previousOfflineEventKey')
-            .onDisconnect()
-            .cancel();
-      }
-      await deviceRef.onDisconnect().update({
-        'online': false,
-        'lastSeenAtMs': ServerValue.timestamp,
-      });
-      await offlineEvent.onDisconnect().set({
-        'id': offlineEvent.key,
-        'type': 'device_offline',
-        'occurredAtMs': ServerValue.timestamp,
-        'deviceId': deviceId,
-        'scheduled': false,
-      });
       return DevicePairing(
         code: code,
         deviceId: deviceId,
@@ -636,4 +609,107 @@ Future<Map<String, Object>> displayInstallationInfo() async {
   } catch (_) {
     return const {};
   }
+}
+
+/// Heartbeats never create a deleted registration, restore paired=true, or move
+/// the current connection pointer. Preparation ACKs may separately mark ready.
+Future<void> updateDisplayHeartbeat(
+  FirebaseDatabase database,
+  String ownerId,
+  String deviceId, {
+  bool ready = false,
+}) async {
+  final deviceRef = database.ref('users/$ownerId/devices/$deviceId');
+  final result = await deviceRef.runTransaction((current) {
+    if (current == null) return Transaction.success(null);
+    if (current is! Map ||
+        !isRegisteredDisplay(current) ||
+        current['id'] != deviceId) {
+      return Transaction.abort();
+    }
+    final update = <Object?, Object?>{
+      ...current,
+      'lastSeenAtMs': ServerValue.timestamp,
+    };
+    if (current['presenceProtocol'] == 1) {
+      final id = current['currentConnectionId'];
+      final raw = current['presence'];
+      if (id is! String ||
+          raw is! Map ||
+          raw[id] is! Map ||
+          (raw[id] as Map)['online'] != true) {
+        return Transaction.abort();
+      }
+      final presence = Map<Object?, Object?>.from(raw);
+      presence[id] = {
+        ...raw[id] as Map,
+        'lastSeenAtMs': ServerValue.timestamp,
+        if (ready) 'readyAtMs': ServerValue.timestamp,
+      };
+      update['presence'] = presence;
+    }
+    return Transaction.success(update);
+  }, applyLocally: false);
+  if (!result.committed || !result.snapshot.exists) {
+    throw StateError('디스플레이 연결을 다시 확인해 주세요.');
+  }
+}
+
+DisplayDevice decodeDisplayDevice(String deviceId, Map value) {
+  final item = Map<String, dynamic>.from(value);
+  final connectionId = item['currentConnectionId'] as String?;
+  final connections = item['presence'];
+  final presence = connections is Map && connections[connectionId] is Map
+      ? connections[connectionId] as Map
+      : const {};
+  final usesScopedPresence = item['presenceProtocol'] == 1;
+  final verification = item['connectionVerification'] is Map
+      ? item['connectionVerification'] as Map
+      : const {};
+  final health = item['preparationHealth'] is Map
+      ? item['preparationHealth'] as Map
+      : const {};
+  return DisplayDevice(
+    id: (item['id'] as String?) ?? deviceId,
+    name: (item['name'] as String?) ?? '연결 대기 디스플레이',
+    zoneId: (item['zoneId'] as String?) ?? 'main',
+    zoneName: (item['zoneName'] as String?) ?? '메인 구역',
+    online: usesScopedPresence
+        ? presence['online'] == true
+        : item['online'] == true,
+    connectionId: connectionId,
+    verifiedConnectionId: verification['connectionId'] as String?,
+    verifiedAtMs: (verification['verifiedAtMs'] as num?)?.toInt() ?? 0,
+    readyAtMs: (presence['readyAtMs'] as num?)?.toInt() ?? 0,
+    recoveryProtocol: (item['recoveryProtocol'] as num?)?.toInt() ?? 0,
+    preparationHealth: DisplayPreparationHealth(
+      stage: (health['stage'] as String?) ?? '',
+      code: (health['code'] as String?) ?? '',
+      attempt: (health['attempt'] as num?)?.toInt() ?? 0,
+      checkedAtMs: (health['checkedAtMs'] as num?)?.toInt() ?? 0,
+      requestId: health['requestId'] as String?,
+    ),
+    appVersion: (item['appVersion'] as String?) ?? '',
+    appBuild: (item['appBuild'] as String?) ?? '',
+    appPlatform: (item['appPlatform'] as String?) ?? '',
+    playbackProtocol: (item['playbackProtocol'] as num?)?.toInt() ?? 1,
+    preparationProtocol: (item['preparationProtocol'] as num?)?.toInt() ?? 0,
+    lastSeenAtMs:
+        ((usesScopedPresence ? presence['lastSeenAtMs'] : item['lastSeenAtMs'])
+                as num?)
+            ?.round() ??
+        0,
+    currentSessionId: item['currentSessionId'] as String?,
+    acknowledgedRevision: (item['acknowledgedRevision'] as num?)?.round() ?? 0,
+    paired: isRegisteredDisplay(item),
+    pairingCode: (item['pairingCode'] as String?) ?? '',
+    identificationId: item['identificationId'] as String?,
+    identificationExpiresAtMs:
+        (item['identificationExpiresAtMs'] as num?)?.round() ?? 0,
+    identificationAck: item['identificationAck'] as String?,
+    displayState: (item['displayState'] as String?) ?? 'auto',
+    preferences: decodeDisplayPreferences(item['preferences']),
+    lastCommandAtMs: (item['lastCommandAtMs'] as num?)?.round() ?? 0,
+    onlineSinceMs: (item['onlineSinceMs'] as num?)?.round() ?? 0,
+  );
 }

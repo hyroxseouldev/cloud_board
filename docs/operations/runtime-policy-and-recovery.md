@@ -68,3 +68,11 @@ node functions/tools/remote-rollout.mjs --project cloud-board-development \
 ```
 
 This prints the existing ETag and proposed parameter without writing. Add `--apply --expected-etag '<reviewed-etag>'` to publish; stale ETags fail instead of overwriting another change. Only the dedicated feature parameter changes, and Remote Config version history records the operator/reason. To restore prior feature values, publish those values with a higher policy revision and a new reason; blindly restoring an older revision is intentionally rejected by clients. Do not add per-device conditions to this parameter: center/account cohort selection belongs to the owner-stable policy, and TV uses the session decision.
+
+## TV connection records and retention (STA-176)
+
+The TV registers and awaits a connection-specific `onDisconnect` write before server verification and online publication. `devices/{deviceId}/currentConnectionId` selects the active row in `presence/{connectionId}`; a late disconnect writes only its old row and cannot change the active pointer. Manager freshness uses that selected row and a 75-second heartbeat deadline. Authentication and preparation readiness remain separate signals.
+
+Presence connection IDs are never reused. This first rollout retains old presence rows, so storage grows with reconnects (including failed verification attempts whose disconnect hooks later run), rather than with the 20-second heartbeat interval. No automatic retention job is included. Follow-up cleanup must preserve `currentConnectionId` and its row, operate only on older completed connections, and tolerate a delayed old disconnect recreating an offline row. Never cancel or remove the active connection's disconnect hook as a cleanup shortcut. Retention changes need a delayed-disconnect/reconnect emulator regression before rollout.
+
+A TV recovery listener does not automatically retry `permission-denied` or `unauthenticated`. Transient transport failures retry at most three times after 1, 2 and 4 seconds. Backgrounding or losing connectivity drops the subscription and its retry timer; returning to the foreground or reconnecting creates a fresh subscription under the current owner identity. These listener retries do not create new recovery requests or resend class commands.

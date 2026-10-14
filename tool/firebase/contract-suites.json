@@ -226,6 +226,14 @@
         "firestore",
         "database"
       ]
+    },
+    {
+      "id": "display-recovery",
+      "file": "functions/test/display-recovery-emulator.mjs",
+      "project": "demo-cloudboard-recovery",
+      "coverage": [
+        "database"
+      ]
     }
   ]
 }

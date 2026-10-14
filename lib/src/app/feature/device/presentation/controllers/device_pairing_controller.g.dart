@@ -147,3 +147,41 @@ abstract class _$DeviceClaimController extends $Notifier<AsyncValue<void>> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// Re-evaluates stale heartbeats even when the database emits no new values.
+
+@ProviderFor(displayHealthNow)
+final displayHealthNowProvider = DisplayHealthNowProvider._();
+
+/// Re-evaluates stale heartbeats even when the database emits no new values.
+
+final class DisplayHealthNowProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, Stream<int>>
+    with $FutureModifier<int>, $StreamProvider<int> {
+  /// Re-evaluates stale heartbeats even when the database emits no new values.
+  DisplayHealthNowProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'displayHealthNowProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$displayHealthNowHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<int> create(Ref ref) {
+    return displayHealthNow(ref);
+  }
+}
+
+String _$displayHealthNowHash() => r'fd5e0ac44687f5b48631be6e63b59ac61fc75301';

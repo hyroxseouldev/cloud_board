@@ -1,0 +1,13 @@
+✔ real native workflow conditions suppress every automatic backend-only upload job (11.231334ms)
+✔ real Hosting step publishes only the full scope (1.029375ms)
+✔ a complete recovery run passes with its exact required scenario (0.527416ms)
+✔ skip and a filtered-away scenario cannot produce a green release (0.490334ms)
+✔ missing, failed, incomplete and duplicate runs fail closed (0.888209ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57.540125

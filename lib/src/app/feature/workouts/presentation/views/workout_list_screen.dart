@@ -734,7 +734,10 @@ class _DisplayStatus extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider);
     final registered = devices.value?.where((d) => d.paired).toList();
-    final count = registered?.where((d) => d.online).length ?? 0;
+    final nowMs =
+        ref.watch(displayHealthNowProvider).value ??
+        DateTime.now().millisecondsSinceEpoch;
+    final count = registered?.where((d) => d.recentlySeen(nowMs)).length ?? 0;
     final label = devices.hasError
         ? '디스플레이 상태 확인 필요'
         : devices.isLoading || !devices.hasValue
