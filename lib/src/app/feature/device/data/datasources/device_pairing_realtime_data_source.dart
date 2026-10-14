@@ -13,6 +13,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
 
 class DevicePairingRealtimeDataSource {
   DevicePairingRealtimeDataSource(this._database, this._auth, this._ownerId);
@@ -22,11 +23,24 @@ class DevicePairingRealtimeDataSource {
   final String? _ownerId;
   DisplayPresenceCoordinator? _presence;
   String? _presenceDevice;
+  Future<void>? _presenceSetup;
+  DisplayConnectionState _connectionState = const DisplayConnectionState();
+  final _connectionStates = StreamController<DisplayConnectionState>.broadcast(
+    sync: true,
+  );
+
+  Stream<DisplayConnectionState> watchConnectionState() => Stream.multi((sink) {
+    sink.add(_connectionState);
+    final subscription = _connectionStates.stream.listen(sink.add);
+    sink.onCancel = subscription.cancel;
+  });
   bool _disposed = false;
+  final _issueFlights = <String, Future<DevicePairing>>{};
 
   void dispose() {
     _disposed = true;
     _presence?.dispose();
+    unawaited(_connectionStates.close());
   }
 
   DatabaseReference get _root => _database.ref();
@@ -44,12 +58,38 @@ class DevicePairingRealtimeDataSource {
         .map((event) => event.snapshot.value == true),
   );
 
-  Future<DevicePairing> issue({required String deviceId}) async {
+  Future<DevicePairing> issue({
+    required String deviceId,
+    bool retryConnection = false,
+  }) {
+    final key = '${_auth.currentUser?.uid}/$deviceId';
+    if (retryConnection && _presence?.exhausted == true) {
+      // Only an explicit user/environment retry may reopen a terminal cycle.
+      // A controller dependency rebuild must keep observing its existing error.
+      _presence?.dispose();
+      _presence = null;
+      _presenceDevice = null;
+      _presenceSetup = null;
+      _issueFlights.remove(key);
+    }
+    final existing = _issueFlights[key];
+    if (existing != null) return existing;
+    late final Future<DevicePairing> flight;
+    flight = _issueOnce(deviceId: deviceId).whenComplete(() {
+      if (identical(_issueFlights[key], flight)) _issueFlights.remove(key);
+    });
+    _issueFlights[key] = flight;
+    return flight;
+  }
+
+  Future<DevicePairing> _issueOnce({required String deviceId}) async {
     final user = _auth.currentUser;
-    if (user == null) throw StateError('디스플레이 연결을 준비하지 못했습니다.');
+    if (_disposed || user == null) throw StateError('디스플레이 연결을 준비하지 못했습니다.');
     if (!user.isAnonymous) return _issueLegacy(deviceId: deviceId);
     final accessRef = _database.ref('displayAccess/${user.uid}');
     final accessSnapshot = await accessRef.get();
+    bool sameIdentity() => !_disposed && _auth.currentUser?.uid == user.uid;
+    if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
     final access = accessSnapshot.value is Map
         ? Map<String, dynamic>.from(accessSnapshot.value! as Map)
         : const <String, dynamic>{};
@@ -82,6 +122,7 @@ class DevicePairingRealtimeDataSource {
       final code = generatePairingCode();
       final pairingRef = _database.ref('pairingCodes/$code');
       final result = await pairingRef.runTransaction((current) {
+        if (!sameIdentity()) return Transaction.abort();
         if (current != null) return Transaction.abort();
         return Transaction.success({
           'code': code,
@@ -91,6 +132,7 @@ class DevicePairingRealtimeDataSource {
           'claimed': false,
         });
       });
+      if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
       if (!result.committed) continue;
 
       await accessRef.set({
@@ -374,11 +416,35 @@ class DevicePairingRealtimeDataSource {
     required String deviceId,
     required String pairingCode,
   }) async {
+    // Controller rebuilds observe state transitions. They must join the same
+    // coordinator setup/verification rather than creating another connection.
+    final pending = _presenceSetup;
+    if (pending != null) {
+      await pending;
+      return _presence!.currentReady.timeout(const Duration(seconds: 20));
+    }
+    final work = _establishPresence(
+      ownerId: ownerId,
+      deviceId: deviceId,
+      pairingCode: pairingCode,
+    );
+    _presenceSetup = work;
+    try {
+      await work;
+      await _presence!.currentReady.timeout(const Duration(seconds: 20));
+    } finally {
+      if (identical(_presenceSetup, work)) _presenceSetup = null;
+    }
+  }
+
+  Future<void> _establishPresence({
+    required String ownerId,
+    required String deviceId,
+    required String pairingCode,
+  }) async {
     if (_disposed) throw StateError('디스플레이 연결이 변경되었습니다.');
-    if (_presenceDevice == deviceId &&
-        _presence != null &&
-        !_presence!.exhausted) {
-      return _presence!.firstReady.timeout(const Duration(seconds: 20));
+    if (_presenceDevice == deviceId && _presence != null) {
+      return _presence!.currentReady.timeout(const Duration(seconds: 20));
     }
     _presence?.dispose();
     _presenceDevice = deviceId;
@@ -387,7 +453,14 @@ class DevicePairingRealtimeDataSource {
     final deviceRef = _database.ref('users/$ownerId/devices/$deviceId');
     final installation = await displayInstallationInfo();
     bool sameIdentity() => !_disposed && _auth.currentUser?.uid == uid;
-    final coordinator = DisplayPresenceCoordinator(
+    if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
+    late final DisplayPresenceCoordinator coordinator;
+    coordinator = DisplayPresenceCoordinator(
+      onState: (state) {
+        if (!sameIdentity() || !identical(_presence, coordinator)) return;
+        _connectionState = state;
+        _connectionStates.add(state);
+      },
       newConnectionId: () => deviceRef.child('presence').push().key!,
       registerDisconnect: (id) async {
         if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
@@ -460,7 +533,7 @@ class DevicePairingRealtimeDataSource {
           .onValue
           .map((event) => event.snapshot.value == true),
     );
-    await coordinator.firstReady.timeout(const Duration(seconds: 20));
+    await coordinator.currentReady.timeout(const Duration(seconds: 20));
   }
 
   Future<DevicePairing> _issueLegacy({required String deviceId}) async {

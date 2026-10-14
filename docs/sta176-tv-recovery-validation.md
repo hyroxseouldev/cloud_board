@@ -17,7 +17,7 @@ Wake recovery must retry without another lifecycle event or tap
 
 [원본 실패 로그](release/sta176/tv-baseline-wake-failure.txt)는 수정 전 실행한 `/tmp/sta176-baseline-wake-failure.log`에서 작업 경로만 `<workspace>`로 바꾸어 보존했다. 수정 후 동일 테스트가 통과한다. 재시도 중에 공유 수업의 시작·일시정지·종료 명령을 만들지 않는 것도 검사한다.
 
-## 직접 실행한 로컬 검증
+## 최초 STA-176 후보에서 실행한 로컬 검증
 
 Flutter 버전은 저장소 `.fvmrc`의 `3.47.0`을 사용했다. 아래 두 테스트 실행에는 서로 겹치는 파일이 있으므로 통과 수를 합산하지 않는다.
 
@@ -29,7 +29,7 @@ Flutter 버전은 저장소 `.fvmrc`의 `3.47.0`을 사용했다. 아래 두 테
 | `git diff --check` | 종료 코드 0 | 로컬 실행 확인 |
 | `node --test tool/tv-recovery-check.test.mjs tool/firebase/workflow-scope.test.mjs` | 5개 통과 | [Gate 자체 및 native 조건 검사](release/sta176/tv-gate-review.txt) |
 
-통합 후 전체 Flutter 테스트는 **1,089개 통과**했고, 이후 구형 TV freshness와 준비 오류 시작 차단 회귀 2개를 추가했다. 최종 필수 TV 회귀 실행은 **7개 파일·67개 사례 통과, skip 0개**다. 필수 67개 사례를 manifest에 고정했으며 실행 결과는 [검증 결과 JSON](release/sta176/flutter-results.json)에 보존했다. 최종 전체 분석은 `No issues found!`, 포맷 검사는 693개 파일 중 변경 0개였다. Firebase/gate 도구의 Node 테스트 65개도 통과했고, 이후 실제 CLI 실패 시 이전 성공 증거가 제거되는 회귀 1개를 추가해 해당 runner의 4개 검사를 확인했다. 각 수치는 서로 겹치는 검사를 합산한 총계가 아니다.
+PR #61 통합 전 최초 후보 `caf4e19`까지 전체 Flutter 테스트는 **1,089개 통과**했고, 이후 구형 TV freshness와 준비 오류 시작 차단 회귀 2개를 추가했다. 최종 필수 TV 회귀 실행은 **7개 파일·67개 사례 통과, skip 0개**다. 필수 67개 사례를 manifest에 고정했으며 실행 결과는 [검증 결과 JSON](release/sta176/flutter-results.json)에 보존했다. 최종 전체 분석은 `No issues found!`, 포맷 검사는 693개 파일 중 변경 0개였다. Firebase/gate 도구의 Node 테스트 65개도 통과했고, 이후 실제 CLI 실패 시 이전 성공 증거가 제거되는 회귀 1개를 추가해 해당 runner의 4개 검사를 확인했다. 각 수치는 서로 겹치는 검사를 합산한 총계가 아니다.
 
 원본 로그 경로는 각각 `/tmp/sta176-tv-final-tests.log`, `/tmp/sta176-cold-start-tests.log`, `/tmp/sta176-tv-complete-analyze.log`이다. 이 문서의 보존본은 워크스페이스 절대 경로만 정리했다. 기기·계정 식별자, 인증 토큰 및 서버 응답 원문을 검증 기록에 넣지 않는다.
 
@@ -53,16 +53,30 @@ Flutter 버전은 저장소 `.fvmrc`의 `3.47.0`을 사용했다. 아래 두 테
 
 | 워크플로 | 필수 선행 관계 | 배포/업로드 차단 범위 |
 | --- | --- | --- |
-| `.github/workflows/firebase-development.yml` | `validate`에서 TV 회귀 완료 후 웹 빌드. `deploy`는 `needs: validate` | development Functions, rules, web 모두 |
-| `.github/workflows/firebase-hosting-merge.yml` | `app_validation`에서 TV 회귀. `firebase_required`가 `app_validation`, `firebase_contracts`, `deployment_plan`의 성공을 확인. `firebase_production`은 `firebase_required` 필요 | production rules-only/backend/full 경로 모두. Hosting은 full일 때만 |
-| `.github/workflows/google-play-main.yml` | `upload` 작업 안에서 TV 회귀 후 서명 번들 빌드 및 업로드. 기본 step 성공 조건 사용 | Android/TV AAB 빌드 및 Play internal 업로드. 수동 build-only도 회귀 검사를 통과해야 함 |
-| `.github/workflows/testflight-main.yml` | `verify`에서 TV 회귀. `upload` 조건에 `needs.verify.result == 'success'`를 명시 | iOS archive/IPA 빌드 및 TestFlight 업로드. 수동 build-only도 verify 필수 |
+| `.github/workflows/firebase-development.yml` | `validate`에서 TV 회귀 완료 후 웹 빌드. `deploy`는 `validate`와 `class_start_regressions` 필요 | development Functions, rules, web 모두 |
+| `.github/workflows/firebase-hosting-merge.yml` | `app_validation`에서 TV 회귀. `firebase_required`가 `app_validation`, `firebase_contracts`, `deployment_plan`, `class_start_regressions`의 성공을 확인. `firebase_production`은 `firebase_required` 필요 | production rules-only/backend/full 경로 모두. Hosting은 full일 때만 |
+| `.github/workflows/google-play-main.yml` | `upload` 작업 안에서 TV 회귀 후 서명 번들 빌드 및 업로드. `class_start_regressions` 성공도 필수 | Android/TV AAB 빌드 및 Play internal 업로드. 수동 build-only도 회귀 검사를 통과해야 함 |
+| `.github/workflows/testflight-main.yml` | `verify`에서 TV 회귀. `upload` 조건에 `verify`와 `class_start_regressions`의 성공을 명시 | iOS archive/IPA 빌드 및 TestFlight 업로드. 수동 build-only도 verify 필수 |
 
 `[skip google-play]`, `[skip testflight]`, `[backend only]`는 해당 native 업로드를 생략한다. TV 검사만 생략하고 업로드를 계속하는 우회 조건으로 사용되지 않는다. 수동 build-only 입력은 backend 배포 대기를 생략할 수 있지만 TV 회귀 검사는 생략하지 못한다.
 
 각 검증 작업은 성공/실패와 관계없이 `build/sta176/`를 `tv-recovery-{development|web|android|ios}-{run_id}-{run_attempt}` artifact로 30일 보존한다. 여기에는 실행된 Flutter machine 이벤트와, 성공한 경우 검증된 `flutter-results.json`이 들어간다. 결과 파일이 없으면 artifact 단계도 오류가 나며, 원래 회귀 검사 실패를 성공으로 바꾸지 않는다. 이 문서는 GitHub 브랜치 보호 설정이나 운영 배포 실행을 변경/검증했다고 주장하지 않는다.
 
 Android development 디버그 APK는 `fvm flutter build apk --debug --dart-define=FIREBASE_ENV=development`로 빌드에 성공했다. 산출물은 `build/app/outputs/flutter-apk/app-development-debug.apk`다. 빌드 성공은 기기 설치·실행이나 서명된 출시 AAB 검증을 뜻하지 않는다.
+
+## PR #61 및 최신 develop 통합
+
+최초 STA-176 후보 `caf4e19`에 PR #61의 `c065f3a`를 통합한 커밋은 `2112116`이며, develop의 PR #60(`877c2ca`)도 `2a76ace`에서 반영했다. 앞 절의 1,089개·67개 및 APK 결과는 최초 후보의 기록이며 이 통합본의 증거로 재사용하지 않는다.
+
+충돌 해소에서는 최신 승인 revision·삭제 tombstone·첫 SDK 모순 REST 재확인·dispose 보호를 유지하고 각 REST 읽기에 8초 제한을 결합했다. 복구 controller의 loading 우선 guard와 공유 handshake를 모두 보존했다. 시작 직전 및 transaction 재시도의 취소 확인, 예약 실행의 계정 A→B→A latch도 유지했다.
+
+준비 작업은 STA-176의 제한된 재시도만 사용한다. 15초 blanket invalidate를 제거하고 원본 오류·stack·operationId·stage 계측을 결합했다. 요청 stream 오류는 즉시 노출해 캐시된 준비 작업을 취소하며, 권한 거부와 예산 종료 후에는 연결/foreground 등 새 scope 전까지 중단한다. 누락 UID 복구는 서버 검증 경로 한 곳에서 수행하며 기존 PR #61 회귀를 이 계약에 맞춰 검증한다.
+
+재연결 시 현재 연결 세대의 verifying/ready/failed를 datasource에서 controller까지 전달한다. disconnect부터 해당 세대의 서버 검증 및 presence publish 완료까지 준비 구독·heartbeat를 차단한다. 일반 요청은 권한 거부/예산 소진을 다시 열지 않고 명시적 refresh 또는 새 연결만 복구를 시작한다. 최초 신규 TV 코드 발급도 UID·기기별 singleflight로 묶어 provider 재빌드가 두 코드를 발급하지 못하게 했다. 실제 datasource → repository/actions → 생성된 controller → 준비 hook 회귀를 포함한 관련 43개 검사가 통과했다.
+
+PR #61의 14개 suite VM/Chrome gate와 STA-176의 7개 suite TV gate를 모두 유지한다. STA-176 manifest는 기존 67개를 모두 유지하고 REST 제한시간 2개 및 현재 연결 readiness/권한 중단 3개를 더해 필수 72개 이름을 요구한다. 겹치는 suite의 통과 수를 합산하지 않는다. 두 runner 모두 새 실행 전에 이전 성공 결과를 제거하고, 실패한 실행의 새 로그를 보존한다. 배포의 두 gate 의존성과 실제 기기 출시 증거 gate도 유지한다.
+
+최종 보완 작업 트리에서 분석은 `No issues found!`, 수업 시작 VM gate는 **143개**, TV gate는 **91개** 통과했고 skip은 0개다. TV의 필수 72개 이름도 모두 확인했다. [통합 TV 결과](release/sta176/integration-flutter-results.json)와 [수업 시작 VM 결과](release/sta176/integration-class-start-vm.json)를 별도로 보존했다. 서버 기준 `2a76ace`의 Node 221개와 Firebase 계약 29개도 모두 통과했다. 전체 Flutter, 필수 Chrome 및 최종 후보 head 검증은 PR #63의 CI 결과와 artifact에서 확인한다. 실제 배포와 실기기 검수는 이번 작업 범위에 포함하지 않는다.
 
 ## 아직 수행하지 않은 검증
 

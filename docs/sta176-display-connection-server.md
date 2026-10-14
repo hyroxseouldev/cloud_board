@@ -60,7 +60,7 @@
 
 구형 owner 앱의 직접 RTDB 해제는 기존의 원자적 device/access 삭제 계약을 유지한다. 그 경로는 새 서버의 회수 transaction을 호출하지 않는다. 따라서 **구형 직접 해제와 이미 실행 중인 구형 Admin 두 단계 등록의 동시 경합까지 완전히 제거하려면 기존 `cloudboardPairDisplay`도 공통 원자 경로로 이관해야 한다.** 해당 기존 codebase의 전환과 혼합 버전 검수는 출시 조건이다. 새 앱만 검증하고 구형 endpoint까지 모두 원자화됐다고 보고하지 않는다.
 
-이 이관은 [STA-172의 소스 소유권 이관 PR #62](https://github.com/hyroxseouldev/cloud_board/pull/62)가 제공하는 `functions-legacy/src/services/pairing.ts`, `functions-legacy/src/index.ts`, `tool/legacy-auth-release.mjs`를 사용하는 별도 호환 패치 `hyroxseouldev/sta176-legacy-pairing`과 함께 검토한다. 기존 endpoint는 `cloudboard-auth` codebase와 `asia-southeast1`에 있으므로 이 PR의 `account-deletion` codebase에 같은 이름을 추가하지 않는다. 호환 패치의 계약은 기존 handler에서 인증·회수를 검증한 원래 Firebase ID token을 같은 프로젝트의 `asia-northeast3/pairDisplayConnection`으로 전달하고 기존 `{paired:true, deviceId}` 응답을 유지하는 것이다. 호출마다 새 operationId를 사용하며, 같은 호출의 HTTP 재전송은 같은 ID를 유지한다. 새 endpoint가 없거나 응답이 불확실하면 실패로 끝내고 기존 Admin 두 단계 쓰기로 돌아가지 않는다. 새 callable을 먼저 배포하고 legacy bridge와 강화 규칙을 검수한 뒤 새 앱을 출시해야 한다. 코드 패치와 별개로 실제 codebase 배포·혼합 버전 검수는 아직 수행하지 않았다.
+이 이관은 [STA-172의 소스 소유권 이관 PR #62](https://github.com/hyroxseouldev/cloud_board/pull/62)가 제공하는 `functions-legacy/src/services/pairing.ts`, `functions-legacy/src/index.ts`, `tool/legacy-auth-release.mjs`를 사용하는 별도 호환 [PR #64](https://github.com/hyroxseouldev/cloud_board/pull/64) (`hyroxseouldev/sta176-legacy-pairing`)과 함께 검토한다. 기존 endpoint는 `cloudboard-auth` codebase와 `asia-southeast1`에 있으므로 이 PR의 `account-deletion` codebase에 같은 이름을 추가하지 않는다. 호환 패치의 계약은 기존 handler에서 인증·회수를 검증한 원래 Firebase ID token을 같은 프로젝트의 `asia-northeast3/pairDisplayConnection`으로 전달하고 기존 `{paired:true, deviceId}` 응답을 유지하는 것이다. 호출마다 새 operationId를 사용하며, 같은 호출의 HTTP 재전송은 같은 ID를 유지한다. 새 endpoint가 없거나 응답이 불확실하면 실패로 끝내고 기존 Admin 두 단계 쓰기로 돌아가지 않는다. 새 callable을 먼저 배포하고 legacy bridge와 강화 규칙을 검수한 뒤 새 앱을 출시해야 한다. 코드 패치와 별개로 실제 codebase 배포·혼합 버전 검수는 아직 수행하지 않았다.
 
 ## 감사와 출시
 
@@ -76,4 +76,6 @@
 
 `display-recovery` 에뮬레이터 suite는 공통 Firebase 필수 manifest에 등록되어 있다. 서버 Node 테스트, 실제 최신/지원 구버전 payload 계약, 회수·identity 삭제·빈 구독·3회 재접속·준비 응답·TV 1대 격리를 자동 검증한다. 실기기의 Wi-Fi/절전/24시간 결과는 이 자동 검사로 대체할 수 없다.
 
-2026-10-15 로컬 최종 서버 검증: Node 테스트 **208개 통과**(신규 34개 포함), 공통 Firebase 에뮬레이터 **28개 suite 통과, skip 0개**. 에뮬레이터 전체 실행은 00:29:13 KST에 완료했다. HTTP timeout 뒤 오래된 검증이 새 연결 증거를 덮는 경우, 연결 코드 재사용 뒤 이전 pair/unpair 요청이 새 연결을 변경하는 경우, 누락 UID 상태에서 실제 SDK `onDisconnect.set` 사전 등록까지 검사했다.
+2026-10-15 최초 후보 `caf4e19`의 서버 검증: Node 테스트 **208개 통과**(신규 34개 포함), 공통 Firebase 에뮬레이터 **28개 suite 통과, skip 0개**. 에뮬레이터 전체 실행은 00:29:13 KST에 완료했다. HTTP timeout 뒤 오래된 검증이 새 연결 증거를 덮는 경우, 연결 코드 재사용 뒤 이전 pair/unpair 요청이 새 연결을 변경하는 경우, 누락 UID 상태에서 실제 SDK `onDisconnect.set` 사전 등록까지 검사했다.
+
+PR #61 및 최신 develop 통합 서버 기준 `2a76aceda6df4cfb45e3b1a757d1f466717cfbd8` 재검증: Node **221/221**, Firebase 도구 **53/53**, 실제 Firebase 계약 **29/29 suite** 통과, skip 0개. 2026-10-15 00:52:03 KST 완료. support-tickets 계약의 Storage 필수 조건과 기존 함수 export, development 대상 목록도 유지했다. [통합 계약 결과](release/sta176/integration-contract-results.json)는 이 서버 소스 기준의 증거다. 외부 메일 발송과 운영 배포는 수행하지 않았다.

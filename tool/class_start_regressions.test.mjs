@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {dirname, join} from 'node:path';
 import {requiredSuites, validateTestEvents} from './class_start_regressions.mjs';
 import {requireReleaseJobs} from './firebase/release.mjs';
 const fixture = () => [...requiredSuites.flatMap((path, id) => [
@@ -23,6 +26,66 @@ for (const kind of ['failed', 'skipped', 'missing-suite', 'zero-tests', 'missing
     assert.throws(() => validateTestEvents(events));
   });
 }
+function cliFixture(t, platform = 'vm') {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'class-start-gate-')));
+  t.after(() => rmSync(root, {recursive: true, force: true}));
+  const runner = join(root, 'class_start_regressions.mjs');
+  copyFileSync(new URL('./class_start_regressions.mjs', import.meta.url), runner);
+  for (const suite of requiredSuites) {
+    mkdirSync(dirname(join(root, suite)), {recursive: true});
+    writeFileSync(join(root, suite), '// Isolated fake Flutter input.\n');
+  }
+  mkdirSync(join(root, 'build/class-start'), {recursive: true});
+  const report = join(root, `build/class-start/${platform}.json`);
+  const machine = join(root, `build/class-start/${platform}.jsonl`);
+  const flutter = join(root, 'fake-flutter');
+  const argsPath = join(root, 'flutter-args.json');
+  writeFileSync(report, JSON.stringify({previousRun: true, tests: 100}));
+  writeFileSync(machine, 'previous-green-machine-output\n');
+  return {root, report, machine, flutter, argsPath, run: () => {
+    const result = spawnSync(process.execPath, [runner, platform], {cwd: root, encoding: 'utf8', timeout: 10_000,
+      env: {...process.env, FLUTTER_BIN: flutter, CLASS_START_GATE_ARGS: argsPath}});
+    assert.ifError(result.error);
+    assert.equal(result.status, 1);
+    assert.equal(existsSync(report), false, 'A failed run must not retain an earlier successful result');
+    return result;
+  }};
+}
+for (const platform of ['vm', 'chrome']) {
+  test(`failed ${platform} CLI clears old success and preserves new machine evidence`, t => {
+    const f = cliFixture(t, platform);
+    const output = `${JSON.stringify({type: 'done', success: false})}\n`;
+    writeFileSync(f.flutter, `#!/usr/bin/env node
+require('node:fs').writeFileSync(process.env.CLASS_START_GATE_ARGS, JSON.stringify(process.argv.slice(2)));
+process.stdout.write(${JSON.stringify(output)});
+process.exitCode = 17;
+`, {mode: 0o755});
+    assert.match(f.run().stderr, new RegExp(`Flutter ${platform} failed`));
+    assert.equal(readFileSync(f.machine, 'utf8'), output);
+    assert.deepEqual(JSON.parse(readFileSync(f.argsPath, 'utf8')),
+      ['test', '--machine', ...(platform === 'chrome' ? ['--platform', 'chrome'] : []), ...requiredSuites]);
+  });
+}
+test('invalid machine evidence from a successful CLI cannot retain a previous green report', t => {
+  const f = cliFixture(t);
+  const events = fixture();
+  events[2].skipped = true;
+  const output = `${events.map(event => JSON.stringify(event)).join('\n')}\n`;
+  writeFileSync(f.flutter, `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(output)});\n`, {mode: 0o755});
+  assert.match(f.run().stderr, /Skipped class-start regression/);
+  assert.equal(readFileSync(f.machine, 'utf8'), output);
+});
+test('a missing required suite clears previous CLI evidence before Flutter starts', t => {
+  const f = cliFixture(t);
+  rmSync(join(f.root, requiredSuites[0]));
+  assert.match(f.run().stderr, /Missing required suite/);
+  assert.equal(existsSync(f.machine), false);
+});
+test('a Flutter launch failure clears the old report and saves only new machine output', t => {
+  const f = cliFixture(t);
+  assert.match(f.run().stderr, /ENOENT/);
+  assert.equal(readFileSync(f.machine, 'utf8'), '');
+});
 test('all release and development deploys require the class-start job', () => {
   for (const name of ['firebase-hosting-merge', 'firebase-development', 'google-play-main', 'testflight-main']) {
     const workflow = readFileSync(`.github/workflows/${name}.yml`, 'utf8');

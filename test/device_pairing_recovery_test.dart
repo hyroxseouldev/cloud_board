@@ -1,5 +1,20 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/device/data/repositories/device_pairing_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
+import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/device/data/repositories/display_preparation_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/device/domain/repositories/display_preparation_repository.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -60,7 +75,17 @@ void main() {
           try {
             return [await verify(parameters)];
           } on PlatformException catch (error) {
-            return [error.code, error.message, error.details];
+            // Match the native FlutterFire envelope, whose details carry the
+            // callable status separately from the Pigeon transport error code.
+            return [
+              error.code,
+              error.message ?? 'Fixture callable failure',
+              {
+                'code': error.code,
+                'message': error.message ?? 'Fixture callable failure',
+                'additionalData': error.details,
+              },
+            ];
           }
         });
   });
@@ -157,6 +182,220 @@ void main() {
   );
 
   testWidgets(
+    'initial readiness emission joins unpaired code issuance before the access read completes',
+    (tester) async {
+      db.write('displayAccess/display', {'deviceId': 'tv'});
+      db.write('users/owner/devices', <String, Object?>{});
+      db.accessReadBarrier = Completer<void>();
+      final fixture = _ReadinessFixture(db);
+      final listener = fixture.container.listen(
+        devicePairingControllerProvider,
+        (_, _) {},
+      );
+      await tester.pumpAndSettle();
+      expect(fixture.state.isLoading, isTrue);
+      expect(
+        db.accessReads,
+        1,
+        reason: 'initial Loading→idle rebuild joins the same issue flight',
+      );
+      db.accessReadBarrier!.complete();
+      await tester.pumpAndSettle();
+      expect(
+        fixture.state.hasValue &&
+            !fixture.state.isLoading &&
+            !fixture.state.hasError,
+        isTrue,
+      );
+      final code = fixture.state.value.code as String;
+      expect(
+        db.transactions.where((path) => path.startsWith('pairingCodes/')),
+        ['pairingCodes/$code'],
+      );
+      expect(db.accessWrites, 1);
+      expect((db.read('displayAccess/display') as Map)['pairingCode'], code);
+      expect(db.log.where((entry) => entry.startsWith('verify:')), isEmpty);
+      listener.close();
+      await fixture.close(tester);
+    },
+  );
+
+  testWidgets(
+    'current connection verification and publish gate real controller preparation after reconnect',
+    (tester) async {
+      final fixture = _ReadinessFixture(db);
+      await fixture.mount(tester);
+      expect(fixture.state.hasValue, isTrue);
+      expect(fixture.preparation.subscriptions, 1);
+      expect(fixture.preparation.heartbeats, 1);
+      expect(db.log.where((e) => e.startsWith('verify:')), hasLength(1));
+      final verified = verify;
+      final gate = Completer<void>();
+      db.publishBarrier = Completer<void>();
+      verify = (parameters) async {
+        await gate.future;
+        return verified(parameters);
+      };
+      db.connection.add(false);
+      await tester.pumpAndSettle();
+      expect(fixture.state.isLoading, isTrue);
+      db.connection.add(true);
+      await tester.pumpAndSettle();
+      expect(fixture.state.isLoading, isTrue);
+      expect(fixture.preparation.subscriptions, 1);
+      expect(fixture.preparation.heartbeats, 1);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(
+        fixture.state.isLoading,
+        isTrue,
+        reason: 'verification alone cannot bypass presence publish',
+      );
+      expect(fixture.preparation.heartbeats, 1);
+      db.publishBarrier!.complete();
+      await tester.pumpAndSettle();
+      expect(
+        fixture.state.hasValue &&
+            !fixture.state.isLoading &&
+            !fixture.state.hasError,
+        isTrue,
+      );
+      expect(fixture.preparation.subscriptions, 2);
+      expect(fixture.preparation.heartbeats, 2);
+      expect(
+        db.log.where((e) => e.startsWith('verify:')),
+        hasLength(2),
+        reason: 'controller rebuilds must join one coordinator',
+      );
+      await fixture.close(tester);
+    },
+  );
+
+  for (final manual in [false, true]) {
+    testWidgets(
+      'reconnect permission denial stays blocked until ${manual ? 'explicit refresh' : 'a new connection'}',
+      (tester) async {
+        final fixture = _ReadinessFixture(db);
+        await fixture.mount(tester);
+        final verified = verify;
+        verify = (_) async => throw PlatformException(
+          code: 'permission-denied',
+          message: 'private failure',
+        );
+        db.connection.add(false);
+        await tester.pumpAndSettle();
+        db.connection.add(true);
+        await tester.pumpAndSettle();
+        expect(fixture.state.hasError, isTrue);
+        expect(fixture.preparation.subscriptions, 1);
+        expect(fixture.preparation.heartbeats, 1);
+        expect(
+          fixture.diagnostics.events.single.context['action'],
+          'pairing.verify',
+        );
+        expect(
+          fixture.diagnostics.events.single.context['firebaseCode'],
+          'permission-denied',
+        );
+        await tester.pump(const Duration(seconds: 40));
+        await tester.pumpAndSettle();
+        expect(db.log.where((e) => e.startsWith('verify:')), hasLength(2));
+        expect(fixture.state.hasError, isTrue);
+        verify = verified;
+        if (manual) {
+          unawaited(
+            fixture.container
+                .read(devicePairingControllerProvider.notifier)
+                .refresh(),
+          );
+        } else {
+          db.connection.add(false);
+          await tester.pumpAndSettle();
+          db.connection.add(true);
+        }
+        await tester.pumpAndSettle();
+        expect(
+          fixture.state.hasValue &&
+              !fixture.state.isLoading &&
+              !fixture.state.hasError,
+          isTrue,
+        );
+        expect(fixture.preparation.subscriptions, 2);
+        expect(fixture.preparation.heartbeats, 2);
+        expect(db.log.where((e) => e.startsWith('verify:')), hasLength(3));
+        await fixture.close(tester);
+      },
+    );
+  }
+
+  testWidgets(
+    'stale reconnect success cannot unblock a newer connection verification',
+    (tester) async {
+      final fixture = _ReadinessFixture(db);
+      await fixture.mount(tester);
+      final verified = verify;
+      final old = Completer<void>(), current = Completer<void>();
+      verify = (parameters) async {
+        await (parameters['connectionId'] == 'event-1'
+            ? old.future
+            : current.future);
+        return verified(parameters);
+      };
+      db.connection.add(false);
+      await tester.pumpAndSettle();
+      db.connection.add(true);
+      await tester.pumpAndSettle();
+      db.connection.add(false);
+      await tester.pumpAndSettle();
+      db.connection.add(true);
+      await tester.pumpAndSettle();
+      old.complete();
+      await tester.pumpAndSettle();
+      expect(fixture.state.isLoading, isTrue);
+      expect(fixture.preparation.subscriptions, 1);
+      expect(fixture.preparation.heartbeats, 1);
+      expect(db.device['currentConnectionId'], 'event-0');
+      current.complete();
+      await tester.pumpAndSettle();
+      expect(
+        fixture.state.hasValue &&
+            !fixture.state.isLoading &&
+            !fixture.state.hasError,
+        isTrue,
+      );
+      expect(db.device['currentConnectionId'], 'event-2');
+      expect(fixture.preparation.subscriptions, 2);
+      expect(fixture.preparation.heartbeats, 2);
+      await fixture.close(tester);
+    },
+  );
+
+  testWidgets(
+    'reconnect transport retry exhaustion remains blocked without an automatic controller restart',
+    (tester) async {
+      final fixture = _ReadinessFixture(db);
+      await fixture.mount(tester);
+      verify = (_) async => throw PlatformException(code: 'unavailable');
+      db.connection.add(false);
+      await tester.pumpAndSettle();
+      db.connection.add(true);
+      await tester.pumpAndSettle();
+      for (final seconds in [1, 2, 4, 8, 16]) {
+        await tester.pump(Duration(seconds: seconds));
+        await tester.pumpAndSettle();
+      }
+      expect(fixture.state.hasError, isTrue);
+      expect(db.log.where((e) => e.startsWith('verify:')), hasLength(7));
+      await tester.pump(const Duration(seconds: 40));
+      await tester.pumpAndSettle();
+      expect(db.log.where((e) => e.startsWith('verify:')), hasLength(7));
+      expect(fixture.preparation.subscriptions, 1);
+      expect(fixture.preparation.heartbeats, 1);
+      await fixture.close(tester);
+    },
+  );
+
+  testWidgets(
     'server denial cannot publish presence or replace a foreign UID',
     (tester) async {
       db.device['displayUid'] = 'another-display';
@@ -212,7 +451,7 @@ void main() {
       final source = DevicePairingRealtimeDataSource(db, _Auth(), 'owner');
       final failure = expectLater(
         source.issue(deviceId: 'tv'),
-        throwsA(isA<TimeoutException>()),
+        throwsStateError,
       );
       await tester.pump();
       source.dispose();
@@ -272,7 +511,8 @@ class _Database extends Fake implements FirebaseDatabase {
   };
   final connection = StreamController<bool>.broadcast();
   final log = <String>[], transactions = <String>[];
-  Completer<void>? disconnectBarrier;
+  Completer<void>? disconnectBarrier, publishBarrier, accessReadBarrier;
+  int accessReads = 0, accessWrites = 0;
   bool failPublishOnce = false, removeBeforePublish = false;
   int serial = 0;
   Map get device => read('users/owner/devices/tv')! as Map;
@@ -313,7 +553,21 @@ class _Reference extends Fake implements DatabaseReference {
   @override
   DatabaseReference push() => child('event-${db.serial++}');
   @override
-  Future<DataSnapshot> get() async => _Snapshot(db.read(path));
+  Future<DataSnapshot> get() async {
+    if (path == 'displayAccess/display') {
+      db.accessReads++;
+      await db.accessReadBarrier?.future;
+    }
+    return _Snapshot(db.read(path));
+  }
+
+  @override
+  Future<void> set(Object? value) async {
+    expectSync(path, 'displayAccess/display');
+    db.accessWrites++;
+    db.write(path, value);
+  }
+
   @override
   Stream<DatabaseEvent> get onValue => Stream.multi((sink) {
     expectSync(path, '.info/connected');
@@ -330,11 +584,17 @@ class _Reference extends Fake implements DatabaseReference {
   }) async {
     db.transactions.add(path);
     db.log.add('transaction:$path');
+    if (path.startsWith('pairingCodes/')) {
+      final transaction = handler(db.read(path));
+      if (!transaction.aborted) db.write(path, transaction.value);
+      return _Result(!transaction.aborted, db.read(path));
+    }
     expectSync(
       path,
       'users/owner/devices/tv',
       reason: 'The client never patches reverse UID separately.',
     );
+    await db.publishBarrier?.future;
     if (db.failPublishOnce) {
       db.failPublishOnce = false;
       throw FirebaseException(plugin: 'firebase_database', code: 'unavailable');
@@ -378,5 +638,92 @@ class _Disconnect extends Fake implements OnDisconnect {
     expectSync(value, {'online': false, 'lastSeenAtMs': ServerValue.timestamp});
     db.log.add('disconnect:$path');
     if (db.disconnectBarrier != null) await db.disconnectBarrier!.future;
+  }
+}
+
+class _Diagnostics implements DiagnosticSink {
+  final events = <DiagnosticEvent>[];
+  @override
+  Future<void> send(DiagnosticEvent event) async => events.add(event);
+}
+
+class _PreparationProbe extends Fake implements DisplayPreparationRepository {
+  int subscriptions = 0, heartbeats = 0;
+  @override
+  Stream<DisplayPreparation?> watchRequest(String deviceId) {
+    subscriptions++;
+    return Stream.value(null);
+  }
+
+  @override
+  Future<void> heartbeat(String deviceId, {bool ready = false}) async {
+    heartbeats++;
+  }
+
+  @override
+  Future<void> reportHealth(
+    String deviceId, {
+    String? stage,
+    String? code,
+    int attempt = 1,
+    String? requestId,
+  }) async {}
+}
+
+class _ReadinessHarness extends HookConsumerWidget {
+  const _ReadinessHarness();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pairing = ref.watch(devicePairingControllerProvider);
+    useDisplayPreparation(
+      context,
+      ref,
+      deviceId: 'tv',
+      paired: pairing.hasValue && !pairing.isLoading && !pairing.hasError,
+      standby: true,
+      connected: true,
+      foreground: true,
+    );
+    return const SizedBox();
+  }
+}
+
+class _ReadinessFixture {
+  _ReadinessFixture(_Database database)
+    : source = DevicePairingRealtimeDataSource(database, _Auth(), 'owner');
+  final DevicePairingRealtimeDataSource source;
+  final preparation = _PreparationProbe();
+  final diagnostics = _Diagnostics();
+  late final container = ProviderContainer(
+    overrides: [
+      devicePairingActionsProvider.overrideWithValue(
+        DevicePairingActions(DevicePairingRepositoryImpl(source)),
+      ),
+      deviceIdProvider.overrideWith((_) async => 'tv'),
+      displayPreparationRepositoryProvider.overrideWithValue(preparation),
+      serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+      errorReporterProvider.overrideWithValue(ErrorReporter(diagnostics)),
+      operationTelemetryProvider.overrideWithValue(
+        OperationTelemetry(readAccount: () => 'display', emit: (_, _) async {}),
+      ),
+    ],
+  );
+  AsyncValue<dynamic> get state =>
+      container.read(devicePairingControllerProvider);
+  Future<void> mount(WidgetTester tester) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: _ReadinessHarness()),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> close(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    container.dispose();
+    source.dispose();
+    await tester.pump();
   }
 }

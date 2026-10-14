@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/display_presence_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
 
 Future<void> flush() => Future<void>.delayed(Duration.zero);
 
@@ -110,6 +112,75 @@ void main() {
     coordinator.dispose();
     await transport.close();
   });
+
+  for (final code in ['permission-denied', 'unauthenticated']) {
+    test(
+      'current connection $code stops without spending the retry budget',
+      () async {
+        final transport = StreamController<bool>();
+        final states = <DisplayConnectionState>[];
+        var attempts = 0;
+        final coordinator = DisplayPresenceCoordinator(
+          retryDelays: [Duration.zero, Duration.zero],
+          onState: states.add,
+          newConnectionId: () => 'c${++attempts}',
+          registerDisconnect: (_) async {},
+          verify: (_) async =>
+              throw FirebaseException(plugin: 'functions', code: code),
+          publish: (_, _) async => fail('Denied verification cannot publish'),
+        );
+        final failure = expectLater(
+          coordinator.currentReady,
+          throwsA(isA<FirebaseException>()),
+        );
+        coordinator.start(transport.stream);
+        transport.add(true);
+        await failure;
+        await flush();
+        expect(attempts, 1);
+        expect(coordinator.exhausted, isTrue);
+        expect(states.last.phase, DisplayConnectionPhase.failed);
+        coordinator.dispose();
+        await transport.close();
+      },
+    );
+  }
+
+  test(
+    'a ready future is replaced on disconnect and waits for the next publish',
+    () async {
+      final transport = StreamController<bool>();
+      final states = <DisplayConnectionState>[];
+      var nextPublish = Completer<void>()..complete();
+      final coordinator = DisplayPresenceCoordinator(
+        onState: states.add,
+        newConnectionId: () => 'c${states.length}',
+        registerDisconnect: (_) async {},
+        verify: (_) async {},
+        publish: (_, _) => nextPublish.future,
+      );
+      coordinator.start(transport.stream);
+      transport.add(true);
+      final first = coordinator.currentReady;
+      await first;
+      nextPublish = Completer<void>();
+      transport.add(false);
+      await flush();
+      final current = coordinator.currentReady;
+      expect(identical(first, current), isFalse);
+      var ready = false;
+      unawaited(current.then((_) => ready = true));
+      transport.add(true);
+      await flush();
+      expect(states.last.phase, DisplayConnectionPhase.verifying);
+      expect(ready, isFalse);
+      nextPublish.complete();
+      await current;
+      expect(states.last.phase, DisplayConnectionPhase.ready);
+      coordinator.dispose();
+      await transport.close();
+    },
+  );
 
   test('account disposal during verification cannot publish online', () async {
     final transport = StreamController<bool>();

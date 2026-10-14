@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
+
 /// Orders a connection's disconnect registration, server authentication, and
 /// presence publication. Every async boundary is fenced by the connection epoch.
 class DisplayPresenceCoordinator {
@@ -9,6 +12,7 @@ class DisplayPresenceCoordinator {
     required this.verify,
     required this.publish,
     this.onError,
+    this.onState,
     this.retryDelays = const [
       Duration(seconds: 1),
       Duration(seconds: 2),
@@ -16,13 +20,16 @@ class DisplayPresenceCoordinator {
       Duration(seconds: 8),
       Duration(seconds: 16),
     ],
-  });
+  }) {
+    _ready.future.ignore();
+  }
   final String Function() newConnectionId;
   final Future<void> Function(String connectionId) registerDisconnect;
   final Future<void> Function(String connectionId) verify;
   final Future<void> Function(String connectionId, bool Function() isCurrent)
   publish;
   final void Function(Object error, StackTrace stack)? onError;
+  final void Function(DisplayConnectionState state)? onState;
   final List<Duration> retryDelays;
   StreamSubscription<bool>? _subscription;
   Timer? _retry;
@@ -30,8 +37,36 @@ class DisplayPresenceCoordinator {
   int _epoch = 0, _attempt = 0;
   bool _exhausted = false;
   bool get exhausted => _exhausted;
-  final _firstReady = Completer<void>();
-  Future<void> get firstReady => _firstReady.future;
+  var _ready = Completer<void>();
+  Future<void> get currentReady => _ready.future;
+  // Kept for existing callers; each new connection now has fresh readiness.
+  Future<void> get firstReady => currentReady;
+
+  void _resetReadiness() {
+    if (_ready.isCompleted) {
+      _ready = Completer<void>();
+      _ready.future.ignore();
+    }
+    onState?.call(
+      DisplayConnectionState(
+        phase: DisplayConnectionPhase.verifying,
+        generation: _epoch,
+      ),
+    );
+  }
+
+  void _fail(Object error, StackTrace stack) {
+    _exhausted = true;
+    onState?.call(
+      DisplayConnectionState(
+        phase: DisplayConnectionPhase.failed,
+        generation: _epoch,
+        error: error,
+        stack: stack,
+      ),
+    );
+    if (!_ready.isCompleted) _ready.completeError(error, stack);
+  }
 
   void start(Stream<bool> connection) {
     _subscription = connection.distinct().listen(
@@ -41,9 +76,18 @@ class DisplayPresenceCoordinator {
         _attempt = 0;
         _exhausted = false;
         _retry?.cancel();
+        _resetReadiness();
         if (connected) unawaited(_drain());
       },
-      onError: (Object error, StackTrace stack) => onError?.call(error, stack),
+      onError: (Object error, StackTrace stack) {
+        if (_disposed) return;
+        _connected = false;
+        _epoch++;
+        _retry?.cancel();
+        _resetReadiness();
+        onError?.call(error, stack);
+        _fail(error, stack);
+      },
     );
   }
 
@@ -62,15 +106,23 @@ class DisplayPresenceCoordinator {
       if (!current()) return;
       _attempt = 0;
       _exhausted = false;
-      if (!_firstReady.isCompleted) _firstReady.complete();
+      onState?.call(
+        DisplayConnectionState(
+          phase: DisplayConnectionPhase.ready,
+          generation: epoch,
+        ),
+      );
+      if (!_ready.isCompleted) _ready.complete();
     } catch (error, stack) {
       if (current()) {
         onError?.call(error, stack);
-        if (_attempt < retryDelays.length) {
+        final code = operationFailureCode(error);
+        if (code != 'permission-denied' &&
+            code != 'unauthenticated' &&
+            _attempt < retryDelays.length) {
           _retry = Timer(retryDelays[_attempt++], () => unawaited(_drain()));
         } else {
-          _exhausted = true;
-          if (!_firstReady.isCompleted) _firstReady.completeError(error, stack);
+          _fail(error, stack);
         }
       }
     } finally {
@@ -85,6 +137,9 @@ class DisplayPresenceCoordinator {
     _disposed = true;
     _epoch++;
     _retry?.cancel();
+    if (!_ready.isCompleted) {
+      _ready.completeError(StateError('디스플레이 연결이 변경되었습니다.'));
+    }
     unawaited(_subscription?.cancel());
   }
 }
