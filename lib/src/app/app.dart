@@ -65,6 +65,7 @@ class XonBoardApp extends HookConsumerWidget {
           ? errorMessage?.call(next.error) ?? '$errorPrefix. 잠시 후 다시 시도해 주세요.'
           : next.value;
       if (message == null) return;
+      final supportOwnerId = ref.read(authStateProvider).value?.id;
       _scaffoldMessengerKey.currentState
         ?..hideCurrentSnackBar()
         ..showSnackBar(
@@ -76,6 +77,11 @@ class XonBoardApp extends HookConsumerWidget {
                 ? SnackBarAction(
                     label: '문제 문의하기',
                     onPressed: () {
+                      if (ref.read(authStateProvider).value?.id !=
+                          supportOwnerId) {
+                        ref.read(appRouterProvider).push('/support');
+                        return;
+                      }
                       final reporter = ref.read(errorReporterProvider);
                       final event =
                           reporter.eventFor(next.error) ??
@@ -90,10 +96,7 @@ class XonBoardApp extends HookConsumerWidget {
                             '/support',
                             extra: {
                               ...supportDiagnosticsForEvent(event),
-                              '_supportOwnerId': ref
-                                  .read(authStateProvider)
-                                  .value
-                                  ?.id,
+                              '_supportOwnerId': supportOwnerId,
                             },
                           );
                     },
