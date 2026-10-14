@@ -51,7 +51,7 @@ class StoreEntitlementModel {
   final int? aiSlidesMonthlyLimit;
   final int? aiTimerMonthlyLimit;
   factory StoreEntitlementModel.fromJson(Map<String, dynamic> json) =>
-      _$StoreEntitlementModelFromJson(json);
+      _$StoreEntitlementModelFromJson(_storageFields(json));
   Map<String, dynamic> toJson() => _$StoreEntitlementModelToJson(this);
   StoreEntitlement toEntity(String uid, bool confirmed, int now) =>
       StoreEntitlement(
@@ -76,4 +76,39 @@ class StoreEntitlementModel {
         aiSlidesMonthlyLimit: aiSlidesMonthlyLimit,
         aiTimerMonthlyLimit: aiTimerMonthlyLimit,
       );
+}
+
+Map<String, dynamic> _storageFields(Map<String, dynamic> json) {
+  final result = Map<String, dynamic>.of(json);
+  // Server-owned legacy aliases describe the same saved-slide resource. Never
+  // combine contradictory primary/alias values into an unlimited permission.
+  var conflictingSlides = false;
+  for (final (primary, alias) in const [
+    ('maxSavedSlides', 'maxFavorites'),
+    ('savedSlidesUnlimited', 'favoritesUnlimited'),
+  ]) {
+    if (!json.containsKey(primary)) {
+      if (json.containsKey(alias)) result[primary] = json[alias];
+    } else if (json.containsKey(alias) && json[primary] != json[alias]) {
+      conflictingSlides = true;
+    }
+  }
+  if (conflictingSlides) {
+    result['maxSavedSlides'] = -1;
+    result['savedSlidesUnlimited'] = false;
+  }
+  // json_serializable otherwise truncates fractions with num.toInt(). Invalid
+  // quota values must remain unknown, including true + a malformed finite cap.
+  for (final key in ['maxWorkouts', 'maxSavedSlides']) {
+    final value = result[key];
+    if (value != null &&
+        (value is! num ||
+            !value.isFinite ||
+            value < 0 ||
+            value > 9007199254740991 ||
+            value != value.truncateToDouble())) {
+      result[key] = -1;
+    }
+  }
+  return result;
 }

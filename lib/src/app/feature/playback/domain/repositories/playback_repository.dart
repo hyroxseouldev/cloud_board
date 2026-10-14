@@ -16,6 +16,7 @@ abstract interface class PlaybackRepository {
     bool scheduled = false,
     bool briefing = false,
     int? scheduledAtMs,
+    void Function()? ensureCurrent,
   });
   Future<void> pause({required int remainingMs, required String deviceId});
   Future<void> finishTimer({required String deviceId});

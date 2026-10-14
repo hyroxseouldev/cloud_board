@@ -354,13 +354,24 @@ void main() {
             expect(find.text('업데이트 소식').hitTestable(), findsOneWidget);
           }
           if (name == 'library') {
-            await tester.ensureVisible(
-              find.widgetWithText(TextButton, '슬라이드 만들기'),
+            final createSlide = find.widgetWithText(TextButton, '슬라이드 만들기');
+            // At 2x text the unavailable-policy explanation can put this lazy
+            // sliver beyond the cache extent. Scroll to build it first, just
+            // as a user reaches the action below the usage notice.
+            await tester.scrollUntilVisible(
+              createSlide,
+              240,
+              scrollable: find
+                  .descendant(
+                    of: find.byType(CustomScrollView),
+                    matching: find.byType(Scrollable),
+                  )
+                  .first,
             );
+            await tester.pumpAndSettle();
+            expect(createSlide.hitTestable(), findsOneWidget);
             expect(
-              tester
-                  .getSize(find.widgetWithText(TextButton, '슬라이드 만들기'))
-                  .height,
+              tester.getSize(createSlide).height,
               greaterThanOrEqualTo(48),
             );
           }

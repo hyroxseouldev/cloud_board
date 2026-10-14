@@ -304,6 +304,89 @@ final class OperationEventsProvider
 
 String _$operationEventsHash() => r'5576f44cc7904b9f26cefc2a1d8cfdbdef5783d7';
 
+@ProviderFor(operationEventsInRange)
+final operationEventsInRangeProvider = OperationEventsInRangeFamily._();
+
+final class OperationEventsInRangeProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<OperationEventBatch>,
+          OperationEventBatch,
+          Stream<OperationEventBatch>
+        >
+    with
+        $FutureModifier<OperationEventBatch>,
+        $StreamProvider<OperationEventBatch> {
+  OperationEventsInRangeProvider._({
+    required OperationEventsInRangeFamily super.from,
+    required OperationEventRange super.argument,
+  }) : super(
+         retry: null,
+         name: r'operationEventsInRangeProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$operationEventsInRangeHash();
+
+  @override
+  String toString() {
+    return r'operationEventsInRangeProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<OperationEventBatch> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<OperationEventBatch> create(Ref ref) {
+    final argument = this.argument as OperationEventRange;
+    return operationEventsInRange(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is OperationEventsInRangeProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$operationEventsInRangeHash() =>
+    r'5788330709d89d718ca1f27c2564d8394f8889bf';
+
+final class OperationEventsInRangeFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          Stream<OperationEventBatch>,
+          OperationEventRange
+        > {
+  OperationEventsInRangeFamily._()
+    : super(
+        retry: null,
+        name: r'operationEventsInRangeProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  OperationEventsInRangeProvider call(OperationEventRange range) =>
+      OperationEventsInRangeProvider._(argument: range, from: this);
+
+  @override
+  String toString() => r'operationEventsInRangeProvider';
+}
+
 @ProviderFor(operationsReport)
 final operationsReportProvider = OperationsReportProvider._();
 
@@ -439,7 +522,7 @@ final class ScheduleRunnerControllerProvider
 }
 
 String _$scheduleRunnerControllerHash() =>
-    r'3172076c438cd0c5aeec5b8e8745cbcece0dcecb';
+    r'882f7a1d4a6eaf3bb85970745698d68da112e334';
 
 abstract class _$ScheduleRunnerController extends $Notifier<AsyncValue<void>> {
   AsyncValue<void> build();

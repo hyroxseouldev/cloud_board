@@ -1,0 +1,58 @@
+{
+  "issues": [
+    "STA-172",
+    "STA-173",
+    "STA-174",
+    "STA-175"
+  ],
+  "baseSha": "6f6cb7d186e938364bc2fd291687618883c27f06",
+  "verifiedAt": "2026-10-14T14:21:49.674991+00:00",
+  "flutterVersion": "3.47.0",
+  "checks": {
+    "flutterAnalyze": "passed",
+    "flutterFocusedRegressions": {
+      "passed": 142,
+      "failed": 0,
+      "files": 22
+    },
+    "existingServerTests": {
+      "passed": 174,
+      "failed": 0
+    },
+    "legacyServerOfflineTests": {
+      "passed": 28,
+      "skippedExternalNeon": 5,
+      "failed": 0
+    },
+    "legacyDeployGuards": {
+      "passed": 13,
+      "failed": 0
+    },
+    "operationsRulesEmulator": "passed: 1501 indexed records; center, paired-device and anonymous isolation",
+    "widgetCaptures": {
+      "passed": 3,
+      "sizes": [
+        "320x568",
+        "390x844",
+        "1280x900"
+      ],
+      "generatedPngs": 24,
+      "selected": [
+        "mobile320-report-summary.png",
+        "mobile390-detail-recovered-top.png",
+        "web1280-report-top.png",
+        "mobile320-more-bottom.png"
+      ]
+    },
+    "developmentWebDebugBuild": "passed; fvm flutter build web --debug --dart-define=FIREBASE_ENV=development"
+  },
+  "captureCommand": "fvm flutter test --no-pub tool/sta174_capture_test.dart",
+  "limitations": [
+    "No production deployment or Vercel variable deletion",
+    "Native Google/Apple, phone/Free, account-link and three physical TV release checks pending",
+    "Support handoff uses the STA-171 route when integrated; no duplicate notification backend",
+    "Event retry is in-memory; missing or partial records remain explicitly unknown",
+    "Live reporter account list/summary/counter all equal 1; original 2-vs-1 screenshot state not reproduced",
+    "Legacy HTTP endpoint remains retained because traffic exists; OAuth and landing cleanup actions remain documented release work"
+  ]
+}

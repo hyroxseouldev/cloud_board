@@ -41,6 +41,14 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!widget.isTv) return;
+    if (state != AppLifecycleState.resumed) {
+      ref
+          .read(playbackRecoveryControllerProvider.notifier)
+          .recordDisplayVisibility(
+            visible: false,
+            shutdown: state == AppLifecycleState.detached,
+          );
+    }
     final epoch = ++_epoch;
     final audio = ref.read(beepPlayerProvider);
     // Cancel queued and currently playing audio before any widget rebuild.
@@ -56,6 +64,9 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
       await audio.setEnabled(true);
       if (mounted && epoch == _epoch) {
         ref.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+        ref
+            .read(playbackRecoveryControllerProvider.notifier)
+            .recordDisplayVisibility(visible: true);
       }
     }());
   }
@@ -76,6 +87,9 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
           WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
         unawaited(ref.read(beepPlayerProvider).setEnabled(true));
         ref.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+        ref
+            .read(playbackRecoveryControllerProvider.notifier)
+            .recordDisplayVisibility(visible: true);
       }
     });
     return widget.child;

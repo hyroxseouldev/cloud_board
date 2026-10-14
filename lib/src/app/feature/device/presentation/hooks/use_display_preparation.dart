@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
@@ -26,12 +27,60 @@ void useDisplayPreparation(
 }) {
   final enabled = paired && deviceId != null;
   final offset = enabled ? ref.watch(serverTimeOffsetProvider).value ?? 0 : 0;
-  final request = enabled
-      ? ref.watch(displayPreparationRequestProvider(deviceId)).value
+  final requestState = enabled
+      ? ref.watch(displayPreparationRequestProvider(deviceId))
+      : null;
+  final request =
+      requestState?.isLoading == false && requestState?.hasError == false
+      ? requestState?.value
       : null;
   final repository = enabled
       ? ref.watch(displayPreparationRepositoryProvider)
       : null;
+  final reporter = ref.watch(errorReporterProvider);
+  final telemetry = ref.watch(operationTelemetryProvider);
+  if (enabled) {
+    ref.listen(displayPreparationRequestProvider(deviceId), (previous, next) {
+      if (!next.hasError || previous?.error == next.error) return;
+      final attempt = telemetry.start('tv.prepare.listen');
+      attempt.failure('prepare_listen');
+      reporter.capture(
+        next.error!,
+        next.stackTrace ?? StackTrace.current,
+        action: 'tv.prepare.listen',
+        context: {
+          'operationId': attempt.id,
+          'preparationStage': 'listen',
+          'connected': connected,
+        },
+      );
+    });
+  }
+  useEffect(() {
+    if (!enabled || !connected || !foreground) return null;
+    var cancelled = false;
+    void retryFailedSubscription() {
+      if (!cancelled &&
+          context.mounted &&
+          ref.read(displayPreparationRequestProvider(deviceId)).hasError) {
+        ref.invalidate(displayPreparationRequestProvider(deviceId));
+      }
+    }
+
+    // A rules/transport failure can terminate a stream. Repair and network
+    // recovery must get a fresh subscription rather than waiting forever.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => retryFailedSubscription(),
+    );
+    final timer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => retryFailedSubscription(),
+    );
+    return () {
+      cancelled = true;
+      timer.cancel();
+    };
+  }, [enabled, deviceId, connected, foreground]);
   useEffect(() {
     if (!enabled || !connected || !foreground) return null;
     Future<void> beat() async {
@@ -61,15 +110,30 @@ void useDisplayPreparation(
       var cancelled = false;
       AudioPlayer? audioPlayer;
       Future<void> run() async {
-        final attempt = ref
-            .read(operationTelemetryProvider)
-            .start('tv.prepare');
+        final attempt = telemetry.start('tv.prepare');
+        var mediaFailure = 'prepare_images';
         final result = await prepareDisplayMedia(
           request,
           cancelled: () =>
               cancelled ||
               !context.mounted ||
               request.expired(preparationServerNow(offset)),
+          onError: (stage, error, stack) {
+            mediaFailure = stage == 'audio'
+                ? 'prepare_audio'
+                : 'prepare_images';
+            reporter.capture(
+              error,
+              stack,
+              action: 'tv.prepare.media',
+              context: {
+                'operationId': attempt.id,
+                'preparationStage': stage,
+                'sessionId': request.sessionId,
+                'expectedRevision': request.revision,
+              },
+            );
+          },
           images: (sources) => precacheWorkoutImages(
             context,
             sources,
@@ -96,23 +160,39 @@ void useDisplayPreparation(
         );
         if (cancelled || result == null) {
           attempt.cancel();
-        } else if (result.ready) {
-          attempt.success();
-        } else {
-          attempt.failure('failed-precondition');
         }
         try {
           if (!cancelled && result != null) {
-            await repository!.respond(
-              deviceId,
-              request,
-              ready: result.ready,
-              imageCount: result.imageCount,
-              audioReady: result.audioReady,
-            );
+            await repository!
+                .respond(
+                  deviceId,
+                  request,
+                  ready: result.ready,
+                  imageCount: result.imageCount,
+                  audioReady: result.audioReady,
+                )
+                .timeout(const Duration(seconds: 8));
+            if (cancelled || request.expired(preparationServerNow(offset))) {
+              attempt.cancel();
+            } else if (result.ready) {
+              attempt.success();
+            } else {
+              attempt.failure(mediaFailure);
+            }
           }
-        } catch (_) {
-          /* Missing transport ACK is not shown as success on phone. */
+        } catch (error, stack) {
+          attempt.failure('prepare_response');
+          reporter.capture(
+            error,
+            stack,
+            action: 'tv.prepare.response',
+            context: {
+              'operationId': attempt.id,
+              'preparationStage': 'response',
+              'sessionId': request.sessionId,
+              'expectedRevision': request.revision,
+            },
+          );
         } finally {
           await audioPlayer?.dispose();
           audioPlayer = null;

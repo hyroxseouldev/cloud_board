@@ -31,6 +31,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   final String? _ownerId;
   PlaybackSessionModel? _latest;
   bool _received = false;
+  int _acceptedVersion = 0;
 
   bool _accept(PlaybackSessionModel? value) {
     final previous = _latest;
@@ -42,6 +43,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     }
     _latest = value;
     _received = true;
+    ++_acceptedVersion;
     return true;
   }
 
@@ -124,6 +126,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
     bool scheduled = false,
     bool briefing = false,
     int? scheduledAtMs,
+    void Function()? ensureCurrent,
   }) async {
     final ownerId = _ownerId;
     if (ownerId == null) throw StateError('로그인이 필요합니다.');
@@ -140,13 +143,26 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       deviceId: deviceId,
       briefing: briefing,
     );
+    final acceptedBeforeStart = _acceptedVersion;
     final started = await _dataSource.start(
       model,
       scheduled: scheduled,
       scheduledAtMs: scheduledAtMs,
+      ensureCurrent: ensureCurrent,
     );
-    _accept(started);
-    await _local.save(started);
+    // A stream/command can deliver a newer state before the start ACK. Do not
+    // replace its checkpoint (including a cleared/replaced session) with that
+    // late response. The confirmed start still succeeds for the caller.
+    final canAccept =
+        _acceptedVersion == acceptedBeforeStart ||
+        (_latest?.id == started.id && _latest!.revision <= started.revision);
+    if (_dataSource.canUseAccount && canAccept && _accept(started)) {
+      try {
+        await _local.save(started);
+      } catch (error, stack) {
+        _dataSource.onAncillaryFailure?.call(error, stack);
+      }
+    }
     return started.toEntity();
   }
 
@@ -240,12 +256,16 @@ PlaybackRepository playbackRepository(Ref ref) {
     app: auth.app,
     databaseURL: realtimeDatabaseUrl,
   );
+  final runtimePolicy = ref.watch(runtimeFeaturePolicyServiceProvider);
   final source = PlaybackRealtimeDataSource(
     database,
     ownerId,
-    allowSplitPlayback: () => ref
-        .read(runtimeFeaturePolicyServiceProvider)
-        .allows(RuntimeFeature.splitPlayback, ownerId: ownerId ?? ''),
+    appVersion: ref.read(errorReporterProvider).defaults['version']?.toString(),
+    allowSplitPlayback: () => runtimePolicy.allows(
+      RuntimeFeature.splitPlayback,
+      ownerId: ownerId ?? '',
+    ),
+    isCurrentAccount: () => auth.currentUser?.uid == ownerId,
     onAncillaryFailure: (error, stack) {
       if (ref.mounted) {
         ref
