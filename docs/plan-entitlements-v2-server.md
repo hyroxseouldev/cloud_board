@@ -55,3 +55,22 @@ node functions/scripts/plan-usage-migration.mjs --project PROJECT --rollback /se
 - 실제 Firestore transaction에서 Free 7번째 성공/8번째 거절/삭제 후 재사용, 마지막 슬롯 경합, Free3/Plus30 경계, Premium70개 보관, 다운그레이드 후 보존·편집, missing entitlement, migration/direct-write 우회, retry·restore·ifAbsent, 정책 전환 전후 규칙을 검사했다.
 - Flutter datasource/저장 revision 회귀 13개 통과: callable 성공 응답, quota 실패 시 원본·초안 보존, 충돌, offline, ifAbsent, 알 수 없는 필드·중첩 Timestamp 왕복. `/tmp/sta154-flutter-tests.log`.
 - 운영 계정·실결제·실기기·진행 중 수업을 이 검증에서 변경하지 않았다. 실제 계정 전환 적용 시점과 지원 클라이언트 출시 순서는 별도 운영 검증으로 확정한다.
+
+## STA-175 저장 한도 표시 및 웹 배포 전 회귀
+
+저장 수업/재사용 슬라이드 안내는 `StoreEntitlement.limitFor(resource)`로 해당 리소스의 명시적인 유한 한도 또는 무제한 표식을 확인한다. 지원 정책은 v1/v2, 플랜은 Free/Plus/Premium 및 legacy/cloudboard_pro다. 유효 상태와 서버 시각 기준 만료를 확인하며, `null`만 있거나 무제한 표식과 유한 값이 충돌하면 알 수 없는 권한으로 남긴다. 저장 슬라이드의 기존 `maxFavorites`/`favoritesUnlimited` 별칭도 같은 기준으로 해석한다. AI/브랜딩 등 전체 계약의 `policyKnown`, 서버 저장 검증, 정책 전환 플래그는 변경하지 않는다.
+
+2026-10-14 14:02 UTC 제보 계정을 읽기 전용으로 확인했다. 권한은 v1/Premium/trialing이고 미래 만료 시각, `maxWorkouts: null` 및 `workoutsUnlimited: true`였다. 이 계약은 기존 전체 v2 정책 검사에서 탈락하므로 ‘확인 중’ 표시의 원인을 확인했다. 원본 계정 정보는 회귀 fixture에 넣지 않는다. 수정 앱에서 해당 사용자의 실제 브라우저 수신/렌더링은 배포 전 별도 확인해야 한다.
+
+동일 조회에서 서버 `workouts`, `workoutSummaries`, `planUsage.workoutCount`는 모두 1이었다. 제보 화면의 ‘내 수업 2개’는 현재 서버 자료로 재현되지 않았다. 목록은 캐시/페이지/검색·폴더 필터를 거친 `workoutController` 항목 수이고 사용량은 별도 실시간 집계 문서다. 구버전 직접 쓰기/삭제의 사용량 갱신은 trigger이므로 일시적인 시차도 가능하다. 목록 캐시는 완전한 서버 페이지를 받기 전까지 유지되며 오프라인 오류에서는 그대로 남을 수 있다. 이 차이는 entitlement 정책 판정과 별개이며, 목록 수로 서버 집계를 덮어쓰지 않는다. 재발 시 브라우저의 캐시/서버 수신 상태, 목록 필터와 페이지 완료 여부, 각 문서 갱신 시각을 함께 수집해 별도 후속 조사한다.
+
+웹 배포 전 확인 목록:
+
+- [ ] 제보 계정과 같은 v1 Premium/trialing + 명시적 무제한 값에서 `저장 수업 N / 무제한` 및 삭제 유도 문구 미노출 확인.
+- [ ] v1/v2, legacy/cloudboard_pro, AI·브랜딩 필드 누락, saved-slide 별칭의 유효한 명시적 값 확인.
+- [ ] Free 수업 7/슬라이드 3, Plus 슬라이드 30의 표시와 서버 한도 회귀 확인.
+- [ ] 무제한 표식 누락, 유한 값과 표식/별칭 충돌, 잘못된 숫자, 미지원 정책, 만료 경계 및 회수 권한은 무제한으로 표시되지 않음 확인.
+- [ ] 최초 로딩→정상, 조회 실패→재시도→정상, 정책 미확인, 사용량 오류를 각각 구별하고 일반 화면·툴바 다이얼로그의 일치 확인.
+- [ ] 제보 브라우저의 목록 수와 사용량을 새로 수신한 뒤 대조하고, 캐시/페이지/필터 또는 별도 갱신 지연이면 후속 조사 기록.
+
+자동 회귀는 `plan_resource_limit_test.dart`, `plan_usage_notice_test.dart`, 기존 `store_entitlement_test.dart`, `plan_usage_branding_test.dart`, `profile_plan_entitlements_test.dart`에서 수행하며 59개가 통과했다. 이 수정은 운영 권한/집계 문서 변경이나 웹 배포를 수행하지 않는다.
