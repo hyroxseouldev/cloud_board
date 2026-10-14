@@ -1,0 +1,22 @@
+--- a/README.md
++++ b/README.md
+@@ -38 +38,19 @@
+ Vercel 미리보기에서는 검수 배너와 검색 제외 설정이 적용됩니다. 로컬에서 배너를 보려면 `CLOUDBOARD_LANDING_PREVIEW=1 pnpm dev`를 사용합니다. 운영 공개 문구 변경 기준은 [랜딩 공개 기록](docs/landing/sta160-release.md)을 참고하세요.
++
++## 앱·TV 서버 관리
++
++앱이 호출하는 `cloudboardPairDisplay`, `cloudboardSetDisplayState`,
++`cloudboardLinkAccount`와 기존 HTTP 서버 `cloudboardAuth`의 관리 소스는
++[cloud_board/functions-legacy](https://github.com/hyroxseouldev/cloud_board/tree/develop/functions-legacy)로 이관합니다.
++운영 대상은 Firebase `cloud-board-stationd`, `asia-southeast1`, codebase
++`cloudboard-auth`를 유지합니다. 이 랜딩 저장소에서는 Firebase Functions를 배포하지 않습니다.
++
++Vercel에 남은 과거 서버 환경변수는 랜딩 프로젝트의 사본만 정리합니다. Firebase
++원본 Secret, 공용 Google OAuth 클라이언트, 기본 compute 서비스 계정과 앱 배포용
++`github-actions` 키는 앱·기존 웹 발급 이용권에서 계속 사용할 수 있어 유지합니다.
++환경변수 삭제는 원본 키 폐기가 아닙니다. 작업 상태와 검수·복구 절차는
++[서버 이관 운영 문서](https://github.com/hyroxseouldev/cloud_board/blob/develop/docs/legacy-auth-migration.md)를 확인하세요.
++
++이전 웹 서버 코드가 있던 배포를 Vercel 롤백 대상으로 사용하지 않습니다. 랜딩 복구는
++서버 코드가 제거된 `1a3eda9ee39d371e69fa92cdf79279968fe8f041` 이후의 검증된 커밋을
++새 배포로 만듭니다. 레거시 서버 장애는 cloud_board의 별도 Functions 복구 절차를 따릅니다.

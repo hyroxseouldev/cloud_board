@@ -9,6 +9,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/playback_recovery_fixture.dart';
+
 void main() {
   late _Database database;
   late PlaybackRealtimeDataSource source;
@@ -31,12 +33,38 @@ void main() {
     );
   });
 
+  tearDown(() => source.dispose());
+
+  test('slow telemetry cannot delay an acknowledged class start', () async {
+    final pending = Completer<void>();
+    database.eventGate = pending.future;
+    final started = await source
+        .start(model)
+        .timeout(const Duration(seconds: 1));
+    expect(started.id, 'class');
+    expect(pending.isCompleted, isFalse);
+    pending.complete();
+    await database.firstEventWritten.future.timeout(const Duration(seconds: 1));
+    expect(
+      database.values['users/coach/operations/events/class-started'],
+      isNotNull,
+    );
+  });
+
   test(
     'class starts and pauses when metadata get is denied but SDK events work',
     () async {
       final started = await source.start(model);
       expect(started.id, 'class');
-      expect(database.writes, 1);
+      await database.firstEventWritten.future.timeout(
+        const Duration(seconds: 1),
+      );
+      expect(database.writes, 2); // Display update and independent telemetry.
+      final recorded =
+          database.values['users/coach/operations/events/class-started'] as Map;
+      expect(recorded['sessionId'], 'class');
+      expect(recorded['phase'], 'server_approval');
+      expect(recorded['eventId'], 'class-started');
       expect(await source.hasRunningSession(), isTrue);
       final paused = await source.update(
         status: 'paused',
@@ -49,6 +77,36 @@ void main() {
       expect(paused.remainingMs, inInclusiveRange(58000, 60000));
       expect(database.metadataGets, 0);
       expect(database.transactions, 2);
+    },
+  );
+
+  test(
+    'recovery transport records telemetry separately from playback writes',
+    () async {
+      final recoveryDb = RecoveryDatabase(recoverySession());
+      final recoverySource = PlaybackRealtimeDataSource(recoveryDb, 'owner');
+      addTearDown(() async {
+        await recoverySource.dispose();
+        await recoveryDb.events.close();
+      });
+      final paused = await recoverySource.update(
+        status: 'paused',
+        deviceId: 'phone',
+        expectedSessionId: 'class',
+        expectedRevision: 1,
+      );
+      expect(paused.status, 'paused');
+      expect(recoveryDb.transactions, 1);
+      expect(recoveryDb.writes, 1);
+      expect(recoveryDb.operationEventWrites, 1);
+      final event = recoveryDb.operationEvents.values.single;
+      expect(
+        recoveryDb.operationEvents.keys.single,
+        'users/owner/operations/events/${event['eventId']}',
+      );
+      expect(event['sessionId'], 'class');
+      expect(event['type'], 'command_approved');
+      expect(event['phase'], 'server_approval');
     },
   );
 
@@ -121,7 +179,12 @@ void main() {
       }
       await rejected;
       expect(database.values['users/coach/activeSession'], isNull);
-      expect(database.values['users/coach/operations/events/event'], isNull);
+      expect(
+        database.values.keys.where(
+          (path) => path.contains('/operations/events/'),
+        ),
+        isEmpty,
+      );
       expect(database.transactions, boundary == 'transaction-retry' ? 1 : 0);
     });
   }
@@ -142,6 +205,31 @@ void main() {
       expect(started.id, 'class');
       expect(database.values['users/coach/activeSession'], isNotNull);
       expect(database.transactions, 1);
+    },
+  );
+
+  test(
+    'account change after committed start skips ancillary writes and telemetry',
+    () async {
+      var current = true;
+      source.dispose();
+      source = PlaybackRealtimeDataSource(
+        database,
+        'coach',
+        isCurrentAccount: () => current,
+      );
+      database.afterCommit = () => current = false;
+      final started = await source.start(model);
+      expect(started.id, 'class');
+      expect(database.values['users/coach/activeSession'], isNotNull);
+      expect(database.transactions, 1);
+      expect(database.writes, 0);
+      expect(
+        database.values.keys.where(
+          (path) => path.contains('/operations/events/'),
+        ),
+        isEmpty,
+      );
     },
   );
 
@@ -228,6 +316,8 @@ class _Database extends Fake implements FirebaseDatabase {
       'tv': {'paired': true},
     },
   };
+  Future<void>? eventGate;
+  final firstEventWritten = Completer<void>();
   Future<void> Function(String)? beforeGet, beforeSet;
   void Function()? beforeTransactionRetry, afterCommit;
   int metadataGets = 0;
@@ -268,8 +358,15 @@ class _Reference extends Fake implements DatabaseReference {
   @override
   Future<void> set(Object? value) async {
     await database.beforeSet?.call(path);
+    if (path.contains('/operations/events/') && database.eventGate != null) {
+      await database.eventGate;
+    }
     database.writes++;
     database.values[path] = value;
+    if (path.contains('/operations/events/') &&
+        !database.firstEventWritten.isCompleted) {
+      database.firstEventWritten.complete();
+    }
   }
 
   @override

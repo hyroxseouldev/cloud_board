@@ -113,6 +113,7 @@ void main() {
       expectSync(db.log, [
         'disconnect:users/owner/devices/tv/presence/event-0',
         'verify:event-0',
+        'disconnect:users/owner/operations/events/event-0-offline',
         'transaction:users/owner/devices/tv',
       ]);
       expectSync(db.device['displayUid'], 'display');
@@ -120,6 +121,12 @@ void main() {
       expectSync(db.device['preferences'], {'volume': .5});
       expectSync(db.device['preparationProtocol'], 1);
       expectSync(db.device['currentConnectionId'], 'event-0');
+      final online =
+          db.read('users/owner/operations/events/event-0-online') as Map;
+      expectSync(online['type'], 'device_online');
+      expectSync(online['deviceName'], 'Keep TV name');
+      expectSync(online['appVersion'], '1.1.1');
+      expectSync(db.device['pendingOfflineEventKey'], 'event-0-offline');
       expectSync(db.read('displayAccess/display'), {
         'ownerId': 'owner',
         'deviceId': 'tv',
@@ -166,6 +173,7 @@ void main() {
       final pending = source.issue(deviceId: 'tv');
       await tester.pump();
       await pending;
+      final oldDisconnect = Map<String, Object?>.from(db.disconnectWrites);
       db.connection.add(false);
       await tester.pump();
       db.connection.add(true);
@@ -177,6 +185,30 @@ void main() {
       ]);
       expectSync(db.device['displayUid'], 'display');
       expectSync(db.device['pairingCode'], '123456');
+      final recovered =
+          db.read('users/owner/operations/events/event-1-online') as Map;
+      expectSync(recovered['recoveryOfEventId'], 'event-0-offline');
+      // A previous socket's delayed disconnect can append its own history and
+      // close only its own presence entry, never the newly verified connection.
+      oldDisconnect.forEach(db.write);
+      expectSync(db.device['currentConnectionId'], 'event-1');
+      expectSync((db.device['presence'] as Map)['event-1']['online'], isTrue);
+      expectSync(db.device['pendingOfflineEventKey'], 'event-1-offline');
+      source.dispose();
+    },
+  );
+
+  testWidgets(
+    'failed offline telemetry registration does not block verified presence',
+    (tester) async {
+      db.failOfflineEvent = true;
+      final source = DevicePairingRealtimeDataSource(db, _Auth(), 'owner');
+      final pending = source.issue(deviceId: 'tv');
+      await tester.pump();
+      await pending;
+      expectSync(db.device['currentConnectionId'], 'event-0');
+      expectSync(db.device['online'], isTrue);
+      expectSync(db.device['pendingOfflineEventKey'], isNull);
       source.dispose();
     },
   );
@@ -436,6 +468,13 @@ void main() {
     await tester.pump(const Duration(seconds: 20));
     await failure;
     expectSync(db.read('users/owner/devices/tv'), isNull);
+    expectSync(db.read('users/owner/operations/events'), isNull);
+    expectSync(
+      db.disconnectWrites.keys.where(
+        (path) => path.contains('/operations/events/'),
+      ),
+      isEmpty,
+    );
     expectSync(
       db.transactions.where((path) => path.endsWith('/displayUid')),
       isEmpty,
@@ -511,6 +550,8 @@ class _Database extends Fake implements FirebaseDatabase {
   };
   final connection = StreamController<bool>.broadcast();
   final log = <String>[], transactions = <String>[];
+  final disconnectWrites = <String, Object?>{};
+  bool failOfflineEvent = false;
   Completer<void>? disconnectBarrier, publishBarrier, accessReadBarrier;
   int accessReads = 0, accessWrites = 0;
   bool failPublishOnce = false, removeBeforePublish = false;
@@ -533,8 +574,20 @@ class _Database extends Fake implements FirebaseDatabase {
     if (value == null) {
       node.remove(keys.last);
     } else {
-      node[keys.last] = value;
+      node[keys.last] = _resolveServerValues(value);
     }
+  }
+
+  Object? _resolveServerValues(Object? value) {
+    if (value is Map) {
+      if (value['.sv'] == 'timestamp') return 1000;
+      return {
+        for (final entry in value.entries)
+          entry.key: _resolveServerValues(entry.value),
+      };
+    }
+    if (value is List) return value.map(_resolveServerValues).toList();
+    return value;
   }
 
   @override
@@ -563,8 +616,11 @@ class _Reference extends Fake implements DatabaseReference {
 
   @override
   Future<void> set(Object? value) async {
-    expectSync(path, 'displayAccess/display');
-    db.accessWrites++;
+    if (path == 'displayAccess/display') {
+      db.accessWrites++;
+    } else {
+      expectSync(path, startsWith('users/owner/operations/events/'));
+    }
     db.write(path, value);
   }
 
@@ -635,10 +691,23 @@ class _Disconnect extends Fake implements OnDisconnect {
   final String path;
   @override
   Future<void> set(Object? value, [Object? priority]) async {
-    expectSync(value, {'online': false, 'lastSeenAtMs': ServerValue.timestamp});
+    if (path.contains('/presence/')) {
+      expectSync(value, {
+        'online': false,
+        'lastSeenAtMs': ServerValue.timestamp,
+      });
+    } else {
+      expectSync(path, startsWith('users/owner/operations/events/'));
+      expectSync((value as Map)['type'], 'device_offline');
+      if (db.failOfflineEvent) throw StateError('telemetry unavailable');
+    }
     db.log.add('disconnect:$path');
     if (db.disconnectBarrier != null) await db.disconnectBarrier!.future;
+    db.disconnectWrites[path] = value;
   }
+
+  @override
+  Future<void> cancel() async => db.disconnectWrites.remove(path);
 }
 
 class _Diagnostics implements DiagnosticSink {

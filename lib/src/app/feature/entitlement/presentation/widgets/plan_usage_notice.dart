@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_resource_limit.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/plan_usage_controller.dart';
 
@@ -21,16 +22,35 @@ class PlanUsageNotice extends HookConsumerWidget {
     final policy = ref.watch(planAccessProvider);
     final usage = ref.watch(planUsageProvider);
     final access = policy.value;
-    final known = access?.policyKnown == true;
+    final resourceLimit =
+        access?.limitFor(resource) ?? const PlanResourceLimit.unknown();
+    final known = !policy.hasError && !policy.isLoading && resourceLimit.known;
     final count = resource == 'workouts'
         ? usage.value?.workoutCount
         : usage.value?.savedSlideCount;
-    final limit = resource == 'workouts'
-        ? access?.maxWorkouts
-        : access?.maxSavedSlides;
+    final limit = resourceLimit.limit;
     final name = resource == 'workouts' ? '저장 수업' : '재사용 저장 슬라이드';
-    final total = known ? limit?.toString() ?? '무제한' : '확인 중';
-    final over = known && count != null && limit != null && count >= limit;
+    final total = policy.hasError
+        ? '조회 실패'
+        : policy.isLoading
+        ? '확인 중'
+        : known
+        ? resourceLimit.isUnlimited
+              ? '무제한'
+              : '$limit'
+        : '정책 확인 불가';
+    final canRetry =
+        policy.hasError ||
+        usage.hasError ||
+        (!policy.isLoading && !known) ||
+        (!usage.isLoading && count == null);
+    final over =
+        known &&
+        !usage.hasError &&
+        !usage.isLoading &&
+        count != null &&
+        limit != null &&
+        count >= limit;
     final exposed = useRef(<String>{});
     useEffect(() {
       if (!compact && known && count != null && exposed.value.add(resource)) {
@@ -64,7 +84,7 @@ class PlanUsageNotice extends HookConsumerWidget {
           ),
         ),
         icon: Icon(
-          over || usage.hasError || policy.hasError
+          over || canRetry
               ? Icons.info_rounded
               : Icons.pie_chart_outline_rounded,
           semanticLabel: '$name ${count ?? '—'} / $total · 사용량 안내',
@@ -86,11 +106,25 @@ class PlanUsageNotice extends HookConsumerWidget {
             const SizedBox(height: 4),
             Text(
               resource == 'workouts'
-                  ? '현재 보관한 수업 수입니다. 삭제하면 새 수업을 저장할 수 있어요.'
+                  ? known && !resourceLimit.isUnlimited
+                        ? '현재 보관한 수업 수입니다. 삭제하면 새 수업을 저장할 수 있어요.'
+                        : '현재 보관한 수업 수입니다.'
                   : '수업 안의 슬라이드는 이 한도를 사용하지 않습니다.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            if (usage.hasError || policy.hasError)
+            if (policy.hasError)
+              const Text('저장 한도를 불러오지 못했어요. 다시 시도해 주세요.')
+            else if (policy.isLoading)
+              const Text('저장 한도를 불러오는 중이에요.')
+            else if (!known)
+              const Text('현재 이용 권한의 저장 한도를 확인할 수 없어요.'),
+            if (usage.hasError)
+              const Text('사용량을 불러오지 못했어요. 다시 시도해 주세요.')
+            else if (usage.isLoading)
+              const Text('사용량을 불러오는 중이에요.')
+            else if (count == null)
+              const Text('현재 사용량을 확인할 수 없어요.'),
+            if (canRetry)
               TextButton(
                 onPressed: () {
                   ref.invalidate(planUsageProvider);
@@ -177,15 +211,17 @@ Future<bool> allowPlanAddition(
 ) async {
   final access = ref.read(planAccessProvider).value;
   final usage = ref.read(planUsageProvider).value;
+  final resourceLimit =
+      access?.limitFor(resource) ?? const PlanResourceLimit.unknown();
   // Cached or unavailable counters are advisory; only the server can refuse.
-  if (access?.policyKnown != true ||
+  if (ref.read(planAccessProvider).hasError ||
+      ref.read(planUsageProvider).hasError ||
+      !resourceLimit.known ||
       access?.serverConfirmed != true ||
       usage?.serverConfirmed != true) {
     return true;
   }
-  final limit = resource == 'workouts'
-      ? access!.maxWorkouts
-      : access!.maxSavedSlides;
+  final limit = resourceLimit.limit;
   final used = resource == 'workouts'
       ? usage!.workoutCount
       : usage!.savedSlideCount;

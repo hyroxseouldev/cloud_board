@@ -18,6 +18,7 @@ import 'package:cloud_board/src/app/feature/update_news/domain/usecases/update_n
 import 'package:cloud_board/src/app/feature/update_news/presentation/controllers/update_news_controller.dart';
 import 'package:cloud_board/src/app/feature/update_news/presentation/views/update_news_screen.dart';
 import 'package:cloud_board/src/app/feature/update_news/presentation/widgets/update_news_tile.dart';
+import 'package:cloud_board/src/app/feature/profile/presentation/views/more_screen.dart';
 
 const user = AuthUser(
   id: 'reader',
@@ -262,14 +263,22 @@ void main() {
 
   for (final size in [const Size(320, 568), const Size(1280, 800)]) {
     testWidgets(
-      'settings opens news, detail marks only opened item, returns with state at $size',
+      'more menu opens news, detail marks only opened item, returns with state at $size',
       (tester) async {
         final repository = NewsRepository();
-        final container = await mount(tester, repository, size: size);
+        final container = await mount(
+          tester,
+          repository,
+          size: size,
+          more: true,
+        );
+        await tester.scrollUntilVisible(find.text('업데이트 소식'), 300);
+        await tester.pumpAndSettle();
         expect(
           find.byKey(const ValueKey('update-news-unread')),
           findsOneWidget,
         );
+        await tester.ensureVisible(find.text('업데이트 소식'));
         await tester.tap(find.text('업데이트 소식'));
         await tester.pumpAndSettle();
         expect(repository.writes, isEmpty);
@@ -347,6 +356,7 @@ Future<ProviderContainer> mount(
   WidgetTester tester,
   UpdateNewsRepository repository, {
   Size size = const Size(390, 844),
+  bool more = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -360,8 +370,9 @@ Future<ProviderContainer> mount(
   );
   addTearDown(container.dispose);
   final router = GoRouter(
-    initialLocation: '/profile',
+    initialLocation: more ? '/more' : '/profile',
     routes: [
+      GoRoute(path: '/more', builder: (_, _) => const MoreScreen()),
       GoRoute(
         path: '/profile',
         builder: (_, _) => Scaffold(

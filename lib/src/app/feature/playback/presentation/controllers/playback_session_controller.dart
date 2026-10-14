@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/operations/presentation/controllers/operation_event_recorder.dart';
+import 'package:cloud_board/src/app/core/services/event_id.dart';
 import 'package:cloud_board/src/app/core/observability/playback_ack.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
@@ -163,12 +165,29 @@ class PlaybackActionController extends _$PlaybackActionController {
     if (result.hasError) {
       final error = result.error;
       attempt.failure(error is PlaybackFailure ? error.code : 'start_$stage');
-      reporter.capture(
+      final diagnostic = reporter.capture(
         error!,
         result.stackTrace ?? StackTrace.current,
         action: 'playback.start.$stage',
         context: {...context, 'startStage': stage},
       );
+      // A changed account must not receive the previous owner's failed start.
+      // Keep the operational record linked to the same stage-aware diagnostic.
+      if (ref.mounted &&
+          epoch == _startEpoch &&
+          !cancelled &&
+          uid != null &&
+          ref.read(firebaseAccountUserProvider).value?.uid == uid) {
+        recordOperationEvent(
+          ref,
+          type: 'command_failed',
+          phase: 'server_approval',
+          eventId: diagnostic.id,
+          errorId: diagnostic.id,
+          errorCode: error is PlaybackFailure ? error.code : 'start_$stage',
+          workoutId: workout.id,
+        );
+      }
     } else {
       attempt.success();
     }
@@ -349,6 +368,10 @@ class PlaybackActionController extends _$PlaybackActionController {
     reporter.breadcrumb('playback.ack.waiting', ackContext);
     var done = false;
     final baselineSessionId = ref.read(activePlaybackSessionProvider).value?.id;
+    final baselineDevices = {
+      for (final display in ref.read(displayDevicesProvider).value ?? const [])
+        display.id: display,
+    };
     var observedExpectedSession = baselineSessionId == expected.id;
     Timer? timer;
     void Function()? closeSession, closeDevices;
@@ -359,6 +382,35 @@ class PlaybackActionController extends _$PlaybackActionController {
       closeSession?.call();
       closeDevices?.call();
       _cancelAck = null;
+      if (ref.mounted &&
+          (failure != null || verdict == PlaybackAckVerdict.success)) {
+        final devices = {
+          for (final display
+              in ref.read(displayDevicesProvider).value ?? const [])
+            display.id: display,
+        };
+        for (final targetId in expected.targetDeviceIds) {
+          final observed = devices[targetId];
+          final display = observed ?? baselineDevices[targetId];
+          final received =
+              observed?.currentSessionId == expected.id &&
+              observed?.acknowledgedRevision == revision;
+          recordOperationEvent(
+            ref,
+            type: received ? 'command_received' : 'command_receipt_failed',
+            phase: 'tv_receipt',
+            eventId:
+                '${expected.id}-$revision-$targetId-${received ? 'received' : 'missing'}',
+            sessionId: expected.id,
+            workoutId: expected.workout.id,
+            workoutName: expected.workout.name,
+            deviceId: targetId,
+            deviceRole: 'display',
+            display: display,
+            errorCode: received ? null : 'receipt_timeout',
+          );
+        }
+      }
       reporter.breadcrumb('playback.ack.finished', {
         ...ackContext,
         'status': failure ?? verdict.name,
@@ -444,7 +496,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     Map<String, Object?>? context,
   }) {
     if (result.hasError) {
-      ref
+      final diagnostic = ref
           .read(errorReporterProvider)
           .capture(
             result.error!,
@@ -452,6 +504,19 @@ class PlaybackActionController extends _$PlaybackActionController {
             action: action,
             context: context ?? _context(),
           );
+      final captured = context ?? _context();
+      recordOperationEvent(
+        ref,
+        type: 'command_failed',
+        phase: 'server_approval',
+        eventId: diagnostic.id,
+        errorId: diagnostic.id,
+        errorCode: result.error is PlaybackFailure
+            ? (result.error! as PlaybackFailure).code
+            : 'request_failed',
+        sessionId: captured['sessionId'] as String?,
+        workoutId: captured['workoutId'] as String?,
+      );
     }
   }
 }
@@ -464,6 +529,89 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
   int _epoch = 0;
   int? _flightEpoch;
   Future<void>? _flight;
+  String? _incidentId;
+  String? _displayIncidentId;
+  String? _displayInterruptedSessionId;
+  String? _telemetryOwnerId;
+
+  void _syncTelemetryOwner() {
+    try {
+      final owner = ref.read(accountOwnerIdProvider).value;
+      if (owner == _telemetryOwnerId) return;
+      _telemetryOwnerId = owner;
+      _incidentId = null;
+      _displayIncidentId = null;
+      _displayInterruptedSessionId = null;
+    } catch (_) {}
+  }
+
+  void recordDisplayVisibility({required bool visible, bool shutdown = false}) {
+    try {
+      _syncTelemetryOwner();
+      final session = ref.read(activePlaybackSessionProvider).value;
+      if (_displayInterruptedSessionId != null &&
+          session?.id != _displayInterruptedSessionId) {
+        // The old class remains without recovery evidence; release the local
+        // tracker so a later class can independently record an interruption.
+        _displayIncidentId = null;
+        _displayInterruptedSessionId = null;
+      }
+      final localDeviceId = ref.read(deviceIdProvider).value;
+      final displays = ref.read(displayDevicesProvider).value ?? const [];
+      final matching = displays.where((device) => device.id == localDeviceId);
+      final display = matching.isEmpty ? null : matching.first;
+      if (shutdown) {
+        recordOperationEvent(
+          ref,
+          type: 'device_shutdown',
+          phase: 'app_lifecycle',
+          sessionId: session?.id,
+          deviceId: localDeviceId,
+          display: display,
+        );
+      } else if (!visible &&
+          _displayIncidentId == null &&
+          session?.status == PlaybackStatus.playing &&
+          session?.briefing == false &&
+          session!.targetDeviceIds.contains(localDeviceId)) {
+        _displayIncidentId = createEventId();
+        _displayInterruptedSessionId = session.id;
+        recordOperationEvent(
+          ref,
+          type: 'playback_interrupted',
+          phase: 'app_lifecycle',
+          eventId: _displayIncidentId,
+          incidentId: _displayIncidentId,
+          sessionId: session.id,
+          workoutId: session.workout.id,
+          workoutName: session.workout.name,
+          deviceId: localDeviceId,
+          display: display,
+          playbackImpact: 'interrupted',
+        );
+      } else if (visible &&
+          _displayIncidentId != null &&
+          session?.id == _displayInterruptedSessionId &&
+          session?.status == PlaybackStatus.playing) {
+        recordOperationEvent(
+          ref,
+          type: 'playback_restored',
+          phase: 'app_lifecycle',
+          workoutId: session?.workout.id,
+          workoutName: session?.workout.name,
+          incidentId: _displayIncidentId,
+          recoveryOfEventId: _displayIncidentId,
+          sessionId: session?.id,
+          deviceId: localDeviceId,
+          display: display,
+        );
+        _displayIncidentId = null;
+        _displayInterruptedSessionId = null;
+      }
+    } catch (_) {
+      // Visibility changes must remain independent of diagnostic availability.
+    }
+  }
 
   @override
   AsyncValue<void> build() {
@@ -487,6 +635,7 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
   }
 
   Future<void> recover({bool restartTransport = true}) {
+    _syncTelemetryOwner();
     final pending = _flight;
     if (pending != null) {
       if (_flightEpoch == _epoch) return pending;
@@ -542,11 +691,25 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
       } finally {
         subscription.close();
       }
-      if (ref.mounted && epoch == _epoch) state = const AsyncData(null);
+      if (ref.mounted && epoch == _epoch) {
+        state = const AsyncData(null);
+        final incident = _incidentId;
+        if (incident != null) {
+          recordOperationEvent(
+            ref,
+            type: 'connection_recovered',
+            phase: 'controller_connection',
+            incidentId: incident,
+            recoveryOfEventId: incident,
+            sessionId: ref.read(activePlaybackSessionProvider).value?.id,
+          );
+          _incidentId = null;
+        }
+      }
     } catch (error, stack) {
       if (ref.mounted && epoch == _epoch) {
         state = AsyncError(error, stack);
-        ref
+        final diagnostic = ref
             .read(errorReporterProvider)
             .capture(
               error,
@@ -554,6 +717,20 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
               action: 'playback.recover',
               context: {'elapsedMs': elapsed.elapsedMilliseconds},
             );
+        final firstFailure = _incidentId == null;
+        _incidentId ??= createEventId();
+        if (firstFailure) {
+          recordOperationEvent(
+            ref,
+            type: 'connection_failed',
+            phase: 'controller_connection',
+            eventId: _incidentId,
+            incidentId: _incidentId,
+            errorId: diagnostic.id,
+            errorCode: 'recovery_failed',
+            sessionId: ref.read(activePlaybackSessionProvider).value?.id,
+          );
+        }
       }
     } finally {
       actionsSubscription.close();

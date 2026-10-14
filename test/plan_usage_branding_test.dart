@@ -31,6 +31,7 @@ StoreEntitlement planFixture(String plan, {bool confirmed = true}) =>
     StoreEntitlement(
       ownerId: 'owner',
       status: 'active',
+      validUntilMs: 32503647600000,
       serverConfirmed: confirmed,
       policyVersion: 'plan-entitlements-v2',
       plan: plan,
@@ -427,7 +428,7 @@ void main() {
       expect(allowed, 3);
       access.add(null);
       await tester.pumpAndSettle();
-      expect(find.text('저장 수업 10 / 확인 중'), findsOneWidget);
+      expect(find.text('저장 수업 10 / 정책 확인 불가'), findsOneWidget);
     },
   );
 

@@ -160,7 +160,9 @@ class RecoveryDatabase extends Fake implements FirebaseDatabase {
   RecoveryDatabase(Object? initial) : cached = initial, server = initial;
   Object? cached, server;
   bool connected = true;
-  int transactions = 0, writes = 0;
+  // Playback mutations and best-effort telemetry are separate effects.
+  int transactions = 0, writes = 0, operationEventWrites = 0;
+  final operationEvents = <String, Map<String, dynamic>>{};
   Future<void> Function()? beforeTransaction;
   final events = StreamController<DatabaseEvent>.broadcast();
   final transport = <String>[];
@@ -182,6 +184,18 @@ class _Reference extends Fake implements DatabaseReference {
   final RecoveryDatabase db;
   @override
   final String path;
+  @override
+  DatabaseReference child(String path) => _Reference(db, '${this.path}/$path');
+  @override
+  Future<void> set(Object? value) async {
+    final eventPath = RegExp(r'^users/owner/operations/events/[^/]+$');
+    if (!eventPath.hasMatch(path) || value is! Map) {
+      throw StateError('Unexpected recovery fixture write: $path');
+    }
+    db.operationEventWrites++;
+    db.operationEvents[path] = Map<String, dynamic>.from(value);
+  }
+
   @override
   Stream<DatabaseEvent> get onValue {
     if (path == '.info/connected') {
