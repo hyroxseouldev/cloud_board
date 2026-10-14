@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
@@ -70,6 +72,33 @@ class XonBoardApp extends HookConsumerWidget {
             content: Text(message),
             behavior: SnackBarBehavior.floating,
             backgroundColor: isError ? Colors.red.shade800 : null,
+            action: isError
+                ? SnackBarAction(
+                    label: '문제 문의하기',
+                    onPressed: () {
+                      final reporter = ref.read(errorReporterProvider);
+                      final event =
+                          reporter.eventFor(next.error) ??
+                          reporter.capture(
+                            next.error!,
+                            next.stackTrace ?? StackTrace.current,
+                            action: 'ui.action',
+                          );
+                      ref
+                          .read(appRouterProvider)
+                          .push(
+                            '/support',
+                            extra: {
+                              ...supportDiagnosticsForEvent(event),
+                              '_supportOwnerId': ref
+                                  .read(authStateProvider)
+                                  .value
+                                  ?.id,
+                            },
+                          );
+                    },
+                  )
+                : null,
           ),
         );
     }

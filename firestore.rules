@@ -169,6 +169,14 @@ service cloud.firestore {
           && designId.size() > 0 && designId.size() <= 120 && designId.matches('^[A-Za-z0-9_-]+$')
           && validAiSlideDesign(request.resource.data, userId);
       }
+      // Only callables create tickets; users/operators cannot alter evidence or
+      // notification state. Private outbox/config collections have no client grant.
+      match /supportTickets/{requestId} {
+        allow read: if isOwner(userId) || (request.auth != null
+          && request.auth.token.get('supportOperator', false) == true
+          && !exists(/databases/$(database)/documents/accountDeletions/$(userId)));
+        allow write: if false;
+      }
       match /planUsage/{documentId} {
         allow read: if isOwner(userId);
         allow write: if false;

@@ -226,6 +226,20 @@
         "firestore",
         "database"
       ]
+    },
+    {
+      "id": "support-tickets",
+      "file": "functions/test/support-tickets-emulator.mjs",
+      "project": "demo-cloudboard-support",
+      "coverage": [
+        "firestore",
+        "database"
+      ],
+      "requires": [
+        "firestore",
+        "database",
+        "storage"
+      ]
     }
   ]
 }

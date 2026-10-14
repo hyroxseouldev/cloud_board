@@ -31,6 +31,8 @@ persist();
 
 async function reset(suite) {
   const projectId = requireDemo(suite.project);
+  // Required emulators include services without a ruleCoverage export (Storage).
+  for (const service of suite.requires ?? suite.coverage) assert(endpoints[service], `Missing required emulator: ${service}`);
   const env = await initializeTestEnvironment({projectId,
     firestore: {...endpoints.firestore, rules: readFileSync('firestore.rules', 'utf8')},
     database: {...endpoints.database, rules: readFileSync('database.rules.json', 'utf8')},

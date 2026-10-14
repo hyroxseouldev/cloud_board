@@ -34,6 +34,31 @@ service firebase.storage {
             && request.resource.contentType.matches('image/.*')));
     }
 
+    match /users/{userId}/support/{requestId}/{fileId} {
+      function permit() {
+        return firestore.get(/databases/(default)/documents/users/$(userId)/supportUploads/$(requestId)).data;
+      }
+      // A missing own object must be distinguishable for lost-upload responses.
+      allow read: if isOwner(userId) || (request.auth != null
+        && request.auth.token.get('supportOperator', false) == true
+        && !firestore.exists(/databases/(default)/documents/accountDeletions/$(userId)));
+      allow create: if resource == null && isOwner(userId)
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && requestId.matches('^[A-Za-z0-9_-]{8,80}$')
+        && fileId.matches('^[A-Za-z0-9_-]{8,80}$')
+        && !firestore.exists(/databases/(default)/documents/users/$(userId)/supportTickets/$(requestId))
+        && firestore.exists(/databases/(default)/documents/users/$(userId)/supportUploads/$(requestId))
+        && permit().status == 'ready'
+        && permit().expiresAtMs > request.time.toMillis()
+        && permit().path == 'users/' + userId + '/support/' + requestId + '/' + fileId
+        && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.size == permit().sizeBytes
+        && request.resource.contentType in ['image/png', 'image/jpeg', 'image/webp']
+        && request.resource.contentType == permit().contentType
+        && request.resource.metadata.sha256 == permit().sha256;
+      allow update, delete: if false;
+    }
+
     match /users/{userId}/workouts/{workoutId}/{allPaths=**} {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId)
