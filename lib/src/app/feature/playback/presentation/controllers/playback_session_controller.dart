@@ -45,6 +45,7 @@ class PlaybackActionController extends _$PlaybackActionController {
   Timer? _transportCooldown;
   void Function()? _cancelAck;
   int _startEpoch = 0;
+  int _transportEpoch = 0;
 
   bool get canSendTransportCommand =>
       !state.isLoading && !(_transportCooldown?.isActive ?? false);
@@ -52,8 +53,11 @@ class PlaybackActionController extends _$PlaybackActionController {
   @override
   AsyncValue<String?> build() {
     ++_startEpoch;
+    ++_transportEpoch;
+    _completion = null;
     ref.onDispose(() {
       ++_startEpoch;
+      ++_transportEpoch;
       _transportCooldown?.cancel();
       _cancelAck?.call();
     });
@@ -247,11 +251,20 @@ class PlaybackActionController extends _$PlaybackActionController {
 
   Future<bool>? _completion;
   // Natural completion and the screen exit can arrive in the same frame.
-  Future<bool> complete() => _completion ??= _run(
-    '재생을 종료했습니다.',
-    'playback.complete',
-    (actions, deviceId) => actions.complete(deviceId: deviceId),
-  ).whenComplete(() => _completion = null);
+  Future<bool> complete() {
+    final pending = _completion;
+    if (pending != null) return pending;
+    late final Future<bool> flight;
+    flight =
+        _run(
+          '재생을 종료했습니다.',
+          'playback.complete',
+          (actions, deviceId) => actions.complete(deviceId: deviceId),
+        ).whenComplete(() {
+          if (identical(_completion, flight)) _completion = null;
+        });
+    return _completion = flight;
+  }
 
   Future<bool> syncStep({
     required int stepIndex,
@@ -273,77 +286,102 @@ class PlaybackActionController extends _$PlaybackActionController {
         !ref.read(playbackRecoveryControllerProvider).hasValue) {
       return false;
     }
-    if (throttle) {
-      // Accept the first tap immediately and drop rapid follow-up commands.
-      // Loading continues to guard requests that take longer than this window.
-      _transportCooldown?.cancel();
-      _transportCooldown = Timer(const Duration(milliseconds: 350), () {});
-    }
-    final attempt = ref
-        .read(operationTelemetryProvider)
-        .start('playback.control.submit');
-    final expectedSession = ref.read(activePlaybackSessionProvider).value;
-    final reporter = ref.read(errorReporterProvider);
-    final context = _context();
-    final elapsed = Stopwatch()..start();
-    context['expectedRevision'] = expectedSession?.revision;
-    reporter.breadcrumb(actionName, context);
-    String? commandDeviceId;
-    state = const AsyncLoading();
-    final result = await AsyncValue.guard(() async {
-      final actions = ref.read(playbackActionsProvider);
-      final deviceId = await ref.read(deviceIdProvider.future);
-      commandDeviceId = deviceId;
-      if (!ref.mounted) {
-        throw const PlaybackFailure('session_changed', '계정 연결이 변경되었습니다.');
+    final epoch = ++_transportEpoch;
+    final scope = AccountOperationScope.capture(
+      ref,
+      onInvalidated: () {
+        if (!ref.mounted || epoch != _transportEpoch) return;
+        ++_transportEpoch;
+        _transportCooldown?.cancel();
+        _completion = null;
+        _cancelAck?.call();
+        state = const AsyncData(null);
+      },
+    );
+    if (scope == null) return false;
+    try {
+      final active = ref.read(activePlaybackSessionProvider);
+      if (active.isLoading ||
+          active.hasError ||
+          (active.value != null && active.value!.ownerId != scope.ownerId)) {
+        return false;
       }
-      final current = ref.read(activePlaybackSessionProvider).value;
-      if (expectedSession?.id != current?.id ||
-          expectedSession?.revision != current?.revision) {
-        throw PlaybackFailure(
-          'revision_conflict',
-          '수업 상태가 변경되었습니다. 최신 상태를 확인해 주세요.',
-          expectedRevision: expectedSession?.revision,
-          observedRevision: current?.revision,
+      if (throttle) {
+        // Accept the first tap immediately and drop rapid follow-up commands.
+        // Loading continues to guard requests that take longer than this window.
+        _transportCooldown?.cancel();
+        _transportCooldown = Timer(const Duration(milliseconds: 350), () {});
+      }
+      final attempt = ref
+          .read(operationTelemetryProvider)
+          .start('playback.control.submit');
+      final expectedSession = active.value;
+      final reporter = ref.read(errorReporterProvider);
+      final context = _context();
+      final elapsed = Stopwatch()..start();
+      context['expectedRevision'] = expectedSession?.revision;
+      reporter.breadcrumb(actionName, context);
+      String? commandDeviceId;
+      state = const AsyncLoading();
+      final result = await AsyncValue.guard(() async {
+        final actions = ref.read(playbackActionsProvider);
+        final deviceId = await ref.read(deviceIdProvider.future);
+        commandDeviceId = deviceId;
+        if (!scope.isCurrent || epoch != _transportEpoch) {
+          throw const PlaybackFailure('session_changed', '계정 연결이 변경되었습니다.');
+        }
+        final current = ref.read(activePlaybackSessionProvider).value;
+        if (expectedSession?.id != current?.id ||
+            expectedSession?.revision != current?.revision) {
+          throw PlaybackFailure(
+            'revision_conflict',
+            '수업 상태가 변경되었습니다. 최신 상태를 확인해 주세요.',
+            expectedRevision: expectedSession?.revision,
+            observedRevision: current?.revision,
+          );
+        }
+        await action(actions, deviceId);
+        return successMessage;
+      });
+      if (result.hasError) {
+        attempt.failure(
+          result.error is PlaybackFailure
+              ? (result.error! as PlaybackFailure).code
+              : result.error,
+        );
+      } else {
+        attempt.success();
+      }
+      // The server result remains authoritative after submission. A cancelled
+      // account scope only suppresses stale UI, follow-up reads and event writes.
+      if (!scope.isCurrent || epoch != _transportEpoch) return !result.hasError;
+      if (!result.hasError &&
+          expectedSession != null &&
+          commandDeviceId != null) {
+        _watchDisplayAcknowledgement(
+          expectedSession,
+          revision: expectedSession.revision + 1,
+          deviceId: commandDeviceId!,
         );
       }
-      await action(actions, deviceId);
-      return successMessage;
-    });
-    if (result.hasError) {
-      attempt.failure(
-        result.error is PlaybackFailure
-            ? (result.error! as PlaybackFailure).code
-            : result.error,
+      state = result;
+      _reportResult(
+        actionName,
+        result,
+        context: {...context, 'elapsedMs': elapsed.elapsedMilliseconds},
       );
-    } else {
-      attempt.success();
+      if (result.hasError && throttle) _transportCooldown?.cancel();
+      if (result.error case final PlaybackFailure failure
+          when failure.needsRefresh) {
+        // Refresh only. Replaying an obsolete seek/pause can undo the other operator.
+        await ref
+            .read(playbackRecoveryControllerProvider.notifier)
+            .recover(restartTransport: false);
+      }
+      return !result.hasError;
+    } finally {
+      scope.close();
     }
-    if (!ref.mounted) return false;
-    if (!result.hasError &&
-        expectedSession != null &&
-        commandDeviceId != null) {
-      _watchDisplayAcknowledgement(
-        expectedSession,
-        revision: expectedSession.revision + 1,
-        deviceId: commandDeviceId!,
-      );
-    }
-    state = result;
-    _reportResult(
-      actionName,
-      result,
-      context: {...context, 'elapsedMs': elapsed.elapsedMilliseconds},
-    );
-    if (result.hasError && throttle) _transportCooldown?.cancel();
-    if (result.error case final PlaybackFailure failure
-        when failure.needsRefresh) {
-      // Refresh only. Replaying an obsolete seek/pause can undo the other operator.
-      await ref
-          .read(playbackRecoveryControllerProvider.notifier)
-          .recover(restartTransport: false);
-    }
-    return !result.hasError;
   }
 
   // At most one passive observer; a later accepted control supersedes it.
@@ -367,6 +405,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     };
     reporter.breadcrumb('playback.ack.waiting', ackContext);
     var done = false;
+    AccountOperationScope? scope;
     final baselineSessionId = ref.read(activePlaybackSessionProvider).value?.id;
     final baselineDevices = {
       for (final display in ref.read(displayDevicesProvider).value ?? const [])
@@ -382,7 +421,9 @@ class PlaybackActionController extends _$PlaybackActionController {
       closeSession?.call();
       closeDevices?.call();
       _cancelAck = null;
-      if (ref.mounted &&
+      final current = scope?.isCurrent == true;
+      scope?.close();
+      if (current &&
           (failure != null || verdict == PlaybackAckVerdict.success)) {
         final devices = {
           for (final display
@@ -426,7 +467,7 @@ class PlaybackActionController extends _$PlaybackActionController {
 
     void check() {
       if (done) return;
-      if (!ref.mounted) {
+      if (scope?.isCurrent != true) {
         finish(PlaybackAckVerdict.cancelled);
         return;
       }
@@ -463,6 +504,15 @@ class PlaybackActionController extends _$PlaybackActionController {
       if (verdict != PlaybackAckVerdict.pending) finish(verdict);
     }
 
+    scope = AccountOperationScope.capture(
+      ref,
+      onInvalidated: () => finish(PlaybackAckVerdict.cancelled),
+    );
+    if (scope == null || scope.ownerId != expected.ownerId) {
+      scope?.close();
+      attempt.cancel();
+      return;
+    }
     closeSession = ref
         .listen(activePlaybackSessionProvider, (_, _) => check())
         .close;

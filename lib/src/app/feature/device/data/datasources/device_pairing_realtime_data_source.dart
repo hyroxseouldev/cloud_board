@@ -457,8 +457,6 @@ class DevicePairingRealtimeDataSource {
     final installation = await displayInstallationInfo();
     bool sameIdentity() => !_disposed && _auth.currentUser?.uid == uid;
     if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
-    final eventRef = _database.ref('users/$ownerId/operations/events');
-    DatabaseReference? pendingOfflineEvent;
     late final DisplayPresenceCoordinator coordinator;
     coordinator = DisplayPresenceCoordinator(
       onState: (state) {
@@ -497,36 +495,8 @@ class DevicePairingRealtimeDataSource {
             });
       },
       publish: (id, isCurrent) async {
-        if (!sameIdentity() || !isCurrent()) return;
-        // Verification restores any missing reverse UID before event access.
-        // Disconnect events belong to this connection, just like presence; an
-        // old hook can never overwrite the next connection's device state.
-        final before = (await deviceRef.get()).value;
-        if (!sameIdentity() || !isCurrent()) return;
+        final eventRef = _database.ref('users/$ownerId/operations/events');
         final offlineEvent = eventRef.child('$id-offline');
-        var offlineRegistered = false;
-        try {
-          await pendingOfflineEvent?.onDisconnect().cancel();
-          if (!sameIdentity() || !isCurrent()) return;
-          await offlineEvent.onDisconnect().set({
-            'id': offlineEvent.key,
-            'eventId': offlineEvent.key,
-            'incidentId': offlineEvent.key,
-            'phase': 'server_connection',
-            ...operationDeviceSnapshot({
-              if (before is Map) ...before,
-              ...installation,
-            }),
-            'type': 'device_offline',
-            'occurredAtMs': ServerValue.timestamp,
-            'deviceId': deviceId,
-            'scheduled': false,
-          });
-          pendingOfflineEvent = offlineEvent;
-          offlineRegistered = true;
-        } catch (_) {
-          // Missing telemetry must not prevent verified TV presence.
-        }
         String? previousOfflineEventKey;
         final result = await deviceRef.runTransaction((current) {
           if (!sameIdentity() || !isCurrent()) return Transaction.abort();
@@ -537,11 +507,11 @@ class DevicePairingRealtimeDataSource {
               (anonymous && current['displayUid'] != uid)) {
             return Transaction.abort();
           }
-          previousOfflineEventKey =
-              current['pendingOfflineEventKey'] as String?;
           final presence = current['presence'] is Map
               ? Map<Object?, Object?>.from(current['presence'] as Map)
               : <Object?, Object?>{};
+          previousOfflineEventKey =
+              current['pendingOfflineEventKey'] as String?;
           presence[id] = {
             'online': true,
             'lastSeenAtMs': ServerValue.timestamp,
@@ -550,7 +520,7 @@ class DevicePairingRealtimeDataSource {
             ...current,
             'presence': presence,
             'currentConnectionId': id,
-            if (offlineRegistered) 'pendingOfflineEventKey': offlineEvent.key,
+            'pendingOfflineEventKey': offlineEvent.key,
             'presenceProtocol': 1,
             'online': true,
             'lastSeenAtMs': ServerValue.timestamp,
@@ -561,37 +531,21 @@ class DevicePairingRealtimeDataSource {
           });
         }, applyLocally: false);
         if (!result.committed || !result.snapshot.exists) {
-          if (offlineRegistered) {
-            await offlineEvent.onDisconnect().cancel().catchError(
-              (Object _) {},
-            );
-          }
           throw StateError('디스플레이 연결이 해제되었거나 변경되었습니다.');
         }
         if (!sameIdentity() || !isCurrent()) return;
-        final snapshot = Map<dynamic, dynamic>.from(
-          result.snapshot.value! as Map,
-        );
-        final onlineEvent = eventRef.child('$id-online');
-        final payload = {
-          'id': onlineEvent.key!,
-          'eventId': onlineEvent.key!,
-          'type': 'device_online',
-          'phase': 'server_connection',
-          'occurredAtMs': snapshot['lastSeenAtMs'],
-          'deviceId': deviceId,
-          'scheduled': false,
-          'recoveryOfEventId': previousOfflineEventKey,
-          'incidentId': previousOfflineEventKey,
-          ...operationDeviceSnapshot(snapshot),
-        };
+        // Analytics cannot delay readiness or retry the verification/publish
+        // handshake. Its disconnect hook is registered only after server repair;
+        // unlike presence it needs the verified reverse UID binding in rules.
         unawaited(
-          OperationEventWriter((event) async {
-            if (!sameIdentity() || !isCurrent()) return;
-            await onlineEvent.set(
-              OperationEventModel.fromEntity(event).toJson(),
-            );
-          }).record(OperationEventModel.fromJson(payload).toEntity()),
+          _recordPresenceEvents(
+            eventRef: eventRef,
+            connectionId: id,
+            deviceId: deviceId,
+            snapshot: Map<dynamic, dynamic>.from(result.snapshot.value! as Map),
+            previousOfflineEventKey: previousOfflineEventKey,
+            isCurrent: () => sameIdentity() && isCurrent(),
+          ),
         );
       },
     );
@@ -603,6 +557,72 @@ class DevicePairingRealtimeDataSource {
           .map((event) => event.snapshot.value == true),
     );
     await coordinator.currentReady.timeout(const Duration(seconds: 20));
+  }
+
+  Future<void> _recordPresenceEvents({
+    required DatabaseReference eventRef,
+    required String connectionId,
+    required String deviceId,
+    required Map<dynamic, dynamic> snapshot,
+    required String? previousOfflineEventKey,
+    required bool Function() isCurrent,
+  }) async {
+    final offlineEvent = eventRef.child('$connectionId-offline');
+    try {
+      if (!isCurrent()) return;
+      await offlineEvent
+          .onDisconnect()
+          .set({
+            'id': offlineEvent.key,
+            'eventId': offlineEvent.key,
+            'incidentId': offlineEvent.key,
+            'connectionId': connectionId,
+            'phase': 'server_connection',
+            ...operationDeviceSnapshot(snapshot),
+            'type': 'device_offline',
+            'occurredAtMs': ServerValue.timestamp,
+            'deviceId': deviceId,
+            'scheduled': false,
+          })
+          .timeout(const Duration(seconds: 5));
+      if (!isCurrent()) {
+        await offlineEvent.onDisconnect().cancel();
+        return;
+      }
+      if (previousOfflineEventKey != null) {
+        await eventRef.child(previousOfflineEventKey).onDisconnect().cancel();
+      }
+    } catch (_) {
+      // Missing telemetry is never a failed connection or a shared state write.
+    }
+    if (!isCurrent()) return;
+    // An old socket's disconnect may arrive after this connection is ready.
+    // Record every verified connection with its stable ID, even when the old
+    // presence still says online, so its delayed offline event has a recovery.
+    try {
+      final onlineEvent = eventRef.child('$connectionId-online');
+      final payload = {
+        'id': onlineEvent.key!,
+        'eventId': onlineEvent.key!,
+        'type': 'device_online',
+        'phase': 'server_connection',
+        'occurredAtMs': snapshot['lastSeenAtMs'],
+        'deviceId': deviceId,
+        'scheduled': false,
+        'recoveryOfEventId': previousOfflineEventKey,
+        'incidentId': previousOfflineEventKey,
+        ...operationDeviceSnapshot(snapshot),
+      };
+      await OperationEventWriter((event) async {
+        if (!isCurrent()) return;
+        await onlineEvent.set({
+          ...OperationEventModel.fromEntity(event).toJson(),
+          'connectionId': connectionId,
+        });
+      }).record(OperationEventModel.fromJson(payload).toEntity());
+    } catch (_) {
+      // Historical metadata may be incomplete on an older registered display.
+    }
   }
 
   Future<DevicePairing> _issueLegacy({required String deviceId}) async {

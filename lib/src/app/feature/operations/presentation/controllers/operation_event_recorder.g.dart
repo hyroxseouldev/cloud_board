@@ -55,4 +55,4 @@ final class OperationEventWriterProvider
 }
 
 String _$operationEventWriterHash() =>
-    r'05b9f22f183e5e4635ca2ed71be9052dee093e14';
+    r'4a3668b3a9e2fd19bc7e280c9dc6a58e428d1b6e';

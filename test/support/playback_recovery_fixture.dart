@@ -4,6 +4,10 @@ import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/feature/operations/data/operation_event_writer.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/controllers/operation_event_recorder.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -15,6 +19,7 @@ import 'package:cloud_board/src/app/feature/playback/domain/usecases/playback_ac
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -59,14 +64,33 @@ Map<String, dynamic> recoverySession({
 /// Real source -> repository -> actions -> generated controllers. Only the SDK
 /// transport and disk are replaced; SDK cache can deliberately lag the REST read.
 class RecoveryHarness {
-  RecoveryHarness(Map<String, dynamic> initial) {
+  RecoveryHarness(
+    Map<String, dynamic> initial, {
+    Stream<String?>? owners,
+    Stream<User?>? users,
+  }) {
     db = RecoveryDatabase(initial);
     telemetry = OperationTelemetry(
       readAccount: () => 'owner',
       emit: (event, _) async => events.add(event),
     );
     container = ProviderContainer(
+      retry: (_, _) => null,
       overrides: [
+        accountOwnerIdProvider.overrideWith(
+          (_) => owners ?? Stream.value('owner'),
+        ),
+        firebaseAccountUserProvider.overrideWith(
+          (_) => users ?? Stream.value(RecoveryUser('owner')),
+        ),
+        operationEventWriterProvider.overrideWith((ref) {
+          final owner = ref.watch(accountOwnerIdProvider).value;
+          final writer = OperationEventWriter((event) async {
+            operationEvents.add((ownerId: owner, event: event));
+          });
+          ref.onDispose(writer.dispose);
+          return writer;
+        }),
         errorReporterProvider.overrideWithValue(ErrorReporter(diagnostics)),
         playbackRepositoryProvider.overrideWith((ref) {
           // Match production ownership: the provider constructs its data source
@@ -99,6 +123,8 @@ class RecoveryHarness {
     container.listen(activePlaybackSessionProvider, (_, _) {});
     container.listen(playbackConnectionProvider, (_, _) {});
     container.listen(displayDevicesProvider, (_, _) {});
+    container.listen(accountOwnerIdProvider, (_, _) {});
+    container.listen(firebaseAccountUserProvider, (_, _) {});
   }
   late final RecoveryDatabase db;
   late final PlaybackRealtimeDataSource source;
@@ -108,6 +134,7 @@ class RecoveryHarness {
   final diagnostics = RecoveryDiagnostics();
   final deviceEvents = StreamController<List<DisplayDevice>>.broadcast();
   final events = <Map<String, dynamic>>[];
+  final operationEvents = <({String? ownerId, OperationEvent event})>[];
   late final OperationTelemetry telemetry;
   int restReads = 0;
   late Future<Object?> Function() readServer = () async => db.server;
@@ -144,6 +171,14 @@ class RecoveryHarness {
     await db.events.close();
     await deviceEvents.close();
   }
+}
+
+class RecoveryUser extends Fake implements User {
+  RecoveryUser(this.uid);
+  @override
+  final String uid;
+  @override
+  bool get isAnonymous => false;
 }
 
 class RecoveryCache extends Fake implements PlaybackSessionLocalDataSource {

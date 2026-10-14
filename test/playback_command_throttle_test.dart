@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/usecases/playback_actions.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+import 'support/playback_recovery_fixture.dart' show RecoveryUser;
 
 void main() {
   late _Actions actions;
@@ -15,6 +18,10 @@ void main() {
     actions = _Actions();
     container = ProviderContainer(
       overrides: [
+        accountOwnerIdProvider.overrideWith((_) => Stream.value('owner')),
+        firebaseAccountUserProvider.overrideWith(
+          (_) => Stream.value(RecoveryUser('owner')),
+        ),
         activePlaybackSessionProvider.overrideWith((ref) => Stream.value(null)),
         playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),
         playbackActionsProvider.overrideWith((ref) => actions),
@@ -22,12 +29,16 @@ void main() {
       ],
     );
     commands = container.read(playbackActionControllerProvider.notifier);
+    container.listen(accountOwnerIdProvider, (_, _) {});
+    container.listen(firebaseAccountUserProvider, (_, _) {});
+    container.listen(activePlaybackSessionProvider, (_, _) {});
   });
   tearDown(() => container.dispose());
 
   testWidgets('first command is immediate and rapid mixed taps are dropped', (
     tester,
   ) async {
+    await tester.pump();
     expect(await commands.pause(1000), isTrue);
     expect(await commands.resume(), isFalse);
     expect(await commands.seek(stepIndex: 1, durationMs: 1000), isFalse);
@@ -43,6 +54,7 @@ void main() {
   testWidgets('slow requests stay single flight after cooldown expires', (
     tester,
   ) async {
+    await tester.pump();
     actions.pending = Completer<void>();
     final first = commands.pause(1000);
     await tester.pump(const Duration(seconds: 1));
@@ -59,6 +71,7 @@ void main() {
   testWidgets(
     'failure permits retry and automatic sync shares single-flight throttle',
     (tester) async {
+      await tester.pump();
       actions.fail = true;
       expect(await commands.pause(1000), isFalse);
       expect(container.read(playbackActionControllerProvider).hasError, isTrue);

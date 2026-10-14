@@ -52,3 +52,83 @@ String? accountOwnerIdForUser({
   required String uid,
   required bool isAnonymous,
 }) => isAnonymous ? null : uid;
+
+/// Retains the identity of one asynchronous operation. Any unresolved or changed
+/// owner/auth state cancels it permanently, including an A→B→A transition.
+class AccountOperationScope {
+  AccountOperationScope._(
+    this._ref,
+    this.ownerId,
+    this.uid,
+    this._onInvalidated,
+  );
+
+  final Ref _ref;
+  final String ownerId, uid;
+  final void Function()? _onInvalidated;
+  void Function()? _closeOwner, _closeUser;
+  bool _closed = false;
+
+  static AccountOperationScope? capture(
+    Ref ref, {
+    void Function()? onInvalidated,
+  }) {
+    final owner = ref.read(accountOwnerIdProvider);
+    final user = ref.read(firebaseAccountUserProvider);
+    if (owner.isLoading ||
+        owner.hasError ||
+        owner.value == null ||
+        user.isLoading ||
+        user.hasError ||
+        user.value == null) {
+      return null;
+    }
+    final scope = AccountOperationScope._(
+      ref,
+      owner.value!,
+      user.value!.uid,
+      onInvalidated,
+    );
+    scope._closeOwner = ref.listen(accountOwnerIdProvider, (_, next) {
+      if (next.isLoading || next.hasError || next.value != scope.ownerId) {
+        scope._invalidate();
+      }
+    }).close;
+    scope._closeUser = ref.listen(firebaseAccountUserProvider, (_, next) {
+      if (next.isLoading || next.hasError || next.value?.uid != scope.uid) {
+        scope._invalidate();
+      }
+    }).close;
+    return scope;
+  }
+
+  bool get isCurrent {
+    if (_closed || !_ref.mounted) return false;
+    final owner = _ref.read(accountOwnerIdProvider);
+    final user = _ref.read(firebaseAccountUserProvider);
+    if (owner.isLoading ||
+        owner.hasError ||
+        owner.value != ownerId ||
+        user.isLoading ||
+        user.hasError ||
+        user.value?.uid != uid) {
+      _invalidate();
+      return false;
+    }
+    return true;
+  }
+
+  void _invalidate() {
+    if (_closed) return;
+    close();
+    _onInvalidated?.call();
+  }
+
+  void close() {
+    _closed = true;
+    _closeOwner?.call();
+    _closeUser?.call();
+    _closeOwner = null;
+    _closeUser = null;
+  }
+}

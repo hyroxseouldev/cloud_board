@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+
 import 'package:cloud_board/src/app/feature/playback/data/repositories/playback_repository_impl.dart';
 
 import 'support/playback_recovery_fixture.dart';
@@ -620,6 +622,10 @@ void main() {
       final actions = _Actions();
       final container = ProviderContainer(
         overrides: [
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('owner')),
+          firebaseAccountUserProvider.overrideWith(
+            (_) => Stream.value(RecoveryUser('owner')),
+          ),
           playbackActionsProvider.overrideWith((ref) => actions),
           deviceIdProvider.overrideWith((ref) async => 'c'),
           activePlaybackSessionProvider.overrideWith(
@@ -631,6 +637,9 @@ void main() {
       final recovery = container.read(
         playbackRecoveryControllerProvider.notifier,
       );
+      container.listen(accountOwnerIdProvider, (_, _) {});
+      container.listen(firebaseAccountUserProvider, (_, _) {});
+      await tester.pump();
       recovery.suspend();
       final commands = container.read(
         playbackActionControllerProvider.notifier,

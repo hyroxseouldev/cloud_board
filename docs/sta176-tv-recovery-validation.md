@@ -76,7 +76,17 @@ Android development 디버그 APK는 `fvm flutter build apk --debug --dart-defin
 
 PR #61의 14개 suite VM/Chrome gate와 STA-176의 7개 suite TV gate를 모두 유지한다. STA-176 manifest는 기존 67개를 모두 유지하고 REST 제한시간 2개 및 현재 연결 readiness/권한 중단 3개를 더해 필수 72개 이름을 요구한다. 겹치는 suite의 통과 수를 합산하지 않는다. 두 runner 모두 새 실행 전에 이전 성공 결과를 제거하고, 실패한 실행의 새 로그를 보존한다. 배포의 두 gate 의존성과 실제 기기 출시 증거 gate도 유지한다.
 
-최종 보완 작업 트리에서 분석은 `No issues found!`, 수업 시작 VM gate는 **143개**, TV gate는 **91개** 통과했고 skip은 0개다. TV의 필수 72개 이름도 모두 확인했다. [통합 TV 결과](release/sta176/integration-flutter-results.json)와 [수업 시작 VM 결과](release/sta176/integration-class-start-vm.json)를 별도로 보존했다. 서버 기준 `2a76ace`의 Node 221개와 Firebase 계약 29개도 모두 통과했다. 전체 Flutter, 필수 Chrome 및 최종 후보 head 검증은 PR #63의 CI 결과와 artifact에서 확인한다. 실제 배포와 실기기 검수는 이번 작업 범위에 포함하지 않는다.
+`3387ce9` 후보의 보완 작업 트리에서 분석은 `No issues found!`, 수업 시작 VM gate는 **143개**, TV gate는 **91개** 통과했고 skip은 0개다. TV의 필수 72개 이름도 모두 확인했다. [통합 TV 결과](release/sta176/integration-flutter-results.json)와 [수업 시작 VM 결과](release/sta176/integration-class-start-vm.json)를 별도로 보존했다. 서버 기준 `2a76ace`의 Node 221개와 Firebase 계약 29개도 모두 통과했다. 전체 Flutter, 필수 Chrome 및 최종 후보 head 검증은 PR #63의 CI 결과와 artifact에서 확인한다. 실제 배포와 실기기 검수는 이번 작업 범위에 포함하지 않는다.
+
+## develop `06fbd65` 운영 이력 통합
+
+PR #62가 병합된 develop `06fbd65`를 추가 통합했다. 운영 이벤트를 위한 별도 연결 종료 hook과 online 기록은 현재 연결의 서버 검증 및 presence publish가 성공한 뒤에만 시작한다. 운영 기록 실패가 이미 확인된 연결을 실패로 바꾸거나 준비 재시도를 다시 열지 않으며, 이전 연결의 hook은 현재 연결의 presence를 덮지 않는다. 운영 이벤트 규칙에는 기존 두 종류와 새 다섯 종류를 모두 유지하고, 해제·회수된 기기의 일곱 종류 쓰기 거부를 실제 에뮬레이터로 확인했다. `display-preparation`, `display-recovery`, `operations-history` 계약 재실행이 모두 통과했다.
+
+운영 이력 통합 리뷰에서는 계정 A의 명령/TV 응답을 기다리다가 B 또는 A→B→A로 바뀐 뒤 이전 결과가 현재 UI와 이력에 반영되는 경계를 발견했다. 동일 회귀의 보호 전 [지연 명령 실패](release/sta176/operation-scope-baseline.txt)와 [늦은 TV 응답 timeout](release/sta176/operation-ack-baseline.txt)을 보존했다. owner와 인증 UID의 loading/error/null/변경을 작업별로 감시해 한 번 변경된 작업은 다시 살아나지 않도록 하고, 이미 확정된 서버 성공은 유지하면서 이전 UI·ACK·이력 기록만 취소한다. 일반 이력 기록의 비동기 deviceId 조회도 같은 범위를 유지한다.
+
+연결 fixture는 실제 datasource/repository/controller와 검증→publish→운영 hook 순서를 유지한다. Chrome에서는 native Pigeon timeout의 Int64 인코딩이 dart2js에서 지원되지 않아 callable 경계만 공개 platform interface fake로 대체한다. VM은 기존 Pigeon transport를 계속 검증하고, 양쪽 모두 동일한 함수 이름·region·timeout·device/connectionId assertion 및 실패 응답을 사용한다. 테스트 skip이나 production 우회 경로를 추가하지 않는다.
+
+이 통합본의 전체 Flutter·VM/Chrome·TV 필수 gate, 서버/rules 및 웹 빌드 증거는 PR #63의 최신 head CI에 연결한다. 앞 절의 후보별 숫자는 각 기준의 기록이며 새 통합본의 검증 결과로 전용하지 않는다. 소스 이관 PR #62는 develop에 반영됐고, legacy 원자 등록 bridge는 별도 PR #64로 검토한다. 두 PR은 개발 코드 리뷰를 위한 것이며 아래 출시 후속 작업은 별도로 남긴다.
 
 ## 아직 수행하지 않은 검증
 

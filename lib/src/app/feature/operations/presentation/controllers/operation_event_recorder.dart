@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/services/event_id.dart';
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/operations/data/operation_event_writer.dart';
@@ -16,6 +17,8 @@ part 'operation_event_recorder.g.dart';
 
 @Riverpod(keepAlive: true)
 OperationEventWriter operationEventWriter(Ref ref) {
+  // Authentication can change while the resolved owner is still retained.
+  ref.watch(firebaseAccountUserProvider);
   final writer = OperationEventWriter(
     ref.watch(storeOperationsRepositoryProvider).recordDetailedEvent,
   );
@@ -43,7 +46,11 @@ void recordOperationEvent(
   String? playbackImpact,
   List<DisplayDevice> targets = const [],
 }) {
+  AccountOperationScope? scope;
   try {
+    scope = AccountOperationScope.capture(ref);
+    if (scope == null) return;
+    final capturedScope = scope;
     final id = eventId ?? createEventId();
     final occurredAtMs =
         DateTime.now().millisecondsSinceEpoch +
@@ -56,8 +63,9 @@ void recordOperationEvent(
         : Future.value(localDevice);
     unawaited(
       localId
-          .then(
-            (resolvedId) => writer.record(
+          .then((resolvedId) {
+            if (!capturedScope.isCurrent) return Future<void>.value();
+            return writer.record(
               OperationEvent(
                 id: id,
                 eventId: id,
@@ -97,11 +105,13 @@ void recordOperationEvent(
                     device.id: device.installedVersion,
                 },
               ),
-            ),
-          )
-          .catchError((Object _) {}),
+            );
+          })
+          .catchError((Object _) {})
+          .whenComplete(capturedScope.close),
     );
   } catch (_) {
+    scope?.close();
     // Telemetry availability never changes a playback result.
   }
 }

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/router/auth_entry_routes.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
@@ -27,6 +28,7 @@ class OnboardingScreen extends HookConsumerWidget {
     super.key,
     this.editing = false,
     this.verifyPhone = false,
+    this.returnTo,
     this.guard,
     this.starter,
     this.purpose,
@@ -34,10 +36,16 @@ class OnboardingScreen extends HookConsumerWidget {
   final ExitGuard? guard;
   final bool editing;
   final bool verifyPhone;
+  final String? returnTo;
   final StarterWorkout? starter;
   final String? purpose;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Retain the completion flag only while this entry flow is on screen.
+    ref.watch(onboardingCompletionProvider);
+    final userId = ref.watch(
+      authStateProvider.select((state) => state.value?.id),
+    );
     final progress = ref.watch(onboardingControllerProvider);
     final exploration = ref.watch(explorationControllerProvider);
     final continuedStarter =
@@ -70,7 +78,7 @@ class OnboardingScreen extends HookConsumerWidget {
       return null;
     }, [starter, purpose]);
     return Scaffold(
-      body: exploration.isLoading
+      body: exploration.isLoading || progress.isLoading
           ? const Center(child: CircularProgressIndicator())
           : AsyncValueWidget<CenterOnboarding>(
               value: progress,
@@ -79,12 +87,14 @@ class OnboardingScreen extends HookConsumerWidget {
                   data.phoneRequired &&
                       (!data.serviceReady || verifyPhone || editing)
                   ? _PhoneVerification(
+                      key: ValueKey(userId),
                       starter: continuedStarter,
                       purpose: continuedPurpose,
                     )
                   : !data.serviceReady || !editing
                   ? _ActivationResult(
                       progress: data,
+                      returnTo: returnTo,
                       starter: continuedStarter,
                       purpose: continuedPurpose,
                     )
@@ -102,7 +112,7 @@ class OnboardingScreen extends HookConsumerWidget {
 }
 
 class _PhoneVerification extends HookConsumerWidget {
-  const _PhoneVerification({this.starter, this.purpose});
+  const _PhoneVerification({super.key, this.starter, this.purpose});
   final StarterWorkout? starter;
   final String? purpose;
   @override
@@ -260,8 +270,14 @@ class _PhoneVerification extends HookConsumerWidget {
 /// This view never grants access locally. A retry asks the same idempotent
 /// server load operation to finish a partially completed verification.
 class _ActivationResult extends ConsumerWidget {
-  const _ActivationResult({required this.progress, this.starter, this.purpose});
+  const _ActivationResult({
+    required this.progress,
+    this.starter,
+    this.purpose,
+    this.returnTo,
+  });
   final CenterOnboarding progress;
+  final String? returnTo;
   final StarterWorkout? starter;
   final String? purpose;
 
@@ -311,11 +327,12 @@ class _ActivationResult extends ConsumerWidget {
               else ...[
                 FilledButton(
                   onPressed: () => context.go(
-                    starterLocation(
-                      starter == null ? '/' : '/starter-workouts',
-                      starter,
-                      purpose: purpose,
-                    ),
+                    entryReturnLocation(returnTo) ??
+                        starterLocation(
+                          starter == null ? '/' : '/starter-workouts',
+                          starter,
+                          purpose: purpose,
+                        ),
                   ),
                   child: Text(
                     starter == null ? '내 수업으로 가기' : '선택한 예시로 내 수업 만들기',

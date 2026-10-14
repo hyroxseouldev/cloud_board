@@ -55,6 +55,69 @@ abstract class _$OnboardingController extends $AsyncNotifier<CenterOnboarding> {
   }
 }
 
+/// Kept alive only by the current onboarding view, never persisted across launch.
+/// A returning account's load does not create a new activation celebration.
+
+@ProviderFor(OnboardingCompletion)
+final onboardingCompletionProvider = OnboardingCompletionProvider._();
+
+/// Kept alive only by the current onboarding view, never persisted across launch.
+/// A returning account's load does not create a new activation celebration.
+final class OnboardingCompletionProvider
+    extends $NotifierProvider<OnboardingCompletion, bool> {
+  /// Kept alive only by the current onboarding view, never persisted across launch.
+  /// A returning account's load does not create a new activation celebration.
+  OnboardingCompletionProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'onboardingCompletionProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$onboardingCompletionHash();
+
+  @$internal
+  @override
+  OnboardingCompletion create() => OnboardingCompletion();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$onboardingCompletionHash() =>
+    r'd6846c56407dcffdca5b1c448a5490a3b2491663';
+
+/// Kept alive only by the current onboarding view, never persisted across launch.
+/// A returning account's load does not create a new activation celebration.
+
+abstract class _$OnboardingCompletion extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(OnboardingAction)
 final onboardingActionProvider = OnboardingActionProvider._();
 
@@ -87,7 +150,7 @@ final class OnboardingActionProvider
   }
 }
 
-String _$onboardingActionHash() => r'b8c1196f4071c08b71f1227525ab76045ee1d348';
+String _$onboardingActionHash() => r'043b143a447471221990638b12874c8697c17491';
 
 abstract class _$OnboardingAction extends $Notifier<AsyncValue<void>> {
   AsyncValue<void> build();
