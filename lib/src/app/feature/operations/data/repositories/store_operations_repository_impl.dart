@@ -1,6 +1,6 @@
-import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'dart:typed_data';
 
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -86,10 +86,16 @@ class StoreOperationsRepositoryImpl implements StoreOperationsRepository {
 
   @override
   Stream<OperationEventBatch> watchEventsInRange(OperationEventRange range) =>
-      _realtime.watchEventsInRange(range).map((items) => OperationEventBatch(
-        events: uniqueOperationEvents(items.map((item) => item.toEntity())),
-        isComplete: true,
-      ));
+      _realtime
+          .watchEventsInRange(range)
+          .map(
+            (items) => OperationEventBatch(
+              events: uniqueOperationEvents(
+                items.map((item) => item.toEntity()),
+              ),
+              isComplete: true,
+            ),
+          );
 
   @override
   Future<void> recordDetailedEvent(OperationEvent event) =>

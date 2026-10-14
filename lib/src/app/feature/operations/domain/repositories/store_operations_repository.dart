@@ -1,7 +1,7 @@
-import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'dart:typed_data';
 
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 
 abstract interface class StoreOperationsRepository {

@@ -205,7 +205,12 @@ class OperationEventModel {
   final String? deviceId, workoutId, workoutName;
   final bool scheduled;
   final int? scheduledAtMs;
-  final String? sessionId, eventId, deviceName, zoneName, deviceRole, appVersion;
+  final String? sessionId,
+      eventId,
+      deviceName,
+      zoneName,
+      deviceRole,
+      appVersion;
   final String? phase, errorId, errorCode, incidentId, recoveryOfEventId;
   final String? playbackImpact;
   final List<String> targetDeviceIds;
