@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 
@@ -8,9 +9,11 @@ OperationsReport buildOperationsReport(
   final current = now ?? DateTime.now();
   final startOfToday = DateTime(current.year, current.month, current.day);
   final startOfMonth = DateTime(current.year, current.month);
-  final playbackEvents = events.where(
+  final playbackEvents = uniqueOperationEvents(events).where(
     (event) =>
-        event.type == 'playback_started' && !isStarterWorkout(event.workoutId),
+        event.type == 'playback_started' &&
+        event.occurredAtMs <= current.millisecondsSinceEpoch &&
+        !isStarterWorkout(event.workoutId),
   );
   final today = playbackEvents
       .where(
@@ -62,7 +65,7 @@ Duration _onlineDuration(List<OperationEvent> events, DateTime now) {
     final deviceId = event.deviceId;
     if (deviceId == null) continue;
     if (event.type == 'device_online') {
-      onlineAt[deviceId] = event.occurredAtMs;
+      onlineAt.putIfAbsent(deviceId, () => event.occurredAtMs);
     } else if (event.type == 'device_offline') {
       final start = onlineAt.remove(deviceId);
       if (start != null && event.occurredAtMs >= start) {
@@ -126,4 +129,89 @@ bool isBlackScreenTime(BrandTemplate template, DateTime now) {
   return start < end
       ? current >= start && current < end
       : current >= start || current < end;
+}
+
+/// Counts distinct sessions (legacy rows retain their event ID). A recorded
+/// completion means an explicit end command, not proof every workout ran fully.
+OperationsRangeReport buildOperationsRangeReport(
+  Iterable<OperationEvent> events, {
+  required OperationEventRange range,
+  int? nowMs,
+}) {
+  final end = (nowMs ?? DateTime.now().millisecondsSinceEpoch).clamp(
+    range.startAtMs,
+    range.endBeforeMs,
+  );
+  final ordered = uniqueOperationEvents(events)
+      .where(
+        (event) =>
+            range.contains(event.occurredAtMs) && event.occurredAtMs <= end,
+      )
+      .toList()
+      .reversed
+      .toList();
+  final starts = <String, OperationEvent>{};
+  final completions = <String>{};
+  final onlineAt = <String, int>{};
+  final durationMs = <String, int>{};
+  var unknownTime = false;
+  for (final event in ordered) {
+    if (!isStarterWorkout(event.workoutId)) {
+      if (event.type == 'playback_started') {
+        starts.putIfAbsent(
+          event.sessionId ?? event.eventId ?? event.id,
+          () => event,
+        );
+      } else if (event.type == 'playback_completed') {
+        completions.add(event.sessionId ?? event.eventId ?? event.id);
+      }
+    }
+    final device = event.deviceId;
+    if (device == null || event.deviceRole == 'controller') continue;
+    if (event.type == 'device_online') {
+      onlineAt.putIfAbsent(device, () => event.occurredAtMs);
+    } else if (event.type == 'device_offline' ||
+        event.type == 'device_shutdown') {
+      final start = onlineAt.remove(device);
+      if (start == null) {
+        unknownTime = true;
+        continue;
+      }
+      durationMs[device] =
+          (durationMs[device] ?? 0) + event.occurredAtMs - start;
+    }
+  }
+  // An unmatched connection event cannot prove that a device stayed connected
+  // until now; show only confirmed intervals and mark the duration incomplete.
+  if (onlineAt.isNotEmpty) unknownTime = true;
+  final scheduled = starts.values.where((event) => event.scheduled).toList();
+  return OperationsRangeReport(
+    playbackCount: starts.length,
+    completedCount: completions.length,
+    disconnectCount: ordered
+        .where((event) => event.type == 'device_offline')
+        .length,
+    interruptionCount: ordered
+        .where(
+          (event) =>
+              event.type == 'playback_interrupted' &&
+              event.playbackImpact == 'interrupted',
+        )
+        .length,
+    scheduledPlaybackCount: scheduled.length,
+    onTimePlaybackCount: scheduled
+        .where(
+          (event) =>
+              event.scheduledAtMs != null &&
+              (event.occurredAtMs - event.scheduledAtMs!).abs() <=
+                  const Duration(minutes: 2).inMilliseconds,
+        )
+        .length,
+    onlineDurationByDevice: durationMs.map(
+      (key, value) => MapEntry(key, Duration(milliseconds: value)),
+    ),
+    hasUnknownConnectionTime: unknownTime,
+    hasLegacyEvents: ordered.any((event) => event.schemaVersion < 2),
+    incidents: buildOperationIncidents(ordered),
+  );
 }

@@ -171,31 +171,79 @@ class WorkoutScheduleModel {
   );
 }
 
-@JsonSerializable(createToJson: false)
+@JsonSerializable()
 class OperationEventModel {
   const OperationEventModel({
     required this.id,
     required this.type,
     required this.occurredAtMs,
-    required this.deviceId,
-    required this.workoutId,
-    required this.workoutName,
-    required this.scheduled,
-    required this.scheduledAtMs,
+    this.deviceId,
+    this.workoutId,
+    this.workoutName,
+    this.scheduled = false,
+    this.scheduledAtMs,
+    this.sessionId,
+    this.eventId,
+    this.deviceName,
+    this.zoneName,
+    this.deviceRole,
+    this.appVersion,
+    this.phase,
+    this.errorId,
+    this.errorCode,
+    this.incidentId,
+    this.recoveryOfEventId,
+    this.playbackImpact,
+    this.targetDeviceIds = const [],
+    this.targetDeviceNames = const {},
+    this.targetDeviceVersions = const {},
+    this.schemaVersion = 1,
   });
 
-  final String id;
-  final String type;
+  final String id, type;
   final int occurredAtMs;
-  final String? deviceId;
-  final String? workoutId;
-  final String? workoutName;
-  @JsonKey(defaultValue: false)
+  final String? deviceId, workoutId, workoutName;
   final bool scheduled;
   final int? scheduledAtMs;
+  final String? sessionId, eventId, deviceName, zoneName, deviceRole, appVersion;
+  final String? phase, errorId, errorCode, incidentId, recoveryOfEventId;
+  final String? playbackImpact;
+  final List<String> targetDeviceIds;
+  final Map<String, String> targetDeviceNames, targetDeviceVersions;
+  final int schemaVersion;
 
   factory OperationEventModel.fromJson(Map<String, dynamic> json) =>
       _$OperationEventModelFromJson(json);
+
+  Map<String, dynamic> toJson() => _$OperationEventModelToJson(this);
+
+  factory OperationEventModel.fromEntity(OperationEvent event) =>
+      OperationEventModel(
+        id: event.id,
+        type: event.type,
+        occurredAtMs: event.occurredAtMs,
+        deviceId: event.deviceId,
+        workoutId: event.workoutId,
+        workoutName: event.workoutName,
+        scheduled: event.scheduled,
+        scheduledAtMs: event.scheduledAtMs,
+        sessionId: event.sessionId,
+        eventId: event.eventId,
+        deviceName: event.deviceName,
+        zoneName: event.zoneName,
+        deviceRole: event.deviceRole,
+        appVersion: event.appVersion,
+        phase: event.phase,
+        errorId: event.errorId,
+        errorCode: event.errorCode,
+        incidentId: event.incidentId,
+        recoveryOfEventId: event.recoveryOfEventId,
+        playbackImpact: event.playbackImpact,
+        targetDeviceIds: event.targetDeviceIds,
+        targetDeviceNames: event.targetDeviceNames,
+        targetDeviceVersions: event.targetDeviceVersions,
+        schemaVersion: event.schemaVersion,
+      );
 
   OperationEvent toEntity() => OperationEvent(
     id: id,
@@ -206,5 +254,21 @@ class OperationEventModel {
     workoutName: workoutName,
     scheduled: scheduled,
     scheduledAtMs: scheduledAtMs,
+    sessionId: sessionId,
+    eventId: eventId,
+    deviceName: deviceName,
+    zoneName: zoneName,
+    deviceRole: deviceRole,
+    appVersion: appVersion,
+    phase: phase,
+    errorId: errorId,
+    errorCode: errorCode,
+    incidentId: incidentId,
+    recoveryOfEventId: recoveryOfEventId,
+    playbackImpact: playbackImpact,
+    targetDeviceIds: targetDeviceIds,
+    targetDeviceNames: targetDeviceNames,
+    targetDeviceVersions: targetDeviceVersions,
+    schemaVersion: schemaVersion,
   );
 }

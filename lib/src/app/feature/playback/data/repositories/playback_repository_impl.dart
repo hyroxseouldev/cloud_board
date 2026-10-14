@@ -243,6 +243,7 @@ PlaybackRepository playbackRepository(Ref ref) {
   final source = PlaybackRealtimeDataSource(
     database,
     ownerId,
+    appVersion: ref.read(errorReporterProvider).defaults['version']?.toString(),
     allowSplitPlayback: () => ref
         .read(runtimeFeaturePolicyServiceProvider)
         .allows(RuntimeFeature.splitPlayback, ownerId: ownerId ?? ''),

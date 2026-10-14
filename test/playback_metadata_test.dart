@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
@@ -29,12 +31,30 @@ void main() {
     );
   });
 
+  tearDown(() => source.dispose());
+
+  test('slow telemetry cannot delay an acknowledged class start', () async {
+    final pending = Completer<void>();
+    database.eventGate = pending.future;
+    final started = await source
+        .start(model)
+        .timeout(const Duration(seconds: 1));
+    expect(started.id, 'class');
+    expect(pending.isCompleted, isFalse);
+    pending.complete();
+  });
+
   test(
     'class starts and pauses when metadata get is denied but SDK events work',
     () async {
       final started = await source.start(model);
       expect(started.id, 'class');
-      expect(database.writes, 1);
+      expect(database.writes, 2); // Display update and independent telemetry.
+      final recorded =
+          database.values['users/coach/operations/events/class-started'] as Map;
+      expect(recorded['sessionId'], 'class');
+      expect(recorded['phase'], 'server_approval');
+      expect(recorded['eventId'], 'class-started');
       expect(await source.hasRunningSession(), isTrue);
       final paused = await source.update(
         status: 'paused',
@@ -149,6 +169,7 @@ class _Database extends Fake implements FirebaseDatabase {
       'tv': {'paired': true},
     },
   };
+  Future<void>? eventGate;
   int metadataGets = 0;
   int writes = 0;
   int transactions = 0;
@@ -185,6 +206,9 @@ class _Reference extends Fake implements DatabaseReference {
 
   @override
   Future<void> set(Object? value) async {
+    if (path.contains('/operations/events/') && database.eventGate != null) {
+      await database.eventGate;
+    }
     database.writes++;
     database.values[path] = value;
   }

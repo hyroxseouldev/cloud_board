@@ -129,4 +129,61 @@ OperationEventModel _$OperationEventModelFromJson(Map<String, dynamic> json) =>
       workoutName: json['workoutName'] as String?,
       scheduled: json['scheduled'] as bool? ?? false,
       scheduledAtMs: (json['scheduledAtMs'] as num?)?.toInt(),
+      sessionId: json['sessionId'] as String?,
+      eventId: json['eventId'] as String?,
+      deviceName: json['deviceName'] as String?,
+      zoneName: json['zoneName'] as String?,
+      deviceRole: json['deviceRole'] as String?,
+      appVersion: json['appVersion'] as String?,
+      phase: json['phase'] as String?,
+      errorId: json['errorId'] as String?,
+      errorCode: json['errorCode'] as String?,
+      incidentId: json['incidentId'] as String?,
+      recoveryOfEventId: json['recoveryOfEventId'] as String?,
+      playbackImpact: json['playbackImpact'] as String?,
+      targetDeviceIds:
+          (json['targetDeviceIds'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      targetDeviceNames:
+          (json['targetDeviceNames'] as Map<String, dynamic>?)?.map(
+            (k, e) => MapEntry(k, e as String),
+          ) ??
+          const {},
+      targetDeviceVersions:
+          (json['targetDeviceVersions'] as Map<String, dynamic>?)?.map(
+            (k, e) => MapEntry(k, e as String),
+          ) ??
+          const {},
+      schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
     );
+
+Map<String, dynamic> _$OperationEventModelToJson(
+  OperationEventModel instance,
+) => <String, dynamic>{
+  'id': instance.id,
+  'type': instance.type,
+  'occurredAtMs': instance.occurredAtMs,
+  'deviceId': instance.deviceId,
+  'workoutId': instance.workoutId,
+  'workoutName': instance.workoutName,
+  'scheduled': instance.scheduled,
+  'scheduledAtMs': instance.scheduledAtMs,
+  'sessionId': instance.sessionId,
+  'eventId': instance.eventId,
+  'deviceName': instance.deviceName,
+  'zoneName': instance.zoneName,
+  'deviceRole': instance.deviceRole,
+  'appVersion': instance.appVersion,
+  'phase': instance.phase,
+  'errorId': instance.errorId,
+  'errorCode': instance.errorCode,
+  'incidentId': instance.incidentId,
+  'recoveryOfEventId': instance.recoveryOfEventId,
+  'playbackImpact': instance.playbackImpact,
+  'targetDeviceIds': instance.targetDeviceIds,
+  'targetDeviceNames': instance.targetDeviceNames,
+  'targetDeviceVersions': instance.targetDeviceVersions,
+  'schemaVersion': instance.schemaVersion,
+};

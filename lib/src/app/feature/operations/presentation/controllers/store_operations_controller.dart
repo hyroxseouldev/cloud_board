@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 
 import 'dart:async';
@@ -50,6 +51,21 @@ Stream<List<WorkoutSchedule>> workoutSchedules(Ref ref) =>
 @Riverpod(keepAlive: true)
 Stream<List<OperationEvent>> operationEvents(Ref ref) =>
     ref.watch(storeOperationsRepositoryProvider).watchEvents();
+
+@riverpod
+Stream<OperationEventBatch> operationEventsInRange(
+  Ref ref,
+  OperationEventRange range,
+) {
+  final account = ref.watch(accountOwnerIdProvider);
+  // AsyncValue may retain the prior center while the next account resolves.
+  // Invalidate immediately and never construct a query with that retained ID.
+  if (account.isLoading) return const Stream.empty();
+  if (account.hasError || account.value == null) {
+    return Stream.error(StateError('연결된 매장을 확인해 주세요.'));
+  }
+  return ref.watch(storeOperationsRepositoryProvider).watchEventsInRange(range);
+}
 
 @riverpod
 OperationsReport operationsReport(Ref ref) => buildOperationsReport(

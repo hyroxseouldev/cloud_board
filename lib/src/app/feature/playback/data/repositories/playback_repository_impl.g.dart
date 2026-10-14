@@ -55,4 +55,4 @@ final class PlaybackRepositoryProvider
 }
 
 String _$playbackRepositoryHash() =>
-    r'913e40c8d32abe44c0d9c3e60ecd27e4634fc4af';
+    r'58e3b576d446de4dba21dc560b4723c476d6ff69';

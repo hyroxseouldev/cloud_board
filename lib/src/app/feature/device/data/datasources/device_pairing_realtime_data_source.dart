@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/operations/data/operation_device_snapshot.dart';
+import 'package:cloud_board/src/app/feature/operations/data/operation_event_writer.dart';
+import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
 
@@ -446,14 +449,26 @@ class DevicePairingRealtimeDataSource {
     if (!result.committed || !result.snapshot.exists) {
       throw StateError('디스플레이 연결이 변경되었습니다. 새 연결 코드를 확인해 주세요.');
     }
+    final snapshot = Map<dynamic, dynamic>.from(result.snapshot.value! as Map);
     if (!wasOnline) {
-      await onlineEvent.set({
-        'id': onlineEvent.key,
+      final payload = {
+        'id': onlineEvent.key!,
+        'eventId': onlineEvent.key!,
         'type': 'device_online',
-        'occurredAtMs': ServerValue.timestamp,
+        'phase': 'server_connection',
+        'occurredAtMs': snapshot['lastSeenAtMs'],
         'deviceId': deviceId,
         'scheduled': false,
-      });
+        'recoveryOfEventId': previousOfflineEventKey,
+        'incidentId': previousOfflineEventKey,
+        ...operationDeviceSnapshot(snapshot),
+      };
+      unawaited(
+        OperationEventWriter(
+          (event) =>
+              onlineEvent.set(OperationEventModel.fromEntity(event).toJson()),
+        ).record(OperationEventModel.fromJson(payload).toEntity()),
+      );
     }
     if (previousOfflineEventKey != null) {
       await eventRef.child(previousOfflineEventKey).onDisconnect().cancel();
@@ -464,6 +479,10 @@ class DevicePairingRealtimeDataSource {
     });
     await offlineEvent.onDisconnect().set({
       'id': offlineEvent.key,
+      'eventId': offlineEvent.key,
+      'incidentId': offlineEvent.key,
+      'phase': 'server_connection',
+      ...operationDeviceSnapshot(snapshot),
       'type': 'device_offline',
       'occurredAtMs': ServerValue.timestamp,
       'deviceId': deviceId,
@@ -514,18 +533,31 @@ class DevicePairingRealtimeDataSource {
       };
       if (!wasOnline) {
         updates['devices/$deviceId/onlineSinceMs'] = ServerValue.timestamp;
-        updates['operations/events/${onlineEvent.key}'] = {
-          'id': onlineEvent.key,
-          'type': 'device_online',
-          'occurredAtMs': ServerValue.timestamp,
-          'deviceId': deviceId,
-          'scheduled': false,
-        };
       }
       if (!previousDevice.exists) {
         updates['devices/$deviceId/displayState'] = 'auto';
       }
       await userRef.update(updates);
+      if (!wasOnline) {
+        final payload = {
+          'id': onlineEvent.key!,
+          'eventId': onlineEvent.key!,
+          'type': 'device_online',
+          'phase': 'server_connection',
+          'occurredAtMs': DateTime.now().millisecondsSinceEpoch,
+          'deviceId': deviceId,
+          'scheduled': false,
+          'recoveryOfEventId': previousOfflineEventKey,
+          'incidentId': previousOfflineEventKey,
+          ...operationDeviceSnapshot(previousData),
+        };
+        unawaited(
+          OperationEventWriter(
+            (event) =>
+                onlineEvent.set(OperationEventModel.fromEntity(event).toJson()),
+          ).record(OperationEventModel.fromJson(payload).toEntity()),
+        );
+      }
       if (previousPairingCode != null && previousPairingCode != code) {
         await userRef.child('pairingCodes/$previousPairingCode').remove();
       }
@@ -541,6 +573,10 @@ class DevicePairingRealtimeDataSource {
       });
       await offlineEvent.onDisconnect().set({
         'id': offlineEvent.key,
+        'eventId': offlineEvent.key,
+        'incidentId': offlineEvent.key,
+        'phase': 'server_connection',
+        ...operationDeviceSnapshot(previousData),
         'type': 'device_offline',
         'occurredAtMs': ServerValue.timestamp,
         'deviceId': deviceId,

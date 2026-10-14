@@ -68,6 +68,22 @@ abstract class OperationEvent with _$OperationEvent {
     required String? workoutName,
     required bool scheduled,
     required int? scheduledAtMs,
+    String? sessionId,
+    String? eventId,
+    String? deviceName,
+    String? zoneName,
+    String? deviceRole,
+    String? appVersion,
+    String? phase,
+    String? errorId,
+    String? errorCode,
+    String? incidentId,
+    String? recoveryOfEventId,
+    String? playbackImpact,
+    @Default(<String>[]) List<String> targetDeviceIds,
+    @Default(<String, String>{}) Map<String, String> targetDeviceNames,
+    @Default(<String, String>{}) Map<String, String> targetDeviceVersions,
+    @Default(1) int schemaVersion,
   }) = _OperationEvent;
 }
 

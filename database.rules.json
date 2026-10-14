@@ -64,7 +64,7 @@
               "occurredAtMs"
             ],
             "$eventId": {
-              ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && newData.child('deviceId').val() === root.child('displayAccess').child(auth.uid).child('deviceId').val() && (newData.child('type').val() === 'device_online' || newData.child('type').val() === 'device_offline')))) && !root.child('accountDeletions').child($uid).exists()"
+              ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && newData.child('deviceId').val() === root.child('displayAccess').child(auth.uid).child('deviceId').val() && (newData.child('type').val() === 'device_online' || newData.child('type').val() === 'device_offline' || newData.child('type').val() === 'device_shutdown' || newData.child('type').val() === 'playback_interrupted' || newData.child('type').val() === 'playback_restored' || newData.child('type').val() === 'connection_failed' || newData.child('type').val() === 'connection_recovered')))) && !root.child('accountDeletions').child($uid).exists()"
             },
             ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()"
           },
