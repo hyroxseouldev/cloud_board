@@ -1,8 +1,5 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
-import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 
@@ -28,12 +25,10 @@ List<WorkoutIntervalSegment> workoutIntervalSegments(WorkoutModule module) {
 class WorkoutIntervalSliderTrack extends RoundedRectSliderTrackShape {
   const WorkoutIntervalSliderTrack({
     required this.segments,
-    required this.positionMs,
     required this.maxMs,
   });
 
   final List<WorkoutIntervalSegment> segments;
-  final int positionMs;
   final double maxMs;
 
   @override
@@ -57,43 +52,70 @@ class WorkoutIntervalSliderTrack extends RoundedRectSliderTrackShape {
       isEnabled: isEnabled,
       isDiscrete: isDiscrete,
     );
-    for (var i = 0; i < segments.length; i++) {
-      final segment = segments[i];
-      final start = (segment.startMs / math.max(1, maxMs)).clamp(0.0, 1.0);
-      final end = (segment.endMs / math.max(1, maxMs)).clamp(0.0, 1.0);
-      final width = (end - start) * rect.width;
-      if (width <= 0) continue;
-      // Keep short intervals visible without expanding their time hit area.
-      final gap = math.min(3.0, width / 3);
-      final left =
-          rect.left +
-          (textDirection == TextDirection.ltr ? start : 1 - end) * rect.width;
-      final current =
-          positionMs >= segment.startMs &&
-          (positionMs < segment.endMs || i == segments.length - 1);
-      final height = current ? 8.0 : 6.0;
-      final color = current
-          ? AppColors.accent
-          : segment.isRest
-          ? AppColors.selected
-          : AppColors.accent.withValues(alpha: .4);
-      context.canvas.drawRRect(
-        RRect.fromRectAndRadius(
+    if (rect.isEmpty) return;
+    final canvas = context.canvas;
+    final split = thumbCenter.dx.clamp(rect.left, rect.right);
+    final enabled = enableAnimation.value;
+    final active = Color.lerp(
+      sliderTheme.disabledActiveTrackColor,
+      sliderTheme.activeTrackColor,
+      enabled,
+    )!;
+    final inactive = Color.lerp(
+      sliderTheme.disabledInactiveTrackColor,
+      sliderTheme.inactiveTrackColor,
+      enabled,
+    )!;
+    final elapsed = textDirection == TextDirection.ltr
+        ? Rect.fromLTRB(rect.left, rect.top, split, rect.bottom)
+        : Rect.fromLTRB(split, rect.top, rect.right, rect.bottom);
+
+    // Slider owns the animated/dragged thumb position. Splitting at that exact
+    // point keeps both sides aligned even during a seek, rollback or RTL layout.
+    canvas.save();
+    canvas.clipRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(rect.height / 2)),
+    );
+    canvas.drawRect(rect, Paint()..color = inactive);
+    canvas.drawRect(elapsed, Paint()..color = active);
+
+    // Interval boundaries are secondary to elapsed progress. Avoid dense marks
+    // turning very short intervals into another solid, misleading progress bar.
+    if (maxMs.isFinite && maxMs > 0) {
+      double? previousX;
+      for (final segment in segments) {
+        if (segment.endMs <= 0 || segment.endMs >= maxMs) continue;
+        final fraction = segment.endMs / maxMs;
+        final x =
+            rect.left +
+            (textDirection == TextDirection.ltr ? fraction : 1 - fraction) *
+                rect.width;
+        if (previousX != null && (x - previousX).abs() < 4) continue;
+        previousX = x;
+        final isElapsed = textDirection == TextDirection.ltr
+            ? x < split
+            : x > split;
+        final marker = Color.lerp(
+          isElapsed
+              ? sliderTheme.disabledActiveTickMarkColor
+              : sliderTheme.disabledInactiveTickMarkColor,
+          isElapsed
+              ? sliderTheme.activeTickMarkColor
+              : sliderTheme.inactiveTickMarkColor,
+          enabled,
+        );
+        if (marker == null) continue;
+        canvas.drawRect(
           Rect.fromLTWH(
-            left + gap / 2,
-            rect.center.dy - height / 2,
-            width - gap,
-            height,
+            x - .5,
+            rect.top + 1,
+            1,
+            (rect.height - 2).clamp(0, rect.height),
           ),
-          const Radius.circular(2),
-        ),
-        Paint()
-          ..color = Color.lerp(
-            AppColors.selected,
-            color,
-            enableAnimation.value,
-          )!,
-      );
+          Paint()..color = marker,
+        );
+      }
     }
+    canvas.restore();
   }
 }

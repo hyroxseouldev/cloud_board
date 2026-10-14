@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:cloud_board/src/app/core/router/app_router.dart';
 import 'package:cloud_board/src/app/core/widgets/app_startup_screen.dart';
+import 'package:cloud_board/src/app/core/widgets/soft_rhythm_loading_mark.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
@@ -71,7 +72,8 @@ void main() {
       final router = subscription.read();
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pump();
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(SoftRhythmLoadingMark), findsOneWidget);
       expect(find.byType(AppStartupScreen), findsOneWidget);
       expect(router.routeInformationProvider.value.uri.path, '/auth-loading');
 
