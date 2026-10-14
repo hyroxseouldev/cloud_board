@@ -12,6 +12,8 @@ export const developmentFunctionNames = Object.freeze([
   'manageLibraryFolder', 'cleanupClientDiagnostics', 'recordOperationTelemetry',
   'saveWorkout', 'getPlanUsage', 'syncWorkoutPlanUsage', 'syncSlidePlanUsage',
   'cloudboardSaveBrandConfig', 'syncStandbyBranding',
+  'cloudboardPrepareSupportAttachment', 'cloudboardSubmitSupportTicket',
+  'notifySupportTicket', 'retrySupportTicketNotifications', 'cleanupSupportTicketUploads',
 ]);
 
 export function onboardingSecretBindings(projectId) {

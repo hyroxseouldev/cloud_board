@@ -40,5 +40,11 @@
     "text": "showCloudBoardLogo",
     "occurrences": 1,
     "reason": "Server-owned audience projection field name, validated before decoding; not product display text."
+  },
+  {
+    "file": "functions/src/support-tickets.js",
+    "text": "vividxxxxx@gmail.com",
+    "occurrences": 1,
+    "reason": "STA-171 user-confirmed private notification recipient safety allowlist, not display copy. Brand/link changes must not silently redirect stored support emails."
   }
 ]

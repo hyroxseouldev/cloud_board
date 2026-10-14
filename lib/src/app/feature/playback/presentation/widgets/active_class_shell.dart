@@ -45,18 +45,16 @@ class ActiveClassShell extends HookConsumerWidget {
           SnackBar(
             content: Text(playbackErrorMessage(error)),
             duration: const Duration(seconds: 8),
-            action: kDebugMode
-                ? SnackBarAction(
-                    label: '상세',
-                    onPressed: () => showErrorDetails(
-                      context,
-                      ref.read(errorReporterProvider),
-                      error,
-                      next.stackTrace,
-                      'playback.action',
-                    ),
-                  )
-                : null,
+            action: SnackBarAction(
+              label: '문제 문의하기',
+              onPressed: () => openSupportForError(
+                context,
+                ref.read(errorReporterProvider),
+                error,
+                next.stackTrace,
+                'playback.action',
+              ),
+            ),
           ),
         );
       }
