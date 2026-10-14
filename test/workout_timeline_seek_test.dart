@@ -84,6 +84,74 @@ void main() {
     container.dispose();
   });
 
+  testWidgets(
+    'playing local detail drag seeks and continues from the shown time',
+    (tester) async {
+      var now = DateTime(2026, 10, 14);
+      final workout = _workout.copyWith(
+        modules: [
+          WorkoutModule.empty('warmup')
+              .copyWith(name: '웜업', workSeconds: 180, beep: false),
+        ],
+      );
+      final container = ProviderContainer(
+        overrides: [
+          serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+          beepPlayerProvider.overrideWith((ref) => _Audio()),
+          playerClockProvider.overrideWith(
+            (ref) =>
+                () => now,
+          ),
+        ],
+      );
+      final provider = playerControllerProvider(workout);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  final state = ref.watch(provider);
+                  return WorkoutControlTimeline(
+                    section: WorkoutTimelineSection.detail,
+                    durations: const [180],
+                    modules: workout.modules,
+                    currentModule: 0,
+                    elapsedMs: 180000 - state.remainingMs,
+                    onSeek: ref.read(provider.notifier).seekModulePosition,
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      now = now.add(const Duration(seconds: 11));
+      await tester.pump(const Duration(milliseconds: 200));
+      final detail = find.byKey(const ValueKey('slide-detail-timeline'));
+      expect(find.text('0:11 / 3:00'), findsOneWidget);
+      expect(tester.widget<Slider>(detail).value, 11000);
+      final slider = tester.widget<Slider>(detail);
+      slider.onChangeStart!(90000);
+      slider.onChanged!(90000);
+      await tester.pump();
+      expect(find.text('1:30 / 3:00'), findsOneWidget);
+      slider.onChangeEnd!(90000);
+      await tester.pump();
+      expect(container.read(provider).isPaused, isFalse);
+      expect(container.read(provider).remainingMs, 90000);
+      expect(tester.widget<Slider>(detail).value, 90000);
+      now = now.add(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.widget<Slider>(detail).value, 91000);
+      expect(find.text('1:31 / 3:00'), findsOneWidget);
+      expect(find.text('1:29 남음'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    },
+  );
+
   for (final paused in [true, false]) {
     testWidgets(
       'remote partial seek preserves paused=$paused and rolls back failure',
@@ -260,14 +328,23 @@ void main() {
                 ).trackShape!
                 as WorkoutIntervalSliderTrack;
         expect(intervalTrack().segments, hasLength(4));
-        expect(intervalTrack().positionMs, 12000);
+        expect(slider.value, 12000);
+        expect(slider.max, 30000);
+        expect(intervalTrack().maxMs, 30000);
         expect(slider.semanticFormatterCallback!(12000), contains('1세트 휴식'));
         slider.onChangeStart!(18000);
         slider.onChanged!(18000);
         await tester.pump();
         expect(find.text('2/2 · 운동'), findsOneWidget);
         expect(find.text('0:18 / 0:30'), findsOneWidget);
-        expect(intervalTrack().positionMs, 18000);
+        expect(
+          tester
+              .widget<Slider>(
+                find.byKey(const ValueKey('slide-detail-timeline')),
+              )
+              .value,
+          18000,
+        );
         expect(calls, hasLength(1));
         slider.onChangeEnd!(18000);
         await tester.pump();

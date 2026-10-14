@@ -593,7 +593,12 @@ class WorkoutControlTimeline extends HookWidget {
         ? ''
         : frame.positionLabel ??
               '${frame.set}/${frame.totalSets} · ${frame.isRest ? '휴식' : '운동'}';
-    final maxPosition = math.max(0, durations[active] * 1000 - 1000).toDouble();
+    // Paint against the full duration, matching elapsed/total text. Seeking
+    // still stops at the final playable second, as the player contract requires.
+    final durationMs = math.max(0, durations[active] * 1000).toDouble();
+    final maxPosition = math.max(0, durationMs - 1000);
+    int seekPosition(double value) =>
+        ((value / 1000).round() * 1000).clamp(0, maxPosition.toInt());
     final detail = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -685,13 +690,26 @@ class WorkoutControlTimeline extends HookWidget {
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 6,
+              activeTrackColor: AppColors.accent,
+              inactiveTrackColor: AppColors.selected,
+              disabledActiveTrackColor: AppColors.muted,
+              disabledInactiveTrackColor: AppColors.selected,
+              activeTickMarkColor: AppColors.selected.withValues(alpha: .6),
+              inactiveTickMarkColor: AppColors.controlBorder.withValues(
+                alpha: .5,
+              ),
+              disabledActiveTickMarkColor: AppColors.selected.withValues(
+                alpha: .6,
+              ),
+              disabledInactiveTickMarkColor: AppColors.controlBorder.withValues(
+                alpha: .35,
+              ),
               trackShape:
                   active < intervalSegments.length &&
                       intervalSegments[active].isNotEmpty
                   ? WorkoutIntervalSliderTrack(
                       segments: intervalSegments[active],
-                      positionMs: position,
-                      maxMs: maxPosition,
+                      maxMs: durationMs,
                     )
                   : const RoundedRectSliderTrackShape(),
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
@@ -700,13 +718,16 @@ class WorkoutControlTimeline extends HookWidget {
             child: Slider(
               key: const ValueKey('slide-detail-timeline'),
               min: 0,
-              max: math.max(1, maxPosition),
-              value: position.toDouble().clamp(0, maxPosition),
+              max: math.max(1, durationMs),
+              value: position.toDouble().clamp(0, durationMs),
               semanticFormatterCallback: (value) {
+                final semanticPosition = value == position
+                    ? value.round()
+                    : seekPosition(value);
                 final destination = active < modules.length
-                    ? rehearsalFrame(modules[active], value.round())
+                    ? rehearsalFrame(modules[active], semanticPosition)
                     : null;
-                return '${_title(active)} 내 ${_time(value.round())}'
+                return '${_title(active)} 내 ${_time(semanticPosition)}'
                     '${destination == null ? '' : ', ${destination.set}세트 ${destination.isRest ? '휴식' : '운동'}'}';
               },
               onChangeStart: enabled && maxPosition > 0
@@ -716,7 +737,7 @@ class WorkoutControlTimeline extends HookWidget {
                   ? (value) {
                       candidate.value = (
                         moduleIndex: active,
-                        elapsedMs: (value / 1000).round() * 1000,
+                        elapsedMs: seekPosition(value),
                       );
                     }
                   : null,
@@ -726,7 +747,7 @@ class WorkoutControlTimeline extends HookWidget {
                         unawaited(
                           select((
                             moduleIndex: active,
-                            elapsedMs: (value / 1000).round() * 1000,
+                            elapsedMs: seekPosition(value),
                           )),
                         );
                       }
