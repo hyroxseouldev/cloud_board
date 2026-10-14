@@ -73,6 +73,7 @@ dependencies:
   firebase_remote_config: 6.6.0
 
 dev_dependencies:
+  cloud_functions_platform_interface: 6.0.7
   # Build-time resource generation only; no runtime splash hold.
   flutter_native_splash: 2.4.8
   flutter_test:

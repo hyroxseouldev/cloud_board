@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:cloud_functions_platform_interface/cloud_functions_platform_interface.dart';
+import 'package:flutter/foundation.dart';
+
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_pairing_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/device_pairing_actions.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -25,8 +28,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 // #61's recovery intent is retained through #176's server-owned repair. The
 // real authorization/repair rules are exercised by display-recovery-emulator;
-// this suite runs the real client source and callable transport, and verifies
-// ordering/cancellation without restoring the unsafe direct UID mutation.
+// this suite runs the real client source and verifies the callable contract and
+// ordering/cancellation without restoring the unsafe direct UID mutation. The
+// native callable transport is exercised on VM.
 const _callable = BasicMessageChannel<Object?>(
   'dev.flutter.pigeon.cloud_functions_platform_interface.CloudFunctionsHostApi.call',
   StandardMessageCodec(),
@@ -36,6 +40,20 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Database db;
   late Future<Object?> Function(Map parameters) verify;
+  late Future<Object?> Function(Map arguments) invoke;
+  final originalFunctions = FirebaseFunctionsPlatform.instance;
+  setUpAll(() {
+    if (kIsWeb) {
+      // Native Pigeon's Int64 encoding is unsupported by dart2js. Keep the
+      // native transport contract on VM; replace only that boundary on Chrome.
+      FirebaseFunctionsPlatform.instance = _WebFunctions(
+        (arguments) => invoke(arguments),
+      );
+    }
+  });
+  tearDownAll(() {
+    if (kIsWeb) FirebaseFunctionsPlatform.instance = originalFunctions;
+  });
   setUp(() {
     PackageInfo.setMockInitialValues(
       appName: 'CloudBoard',
@@ -63,17 +81,20 @@ void main() {
         'recoveryProtocol': 1,
       };
     };
+    invoke = (arguments) async {
+      expectSync(arguments['functionName'], 'verifyDisplayConnection');
+      expectSync(arguments['region'], 'asia-northeast3');
+      expectSync(arguments['timeout'], 10000);
+      final parameters = arguments['parameters'] as Map;
+      expectSync(parameters['deviceId'], 'tv');
+      expectSync(parameters['connectionId'], parameters['operationId']);
+      db.log.add('verify:${parameters['connectionId']}');
+      return verify(parameters);
+    };
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockDecodedMessageHandler<Object?>(_callable, (message) async {
-          final arguments = (message! as List).single as Map;
-          expectSync(arguments['functionName'], 'verifyDisplayConnection');
-          expectSync(arguments['region'], 'asia-northeast3');
-          final parameters = arguments['parameters'] as Map;
-          expectSync(parameters['deviceId'], 'tv');
-          expectSync(parameters['connectionId'], parameters['operationId']);
-          db.log.add('verify:${parameters['connectionId']}');
           try {
-            return [await verify(parameters)];
+            return [await invoke((message! as List).single as Map)];
           } on PlatformException catch (error) {
             // Match the native FlutterFire envelope, whose details carry the
             // callable status separately from the Pigeon transport error code.
@@ -108,6 +129,12 @@ void main() {
       expectSync(db.read('users/owner/devices/tv/displayUid'), isNull);
       db.disconnectBarrier!.complete();
       await tester.pump();
+      expectSync(
+        db.log.where((entry) => entry.startsWith('verify:')),
+        ['verify:event-0'],
+        reason:
+            'The callable fixture must be reached before awaiting readiness',
+      );
       final pairing = await pending;
       expectSync(pairing.deviceId, 'tv');
       expectSync(db.log, [
@@ -501,6 +528,56 @@ void main() {
       expectSync(db.device['displayUid'], isNull);
     },
   );
+}
+
+class _WebFunctions extends FirebaseFunctionsPlatform {
+  _WebFunctions(this.invoke, {FirebaseApp? app, String region = 'us-central1'})
+    : super(app, region);
+
+  final Future<Object?> Function(Map arguments) invoke;
+
+  @override
+  FirebaseFunctionsPlatform delegateFor({
+    FirebaseApp? app,
+    required String region,
+  }) => _WebFunctions(invoke, app: app, region: region);
+
+  @override
+  HttpsCallablePlatform httpsCallable(
+    String? origin,
+    String name,
+    HttpsCallableOptions options,
+  ) => _WebCallable(this, origin, name, options, invoke);
+}
+
+class _WebCallable extends HttpsCallablePlatform {
+  _WebCallable(
+    FirebaseFunctionsPlatform functions,
+    String? origin,
+    String name,
+    HttpsCallableOptions options,
+    this.invoke,
+  ) : super(functions, origin, name, options, null);
+
+  final Future<Object?> Function(Map arguments) invoke;
+
+  @override
+  Future<Object?> call([Object? parameters]) async {
+    try {
+      return await invoke({
+        'functionName': name,
+        'region': functions.region,
+        'timeout': options.timeout.inMilliseconds,
+        'parameters': parameters,
+      });
+    } on PlatformException catch (error) {
+      throw FirebaseFunctionsException(
+        code: error.code,
+        message: error.message ?? 'Fixture callable failure',
+        details: error.details,
+      );
+    }
+  }
 }
 
 class _Auth extends Fake implements FirebaseAuth {
