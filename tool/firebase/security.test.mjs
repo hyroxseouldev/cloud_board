@@ -4,7 +4,7 @@ import {mkdtempSync, readFileSync, writeFileSync, rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {validateFixtures} from './fixtures.mjs';
-import {emulatorAddress, requireDemo, hash, readJson} from './common.mjs';
+import {emulatorAddress, requireDemo, requireStorageRulesProject, hash, readJson} from './common.mjs';
 import {requireSuccess, validateReceipt, requireCurrentMain} from './release.mjs';
 import {validateProtection, manageProtection, actionsAppId} from './branch-protection.mjs';
 import {prepareRecovery} from './recovery.mjs';
@@ -20,6 +20,19 @@ test('emulator and canary boundaries reject production, URL and path overrides',
   const valid = {FIREBASE_RELEASE_CANARY_ENABLED: 'true', FIREBASE_WEB_API_KEY: 'AIzaexample', GITHUB_REF: 'refs/heads/main'};
   preflight(valid);
   for (const patch of [{FIREBASE_RELEASE_CANARY_ENABLED: ''}, {FIREBASE_WEB_API_KEY: ''}, {GITHUB_REF: 'refs/heads/develop'}, {FIRESTORE_EMULATOR_HOST: 'localhost:1'}]) assert.throws(() => preflight({...valid, ...patch}));
+});
+test('Storage cross-service rules use the emulator project rather than a suite-only Firestore namespace', () => {
+  const support = {id: 'support-tickets', project: 'demo-cloudboard', coverage: ['firestore'], requires: ['firestore', 'storage']};
+  requireStorageRulesProject(support, 'demo-cloudboard');
+  assert.throws(() => requireStorageRulesProject({...support, project: 'demo-cloudboard-support'}, 'demo-cloudboard'), /Storage suite support-tickets/);
+  assert.throws(() => requireStorageRulesProject(support, 'demo-cloudboard-ci'), /must use emulator project/);
+  assert.throws(() => requireStorageRulesProject(support, 'cloud-board-stationd'), /Demo project required/);
+  requireStorageRulesProject({id: 'isolated-firestore', project: 'demo-isolated', coverage: ['firestore']}, 'demo-cloudboard');
+  const suites = readJson('tool/firebase/contract-suites.json').suites;
+  for (const id of ['storage', 'support-tickets']) {
+    assert(suites.find(suite => suite.id === id)?.requires.includes('storage'), `${id} must declare Storage`);
+  }
+  for (const suite of suites) requireStorageRulesProject(suite, 'demo-cloudboard');
 });
 test('released fixture changes cannot be hidden by regenerating registry hashes', () => {
   const client = readJson('tool/firebase/supported-clients.json').clients[0], registry = {format: 1, clients: [client]}, content = readFileSync(client.file);

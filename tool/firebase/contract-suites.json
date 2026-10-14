@@ -131,6 +131,10 @@
       "project": "demo-cloudboard",
       "coverage": [
         "firestore"
+      ],
+      "requires": [
+        "firestore",
+        "storage"
       ]
     },
     {
@@ -230,7 +234,7 @@
     {
       "id": "support-tickets",
       "file": "functions/test/support-tickets-emulator.mjs",
-      "project": "demo-cloudboard-support",
+      "project": "demo-cloudboard",
       "coverage": [
         "firestore",
         "database"

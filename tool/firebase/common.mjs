@@ -33,6 +33,17 @@ export function requireDemo(project) {
   assert.match(project || '', /^demo-[a-z0-9-]+$/, 'Demo project required');
   return project;
 }
+export function requireStorageRulesProject(suite, emulatorProject) {
+  requireDemo(emulatorProject);
+  requireDemo(suite.project);
+  // Storage's cross-service firestore.get/exists uses the CLI's project, not
+  // the bucket name or each rules-unit-testing context's project. Keep permit
+  // and deletion-lock documents in that same namespace.
+  if ((suite.requires ?? suite.coverage).includes('storage')) {
+    assert.equal(suite.project, emulatorProject,
+      `Storage suite ${suite.id} must use emulator project ${emulatorProject} for Firestore rule lookups`);
+  }
+}
 export async function run(command, args, {env = process.env, timeoutMs = 240_000, log} = {}) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(command, args, {cwd: root, env, detached: process.platform !== 'win32', stdio: ['ignore', log ? 'pipe' : 'inherit', log ? 'pipe' : 'inherit']});

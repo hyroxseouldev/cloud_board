@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {gzipSync} from 'node:zlib';
 import {initializeTestEnvironment} from '@firebase/rules-unit-testing';
 import {ref, set} from 'firebase/database';
-import {root, readJson, hashFile, filesIn, writeJson, run, emulatorAddress, requireDemo, jsonRequest} from '../../tool/firebase/common.mjs';
+import {root, readJson, hashFile, filesIn, writeJson, run, emulatorAddress, requireDemo, requireStorageRulesProject, jsonRequest} from '../../tool/firebase/common.mjs';
 
 const manifest = readJson('tool/firebase/contract-suites.json');
 const output = 'build/firebase-contracts';
@@ -15,7 +15,8 @@ const endpoints = {
   storage: emulatorAddress(process.env.FIREBASE_STORAGE_EMULATOR_HOST),
   auth: emulatorAddress(process.env.FIREBASE_AUTH_EMULATOR_HOST),
 };
-requireDemo(process.env.GCLOUD_PROJECT);
+const emulatorProject = requireDemo(process.env.GCLOUD_PROJECT);
+for (const suite of manifest.suites) requireStorageRulesProject(suite, emulatorProject);
 assert.equal(manifest.format, 1);
 assert.equal(new Set(manifest.suites.map(s => s.id)).size, manifest.suites.length);
 const found = filesIn('functions/test').filter(f => /(?:^|\/)(?:.*-)?emulator\.mjs$/.test(f));
