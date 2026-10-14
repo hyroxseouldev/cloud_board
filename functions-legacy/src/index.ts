@@ -69,11 +69,12 @@ export const cloudboardPairDisplay = onCall(
     const bearer = request.rawRequest.headers.authorization?.match(/^Bearer (.+)$/i)?.[1];
     if (!bearer) throw new HttpsError('unauthenticated', '다시 로그인해 주세요.');
     try {
-      await firebaseServices().auth.verifyIdToken(bearer, true);
+      const verified = await firebaseServices().auth.verifyIdToken(bearer, true);
+      if (verified.uid !== request.auth.uid) throw new Error('Identity mismatch');
     } catch {
       throw new HttpsError('unauthenticated', '다시 로그인해 주세요.');
     }
-    return pairDisplay(firebaseServices().realtime, request.auth.uid, request.data);
+    return pairDisplay(bearer, request.data);
   },
 );
 
