@@ -15,6 +15,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+// Browser async* error delivery crosses a host microtask boundary that the
+// fake frame clock alone cannot drain. Yield one event-loop turn, then render
+// the resulting provider state; retry delays still use tester.pump durations.
+Future<void> _settlePreparation(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pumpAndSettle();
+}
+
 DisplayPreparation _candidate({
   String session = 'candidate',
   bool expired = false,
@@ -152,7 +161,7 @@ class _Fixture {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _settlePreparation(tester);
     await telemetry.flush();
   }
 
@@ -172,12 +181,12 @@ void main() {
       f.repository.responseGate = Completer<void>();
       await f.mount(tester);
       stream.add(f.repository.candidate);
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       expect(f.repository.responses, ['candidate']);
       stream.addError(StateError('connection denied'));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       f.repository.responseGate!.complete();
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
       expect(
         f.events.where((e) => e['action'] == 'tv.prepare').last['outcome'],
@@ -186,7 +195,7 @@ void main() {
       f.repository.requestStream = null;
       f.repository.responseGate = null;
       await tester.pump(const Duration(seconds: 15));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
       expect(f.repository.responses, ['candidate', 'candidate']);
       expect(f.events.last['outcome'], 'success');
@@ -202,7 +211,7 @@ void main() {
       f.repository.responseGate = Completer<void>();
       await f.mount(tester);
       await tester.pump(const Duration(seconds: 8));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
       expect(f.events.any((e) => e['outcome'] == 'success'), isFalse);
       expect(f.diagnostics.events.first.error, isA<TimeoutException>());
@@ -212,9 +221,9 @@ void main() {
       );
       for (final backoff in [1, 2, 4]) {
         await tester.pump(Duration(seconds: backoff));
-        await tester.pumpAndSettle();
+        await _settlePreparation(tester);
         await tester.pump(const Duration(seconds: 8));
-        await tester.pumpAndSettle();
+        await _settlePreparation(tester);
       }
       await f.telemetry.flush();
       expect(f.repository.responses, hasLength(4));
@@ -242,7 +251,7 @@ void main() {
       expect(f.events.map((e) => e['outcome']), ['attempt']);
       f.repository.responseError = error;
       f.repository.responseGate!.complete();
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       await f.telemetry.flush();
       expect(f.events.map((e) => e['outcome']), ['attempt', 'failure']);
       expect(f.events.last['code'], 'prepare_response');
@@ -271,7 +280,7 @@ void main() {
       await f.mount(tester);
       for (final backoff in [1, 2, 4]) {
         await tester.pump(Duration(seconds: backoff));
-        await tester.pumpAndSettle();
+        await _settlePreparation(tester);
       }
       await f.telemetry.flush();
       expect(f.events.last['code'], 'prepare_response');
@@ -309,7 +318,7 @@ void main() {
           await f.mount(tester);
         } else {
           await tester.pump(const Duration(seconds: 1));
-          await tester.pumpAndSettle();
+          await _settlePreparation(tester);
           await f.telemetry.flush();
         }
         expect(f.repository.subscriptions, greaterThanOrEqualTo(2));
@@ -332,7 +341,7 @@ void main() {
       expect(f.repository.subscriptions, 1);
       f.repository.streamError = null;
       await tester.pump(const Duration(seconds: 30));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       expect(f.repository.subscriptions, 1);
       expect(f.repository.responses, isEmpty);
       await f.mount(tester, foreground: false);
@@ -354,12 +363,12 @@ void main() {
       await f.mount(tester);
       for (final backoff in [1, 2, 4]) {
         await tester.pump(Duration(seconds: backoff));
-        await tester.pumpAndSettle();
+        await _settlePreparation(tester);
       }
       expect(f.repository.subscriptions, 4);
       f.repository.streamError = null;
       await tester.pump(const Duration(seconds: 30));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       expect(f.repository.subscriptions, 4);
       expect(f.repository.responses, isEmpty);
       await f.mount(tester, connected: false);
@@ -394,7 +403,7 @@ void main() {
       f.repository.candidate = _candidate(session: 'current');
       f.repository.responseGate = Completer<void>();
       f.container.invalidate(displayPreparationRequestProvider('tv'));
-      await tester.pumpAndSettle();
+      await _settlePreparation(tester);
       expect(f.repository.responses, ['current']);
       await tester.pumpWidget(const SizedBox());
       f.repository.responseGate!.complete();
