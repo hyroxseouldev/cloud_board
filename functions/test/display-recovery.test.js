@@ -41,6 +41,21 @@ test('healthy verification preserves class, preferences and display state', () =
   assert.deepEqual(next.users.owner.devices.tv.preferences, {cover: true});
   assert.equal(next.users.owner.devices.tv.displayState, 'black');
 });
+test('missing UID repair requires a six-digit string on both sides, while healthy legacy bindings remain supported', () => {
+  for (const pairingCode of ['invalid', '12345', '1234567', 123456, null]) {
+    const root = seed(); delete root.users.owner.devices.tv.displayUid;
+    root.users.owner.devices.tv.pairingCode = pairingCode;
+    root.displayAccess['tv-user'].pairingCode = pairingCode;
+    const before = structuredClone(root);
+    assert.throws(() => run(root), code('connection_conflict'));
+    assert.deepEqual(root, before);
+  }
+  const legacy = seed();
+  delete legacy.users.owner.devices.tv.pairingCode;
+  delete legacy.displayAccess['tv-user'].pairingCode;
+  assert.equal(run(legacy).result.status, 'verified');
+  assert.equal(run(seed()).result.status, 'verified');
+});
 test('old callable completion or duplicate verification cannot replace a newer connection proof', () => {
   const first = run(seed()).root;
   const newer = run(first, tv, 'verify', {operationId: 'new-operation', connectionId: 'new-connection'}, now + 1000).root;

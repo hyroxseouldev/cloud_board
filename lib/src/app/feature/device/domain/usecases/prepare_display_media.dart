@@ -15,14 +15,17 @@ Future<DisplayMediaPreparationResult?> prepareDisplayMedia(
   required Future<int> Function(List<String>) images,
   required Future<void> Function(List<String>) audio,
   required bool Function() cancelled,
+  void Function(String stage, Object error, StackTrace stack)? onError,
 }) async {
   var count = 0;
   var audioReady = false;
+  var stage = 'images';
   try {
     if (cancelled()) return null;
     count = await images(request.images).timeout(const Duration(seconds: 30));
     if (cancelled()) return null;
     if (count != request.images.length) throw StateError('Incomplete images');
+    stage = 'audio';
     await audio(request.sounds).timeout(const Duration(seconds: 12));
     if (cancelled()) return null;
     audioReady = true;
@@ -32,8 +35,9 @@ Future<DisplayMediaPreparationResult?> prepareDisplayMedia(
       audioReady: true,
       failureCode: null,
     );
-  } catch (error) {
+  } catch (error, stack) {
     if (cancelled()) return null;
+    onError?.call(stage, error, stack);
     return (
       ready: false,
       imageCount: count,

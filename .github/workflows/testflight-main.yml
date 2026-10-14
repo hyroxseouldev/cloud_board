@@ -21,6 +21,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  class_start_regressions:
+    uses: ./.github/workflows/class-start-regressions.yml
+
   backend_ready:
     name: Wait for verified backend deployment
     if: >-
@@ -99,9 +102,9 @@ jobs:
 
   upload:
     name: Build and upload
-    needs: [verify, backend_ready]
+    needs: [verify, backend_ready, class_start_regressions]
     if: >-
-      always() && !cancelled() && needs.verify.result == 'success' &&
+      always() && !cancelled() && needs.verify.result == 'success' && needs.class_start_regressions.result == 'success' &&
       (needs.backend_ready.result == 'success' ||
       (github.event_name == 'workflow_dispatch' && !inputs.upload_to_testflight))
     runs-on: macos-26

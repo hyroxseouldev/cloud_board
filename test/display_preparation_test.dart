@@ -305,13 +305,16 @@ void main() {
   test('image or audio failure cannot become readiness, and cancellation emits nothing', () async {
     final r = request();
     var audioCalls = 0;
+    final failures = <(String, Object, StackTrace)>[];
+    final imageError = StateError('image');
     final imageFailure = await prepareDisplayMedia(
       r,
-      images: (_) async => throw StateError('image'),
+      images: (_) async => throw imageError,
       audio: (_) async {
         audioCalls++;
       },
       cancelled: () => false,
+      onError: (stage, error, stack) => failures.add((stage, error, stack)),
     );
     expect(imageFailure!.ready, isFalse);
     expect(audioCalls, 0);
@@ -320,9 +323,16 @@ void main() {
       images: (_) async => 0,
       audio: (_) async => throw StateError('native source'),
       cancelled: () => false,
+      onError: (stage, error, stack) => failures.add((stage, error, stack)),
     );
     expect(audioFailure!.ready, isFalse);
     expect(audioFailure.audioReady, isFalse);
+    expect(failures.map((failure) => failure.$1), ['images', 'audio']);
+    expect(failures.first.$2, same(imageError));
+    expect(
+      failures.every((failure) => failure.$3.toString().isNotEmpty),
+      isTrue,
+    );
     var cancelled = false;
     expect(
       await prepareDisplayMedia(

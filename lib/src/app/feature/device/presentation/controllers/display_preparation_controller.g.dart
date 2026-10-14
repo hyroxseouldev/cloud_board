@@ -47,7 +47,7 @@ final class DisplayPreparationControllerProvider
 }
 
 String _$displayPreparationControllerHash() =>
-    r'0e38647cd496dfdc9155dfd86377637b8cafbe77';
+    r'e36d0975cbd6b7daeb130e37ce7164cec84a7a57';
 
 abstract class _$DisplayPreparationController
     extends $Notifier<DisplayPreparationState> {
@@ -128,7 +128,7 @@ final class DisplayPreparationRequestProvider
 }
 
 String _$displayPreparationRequestHash() =>
-    r'1e15164f605e01d48f911f3c6502e2b052906c85';
+    r'46e815dc121bd8082b7f5e0b8796f41352fb704e';
 
 final class DisplayPreparationRequestFamily extends $Family
     with $FunctionalFamilyOverride<Stream<DisplayPreparation?>, String> {

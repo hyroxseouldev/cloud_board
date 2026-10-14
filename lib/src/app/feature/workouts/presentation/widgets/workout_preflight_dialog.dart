@@ -239,7 +239,9 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                       ),
                   title:
                       'TV ${selected.length}대 중 ${modern.where((d) => statusOf(d) == DisplayPreparationStatus.ready).length}대 준비 완료',
-                  subtitle: preparation.error ?? '선택한 수업의 이미지와 소리를 각 TV에서 확인해요. 준비되지 않은 TV는 재시도하거나 체크를 해제해 주세요.',
+                  subtitle:
+                      '${preparation.error ?? '선택한 수업의 이미지와 소리를 각 TV에서 확인해요.'}\n'
+                      '준비되지 않은 TV는 체크를 해제하면 제외하고 수업을 시작할 수 있어요.',
                 ),
                 TextButton(
                   onPressed: preparation.loading ? null : () => retry.value++,

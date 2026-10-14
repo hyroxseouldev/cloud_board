@@ -149,7 +149,7 @@ final class PlaybackActionControllerProvider
 }
 
 String _$playbackActionControllerHash() =>
-    r'e6c8f3efd29e17963e82d5e028a602b9520f22f9';
+    r'0f7070d05c0637fc2bf13962d5b00e2029ec547d';
 
 abstract class _$PlaybackActionController
     extends $Notifier<AsyncValue<String?>> {
@@ -214,7 +214,7 @@ final class PlaybackRecoveryControllerProvider
 }
 
 String _$playbackRecoveryControllerHash() =>
-    r'0888af276ad3097304ac4044e81bac6707cd5503';
+    r'53a5c5d836f7924b52b2a4e0b89aebbd3ac010b4';
 
 /// Blocks controller commands until a foreground server handshake completes.
 /// Every caller joins the same read-only handshake. Cancellation invalidates its

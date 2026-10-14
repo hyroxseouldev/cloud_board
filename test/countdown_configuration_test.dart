@@ -149,10 +149,13 @@ class _Remote implements PlaybackRealtimeDataSource {
   _Remote(this.model);
   final PlaybackSessionModel model;
   @override
+  bool get canUseAccount => true;
+  @override
   Future<PlaybackSessionModel> start(
     PlaybackSessionModel value, {
     bool scheduled = false,
     int? scheduledAtMs,
+    void Function()? ensureCurrent,
   }) async => value;
   int? delay;
   String? sessionId;

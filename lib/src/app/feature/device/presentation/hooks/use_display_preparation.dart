@@ -41,18 +41,11 @@ void useDisplayPreparation(
       ? ref.watch(displayPreparationRepositoryProvider)
       : null;
 
+  final reporter = ref.watch(errorReporterProvider);
+  final telemetry = ref.watch(operationTelemetryProvider);
+
   void health(String stage, String? code, int attempt, {String? requestId}) {
     if (repository == null || deviceId == null) return;
-    if (code != null) {
-      ref
-          .read(errorReporterProvider)
-          .capture(
-            StateError('TV preparation stage failed'),
-            StackTrace.current,
-            action: 'tv.prepare.$stage',
-            context: {'code': code, 'attempt': attempt},
-          );
-    }
     unawaited(
       repository
           .reportHealth(
@@ -77,10 +70,22 @@ void useDisplayPreparation(
       try {
         final result = await retryDisplayPreparation<bool>(
           operation: () async {
-            await repository!
-                .heartbeat(deviceId)
-                .timeout(const Duration(seconds: 8));
-            return true;
+            try {
+              await repository!
+                  .heartbeat(deviceId)
+                  .timeout(const Duration(seconds: 8));
+              return true;
+            } catch (error, stack) {
+              if (!cancelled && context.mounted) {
+                reporter.capture(
+                  error,
+                  stack,
+                  action: 'tv.prepare.heartbeat',
+                  context: {'preparationStage': 'heartbeat'},
+                );
+              }
+              rethrow;
+            }
           },
           cancelled: () => cancelled || !context.mounted,
           onFailure: (code, attempt) {
@@ -123,9 +128,41 @@ void useDisplayPreparation(
           request.expired(preparationServerNow(offset));
 
       Future<void> run() async {
-        final telemetry = ref
-            .read(operationTelemetryProvider)
-            .start('tv.prepare');
+        final attempt = telemetry.start('tv.prepare');
+        var failureCode = 'prepare_images';
+        void capture(String stage, Object error, StackTrace stack) {
+          if (stopped()) return;
+          failureCode = switch (stage) {
+            'audio' => 'prepare_audio',
+            'response' => 'prepare_response',
+            'heartbeat' => operationFailureCode(error),
+            _ => 'prepare_images',
+          };
+          reporter.capture(
+            error,
+            stack,
+            action: 'tv.prepare.$stage',
+            context: {
+              'operationId': attempt.id,
+              'preparationStage': stage,
+              'sessionId': request.sessionId,
+              'expectedRevision': request.revision,
+            },
+          );
+        }
+
+        Future<void> observed(
+          String stage,
+          Future<void> Function() operation,
+        ) async {
+          try {
+            await operation();
+          } catch (error, stack) {
+            capture(stage, error, stack);
+            rethrow;
+          }
+        }
+
         try {
           final outcome = await completeDisplayPreparation(
             cancelled: stopped,
@@ -137,6 +174,7 @@ void useDisplayPreparation(
               return prepareDisplayMedia(
                 request,
                 cancelled: stopped,
+                onError: capture,
                 images: (sources) => precacheWorkoutImages(
                   context,
                   sources,
@@ -162,26 +200,32 @@ void useDisplayPreparation(
                 },
               );
             },
-            respond: (media, ready) => repository!
-                .respond(
-                  deviceId,
-                  request,
-                  ready: ready,
-                  imageCount: media.imageCount,
-                  audioReady: media.audioReady,
-                )
-                .timeout(const Duration(seconds: 8)),
-            heartbeat: () => repository!
-                .heartbeat(deviceId, ready: true)
-                .timeout(const Duration(seconds: 8)),
+            respond: (media, ready) => observed(
+              'response',
+              () => repository!
+                  .respond(
+                    deviceId,
+                    request,
+                    ready: ready,
+                    imageCount: media.imageCount,
+                    audioReady: media.audioReady,
+                  )
+                  .timeout(const Duration(seconds: 8)),
+            ),
+            heartbeat: () => observed(
+              'heartbeat',
+              () => repository!
+                  .heartbeat(deviceId, ready: true)
+                  .timeout(const Duration(seconds: 8)),
+            ),
           );
           switch (outcome) {
             case DisplayPreparationOutcome.ready:
-              telemetry.success();
+              attempt.success();
             case DisplayPreparationOutcome.failed:
-              telemetry.failure('failed-precondition');
+              attempt.failure(failureCode);
             case DisplayPreparationOutcome.cancelled:
-              telemetry.cancel();
+              attempt.cancel();
           }
         } finally {
           await audioPlayer?.dispose();

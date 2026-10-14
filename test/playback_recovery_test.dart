@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/playback/data/repositories/playback_repository_impl.dart';
+
+import 'support/playback_recovery_fixture.dart';
+
 import 'package:cloud_board/src/app/feature/playback/data/datasources/playback_realtime_data_source.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/usecases/playback_actions.dart';
@@ -29,6 +33,39 @@ Map<String, dynamic> session({int revision = 1, String status = 'playing'}) => {
 };
 
 void main() {
+  for (final stalledPath in ['activeSession', 'playbackSnapshots']) {
+    testWidgets(
+      'recovery bounds a stalled $stalledPath REST read to eight seconds',
+      (tester) async {
+        final db = _Database(session());
+        final pending = Completer<Object?>();
+        final source = PlaybackRealtimeDataSource(
+          db,
+          'u',
+          serverRead: (path) {
+            if (stalledPath == 'activeSession' ||
+                path.contains('/playbackSnapshots/')) {
+              return pending.future;
+            }
+            return Future.value({
+              ...session(),
+              'schemaVersion': 2,
+              'snapshotId': 's',
+            });
+          },
+        );
+        final failure = expectLater(
+          source.recover(restartTransport: false),
+          throwsA(isA<TimeoutException>()),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 8));
+        await failure;
+        await source.dispose();
+        await db.events.close();
+      },
+    );
+  }
   testWidgets('automatic manual and remote callers join one actual handshake', (
     tester,
   ) async {
@@ -120,6 +157,373 @@ void main() {
     },
   );
 
+  test('repository forwards contradiction read errors', () async {
+    final db = RecoveryDatabase(null);
+    var fail = false;
+    final source = PlaybackRealtimeDataSource(
+      db,
+      'owner',
+      serverRead: (_) async {
+        if (fail) throw StateError('offline');
+        return recoverySession();
+      },
+    );
+    final repository = PlaybackRepositoryImpl(source, RecoveryCache(), 'owner');
+    await repository.recover(restartTransport: false);
+    fail = true;
+    final error = Completer<Object>();
+    final sub = repository.watchActive().listen(
+      (_) {},
+      onError: error.complete,
+    );
+    expect(
+      await error.future.timeout(const Duration(seconds: 1)),
+      isStateError,
+    );
+    await sub.cancel();
+    await source.dispose();
+    await db.events.close();
+  });
+
+  // This controller/data test uses the real event loop: SDK stream cancellation
+  // Futures are part of the error contract, not widget rendering/fake time.
+  test(
+    'contradictory confirmation failure stays blocked until explicit retry',
+    () async {
+      final h = RecoveryHarness(recoverySession());
+      addTearDown(h.dispose);
+      await Future<void>.delayed(Duration.zero);
+      h.db.cached = null;
+      var reads = 0;
+      final response = Completer<void>();
+      final fresh = recoverySession(revision: 5, status: 'paused');
+      h.readServer = () async {
+        if (++reads == 1) return fresh;
+        // Release an asynchronous read, then fail where a network call fails.
+        await response.future;
+        throw StateError('confirmation offline');
+      };
+      final recovering = h.recovery.recover();
+      await Future<void>.delayed(Duration.zero);
+      expect(reads, 2);
+      expect(
+        h.container.read(playbackRecoveryControllerProvider).isLoading,
+        isTrue,
+      );
+      expect(await h.commands.resume(), isFalse);
+      response.complete();
+      await Future<void>.delayed(Duration.zero);
+
+      await recovering.timeout(const Duration(seconds: 2));
+      expect(
+        h.container.read(playbackRecoveryControllerProvider).hasError,
+        isTrue,
+      );
+      expect(h.container.read(activePlaybackSessionProvider).hasError, isTrue);
+      expect(await h.commands.resume(), isFalse);
+      expect(h.db.transactions, 0);
+      h.readServer = () async => fresh;
+      final retry = h.recovery.recover();
+      await Future<void>.delayed(Duration.zero);
+      await retry.timeout(const Duration(seconds: 2));
+      expect(
+        h.container.read(playbackRecoveryControllerProvider).hasValue,
+        isTrue,
+      );
+      expect(
+        h.container.read(activePlaybackSessionProvider).value?.revision,
+        5,
+      );
+      await h.dispose();
+      await Future<void>.delayed(Duration.zero);
+    },
+  );
+
+  for (final originallyPresent in [false, true]) {
+    for (final nowPresent in [false, true]) {
+      test(
+        'first SDK contradiction confirms presence $originallyPresent -> $nowPresent',
+        () async {
+          final db = RecoveryDatabase(
+            originallyPresent ? null : recoverySession(),
+          );
+          Object? server = originallyPresent
+              ? recoverySession(revision: 3)
+              : null;
+          var reads = 0;
+          final source = PlaybackRealtimeDataSource(
+            db,
+            'owner',
+            serverRead: (_) async {
+              reads++;
+              return server;
+            },
+          );
+          await source.recover(restartTransport: false);
+          server = nowPresent
+              ? recoverySession(
+                  id: originallyPresent ? 'class' : 'new-class',
+                  revision: 4,
+                )
+              : null;
+          final seen = <PlaybackSessionModel?>[];
+          final sub = source.watchActive().listen(seen.add);
+          await Future<void>.delayed(Duration.zero);
+          expect(reads, 2);
+          expect(
+            seen,
+            hasLength(1),
+            reason: 'Contradiction must be verified before readiness',
+          );
+          expect(
+            seen.last?.id,
+            nowPresent
+                ? originallyPresent
+                      ? 'class'
+                      : 'new-class'
+                : null,
+          );
+          expect(db.writes, 0);
+          await sub.cancel();
+          await source.dispose();
+          await db.events.close();
+        },
+      );
+    }
+  }
+
+  test('failed contradictory SDK confirmation exposes the error', () async {
+    final db = RecoveryDatabase(null);
+    var fail = false;
+    final failure = StateError('server unavailable');
+    final source = PlaybackRealtimeDataSource(
+      db,
+      'owner',
+      serverRead: (_) async {
+        if (fail) throw failure;
+        return recoverySession(revision: 3);
+      },
+    );
+    await source.recover(restartTransport: false);
+    fail = true;
+    final errors = <Object>[];
+    final sub = source.watchActive().listen((_) {}, onError: errors.add);
+    await Future<void>.delayed(Duration.zero);
+    expect(errors, [failure]);
+    await sub.cancel();
+    await source.dispose();
+    await db.events.close();
+  });
+
+  for (final boundary in [
+    'recovery',
+    'sdk',
+    'duplicate',
+    'dispose',
+    'late-error',
+  ]) {
+    test('late contradictory read cannot undo $boundary', () async {
+      final initial = recoverySession(revision: 3);
+      final db = RecoveryDatabase(initial);
+      Future<Object?> Function() read = () async => initial;
+      final source = PlaybackRealtimeDataSource(
+        db,
+        'owner',
+        serverRead: (_) => read(),
+      );
+      await source.recover(restartTransport: false);
+      final oldSub = source.watchActive().listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      db.cached = null;
+      final delayed = Completer<Object?>();
+      read = () => delayed.future;
+      final seen = <PlaybackSessionModel?>[];
+      final errors = <Object>[];
+      final sub = source.watchActive().listen(seen.add, onError: errors.add);
+      await Future<void>.delayed(Duration.zero);
+      final next = recoverySession(
+        id: 'new-class',
+        revision: 1,
+        anchor: DateTime.now().millisecondsSinceEpoch,
+      );
+      if (boundary == 'recovery') {
+        read = () async => next;
+        await source.recover(restartTransport: false);
+      } else if (boundary == 'sdk' ||
+          boundary == 'duplicate' ||
+          boundary == 'late-error') {
+        db.deliver(boundary == 'duplicate' ? initial : next);
+        await Future<void>.delayed(Duration.zero);
+      } else {
+        await source.dispose();
+      }
+      if (boundary == 'late-error') {
+        delayed.completeError(StateError('obsolete read failed'));
+      } else {
+        delayed.complete(null);
+      }
+      await Future<void>.delayed(Duration.zero);
+      if (boundary == 'dispose') {
+        expect(seen, isEmpty);
+      } else {
+        expect(seen.last?.id, boundary == 'duplicate' ? null : 'new-class');
+      }
+      expect(errors, isEmpty);
+      await oldSub.cancel();
+      await sub.cancel();
+      if (boundary != 'dispose') await source.dispose();
+      expect(
+        await source.watchActive().toList(),
+        isEmpty,
+        reason: 'Disposed owner must not replay',
+      );
+      await db.events.close();
+    });
+  }
+
+  test(
+    'anonymous TV can replay verified owner state without controller auth',
+    () async {
+      final db = RecoveryDatabase(recoverySession());
+      final source = PlaybackRealtimeDataSource(
+        db,
+        'owner',
+        isCurrentAccount: () => false,
+        serverRead: (_) async => recoverySession(revision: 4),
+      );
+      await source.recover(restartTransport: false);
+      expect((await source.watchActive().first)?.revision, 4);
+      await source.dispose();
+      await db.events.close();
+    },
+  );
+
+  for (final deleted in [false, true]) {
+    testWidgets(
+      'verified ${deleted ? 'deletion' : 'revision'} survives real recovery provider resubscribe',
+      (tester) async {
+        final h = RecoveryHarness(recoverySession());
+        addTearDown(h.dispose);
+        await tester.pump();
+        expect(
+          h.container.read(activePlaybackSessionProvider).value?.revision,
+          1,
+        );
+        final response = Completer<Object?>();
+        h.readServer = () => response.future;
+        h.recovery.suspend();
+        final recovering = h.recovery.recover();
+        await tester.pump();
+        expect(
+          h.container.read(playbackRecoveryControllerProvider).isLoading,
+          isTrue,
+        );
+        final fresh = deleted
+            ? null
+            : recoverySession(revision: 4, status: 'paused');
+        response.complete(fresh);
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 7));
+        await recovering;
+        expect(
+          h.container.read(playbackRecoveryControllerProvider).hasValue,
+          isTrue,
+        );
+        final active = h.container.read(activePlaybackSessionProvider);
+        expect(active.isLoading, isFalse);
+        expect(active.value?.revision, deleted ? null : 4);
+        expect(h.cache.value?.revision, deleted ? null : 4);
+        expect(
+          h.db.writes,
+          0,
+          reason: 'Recovery must never restart or change the class',
+        );
+        expect(h.restReads, 1);
+      },
+    );
+  }
+
+  for (final update in ['revision', 'replacement', 'deletion']) {
+    test(
+      'resubscribe retains accepted $update after REST verification',
+      () async {
+        final db = _Database(session());
+        final source = PlaybackRealtimeDataSource(
+          db,
+          'u',
+          serverRead: (_) async => session(revision: 3),
+        );
+        final seen = <PlaybackSessionModel?>[];
+        var sub = source.watchActive().listen(seen.add);
+        await Future<void>.delayed(Duration.zero);
+        await source.recover(restartTransport: false);
+        final next = update == 'deletion'
+            ? null
+            : {
+                ...session(revision: update == 'replacement' ? 1 : 4),
+                if (update == 'replacement') 'id': 'replacement',
+                if (update == 'replacement') 'anchorServerMs': 100,
+              };
+        db.events.add(_Event(next));
+        await Future<void>.delayed(Duration.zero);
+        await sub.cancel();
+        seen.clear();
+        sub = source.watchActive().listen(seen.add);
+        await Future<void>.delayed(Duration.zero);
+        expect(seen, isNotEmpty);
+        expect(
+          seen.first?.id,
+          update == 'deletion'
+              ? null
+              : update == 'replacement'
+              ? 'replacement'
+              : 's',
+        );
+        expect(
+          seen.last?.revision,
+          update == 'deletion'
+              ? null
+              : update == 'replacement'
+              ? 1
+              : 4,
+        );
+        await sub.cancel();
+        await source.dispose();
+        await db.events.close();
+      },
+    );
+  }
+
+  test('filtered stale decode cannot replace the deletion tombstone', () async {
+    final db = _Database(session());
+    Object? response = {
+      ...session(revision: 3),
+      'id': 'new',
+      'anchorServerMs': 100,
+    };
+    final source = PlaybackRealtimeDataSource(
+      db,
+      'u',
+      serverRead: (_) async => response,
+    );
+    final seen = <PlaybackSessionModel?>[];
+    final sub = source.watchActive().listen(seen.add);
+    await Future<void>.delayed(Duration.zero);
+    await source.recover(restartTransport: false);
+    db.events.add(_Event(session()));
+    await Future<void>.delayed(Duration.zero);
+    response = null;
+    await source.recover(restartTransport: false);
+    db.events.add(
+      _Event({...session(revision: 3), 'id': 'new', 'anchorServerMs': 100}),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(seen.last, isNull);
+    await sub.cancel();
+    await source.dispose();
+    await db.events.close();
+  });
+
   test(
     'resume confirms server state, rejects stale revisions, never writes',
     () async {
@@ -174,7 +578,7 @@ void main() {
       seen.clear();
       subscription = source.watchActive().listen(seen.add);
       await Future<void>.delayed(Duration.zero);
-      expect(seen.whereType<PlaybackSessionModel>(), isEmpty);
+      expect(seen, [null]);
       await subscription.cancel();
       await source.dispose();
       await db.events.close();

@@ -72,7 +72,8 @@ export function resolveDisplayBinding(root, ownerId, deviceId, displayUid, {repa
   if (repaired && repair) {
     // Pairing evidence must survive on both records. A leftover access pointer
     // by itself is not permission to reconstruct identity or a removed device.
-    if (!displayUid || !device.pairingCode || device.pairingCode !== access.pairingCode) fail('connection_conflict');
+    if (!displayUid || typeof device.pairingCode !== 'string' || !/^\d{6}$/.test(device.pairingCode) ||
+        device.pairingCode !== access.pairingCode) fail('connection_conflict');
     device.displayUid = actualUid;
   }
   return {device, access, displayUid: actualUid, repaired};
