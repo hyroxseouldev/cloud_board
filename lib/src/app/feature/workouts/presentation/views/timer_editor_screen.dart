@@ -13,6 +13,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/ti
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_rehearsal_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_editor_fields.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_duration_wheel.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/timer_summary.dart';
 
 /// One editing transaction; only the final action updates the slide draft.
@@ -45,9 +46,24 @@ class TimerEditorScreen extends HookConsumerWidget {
     final selecting = useState(false);
     final module = state.module;
     final error = timingValidationError(module);
+    final wheelSelection = useMemoized(() {
+      final first = effectiveIntervalBlocks(module).first;
+      return TimerWheelSelection(
+        state.detailed
+            ? '${first.id}-${first.workSeconds == 0 ? 'rest' : 'work'}'
+            : isOpenEndedTimer(module)
+            ? null
+            : state.inputMode == WorkoutTimerMode.emom
+            ? 'timer-interval'
+            : 'timer-work',
+      );
+    }, [state.formRevision, state.detailed]);
+    useEffect(() => wheelSelection.dispose, [wheelSelection]);
 
     Future<void> chooseMode({bool creating = false}) async {
       if (selecting.value) return;
+      wheelSelection.commit();
+      final module = ref.read(provider).module;
       selecting.value = true;
       FocusScope.of(context).unfocus();
       try {
@@ -88,11 +104,14 @@ class TimerEditorScreen extends HookConsumerWidget {
     }, const []);
 
     void apply() {
-      if (applied.value || !state.valid) return;
+      wheelSelection.commit();
+      final latest = ref.read(provider);
+      if (applied.value || !latest.valid) return;
+      wheelSelection.select(null);
       applied.value = true;
       final current = ref.read(slide).module;
-      ref.read(slide.notifier).update(copySlideTiming(current, module));
-      onSelectBlock(effectiveIntervalBlocks(module).first.id);
+      ref.read(slide.notifier).update(copySlideTiming(current, latest.module));
+      onSelectBlock(effectiveIntervalBlocks(latest.module).first.id);
       Navigator.pop(context);
     }
 
@@ -101,8 +120,10 @@ class TimerEditorScreen extends HookConsumerWidget {
       data: SlideEditorStyle.theme(Theme.of(context)),
       child: CallbackShortcuts(
         bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape): () =>
-              Navigator.maybePop(context),
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            wheelSelection.commit();
+            Navigator.maybePop(context);
+          },
         },
         child: UnsavedChangesGuard(
           dirty: !applied.value && actions.dirty,
@@ -115,7 +136,10 @@ class TimerEditorScreen extends HookConsumerWidget {
             appBar: AppBar(
               leading: CloseButton(
                 key: const ValueKey('close-timer-editor'),
-                onPressed: () => Navigator.maybePop(context),
+                onPressed: () {
+                  wheelSelection.commit();
+                  Navigator.maybePop(context);
+                },
               ),
               title: const Text('타이머 편집'),
             ),
@@ -193,10 +217,12 @@ class TimerEditorScreen extends HookConsumerWidget {
                             ? TimerDetailedFields(
                                 state: state,
                                 actions: actions,
+                                selection: wheelSelection,
                               )
                             : TimerCompactFields(
                                 state: state,
                                 actions: actions,
+                                selection: wheelSelection,
                               ),
                       ),
                       if (!isContinuousTimer(module) &&
@@ -215,24 +241,32 @@ class TimerEditorScreen extends HookConsumerWidget {
                           ),
                           trailing: const Icon(Icons.chevron_right),
                           enabled: state.valid,
-                          onTap: () => actions.showDetails(!state.detailed),
+                          onTap: () {
+                            wheelSelection.commit();
+                            actions.showDetails(!state.detailed);
+                          },
                         ),
                       ],
                       const SizedBox(height: 16),
                       if (state.valid)
                         TimerResultSummary(
                           module: module,
-                          onRehearse: () => Navigator.push<void>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SlideRehearsalScreen(
-                                module: module,
-                                brandL: brandL,
-                                brandR: brandR,
-                                workout: workout,
+                          onRehearse: () {
+                            wheelSelection.commit();
+                            final latest = ref.read(provider);
+                            if (!latest.valid) return;
+                            Navigator.push<void>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SlideRehearsalScreen(
+                                  module: latest.module,
+                                  brandL: brandL,
+                                  brandR: brandR,
+                                  workout: workout,
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         )
                       else
                         Text(
@@ -323,7 +357,7 @@ class TimerEditorScreen extends HookConsumerWidget {
                       if (keyboard == 0) ...[
                         const SizedBox(height: 8),
                         const Text(
-                          '타이머 반영은 초안 변경이에요. 슬라이드 저장으로 완료해 주세요.',
+                          '슬라이드 저장으로 완료해 주세요.',
                           textAlign: TextAlign.left,
                           style: TextStyle(
                             fontSize: 12,

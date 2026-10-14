@@ -129,6 +129,7 @@ jobs:
           test/original_slide_cache_test.dart
           test/slide_design_asset_reuse_test.dart
           test/slide_editor_bottom_tabs_test.dart
+          test/timer_duration_wheel_test.dart
 
       - name: Test client compatibility and rollout regressions in Chrome
         run: >-
