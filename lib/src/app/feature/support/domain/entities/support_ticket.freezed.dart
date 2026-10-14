@@ -215,7 +215,7 @@ return $default(_that.bytes,_that.contentType,_that.fileId);case _:
 
 class _SupportAttachment implements SupportAttachment {
   const _SupportAttachment({required this.bytes, required this.contentType, required this.fileId});
-  
+
 
 @override final  Uint8List bytes;
 @override final  String contentType;
@@ -486,7 +486,7 @@ return $default(_that.id,_that.number,_that.receivedAtMs,_that.notificationStatu
 
 class _SupportTicket implements SupportTicket {
   const _SupportTicket({required this.id, required this.number, required this.receivedAtMs, required this.notificationStatus});
-  
+
 
 @override final  String id;
 @override final  String number;
@@ -788,7 +788,7 @@ return $default(_that.requestId,_that.message,_that.replyEmail,_that.diagnostics
 
 class _SupportDraft implements SupportDraft {
   const _SupportDraft({required this.requestId, this.message = '', this.replyEmail = '',  Map<String, Object?> diagnostics = const {}, this.attachment, this.ticket, this.submitting = false, this.frozen = false, this.error}): _diagnostics = diagnostics;
-  
+
 
 @override final  String requestId;
 @override@JsonKey() final  String message;
