@@ -258,7 +258,7 @@ jobs:
         with:
           node-version: '22'
       - name: Reject failed, skipped, cancelled or missing jobs
-        run: node --input-type=module -e "import {requireSuccess} from './tool/firebase/release.mjs'; requireSuccess(JSON.parse(process.env.REQUIRED_JOBS), ['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions'])"
+        run: node --input-type=module -e "import {requireReleaseJobs} from './tool/firebase/release.mjs'; requireReleaseJobs(JSON.parse(process.env.REQUIRED_JOBS))"
       - uses: actions/download-artifact@v4
         with:
           name: firebase-web-${{ github.run_id }}-${{ github.run_attempt }}

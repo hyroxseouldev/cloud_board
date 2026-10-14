@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {requiredSuites, validateTestEvents} from './class_start_regressions.mjs';
+import {requireReleaseJobs} from './firebase/release.mjs';
 const fixture = () => [...requiredSuites.flatMap((path, id) => [
   {type: 'suite', suite: {id, path: `/repo/${path}`}},
   {type: 'testStart', test: {id, suiteID: id}},
@@ -29,5 +30,16 @@ test('all release and development deploys require the class-start job', () => {
     assert.match(workflow, /needs: \[[^\n]*class_start_regressions/);
   }
   const required = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
-  assert.match(required, /requireSuccess[^\n]*'class_start_regressions'/);
+  assert.match(required, /requireReleaseJobs\(JSON.parse\(process.env.REQUIRED_JOBS\)\)/);
+});
+test('workflow and manifest aggregation accept the same four jobs and reject unverified class starts', () => {
+  const jobs = Object.fromEntries(['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions'].map(name => [name, {result: 'success'}]));
+  requireReleaseJobs(jobs);
+  for (const result of ['failure', 'skipped', 'cancelled', undefined]) {
+    assert.throws(() => requireReleaseJobs({...jobs, class_start_regressions: {result}}));
+  }
+  const {class_start_regressions: omitted, ...missing} = jobs;
+  assert.throws(() => requireReleaseJobs(missing));
+  const release = readFileSync('tool/firebase/release.mjs', 'utf8');
+  assert.match(release, /if \(command === 'aggregate'\) \{\s+requireReleaseJobs\(/);
 });
