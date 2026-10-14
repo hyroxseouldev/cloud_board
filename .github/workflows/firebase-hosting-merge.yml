@@ -63,7 +63,7 @@ jobs:
       - name: Verify product display configuration and identifier contracts
         run: |
           node tool/brand.mjs --check
-          node --test tool/brand.test.mjs tool/brand-platforms.test.mjs tool/ios-firebase-environment.test.mjs
+          node --test tool/brand.test.mjs tool/brand-platforms.test.mjs tool/ios-firebase-environment.test.mjs tool/startup_loading.test.mjs
 
       - name: Verify Firebase environment isolation
         run: node tool/firebase/environments.mjs check
@@ -99,7 +99,7 @@ jobs:
         run: flutter test
 
       - name: Test web command and diagnostic regressions in Chrome
-        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_editing_test.dart test/timer_editor_flow_test.dart test/main_navigation_test.dart
+        run: flutter test --platform chrome test/event_id_test.dart test/error_reporter_test.dart test/class_stability_test.dart test/playback_command_throttle_test.dart test/timer_editor_test.dart test/timer_modes_test.dart test/timer_editing_test.dart test/timer_editor_flow_test.dart test/main_navigation_test.dart test/soft_rhythm_loading_mark_test.dart test/app_startup_screen_test.dart test/startup_performance_test.dart
 
       - name: Test preparation and library regressions in Chrome
         run: >-

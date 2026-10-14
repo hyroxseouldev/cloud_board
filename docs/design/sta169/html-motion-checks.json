@@ -1,0 +1,62 @@
+[
+  {
+    "asset": "http://127.0.0.1:19169/assets/assets/branding/soft_rhythm_mark.png",
+    "size": [
+      128,
+      128
+    ],
+    "natural": [
+      1254,
+      1254
+    ],
+    "animation": "soft-rhythm-breathe",
+    "duration": "1.8s"
+  },
+  {
+    "motion": [
+      {
+        "time": 0,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "opacity": "1"
+      },
+      {
+        "time": 450,
+        "transform": "matrix(0.985, 0, 0, 0.985, 0, 0)",
+        "opacity": "0.9"
+      },
+      {
+        "time": 900,
+        "transform": "matrix(0.97, 0, 0, 0.97, 0, 0)",
+        "opacity": "0.8"
+      },
+      {
+        "time": 1350,
+        "transform": "matrix(0.985, 0, 0, 0.985, 0, 0)",
+        "opacity": "0.9"
+      },
+      {
+        "time": 1800,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "opacity": "1"
+      }
+    ]
+  },
+  {
+    "reduced": "none",
+    "opacity": "1"
+  },
+  {
+    "pagehide": "none"
+  },
+  {
+    "firstFrameRemoved": true
+  },
+  {
+    "role": "alert",
+    "failure": true,
+    "focus": "startup-retry"
+  },
+  {
+    "retryRestoredLoading": true
+  }
+]
