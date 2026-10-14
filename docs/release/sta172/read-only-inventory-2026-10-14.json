@@ -1,0 +1,725 @@
+{
+  "checkedAt": "2026-10-14T14:05:36.725Z",
+  "project": "cloud-board-stationd",
+  "schedulers": {
+    "asia-southeast1": {
+      "jobs": [],
+      "nextPageTokenPresent": false
+    },
+    "asia-northeast3": {
+      "jobs": [
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/jobs/firebase-schedule-retryAccountDeletions-asia-northeast3",
+          "state": "ENABLED",
+          "schedule": "every 15 minutes",
+          "httpTargetUri": "https://asia-northeast3-cloud-board-stationd.cloudfunctions.net/retryAccountDeletions"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/jobs/firebase-schedule-cleanupClientDiagnostics-asia-northeast3",
+          "state": "ENABLED",
+          "schedule": "every 24 hours",
+          "httpTargetUri": "https://asia-northeast3-cloud-board-stationd.cloudfunctions.net/cleanupClientDiagnostics"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/jobs/firebase-schedule-reconcileAppStoreBilling-asia-northeast3",
+          "state": "ENABLED",
+          "schedule": "every 5 minutes",
+          "httpTargetUri": "https://asia-northeast3-cloud-board-stationd.cloudfunctions.net/reconcileAppStoreBilling"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/jobs/firebase-schedule-reconcileGooglePlayBilling-asia-northeast3",
+          "state": "ENABLED",
+          "schedule": "every 5 minutes",
+          "httpTargetUri": "https://asia-northeast3-cloud-board-stationd.cloudfunctions.net/reconcileGooglePlayBilling"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/jobs/firebase-schedule-cleanupOnboardingVerification-asia-northeast3",
+          "state": "ENABLED",
+          "schedule": "every 24 hours",
+          "httpTargetUri": "https://cleanuponboardingverification-auvkxmbp6a-du.a.run.app/"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/jobs/firebase-schedule-cleanupPlaybackSnapshots-asia-northeast3",
+          "state": "ENABLED",
+          "schedule": "every 24 hours",
+          "httpTargetUri": "https://asia-northeast3-cloud-board-stationd.cloudfunctions.net/cleanupPlaybackSnapshots"
+        }
+      ],
+      "nextPageTokenPresent": false
+    }
+  },
+  "eventarc": {
+    "asia-southeast1": {
+      "triggers": [],
+      "nextPageTokenPresent": false
+    },
+    "asia-northeast3": {
+      "triggers": [
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/syncstandbybranding-541059",
+          "eventFilters": [
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "subscriptionEntitlements/{uid}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncStandbyBranding"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/processgoogleplaynotification-239531",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "googlePlayEvents/{eventId}",
+              "operator": "match-path-pattern"
+            },
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.created"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/processGooglePlayNotification"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/processappstorenotification-377146",
+          "eventFilters": [
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.created"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "appStoreEvents/{eventId}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/processAppStoreNotification"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/syncverifiedfreeaccess-875784",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "users/{uid}/onboarding/progress",
+              "operator": "match-path-pattern"
+            },
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncVerifiedFreeAccess"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/syncapptrialaccess-022484",
+          "eventFilters": [
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "subscriptionEntitlements/{uid}",
+              "operator": "match-path-pattern"
+            },
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncAppTrialAccess"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/syncslidelibraryplan-375815",
+          "eventFilters": [
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "subscriptionEntitlements/{uid}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncSlideLibraryPlan"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/syncworkoutplanusage-106131",
+          "eventFilters": [
+            {
+              "attribute": "document",
+              "value": "users/{uid}/workouts/{id}",
+              "operator": "match-path-pattern"
+            },
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncWorkoutPlanUsage"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/synclegacyworkoutsettings-967330",
+          "eventFilters": [
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "users/{uid}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncLegacyWorkoutSettings"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/googleplaynotifications-208096",
+          "eventFilters": [
+            {
+              "attribute": "type",
+              "value": "google.cloud.pubsub.topic.v1.messagePublished"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/googlePlayNotifications"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/syncworkoutcatalog-401417",
+          "eventFilters": [
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "users/{uid}/workouts/{workoutId}",
+              "operator": "match-path-pattern"
+            },
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncWorkoutCatalog"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        },
+        {
+          "name": "projects/cloud-board-stationd/locations/asia-northeast3/triggers/syncslideplanusage-076828",
+          "eventFilters": [
+            {
+              "attribute": "document",
+              "value": "users/{uid}/slideTemplates/{id}",
+              "operator": "match-path-pattern"
+            },
+            {
+              "attribute": "type",
+              "value": "google.cloud.firestore.document.v1.written"
+            },
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            }
+          ],
+          "destination": {
+            "cloudFunction": "projects/cloud-board-stationd/locations/asia-northeast3/functions/syncSlidePlanUsage"
+          },
+          "serviceAccount": "428540903054-compute@developer.gserviceaccount.com"
+        }
+      ],
+      "nextPageTokenPresent": false
+    }
+  },
+  "projectIam": {
+    "sha256": "2b3ed76b8e6cc824580bddde6910fd9c1476c6e361db8b0fcbe045f8a9e6d4e7",
+    "bindingCount": 35
+  },
+  "secrets": [
+    {
+      "name": "projects/428540903054/secrets/BETTER_AUTH_SECRET",
+      "createTime": "2026-09-18T03:49:06.266592Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/BILLING_ENCRYPTION_KEY",
+      "createTime": "2026-09-18T03:49:25.173717Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/CLOUDBOARD_GATEWAY_SECRET",
+      "createTime": "2026-09-18T03:49:43.826475Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/CLOUDBOARD_ONBOARDING_SECRET",
+      "createTime": "2026-09-25T10:55:38.122469Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/DATABASE_URL",
+      "createTime": "2026-09-18T03:48:59.144857Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/GOOGLE_CLIENT_SECRET",
+      "createTime": "2026-09-18T03:49:12.463656Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/OPENAI_API_KEY",
+      "createTime": "2026-10-03T01:03:57.546379Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/SOLAPI_API_KEY",
+      "createTime": "2026-09-18T03:49:30.903143Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/SOLAPI_API_SECRET",
+      "createTime": "2026-09-18T03:49:37.962641Z"
+    },
+    {
+      "name": "projects/428540903054/secrets/TOSS_SECRET_KEY",
+      "createTime": "2026-09-18T03:49:18.046691Z"
+    }
+  ],
+  "firebaseAuth": {
+    "authorizedDomains": [
+      "localhost",
+      "cloud-board-stationd.firebaseapp.com",
+      "cloud-board-stationd.web.app"
+    ]
+  },
+  "vercel": {
+    "projectId": "prj_ep3C0KporVqzs7W39tRNo2ZmAuaG",
+    "name": "cloudboard-landing",
+    "production": {
+      "id": "dpl_AWC6b2qQTTg92Y44KXkvPJmXguBY",
+      "readyState": "READY",
+      "commit": "1a3eda9ee39d371e69fa92cdf79279968fe8f041",
+      "url": "cloudboard-landing-qgnmdbkci-bgm109s-projects.vercel.app"
+    },
+    "variables": [
+      {
+        "id": "wzD1scP41maZzht2",
+        "key": "SOLAPI_FROM",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "DWQnIl78oJjV5sye",
+        "key": "SOLAPI_API_SECRET",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "hfDlY2aa8NSZaDCX",
+        "key": "SOLAPI_API_KEY",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "l0COkPfELKeHCzEd",
+        "key": "GOOGLE_CLIENT_SECRET",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "GwJX6S0SsqfIZmv0",
+        "key": "GOOGLE_CLIENT_ID",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "kwy7wVmOFtFd89DQ",
+        "key": "ADMIN_USER_IDS",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "Ewh3fQkDrbyPcuMa",
+        "key": "LIVE_BILLING_APPROVED",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "BbyAgs9YggUzULym",
+        "key": "ENTITLEMENT_SYNC_ENABLED",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "vkPDK2iHkDYmcAsd",
+        "key": "BILLING_ENCRYPTION_KEY",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "TCACpE5r1a5Ipf5R",
+        "key": "TOSS_SECRET_KEY",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "GYPQnU9kuP6FEr5i",
+        "key": "TOSS_CLIENT_KEY",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "oqRsZvGlVEBTB0no",
+        "key": "BILLING_MODE",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "ytTvE413JySKRHs7",
+        "key": "APPLICATIONS_ENABLED",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "LJpCU8NtKWHQ5jpm",
+        "key": "BETTER_AUTH_SECRET",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "1XIOoVj5Yku6F6JQ",
+        "key": "NEON_BRANCH_NAME",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "uQq6A9WcpTIL55aj",
+        "key": "AUTH_TRUSTED_ORIGINS",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "sxmLFjFxSF59ofDw",
+        "key": "BETTER_AUTH_URL",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      },
+      {
+        "id": "DIQjf6MyCltRJ9pT",
+        "key": "DATABASE_URL_UNPOOLED",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "WSOYHr92YJwV7uhA",
+        "key": "DATABASE_URL",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "cE4N67DhAXUyTIAE",
+        "key": "CLOUDBOARD_GATEWAY_SECRET",
+        "target": [
+          "production"
+        ],
+        "type": "sensitive"
+      },
+      {
+        "id": "eI3hOnkiVcel0kyV",
+        "key": "CLOUDBOARD_FUNCTION_URL",
+        "target": [
+          "production"
+        ],
+        "type": "encrypted"
+      }
+    ]
+  },
+  "secretIam": {
+    "BETTER_AUTH_SECRET": {
+      "sha256": "76f86b47077ab299f0401af49c94107ec27fc650143ddb5784c32ec5680316ec",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        }
+      ]
+    },
+    "BILLING_ENCRYPTION_KEY": {
+      "sha256": "accaad0fd11729b75282d05d43d45b865b1ecf4610f1097cc1b4db0472efe626",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        }
+      ]
+    },
+    "CLOUDBOARD_GATEWAY_SECRET": {
+      "sha256": "e001bda21efe58831de10f7ca500d82bbe006befd068285deff337a1cd95918a",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        }
+      ]
+    },
+    "DATABASE_URL": {
+      "sha256": "1c8c91fba0ed12292eeaf33ecb00c2d11dcd0b17aaadc5bc81d67f529af1e778",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        }
+      ]
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "sha256": "140062184c975a8f30d1451ce986df64a6f8524e5b9c9bc59599357ff2b996c7",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        }
+      ]
+    },
+    "SOLAPI_API_KEY": {
+      "sha256": "f881abfffcbcbdd89448781f24c05489540731c9fb0199f61a608ce74107e88a",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        },
+        {
+          "role": "roles/secretmanager.viewer",
+          "members": [
+            "serviceAccount:github-actions@cloud-board-stationd.iam.gserviceaccount.com"
+          ]
+        }
+      ]
+    },
+    "SOLAPI_API_SECRET": {
+      "sha256": "76ae367ac1ecfe392285485cb4069080dbfcdcd819ac5577e6fdb97d68b72c9e",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        },
+        {
+          "role": "roles/secretmanager.viewer",
+          "members": [
+            "serviceAccount:github-actions@cloud-board-stationd.iam.gserviceaccount.com"
+          ]
+        }
+      ]
+    },
+    "TOSS_SECRET_KEY": {
+      "sha256": "b2bb18e138de49c869cf78830f11834310959aebf094a7f97a37f0cb5d6096f9",
+      "bindings": [
+        {
+          "role": "roles/secretmanager.secretAccessor",
+          "members": [
+            "serviceAccount:428540903054-compute@developer.gserviceaccount.com"
+          ]
+        }
+      ]
+    }
+  },
+  "serviceAccounts": [
+    {
+      "email": "cloud-board-stationd@appspot.gserviceaccount.com",
+      "disabled": false,
+      "userManagedKeys": []
+    },
+    {
+      "email": "428540903054-compute@developer.gserviceaccount.com",
+      "disabled": false,
+      "userManagedKeys": []
+    },
+    {
+      "email": "github-actions@cloud-board-stationd.iam.gserviceaccount.com",
+      "disabled": false,
+      "userManagedKeys": [
+        {
+          "disabled": false,
+          "validAfterTime": "2026-09-04T07:57:59Z"
+        }
+      ]
+    },
+    {
+      "email": "firebase-adminsdk-fbsvc@cloud-board-stationd.iam.gserviceaccount.com",
+      "disabled": false,
+      "userManagedKeys": []
+    }
+  ],
+  "legacyHttpUsage": {
+    "windowStart": "2026-09-14T00:00:00Z",
+    "sampledRequests": 40,
+    "morePages": true,
+    "counts": {
+      "GET /cloudboardAuth/api/config 200": 13,
+      "GET /cloudboardAuth/api/me 401": 24,
+      "GET /cloudboardAuth/api/auth/get-session 200": 3
+    }
+  },
+  "changesPerformed": [],
+  "limitations": [
+    "Google OAuth client origins/redirect URIs not verified",
+    "Legacy HTTP request log is a paginated sample, not proof of inactivity",
+    "No Vercel variable or credential deletion, production deployment or native/TV regression performed"
+  ],
+  "landingCleanValidation": {
+    "sourceCommit": "1a3eda9ee39d371e69fa92cdf79279968fe8f041",
+    "node": "22.21.1",
+    "command": "pnpm check",
+    "serverEnvironmentVariablesPresent": false,
+    "result": "passed",
+    "checks": [
+      "typecheck",
+      "tests",
+      "production build"
+    ]
+  }
+}
