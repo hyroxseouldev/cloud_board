@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
 import 'package:cloud_board/src/app/feature/billing/domain/entities/billing_status.dart';
 import 'package:cloud_board/src/app/feature/billing/domain/usecases/billing_actions.dart';
 import 'package:cloud_board/src/app/feature/billing/presentation/controllers/billing_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/audience_branding_copy.dart';
 
 const appleSubscriptionsUrl = 'https://apps.apple.com/account/subscriptions';
 const googleSubscriptionsUrl =
@@ -25,6 +28,9 @@ class SubscriptionScreen extends HookConsumerWidget {
     final supported = billing.storeSupported;
     final deviceStore = billing.store;
     final offers = ref.watch(billingOffersProvider);
+    final classBrandingAvailable = audienceClassBrandingAvailable(
+      ref.watch(audienceBrandingProvider),
+    );
     useOnAppLifecycleStateChange((previous, next) {
       if (next == AppLifecycleState.resumed) {
         ref.invalidate(billingStatusProvider);
@@ -83,7 +89,7 @@ class SubscriptionScreen extends HookConsumerWidget {
                   Text(
                     '우리 센터에 맞는\n수업의 다음 단계.',
                     style: Theme.of(context).textTheme.headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 24),
                   Card(
@@ -101,14 +107,38 @@ class SubscriptionScreen extends HookConsumerWidget {
                             data.planLabel,
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
-                          if (data.validUntilMs > 0) ...[
+                          if (data.validUntilMs > 0 && data.plan != 'free') ...[
                             const SizedBox(height: 8),
                             Text('${date(data.validUntilMs)}까지 이용'),
+                          ],
+                          if (data.plan == 'free' &&
+                              data.status == 'active') ...[
+                            const SizedBox(height: 12),
+                            const Text('TV 한 대로 무료 운영 · 기간 제한 없이 · 카드 등록 없이'),
+                            if (data.planBenefitsReady)
+                              const Text('수업 7개 · 재사용 슬라이드 3개 보관 · 기본 대기 화면'),
+                            if (data.planBenefitsReady)
+                              Text(
+                                audienceLogoBenefit(
+                                  canHideLogo: false,
+                                  classScreensAvailable: classBrandingAvailable,
+                                ),
+                              ),
+                          ],
+                          if (data.phoneRequired == true) ...[
+                            const SizedBox(height: 12),
+                            const Text('Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.'),
+                            const SizedBox(height: 8),
+                            FilledButton(
+                              onPressed: () =>
+                                  context.push('/onboarding?verify=true'),
+                              child: const Text('휴대폰 인증하기'),
+                            ),
                           ],
                           if (data.status == 'trialing') ...[
                             const SizedBox(height: 12),
                             const Text(
-                              '1개월 무료 체험은 자동으로 결제되지 않아요.\n유료 구독을 선택하면 바로 결제가 시작되며, 남은 체험 기간이 유료 구독 기간에 더해지지는 않아요.',
+                              '기존 무료 체험은 자동으로 결제되지 않아요.\n유료 구독을 선택하면 바로 결제가 시작되며, 남은 체험 기간이 유료 구독 기간에 더해지지는 않아요.',
                             ),
                           ],
                           if (data.paidStatus != null) ...[
@@ -152,7 +182,7 @@ class SubscriptionScreen extends HookConsumerWidget {
                       child: Text(
                         data.paidStatus != null
                             ? '기존 구독의 갱신·해지는 $storeLabel 구독 관리에서 할 수 있어요.'
-                            : '유료 구독은 준비 중이에요. 기존 이용 권한과 무료 체험은 그대로 유지돼요.',
+                            : '유료 구독은 준비 중이에요. 기존 이용 권한은 그대로 유지돼요.',
                       ),
                     ),
                   if (!supported)
@@ -165,6 +195,8 @@ class SubscriptionScreen extends HookConsumerWidget {
                   for (final plan in ['plus', 'premium']) ...[
                     _PlanCard(
                       plan: plan,
+                      benefitsReady: data.planBenefitsReady,
+                      classBrandingAvailable: classBrandingAvailable,
                       offer: offers.value
                           ?.where((o) => o.id.contains('.$plan.'))
                           .firstOrNull,
@@ -256,11 +288,15 @@ class SubscriptionScreen extends HookConsumerWidget {
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
+    required this.benefitsReady,
+    required this.classBrandingAvailable,
     required this.offer,
     required this.enabled,
     required this.onPurchase,
   });
   final String plan;
+  final bool benefitsReady;
+  final bool classBrandingAvailable;
   final BillingOffer? offer;
   final bool enabled;
   final Future<void> Function(String) onPurchase;
@@ -281,7 +317,32 @@ class _PlanCard extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          Text(premium ? '센터 디스플레이·저장 슬라이드 제한 없이' : '디스플레이 1대 · 저장 슬라이드 3개'),
+          Text(
+            benefitsReady
+                ? premium
+                      ? 'TV·수업 보관·재사용 슬라이드 플랜 한도 없음'
+                      : 'TV 동시 3대 · 수업 보관 한도 없음 · 재사용 슬라이드 30개'
+                : premium
+                ? '센터 디스플레이·저장 슬라이드 제한 없이'
+                : 'TV 동시 3대 · 저장 슬라이드 3개',
+          ),
+          if (benefitsReady) ...[
+            const SizedBox(height: 8),
+            const Text('대기 화면 배경·문구·센터 로고 설정'),
+            Text(
+              audienceLogoBenefit(
+                canHideLogo: true,
+                classScreensAvailable: classBrandingAvailable,
+              ),
+            ),
+            Text('AI 슬라이드 도우미 · 내용 정리와 디자인 제안 합산 월 ${premium ? 30 : 10}회'),
+            if (premium) const Text('이미지 타이머 인식 · 별도 월 100회'),
+            const SizedBox(height: 8),
+            const Text('매월 1일 한국 시간 00:00 초기화 · 플랜 변경 시 사용량 유지'),
+          ] else ...[
+            const SizedBox(height: 8),
+            const Text('확장된 저장 한도와 AI 슬라이드 도우미는 새 요금제 출시 후 안내해 드릴게요.'),
+          ],
           const SizedBox(height: 16),
           FilledButton(
             onPressed: enabled && offer != null

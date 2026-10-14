@@ -1,0 +1,17 @@
+{
+  "phase": "before",
+  "viewport": [
+    1920,
+    1080
+  ],
+  "devicePixelRatio": 1,
+  "rendererVersion": 1,
+  "gitHead": "322d985dfc22f5c4a8a1d9fe879fc3c18560b6d9",
+  "sources": {
+    "lib/src/app/feature/workouts/data/datasources/slide_design_renderer.dart": "0bc8e83d6e6ad4472159601ae5dcdfeace9a22a7f480041b828c451163f0e077",
+    "lib/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart": "0c54beda5f4d7253a58c0c2373ecea8ffa713818da11cb8c152bd3fc79595318",
+    "lib/src/app/feature/workouts/domain/starter_workouts.dart": "719c4c4e87ce0caefae36ef3113b675609b678898394f6c25ef88689b769cd1c"
+  },
+  "pngCount": 21,
+  "note": "Production WorkoutSlidePreview and timer overlay; no live TV, network or physical-distance readability claim."
+}

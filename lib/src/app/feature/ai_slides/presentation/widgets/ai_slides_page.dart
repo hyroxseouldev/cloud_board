@@ -115,10 +115,18 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
     final validation = module == null ? null : slideDesignError(module);
     final busy = state.generating || state.loading;
     final allowed =
-        access.value?.premium == true && access.value?.enabled == true;
+        !access.isLoading &&
+        !access.hasError &&
+        access.value?.canRequest == true &&
+        access.value?.enabled == true;
     final warning = validation ?? metrics?.warning;
     final canAdd =
-        module != null && !busy && validation == null && metrics!.readable;
+        module != null &&
+        !busy &&
+        !adding.value &&
+        !designState.generating &&
+        validation == null &&
+        metrics!.readable;
     ref.listen(aiSlidesControllerProvider, (previous, next) {
       final restored = previous?.loading == true && !next.loading;
       final generated =
@@ -138,7 +146,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
     }
 
     Future<void> add() async {
-      if (draft == null || !canAdd) return;
+      if (adding.value || draft == null || !canAdd) return;
       final ownerId = ref.read(aiSlidesOwnerIdProvider);
       final value = confirmAiSlide(
         draft,
@@ -222,7 +230,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    '오른쪽 위 저장 아이콘으로 슬라이드를 추가한 뒤 워크아웃을 저장해 주세요.',
+                    '수업에 추가한 뒤 수업 편집 화면에서 저장해 주세요.',
                     style: TextStyle(fontSize: 12),
                   ),
                 ],
@@ -285,22 +293,15 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
           ),
           titleSpacing: 0,
           title: const Text(
-            '수업 이미지 생성',
+            '슬라이드 만들기',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                key: const ValueKey('ai-slides-add'),
-                tooltip: '슬라이드 추가',
-                onPressed: canAdd ? add : null,
-                icon: const Icon(Icons.save_outlined),
-              ),
+            style: TextStyle(
+              fontSize: 20,
+              letterSpacing: -.2,
+              fontWeight: FontWeight.w600,
             ),
-          ],
+          ),
         ),
         body: SafeArea(
           top: false,
@@ -310,6 +311,33 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
               constraints: const BoxConstraints(maxWidth: 1120),
               child: Column(
                 children: [
+                  if (!keyboardVisible)
+                    NavigationBar(
+                      height: 72,
+                      selectedIndex: tab.value.index,
+                      onDestinationSelected: (index) =>
+                          selectTab(_EditorTab.values[index]),
+                      destinations: const [
+                        NavigationDestination(
+                          key: ValueKey('ai-nav-content'),
+                          icon: Icon(Icons.edit_note_outlined),
+                          selectedIcon: Icon(Icons.edit_note_rounded),
+                          label: '내용',
+                        ),
+                        NavigationDestination(
+                          key: ValueKey('ai-nav-templates'),
+                          icon: Icon(Icons.grid_view_outlined),
+                          selectedIcon: Icon(Icons.grid_view_rounded),
+                          label: '템플릿',
+                        ),
+                        NavigationDestination(
+                          key: ValueKey('ai-nav-create'),
+                          icon: _GenerationTabIcon(),
+                          selectedIcon: _GenerationTabIcon(selected: true),
+                          label: 'AI',
+                        ),
+                      ],
+                    ),
                   if (busy) const LinearProgressIndicator(minHeight: 2),
                   if (state.storageError != null)
                     AiSlidesNotice(state.storageError!, error: true),
@@ -372,39 +400,25 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                       },
                     ),
                   ),
+                  if (module != null)
+                    SafeArea(
+                      top: false,
+                      minimum: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          key: const ValueKey('ai-slides-add'),
+                          onPressed: canAdd ? add : null,
+                          icon: const Icon(Icons.add_rounded),
+                          label: Text(adding.value ? '추가 중…' : '수업에 추가'),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
         ),
-        bottomNavigationBar: keyboardVisible
-            ? null
-            : NavigationBar(
-                height: 72,
-                selectedIndex: tab.value.index,
-                onDestinationSelected: (index) =>
-                    selectTab(_EditorTab.values[index]),
-                destinations: const [
-                  NavigationDestination(
-                    key: ValueKey('ai-nav-content'),
-                    icon: Icon(Icons.edit_note_outlined),
-                    selectedIcon: Icon(Icons.edit_note_rounded),
-                    label: '내용',
-                  ),
-                  NavigationDestination(
-                    key: ValueKey('ai-nav-templates'),
-                    icon: Icon(Icons.grid_view_outlined),
-                    selectedIcon: Icon(Icons.grid_view_rounded),
-                    label: '템플릿',
-                  ),
-                  NavigationDestination(
-                    key: ValueKey('ai-nav-create'),
-                    icon: _GenerationTabIcon(),
-                    selectedIcon: _GenerationTabIcon(selected: true),
-                    label: '생성',
-                  ),
-                ],
-              ),
       ),
     );
   }

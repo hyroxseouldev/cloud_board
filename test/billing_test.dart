@@ -1,11 +1,17 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/billing/data/models/billing_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/billing/data/datasources/billing_data_source.dart';
@@ -59,6 +65,236 @@ class FakeBillingSource extends BillingDataSource {
 }
 
 void main() {
+  test(
+    'billing phone verification distinguishes server required from unknown',
+    () {
+      expect(BillingModel.fromJson({}).toEntity().phoneRequired, isNull);
+      expect(
+        BillingModel.fromJson({'phoneRequired': true}).toEntity().phoneRequired,
+        isTrue,
+      );
+      expect(
+        BillingModel.fromJson({'phoneRequired': false})
+            .toEntity()
+            .phoneRequired,
+        isFalse,
+      );
+    },
+  );
+  testWidgets(
+    'unverified subscription offers SMS rather than a premium trial',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authStateProvider.overrideWith(
+              (_) => Stream.value(
+                const AuthUser(
+                  id: 'owner',
+                  email: '',
+                  displayName: '',
+                  photoUrl: null,
+                ),
+              ),
+            ),
+            billingActionsProvider.overrideWith(
+              (_) => BillingActions(
+                FirebaseBillingRepository(FakeBillingSource()),
+              ),
+            ),
+            billingStatusProvider.overrideWith(
+              (_) async => const BillingStatus(phoneRequired: true),
+            ),
+            billingOffersProvider.overrideWith((_) async => []),
+          ],
+          child: const MaterialApp(home: SubscriptionScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.'), findsOneWidget);
+      expect(find.text('휴대폰 인증하기'), findsOneWidget);
+      expect(find.textContaining('1개월'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'upgrade conversion is verified once; duplicate restore and cancellation stay distinct',
+    (tester) async {
+      final events = StreamController<List<StorePurchase>>.broadcast();
+      final source = FakeBillingSource(eventStream: events.stream);
+      source.response.complete({
+        'appAccountToken': 'owner-token',
+        'verified': true,
+      });
+      final recorded = <Map<String, dynamic>>[];
+      final telemetry = OperationTelemetry(
+        readAccount: () => 'owner',
+        emit: (e, _) async => recorded.add(e),
+      );
+      final container = ProviderContainer.test(
+        overrides: [
+          authStateProvider.overrideWith(
+            (ref) => Stream.value(
+              const AuthUser(
+                id: 'owner',
+                email: '',
+                displayName: '',
+                photoUrl: null,
+              ),
+            ),
+          ),
+          billingActionsProvider.overrideWith(
+            (ref) => BillingActions(FirebaseBillingRepository(source)),
+          ),
+          operationTelemetryProvider.overrideWith((ref) => telemetry),
+        ],
+      );
+      container.listen(billingPurchaseControllerProvider, (_, _) {});
+      await container.read(authStateProvider.future);
+      await tester.pump();
+      final actions = container.read(
+        billingPurchaseControllerProvider.notifier,
+      );
+      const id = 'com.sunmkim.cloudboard.plus.monthly';
+      await actions.purchase(id);
+      const completed = StorePurchase(
+        key: 'verified-transaction',
+        phase: StorePurchasePhase.purchased,
+        signedTransaction: 'signed',
+        productId: id,
+      );
+      events.add([
+        completed,
+        completed,
+        completed.copyWith(phase: StorePurchasePhase.restored),
+      ]);
+      await tester.pumpAndSettle();
+      await telemetry.flush();
+      expect(recorded.map((e) => e['outcome']), ['attempt', 'success']);
+      expect(recorded.map((e) => e['operationId']).toSet().length, 1);
+      // An old receipt can arrive after the user opens a new checkout of the
+      // same SKU. Neither that receipt nor a restore may finish the new attempt.
+      await actions.purchase(id);
+      events.add([
+        completed,
+        completed.copyWith(
+          key: 'restored-old',
+          phase: StorePurchasePhase.restored,
+        ),
+        completed.copyWith(key: 'restored-old'),
+      ]);
+      await tester.pumpAndSettle();
+      await telemetry.flush();
+      expect(recorded.map((e) => e['outcome']), [
+        'attempt',
+        'success',
+        'attempt',
+      ]);
+      events.add([completed.copyWith(key: 'new-legitimate-transaction')]);
+      await tester.pumpAndSettle();
+      await telemetry.flush();
+      expect(recorded.map((e) => e['outcome']), [
+        'attempt',
+        'success',
+        'attempt',
+        'success',
+      ]);
+      expect(recorded.map((e) => e['operationId']).toSet().length, 2);
+      await actions.purchase(id);
+      events.add([
+        completed.copyWith(
+          key: 'canceled-new',
+          phase: StorePurchasePhase.canceled,
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      await telemetry.flush();
+      expect(recorded.map((e) => e['outcome']), [
+        'attempt',
+        'success',
+        'attempt',
+        'success',
+        'attempt',
+        'cancelled',
+      ]);
+      await events.close();
+    },
+  );
+  test(
+    'StoreKit2 monthly offer requires one month and auto-renewable type',
+    () {
+      AppStoreProduct2Details product({
+        SK2SubscriptionPeriodUnit unit = SK2SubscriptionPeriodUnit.month,
+        SK2ProductType type = SK2ProductType.autoRenewable,
+      }) => AppStoreProduct2Details.fromSK2Product(
+        SK2Product(
+          id: 'com.sunmkim.cloudboard.plus.monthly',
+          displayName: 'Plus',
+          description: '',
+          price: 49000,
+          displayPrice: '₩49,000',
+          type: type,
+          priceLocale: SK2PriceLocale(currencyCode: 'KRW', currencySymbol: '₩'),
+          subscription: SK2SubscriptionInfo(
+            subscriptionGroupID: 'plans',
+            promotionalOffers: const [],
+            subscriptionPeriod: SK2SubscriptionPeriod(value: 1, unit: unit),
+          ),
+        ),
+      );
+      expect(isMonthlyAppleProduct(product()), isTrue);
+      expect(
+        isMonthlyAppleProduct(product(unit: SK2SubscriptionPeriodUnit.year)),
+        isFalse,
+      );
+      expect(
+        isMonthlyAppleProduct(product(type: SK2ProductType.nonRenewable)),
+        isFalse,
+      );
+    },
+  );
+  test('Apple monthly label uses store duration, never the product ID', () {
+    AppStoreProductDetails product(
+      SKSubscriptionPeriodUnit unit,
+      int units, {
+      bool group = true,
+    }) => AppStoreProductDetails.fromSKProduct(
+      SKProductWrapper(
+        productIdentifier: 'com.sunmkim.cloudboard.plus.monthly',
+        localizedTitle: 'Plus',
+        localizedDescription: '',
+        price: '49000',
+        priceLocale: SKPriceLocaleWrapper(
+          currencyCode: 'KRW',
+          currencySymbol: '₩',
+          countryCode: 'KR',
+        ),
+        subscriptionGroupIdentifier: group ? 'plans' : null,
+        subscriptionPeriod: SKProductSubscriptionPeriodWrapper(
+          numberOfUnits: units,
+          unit: unit,
+        ),
+      ),
+    );
+    expect(
+      isMonthlyAppleProduct(product(SKSubscriptionPeriodUnit.month, 1)),
+      isTrue,
+    );
+    expect(
+      isMonthlyAppleProduct(product(SKSubscriptionPeriodUnit.month, 3)),
+      isFalse,
+    );
+    expect(
+      isMonthlyAppleProduct(product(SKSubscriptionPeriodUnit.year, 1)),
+      isFalse,
+    );
+    expect(
+      isMonthlyAppleProduct(
+        product(SKSubscriptionPeriodUnit.month, 1, group: false),
+      ),
+      isFalse,
+    );
+  });
   testWidgets(
     'Play pending approval allows recovery and finishes only after verified approval',
     (tester) async {
@@ -256,8 +492,11 @@ void main() {
                   ),
                 ),
                 billingStatusProvider.overrideWith(
-                  (ref) async =>
-                      const BillingStatus(plan: 'premium', status: 'trialing'),
+                  (ref) async => const BillingStatus(
+                    plan: 'premium',
+                    status: 'trialing',
+                    planBenefitsReady: true,
+                  ),
                 ),
                 billingOffersProvider.overrideWith((ref) async => []),
               ],

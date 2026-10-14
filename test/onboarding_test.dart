@@ -1,108 +1,46 @@
+import 'dart:async';
+
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
-import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:cloud_board/src/app/feature/onboarding/data/models/center_onboarding_model.dart';
+import 'package:cloud_board/src/app/feature/onboarding/data/repositories/exploration_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/center_onboarding.dart';
-import 'package:cloud_board/src/app/feature/onboarding/domain/repositories/onboarding_repository.dart';
-import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboarding_screen.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/entities/exploration_progress.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cloud_board/src/app/feature/onboarding/data/repositories/exploration_repository_impl.dart';
-import 'package:cloud_board/src/app/feature/onboarding/domain/entities/exploration_progress.dart';
-
-import 'dart:async';
-
-import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-const user = AuthUser(
-  id: 'owner',
-  email: '',
-  displayName: '테스트',
-  photoUrl: null,
-);
+import 'support/onboarding_fixture.dart';
 
-class FakeOnboarding implements OnboardingRepository {
-  FakeOnboarding(this.value);
-  CenterOnboarding value;
-  bool fail = false;
-  Completer<void>? saveGate;
-  int starts = 0, saves = 0;
-  @override
-  Future<CenterOnboarding> load() async => value;
-  @override
-  Future<void> sendCode(String phone) async {
-    if (fail) throw StateError('문자 전송 실패');
-  }
-
-  @override
-  Future<CenterOnboarding> verifyCode(String code) async =>
-      value = value.copyWith(phoneRequired: false, storeId: 'center');
-  @override
-  Future<CenterOnboarding> save(
-    CenterOnboarding current,
-    CenterProfile profile,
-    int step,
-    String action,
-  ) async {
-    saves++;
-    await saveGate?.future;
-    if (fail) throw StateError('저장 실패');
-    return value = value.copyWith(
-      profile: profile,
-      revision: current.revision + 1,
-      step: step,
-      completed: action == 'complete',
-      deferred: action == 'defer',
+Future<void> tapVisible(WidgetTester tester, String label) async {
+  if (find.text(label).evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      find.text(label),
+      180,
+      scrollable: find.byType(Scrollable).first,
     );
   }
-
-  @override
-  Future<CenterOnboarding> startTrial() async {
-    starts++;
-    return value;
-  }
+  await tester.ensureVisible(find.text(label));
+  await tester.pump();
+  await tester.tap(find.text(label));
+  await tester.pump();
 }
 
-Widget app(FakeOnboarding repository, {String? purpose}) => ProviderScope(
-  overrides: [
-    authStateProvider.overrideWith((ref) => Stream.value(user)),
-    onboardingRepositoryProvider.overrideWith((ref) => repository),
-  ],
-  child: MaterialApp.router(
-    debugShowCheckedModeBanner: false,
-    theme: XonTheme.light,
-    routerConfig: GoRouter(
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (_, _) => OnboardingScreen(purpose: purpose),
-        ),
-        GoRoute(
-          path: '/explore',
-          builder: (_, _) => const Scaffold(body: Text('예시 체험 화면')),
-        ),
-        GoRoute(
-          path: '/starter-workouts',
-          builder: (_, state) => Scaffold(
-            key: ValueKey('resumed-${state.uri.queryParameters['starter']}'),
-            body: const Text('내 수업 준비 화면'),
-          ),
-        ),
-        GoRoute(
-          path: '/first-class',
-          builder: (_, _) => const Scaffold(body: Text('첫 수업 안내')),
-        ),
-      ],
-    ),
-  ),
-);
+Future<void> enterVerification(WidgetTester tester) async {
+  await tester.enterText(find.byType(TextField).first, '01012345678');
+  await tapVisible(tester, '휴대폰 인증하기');
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.byType(TextField).last);
+  await tester.enterText(find.byType(TextField).last, '123456');
+  await tapVisible(tester, '인증하고 계속하기');
+}
+
 void main() {
   setUp(
     () => SharedPreferencesAsyncPlatform.instance =
@@ -127,7 +65,7 @@ void main() {
       });
       container.listen(onboardingControllerProvider, (_, _) {});
       container.listen(onboardingActionProvider, (_, _) {});
-      users.add(user);
+      users.add(onboardingUser);
       await container.pump();
       await container.read(onboardingControllerProvider.future);
       repository.saveGate = Completer<void>();
@@ -139,7 +77,7 @@ void main() {
         storeId: 'second',
         profile: CenterProfile(purpose: 'exploring'),
       );
-      users.add(user.copyWith(id: 'other'));
+      users.add(onboardingUser.copyWith(id: 'other'));
       await container.pump();
       await container.read(onboardingControllerProvider.future);
       repository.saveGate!.complete();
@@ -167,94 +105,158 @@ void main() {
       'profile': CenterOnboardingModel.profileJson(p),
       'step': 2,
       'revision': 4,
+      'freeAvailable': true,
+      'freeActive': true,
     }).toEntity();
     expect(restored.profile, p);
     expect(restored.step, 2);
     expect(restored.revision, 4);
+    expect(restored.freeAvailable, isTrue);
+    expect(restored.freeActive, isTrue);
+    expect(
+      CenterOnboardingModel.fromJson({}).toEntity().freeAvailable,
+      isFalse,
+    );
   });
+  test('only server-confirmed access opens service; old completion cannot bypass it', () async {
+    final repo = FakeOnboarding(
+      const CenterOnboarding(completed: true, deferred: true),
+    );
+    final container = ProviderContainer.test(
+      overrides: [
+        authStateProvider.overrideWith((_) => Stream.value(onboardingUser)),
+        onboardingRepositoryProvider.overrideWith((_) => repo),
+      ],
+    );
+    container.listen(authStateProvider, (_, _) {});
+    container.listen(onboardingRequiredProvider, (_, _) {});
+    await container.pump();
+    expect(await container.read(onboardingRequiredProvider.future), isTrue);
+    for (final value in [
+      confirmedFree.copyWith(activationReady: false),
+      confirmedFree.copyWith(hasAccess: false),
+      confirmedFree.copyWith(phoneRequired: true),
+    ]) {
+      container.read(onboardingControllerProvider.notifier).replace(value);
+      expect(await container.read(onboardingRequiredProvider.future), isTrue);
+    }
+    container
+        .read(onboardingControllerProvider.notifier)
+        .replace(confirmedFree);
+    expect(await container.read(onboardingRequiredProvider.future), isFalse);
+    // A real, unexpired paid/trial grant remains usable without new SMS proof.
+    container
+        .read(onboardingControllerProvider.notifier)
+        .replace(
+          confirmedFree.copyWith(
+            phoneRequired: true,
+            freeActive: false,
+            status: 'trialing',
+          ),
+        );
+    expect(await container.read(onboardingRequiredProvider.future), isFalse);
+  });
+
+  test('missing activation confirmation never implies successful Free', () {
+    final old = CenterOnboardingModel.fromJson({
+      'phoneRequired': false,
+      'hasAccess': true,
+      'freeActive': true,
+    }).toEntity();
+    expect(old.serviceReady, isFalse);
+    expect(old.trialEligible, isFalse);
+    final current = CenterOnboardingModel.fromJson({
+      'phoneRequired': false,
+      'hasAccess': true,
+      'freeActive': true,
+      'activationReady': true,
+    });
+    expect(current.toEntity().serviceReady, isTrue);
+    expect(
+      CenterOnboardingModel.fromJson(current.toJson()).toEntity(),
+      current.toEntity(),
+    );
+  });
+
   for (final size in [
     const Size(320, 568),
     const Size(390, 844),
     const Size(834, 1194),
   ]) {
-    testWidgets('purpose selection fits $size and does not begin trial', (
-      tester,
-    ) async {
-      tester.view.physicalSize = size;
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final repo = FakeOnboarding(
-        const CenterOnboarding(phoneRequired: false, storeId: 'center'),
-      );
-      await tester.pumpWidget(app(repo));
-      await tester.pumpAndSettle();
-      final brand = find.text(AppBrand.name);
-      expect(brand, findsOneWidget);
-      final brandBounds = tester.getRect(brand);
-      final appBarBounds = tester.getRect(find.byType(AppBar));
-      expect(brandBounds.left, greaterThanOrEqualTo(appBarBounds.left));
-      expect(brandBounds.right, lessThanOrEqualTo(appBarBounds.right));
-      expect(brandBounds.bottom, lessThanOrEqualTo(appBarBounds.bottom));
-      expect(
-        tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '다음'))
-            .onPressed,
-        isNull,
-      );
-      await tester.ensureVisible(find.text('먼저 둘러보기'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('먼저 둘러보기'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('다음'));
-      await tester.pumpAndSettle();
-      expect(repo.value.profile.purpose, 'exploring');
-      expect(repo.starts, 0);
-      expect(repo.saves, 1);
-      expect(repo.value.deferred, isTrue);
-      expect(find.text('예시 체험 화면'), findsOneWidget);
-      expect(find.text('센터를 조금 알려주세요'), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'SMS -> confirmed Free -> service without center questionnaire at $size',
+      (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final repo = FakeOnboarding(const CenterOnboarding())
+          ..verifyGate = Completer<void>();
+        await tester.pumpWidget(onboardingApp(repo));
+        await tester.pumpAndSettle();
+        expect(find.text(AppBrand.name), findsOneWidget);
+        expect(find.text('Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.'), findsOneWidget);
+        await enterVerification(tester);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Free 플랜이 활성화됐어요.'), findsNothing);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        repo.verifyGate!.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Free 플랜이 활성화됐어요.'), findsOneWidget);
+        expect(find.textContaining('1개월'), findsNothing);
+        expect(repo.saves, 0);
+        expect(repo.value.profile.isComplete, isFalse);
+        await tapVisible(tester, '내 수업으로 가기');
+        await tester.pumpAndSettle();
+        expect(find.text('내 수업 화면'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
-  testWidgets('failed save keeps selected purpose and retry is possible', (
-    tester,
-  ) async {
-    final repo = FakeOnboarding(
-      const CenterOnboarding(phoneRequired: false, storeId: 'center'),
-    )..fail = true;
-    await tester.pumpWidget(app(repo));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('오픈할 센터 준비하기'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    expect(find.text('어떻게 시작하고 싶으세요?'), findsOneWidget);
-    repo.fail = false;
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    expect(repo.value.profile.purpose, 'preparing');
-    expect(repo.starts, 0);
-    expect(find.text('내 수업 준비 화면'), findsOneWidget);
-  });
+
   testWidgets(
-    'operating intent is preselected, then continues center setup without trial',
+    'verification failure preserves phone/code and load repairs partial activation',
     (tester) async {
-      final repo = FakeOnboarding(
-        const CenterOnboarding(phoneRequired: false, storeId: 'center'),
+      final repo = FakeOnboarding(const CenterOnboarding())
+        ..verifyError = StateError('권한 반영 재시도 필요');
+      await tester.pumpWidget(onboardingApp(repo));
+      await tester.pumpAndSettle();
+      await enterVerification(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Free 플랜이 활성화됐어요.'), findsNothing);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        '01012345678',
       );
-      await tester.pumpWidget(app(repo, purpose: 'operating'));
+      expect(
+        tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+        '123456',
+      );
+      repo.loadError = StateError('네트워크 연결 실패');
+      await tapVisible(tester, '이용 상태 다시 확인');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('다음'));
+      await tester.scrollUntilVisible(
+        find.text('네트워크 연결 실패'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('네트워크 연결 실패'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+        '123456',
+      );
+      repo.loadError = null;
+      repo.value = confirmedFree;
+      await tapVisible(tester, '이용 상태 다시 확인');
       await tester.pumpAndSettle();
-      expect(repo.value.profile.purpose, 'operating');
-      expect(repo.value.deferred, isFalse);
-      expect(find.text('센터를 조금 알려주세요'), findsOneWidget);
-      expect(repo.starts, 0);
+      expect(find.text('Free 플랜이 활성화됐어요.'), findsOneWidget);
+      expect(repo.verifications, 1);
+      expect(repo.saves, 0);
     },
   );
+
   testWidgets(
-    'restart restores this account pending sample import through onboarding',
+    'restart resumes saved sample selection and retries server activation without SMS',
     (tester) async {
       await LocalExplorationRepository(SharedPreferencesAsync()).save(
         'owner',
@@ -265,110 +267,103 @@ void main() {
         ),
       );
       final repo = FakeOnboarding(
-        const CenterOnboarding(phoneRequired: false, storeId: 'center'),
+        confirmedFree.copyWith(activationReady: false),
       );
-      await tester.pumpWidget(app(repo));
+      await tester.pumpWidget(onboardingApp(repo));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('다음'));
+      expect(find.text('Free 플랜이 활성화됐어요.'), findsNothing);
+      expect(find.text('이용 상태를 확인해 주세요.'), findsOneWidget);
+      repo.value = confirmedFree;
+      await tapVisible(tester, '이용 상태 다시 확인');
       await tester.pumpAndSettle();
-      expect(repo.value.profile.purpose, 'preparing');
+      await tapVisible(tester, '선택한 예시로 내 수업 만들기');
+      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('resumed-team')), findsOneWidget);
-      expect(repo.starts, 0);
+      expect(repo.verifications, 0);
+      expect(repo.saves, 0);
     },
   );
-  testWidgets(
-    'phone verification is shown before center setup; no trial on verify',
-    (tester) async {
-      final repo = FakeOnboarding(const CenterOnboarding());
-      await tester.pumpWidget(app(repo));
-      await tester.pumpAndSettle();
-      expect(find.text('휴대폰 번호'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).first, '01012345678');
-      final pageScroll = find
-          .descendant(
-            of: find.byType(ListView),
-            matching: find.byType(Scrollable),
-          )
-          .first;
-      await tester.scrollUntilVisible(
-        find.text('인증번호 받기'),
-        150,
-        scrollable: pageScroll,
-      );
-      await tester.tap(find.text('인증번호 받기'));
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('인증번호'),
-        150,
-        scrollable: pageScroll,
-      );
-      await tester.enterText(find.byType(TextField).last, '123456');
-      await tester.scrollUntilVisible(
-        find.text('인증하고 계속하기'),
-        150,
-        scrollable: pageScroll,
-      );
-      await tester.tap(find.text('인증하고 계속하기'));
-      await tester.pumpAndSettle();
-      expect(find.text('어떻게 시작하고 싶으세요?'), findsOneWidget);
-      expect(repo.starts, 0);
-    },
-  );
-  testWidgets('trial requires explicit start and completed form resumes', (
+
+  testWidgets('center form is optional and failed save preserves fields', (
     tester,
   ) async {
     final repo = FakeOnboarding(
-      CenterOnboarding(
-        phoneRequired: false,
-        storeId: 'center',
-        step: 2,
+      confirmedFree.copyWith(
         profile: const CenterProfile(
-          purpose: 'exploring',
+          purpose: 'preparing',
           role: 'owner',
           centerTypes: ['gym'],
           undecidedName: true,
           undecidedRegion: true,
         ),
-        serverNowMs: 1790330400000,
-        suggestedTrialEndsAtMs: 1792922400000,
       ),
+    )..fail = true;
+    await tester.pumpWidget(onboardingApp(repo, editing: true));
+    await tester.pumpAndSettle();
+    expect(find.text('센터 정보를 수정해요'), findsOneWidget);
+    await tapVisible(tester, '다음');
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('저장 실패'),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
-    await tester.pumpWidget(app(repo));
+    expect(find.text('저장 실패'), findsOneWidget);
+    repo.fail = false;
+    await tapVisible(tester, '다음');
     await tester.pumpAndSettle();
-    expect(repo.starts, 0);
-    await tester.tap(find.text('1개월 무료로 시작하기'));
+    expect(find.textContaining('프리미엄 1개월'), findsNothing);
+    await tapVisible(tester, '센터 설정 마치기');
     await tester.pumpAndSettle();
-    expect(repo.starts, 1);
     expect(repo.value.completed, isTrue);
-    expect(find.text('예시 수업 미리보기'), findsOneWidget);
+    expect(repo.value.profile.role, 'owner');
+    expect(repo.value.freeActive, isTrue);
   });
 
-  testWidgets('existing access finishes setup without offering a new trial', (
-    tester,
-  ) async {
-    final repo = FakeOnboarding(
-      const CenterOnboarding(
-        phoneRequired: false,
-        storeId: 'center',
-        step: 2,
-        hasAccess: true,
-        trialEligible: false,
-        profile: CenterProfile(
-          purpose: 'exploring',
-          role: 'owner',
-          centerTypes: ['gym'],
-          undecidedName: true,
-          undecidedRegion: true,
+  testWidgets(
+    'unverified existing paid access continues, with optional SMS verification',
+    (tester) async {
+      final repo = FakeOnboarding(
+        confirmedFree.copyWith(phoneRequired: true, freeActive: false),
+      );
+      await tester.pumpWidget(onboardingApp(repo));
+      await tester.pumpAndSettle();
+      expect(find.text('기존 이용 권한을 계속 사용할 수 있어요.'), findsOneWidget);
+      expect(find.text('Free 플랜이 활성화됐어요.'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      await tapVisible(tester, '휴대폰 인증하기');
+      await tester.pumpAndSettle();
+      expect(find.text('휴대폰 번호'), findsOneWidget);
+      expect(repo.verifications, 0);
+    },
+  );
+
+  testWidgets(
+    'existing live trial dates remain visible in optional center setup',
+    (tester) async {
+      final repo = FakeOnboarding(
+        confirmedFree.copyWith(
+          freeActive: false,
+          status: 'trialing',
+          trialStartedAtMs: 1790330400000,
+          trialEndsAtMs: 1792922400000,
+          profile: const CenterProfile(
+            purpose: 'preparing',
+            role: 'owner',
+            centerTypes: ['gym'],
+            undecidedName: true,
+            undecidedRegion: true,
+          ),
         ),
-      ),
-    );
-    await tester.pumpWidget(app(repo));
-    await tester.pumpAndSettle();
-    expect(find.text('지금 시작하면'), findsNothing);
-    expect(find.text('체험은 나중에 시작하기'), findsNothing);
-    await tester.tap(find.text('센터 설정 마치기'));
-    await tester.pumpAndSettle();
-    expect(repo.starts, 0);
-    expect(repo.value.completed, isTrue);
-  });
+      );
+      await tester.pumpWidget(onboardingApp(repo, editing: true));
+      await tester.pumpAndSettle();
+      await tapVisible(tester, '다음');
+      await tester.pumpAndSettle();
+      expect(find.text('이용 중인 권한을 그대로 이어가요'), findsOneWidget);
+      await tester.ensureVisible(find.textContaining('기존 체험 기간:'));
+      expect(find.textContaining('기존 체험 기간:'), findsOneWidget);
+      expect(find.textContaining('무료 이용 시작'), findsNothing);
+    },
+  );
 }

@@ -220,7 +220,7 @@ class DevicePairingRealtimeDataSource {
         .get();
     if (pilot.value is! num ||
         (pilot.value as num) <= DateTime.now().millisecondsSinceEpoch) {
-      throw StateError('프로필의 센터 정보 · 온보딩에서 문자 인증과 무료 체험 시작을 완료해 주세요.');
+      throw StateError('Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.');
     }
     final pairingRef = _database.ref('pairingCodes/$normalizedCode');
     final initialSnapshot = await pairingRef.get();
@@ -317,6 +317,7 @@ class DevicePairingRealtimeDataSource {
   Future<void> setDisplayState({
     required String deviceId,
     required String displayState,
+    List<String> replaceDeviceIds = const [],
   }) async {
     await _connected();
     if (!const {'auto', 'standby', 'black'}.contains(displayState)) {
@@ -325,7 +326,9 @@ class DevicePairingRealtimeDataSource {
     final access =
         (await _database.ref('subscriptionAccess/$_ownerId').get()).value;
     if (access is Map &&
-        (access['plan'] == 'plus' || access['plan'] == 'premium')) {
+        (access['plan'] == 'free' ||
+            access['plan'] == 'plus' ||
+            access['plan'] == 'premium')) {
       try {
         await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
             .httpsCallable(
@@ -334,7 +337,11 @@ class DevicePairingRealtimeDataSource {
                 timeout: const Duration(seconds: 15),
               ),
             )
-            .call<void>({'deviceId': deviceId, 'displayState': displayState});
+            .call<void>({
+              'deviceId': deviceId,
+              'displayState': displayState,
+              'replaceDeviceIds': replaceDeviceIds,
+            });
       } on FirebaseFunctionsException {
         rethrow;
       }

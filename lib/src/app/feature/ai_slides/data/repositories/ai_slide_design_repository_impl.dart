@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.
 import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_slide_design_repository.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/data/datasources/ai_slide_design_data_source.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/data/models/ai_slide_design_model.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/data/models/ai_slides_model.dart';
 
 part 'ai_slide_design_repository_impl.g.dart';
 
@@ -31,12 +32,7 @@ class AiSlideDesignRepositoryImpl implements AiSlideDesignRepository {
   @override
   Future<AiSlidesAccess> access(String ownerId) async {
     final data = await source.call(ownerId, {'action': 'status'});
-    return AiSlidesAccess(
-      premium: data['premium'] == true,
-      enabled: data['enabled'] == true,
-      remaining: (data['remaining'] as num?)?.toInt() ?? 0,
-      limit: (data['limit'] as num?)?.toInt() ?? 0,
-    );
+    return AiSlidesModel.fromJson(data).toAccess();
   }
 
   @override

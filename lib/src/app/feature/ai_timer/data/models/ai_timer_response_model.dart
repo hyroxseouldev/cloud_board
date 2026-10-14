@@ -13,14 +13,25 @@ class AiTimerResponseModel {
     required this.resetsAtMs,
     this.result,
     this.cached = false,
+    this.allowed,
+    this.plan,
+    this.used,
+    this.availabilityReason,
   });
   final bool premium, enabled, cached;
   final int remaining, limit, resetsAtMs;
+  final bool? allowed;
+  final String? plan, availabilityReason;
+  final int? used;
   final AiTimerSuggestionModel? result;
   factory AiTimerResponseModel.fromJson(Map<String, dynamic> json) =>
       _$AiTimerResponseModelFromJson(json);
   AiTimerAccess toAccess() => AiTimerAccess(
     premium: premium,
+    allowed: allowed,
+    plan: plan,
+    used: used,
+    availabilityReason: availabilityReason,
     enabled: enabled,
     remaining: remaining,
     limit: limit,

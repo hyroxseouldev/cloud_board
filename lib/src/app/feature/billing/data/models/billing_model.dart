@@ -7,16 +7,20 @@ class BillingModel {
   const BillingModel({
     this.appAccountToken = '',
     this.purchasesEnabled = false,
+    this.planBenefitsReady = false,
     this.productIds = const [],
     this.plan = 'free',
     this.status = 'expired',
     this.validUntilMs = 0,
     this.grantSource,
+    this.phoneRequired,
     this.paid,
     this.paidStores = const [],
   });
   final String appAccountToken, plan, status;
   final bool purchasesEnabled;
+  final bool? phoneRequired;
+  final bool planBenefitsReady;
   final List<String> productIds;
   final int validUntilMs;
   final String? grantSource;
@@ -27,11 +31,13 @@ class BillingModel {
   BillingStatus toEntity() => BillingStatus(
     appAccountToken: appAccountToken,
     purchasesEnabled: purchasesEnabled,
+    planBenefitsReady: planBenefitsReady,
     productIds: productIds,
     plan: plan,
     status: status,
     validUntilMs: validUntilMs,
     grantSource: grantSource,
+    phoneRequired: phoneRequired,
     paidStatus: paid?['status'] as String?,
     paidPlan: paid?['plan'] as String?,
     paidSource: paid?['source'] as String?,

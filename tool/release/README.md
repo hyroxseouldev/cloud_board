@@ -1,6 +1,6 @@
 # Native release identity and build numbers
 
-Marketing version comes from `pubspec.yaml` (currently `1.1.0`). Android/TV share
+Marketing version comes from `pubspec.yaml` (currently `1.1.1`). Android/TV share
 `com.sunmkim.cloudboard` and one Play versionCode sequence; iOS retains its own
 App Store Connect build sequence. Neither helper changes a minimum supported
 client version, a release-policy document, a store track, or store review state.

@@ -153,6 +153,9 @@ class AiSlideDesignController extends _$AiSlideDesignController {
         : state.copyWith(
             generating: false,
             proposals: value.designs,
+            error: value.designs.isEmpty
+                ? '디자인 결과가 없어요. 입력을 확인하고 다시 생성해 주세요.'
+                : null,
             warnings: value.warnings,
             remaining: value.remaining,
           );

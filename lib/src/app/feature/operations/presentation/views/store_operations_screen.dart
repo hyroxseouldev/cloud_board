@@ -1,10 +1,9 @@
+import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/core/widgets/app_bottom_tab_bar.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
-
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/account_workout_settings_tab.dart';
-
 import 'package:cloud_board/src/app/core/widgets/app_dropdown_form_field.dart';
 
 import 'dart:async';
@@ -17,7 +16,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'package:cloud_board/src/app/core/widgets/async_value_widget.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -26,6 +24,10 @@ import 'package:cloud_board/src/app/feature/operations/presentation/controllers/
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/standby_branding.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/branding_plan_notice.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/audience_branding_copy.dart';
 
 class StoreOperationsScreen extends HookConsumerWidget {
   const StoreOperationsScreen({super.key, this.guard});
@@ -99,6 +101,10 @@ class _BrandSettingsTab extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(brandTemplateProvider);
+    final plan = ref.watch(planAccessProvider).value;
+    final classBrandingAvailable = audienceClassBrandingAvailable(
+      ref.watch(audienceBrandingProvider),
+    );
     final action = ref.watch(storeOperationsActionControllerProvider);
     final storeName = useTextEditingController();
     final message = useTextEditingController();
@@ -143,6 +149,20 @@ class _BrandSettingsTab extends HookConsumerWidget {
       data: (_) {
         final value = draft.value;
         if (value == null) return const SizedBox.shrink();
+        if (brandingLocked(plan)) {
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              const _SectionHeader(
+                title: '기본 대기 화면',
+                subtitle: '기존 센터 설정은 보관됩니다.',
+              ),
+              _StandbyPreview(template: brandPreviewForPlan(value, plan)),
+              const SizedBox(height: 20),
+              const BrandingPlanNotice(),
+            ],
+          );
+        }
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -219,6 +239,17 @@ class _BrandSettingsTab extends HookConsumerWidget {
                               .toList(),
                     ),
                     const SizedBox(height: 24),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('${AppBrand.name} 로고 표시'),
+                      subtitle: Text(
+                        audienceLogoSettingDescription(classBrandingAvailable),
+                      ),
+                      value: value.showCloudBoardLogo,
+                      onChanged: (show) => draft.value = value.copyWith(
+                        showCloudBoardLogo: show,
+                      ),
+                    ),
                     _ImageSettingTile(
                       title: '매장 로고',
                       subtitle: value.logoUrl == null

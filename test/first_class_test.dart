@@ -21,6 +21,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/starter_workouts_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 
@@ -56,6 +57,26 @@ DisplayDevice device({
 );
 
 void main() {
+  test(
+    'optional center questionnaire does not delay TV setup or completed class',
+    () {
+      const ready = FirstClassProgress(
+        sessionId: 'test',
+        savedWorkoutId: 'w',
+        rehearsedWorkoutId: 'w',
+      );
+      expect(ready.centerReady, isFalse);
+      expect(ready.next(onlineTv: false), FirstClassNext.connect);
+      final complete = ready.copyWith(
+        verifiedDeviceId: 'tv',
+        playedSessionId: 'session',
+      );
+      expect(complete.complete, isTrue);
+      expect(complete.completedCount, 3);
+      expect(complete.next(onlineTv: true), FirstClassNext.repeat);
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(
     () => SharedPreferencesAsyncPlatform.instance =
@@ -287,8 +308,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('1/4 완료'), 180);
-      expect(find.text('1/4 완료'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('첫 목표 0/2 완료 · 내 수업 저장 + 이 기기 연습'),
+        180,
+      );
+      expect(find.text('첫 목표 0/2 완료 · 내 수업 저장 + 이 기기 연습'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(
         ProviderScope(
@@ -301,6 +325,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('예시로 첫 수업을 준비하세요'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('예시 · 자유롭게 수정하세요'), 180);
+      expect(find.text('예시 · 자유롭게 수정하세요').hitTestable(), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('예시 · 자유롭게 수정하세요'),
+          matching: find.byType(WorkoutSlidePreview),
+        ),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     });
   }

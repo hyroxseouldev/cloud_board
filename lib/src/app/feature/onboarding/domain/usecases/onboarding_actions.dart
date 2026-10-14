@@ -23,8 +23,6 @@ class OnboardingActions {
     }
     return repository.save(current, profile, step, action);
   }
-
-  Future<CenterOnboarding> startTrial() => repository.startTrial();
 }
 
 @riverpod

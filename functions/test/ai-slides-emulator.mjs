@@ -21,6 +21,7 @@ const call=(uid,extra={})=>handleAiSlides({db,uid,input,apiKey:'fake',now,recogn
 const grant=uid=>db.doc(`subscriptionEntitlements/${uid}`).set({plan:'premium',status:'active',validUntilMs:now+3600000});
 try {
   await env.clearFirestore();
+  await db.doc('subscriptionEntitlements/free').set({plan:'free',status:'active',validUntilMs:now+3600000});
   await assert.rejects(call('free'),{code:'permission-denied'}); assert.equal(calls,0);
   await grant('owner');
   const status=await call('owner',{input:{action:'status'}}); assert.equal(status.limit,30); assert.equal(calls,0);

@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/standby_branding.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/widgets/branding_plan_notice.dart';
+
 import 'package:cloud_board/src/app/core/widgets/hex_color_field.dart';
 import 'package:cloud_board/src/app/core/utils/hex_color.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
@@ -41,6 +45,7 @@ class _StandbyEditor extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = useState(initial);
+    final plan = ref.watch(planAccessProvider).value;
     final previewNow = useState(DateTime.now());
     useEffect(() {
       final timer = Timer.periodic(
@@ -62,6 +67,25 @@ class _StandbyEditor extends HookConsumerWidget {
     final busy = useState(false);
     final error = useState<String?>(null);
     final form = useMemoized(() => GlobalKey<FormState>());
+    if (brandingLocked(plan)) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('대기 화면 설정')),
+        body: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: StoreWelcomeBoard(
+                brand: brandPreviewForPlan(initial, plan),
+                now: previewNow.value,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const BrandingPlanNotice(),
+          ],
+        ),
+      );
+    }
     Future<void> add() async {
       try {
         final files = await ImagePicker().pickMultiImage();

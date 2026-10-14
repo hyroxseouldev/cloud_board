@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/library_failure.dart';
@@ -43,6 +44,16 @@ class SlideTemplatesController extends _$SlideTemplatesController {
   String? lastError;
   Object? lastFailure;
   WorkoutModule? pendingDraft;
+  // A failed edit is never reused as a new item: that could overwrite its id.
+  WorkoutModule? get pendingNewDraft {
+    final draft = pendingDraft;
+    if (draft == null ||
+        (state.value?.any((item) => item.id == draft.id) ?? false)) {
+      return null;
+    }
+    return draft;
+  }
+
   @override
   Stream<List<WorkoutModule>> build(String scope) =>
       ref.watch(slideEditorActionsProvider).watchTemplates(scope);
@@ -51,13 +62,17 @@ class SlideTemplatesController extends _$SlideTemplatesController {
     WorkoutModule module,
     String name, {
     bool favorite = false,
-  }) => _write([
-    ...?state.value,
+  }) => createTemplate(
     module.copyWith(id: newId(), name: name.trim(), favorite: favorite),
-  ]);
+  );
 
-  Future<bool> createTemplate(WorkoutModule module) =>
-      _write([...?state.value, module]);
+  Future<bool> createTemplate(WorkoutModule module) async {
+    if (_writing || state.isLoading || !state.hasValue) return false;
+    pendingDraft = module;
+    final success = await _write([...?state.value, module]);
+    if (success) pendingDraft = null;
+    return success;
+  }
 
   Future<bool> updateTemplate(
     WorkoutModule updated, {
@@ -110,6 +125,7 @@ class SlideTemplatesController extends _$SlideTemplatesController {
       for (final id in {...oldItems.keys, ...newItems.keys})
         if (oldItems[id] != newItems[id]) id,
     });
+    final attempt = ref.read(operationTelemetryProvider).start('slides.save');
     final result = await AsyncValue.guard(() async {
       return actions.saveTemplates(
         scope,
@@ -117,6 +133,12 @@ class SlideTemplatesController extends _$SlideTemplatesController {
         previous: previous ?? baseline.requireValue,
       );
     });
+    if (result.hasError) {
+      final failure = result.error;
+      attempt.failure(failure is LibraryFailure ? failure.cause : failure);
+    } else {
+      attempt.success();
+    }
     _writing = false;
     lifetime.close();
     if (!ref.mounted) return !result.hasError;

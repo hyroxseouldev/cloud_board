@@ -182,7 +182,7 @@ test('design access alias and content generation share premium, quota, budget, c
   assert.equal((await handleAiSlideDesigns(options)).cached, true);
   await assert.rejects(handleAiSlideDesigns({...options, now: now + 12000, input: {...options.input, prompt: 'fresh'}}), reason('user-limit'));
   db.documents.set('subscriptionEntitlements/owner', {...premium, plan: 'free'});
-  await assert.rejects(handleAiSlideDesigns(options), reason('premium-required'));
+  await assert.rejects(handleAiSlideDesigns(options), reason('plan-required'));
 });
 
 test('invalid designs refund quota; invalid input never reserves it; cached results are revalidated', async () => {

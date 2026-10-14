@@ -40,7 +40,13 @@ class FirstTvConnectionScreen extends ConsumerWidget {
             const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(child: Text('3')),
-              title: Text('이름과 확인 번호로 TV 확인'),
+              title: Text('TV 이름과 구역 정하기'),
+              subtitle: Text('코치가 구분할 수 있는 이름과 설치된 구역을 입력하세요.'),
+            ),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(child: Text('4')),
+              title: Text('무음 확인 번호로 실제 TV 확인'),
               subtitle: Text(
                 '등록 뒤 소리 없는 확인 화면을 보냅니다. 원하는 TV의 번호가 맞으면 확인을 누르세요.',
               ),
@@ -76,13 +82,16 @@ class FirstTvConnectionScreen extends ConsumerWidget {
                 onPressed: () => ref.invalidate(displayDevicesProvider),
                 child: const Text('TV 목록 다시 불러오기'),
               ),
-            if (devices.value?.isEmpty == true) const Text('아직 등록된 TV가 없습니다.'),
+            if (!devices.isLoading &&
+                !devices.hasError &&
+                devices.value?.isEmpty == true)
+              const Text('아직 등록된 TV가 없습니다.'),
             for (final device in devices.value ?? [])
               Card(
                 child: ListTile(
                   title: Text(device.name),
                   subtitle: Text(
-                    '${device.zoneName} · ${device.online ? '온라인' : '오프라인'}',
+                    '${device.zoneName} · ${device.online ? '온라인 · 응답 확인하기' : '오프라인 · TV 앱과 인터넷 확인'}',
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => showDialog<void>(

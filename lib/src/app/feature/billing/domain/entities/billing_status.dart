@@ -7,11 +7,13 @@ abstract class BillingStatus with _$BillingStatus {
   const factory BillingStatus({
     @Default('') String appAccountToken,
     @Default(false) bool purchasesEnabled,
+    @Default(false) bool planBenefitsReady,
     @Default([]) List<String> productIds,
     @Default('free') String plan,
     @Default('expired') String status,
     @Default(0) int validUntilMs,
     String? grantSource,
+    bool? phoneRequired,
     String? paidStatus,
     String? paidPlan,
     String? paidSource,
@@ -24,7 +26,7 @@ abstract class BillingStatus with _$BillingStatus {
   String get planLabel => switch (plan) {
     'premium' => '프리미엄',
     'plus' => '플러스',
-    'free' => '무료',
+    'free' => 'Free',
     _ => '기존 이용 플랜',
   };
   String get statusLabel => switch (status) {
@@ -53,6 +55,7 @@ abstract class StorePurchase with _$StorePurchase {
     required String key,
     required StorePurchasePhase phase,
     required String signedTransaction,
+    String? productId,
     @Default('app_store') String store,
     String? error,
   }) = _StorePurchase;

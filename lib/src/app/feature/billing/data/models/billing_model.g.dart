@@ -9,6 +9,7 @@ part of 'billing_model.dart';
 BillingModel _$BillingModelFromJson(Map<String, dynamic> json) => BillingModel(
   appAccountToken: json['appAccountToken'] as String? ?? '',
   purchasesEnabled: json['purchasesEnabled'] as bool? ?? false,
+  planBenefitsReady: json['planBenefitsReady'] as bool? ?? false,
   productIds:
       (json['productIds'] as List<dynamic>?)
           ?.map((e) => e as String)
@@ -18,6 +19,7 @@ BillingModel _$BillingModelFromJson(Map<String, dynamic> json) => BillingModel(
   status: json['status'] as String? ?? 'expired',
   validUntilMs: (json['validUntilMs'] as num?)?.toInt() ?? 0,
   grantSource: json['grantSource'] as String?,
+  phoneRequired: json['phoneRequired'] as bool?,
   paid: json['paid'] as Map<String, dynamic>?,
   paidStores:
       (json['paidStores'] as List<dynamic>?)

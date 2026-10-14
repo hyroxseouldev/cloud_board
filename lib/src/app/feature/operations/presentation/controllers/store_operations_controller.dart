@@ -4,11 +4,13 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/data/repositories/store_operations_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/usecases/store_operations_actions.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/usecases/playback_actions.dart';
@@ -17,9 +19,29 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/wo
 
 part 'store_operations_controller.g.dart';
 
+@riverpod
+Stream<AudienceBranding?> audienceBrandingForOwner(Ref ref, String ownerId) =>
+    ref.watch(storeOperationsRepositoryProvider).watchAudienceBranding();
+
+/// Synchronous owner filtering prevents retained AsyncData from a previous
+/// account appearing for even one frame during sign-out or TV re-pairing.
+@Riverpod(keepAlive: true)
+AudienceBranding? audienceBranding(Ref ref) {
+  if (Firebase.apps.isEmpty) return null;
+  final account = ref.watch(accountOwnerIdProvider);
+  final ownerId = account.value;
+  if (account.isLoading || account.hasError || ownerId == null) return null;
+  final policy = ref.watch(audienceBrandingForOwnerProvider(ownerId)).value;
+  return policy?.ownerId == ownerId ? policy : null;
+}
+
 @Riverpod(keepAlive: true)
 Stream<BrandTemplate> brandTemplate(Ref ref) =>
     ref.watch(storeOperationsRepositoryProvider).watchBrandTemplate();
+
+@Riverpod(keepAlive: true)
+Stream<BrandTemplate> effectiveBrandTemplate(Ref ref) =>
+    ref.watch(storeOperationsRepositoryProvider).watchEffectiveBrandTemplate();
 
 @Riverpod(keepAlive: true)
 Stream<List<WorkoutSchedule>> workoutSchedules(Ref ref) =>

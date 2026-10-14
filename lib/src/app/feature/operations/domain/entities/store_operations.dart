@@ -27,6 +27,7 @@ abstract class BrandTemplate with _$BrandTemplate {
     @Default(<int>[]) List<int> promotionDurationMinutes,
     @Default(StandbyTransition.fade) StandbyTransition standbyTransition,
     @Default(StandbyImageFit.contain) StandbyImageFit standbyImageFit,
+    @Default(true) bool showCloudBoardLogo,
   }) = _BrandTemplate;
 
   factory BrandTemplate.initial() => const BrandTemplate(

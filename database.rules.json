@@ -31,7 +31,7 @@
           },
           "targetDeviceIds": {
             "$index": {
-              ".validate": "((root.child('legacyPilotAccess').child($uid).child('validUntilMs').isNumber() && root.child('legacyPilotAccess').child($uid).child('validUntilMs').val() > now) || (newData.isString() && root.child('users').child($uid).child('devices').child(newData.val()).child('paired').val() === true && root.child('displayAccess').child(root.child('users').child($uid).child('devices').child(newData.val()).child('displayUid').val()).child('ownerId').val() === $uid && root.child('displayAccess').child(root.child('users').child($uid).child('devices').child(newData.val()).child('displayUid').val()).child('deviceId').val() === newData.val())) && (root.child('subscriptionAccess').child($uid).child('plan').val() !== 'plus' || (newData.val() === data.val() && data.parent().parent().child('status').val() !== 'completed' && newData.parent().parent().child('id').val() === data.parent().parent().child('id').val()) || ($index === '0' && newData.isString() && root.child('users').child($uid).child('devices').child(newData.val()).child('paired').val() === true && root.child('users').child($uid).child('devices').child(newData.val()).child('displayState').val() === 'auto')) && ((root.child('subscriptionAccess').child($uid).child('validUntilMs').isNumber() && root.child('subscriptionAccess').child($uid).child('validUntilMs').val() > now) || (root.child('legacyPilotAccess').child($uid).child('validUntilMs').isNumber() && root.child('legacyPilotAccess').child($uid).child('validUntilMs').val() > now) || newData.val() === data.val())"
+              ".validate": "((root.child('legacyPilotAccess').child($uid).child('validUntilMs').isNumber() && root.child('legacyPilotAccess').child($uid).child('validUntilMs').val() > now) || (newData.isString() && root.child('users').child($uid).child('devices').child(newData.val()).child('paired').val() === true && root.child('displayAccess').child(root.child('users').child($uid).child('devices').child(newData.val()).child('displayUid').val()).child('ownerId').val() === $uid && root.child('displayAccess').child(root.child('users').child($uid).child('devices').child(newData.val()).child('displayUid').val()).child('deviceId').val() === newData.val())) && ((root.child('subscriptionAccess').child($uid).child('plan').val() !== 'plus' && root.child('subscriptionAccess').child($uid).child('plan').val() !== 'free') || (newData.val() === data.val() && data.parent().parent().child('status').val() !== 'completed' && newData.parent().parent().child('id').val() === data.parent().parent().child('id').val()) || (($index === '0' || (root.child('subscriptionAccess').child($uid).child('plan').val() === 'plus' && root.child('subscriptionAccess').child($uid).child('maxActiveDisplays').val() === 3 && ($index === '1' || $index === '2'))) && newData.isString() && root.child('users').child($uid).child('devices').child(newData.val()).child('paired').val() === true && root.child('users').child($uid).child('devices').child(newData.val()).child('displayState').val() === 'auto')) && ((root.child('subscriptionAccess').child($uid).child('validUntilMs').isNumber() && root.child('subscriptionAccess').child($uid).child('validUntilMs').val() > now) || (root.child('legacyPilotAccess').child($uid).child('validUntilMs').isNumber() && root.child('legacyPilotAccess').child($uid).child('validUntilMs').val() > now) || newData.val() === data.val())"
             }
           }
         },
@@ -39,7 +39,7 @@
           ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
           "$deviceId": {
             ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && root.child('displayAccess').child(auth.uid).child('deviceId').val() === $deviceId))) && !root.child('accountDeletions').child($uid).exists() && ((root.child('legacyPilotAccess').child($uid).child('validUntilMs').isNumber() && root.child('legacyPilotAccess').child($uid).child('validUntilMs').val() > now) || !newData.exists() || (data.exists() && newData.child('displayUid').val() === data.child('displayUid').val() && newData.child('paired').val() === data.child('paired').val()))",
-            ".validate": "newData.hasChildren(['id', 'mode', 'online', 'lastSeenAtMs']) && newData.child('id').val() === $deviceId && newData.child('mode').val() === 'display' && newData.child('online').isBoolean() && newData.child('lastSeenAtMs').isNumber() && (root.child('subscriptionAccess').child($uid).child('plan').val() !== 'plus' || newData.child('displayState').val() === data.child('displayState').val())"
+            ".validate": "newData.hasChildren(['id', 'mode', 'online', 'lastSeenAtMs']) && newData.child('id').val() === $deviceId && newData.child('mode').val() === 'display' && newData.child('online').isBoolean() && newData.child('lastSeenAtMs').isNumber() && ((root.child('subscriptionAccess').child($uid).child('plan').val() !== 'plus' && root.child('subscriptionAccess').child($uid).child('plan').val() !== 'free') || newData.child('displayState').val() === data.child('displayState').val())"
           }
         },
         "pairingCodes": {
@@ -50,12 +50,14 @@
           }
         },
         "operations": {
-          ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
+          ".read": "((auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()) && !((root.child('subscriptionAccess').child($uid).child('policyVersion').val() === 'plan-entitlements-v2' || root.child('users').child($uid).child('operations').child('brandProjection').child('policyVersion').val() === 'plan-entitlements-v2'))",
           "brand": {
-            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()"
+            ".write": "(auth != null && auth.uid === $uid && !root.child('accountDeletions').child($uid).exists()) && !((root.child('subscriptionAccess').child($uid).child('policyVersion').val() === 'plan-entitlements-v2' || root.child('users').child($uid).child('operations').child('brandProjection').child('policyVersion').val() === 'plan-entitlements-v2'))",
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()"
           },
           "schedules": {
-            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()"
+            ".write": "(auth != null && auth.uid === $uid) && !root.child('accountDeletions').child($uid).exists()",
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()"
           },
           "events": {
             ".indexOn": [
@@ -63,7 +65,16 @@
             ],
             "$eventId": {
               ".write": "(auth != null && (auth.uid === $uid || (root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid && newData.child('deviceId').val() === root.child('displayAccess').child(auth.uid).child('deviceId').val() && (newData.child('type').val() === 'device_online' || newData.child('type').val() === 'device_offline')))) && !root.child('accountDeletions').child($uid).exists()"
-            }
+            },
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()"
+          },
+          "brandConfig": {
+            ".read": "auth != null && auth.uid === $uid && !root.child('accountDeletions').child($uid).exists()",
+            ".write": false
+          },
+          "brandProjection": {
+            ".read": "(auth != null && (auth.uid === $uid || root.child('displayAccess').child(auth.uid).child('ownerId').val() === $uid)) && !root.child('accountDeletions').child($uid).exists()",
+            ".write": false
           }
         },
         "playbackSnapshots": {

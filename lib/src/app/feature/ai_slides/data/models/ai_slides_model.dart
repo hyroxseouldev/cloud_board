@@ -12,15 +12,30 @@ class AiSlidesModel {
     required this.limit,
     this.result,
     this.cached = false,
+    this.allowed,
+    this.plan,
+    this.used,
+    this.resetsAtMs,
+    this.availabilityReason,
   });
   final bool premium, enabled, cached;
   final int remaining, limit;
+  final bool? allowed;
+  final String? plan, availabilityReason;
+  final int? used, resetsAtMs;
   final AiSlidesContentModel? result;
   factory AiSlidesModel.fromJson(Map<String, dynamic> json) =>
       _$AiSlidesModelFromJson(json);
   Map<String, dynamic> toJson() => _$AiSlidesModelToJson(this);
   AiSlidesAccess toAccess() => AiSlidesAccess(
     premium: premium,
+    allowed: allowed,
+    plan: plan,
+    used: used,
+    resetsAt: resetsAtMs == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(resetsAtMs!, isUtc: true),
+    availabilityReason: availabilityReason,
     enabled: enabled,
     remaining: remaining,
     limit: limit,
@@ -70,6 +85,10 @@ class AiSlideModel {
   AiSlideDraft toEntity() => AiSlideDraft(
     title: title,
     layout: layout,
+    // A fresh content-only response has no saved visual preference. Keep
+    // legacy draft decoding separate, and allow the chosen theme to override.
+    designFontWeight: 700,
+    designItalic: false,
     lines: sections == null
         ? lines
         : [

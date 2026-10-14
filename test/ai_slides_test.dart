@@ -42,6 +42,9 @@ const draft = AiSlideDraft(
 
 class FakeAiSlidesRepository implements AiSlidesRepository {
   bool premium = true;
+  bool? allowed;
+  int limit = 30;
+  int remaining = 30;
   int calls = 0;
   int accessCalls = 0;
   Object? accessFailure;
@@ -58,9 +61,10 @@ class FakeAiSlidesRepository implements AiSlidesRepository {
     if (accessFailure != null) throw accessFailure!;
     return AiSlidesAccess(
       premium: premium,
+      allowed: allowed,
       enabled: true,
-      remaining: 30,
-      limit: 30,
+      remaining: remaining,
+      limit: limit,
     );
   }
 
@@ -236,6 +240,40 @@ void main() {
   }
 
   testWidgets(
+    'Plus can request one slide and sees shared monthly request units',
+    (tester) async {
+      final repository = FakeAiSlidesRepository()
+        ..premium = false
+        ..allowed = true
+        ..limit = 10
+        ..remaining = 2;
+      await mount(tester, repository, (_) {});
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.byKey(const ValueKey('ai-generation-usage')));
+      expect(find.text('AI 슬라이드 도우미 · 이번 달 8/10회 사용 · 2회 남음'), findsOneWidget);
+      expect(find.textContaining('내용 1회 + 디자인 1회 = 2회'), findsOneWidget);
+      expect(find.textContaining('00:00 KST'), findsOneWidget);
+      await generate(tester);
+      expect(repository.calls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'Plus with no remaining quota may still retrieve a server cached result',
+    () async {
+      final repository = FakeAiSlidesRepository()
+        ..premium = false
+        ..allowed = true
+        ..limit = 10
+        ..remaining = 0;
+      await AiSlidesActions(repository).generate('Run 1km');
+      expect(repository.calls, 1);
+    },
+  );
+
+  testWidgets(
     'shared usage recovers with retry and survives generation mode changes',
     (tester) async {
       final repository = FakeAiSlidesRepository()
@@ -246,16 +284,44 @@ void main() {
       expect(find.text('사용량을 불러오지 못했어요.'), findsOneWidget);
       expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
       repository.accessFailure = null;
+      await reveal(tester, find.text('새로고침'));
       await tester.tap(find.text('새로고침'));
       await tester.pumpAndSettle();
-      expect(find.text('30/30회 남음'), findsOneWidget);
+      expect(find.text('AI 슬라이드 도우미 · 이번 달 0/30회 사용 · 30회 남음'), findsOneWidget);
       final reads = repository.accessCalls;
       for (final mode in ['스타일 제안', '이미지로 시작', '수업 메모']) {
+        await tester.ensureVisible(find.text(mode).first);
+        await tester.pumpAndSettle();
         await tester.tap(find.text(mode).first);
         await tester.pumpAndSettle();
-        expect(find.text('30/30회 남음'), findsOneWidget);
+        expect(
+          find.text('AI 슬라이드 도우미 · 이번 달 0/30회 사용 · 30회 남음'),
+          findsOneWidget,
+        );
       }
       expect(repository.accessCalls, reads);
+      await tester.enterText(
+        find.byKey(const ValueKey('ai-slides-prompt')),
+        'WARM UP 스쿼트 10회, 운동 5분',
+      );
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      final generateButton = find.byKey(const ValueKey('ai-slides-generate'));
+      expect(tester.widget<FilledButton>(generateButton).onPressed, isNotNull);
+      // A failed refresh retains Riverpod's previous value. It must not leave
+      // generation enabled while the actual quota cannot be confirmed.
+      repository.accessFailure = const AiSlidesFailure('다시 연결 실패');
+      final scope = ProviderScope.containerOf(
+        tester.element(find.byType(AiSlidesPage)),
+      );
+      scope.invalidate(aiSlidesAccessProvider);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(generateButton).onPressed, isNull);
+      await reveal(tester, find.text('새로고침'));
+      repository.accessFailure = null;
+      await tester.tap(find.text('새로고침'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(generateButton).onPressed, isNotNull);
       expect(repository.calls, 0);
     },
   );
@@ -284,7 +350,7 @@ void main() {
       await mount(tester, repository, (value) => added = value);
       expect(repository.calls, 0);
       expect(find.text('beta'), findsOneWidget);
-      expect(find.text('수업 이미지 생성'), findsOneWidget);
+      expect(find.text('슬라이드 만들기'), findsOneWidget);
       expect(find.byType(BottomSheet), findsNothing);
       await generate(tester);
       expect(repository.calls, 1);
@@ -567,7 +633,7 @@ void main() {
     expect(find.textContaining('1~60자'), findsNothing);
     expect(
       tester
-          .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
+          .widget<FilledButton>(find.byKey(const ValueKey('ai-slides-add')))
           .onPressed,
       isNull,
     );
@@ -579,7 +645,7 @@ void main() {
     expect(tester.widget<TextField>(title).decoration!.errorText, isNull);
     expect(
       tester
-          .widget<IconButton>(find.byKey(const ValueKey('ai-slides-add')))
+          .widget<FilledButton>(find.byKey(const ValueKey('ai-slides-add')))
           .onPressed,
       isNotNull,
     );

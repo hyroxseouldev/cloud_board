@@ -33,8 +33,6 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     'revision': current.revision,
     'step': step,
   });
-  @override
-  Future<CenterOnboarding> startTrial() => _call({'action': 'startTrial'});
 }
 
 @riverpod

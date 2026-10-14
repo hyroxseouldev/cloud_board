@@ -18,7 +18,9 @@ try {
   await env.clearFirestore(); await realtime.ref().remove();
   const fresh=await handleBilling(db,realtime,'fresh',{});
   assert.equal(fresh.purchasesEnabled,false);
-  assert.equal((await db.doc('subscriptionEntitlements/fresh').get()).exists,false,'viewing billing must not consume trial eligibility');
+  assert.equal((await db.doc('subscriptionEntitlements/fresh').get()).data().canStartClass,false,'unverified billing read projects explicit denial');
+  assert.equal((await db.doc('onboardingTrials/fresh').get()).exists,false);
+  assert.equal(fresh.phoneRequired,true);
   // Even a mistakenly enabled Firestore switch cannot open checkout without keys.
   await db.doc('appConfig/billing').set({legalReady:true,productsReady:true,purchasesEnabled:true});
   await db.doc('users/fresh/onboarding/progress').set({phoneVerified:true});
@@ -33,6 +35,30 @@ try {
   await assert.rejects(handleBilling(db,realtime,'fresh',{action:'prepare',productId:'com.sunmkim.cloudboard.plus.monthly'}),{code:'failed-precondition'});
   await assert.rejects(handleBilling(db,realtime,'fresh',{action:'verify',signedTransaction:'not-verified'}),{code:'failed-precondition'});
   assert.equal((await db.collection('appStoreSubscriptions').get()).empty,true);
+  // Activating policy alone never enables a new price without store evidence.
+  await db.doc('appConfig/planPolicy').set({enabled: true, version: 'plan-entitlements-v2'});
+  await db.doc('appConfig/billing').set({legalReady:true,googlePlayProductsReady:true,googlePlayPurchasesEnabled:true});
+  const v2 = await handleBilling(db,realtime,'fresh',{}, {store:'google_play'});
+  assert.equal(v2.planBenefitsReady,true);
+  assert.equal(v2.purchasesEnabled,false);
+  await assert.rejects(handleBilling(db,realtime,'fresh',{action:'prepare',productId:'com.sunmkim.cloudboard.plus.monthly'}, {store:'google_play'}),{code:'failed-precondition'});
+  const proof = {version:'monthly-krw-2026-10',policyVersion:'plan-entitlements-v2',sandboxVerified:true,taxInclusive:true,
+    currency:'KRW',period:'P1M',verifiedAtMs:Date.now(),evidenceUrl:'https://example.com/test-proof',products:{
+      plus:{id:'com.sunmkim.cloudboard.plus.monthly',amount:49000,active:true},
+      premium:{id:'com.sunmkim.cloudboard.premium.monthly',amount:99000,active:true}}};
+  await db.doc('appConfig/billing').set({planCatalog:{google_play:proof}}, {merge:true});
+  const ready = await handleBilling(db,realtime,'fresh',{action:'prepare',productId:'com.sunmkim.cloudboard.plus.monthly'}, {store:'google_play'});
+  assert.equal(ready.purchasesEnabled,true);
+  await db.doc('appConfig/billing').set({planCatalog:{google_play:{...proof,sandboxVerified:false,sandboxSalesEnabled:true}}},{merge:true});
+  await db.doc('billingTesters/fresh').set({enabled:true});
+  assert.equal((await handleBilling(db,realtime,'fresh',{}, {store:'google_play'})).purchasesEnabled,false,
+    'test proof cannot waive live checkout verification');
+  await db.doc('appConfig/billing').set({googlePlayPurchasesEnabled:false,googlePlaySandboxPurchasesEnabled:true},{merge:true});
+  assert.equal((await handleBilling(db,realtime,'fresh',{}, {store:'google_play'})).purchasesEnabled,true);
+  await db.doc('billingTesters/fresh').delete();
+  assert.equal((await handleBilling(db,realtime,'fresh',{}, {store:'google_play'})).purchasesEnabled,false,
+    'sandbox proof never opens checkout for ordinary accounts');
+  await db.doc('appConfig/planPolicy').delete();
   await db.doc('appConfig/billing').delete();
   const [a,b]=await Promise.all([billingAccount(db,realtime,'owner'),billingAccount(db,realtime,'owner')]);
   assert.equal(a.appAccountToken,b.appAccountToken);

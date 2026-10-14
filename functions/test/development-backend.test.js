@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {Timestamp} from 'firebase-admin/firestore';
 import {developmentProject, developmentFunctionNames, developmentFunctionCodebase, developmentDeployTargets,
@@ -16,13 +16,12 @@ test('development binds its isolated secret; production and emulator keep the ex
   }
 });
 
-test('dev target list contains only 15 actual core exports with no provider billing/AI endpoints', () => {
+test('dev target list contains actual core exports with no provider billing/AI endpoints', () => {
   const source = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
-  assert.equal(developmentFunctionNames.length, 15);
-  assert.equal(new Set(developmentFunctionNames).size, 15);
+  assert.equal(new Set(developmentFunctionNames).size, developmentFunctionNames.length);
   for (const name of developmentFunctionNames) assert(source.includes(`export const ${name}`));
   assert(!developmentFunctionNames.some(name => /Ai|Billing|appStore|GooglePlay|googlePlay|AppStore/.test(name)));
-  assert.equal(developmentDeployTargets(developmentProject).split(',').length, 15);
+  assert.equal(developmentDeployTargets(developmentProject).split(',').length, developmentFunctionNames.length);
   const config = JSON.parse(readFileSync(new URL('../../firebase.development.json', import.meta.url)));
   assert.equal(config.functions[0].codebase, developmentFunctionCodebase);
   assert.deepEqual(developmentDeployTargets(developmentProject).split(','),
@@ -30,6 +29,25 @@ test('dev target list contains only 15 actual core exports with no provider bill
   assert.throws(() => developmentDeployTargets('cloud-board-stationd'));
   // The tester check must occur before any challenge/rate-limit writes.
   assert(source.indexOf('assertDevelopmentSmsTester(projectId, request.auth') < source.indexOf('return handleOnboarding'));
+});
+
+test('development deploy includes app-called core functions and plan projection triggers', () => {
+  const source = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
+  const localExports = new Set([...source.matchAll(/export const (\w+)\s*=/g)].map(match => match[1]));
+  const excludedProviders = new Set(['cloudboardAiTimer', 'cloudboardAiSlides',
+    'cloudboardAiSlideDesigns', 'cloudboardBilling', 'cloudboardGooglePlayBilling']);
+  const lib = new URL('../../lib/', import.meta.url);
+  const appCalls = new Set();
+  for (const file of readdirSync(lib, {recursive: true}).filter(file => file.endsWith('.dart'))) {
+    const dart = readFileSync(new URL(file, lib), 'utf8');
+    for (const [, name] of dart.matchAll(/\.httpsCallable\(\s*['"]([^'"]+)['"]/g)) {
+      if (localExports.has(name) && !excludedProviders.has(name)) appCalls.add(name);
+    }
+  }
+  assert(appCalls.has('saveWorkout'), 'The actual app save path must be covered');
+  for (const name of [...appCalls, 'syncWorkoutPlanUsage', 'syncSlidePlanUsage', 'syncStandbyBranding', 'syncVerifiedFreeAccess']) {
+    assert(developmentFunctionNames.includes(name), `Development deployment is missing ${name}`);
+  }
 });
 
 test('actual deployed dev metadata has zero idle instances, dedicated identity and no provider secrets', () => {

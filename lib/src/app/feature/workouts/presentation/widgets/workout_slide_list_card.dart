@@ -80,7 +80,7 @@ class WorkoutSlideListCard extends StatelessWidget {
                           : SystemMouseCursors.basic,
                       child: Container(
                         color: Colors.transparent,
-                        width: 44,
+                        width: 48,
                         height: 48,
                         alignment: Alignment.center,
                         child: const Icon(
@@ -123,8 +123,9 @@ class WorkoutSlideListCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          letterSpacing: -.17,
+                          fontWeight: FontWeight.w600,
                           height: 1.3,
                         ),
                       ),
@@ -135,7 +136,7 @@ class WorkoutSlideListCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.muted,
-                          fontSize: 12,
+                          fontSize: 14,
                           height: 1.4,
                         ),
                       ),

@@ -1,0 +1,31 @@
+{
+  "catalog-banner": {
+    "size": [
+      1920,
+      1080
+    ],
+    "differentPixelBounds": null,
+    "meanAbsoluteRgbDifference": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "interval-warmup": {
+    "size": [
+      1920,
+      1080
+    ],
+    "differentPixelBounds": [
+      1438,
+      366,
+      1787,
+      714
+    ],
+    "meanAbsoluteRgbDifference": [
+      5.17927662037037,
+      5.17927662037037,
+      4.993478973765432
+    ]
+  }
+}

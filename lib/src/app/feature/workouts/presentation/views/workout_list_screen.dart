@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
@@ -322,6 +324,9 @@ class _WorkoutListBody extends HookConsumerWidget {
               builder: (context, constraints) {
                 final mobile = constraints.maxWidth < 600;
                 final compactHeight = constraints.maxHeight < 300;
+                final compactUsage =
+                    constraints.maxHeight < 600 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 20;
                 final maxWidth = kIsWeb
                     ? AppStyle.webPageMaxWidth
                     : AppStyle.cardWidth * 2 + 60;
@@ -396,8 +401,18 @@ class _WorkoutListBody extends HookConsumerWidget {
                                       : null,
                                   onCreate: isBusy
                                       ? null
-                                      : () => context.push('/editor/new'),
+                                      : () async {
+                                          if (await allowPlanAddition(
+                                                context,
+                                                ref,
+                                                'workouts',
+                                              ) &&
+                                              context.mounted) {
+                                            context.push('/editor/new');
+                                          }
+                                        },
                                 ),
+                                if (!compactUsage) const PlanUsageNotice(),
                                 SizedBox(height: compactHeight ? 0 : 8),
                                 Row(
                                   children: [
@@ -416,6 +431,8 @@ class _WorkoutListBody extends HookConsumerWidget {
                                         ),
                                       ),
                                     ),
+                                    if (compactUsage)
+                                      const PlanUsageNotice(compact: true),
                                     if (MediaQuery.textScalerOf(context)
                                             .scale(14) <=
                                         20)
@@ -500,7 +517,25 @@ class _WorkoutListBody extends HookConsumerWidget {
                               opacity: reveal,
                               child: items.isEmpty
                                   ? const _EmptyWorkouts()
-                                  : const Center(child: Text('검색 결과가 없습니다.')),
+                                  : Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Text('검색 결과가 없습니다.'),
+                                            const SizedBox(height: 8),
+                                            TextButton(
+                                              onPressed: () {
+                                                search.clear();
+                                                selectedFolder.value = null;
+                                              },
+                                              child: const Text('검색·폴더 조건 지우기'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                             ),
                           )
                         else
@@ -698,14 +733,17 @@ class _DisplayStatus extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(displayDevicesProvider);
-    final count = devices.value?.where((d) => d.paired && d.online).length ?? 0;
+    final registered = devices.value?.where((d) => d.paired).toList();
+    final count = registered?.where((d) => d.online).length ?? 0;
     final label = devices.hasError
         ? '디스플레이 상태 확인 필요'
-        : !devices.hasValue
+        : devices.isLoading || !devices.hasValue
         ? '디스플레이 상태 확인 중'
         : count == 0
-        ? '디스플레이 연결하기'
-        : '디스플레이 $count대 연결됨';
+        ? registered!.isEmpty
+              ? '디스플레이 연결하기'
+              : '등록된 디스플레이 오프라인 · TV 확인'
+        : '디스플레이 $count대 온라인 · 응답 확인';
     return SizedBox(
       width: double.infinity,
       child: TextButton.icon(
@@ -1198,11 +1236,21 @@ class _WorkoutActions extends ConsumerWidget {
       case _WorkoutAction.edit:
         context.push('/editor/${workout.id}');
       case _WorkoutAction.duplicate:
+        if (!await allowPlanAddition(context, ref, 'workouts') ||
+            !context.mounted) {
+          return;
+        }
         final detail = await _detail(context, ref);
         if (detail == null || !context.mounted) return;
         await ref
             .read(workoutActionControllerProvider.notifier)
             .duplicate(detail, newId());
+        if (context.mounted) {
+          final failure = PlanLimitFailure.from(
+            ref.read(workoutActionControllerProvider).error,
+          );
+          if (failure != null) await showPlanLimitNotice(context, failure);
+        }
       case _WorkoutAction.delete:
         final delete = await showDialog<bool>(
           context: context,

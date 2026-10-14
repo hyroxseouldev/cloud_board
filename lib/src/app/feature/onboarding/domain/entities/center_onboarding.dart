@@ -33,6 +33,7 @@ abstract class CenterProfile with _$CenterProfile {
 
 @freezed
 abstract class CenterOnboarding with _$CenterOnboarding {
+  const CenterOnboarding._();
   const factory CenterOnboarding({
     @Default(true) bool phoneRequired,
     @Default('') String storeId,
@@ -43,10 +44,17 @@ abstract class CenterOnboarding with _$CenterOnboarding {
     @Default(false) bool deferred,
     @Default('pending_connection') String status,
     @Default(false) bool hasAccess,
-    @Default(true) bool trialEligible,
+    @Default(false) bool activationReady,
+    @Default(false) bool freeAvailable,
+    @Default(false) bool freeActive,
+    @Default(false) bool trialEligible,
     @Default(0) int trialStartedAtMs,
     @Default(0) int trialEndsAtMs,
     @Default(0) int serverNowMs,
     @Default(0) int suggestedTrialEndsAtMs,
   }) = _CenterOnboarding;
+
+  /// Only the callable confirms both canonical and display access projections.
+  bool get serviceReady =>
+      activationReady && hasAccess && (!freeActive || !phoneRequired);
 }

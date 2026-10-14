@@ -14,6 +14,18 @@ import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
 part 'operation_telemetry.g.dart';
 
 const _actions = {
+  'slides.save',
+  'workout.import',
+  'plan.upgrade.purchase',
+  'plan.workouts.usage',
+  'plan.workouts.limit',
+  'plan.workouts.manage',
+  'plan.workouts.upgrade',
+  'plan.savedSlides.usage',
+  'plan.savedSlides.limit',
+  'plan.savedSlides.manage',
+  'plan.savedSlides.upgrade',
+
   'workout.save',
   'tv.prepare',
   'playback.control.submit',

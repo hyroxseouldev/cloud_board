@@ -77,7 +77,7 @@ class PlaybackActionController extends _$PlaybackActionController {
           (ref.read(serverTimeOffsetProvider).value ?? 0);
       if (entitlement?.allowsNewClass(uid, serverNow) != true) {
         throw StateError(
-          '프로필의 센터 정보 · 온보딩에서 무료 체험을 시작하거나 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.',
+          '프로필에서 휴대폰 인증과 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.',
         );
       }
       session = await ref

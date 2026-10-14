@@ -23,6 +23,7 @@ class BrandTemplateModel {
     this.promotionDurationMinutes = const [],
     this.standbyTransition = StandbyTransition.fade,
     this.standbyImageFit = StandbyImageFit.contain,
+    this.showCloudBoardLogo = false,
   });
 
   @JsonKey(defaultValue: LegacyBrandDefaults.storeName)
@@ -36,6 +37,7 @@ class BrandTemplateModel {
   @JsonKey(defaultValue: '다음 수업을 준비하고 있습니다')
   final String standbyMessage;
   final String? logoUrl;
+  final bool showCloudBoardLogo;
   @JsonKey(defaultValue: <String>[])
   final List<String> promotionImageUrls;
   @JsonKey(defaultValue: <int>[])
@@ -71,6 +73,7 @@ class BrandTemplateModel {
 
         standbyMessage: entity.standbyMessage,
         logoUrl: entity.logoUrl,
+        showCloudBoardLogo: entity.showCloudBoardLogo,
         promotionImageUrls: entity.promotionImageUrls,
         promotionDurationMinutes: entity.promotionDurationMinutes,
         standbyTransition: entity.standbyTransition,
@@ -95,6 +98,7 @@ class BrandTemplateModel {
 
     standbyMessage: standbyMessage,
     logoUrl: logoUrl,
+    showCloudBoardLogo: showCloudBoardLogo,
     promotionImageUrls: promotionImageUrls,
     promotionDurationMinutes: promotionDurationMinutes,
     standbyTransition: standbyTransition,

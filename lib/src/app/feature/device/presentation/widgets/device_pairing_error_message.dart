@@ -28,7 +28,10 @@ String devicePairingErrorMessage(Object? error) {
       'not-found' => '연결 코드를 찾을 수 없습니다. TV에 표시된 최신 코드를 입력해 주세요.',
       'failed-precondition' =>
         '연결 조건을 확인하지 못했습니다. 센터 이용 상태와 TV의 최신 코드를 확인해 주세요.',
-      'permission-denied' => '연결 요청이 거부되었습니다. 로그인 상태와 디스플레이의 최신 코드를 확인해 주세요.',
+      'permission-denied' =>
+        '연결 권한이 없습니다. 센터 소유자 계정인지 확인하고, TV의 최신 코드로 다시 시도해 주세요.',
+      'resource-exhausted' =>
+        '현재 플랜의 연결 한도에 도달했습니다. 디스플레이 목록과 구독 관리에서 이용 한도를 확인해 주세요.',
       'network-request-failed' ||
       'disconnected' ||
       'unavailable' => '인터넷에 연결하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.',

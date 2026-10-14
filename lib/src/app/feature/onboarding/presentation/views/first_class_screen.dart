@@ -14,9 +14,9 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/first_class_progress.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 
-const _titles = ['센터 정보 확인', '첫 수업 저장', 'TV 연결 확인', 'TV에서 첫 재생'];
+const _titles = ['센터 정보 확인 · 선택', '첫 수업 저장', 'TV 연결 확인', 'TV에서 첫 재생'];
 const _details = [
-  '가입 때 입력한 센터 정보와 이용 상태를 확인하세요.',
+  '센터 정보는 선택 사항이며 프로필에서 나중에 입력할 수 있어요.',
   '예시를 가져오거나 새 수업을 만들고 저장하세요.',
   'QR·코드로 연결하고 이름과 확인 번호를 확인하세요.',
   '저장한 수업을 TV로 보내면 TV 응답 후 완료됩니다.',
@@ -37,6 +37,10 @@ class FirstClassScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(firstClassControllerProvider);
     final progress = state.isLoading ? null : state.value;
+    final saved = progress?.savedWorkoutId != null;
+    final rehearsed =
+        saved && progress?.rehearsedWorkoutId == progress?.savedWorkoutId;
+    final firstAchievementCount = (saved ? 1 : 0) + (rehearsed ? 1 : 0);
     final busy = useState(false);
     final actions = ref.read(firstClassControllerProvider.notifier);
     final devices = ref.watch(displayDevicesProvider);
@@ -180,11 +184,15 @@ class FirstClassScreen extends HookConsumerWidget {
           padding: const EdgeInsets.all(24),
           children: [
             Text(
-              progress?.complete == true ? '첫 TV 수업을 시작했어요' : '첫 수업까지, 한 단계씩',
+              progress?.complete == true
+                  ? '첫 TV 수업을 시작했어요'
+                  : rehearsed
+                  ? '내 수업을 준비했어요'
+                  : '내 수업 저장부터,\n이 기기 연습까지',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            const Text('언제든 나가도 괜찮아요. 이 계정과 센터의 진행 상태를 저장하고 이어서 안내합니다.'),
+            const Text('먼저 수업 하나를 저장하고 연습해 보세요. 센터 정보와 TV 연결은 그다음에 준비해도 괜찮아요.'),
             const SizedBox(height: 24),
             if (state.isLoading) const LinearProgressIndicator(),
             if (state.hasError) ...[
@@ -270,15 +278,22 @@ class FirstClassScreen extends HookConsumerWidget {
                   child: Text('✓ 이 기기 연습 완료 · TV 재생 완료와 별도로 기록해요.'),
                 ),
               LinearProgressIndicator(
-                value: progress.completedCount / 4,
+                value: firstAchievementCount / 2,
                 minHeight: 6,
                 borderRadius: BorderRadius.circular(6),
               ),
               const SizedBox(height: 8),
-              Text('${progress.completedCount}/4 완료'),
+              Text('첫 목표 $firstAchievementCount/2 완료 · 내 수업 저장 + 이 기기 연습'),
+              const SizedBox(height: 8),
+              Text(
+                rehearsed
+                    ? '저장한 같은 수업의 연습을 마쳤어요. TV 송출은 별도로 확인해요.'
+                    : '수업을 계정에 저장한 뒤, 저장한 수업으로 연습하면 준비가 끝나요.',
+              ),
               const SizedBox(height: 20),
               ExpansionTile(
-                title: const Text('전체 준비 단계와 도움말'),
+                title: const Text('센터·TV 준비와 도움말'),
+                subtitle: Text('${progress.completedCount}/3 완료 · 실제 TV 수업 준비'),
                 children: [
                   for (final step in FirstClassStep.values)
                     Padding(
@@ -418,7 +433,9 @@ class FirstClassHomeCard extends ConsumerWidget {
       child: ListTile(
         leading: const Icon(Icons.checklist_rounded),
         title: Text(progress.complete ? '다음 수업 준비' : '첫 수업 준비'),
-        subtitle: Text('${progress.completedCount}/4 완료 · ${_nextLabel(next)}'),
+        subtitle: Text(
+          '${progress.savedWorkoutId != null && progress.rehearsedWorkoutId == progress.savedWorkoutId ? '저장·연습 완료' : '첫 목표 · 저장하고 연습하기'} · ${_nextLabel(next)}',
+        ),
         trailing: IconButton(
           tooltip: '첫 수업 안내 숨기기',
           icon: const Icon(Icons.close, size: 20),

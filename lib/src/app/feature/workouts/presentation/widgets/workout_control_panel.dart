@@ -191,7 +191,33 @@ class WorkoutControlPanel extends HookWidget {
                                   style: Theme.of(context)
                                       .textTheme
                                       .headlineSmall
-                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
+                                child: Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    '${currentModule + 1}/$moduleCount 슬라이드 · ${busy || pending.value
+                                        ? '명령 확인 중'
+                                        : timerFinished
+                                        ? '운동 완료'
+                                        : paused
+                                        ? '일시정지'
+                                        : '진행 중'}',
+                                    key: const ValueKey(
+                                      'control-playback-status',
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: AppColors.secondaryText,
+                                      fontSize: 14,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 8),

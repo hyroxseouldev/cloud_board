@@ -1,9 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 
 abstract interface class StoreOperationsRepository {
+  Stream<AudienceBranding?> watchAudienceBranding();
   Stream<BrandTemplate> watchBrandTemplate();
+  Stream<BrandTemplate> watchEffectiveBrandTemplate();
   Stream<List<WorkoutSchedule>> watchSchedules();
   Stream<List<OperationEvent>> watchEvents();
   Future<void> saveBrandTemplate(BrandTemplate template);

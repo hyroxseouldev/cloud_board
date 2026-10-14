@@ -205,7 +205,12 @@ void main() {
     expect(repository.calls, 0);
     await tester.tap(find.byKey(const ValueKey('ai-timer-button')));
     await tester.pumpAndSettle();
-    expect(find.text('프리미엄 전용 기능이에요.'), findsOneWidget);
+    expect(
+      find.text(
+        '이미지 타이머 인식은 Premium에서 월 100회 이용할 수 있어요. AI 슬라이드 도우미와 별도로 계산해요.',
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('ai-timer-analyze')), findsNothing);
     expect(repository.calls, 0);
     expect(tester.takeException(), isNull);

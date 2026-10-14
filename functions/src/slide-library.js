@@ -1,12 +1,12 @@
+import {assertPlanCapacity, requirePlanEntitlement} from './plan-policy.js';
+import {planUsageRef, readPlanUsage, writePlanUsage} from './plan-usage.js';
 import {validateWorkoutTiming} from './workout-timing.js';
 import {isDeepStrictEqual} from 'node:util';
 import {FieldValue} from 'firebase-admin/firestore';
 import {HttpsError} from 'firebase-functions/v2/https';
 
-export function favoriteLimit(entitlement) {
-  if (entitlement?.plan === 'premium' && entitlement.favoritesUnlimited === true) return null;
-  if (entitlement?.plan === 'legacy' && entitlement.maxFavorites == null) return null;
-  return 3;
+export function favoriteLimit(entitlement, now = Date.now()) {
+  return requirePlanEntitlement(entitlement, now).maxSavedSlides;
 }
 
 function validId(id) { return typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id); }
@@ -95,16 +95,13 @@ export async function mutateSlideLibrary(db, uid, data) {
   return db.runTransaction(async tx => {
     const refs = changes.map(c => collection.doc(c.id));
     const [lock, entitlement, count, ...snapshots] = await tx.getAll(
-      db.doc(`accountDeletions/${uid}`), db.doc(`subscriptionEntitlements/${uid}`), index, ...refs);
+      db.doc(`accountDeletions/${uid}`), db.doc(`subscriptionEntitlements/${uid}`), index, ...refs, planUsageRef(db, uid));
     if (lock.exists) throw new HttpsError('permission-denied', '탈퇴 처리 중인 계정입니다.');
-    const limit = favoriteLimit(entitlement.data());
-    let favorites = count.data()?.favoriteCount ?? 0;
-    // Saved slides are the bookmark library. Keep legacy records and flags
-    // intact; initialize the new count once under the shared transaction lock.
-    let saved = count.data()?.savedCount;
-    if (kind === 'templates' && !Number.isSafeInteger(saved)) {
-      saved = (await tx.get(collection)).docs.filter(doc => !doc.data().deleted && doc.data().value).length;
-    }
+    // Existing content remains editable/deletable even when access is unavailable.
+    const counts = await readPlanUsage(tx, db, uid);
+    let favorites = counts.favoriteCount;
+    let saved = counts.savedSlideCount;
+    let additions = 0, removals = 0;
     let demoted = 0;
     const writes = [];
     for (let i = 0; i < changes.length; i++) {
@@ -119,16 +116,19 @@ export async function mutateSlideLibrary(db, uid, data) {
         throw new HttpsError('aborted', '다른 기기에서 변경한 항목입니다. 새로 불러온 뒤 다시 시도해 주세요.');
       }
       if (kind === 'templates') {
-        if (!migration && next !== null && current === null && limit !== null && saved >= limit) {
-          throw new HttpsError('resource-exhausted', '플러스는 슬라이드를 3개까지 저장할 수 있어요. 기존 자료는 유지됩니다.');
-        }
+        // A client-controlled migration flag cannot mint extra slots. Existing
+        // documents and tombstones still survive compatibility imports.
+        if (next !== null && current === null) additions++;
+        if (next === null && current !== null) removals++;
         saved += Number(next !== null) - Number(current !== null);
         favorites += Number(next?.favorite === true) - Number(current?.favorite === true);
       }
       writes.push([refs[i], {schemaVersion: 1, deleted: next === null, value: next,
         updatedAt: FieldValue.serverTimestamp()}]);
     }
+    if (additions) assertPlanCapacity(entitlement.data(), 'savedSlides', counts.savedSlideCount - removals, additions);
     for (const [ref, value] of writes) tx.set(ref, value);
+    if (writes.length) writePlanUsage(tx, db, uid, {...counts, savedSlideCount: saved});
     if (writes.length) tx.set(index, {favoriteCount: favorites, ...(kind === 'templates' ? {savedCount: saved} : {}), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
     return {changed: writes.length, demoted};
   });

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/library_failure.dart';
@@ -11,6 +14,13 @@ String workoutErrorMessage(
   Object? error, {
   String fallback = '작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
 }) {
+  final limit = PlanLimitFailure.from(error);
+  if (limit != null) return limit.message;
+  if (error is FirebaseFunctionsException &&
+      error.details is Map &&
+      (error.details as Map)['reason'] == 'entitlement-unavailable') {
+    return '이용 권한을 확인하지 못했습니다. 작성 내용은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.';
+  }
   if (error is LibraryFailure) {
     if (error.cause != null) {
       return workoutErrorMessage(error.cause, fallback: fallback);
@@ -78,9 +88,12 @@ String playbackErrorMessage(Object? error) {
     };
   }
   if (error is StateError &&
-      error.message ==
-          '프로필의 센터 정보 · 온보딩에서 무료 체험을 시작하거나 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.') {
-    return '프로필의 센터 정보에서 무료 체험이나 이용 상태를 확인한 뒤 수업을 시작해 주세요.';
+      const [
+        '프로필에서 휴대폰 인증과 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.',
+        // Compatibility with errors retained by an older running client.
+        '프로필의 센터 정보 · 온보딩에서 무료 체험을 시작하거나 이용 상태를 확인해 주세요. 프로그램 편집과 미리보기는 계속 사용할 수 있습니다.',
+      ].contains(error.message)) {
+    return '프로필에서 휴대폰 인증과 이용 상태를 확인한 뒤 수업을 시작해 주세요.';
   }
   return workoutErrorMessage(
     error,

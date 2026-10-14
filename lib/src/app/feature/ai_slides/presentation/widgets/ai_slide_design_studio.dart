@@ -69,7 +69,10 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         ref.read(aiSlideDesignStoreIdProvider) == storeId;
     final access = catalog ? null : ref.watch(aiSlidesAccessProvider);
     final canGenerate =
-        access?.value?.premium == true && access?.value?.enabled == true;
+        access?.isLoading == false &&
+        access?.hasError == false &&
+        access?.value?.canRequest == true &&
+        access?.value?.enabled == true;
     final busy =
         state.generating ||
         picking.value ||
@@ -314,10 +317,16 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    catalog ? '수업에 맞는 템플릿' : '수업 내용과 디자인 만들기',
+                    catalog
+                        ? '수업에 맞는 템플릿'
+                        : switch (mode) {
+                            AiSlideCreationPath.notes => '수업 메모로 시작해요',
+                            AiSlideCreationPath.style => '수업에 맞는 스타일을 찾아요',
+                            AiSlideCreationPath.reference => '이미지의 느낌을 가져와요',
+                          },
                     style: const TextStyle(
-                      fontSize: 18,
-                      letterSpacing: -0.18,
+                      fontSize: 26,
+                      letterSpacing: -0.26,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -325,7 +334,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                   Text(
                     catalog
                         ? '마음에 드는 틀을 고르고 운동 내용만 바꿔 보세요.'
-                        : '수업 메모를 정리하거나 원하는 스타일을 만들어 보세요.',
+                        : '적어 둔 운동을 수업 화면으로 정리해요.',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
@@ -385,94 +394,23 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           AiSlidesNotice(state.templateError!),
         const SizedBox(height: 16),
         if (!catalog)
-          Container(
-            key: const ValueKey('ai-generation-usage'),
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '이번 달 생성 사용량',
-                  style: TextStyle(
-                    fontSize: 12,
-                    letterSpacing: -0.12,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final path in AiSlideCreationPath.values)
+                ChoiceChip(
+                  selected: mode == path,
+                  label: Text(switch (path) {
+                    AiSlideCreationPath.notes => '수업 메모',
+                    AiSlideCreationPath.style => '스타일 제안',
+                    AiSlideCreationPath.reference => '이미지로 시작',
+                  }),
+                  onSelected: busy
+                      ? null
+                      : (_) => onCreationPathChanged?.call(path),
                 ),
-                const SizedBox(height: 6),
-                access!.when(
-                  loading: () => const Row(
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      SizedBox(width: 8),
-                      Text('사용량 확인 중…', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                  error: (_, _) => Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          '사용량을 불러오지 못했어요.',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => ref.invalidate(aiSlidesAccessProvider),
-                        icon: const Icon(Icons.refresh_rounded, size: 16),
-                        label: const Text('새로고침'),
-                      ),
-                    ],
-                  ),
-                  data: (value) => Text(
-                    !value.premium
-                        ? '생성 기능은 프리미엄에서 이용할 수 있어요.'
-                        : !value.enabled
-                        ? '생성 기능을 준비 중이에요.'
-                        : '${value.remaining}/${value.limit}회 남음',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  '수업 메모 · 스타일 제안 · 이미지로 시작이 함께 사용해요.',
-                  style: TextStyle(fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-        if (!catalog)
-          SegmentedButton<AiSlideCreationPath>(
-            showSelectedIcon: false,
-            segments: const [
-              ButtonSegment(
-                value: AiSlideCreationPath.notes,
-                label: Text('수업 메모'),
-              ),
-              ButtonSegment(
-                value: AiSlideCreationPath.style,
-                label: Text('스타일 제안'),
-              ),
-              ButtonSegment(
-                value: AiSlideCreationPath.reference,
-                label: Text('이미지로 시작'),
-              ),
             ],
-            selected: {mode},
-            onSelectionChanged: busy
-                ? null
-                : (values) => onCreationPathChanged?.call(values.first),
           ),
         const SizedBox(height: 14),
         if (catalog) ...[
@@ -646,6 +584,89 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         if (state.error != null &&
             (catalog || mode != AiSlideCreationPath.notes))
           AiSlidesNotice(state.error!, error: true),
+        if (!catalog)
+          Container(
+            key: const ValueKey('ai-generation-usage'),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '이번 달 요청 사용량',
+                        style: TextStyle(
+                          fontSize: 12,
+                          letterSpacing: -0.12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '사용량 새로고침',
+                      onPressed: () => ref.invalidate(aiSlidesAccessProvider),
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                access!.when(
+                  loading: () => const Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text('사용량 확인 중…', style: TextStyle(fontSize: 12)),
+                    ],
+                  ),
+                  error: (_, _) => Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '사용량을 불러오지 못했어요.',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => ref.invalidate(aiSlidesAccessProvider),
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('새로고침'),
+                      ),
+                    ],
+                  ),
+                  data: (value) => Text(
+                    !value.canRequest
+                        ? 'AI 슬라이드 도우미 · Plus 월 10회 / Premium 월 30회'
+                        : !value.enabled
+                        ? value.availabilityReason == 'feature-disabled'
+                              ? 'AI 슬라이드 도우미를 잠시 점검하고 있어요.'
+                              : 'AI 슬라이드 도우미를 준비 중이에요.'
+                        : 'AI 슬라이드 도우미 · 이번 달 ${value.usedRequests}/${value.limit}회 사용 · ${value.remaining}회 남음'
+                              '${value.availabilityReason == 'service-limit' ? '\n서비스 제공 한도로 새 요청이 잠시 중단됐어요.' : ''}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '내용 정리와 디자인 제안은 합산해 요청마다 1회 사용해요. 내용 1회 + 디자인 1회 = 2회이며, 슬라이드 장수와는 무관해요.\n매월 1일 00:00 KST 초기화 · 같은 요청의 저장된 결과는 추가 차감 없이 다시 확인할 수 있어요.',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        if (!catalog) const AiSlidesNotice('템플릿 선택과 직접 수정은 생성 횟수를 사용하지 않아요.'),
         if (state.saving) const LinearProgressIndicator(minHeight: 2),
       ],
     );

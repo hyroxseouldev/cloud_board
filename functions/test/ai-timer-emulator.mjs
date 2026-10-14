@@ -20,6 +20,7 @@ const call=(uid, extra={})=>handleAiTimer({db,uid,input,apiKey:'fake',now,recogn
 const grant=uid=>db.doc(`subscriptionEntitlements/${uid}`).set({plan:'premium',status:'active',validUntilMs:now+3600000});
 try {
   await env.clearFirestore();
+  await db.doc('subscriptionEntitlements/free').set({plan:'free',status:'active',validUntilMs:now+3600000});
   await assert.rejects(call('free'), {code:'permission-denied'}); assert.equal(calls,0);
   await grant('owner');
   const concurrent=await Promise.allSettled([call('owner'),call('owner')]);
@@ -54,7 +55,7 @@ try {
   await db.doc('accountDeletions/a').set({status:'pending'});
   await assert.rejects(call('a'),{code:'permission-denied'});
   const client=env.authenticatedContext('owner').firestore();
-  for(const path of ['appConfig/aiTimer','aiTimerBudgets/2026-10','users/owner/aiTimerUsage/2026-10',`users/owner/aiTimerJobs/${readAiTimerImage(input).key}`]) {
+  for(const path of ['aiRequestMetrics/2026-10','appConfig/aiTimer','aiTimerBudgets/2026-10','users/owner/aiTimerUsage/2026-10',`users/owner/aiTimerJobs/${readAiTimerImage(input).key}`]) {
     await assertFails(getDoc(doc(client,path))); await assertFails(setDoc(doc(client,path),{used:0,enabled:true}));
   }
   console.log('PASS AI timer: premium, concurrent deduplication, quota/cache, cost reservation, failures, kill switch, deletion, rules');

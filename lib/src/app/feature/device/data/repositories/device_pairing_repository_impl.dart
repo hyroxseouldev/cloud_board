@@ -50,9 +50,11 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
   Future<void> setDisplayState({
     required String deviceId,
     required String displayState,
+    List<String> replaceDeviceIds = const [],
   }) => _dataSource.setDisplayState(
     deviceId: deviceId,
     displayState: displayState,
+    replaceDeviceIds: replaceDeviceIds,
   );
 
   @override

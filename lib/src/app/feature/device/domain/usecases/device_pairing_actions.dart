@@ -37,9 +37,11 @@ class DevicePairingActions {
   Future<void> setDisplayState({
     required String deviceId,
     required String displayState,
+    List<String> replaceDeviceIds = const [],
   }) => _repository.setDisplayState(
     deviceId: deviceId,
     displayState: displayState,
+    replaceDeviceIds: replaceDeviceIds,
   );
 
   Future<void> identify(String deviceId, String nonce, int expiresAtMs) =>

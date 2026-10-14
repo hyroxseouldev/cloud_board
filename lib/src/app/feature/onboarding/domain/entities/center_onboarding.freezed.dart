@@ -357,7 +357,7 @@ as String,
 /// @nodoc
 mixin _$CenterOnboarding {
 
- bool get phoneRequired; String get storeId; CenterProfile get profile; int get step; int get revision; bool get completed; bool get deferred; String get status; bool get hasAccess; bool get trialEligible; int get trialStartedAtMs; int get trialEndsAtMs; int get serverNowMs; int get suggestedTrialEndsAtMs;
+ bool get phoneRequired; String get storeId; CenterProfile get profile; int get step; int get revision; bool get completed; bool get deferred; String get status; bool get hasAccess; bool get activationReady; bool get freeAvailable; bool get freeActive; bool get trialEligible; int get trialStartedAtMs; int get trialEndsAtMs; int get serverNowMs; int get suggestedTrialEndsAtMs;
 /// Create a copy of CenterOnboarding
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -369,20 +369,20 @@ $CenterOnboardingCopyWith<CenterOnboarding> get copyWith => _$CenterOnboardingCo
 @override
 bool operator ==(Object other) {
   final _this = this as CenterOnboarding;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CenterOnboarding&&(identical(other.phoneRequired, _this.phoneRequired) || other.phoneRequired == _this.phoneRequired)&&(identical(other.storeId, _this.storeId) || other.storeId == _this.storeId)&&(identical(other.profile, _this.profile) || other.profile == _this.profile)&&(identical(other.step, _this.step) || other.step == _this.step)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.completed, _this.completed) || other.completed == _this.completed)&&(identical(other.deferred, _this.deferred) || other.deferred == _this.deferred)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.hasAccess, _this.hasAccess) || other.hasAccess == _this.hasAccess)&&(identical(other.trialEligible, _this.trialEligible) || other.trialEligible == _this.trialEligible)&&(identical(other.trialStartedAtMs, _this.trialStartedAtMs) || other.trialStartedAtMs == _this.trialStartedAtMs)&&(identical(other.trialEndsAtMs, _this.trialEndsAtMs) || other.trialEndsAtMs == _this.trialEndsAtMs)&&(identical(other.serverNowMs, _this.serverNowMs) || other.serverNowMs == _this.serverNowMs)&&(identical(other.suggestedTrialEndsAtMs, _this.suggestedTrialEndsAtMs) || other.suggestedTrialEndsAtMs == _this.suggestedTrialEndsAtMs));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CenterOnboarding&&(identical(other.phoneRequired, _this.phoneRequired) || other.phoneRequired == _this.phoneRequired)&&(identical(other.storeId, _this.storeId) || other.storeId == _this.storeId)&&(identical(other.profile, _this.profile) || other.profile == _this.profile)&&(identical(other.step, _this.step) || other.step == _this.step)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.completed, _this.completed) || other.completed == _this.completed)&&(identical(other.deferred, _this.deferred) || other.deferred == _this.deferred)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.hasAccess, _this.hasAccess) || other.hasAccess == _this.hasAccess)&&(identical(other.activationReady, _this.activationReady) || other.activationReady == _this.activationReady)&&(identical(other.freeAvailable, _this.freeAvailable) || other.freeAvailable == _this.freeAvailable)&&(identical(other.freeActive, _this.freeActive) || other.freeActive == _this.freeActive)&&(identical(other.trialEligible, _this.trialEligible) || other.trialEligible == _this.trialEligible)&&(identical(other.trialStartedAtMs, _this.trialStartedAtMs) || other.trialStartedAtMs == _this.trialStartedAtMs)&&(identical(other.trialEndsAtMs, _this.trialEndsAtMs) || other.trialEndsAtMs == _this.trialEndsAtMs)&&(identical(other.serverNowMs, _this.serverNowMs) || other.serverNowMs == _this.serverNowMs)&&(identical(other.suggestedTrialEndsAtMs, _this.suggestedTrialEndsAtMs) || other.suggestedTrialEndsAtMs == _this.suggestedTrialEndsAtMs));
 }
 
 
 @override
 int get hashCode {
   final _this = this as CenterOnboarding;
-  return Object.hash(runtimeType,_this.phoneRequired,_this.storeId,_this.profile,_this.step,_this.revision,_this.completed,_this.deferred,_this.status,_this.hasAccess,_this.trialEligible,_this.trialStartedAtMs,_this.trialEndsAtMs,_this.serverNowMs,_this.suggestedTrialEndsAtMs);
+  return Object.hash(runtimeType,_this.phoneRequired,_this.storeId,_this.profile,_this.step,_this.revision,_this.completed,_this.deferred,_this.status,_this.hasAccess,_this.activationReady,_this.freeAvailable,_this.freeActive,_this.trialEligible,_this.trialStartedAtMs,_this.trialEndsAtMs,_this.serverNowMs,_this.suggestedTrialEndsAtMs);
 }
 
 @override
 String toString() {
   final _this = this as CenterOnboarding;
-  return 'CenterOnboarding(phoneRequired: ${_this.phoneRequired}, storeId: ${_this.storeId}, profile: ${_this.profile}, step: ${_this.step}, revision: ${_this.revision}, completed: ${_this.completed}, deferred: ${_this.deferred}, status: ${_this.status}, hasAccess: ${_this.hasAccess}, trialEligible: ${_this.trialEligible}, trialStartedAtMs: ${_this.trialStartedAtMs}, trialEndsAtMs: ${_this.trialEndsAtMs}, serverNowMs: ${_this.serverNowMs}, suggestedTrialEndsAtMs: ${_this.suggestedTrialEndsAtMs})';
+  return 'CenterOnboarding(phoneRequired: ${_this.phoneRequired}, storeId: ${_this.storeId}, profile: ${_this.profile}, step: ${_this.step}, revision: ${_this.revision}, completed: ${_this.completed}, deferred: ${_this.deferred}, status: ${_this.status}, hasAccess: ${_this.hasAccess}, activationReady: ${_this.activationReady}, freeAvailable: ${_this.freeAvailable}, freeActive: ${_this.freeActive}, trialEligible: ${_this.trialEligible}, trialStartedAtMs: ${_this.trialStartedAtMs}, trialEndsAtMs: ${_this.trialEndsAtMs}, serverNowMs: ${_this.serverNowMs}, suggestedTrialEndsAtMs: ${_this.suggestedTrialEndsAtMs})';
 }
 
 
@@ -393,7 +393,7 @@ abstract mixin class $CenterOnboardingCopyWith<$Res>  {
   factory $CenterOnboardingCopyWith(CenterOnboarding value, $Res Function(CenterOnboarding) _then) = _$CenterOnboardingCopyWithImpl;
 @useResult
 $Res call({
- bool phoneRequired, String storeId, CenterProfile profile, int step, int revision, bool completed, bool deferred, String status, bool hasAccess, bool trialEligible, int trialStartedAtMs, int trialEndsAtMs, int serverNowMs, int suggestedTrialEndsAtMs
+ bool phoneRequired, String storeId, CenterProfile profile, int step, int revision, bool completed, bool deferred, String status, bool hasAccess, bool activationReady, bool freeAvailable, bool freeActive, bool trialEligible, int trialStartedAtMs, int trialEndsAtMs, int serverNowMs, int suggestedTrialEndsAtMs
 });
 
 
@@ -410,7 +410,7 @@ class _$CenterOnboardingCopyWithImpl<$Res>
 
 /// Create a copy of CenterOnboarding
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? phoneRequired = null,Object? storeId = null,Object? profile = null,Object? step = null,Object? revision = null,Object? completed = null,Object? deferred = null,Object? status = null,Object? hasAccess = null,Object? trialEligible = null,Object? trialStartedAtMs = null,Object? trialEndsAtMs = null,Object? serverNowMs = null,Object? suggestedTrialEndsAtMs = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? phoneRequired = null,Object? storeId = null,Object? profile = null,Object? step = null,Object? revision = null,Object? completed = null,Object? deferred = null,Object? status = null,Object? hasAccess = null,Object? activationReady = null,Object? freeAvailable = null,Object? freeActive = null,Object? trialEligible = null,Object? trialStartedAtMs = null,Object? trialEndsAtMs = null,Object? serverNowMs = null,Object? suggestedTrialEndsAtMs = null,}) {
   return _then(CenterOnboarding(
 phoneRequired: null == phoneRequired ? _self.phoneRequired : phoneRequired // ignore: cast_nullable_to_non_nullable
 as bool,storeId: null == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
@@ -421,6 +421,9 @@ as int,completed: null == completed ? _self.completed : completed // ignore: cas
 as bool,deferred: null == deferred ? _self.deferred : deferred // ignore: cast_nullable_to_non_nullable
 as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,hasAccess: null == hasAccess ? _self.hasAccess : hasAccess // ignore: cast_nullable_to_non_nullable
+as bool,activationReady: null == activationReady ? _self.activationReady : activationReady // ignore: cast_nullable_to_non_nullable
+as bool,freeAvailable: null == freeAvailable ? _self.freeAvailable : freeAvailable // ignore: cast_nullable_to_non_nullable
+as bool,freeActive: null == freeActive ? _self.freeActive : freeActive // ignore: cast_nullable_to_non_nullable
 as bool,trialEligible: null == trialEligible ? _self.trialEligible : trialEligible // ignore: cast_nullable_to_non_nullable
 as bool,trialStartedAtMs: null == trialStartedAtMs ? _self.trialStartedAtMs : trialStartedAtMs // ignore: cast_nullable_to_non_nullable
 as int,trialEndsAtMs: null == trialEndsAtMs ? _self.trialEndsAtMs : trialEndsAtMs // ignore: cast_nullable_to_non_nullable
@@ -520,10 +523,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool phoneRequired,  String storeId,  CenterProfile profile,  int step,  int revision,  bool completed,  bool deferred,  String status,  bool hasAccess,  bool trialEligible,  int trialStartedAtMs,  int trialEndsAtMs,  int serverNowMs,  int suggestedTrialEndsAtMs)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool phoneRequired,  String storeId,  CenterProfile profile,  int step,  int revision,  bool completed,  bool deferred,  String status,  bool hasAccess,  bool activationReady,  bool freeAvailable,  bool freeActive,  bool trialEligible,  int trialStartedAtMs,  int trialEndsAtMs,  int serverNowMs,  int suggestedTrialEndsAtMs)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CenterOnboarding() when $default != null:
-return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that.revision,_that.completed,_that.deferred,_that.status,_that.hasAccess,_that.trialEligible,_that.trialStartedAtMs,_that.trialEndsAtMs,_that.serverNowMs,_that.suggestedTrialEndsAtMs);case _:
+return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that.revision,_that.completed,_that.deferred,_that.status,_that.hasAccess,_that.activationReady,_that.freeAvailable,_that.freeActive,_that.trialEligible,_that.trialStartedAtMs,_that.trialEndsAtMs,_that.serverNowMs,_that.suggestedTrialEndsAtMs);case _:
   return orElse();
 
 }
@@ -541,10 +544,10 @@ return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool phoneRequired,  String storeId,  CenterProfile profile,  int step,  int revision,  bool completed,  bool deferred,  String status,  bool hasAccess,  bool trialEligible,  int trialStartedAtMs,  int trialEndsAtMs,  int serverNowMs,  int suggestedTrialEndsAtMs)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool phoneRequired,  String storeId,  CenterProfile profile,  int step,  int revision,  bool completed,  bool deferred,  String status,  bool hasAccess,  bool activationReady,  bool freeAvailable,  bool freeActive,  bool trialEligible,  int trialStartedAtMs,  int trialEndsAtMs,  int serverNowMs,  int suggestedTrialEndsAtMs)  $default,) {final _that = this;
 switch (_that) {
 case _CenterOnboarding():
-return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that.revision,_that.completed,_that.deferred,_that.status,_that.hasAccess,_that.trialEligible,_that.trialStartedAtMs,_that.trialEndsAtMs,_that.serverNowMs,_that.suggestedTrialEndsAtMs);case _:
+return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that.revision,_that.completed,_that.deferred,_that.status,_that.hasAccess,_that.activationReady,_that.freeAvailable,_that.freeActive,_that.trialEligible,_that.trialStartedAtMs,_that.trialEndsAtMs,_that.serverNowMs,_that.suggestedTrialEndsAtMs);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -561,10 +564,10 @@ return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool phoneRequired,  String storeId,  CenterProfile profile,  int step,  int revision,  bool completed,  bool deferred,  String status,  bool hasAccess,  bool trialEligible,  int trialStartedAtMs,  int trialEndsAtMs,  int serverNowMs,  int suggestedTrialEndsAtMs)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool phoneRequired,  String storeId,  CenterProfile profile,  int step,  int revision,  bool completed,  bool deferred,  String status,  bool hasAccess,  bool activationReady,  bool freeAvailable,  bool freeActive,  bool trialEligible,  int trialStartedAtMs,  int trialEndsAtMs,  int serverNowMs,  int suggestedTrialEndsAtMs)?  $default,) {final _that = this;
 switch (_that) {
 case _CenterOnboarding() when $default != null:
-return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that.revision,_that.completed,_that.deferred,_that.status,_that.hasAccess,_that.trialEligible,_that.trialStartedAtMs,_that.trialEndsAtMs,_that.serverNowMs,_that.suggestedTrialEndsAtMs);case _:
+return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that.revision,_that.completed,_that.deferred,_that.status,_that.hasAccess,_that.activationReady,_that.freeAvailable,_that.freeActive,_that.trialEligible,_that.trialStartedAtMs,_that.trialEndsAtMs,_that.serverNowMs,_that.suggestedTrialEndsAtMs);case _:
   return null;
 
 }
@@ -575,8 +578,8 @@ return $default(_that.phoneRequired,_that.storeId,_that.profile,_that.step,_that
 /// @nodoc
 
 
-class _CenterOnboarding implements CenterOnboarding {
-  const _CenterOnboarding({this.phoneRequired = true, this.storeId = '', this.profile = const CenterProfile(), this.step = 0, this.revision = 0, this.completed = false, this.deferred = false, this.status = 'pending_connection', this.hasAccess = false, this.trialEligible = true, this.trialStartedAtMs = 0, this.trialEndsAtMs = 0, this.serverNowMs = 0, this.suggestedTrialEndsAtMs = 0});
+class _CenterOnboarding extends CenterOnboarding {
+  const _CenterOnboarding({this.phoneRequired = true, this.storeId = '', this.profile = const CenterProfile(), this.step = 0, this.revision = 0, this.completed = false, this.deferred = false, this.status = 'pending_connection', this.hasAccess = false, this.activationReady = false, this.freeAvailable = false, this.freeActive = false, this.trialEligible = false, this.trialStartedAtMs = 0, this.trialEndsAtMs = 0, this.serverNowMs = 0, this.suggestedTrialEndsAtMs = 0}): super._();
   
 
 @override@JsonKey() final  bool phoneRequired;
@@ -588,6 +591,9 @@ class _CenterOnboarding implements CenterOnboarding {
 @override@JsonKey() final  bool deferred;
 @override@JsonKey() final  String status;
 @override@JsonKey() final  bool hasAccess;
+@override@JsonKey() final  bool activationReady;
+@override@JsonKey() final  bool freeAvailable;
+@override@JsonKey() final  bool freeActive;
 @override@JsonKey() final  bool trialEligible;
 @override@JsonKey() final  int trialStartedAtMs;
 @override@JsonKey() final  int trialEndsAtMs;
@@ -604,18 +610,18 @@ _$CenterOnboardingCopyWith<_CenterOnboarding> get copyWith => __$CenterOnboardin
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CenterOnboarding&&(identical(other.phoneRequired, phoneRequired) || other.phoneRequired == phoneRequired)&&(identical(other.storeId, storeId) || other.storeId == storeId)&&(identical(other.profile, profile) || other.profile == profile)&&(identical(other.step, step) || other.step == step)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.deferred, deferred) || other.deferred == deferred)&&(identical(other.status, status) || other.status == status)&&(identical(other.hasAccess, hasAccess) || other.hasAccess == hasAccess)&&(identical(other.trialEligible, trialEligible) || other.trialEligible == trialEligible)&&(identical(other.trialStartedAtMs, trialStartedAtMs) || other.trialStartedAtMs == trialStartedAtMs)&&(identical(other.trialEndsAtMs, trialEndsAtMs) || other.trialEndsAtMs == trialEndsAtMs)&&(identical(other.serverNowMs, serverNowMs) || other.serverNowMs == serverNowMs)&&(identical(other.suggestedTrialEndsAtMs, suggestedTrialEndsAtMs) || other.suggestedTrialEndsAtMs == suggestedTrialEndsAtMs));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CenterOnboarding&&(identical(other.phoneRequired, phoneRequired) || other.phoneRequired == phoneRequired)&&(identical(other.storeId, storeId) || other.storeId == storeId)&&(identical(other.profile, profile) || other.profile == profile)&&(identical(other.step, step) || other.step == step)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.completed, completed) || other.completed == completed)&&(identical(other.deferred, deferred) || other.deferred == deferred)&&(identical(other.status, status) || other.status == status)&&(identical(other.hasAccess, hasAccess) || other.hasAccess == hasAccess)&&(identical(other.activationReady, activationReady) || other.activationReady == activationReady)&&(identical(other.freeAvailable, freeAvailable) || other.freeAvailable == freeAvailable)&&(identical(other.freeActive, freeActive) || other.freeActive == freeActive)&&(identical(other.trialEligible, trialEligible) || other.trialEligible == trialEligible)&&(identical(other.trialStartedAtMs, trialStartedAtMs) || other.trialStartedAtMs == trialStartedAtMs)&&(identical(other.trialEndsAtMs, trialEndsAtMs) || other.trialEndsAtMs == trialEndsAtMs)&&(identical(other.serverNowMs, serverNowMs) || other.serverNowMs == serverNowMs)&&(identical(other.suggestedTrialEndsAtMs, suggestedTrialEndsAtMs) || other.suggestedTrialEndsAtMs == suggestedTrialEndsAtMs));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,phoneRequired,storeId,profile,step,revision,completed,deferred,status,hasAccess,trialEligible,trialStartedAtMs,trialEndsAtMs,serverNowMs,suggestedTrialEndsAtMs);
+    return Object.hash(runtimeType,phoneRequired,storeId,profile,step,revision,completed,deferred,status,hasAccess,activationReady,freeAvailable,freeActive,trialEligible,trialStartedAtMs,trialEndsAtMs,serverNowMs,suggestedTrialEndsAtMs);
 }
 
 @override
 String toString() {
-    return 'CenterOnboarding(phoneRequired: $phoneRequired, storeId: $storeId, profile: $profile, step: $step, revision: $revision, completed: $completed, deferred: $deferred, status: $status, hasAccess: $hasAccess, trialEligible: $trialEligible, trialStartedAtMs: $trialStartedAtMs, trialEndsAtMs: $trialEndsAtMs, serverNowMs: $serverNowMs, suggestedTrialEndsAtMs: $suggestedTrialEndsAtMs)';
+    return 'CenterOnboarding(phoneRequired: $phoneRequired, storeId: $storeId, profile: $profile, step: $step, revision: $revision, completed: $completed, deferred: $deferred, status: $status, hasAccess: $hasAccess, activationReady: $activationReady, freeAvailable: $freeAvailable, freeActive: $freeActive, trialEligible: $trialEligible, trialStartedAtMs: $trialStartedAtMs, trialEndsAtMs: $trialEndsAtMs, serverNowMs: $serverNowMs, suggestedTrialEndsAtMs: $suggestedTrialEndsAtMs)';
 }
 
 
@@ -626,7 +632,7 @@ abstract mixin class _$CenterOnboardingCopyWith<$Res> implements $CenterOnboardi
   factory _$CenterOnboardingCopyWith(_CenterOnboarding value, $Res Function(_CenterOnboarding) _then) = __$CenterOnboardingCopyWithImpl;
 @override @useResult
 $Res call({
- bool phoneRequired, String storeId, CenterProfile profile, int step, int revision, bool completed, bool deferred, String status, bool hasAccess, bool trialEligible, int trialStartedAtMs, int trialEndsAtMs, int serverNowMs, int suggestedTrialEndsAtMs
+ bool phoneRequired, String storeId, CenterProfile profile, int step, int revision, bool completed, bool deferred, String status, bool hasAccess, bool activationReady, bool freeAvailable, bool freeActive, bool trialEligible, int trialStartedAtMs, int trialEndsAtMs, int serverNowMs, int suggestedTrialEndsAtMs
 });
 
 
@@ -643,7 +649,7 @@ class __$CenterOnboardingCopyWithImpl<$Res>
 
 /// Create a copy of CenterOnboarding
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? phoneRequired = null,Object? storeId = null,Object? profile = null,Object? step = null,Object? revision = null,Object? completed = null,Object? deferred = null,Object? status = null,Object? hasAccess = null,Object? trialEligible = null,Object? trialStartedAtMs = null,Object? trialEndsAtMs = null,Object? serverNowMs = null,Object? suggestedTrialEndsAtMs = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? phoneRequired = null,Object? storeId = null,Object? profile = null,Object? step = null,Object? revision = null,Object? completed = null,Object? deferred = null,Object? status = null,Object? hasAccess = null,Object? activationReady = null,Object? freeAvailable = null,Object? freeActive = null,Object? trialEligible = null,Object? trialStartedAtMs = null,Object? trialEndsAtMs = null,Object? serverNowMs = null,Object? suggestedTrialEndsAtMs = null,}) {
   return _then(_CenterOnboarding(
 phoneRequired: null == phoneRequired ? _self.phoneRequired : phoneRequired // ignore: cast_nullable_to_non_nullable
 as bool,storeId: null == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
@@ -654,6 +660,9 @@ as int,completed: null == completed ? _self.completed : completed // ignore: cas
 as bool,deferred: null == deferred ? _self.deferred : deferred // ignore: cast_nullable_to_non_nullable
 as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,hasAccess: null == hasAccess ? _self.hasAccess : hasAccess // ignore: cast_nullable_to_non_nullable
+as bool,activationReady: null == activationReady ? _self.activationReady : activationReady // ignore: cast_nullable_to_non_nullable
+as bool,freeAvailable: null == freeAvailable ? _self.freeAvailable : freeAvailable // ignore: cast_nullable_to_non_nullable
+as bool,freeActive: null == freeActive ? _self.freeActive : freeActive // ignore: cast_nullable_to_non_nullable
 as bool,trialEligible: null == trialEligible ? _self.trialEligible : trialEligible // ignore: cast_nullable_to_non_nullable
 as bool,trialStartedAtMs: null == trialStartedAtMs ? _self.trialStartedAtMs : trialStartedAtMs // ignore: cast_nullable_to_non_nullable
 as int,trialEndsAtMs: null == trialEndsAtMs ? _self.trialEndsAtMs : trialEndsAtMs // ignore: cast_nullable_to_non_nullable

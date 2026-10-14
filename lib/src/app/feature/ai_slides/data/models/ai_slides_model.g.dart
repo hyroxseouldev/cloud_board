@@ -18,6 +18,11 @@ AiSlidesModel _$AiSlidesModelFromJson(Map<String, dynamic> json) =>
               json['result'] as Map<String, dynamic>,
             ),
       cached: json['cached'] as bool? ?? false,
+      allowed: json['allowed'] as bool?,
+      plan: json['plan'] as String?,
+      used: (json['used'] as num?)?.toInt(),
+      resetsAtMs: (json['resetsAtMs'] as num?)?.toInt(),
+      availabilityReason: json['availabilityReason'] as String?,
     );
 
 Map<String, dynamic> _$AiSlidesModelToJson(AiSlidesModel instance) =>
@@ -27,6 +32,11 @@ Map<String, dynamic> _$AiSlidesModelToJson(AiSlidesModel instance) =>
       'cached': instance.cached,
       'remaining': instance.remaining,
       'limit': instance.limit,
+      'allowed': instance.allowed,
+      'plan': instance.plan,
+      'availabilityReason': instance.availabilityReason,
+      'used': instance.used,
+      'resetsAtMs': instance.resetsAtMs,
       'result': instance.result?.toJson(),
     };
 

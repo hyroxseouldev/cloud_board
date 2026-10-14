@@ -60,3 +60,10 @@ test('aggregation never infers success from a pending attempt and survives missi
   assert.equal(summarizeOperations([success, other]).length, 2);
   assert.equal(summarizeOperations([{...success, role: 'account'}, {...other, platform: 'ios', build: '553', role: 'display'}]).length, 2);
 });
+
+test('quota funnel and purchase actions retain privacy and dedupe contract',()=>{
+  for(const action of ['slides.save','workout.import','plan.upgrade.purchase', ...['workouts','savedSlides'].flatMap(r=>['usage','limit','manage','upgrade'].map(s=>`plan.${r}.${s}`))]) {
+    assert.equal(validateOperation({...event(),action},now).action,action);
+    assert.throws(()=>validateOperation({...event(),action,email:'private@example.com'},now),{code:'invalid-argument'});
+  }
+});

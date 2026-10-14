@@ -11,6 +11,7 @@ Map<String, dynamic> profileEntitlements(
       'subscriptionPlan': 'free',
       'subscriptionStatus': 'free',
       'displayLimit': 0,
+      'planPolicyKnown': false,
     };
   }
   final until = (access['validUntilMs'] as num?)?.toInt() ?? 0;
@@ -19,17 +20,24 @@ Map<String, dynamic> profileEntitlements(
       access['plan'] == 'premium' && access['displaysUnlimited'] == true;
   final plus =
       access['plan'] == 'plus' &&
+      (access['maxActiveDisplays'] == 1 || access['maxActiveDisplays'] == 3) &&
+      access['displaysUnlimited'] == false;
+  final free =
+      access['plan'] == 'free' &&
+      access['canStartClass'] == true &&
       access['maxActiveDisplays'] == 1 &&
       access['displaysUnlimited'] == false;
   final status = access['status'];
   return {
     ...?profile,
-    'partnerTier': !valid
+    'planPolicyKnown':
+        valid && access['policyVersion'] == 'plan-entitlements-v2',
+    'partnerTier': !valid || free
         ? 'free'
         : status == 'trialing'
         ? 'trial'
         : 'pro',
-    'subscriptionPlan': !valid
+    'subscriptionPlan': !valid || free
         ? 'free'
         : premium
         ? 'premium'
@@ -38,17 +46,23 @@ Map<String, dynamic> profileEntitlements(
         : 'cloudboard_pro',
     'subscriptionStatus': !valid
         ? 'canceled'
+        : free
+        ? 'free'
         : status == 'trialing'
         ? 'trialing'
         : status == 'past_due'
         ? 'pastDue'
         : 'active',
-    'displayLimit': premium
+    'displayLimit': !valid
+        ? 0
+        : premium
         ? -1
-        : plus
+        : free
         ? 1
+        : plus
+        ? access['maxActiveDisplays']
         : access['displayLimit'] ?? 3,
-    'pilotEndsAt': until > 0
+    'pilotEndsAt': !free && until > 0
         ? DateTime.fromMillisecondsSinceEpoch(
             until,
             isUtc: true,
