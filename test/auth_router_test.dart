@@ -18,9 +18,7 @@ void main() {
     photoUrl: null,
   );
 
-  testWidgets('new accounts stay in onboarding until saved or deferred', (
-    tester,
-  ) async {
+  testWidgets('owner access waits for server confirmation', (tester) async {
     final gate = Completer<bool>();
     final container = ProviderContainer(
       overrides: [

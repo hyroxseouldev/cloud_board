@@ -67,10 +67,6 @@ class OnboardingAction extends _$OnboardingAction {
   );
   Future<bool> reload() =>
       run(() => ref.read(onboardingActionsProvider).load());
-  Future<bool> startTrial() =>
-      run(() => ref.read(onboardingActionsProvider).startTrial());
-  Future<bool> startFree() =>
-      run(() => ref.read(onboardingActionsProvider).startFree());
 }
 
 @riverpod
@@ -78,5 +74,5 @@ Future<bool> onboardingRequired(Ref ref) async {
   final user = ref.watch(authStateProvider).value;
   if (user?.needsOnboarding != true) return false;
   final progress = await ref.watch(onboardingControllerProvider.future);
-  return !progress.completed && !progress.deferred;
+  return !progress.serviceReady;
 }

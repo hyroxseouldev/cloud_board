@@ -51,3 +51,13 @@ test('Free fallback retains explicit and pre-migration server billing history', 
     assert.equal(hasPaidOrTrialHistory(grant), false);
   }
 });
+
+test('inactive and unknown modern grants never become an active Free grant', () => {
+  for (const status of ['expired', 'revoked', 'unknown', 'error', 'pending_connection']) {
+    assert.equal(resolveGrants([{plan:'free', source:'app_free',status,validUntilMs:2000}],1000).canStartClass,false);
+  }
+  for (const plan of ['legacy','plus','premium']) {
+    const access=resolveGrants([{source:'pilot',status:'pilot',plan,validUntilMs:2000}],1000);
+    assert.equal(access.validUntilMs,2000);assert.equal(access.plan,plan);
+  }
+});

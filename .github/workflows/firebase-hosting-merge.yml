@@ -126,6 +126,7 @@ jobs:
           test/display_preparation_test.dart
           test/operation_telemetry_test.dart
           test/playback_ack_test.dart
+          test/onboarding_test.dart
 
       - name: Test account deletion functions
         run: |

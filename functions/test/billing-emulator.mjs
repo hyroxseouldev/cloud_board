@@ -18,7 +18,9 @@ try {
   await env.clearFirestore(); await realtime.ref().remove();
   const fresh=await handleBilling(db,realtime,'fresh',{});
   assert.equal(fresh.purchasesEnabled,false);
-  assert.equal((await db.doc('subscriptionEntitlements/fresh').get()).exists,false,'viewing billing must not consume trial eligibility');
+  assert.equal((await db.doc('subscriptionEntitlements/fresh').get()).data().canStartClass,false,'unverified billing read projects explicit denial');
+  assert.equal((await db.doc('onboardingTrials/fresh').get()).exists,false);
+  assert.equal(fresh.phoneRequired,true);
   // Even a mistakenly enabled Firestore switch cannot open checkout without keys.
   await db.doc('appConfig/billing').set({legalReady:true,productsReady:true,purchasesEnabled:true});
   await db.doc('users/fresh/onboarding/progress').set({phoneVerified:true});

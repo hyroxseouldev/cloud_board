@@ -35,7 +35,8 @@ try {
   }};
   const verify = (uid = 'owner', token = 'purchase-one') => handlePlayBilling(db, realtime, uid, {action: 'verify', purchaseToken: token}, api);
   assert.equal((await handlePlayBilling(db, realtime, 'owner', {}, api)).purchasesEnabled, false);
-  assert.equal((await db.doc('subscriptionEntitlements/owner').get()).exists, false);
+  assert.equal((await db.doc('subscriptionEntitlements/owner').get()).data().plan, 'free');
+  assert.equal((await db.doc('subscriptionEntitlements/owner').get()).data().maxWorkouts, 7);
   await assert.rejects(verify(), {code: 'permission-denied'});
   await db.doc('billingTesters/owner').set({enabled: true});
   await assert.rejects(verify('other'), {code: 'permission-denied'});

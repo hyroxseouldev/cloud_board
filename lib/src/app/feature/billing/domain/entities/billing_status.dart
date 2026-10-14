@@ -13,6 +13,7 @@ abstract class BillingStatus with _$BillingStatus {
     @Default('expired') String status,
     @Default(0) int validUntilMs,
     String? grantSource,
+    bool? phoneRequired,
     String? paidStatus,
     String? paidPlan,
     String? paidSource,
