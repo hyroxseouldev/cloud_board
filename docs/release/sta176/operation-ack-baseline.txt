@@ -1,0 +1,52 @@
+00:00 +0: loading <workspace>/test/playback_partial_disconnect_test.dart
+00:00 +0: pending TV acknowledgement after owner-return cannot record a timeout for another account
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: empty
+  Actual: [
+            ({_OperationEvent event, String ownerId}):(event: OperationEvent(id:
+class-2-tv-a-missing, type: command_receipt_failed, occurredAtMs: 1791995109887, deviceId: tv-a,
+workoutId: workout, workoutName: , scheduled: false, scheduledAtMs: null, sessionId: class, eventId:
+class-2-tv-a-missing, deviceName: null, zoneName: null, deviceRole: display, appVersion: null,
+phase: tv_receipt, errorId: null, errorCode: receipt_timeout, incidentId: null, recoveryOfEventId:
+null, playbackImpact: null, targetDeviceIds: [], targetDeviceNames: {}, targetDeviceVersions: {},
+schemaVersion: 2), ownerId: owner),
+            ({_OperationEvent event, String ownerId}):(event: OperationEvent(id:
+class-2-tv-b-missing, type: command_receipt_failed, occurredAtMs: 1791995109889, deviceId: tv-b,
+workoutId: workout, workoutName: , scheduled: false, scheduledAtMs: null, sessionId: class, eventId:
+class-2-tv-b-missing, deviceName: null, zoneName: null, deviceRole: display, appVersion: null,
+phase: tv_receipt, errorId: null, errorCode: receipt_timeout, incidentId: null, recoveryOfEventId:
+null, playbackImpact: null, targetDeviceIds: [], targetDeviceNames: {}, targetDeviceVersions: {},
+schemaVersion: 2), ownerId: owner),
+            ({_OperationEvent event, String ownerId}):(event: OperationEvent(id:
+class-2-tv-c-missing, type: command_receipt_failed, occurredAtMs: 1791995109889, deviceId: tv-c,
+workoutId: workout, workoutName: , scheduled: false, scheduledAtMs: null, sessionId: class, eventId:
+class-2-tv-c-missing, deviceName: null, zoneName: null, deviceRole: display, appVersion: null,
+phase: tv_receipt, errorId: null, errorCode: receipt_timeout, incidentId: null, recoveryOfEventId:
+null, playbackImpact: null, targetDeviceIds: [], targetDeviceNames: {}, targetDeviceVersions: {},
+schemaVersion: 2), ownerId: owner)
+          ]
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file://<workspace>/test/playback_partial_disconnect_test.dart:77:9)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file://<workspace>/test/playback_partial_disconnect_test.dart line 77
+The test description was:
+  pending TV acknowledgement after owner-return cannot record a timeout for another account
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -1: pending TV acknowledgement after owner-return cannot record a timeout for another account [E]
+  Test failed. See exception logs above.
+  The test description was: pending TV acknowledgement after owner-return cannot record a timeout for another account
+
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  <workspace>/test/playback_partial_disconnect_test.dart: pending TV acknowledgement after owner-return cannot record a timeout for another account
