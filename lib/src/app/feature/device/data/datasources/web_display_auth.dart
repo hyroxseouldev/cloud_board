@@ -9,12 +9,13 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'web_display_auth.g.dart';
 
 /// Keep the display separate from a controller's older, owner-authenticated
-/// registration while retaining the same display across browser reloads.
+/// registration while retaining the same display across app restarts.
+/// The existing prefix is retained so previously paired web displays keep IDs.
 String webDisplayDeviceId(String uid) =>
     'web-display-${sha256.convert(utf8.encode(uid)).toString().substring(0, 32)}';
 
-/// A browser display has its own device identity. The owner's Google session
-/// remains available to the controller and other tabs on the same origin.
+/// An account-based display has its own device identity on web and native apps.
+/// The owner's Google session remains available when returning to Control.
 @Riverpod(keepAlive: true)
 Future<FirebaseAuth> webDisplayAuth(Ref ref, String ownerId) async {
   final primary = ref.watch(firebaseClientAuthProvider);
