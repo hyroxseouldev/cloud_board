@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/core/services/event_id.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_recovery.dart';
 import 'package:cloud_board/src/app/feature/device/domain/usecases/display_recovery_actions.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
@@ -132,12 +132,16 @@ class DisplayRecoveryController extends _$DisplayRecoveryController {
     final ownerId = owner.value;
     _requesting = true;
     state = const AsyncLoading();
-    final operationId =
-        'recovery-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-${Random.secure().nextInt(1 << 32).toRadixString(36)}';
-    final flight = ref
-        .read(displayRecoveryActionsProvider)
-        .request(deviceId, operationId)
-        .whenComplete(() {
+    String? operationId;
+    // ID generation and provider/repository access can throw synchronously.
+    // Include them in the guarded flight so every failure releases Loading.
+    final flight =
+        Future<DisplayRecoveryRequest>.sync(() {
+          operationId = 'recovery-${createEventId()}';
+          return ref
+              .read(displayRecoveryActionsProvider)
+              .request(deviceId, operationId!);
+        }).whenComplete(() {
           if (ref.mounted && epoch == _epoch) _requesting = false;
         });
     final result = await AsyncValue.guard(
@@ -151,7 +155,9 @@ class DisplayRecoveryController extends _$DisplayRecoveryController {
     if (result.hasError) {
       // A snapshot acknowledgement may arrive before the callable response.
       // Preserve it when the response is lost or delayed.
-      if (state.value?.operationId == operationId) return true;
+      if (operationId != null && state.value?.operationId == operationId) {
+        return true;
+      }
       state = AsyncError(result.error!, result.stackTrace!);
       return false;
     }
