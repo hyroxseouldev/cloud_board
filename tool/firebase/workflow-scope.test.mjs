@@ -30,12 +30,12 @@ const evaluate = (condition, values) => {
   return runInNewContext(`(${condition})`, values, {timeout: 100});
 };
 
-test('native existing-app QA uses main and release requires successful trusted tag CI', () => {
+test('native development-app QA uses main and release requires successful trusted tag CI', () => {
   for (const file of ['testflight-main.yml', 'google-play-main.yml']) {
     const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
     const triggers = workflow.match(/^on:\n([\s\S]*?)(?=^\S)/m)?.[1];
     assert.deepEqual([...triggers.matchAll(/^  ([a-z_]+):/gm)].map(match => match[1]), ['push', 'workflow_run', 'workflow_dispatch']);
-    const check = (event, branch = 'v1.2.2', conclusion = 'success', repo = 'owner/repo') => evaluate(jobCondition(file, 'upload'), {
+    const check = (event, branch = 'v1.2.2', conclusion = 'success', repo = 'owner/repo') => evaluate(jobCondition(file, 'preflight'), {
       github: {event_name: event, ref: 'refs/heads/main', repository: 'owner/repo',
         event: {workflow_run: {head_branch: branch, conclusion, head_repository: {full_name: repo}}}},
       startsWith: (value, prefix) => value?.startsWith(prefix) ?? false,
@@ -47,8 +47,10 @@ test('native existing-app QA uses main and release requires successful trusted t
     assert.equal(check('workflow_run', 'v1.2.2', 'failure'), false);
     assert.equal(check('workflow_run', 'v1.2.2', 'success', 'fork/repo'), false);
     assert.equal(check('pull_request'), false);
-    assert(!workflow.includes('MOBILE_DEVELOPMENT_READY'));
-    assert(!workflow.includes('preflight:'));
+    assert(workflow.includes('MOBILE_DEVELOPMENT_READY'));
+    for (const ready of ['true', 'false', '']) {
+      assert.equal(evaluate(jobCondition(file, 'upload'), {needs: {preflight: {outputs: {ready}}}}), ready === 'true');
+    }
   }
 });
 

@@ -27,7 +27,7 @@ on:
         type: string
         default: main
       release_mode:
-        description: Existing app QA or release candidate from a validated vX.Y.Z tag (both use production Firebase)
+        description: "Separate apps: .dev QA uses development Firebase; validated release uses production"
         required: true
         type: choice
         options: [qa, release]
@@ -43,18 +43,41 @@ permissions:
   actions: read
 
 concurrency:
-  group: testflight-main
+  group: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'testflight-main' || 'testflight-development' }}
   cancel-in-progress: false
 
 jobs:
-  upload:
-    name: Build and optionally upload
+  preflight:
+    name: Check mobile environment readiness
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    environment: testflight
+    outputs:
+      ready: ${{ steps.readiness.outputs.ready }}
+    steps:
+      - name: Report blocked development store setup
+        id: readiness
+        env:
+          RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+          DEVELOPMENT_READY: ${{ vars.MOBILE_DEVELOPMENT_READY }}
+        run: |
+          if [[ "$RELEASE_MODE" == qa && "$DEVELOPMENT_READY" != true ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '## BLOCKED — development mobile distribution is not configured' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No app was built or uploaded. Confirm the .dev store app and signing access for the shared testflight account, then set this environment’s MOBILE_DEVELOPMENT_READY variable to true. App package and Firebase remain development-only.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+
+  upload:
+    name: Build and optionally upload
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
     runs-on: macos-26
     timeout-minutes: 45
     environment: testflight
@@ -65,7 +88,7 @@ jobs:
       SOURCE_REF: ${{ inputs.source_ref || github.ref }}
       RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
       UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight }}
-      IOS_BUNDLE_ID: com.sunmkim.cloudboard
+      IOS_BUNDLE_ID: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'com.sunmkim.cloudboard' || 'com.sunmkim.cloudboard.dev' }}
       IOS_TEAM_ID: NL7AM62SB9
 
     steps:
@@ -94,14 +117,14 @@ jobs:
           persist-credentials: false
 
       - name: Check backend compatibility before native build
-        if: env.UPLOAD_REQUESTED == 'true'
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
 
       - name: QA build does not publish app update news
         if: env.RELEASE_MODE == 'qa'
-        run: echo 'Existing store app and production Firebase; QA does not publish public app news or minimum-version changes. Store tester groups retain their current settings.'
+        run: echo 'Development .dev app and development Firebase; QA does not publish public app news or minimum-version changes. Store tester groups retain their current settings.'
 
       - name: Check release credentials
         env:
@@ -331,7 +354,9 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
+          if [[ "$RELEASE_MODE" == release ]]; then
+            node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode release --source-sha "$SOURCE_SHA" --check-only
+          fi
           node "$GITHUB_WORKSPACE/control/tool/release/ios_build_number.mjs" --recheck
 
       - name: Upload dSYMs to Firebase Crashlytics

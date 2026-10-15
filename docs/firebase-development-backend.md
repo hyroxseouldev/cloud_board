@@ -16,7 +16,10 @@ account deletion, onboarding/trials, diagnostics and playback snapshot cleanup.
 AI generation, real SMS and Apple/Google Play billing endpoints are not deployed
 to this project. No production provider credentials are copied. Store purchases
 and external provider integration need their own separately configured tests.
-Google and email/password sign-in use the development Firebase Auth project.
+Development sign-in targets the development Firebase Auth project. The Apple
+sign-in provider is not configured there, and native Google and Apple sign-in
+flows have not been verified. Firebase SDK configuration alone does not prove
+that native provider login works.
 
 The development web's canonical URL is
 `https://cloud-board-development.firebaseapp.com/`. Its `web.app` alias redirects
@@ -36,7 +39,9 @@ flow. This changes only development build output and Hosting configuration.
 
 The normal development trigger is a merge into `main`. The development workflow
 builds the web app and deploys only `cloud-board-development`. Separate mobile
-QA workflows upload the existing app using production Firebase `cloud-board-stationd`. Main does not run the complete Flutter,
+QA workflows target the existing separate development app
+`com.sunmkim.cloudboard.dev` using this development Firebase project, subject to
+store readiness. Main does not run the complete Flutter,
 Chrome and Firebase contract suites before each development build. Environment
 isolation, successful compilation, artifact identity and deployment results still
 need to be checked. A development deployment is not production validation.
@@ -44,9 +49,9 @@ need to be checked. A development deployment is not production validation.
 Production starts from a `vX.Y.Z` tag whose commit belongs to main history and whose
 version matches the app version. Required integration CI must pass for that exact
 tag SHA before production deployment or release-mode mobile upload. A main push
-does not authorize production server/web deployment. Existing-app mobile QA is
-allowed without full CI but still checks the actual production backend; a development
-receipt cannot satisfy that compatibility check. See [feature verification](feature-verification.md).
+does not authorize production server/web deployment. Development-app mobile QA is
+allowed without full CI and does not require a production backend receipt. Release
+mode still requires verified tag CI and actual production backend compatibility. See [feature verification](feature-verification.md).
 
 The development workflow authenticates using this Workload Identity provider:
 
@@ -64,20 +69,33 @@ binding remains sufficient; do not broaden project permissions for a ref change.
 Repository workflow changes and remote identity-policy changes are separate
 steps, and both must be confirmed before claiming authentication works.
 
-Main-triggered TestFlight / Play internal uploads use the existing store app
-`com.sunmkim.cloudboard` and production Firebase. They intentionally do not use
-this development project. No separate `.dev` store app, duplicate credentials or
-`MOBILE_DEVELOPMENT_READY` variable is required. Local development flavors may
-still use the isolated development project.
+Main-triggered TestFlight / Play internal uploads use the existing development
+bundle/package `com.sunmkim.cloudboard.dev` and `development` flavor. Its native
+Firebase SDK registrations/configuration already exist in this project; no new
+Firebase app registration is required for this policy. Production release builds
+retain `com.sunmkim.cloudboard`, the `production` flavor and `cloud-board-stationd`.
 
-Development web/server success does not prove mobile production compatibility.
-Use the development web app to check APIs that exist only in this project;
-production-connected mobile QA requires a compatible live production backend.
-Its actual uploaded client contract stays in the production installed-client ledger.
+Development App Store Connect / Play app registration, signing and upload access
+are still unverified. Existing `testflight` / `google-play` account credentials do
+not establish readiness for the separate development app. Confirm each platform,
+then set `MOBILE_DEVELOPMENT_READY=true` in its GitHub Environment. Until then,
+preflight reports blocked and skips SDK installation, build and upload. Build
+numbers and upload concurrency are separate per app. The development Play
+baseline file is absent; prepare it from verified development-app store history,
+not the production baseline.
 
-Neither development web deployments nor mobile QA uploads publish the app to the
-general public, publish production mobile update news, or raise minimum supported
-versions. Store review and production availability remain separate operations.
+Check development Google OAuth configuration, native signing/callback settings
+and actual native Google sign-in with a development account. Apple login additionally
+needs its development Firebase provider configuration before an end-to-end check.
+These native provider checks are separate from store distribution readiness, and
+neither has been established by the documentation or workflow change.
+
+Development QA is excluded from production installed-client tracking, public app
+news and minimum-version changes. Historical production-connected QA receipts
+remain tracked. Development and production apps use separate app IDs and their
+existing app sandboxes; web environments use separate origins. The development
+onboarding flow must be checked using a development account; production
+accounts/data do not migrate.
 
 ## Test onboarding without sending SMS
 

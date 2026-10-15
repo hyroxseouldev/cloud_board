@@ -4,13 +4,22 @@
 
 ## Build, deployment and public availability
 
-Main merges start development Firebase web/server builds and deployments, plus
-TestFlight / Play internal QA for the existing app, without repeating full integration
-CI. Web/server target `cloud-board-development`; both mobile QA and release use
-`com.sunmkim.cloudboard` with production Firebase `cloud-board-stationd`. No separate
-`.dev` store registration is needed. QA checks live production backend compatibility
-and is included in installed-client contract tracking. Development server success
-never substitutes for that check or authorizes a production version policy.
+Main merges start development Firebase web/server deployment and development-app
+TestFlight / Play internal QA without repeating full integration CI. Main QA uses
+the existing `com.sunmkim.cloudboard.dev` app and `development` flavor targeting
+`cloud-board-development`. Release uses `com.sunmkim.cloudboard` and the
+`production` flavor targeting `cloud-board-stationd`. Build numbering and upload
+concurrency are separate for each app. Existing store-account credentials do not
+prove development-app registration or signing access: confirm those separately,
+then set `MOBILE_DEVELOPMENT_READY=true` in each applicable GitHub Environment.
+Until ready, QA stops before SDK installation, build and upload. The development
+Play baseline is not yet present and must be based on the development app's own
+verified store history.
+QA does not require production backend compatibility or enter the production
+installed-client ledger. Historical production-connected uploads remain tracked.
+The separate app IDs retain separate app sandboxes; web environments use separate
+origins. Never promote a development QA binary to public release; use the validated
+production-flavor artifact.
 
 Production candidates start with a `vX.Y.Z` tag on a commit in main history. The
 tag version must match the app version, and required CI must pass for the same
