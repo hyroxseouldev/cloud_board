@@ -3,6 +3,7 @@ import 'package:cloud_board/src/app/core/router/main_tab_page.dart';
 import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/views/more_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/views/explore_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/starter_workouts_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
@@ -69,9 +70,9 @@ GoRouter appRouter(Ref ref) {
     initialLocation: '/',
     refreshListenable: authRefresh,
     redirect: (context, state) {
-      // Retired public exploration links must not restore an onboarding loop.
-      // The normal home route still applies sign-in and server access checks.
-      if (isExplorationPath(state.uri.path)) return '/';
+      // Public examples only use bundled fixtures and local playback. Saving a
+      // workout still enters the guarded /starter-workouts flow explicitly.
+      if (isExplorationPath(state.uri.path)) return null;
       // Support remains reachable when sign-in/onboarding itself fails. The
       // form requires a signed-in account before enabling server submission.
       if (state.uri.path == '/support') return null;
@@ -166,8 +167,28 @@ GoRouter appRouter(Ref ref) {
     routes: [
       GoRoute(
         path: '/explore',
-        redirect: (_, _) => '/',
-        routes: [GoRoute(path: 'play/:template', redirect: (_, _) => '/')],
+        builder: (_, state) => ExploreScreen(
+          initialTemplate: starterFromKey(state.uri.queryParameters['starter']),
+          initialPurpose: explorationPurpose(
+            state.uri.queryParameters['purpose'],
+          ),
+        ),
+        routes: [
+          GoRoute(
+            path: 'play/:template',
+            builder: (_, state) {
+              final template = starterFromKey(state.pathParameters['template']);
+              return template == null
+                  ? const ExploreScreen()
+                  : ExploreDemoScreen(
+                      template: template,
+                      purpose: explorationPurpose(
+                        state.uri.queryParameters['purpose'],
+                      ),
+                    );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/auth-loading',

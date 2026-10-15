@@ -18,6 +18,20 @@ to this project. No production provider credentials are copied. Store purchases
 and external provider integration need their own separately configured tests.
 Google and email/password sign-in use the development Firebase Auth project.
 
+The development web's canonical URL is
+`https://cloud-board-development.firebaseapp.com/`. Its `web.app` alias redirects
+there while preserving the path, query and fragment. Hosted development Google
+sign-in uses a full-page redirect so the app and Firebase's `/__/auth/` helper
+share one origin. This recovers the development Chrome flow where the Google
+popup closed without delivering the auth result (`popup-closed-by-user`). Local
+previews and production retain popup sign-in. Verify the real Google round trip
+and the returned app session; a successful build alone does not verify OAuth.
+
+The guarded development build versions both the Flutter bootstrap and app script
+URLs with the app bundle's SHA-256. Development Hosting revalidates cached files
+so a reopened page loads the deployed build instead of retaining an older login
+flow. This changes only development build output and Hosting configuration.
+
 ## Main development deployment and release tags
 
 The normal development trigger is a merge into `main`. The development workflow
