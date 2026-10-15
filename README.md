@@ -16,6 +16,38 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
+## Integration and tagged deployments
+
+`main` pushes integrate code only; they do not deploy. The current deployment
+policy is [feature verification](docs/feature-verification.md).
+
+| Trigger | Target | CI policy |
+| --- | --- | --- |
+| `dev/vX.Y.Z-N` tag in main history | Development web/server and `.dev` mobile apps using `cloud-board-development` | No full integration CI by default; required source, environment, build and artifact checks remain |
+| `vX.Y.Z` tag in main history | Production web/server and base-ID mobile apps using `cloud-board-stationd` | Required CI by default; explicit manual `skip_ci` with a reason is available |
+
+Finalize the displayed version in `pubspec.yaml` on main before creating either
+tag, and sync that version commit back to develop. Same-version rebuilds use
+automatically increasing platform build numbers. A release commit title such as
+`release: CloudBoard 1.2.2 - 주요 변경` and its body record the version, changes,
+deployment intent, development/production tags and CI policy; they do not prove
+deployment completed. Manual mobile QA also requires a version-matched development
+tag whose source is in main history.
+
+The **Start production release** Actions menu creates production tags only and
+does not automatically change the version. To start development deployment after
+the version commit is on main:
+
+```sh
+git tag dev/v1.2.2-1 <version-commit-main-SHA>
+git push origin refs/tags/dev/v1.2.2-1
+```
+
+Prepare user-facing [app update news](release-notes/README.md) from the diff between
+each platform's previous actual deployment SHA and the candidate main SHA. Commit
+the summary with the candidate version in `release-notes/current.json`; raw commit
+bodies are not app copy. Successful deployment/upload evidence controls exposure.
+
 ## Firebase environments
 
 Local runs default to `development`. The registered development project is
@@ -41,9 +73,10 @@ workflows build the production release flavor.
 `firebase.development.json` and its guarded deploy command pin the development
 project and database together. Changing only `firebase use` is insufficient and
 must not be used to switch the production config's Storage target. The
-**Deploy isolated development Firebase** workflow runs on `develop` pushes or a
-manual `develop` dispatch, tests all client contracts, then publishes the isolated core backend, development
-rules and web. Its OIDC identity is restricted to this repository, branch and
+**Deploy isolated development Firebase** workflow runs from a `dev/vX.Y.Z-N` tag,
+including a manual retry of that tag, and publishes the isolated core backend,
+development rules and web without requiring full integration CI. Its OIDC identity
+is restricted to this repository, development tag refs and
 workflow and has roles only in the development project; no service-account key
 or production deployment secret is used.
 
@@ -51,8 +84,11 @@ Development Auth (Google, email/password and anonymous TV login), Firestore and
 Realtime Database are provisioned. Native Google callback configuration and this
 machine's Android debug signing fingerprints are registered. Other Android
 signing certificates need their own Firebase SHA registration. Apple Sign-In for
-the new development bundle and physical-device provisioning still require
-separate Apple setup. Google login configuration/build verification is not a
+the development Firebase provider still requires separate setup. iOS development
+signing for installation on a device is already prepared; App Store Connect/Play
+registration and store distribution signing/upload readiness remain separately
+unverified. The QA store workflows require `MOBILE_DEVELOPMENT_READY=true` in each
+applicable GitHub Environment before costly builds. Google login configuration/build verification is not a
 substitute for signing in on a real device.
 
 The development project shares the approved Firebase billing account, but keeps
@@ -85,8 +121,10 @@ controls; older installed versions remain protected by compatible server rules.
 
 ## Google Play deployment
 
-Merges to `main` build one signed Android App Bundle for both mobile and
-Android TV and upload it to the Google Play internal testing track. The
+Development tags build the `.dev` app; production tags build the base-ID app after
+the applicable CI policy. Each produces one signed Android App Bundle for mobile
+and Android TV and uploads it to that app's Google Play internal testing track
+when store readiness and upload checks pass. Main pushes do not upload. The
 `google-play` GitHub environment must contain these secrets:
 
 - `ANDROID_UPLOAD_KEYSTORE_BASE64`
@@ -95,8 +133,10 @@ Android TV and upload it to the Google Play internal testing track. The
 - `ANDROID_UPLOAD_KEY_PASSWORD`
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
 
-The Play Console app must use the package name `com.sunmkim.cloudboard`, have
-Play App Signing enabled, and opt in to the Android TV form factor. Google Play
+The Play Console app must use the selected package name (`com.sunmkim.cloudboard.dev`
+for development, `com.sunmkim.cloudboard` for production), have Play App Signing
+enabled, and opt in to the Android TV form factor. Each app has separate build
+number allocation and upload concurrency. Google Play
 uses the same AAB to generate device-specific mobile and TV packages.
 
 This workflow targets only the private `internal` testing track; it never
@@ -125,11 +165,13 @@ fields or new releases. Do not regenerate old fixtures to make a rule change pas
 Deploy rules that accept both existing and new clients before uploading clients.
 Removing old fields requires a separate compatibility rollout.
 
-TestFlight and Google Play uploads, including manual uploads, require a successful
-Firebase deployment for the same current `main` commit. A failed, skipped, stale
-or missing backend deployment blocks upload. Retry the Firebase workflow first,
-then retry the mobile workflow; the gate checks the latest run attempt again
-immediately before upload. The GitHub token needs `actions: read`.
+Production TestFlight and Google Play uploads require the fixed production tag's
+CI evidence or explicit audited CI skip, plus compatibility with the actual
+deployed production backend. A matching backend can come from an earlier source;
+an unrelated main advance does not invalidate the fixed release. Missing,
+incompatible or partially failed backend evidence blocks upload. Development QA
+uses its development tag and Firebase project and does not require a production
+backend receipt. See [native release checks](tool/release/README.md).
 
 Handled workout save/copy failures automatically reach Crashlytics on native apps
 and the authenticated diagnostic queue on all platforms. Cloud Logging alerting
@@ -183,7 +225,10 @@ existing account/paired-TV access boundaries. The detail view passes existing
 error/session IDs to the STA-171 support route when it is available; until then,
 it offers a copyable support record without creating another notification service.
 
-The `Operations and legacy server compatibility` workflow runs the targeted
-client/server regressions for `develop` PRs. Native login/billing and the physical
-three-TV prepare/start/pause/resume/end matrix remain release checks; widget,
-contract and emulator tests do not substitute for those checks.
+For manual operations/legacy diagnostics, run `firebase-hosting-merge.yml` from
+`main` with `scope=verify` and `confirm_sha` set to that main commit. This runs the
+app tests, operations-history emulator contract and legacy build/source/release
+checks without production deployment. The duplicate `operations-compatibility`
+workflow has been removed. Native login/billing and the physical three-TV
+prepare/start/pause/resume/end matrix remain release checks; widget, contract and
+emulator tests do not substitute for those checks.

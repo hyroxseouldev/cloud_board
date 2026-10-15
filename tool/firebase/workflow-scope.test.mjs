@@ -30,17 +30,19 @@ const evaluate = (condition, values) => {
   return runInNewContext(`(${condition})`, values, {timeout: 100});
 };
 
-test('native development-app QA uses main and release requires successful trusted tag CI', () => {
+test('native QA requires a development tag and main pushes never deploy', () => {
   for (const file of ['testflight-main.yml', 'google-play-main.yml']) {
     const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
     const triggers = workflow.match(/^on:\n([\s\S]*?)(?=^\S)/m)?.[1];
     assert.deepEqual([...triggers.matchAll(/^  ([a-z_]+):/gm)].map(match => match[1]), ['push', 'workflow_run', 'workflow_dispatch']);
-    const check = (event, branch = 'v1.2.2', conclusion = 'success', repo = 'owner/repo') => evaluate(jobCondition(file, 'preflight'), {
-      github: {event_name: event, ref: 'refs/heads/main', repository: 'owner/repo',
+    const check = (event, branch = 'v1.2.2', conclusion = 'success', repo = 'owner/repo', ref = 'refs/heads/main') => evaluate(jobCondition(file, 'preflight'), {
+      github: {event_name: event, ref, repository: 'owner/repo',
         event: {workflow_run: {head_branch: branch, conclusion, head_repository: {full_name: repo}}}},
       startsWith: (value, prefix) => value?.startsWith(prefix) ?? false,
     });
-    assert.equal(check('push'), true);
+    assert.equal(check('push'), false);
+    assert.equal(check('push', undefined, undefined, undefined, 'refs/tags/dev/v1.2.2-1'), true);
+    assert.equal(check('push', undefined, undefined, undefined, 'refs/tags/v1.2.2'), false);
     assert.equal(check('workflow_dispatch'), true);
     assert.equal(check('workflow_run'), true);
     assert.equal(check('workflow_run', 'main'), false);

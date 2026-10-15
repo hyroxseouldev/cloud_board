@@ -1,31 +1,18 @@
 name: Upload iOS to TestFlight
-run-name: "testflight · ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }} · ${{ github.event.workflow_run.head_branch || inputs.source_ref || github.sha }}"
+run-name: "testflight · ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }} · ${{ github.event.workflow_run.head_branch || inputs.source_ref || github.ref_name }}"
 
 on:
   push:
-    branches: [main]
-    paths:
-      - lib/**
-      - assets/**
-      - pubspec.yaml
-      - pubspec.lock
-      - .fvmrc
-      - config/firebase/**
-      - config/brand.json
-      - tool/release/**
-      - ios/**
-      - tool/*ios*
-      - .github/workflows/testflight-main.yml
+    tags: ['dev/v*']
   workflow_run:
     workflows: [Deploy Flutter Web to Firebase Hosting]
     types: [completed]
   workflow_dispatch:
     inputs:
       source_ref:
-        description: App source (QA main/develop history; release requires vX.Y.Z tag)
+        description: Deployment tag (QA dev/vX.Y.Z-N; release vX.Y.Z), already in main
         required: true
         type: string
-        default: main
       release_mode:
         description: "Separate apps: .dev QA uses development Firebase; validated release uses production"
         required: true
@@ -59,7 +46,7 @@ jobs:
   preflight:
     name: Check mobile environment readiness
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/dev/')) ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
@@ -68,7 +55,31 @@ jobs:
     environment: testflight
     outputs:
       ready: ${{ steps.readiness.outputs.ready }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      control_sha: ${{ steps.source.outputs.control_sha }}
+    env:
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+      SKIP_CI: ${{ inputs.skip_ci || false }}
+      CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
+      UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight }}
     steps:
+      - name: Checkout trusted preflight tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && 'main' || github.sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve and pin trusted app source
+        id: source
+        working-directory: control
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release/source.mjs resolve
       - name: Report blocked development store setup
         id: readiness
         env:
@@ -100,6 +111,7 @@ jobs:
         working-directory: app
     env:
       SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      PINNED_SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
       RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
       SKIP_CI: ${{ inputs.skip_ci || false }}
       CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
@@ -111,7 +123,7 @@ jobs:
       - name: Checkout trusted workflow tools
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.preflight.outputs.control_sha }}
           path: control
           fetch-depth: 0
           persist-credentials: false
@@ -122,6 +134,8 @@ jobs:
 
       - name: Resolve and pin trusted app source
         working-directory: control
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: node tool/release/source.mjs resolve
 
       - name: Checkout selected app commit
@@ -397,6 +411,12 @@ jobs:
           done
 
           "$upload_symbols" -gsp "$google_service_plist" -p ios "$dsym_directory"
+
+      - name: Recheck deployment tag before upload
+        if: env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" recheck
 
       - name: Upload to TestFlight
         if: env.UPLOAD_REQUESTED == 'true'
