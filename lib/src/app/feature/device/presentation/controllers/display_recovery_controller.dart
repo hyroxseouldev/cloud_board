@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
@@ -177,10 +178,18 @@ Duration? displayRecoveryRetry(int attempt, Object error) {
   return transient ? Duration(seconds: 1 << attempt) : null;
 }
 
-bool get displayRecoveryInForeground {
-  final state = WidgetsBinding.instance.lifecycleState;
-  return state == null || state == AppLifecycleState.resumed;
-}
+/// A visible browser display remains available when another window has input
+/// focus. Hidden browser tabs and background native/TV apps still stop work.
+bool displayRecoveryAllowedInLifecycle(
+  AppLifecycleState? state, {
+  bool isWeb = kIsWeb,
+}) =>
+    state == null ||
+    state == AppLifecycleState.resumed ||
+    (isWeb && state == AppLifecycleState.inactive);
+
+bool get displayRecoveryInForeground =>
+    displayRecoveryAllowedInLifecycle(WidgetsBinding.instance.lifecycleState);
 
 @Riverpod(retry: displayRecoveryRetry)
 Stream<DisplayRecoveryRequest?> displayRecoveryRequest(
