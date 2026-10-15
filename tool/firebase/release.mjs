@@ -10,7 +10,7 @@ export const targets = Object.freeze({project: 'cloud-board-stationd', firestore
   storage: 'cloud-board-stationd.firebasestorage.app'});
 export const ruleFiles = ['firestore.rules', 'database.rules.json', 'storage.rules'];
 export function deploymentScope(value = process.env.FIREBASE_DEPLOY_SCOPE || 'full') {
-  assert(['full', 'backend', 'rules'].includes(value), 'Invalid deployment scope');
+  assert(['full', 'backend', 'rules', 'web', 'none', 'verify'].includes(value), 'Invalid deployment scope');
   return value;
 }
 // Receipts created before scoped repairs represented full backend + Hosting
@@ -48,9 +48,29 @@ export function requireSuccess(needs, required) {
   assert.deepEqual(Object.keys(needs).sort(), [...required].sort());
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
 }
-export function requireReleaseJobs(needs) {
-  requireSuccess(needs, ['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions']);
+export function requireReleaseJobs(needs, scope = deploymentScope()) {
+  const required = ['deployment_plan', ...(['web', 'full', 'verify'].includes(scope) ? ['app_validation', 'class_start_regressions'] : []),
+    ...(['backend', 'rules', 'full', 'verify'].includes(scope) ? ['firebase_contracts'] : [])];
+  for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
+  for (const [name, job] of Object.entries(needs)) assert(required.includes(name) || job.result === 'skipped', `Unexpected job result: ${name}`);
 }
+function backendInputs(sourceSha) {
+  const read = path => sourceSha ? execFileSync('git', ['show', `${sourceSha}:${path}`]) : null;
+  const config = sourceSha ? JSON.parse(read('firebase.json')) : readJson('firebase.json');
+  const sources = sourceSha ? execFileSync('git', ['ls-tree', '-r', '--name-only', sourceSha, '--', 'functions/src', 'functions/certificates'], {encoding: 'utf8'}).trim().split('\n').filter(Boolean)
+    : [...filesIn('functions/src'), ...filesIn('functions/certificates')];
+  const files = [...ruleFiles, 'firestore.indexes.json', 'functions/package.json', 'functions/package-lock.json', ...sources].sort();
+  return {config: {functions: config.functions, firestore: config.firestore, database: config.database, storage: config.storage},
+    files: Object.fromEntries(files.map(path => [path, sourceSha ? hash(read(path)) : hashFile(path)]))};
+}
+export const backendFingerprint = sourceSha => hash(canonical(backendInputs(sourceSha)));
+export function functionsFingerprint(sourceSha) {
+  const inputs = backendInputs(sourceSha);
+  return hash(canonical({config: inputs.config.functions,
+    files: Object.fromEntries(Object.entries(inputs.files).filter(([path]) => path.startsWith('functions/')))}));
+}
+export const includesBackend = scope => ['full', 'backend', 'rules'].includes(scope);
+export const includesWeb = scope => ['full', 'web'].includes(scope);
 export function validateReaderReport(report) {
   assert.equal(report.format, 1);
   assert.equal(report.status, 'success', 'Released readers did not pass');
@@ -75,8 +95,12 @@ export function validateReaderReport(report) {
 }
 export function makeManifest() {
   const id = identity();
-  validateReport(readJson('build/firebase-contracts/report.json'), id);
-  validateReaderReport(readJson('build/contracts/released-readers/report.json'));
+  const scope = deploymentScope();
+  assert.notEqual(scope, 'none', 'No deployment candidate for unchanged components');
+  if (includesBackend(scope)) {
+    validateReport(readJson('build/firebase-contracts/report.json'), id);
+    validateReaderReport(readJson('build/contracts/released-readers/report.json'));
+  }
   const config = readJson('firebase.json');
   assert.equal(config.firestore.rules, 'firestore.rules');
   assert.equal(config.firestore.database || '(default)', targets.firestore);
@@ -88,11 +112,12 @@ export function makeManifest() {
   assert.deepEqual(config.storage, [{bucket: targets.storage, rules: 'storage.rules'}]);
   const paths = [...ruleFiles, 'firestore.indexes.json', 'firebase.json', 'functions/package.json', 'functions/package-lock.json',
     'tool/firebase/supported-clients.json', 'tool/firebase/contract-suites.json', 'tool/firebase/compatibility-policy.json', retirementPolicyFile, 'tool/firebase/support_retirements.mjs', 'tool/firebase/released_reader_contract_test.dart',
-    ...filesIn('functions/src'), ...filesIn('functions/tools'), ...filesIn('functions/certificates'), ...filesIn('functions/test/fixtures'), ...filesIn('build/contracts'),
-    ...filesIn('build/web'), ...filesIn('build/firebase-contracts')];
-  assert(paths.some(p => p === 'build/web/index.html'), 'Missing release web build');
+    ...filesIn('functions/src'), ...filesIn('functions/tools'), ...filesIn('functions/certificates'), ...filesIn('functions/test/fixtures'),
+    ...(includesBackend(scope) ? [...filesIn('build/contracts'), ...filesIn('build/firebase-contracts')] : []),
+    ...(includesWeb(scope) ? filesIn('build/web') : [])];
+  if (includesWeb(scope)) assert(paths.some(p => p === 'build/web/index.html'), 'Missing release web build');
   assert(!paths.some(p => p.startsWith('build/web/') && p.endsWith('.map')), 'Public source map');
-  return {format: 1, ...id, scope: deploymentScope(), targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
+  return {format: 1, ...id, scope, backendFingerprint: backendFingerprint(), functionsFingerprint: functionsFingerprint(), targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
     files: Object.fromEntries(paths.sort().map(path => [path, hashFile(path)]))};
 }
 export function verifyManifest(manifest, id = identity()) {
@@ -107,16 +132,20 @@ export function verifyManifest(manifest, id = identity()) {
     assert(!path.includes('..') && !path.startsWith('/') && /^[a-zA-Z0-9_./-]+$/.test(path), 'Unsafe manifest path');
     assert.equal(hashFile(path), digest, `Artifact changed: ${path}`);
   }
-  for (const directory of ['build/web', 'functions/src', 'functions/tools', 'functions/certificates']) {
+  for (const directory of [...(includesWeb(manifest.scope || 'full') ? ['build/web'] : []), 'functions/src', 'functions/tools', 'functions/certificates']) {
     assert.deepEqual(filesIn(directory), Object.keys(manifest.files).filter(p => p.startsWith(`${directory}/`)).sort(), `Files added/removed after verification: ${directory}`);
   }
-  validateReport(readJson('build/firebase-contracts/report.json'), id);
-  validateReaderReport(readJson('build/contracts/released-readers/report.json'));
+  if (includesBackend(manifest.scope || 'full')) {
+    validateReport(readJson('build/firebase-contracts/report.json'), id);
+    validateReaderReport(readJson('build/contracts/released-readers/report.json'));
+  }
+  if (manifest.backendFingerprint) assert.equal(manifest.backendFingerprint, backendFingerprint(), 'Backend inputs changed');
 }
 export const manifestHash = manifest => hash(canonical(manifest));
 export function validateReceipt(receipt, id) {
   assert.equal(receipt.format, 1);
   const scope = receiptScope(receipt);
+  assert(['full', 'backend', 'rules', 'web'].includes(scope), 'Receipt must represent a deployment');
   if (id.scope) assert.equal(scope, id.scope, 'Wrong release scope');
   assert.equal(receipt.status, 'success');
   assert(Number.isFinite(Date.parse(receipt.completedAt)), 'Missing release completion time');
@@ -126,6 +155,10 @@ export function validateReceipt(receipt, id) {
   assert.match(receipt.manifest.databaseSemanticHash || '', /^[a-f0-9]{64}$/);
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(receipt.manifest[key], String(id[key]));
   for (const path of ruleFiles) assert.match(receipt.manifest.files[path] || '', /^[a-f0-9]{64}$/);
+  if (scope === 'web') {
+    assert(receipt.backend?.runId && receipt.backend?.fingerprint === receipt.manifest.backendFingerprint, 'Web receipt requires compatible deployed backend');
+    return;
+  }
   assert.equal(receipt.smoke.status, 'success');
   assert.equal(receipt.smoke.cleanup, 'success');
   assert.equal(receipt.smoke.runId, `${id.runId}-${id.attempt}`);
@@ -166,7 +199,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     await requireCurrentMain({sha: process.env.GITHUB_SHA, ref: process.env.GITHUB_REF, repository: process.env.GITHUB_REPOSITORY, request: github});
     const manifest = readJson('build/release/manifest.json'); verifyManifest(manifest);
     const receipt = {format: 1, ...identity(), scope: manifest.scope, status: 'success', completedAt: new Date().toISOString(), manifest, manifestHash: manifestHash(manifest),
-      rules: readJson('build/release/live-rules.json'), smoke: readJson('build/release/smoke.json')};
+      ...(manifest.scope === 'web' ? {backend: readJson('build/release/backend-reference.json')}
+        : {rules: readJson('build/release/live-rules.json'), smoke: readJson('build/release/smoke.json')})};
     validateReceipt(receipt, identity());
     writeJson('build/release/release.json', receipt);
   } else throw new Error('Expected aggregate, verify, current or ready');

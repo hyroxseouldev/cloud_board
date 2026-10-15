@@ -113,7 +113,7 @@ export async function reserveCode({inventory, baseline, repository, sha, githubT
   throw new Error('Could not reserve a unique Play versionCode after 5 attempts');
 }
 export async function recheckReservation(receipt, token, githubToken) {
-  assert.equal(receipt.sourceSha, process.env.GITHUB_SHA, 'Reservation belongs to another commit');
+  assert.equal(receipt.sourceSha, process.env.SOURCE_SHA || process.env.GITHUB_SHA, 'Reservation belongs to another commit');
   assert.equal(receipt.repository, process.env.GITHUB_REPOSITORY, 'Reservation belongs to another repository');
   const code = integer(receipt.versionCode);
   assert.equal(receipt.reservationRef, `${reservationPrefix}${code}`);
@@ -142,7 +142,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       else {
         const baseline = JSON.parse(readFileSync('tool/release/play-version-code-baseline.json', 'utf8'));
         const receipt = await reserveCode({inventory, baseline, repository: process.env.GITHUB_REPOSITORY,
-          sha: process.env.GITHUB_SHA, githubToken: process.env.GITHUB_TOKEN});
+          sha: process.env.SOURCE_SHA || process.env.GITHUB_SHA, githubToken: process.env.GITHUB_TOKEN});
         receipt.githubRunId = process.env.GITHUB_RUN_ID;
         receipt.githubRunAttempt = process.env.GITHUB_RUN_ATTEMPT;
         assert(process.argv[3], 'Reservation receipt path is required');

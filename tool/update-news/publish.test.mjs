@@ -147,6 +147,39 @@ test('publisher needs no Linear credentials and prepares deployed-SHA editorial 
   });
 });
 
+test('QA TestFlight uploads and build-only runs never publish public app news', async () => {
+  await withDeployment({}, async ({env, deployments, fakeFetch}) => {
+    const ios = deployments[2];
+    ios.jobs[0].steps.push({name: 'QA build does not publish app update news', conclusion: 'success'});
+    writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
+    assert.deepEqual(await publish(env, fakeFetch), {operation: 'skipped', reason: 'qa-build'});
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+    ios.jobs = [{steps: [{name: 'Resolve and pin trusted app source', conclusion: 'success'}]}];
+    assert.deepEqual(await publish(env, fakeFetch), {operation: 'skipped', reason: 'no-deployed-builds'});
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+  });
+});
+
+test('release TestFlight news uses artifact app source instead of the newer workflow commit', async () => {
+  await withDeployment({}, async ({git, env, deployments, fakeFetch, deployedSha}) => {
+    writeFileSync('workflow-only.txt', 'new control workflow');
+    git('add', 'workflow-only.txt'); git('commit', '-m', 'workflow update');
+    const workflowSha = git('rev-parse', 'HEAD');
+    const ios = deployments[2];
+    ios.run.head_sha = workflowSha;
+    ios.jobs[0].steps.push({name: 'Resolve and pin trusted app source', conclusion: 'success'});
+    ios.artifacts.push({name: `mobile-source-${ios.run.id}-${ios.run.run_attempt}`});
+    writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
+    const result = await publish(env, fakeFetch, async () => ({schemaVersion: 1, kind: 'mobile-source',
+      sourceSha: deployedSha, workflowSha, releaseMode: 'release', platform: 'ios',
+      firebaseProject: 'cloud-board-stationd', package: 'com.sunmkim.cloudboard', productionBindingVerified: true,
+      version: note.version, build: '542', artifactSha256: 'c'.repeat(64), runId: String(ios.run.id), runAttempt: String(ios.run.run_attempt)}));
+    assert.equal(result.operation, 'prepared');
+    assert.equal(result.news.builds.ios, '542');
+    assert(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8').includes(deployedSha));
+  });
+});
+
 test('historical missing news and unconfirmed deployments skip publication and remove stale payloads', async () => {
   for (const reason of ['no-news', 'failed-upload', 'missing-artifact']) {
     await withDeployment({withNews: reason !== 'no-news'}, async ({env, deployments, fakeFetch}) => {

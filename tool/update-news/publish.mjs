@@ -2,6 +2,8 @@ import {execFileSync} from 'node:child_process';
 import {readFileSync, appendFileSync, writeFileSync, rmSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {validateNews, newsForDeployment} from './news.mjs';
+import {readReleaseArtifact} from '../firebase/github-artifact.mjs';
+import {mobileRunReceipt} from '../release/source.mjs';
 
 export const pipelines = [
   { key: 'web', label: '웹', path: '.github/workflows/firebase-hosting-merge.yml',
@@ -85,7 +87,8 @@ export function sourceRunId(event, eventName, ref, repository) {
 }
 
 // Prepare only the app feed payload. This process never writes to Linear or Firebase.
-export async function publish(env = process.env, fetchImpl = fetch) {
+export async function publish(env = process.env, fetchImpl = fetch, readArtifact = artifact =>
+  readReleaseArtifact(artifact, env.GITHUB_REPOSITORY, env.GITHUB_TOKEN)) {
   const dryRun = env.UPDATE_NEWS_DRY_RUN === 'true';
   for (const key of ['GITHUB_EVENT_PATH', 'GITHUB_REPOSITORY', 'GITHUB_TOKEN', ...(!dryRun ? ['UPDATE_NEWS_OUTPUT_PATH'] : [])]) {
     if (!env[key]) throw new Error(`Missing ${key}.`);
@@ -110,7 +113,30 @@ export async function publish(env = process.env, fetchImpl = fetch) {
   };
   const trigger = await gh(`/actions/runs/${runId}`);
   if (!trustedRun(trigger, repository)) throw new Error('Deployment source is no longer a trusted main run.');
-  const sha = trigger.head_sha;
+  const triggerJobs = await list(`/actions/runs/${trigger.id}/attempts/${trigger.run_attempt}/jobs`, 'jobs');
+  const skipTrigger = (reason, message) => {
+    const summary = `Skipped: ${message}\n`;
+    console.log(summary);
+    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, summary);
+    return {operation: 'skipped', reason};
+  };
+  const qaBuild = jobs => jobs.some(job => job.steps?.some(step =>
+    step.name === 'QA build does not publish app update news' && step.conclusion === 'success'));
+  if (qaBuild(triggerJobs)) {
+    return skipTrigger('qa-build', 'internal QA builds never publish public app update news.');
+  }
+  const triggerPipeline = pipelines.find(p => p.path === trigger.path);
+  const uploaded = (pipeline, jobs) => jobs.some(job => job.steps?.some(step =>
+    (step.name === pipeline.step || Object.hasOwn(pipeline.previousSteps ?? {}, step.name)) && step.conclusion === 'success'));
+  if (!uploaded(triggerPipeline, triggerJobs)) {
+    return skipTrigger('no-deployed-builds', 'the triggering run did not publish an app build.');
+  }
+  const triggerArtifacts = await list(`/actions/runs/${trigger.id}/artifacts`, 'artifacts');
+  const triggerReceipt = triggerPipeline.key === 'web' ? null : await mobileRunReceipt({run: trigger,
+    jobs: triggerJobs, artifacts: triggerArtifacts, readArtifact,
+    platform: triggerPipeline.key === 'ios' ? 'ios' : 'android-tv'});
+  if (triggerReceipt?.releaseMode === 'qa') return skipTrigger('qa-build', 'internal QA builds do not publish app update news.');
+  const sha = triggerReceipt?.sourceSha ?? trigger.head_sha;
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid commit SHA.');
   const newsPath = 'release-notes/current.json';
   const summary = [`## App update news`, '', `Deployment: ${sha}`];
@@ -137,14 +163,20 @@ export async function publish(env = process.env, fetchImpl = fetch) {
   }
   if (news.version !== version) throw new Error('Update news version must match the deployed app version');
   const allRuns = await list(`/actions/runs?head_sha=${sha}&branch=main`, 'workflow_runs');
-  const runs = latestRuns([...allRuns.filter(run => run.id !== trigger.id), trigger], sha, repository);
+  const runs = latestRuns([...allRuns.filter(run => run.id !== trigger.id), {...trigger, head_sha: sha}], sha, repository);
   const results = [];
   for (let i = 0; i < pipelines.length; i++) {
     const run = runs[i];
-    const [jobs, artifacts] = run ? await Promise.all([
+    let [jobs, artifacts] = run?.id === trigger.id ? [triggerJobs, triggerArtifacts] : run ? await Promise.all([
       list(`/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs`, 'jobs'),
       list(`/actions/runs/${run.id}/artifacts`, 'artifacts'),
     ]) : [[], []];
+    if (qaBuild(jobs)) jobs = [];
+    else if (run && pipelines[i].key !== 'web' && uploaded(pipelines[i], jobs)) {
+      const receipt = run.id === trigger.id ? triggerReceipt : await mobileRunReceipt({run, jobs, artifacts, readArtifact,
+        platform: pipelines[i].key === 'ios' ? 'ios' : 'android-tv'});
+      if (receipt && (receipt.releaseMode === 'qa' || receipt.sourceSha !== sha)) jobs = [];
+    }
     results.push({pipeline: pipelines[i], run, jobs, artifacts});
   }
   const payload = newsForDeployment(news, results);
