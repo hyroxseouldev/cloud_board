@@ -118,6 +118,59 @@ void main() {
     unawaited(db.connection.close());
   });
 
+  test('unpair reads the exact device when native get returns an active parent cache', () async {
+    db.childGetReturnsParent = true;
+    final source = DevicePairingRealtimeDataSource(db, _Auth(), 'owner');
+    // Firebase iOS #12168 returns the observed parent collection for a child
+    // get(). A value subscription must retain the requested child path.
+    final wrongSnapshot = await db.ref('users/owner/devices/tv').get();
+    expectSync((wrongSnapshot.value! as Map)['pairingCode'], isNull);
+    expectSync((wrongSnapshot.value! as Map)['tv'], isA<Map>());
+    db.deviceGetReads = 0;
+    final requests = <Map>[];
+    invoke = (arguments) async {
+      expectSync(arguments['functionName'], 'unpairDisplayConnection');
+      expectSync(arguments['region'], 'asia-northeast3');
+      expectSync(arguments['timeout'], 15000);
+      final parameters = arguments['parameters'] as Map;
+      requests.add(parameters);
+      expectSync(parameters['deviceId'], 'tv');
+      expectSync(parameters['expectedPairingCode'], '123456');
+      expectSync(parameters['operationId'], isNotEmpty);
+      // The expected generation remains the one read before the callable,
+      // even if the record is concurrently paired again before completion.
+      db.device['pairingCode'] = '654321';
+      return {'unpaired': true, 'deviceId': 'tv'};
+    };
+
+    await source.unpair('tv');
+
+    expectSync(requests, hasLength(1));
+    expectSync(requests.single['expectedPairingCode'], '123456');
+    expectSync(db.deviceGetReads, 0);
+    expectSync(db.deviceValueReads, 1);
+    expectSync(db.device['pairingCode'], '654321');
+    expectSync(db.transactions, isEmpty);
+    source.dispose();
+  });
+
+  test('unpair of an already removed device remains a no-op', () async {
+    db.write('users/owner/devices/tv', null);
+    final source = DevicePairingRealtimeDataSource(db, _Auth(), 'owner');
+    var callableCount = 0;
+    invoke = (arguments) async {
+      callableCount++;
+      return null;
+    };
+
+    await source.unpair('tv');
+
+    expectSync(db.deviceValueReads, 1);
+    expectSync(callableCount, 0);
+    expectSync(db.transactions, isEmpty);
+    source.dispose();
+  });
+
   testWidgets(
     'existing anonymous pairing awaits disconnect registration then server repair before presence',
     (tester) async {
@@ -757,6 +810,8 @@ class _Database extends Fake implements FirebaseDatabase {
   Completer<void>? disconnectBarrier, publishBarrier, accessReadBarrier;
   Completer<void>? operationDisconnectBarrier;
   int accessReads = 0, accessWrites = 0;
+  int deviceGetReads = 0, deviceValueReads = 0;
+  bool childGetReturnsParent = false;
   bool failPublishOnce = false, removeBeforePublish = false;
   bool failOfflineEvent = false;
   int serial = 0;
@@ -815,8 +870,19 @@ class _Reference extends Fake implements DatabaseReference {
       db.accessReads++;
       await db.accessReadBarrier?.future;
     }
+    if (path == 'users/owner/devices/tv') {
+      db.deviceGetReads++;
+      if (db.childGetReturnsParent) {
+        return _Snapshot(db.read('users/owner/devices'));
+      }
+    }
     return _Snapshot(db.read(path));
   }
+
+  @override
+  Future<DatabaseEvent> once([
+    DatabaseEventType eventType = DatabaseEventType.value,
+  ]) => onValue.first;
 
   @override
   Future<void> set(Object? value) async {
@@ -843,6 +909,12 @@ class _Reference extends Fake implements DatabaseReference {
 
   @override
   Stream<DatabaseEvent> get onValue => Stream.multi((sink) {
+    if (path == 'users/owner/devices/tv') {
+      db.deviceValueReads++;
+      sink.add(_Event(db.read(path)));
+      sink.close();
+      return;
+    }
     expectSync(path, '.info/connected');
     sink.add(_Event(true));
     final sub = db.connection.stream.listen((value) => sink.add(_Event(value)));

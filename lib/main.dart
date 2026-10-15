@@ -36,7 +36,7 @@ void runCloudBoard({
             () => TvPlaybackVisible(initiallyVisible: !isTv),
           ),
         ],
-        child: TvPlaybackLifecycle(isTv: isTv, child: const XonBoardApp()),
+        child: const XonBoardApp(),
       ),
     ),
   );

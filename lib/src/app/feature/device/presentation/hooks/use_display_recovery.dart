@@ -17,8 +17,7 @@ void useDisplayRecovery(
   required bool connected,
 }) {
   final lifecycle = useAppLifecycleState();
-  final foreground =
-      lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  final foreground = displayRecoveryAllowedInLifecycle(lifecycle);
   final owner = ref.watch(accountOwnerIdProvider);
   final enabled =
       paired &&
@@ -33,7 +32,10 @@ void useDisplayRecovery(
   // quick background/resume still cancels retry timers and refreshes a denied
   // stream, even when useAppLifecycleState rebuilds only once after resume.
   useOnAppLifecycleStateChange((previous, current) {
-    if (previous == current || !enabled || !context.mounted) {
+    if (displayRecoveryAllowedInLifecycle(previous) ==
+            displayRecoveryAllowedInLifecycle(current) ||
+        !enabled ||
+        !context.mounted) {
       return;
     }
     final currentOwner = ref.read(accountOwnerIdProvider);

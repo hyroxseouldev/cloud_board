@@ -11,7 +11,7 @@ by these operator commands.
 node functions/scripts/development-onboarding.mjs deploy-targets --project cloud-board-development
 ```
 
-The 15 endpoints support workout summaries, settings compatibility, libraries,
+The approved endpoints support workout summaries, settings compatibility, libraries,
 account deletion, onboarding/trials, diagnostics and playback snapshot cleanup.
 AI generation, real SMS and Apple/Google Play billing endpoints are not deployed
 to this project. No production provider credentials are copied. Store purchases
@@ -20,6 +20,15 @@ Development sign-in targets the development Firebase Auth project. The Apple
 sign-in provider is not configured there, and native Google and Apple sign-in
 flows have not been verified. Firebase SDK configuration alone does not prove
 that native provider login works.
+
+The output switch also requires the existing `cloudboardSetDisplayState` callable
+in `asia-southeast1`, codebase `cloudboard-auth`. The guarded backend command
+compiles `functions-legacy` and prepares `build/development-display-functions`.
+Its generated entrypoint extracts that existing handler unchanged and exports
+only that callable, using the development runtime identity. It has no provider
+parameters or secrets and rejects any project other than `cloud-board-development`.
+The pinned production legacy entrypoint remains unchanged; Better Auth, SQL,
+SMS and billing endpoints are excluded from the development deploy target list.
 
 The development web's canonical URL is
 `https://cloud-board-development.firebaseapp.com/`. Its `web.app` alias redirects
@@ -114,7 +123,8 @@ and active verification challenges in this project's test data.
 1. Sign in to the development app normally, then obtain that development Auth UID
    from its Firebase console. The commands never create an account.
 2. Using Admin credentials authorized for the development project, grant the
-   explicit test account and sign out/in to refresh its ID token:
+   explicit test account. The app refreshes its ID token before requesting or
+   verifying a development code; older builds need a sign out/in:
 
    ```sh
    node functions/scripts/development-onboarding.mjs grant-tester --project cloud-board-development --uid TEST_UID
@@ -146,5 +156,22 @@ node functions/scripts/development-onboarding.mjs revoke-tester --project cloud-
 
 Production onboarding retains its existing SMS delivery and secret bindings;
 simulation rejects every project except the exact development project.
+
+## Storage cross-service rules permission
+
+`storage.rules` reads the account deletion lock from Firestore. The development
+Storage service agent therefore needs `roles/firebaserules.firestoreServiceAgent`
+on `cloud-board-development`, in addition to its Storage service-agent role.
+Without it, owner image reads/uploads fail with `firebase_storage/unauthorized`
+even when the deployed rules and signed-in UID are correct.
+
+```sh
+gcloud projects add-iam-policy-binding cloud-board-development \
+  --member=serviceAccount:service-1339501332@gcp-sa-firebasestorage.iam.gserviceaccount.com \
+  --role=roles/firebaserules.firestoreServiceAgent
+```
+
+Check this grant when provisioning the development project; the local Storage
+rules emulator does not exercise project IAM permissions.
 
 The development onboarding secret must be printable UTF-8 text (for example a base64url-encoded random value). Secret Manager API `payload.data` is transport base64 and is decoded by the API; encoding raw random bytes only once stores binary data that Cloud Run cannot inject as an environment variable. Never reuse production provider credentials.

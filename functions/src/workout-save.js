@@ -4,10 +4,9 @@ import {HttpsError} from 'firebase-functions/v2/https';
 import {assertPlanCapacity} from './plan-policy.js';
 import {planUsageRef, readPlanUsage, writePlanUsage} from './plan-usage.js';
 import {summarizeWorkout} from './workout-catalog.js';
-import {legacySettingKeys} from './workout-settings-migration.js';
+import {legacySettingKeys, legacyWorkoutSettings} from './workout-settings-migration.js';
 
 const validId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
-const conflict = () => new HttpsError('aborted', '다른 기기에서 변경한 수업입니다. 편집 내용을 유지한 채 다시 확인해 주세요.', {reason: 'workout-revision-conflict'});
 const millis = value => typeof value?.toMillis === 'function' ? value.toMillis() : value;
 const wireValue = value => value instanceof Timestamp ? {__timestampMillis:value.toMillis()} :
   Array.isArray(value) ? value.map(wireValue) : value && typeof value === 'object' ?
@@ -20,9 +19,11 @@ export function workoutWire(value) {
   return {...wireValue(value), createdAt: millis(value.createdAt), updatedAt: millis(value.updatedAt)};
 }
 
-// The client prepares WorkoutSaveDocuments from its server snapshot so its
-// versioned DTO preserves unknown fields. Compare that exact snapshot revision
-// again here before committing; a stale prepared document can never win.
+// Saves by the owner use last-write-wins content. Revision fields remain valid
+// inputs for installed clients, but do not prevent a deliberate save or restore.
+// The client's versioned DTO owns content and unknown-field preservation. Read
+// the latest document in the transaction only to retain its creation time and
+// settings compatibility values, without resurrecting deliberately removed data.
 export async function saveWorkout(db, uid, input) {
   if (!uid) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   if (input?.ownerId !== uid) throw new HttpsError('permission-denied', '로그인 계정이 변경되었습니다.');
@@ -38,7 +39,6 @@ export async function saveWorkout(db, uid, input) {
       Buffer.byteLength(JSON.stringify(source)) > 900000) {
     throw new HttpsError('invalid-argument', '수업 데이터 형식을 확인해 주세요.');
   }
-  const value = {...documentValue(source), createdAt: Timestamp.fromMillis(source.createdAt), updatedAt: Timestamp.fromMillis(source.updatedAt)};
   return db.runTransaction(async tx => {
     const ref = db.doc(`users/${uid}/workouts/${source.id}`);
     const [lock, entitlement, previous, settings] = await tx.getAll(
@@ -46,24 +46,33 @@ export async function saveWorkout(db, uid, input) {
       ref, db.doc(`users/${uid}/settings/workout`), planUsageRef(db, uid));
     if (lock.exists) throw new HttpsError('permission-denied', '탈퇴 처리 중인 계정입니다.');
     const current = previous.data();
-    if ((ifAbsent && previous.exists) || (current && isDeepStrictEqual(workoutWire(current), source))) {
+    if (ifAbsent && previous.exists) {
       return {workout: workoutWire(current), created: false};
     }
-    if ((requireExisting && !previous.exists) ||
-        (expectedUpdatedAt !== null && millis(current?.updatedAt) !== expectedUpdatedAt) ||
-        (previous.exists && expectedUpdatedAt === null) ||
-        (previous.exists && millis(current.createdAt) !== source.createdAt)) throw conflict();
-    if ((settings.data()?.contentOnly === true) !== settingsContentOnly) throw conflict();
-    if (settingsContentOnly) {
-      if (value.schemaVersion !== 2 || legacySettingKeys.some(key => Object.hasOwn(value, key))) {
-        throw new HttpsError('invalid-argument', '수업 설정 버전을 확인해 주세요.');
-      }
+    const value = {...documentValue(source),
+      createdAt: current?.createdAt ?? Timestamp.fromMillis(source.createdAt),
+      updatedAt: Timestamp.fromMillis(source.updatedAt)};
+    const canonical = settings.data();
+    if (canonical?.contentOnly === true) {
+      value.schemaVersion = 2;
+      for (const key of legacySettingKeys) delete value[key];
     } else {
       delete value.schemaVersion;
-      if (current) for (const key of legacySettingKeys) {
-        if (Object.hasOwn(current, key)) value[key] = current[key];
+      let legacy = current?.schemaVersion !== 2 ? current : null;
+      if (!legacy && (source.schemaVersion === 2 || settingsContentOnly || current?.schemaVersion === 2)) {
+        if (!canonical?.preferences) {
+          throw new HttpsError('failed-precondition', '수업 설정을 확인할 수 없습니다. 잠시 후 다시 저장해 주세요.');
+        }
+        try { legacy = legacyWorkoutSettings(canonical.preferences); }
+        catch { throw new HttpsError('failed-precondition', '수업 설정을 확인할 수 없습니다. 잠시 후 다시 저장해 주세요.'); }
+      }
+      if (legacy) for (const key of legacySettingKeys) {
+        if (Object.hasOwn(legacy, key)) value[key] = legacy[key];
         else delete value[key];
       }
+    }
+    if (current && isDeepStrictEqual(current, value)) {
+      return {workout: workoutWire(current), created: false};
     }
     const counts = await readPlanUsage(tx, db, uid);
     if (!previous.exists) assertPlanCapacity(entitlement.data(), 'workouts', counts.workoutCount);

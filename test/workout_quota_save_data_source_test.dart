@@ -1,7 +1,6 @@
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_firestore_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,7 +113,11 @@ void main() {
         firestore.values['users/owner/settings/workout'] = {
           'contentOnly': contentOnly,
         };
-        final saved = await source.save('owner', draft);
+        final saved = await source.save(
+          'owner',
+          draft,
+          expectedUpdatedAt: draft.updatedAt,
+        );
         final call = functions.calls.single;
         expect(call['ownerId'], 'owner');
         expect(call['settingsContentOnly'], contentOnly);
@@ -159,6 +162,60 @@ void main() {
     expect(firestore.values['users/owner/workouts/lesson'], previous);
   });
   test(
+    'a stale editor overwrites the same ID with its complete edited content',
+    () async {
+      final edited = WorkoutModel.fromEntity(
+        draft.toEntity().copyWith(
+          name: 'Latest explicit save',
+          folder: 'Edited folder',
+          modules: [
+            WorkoutModule.empty('edited-slide').copyWith(
+              name: 'Edited slide',
+              text: 'Preserve every edit',
+              workSeconds: 90,
+            ),
+          ],
+        ),
+      );
+      firestore.values['users/owner/workouts/lesson'] = {
+        ...draft.toJson(),
+        'name': 'Another device saved',
+        'updatedAt': Timestamp.fromMillisecondsSinceEpoch(3000),
+        'futureMetadata': {'retained': true},
+      };
+
+      final saved = await source.save(
+        'owner',
+        edited,
+        expectedUpdatedAt: DateTime.fromMillisecondsSinceEpoch(1500),
+        requireExisting: true,
+      );
+
+      final call = functions.calls.single;
+      expect(call['expectedUpdatedAt'], 3000);
+      expect((call['workout'] as Map)['futureMetadata'], {'retained': true});
+      expect(saved.toEntity(), edited.toEntity());
+      expect(saved.id, 'lesson');
+      expect(saved.name, 'Latest explicit save');
+    },
+  );
+  test(
+    'a deleted workout reaches the server for recreation with the same ID',
+    () async {
+      final saved = await source.save(
+        'owner',
+        draft,
+        expectedUpdatedAt: DateTime.fromMillisecondsSinceEpoch(1500),
+        requireExisting: true,
+      );
+
+      final call = functions.calls.single;
+      expect(call['expectedUpdatedAt'], isNull);
+      expect(saved.toEntity(), draft.toEntity());
+      expect(saved.id, 'lesson');
+    },
+  );
+  test(
     'quota rejection preserves the unsaved draft and structured limit error',
     () async {
       functions.error = FirebaseFunctionsException(
@@ -180,14 +237,14 @@ void main() {
       expect(firestore.values, isEmpty);
     },
   );
-  test('server race maps to existing revision conflict while returning only server-confirmed data', () async {
+  test('transient server failure stays retryable without inventing an editor conflict', () async {
     functions.error = FirebaseFunctionsException(
       code: 'aborted',
-      message: 'Conflict',
+      message: 'Transaction retry exhausted',
     );
     await expectLater(
       source.save('owner', draft),
-      throwsA(isA<WorkoutWriteConflict>()),
+      throwsA(same(functions.error)),
     );
     functions.error = null;
     functions.response = {

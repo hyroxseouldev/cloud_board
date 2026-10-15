@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
-import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
-import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
+import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
 import 'package:cloud_board/src/app/feature/device/data/datasources/web_display_auth.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/device_mode_home_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/web_display_session.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -32,14 +35,132 @@ class _Auth implements FirebaseAuth {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-const _owner = AuthUser(
-  id: 'owner-a',
-  email: '',
-  displayName: '',
-  photoUrl: null,
-);
+final _owner = _User('owner-a');
+
+class _DisplayMode extends DeviceModeController {
+  @override
+  Future<DeviceMode> build() async => DeviceMode.display;
+}
 
 void main() {
+  testWidgets(
+    'native account Display mode waits for isolated credentials',
+    (tester) async {
+      final controllerAuth = _Auth('owner-a');
+      final identity = Completer<FirebaseAuth>();
+      var attempts = 0;
+      final container = ProviderContainer(
+        overrides: [
+          deviceModeControllerProvider.overrideWith(_DisplayMode.new),
+          androidTvProvider.overrideWith((_) => false),
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('owner-a')),
+          firebaseClientAuthProvider.overrideWith((_) => controllerAuth),
+          webDisplayAuthProvider('owner-a').overrideWith((_) {
+            attempts++;
+            return identity.future;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: DeviceModeHomeScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(WebDisplaySession), findsOneWidget);
+      expect(attempts, 1);
+      expect(container.read(firebaseClientAuthProvider), same(controllerAuth));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets('anonymous TV preserves its existing identity and device ID', (
+    tester,
+  ) async {
+    final tvAuth = _Auth('native-tv', anonymous: true);
+    var isolatedSessions = 0;
+    final container = ProviderContainer(
+      overrides: [
+        androidTvProvider.overrideWith((_) => true),
+        firebaseClientAuthProvider.overrideWith((_) => tvAuth),
+        deviceIdProvider.overrideWith((_) async => 'existing-tv-device'),
+        webDisplayAuthProvider('native-tv').overrideWith((_) async {
+          isolatedSessions++;
+          throw StateError('A native TV must retain its own identity.');
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: WebDisplaySession(
+            onReturnToControl: () {},
+            child: Consumer(
+              builder: (_, ref, _) => Text(
+                '${ref.watch(firebaseClientAuthProvider).currentUser!.uid}/'
+                '${ref.watch(deviceIdProvider).value}',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('native-tv/existing-tv-device'), findsOneWidget);
+    expect(isolatedSessions, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'signed-in TV starts its isolated display behind the recovery gate',
+    (tester) async {
+      final controllerAuth = _Auth('owner-a');
+      final displayAuth = _Auth('display-tv', anonymous: true);
+      final container = ProviderContainer(
+        overrides: [
+          androidTvProvider.overrideWith((_) => true),
+          firebaseClientAuthProvider.overrideWith((_) => controllerAuth),
+          // The controller's visibility must not leak into the isolated display.
+          tvPlaybackVisibleProvider.overrideWith(() => TvPlaybackVisible()),
+          webDisplayAuthProvider('owner-a')
+              .overrideWith((_) async => displayAuth),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: WebDisplaySession(
+              onReturnToControl: () {},
+              child: Consumer(
+                builder: (_, ref, _) => Text(
+                  '${ref.watch(firebaseClientAuthProvider).currentUser!.uid}/'
+                  '${ref.watch(androidTvProvider).requireValue}/'
+                  '${ref.watch(tvPlaybackVisibleProvider)}',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('display-tv/true/false'), findsOneWidget);
+      expect(container.read(firebaseClientAuthProvider), same(controllerAuth));
+      expect(container.read(tvPlaybackVisibleProvider), isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'display has an isolated identity and returning preserves Google auth',
     (tester) async {
@@ -56,8 +177,9 @@ void main() {
       final parent = ProviderContainer(
         overrides: [
           firebaseClientAuthProvider.overrideWith((_) => controllerAuth),
+          androidTvProvider.overrideWith((_) => false),
           deviceIdProvider.overrideWith((_) async => 'controller-device'),
-          authStateProvider.overrideWith((_) => Stream.value(_owner)),
+          firebaseAccountUserProvider.overrideWith((_) => Stream.value(_owner)),
           webDisplayAuthProvider('owner-a')
               .overrideWith((_) async => displayAuth),
         ],
@@ -108,7 +230,7 @@ void main() {
   testWidgets(
     'an account change removes the previous display while the new identity loads',
     (tester) async {
-      final users = StreamController<AuthUser?>();
+      final users = StreamController<User?>();
       final second = Completer<FirebaseAuth>();
       var disposed = 0;
       final marker = Provider((ref) {
@@ -117,7 +239,8 @@ void main() {
       });
       final parent = ProviderContainer(
         overrides: [
-          authStateProvider.overrideWith((_) => users.stream),
+          firebaseAccountUserProvider.overrideWith((_) => users.stream),
+          androidTvProvider.overrideWith((_) => false),
           webDisplayAuthProvider('owner-a')
               .overrideWith((_) async => _Auth('display-a', anonymous: true)),
           webDisplayAuthProvider('owner-b').overrideWith((_) => second.future),
@@ -141,7 +264,7 @@ void main() {
       users.add(_owner);
       await tester.pumpAndSettle();
       expect(find.text('display-a'), findsOneWidget);
-      users.add(_owner.copyWith(id: 'owner-b'));
+      users.add(_User('owner-b'));
       await tester.pump();
       await tester.pump();
       expect(find.text('display-a'), findsNothing);
@@ -159,7 +282,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authStateProvider.overrideWith((_) => Stream.value(_owner)),
+            androidTvProvider.overrideWith((_) => false),
+            firebaseAccountUserProvider.overrideWith(
+              (_) => Stream.value(_owner),
+            ),
             webDisplayAuthProvider('owner-a').overrideWith((_) async {
               attempts++;
               throw FirebaseAuthException(code: 'network-request-failed');

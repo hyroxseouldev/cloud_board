@@ -4,7 +4,6 @@ import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_st
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,7 +16,7 @@ void main() {
   for (final cacheInitialized in [false, true]) {
     for (final isCopy in [false, true]) {
       test(
-        '${isCopy ? 'copied' : 'new'} workout cached reopen protects a deleted '
+        '${isCopy ? 'copied' : 'new'} workout cached reopen restores a deleted '
         'server record (cache initialized: $cacheInitialized)',
         () async {
           final source = _Source();
@@ -35,12 +34,13 @@ void main() {
           expect(source.reads, reads, reason: 'saved details are cached');
 
           source.records.remove(('owner', saved.id));
-          await expectLater(
-            repo.save(reopened!.copyWith(name: 'Unsaved edit')),
-            throwsA(isA<WorkoutWriteConflict>()),
+          final restored = await repo.save(
+            reopened!.copyWith(name: 'Latest edit'),
           );
           expect(source.requiredExisting.last, isTrue);
-          expect(source.records, isEmpty);
+          expect(restored.id, saved.id);
+          expect(restored.name, 'Latest edit');
+          expect(source.records[('owner', saved.id)]!.toEntity(), restored);
         },
       );
     }
@@ -139,11 +139,6 @@ class _Source extends WorkoutFirestoreDataSource {
     final key = (userId, workout.id);
     final previous = records[key];
     if (ifAbsent && previous != null) return previous;
-    ensureWorkoutRevision(
-      expected: expectedUpdatedAt,
-      current: previous?.updatedAt,
-      requireExisting: requireExisting,
-    );
     records[key] = workout;
     return workout;
   }

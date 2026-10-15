@@ -707,13 +707,11 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
   Future<void> _recover(int epoch, {required bool restartTransport}) async {
     final elapsed = Stopwatch()..start();
     state = const AsyncLoading();
-    final actionsSubscription = ref.listen(playbackActionsProvider, (
-      old,
-      next,
-    ) {
-      if (!identical(old, next)) suspend();
-    });
+    void Function()? closeActions;
     try {
+      closeActions = ref.listen(playbackActionsProvider, (old, next) {
+        if (!identical(old, next)) suspend();
+      }).close;
       final actions = ref.read(playbackActionsProvider);
       await actions.recover(restartTransport: restartTransport);
       if (!ref.mounted || epoch != _epoch) return;
@@ -783,7 +781,7 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
         }
       }
     } finally {
-      actionsSubscription.close();
+      closeActions?.call();
     }
   }
 }

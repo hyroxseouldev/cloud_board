@@ -256,7 +256,11 @@ class DevicePairingRealtimeDataSource {
 
   Future<void> unpair(String deviceId) async {
     await _connected();
-    final current = (await _ownerRef.child('devices/$deviceId').get()).value;
+    // Native iOS getData may return an active ancestor listener's cached value
+    // (firebase-ios-sdk#12168). A one-shot value event stays at this exact path.
+    // The callable still fences the mutation with this pairing generation.
+    final current =
+        (await _ownerRef.child('devices/$deviceId').once()).snapshot.value;
     if (current == null) return;
     if (current is! Map || current['pairingCode'] is! String) {
       throw StateError('연결 정보를 확인하지 못했습니다. 목록을 새로 확인해 주세요.');
@@ -590,7 +594,8 @@ class DevicePairingRealtimeDataSource {
   Future<DevicePairing> _issueLegacy({required String deviceId}) async {
     final userRef = _ownerRef;
     final deviceRef = userRef.child('devices/$deviceId');
-    final previousDevice = await deviceRef.get();
+    // Keep the read scoped to one device even while its parent list is watched.
+    final previousDevice = (await deviceRef.once()).snapshot;
     final previousData = previousDevice.value is Map
         ? Map<String, dynamic>.from(previousDevice.value! as Map)
         : const <String, dynamic>{};
