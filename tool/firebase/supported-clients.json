@@ -438,6 +438,74 @@
           "workflowRunId": "38696235893"
         }
       ]
+    },
+    {
+      "client": "1.3.2-release-83751b1c80c2",
+      "sourceCommit": "83751b1c80c26312e19f2866fbeeb700bb905e73",
+      "platforms": [
+        "ios",
+        "android",
+        "tv",
+        "web"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.3.2-release-83751b1c80c2.json",
+      "sha256": "551d551fde6d9bbc2170489faf652296b015ebcacfb7ccd2778c25c225c68268",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/1.3.2-release-83751b1c80c2.json",
+        "sha256": "fac2da8b915d23b0d5bfa56c8be4d5ab794cedd126a91285566a91f93397fea6"
+      },
+      "releases": [
+        {
+          "platform": "ios",
+          "version": "1.3.2",
+          "build": "560",
+          "channel": "testflight",
+          "workflowRunId": "38773911174",
+          "artifactSha256": "98b534502e77a09047b27760a69258b6240fd2a7a15b9f96f8549407b583174a",
+          "sourceReceiptArtifact": {
+            "id": "11992784245",
+            "name": "mobile-source-38773911174-1",
+            "sha256": "5e445e0df8db6322f1115c884ad33fda8ae9022eeea3917b0394d937dfeccadc"
+          }
+        },
+        {
+          "platform": "android",
+          "version": "1.3.2",
+          "build": "75",
+          "channel": "internal",
+          "workflowRunId": "38773907885",
+          "artifactSha256": "4aaebf4ac396e32453ee775e07aa2cb467dc26872ff8dcdb8b547b0c03567604",
+          "sourceReceiptArtifact": {
+            "id": "11993152494",
+            "name": "mobile-source-38773907885-1",
+            "sha256": "25ab2f58ec1a51703fe6c69d799bc6ba96c2e97b730da4e97ffea4a9ad8eed5d"
+          }
+        },
+        {
+          "platform": "tv",
+          "version": "1.3.2",
+          "build": "75",
+          "channel": "internal",
+          "workflowRunId": "38773907885",
+          "artifactSha256": "4aaebf4ac396e32453ee775e07aa2cb467dc26872ff8dcdb8b547b0c03567604",
+          "sourceReceiptArtifact": {
+            "id": "11993152494",
+            "name": "mobile-source-38773907885-1",
+            "sha256": "25ab2f58ec1a51703fe6c69d799bc6ba96c2e97b730da4e97ffea4a9ad8eed5d"
+          }
+        },
+        {
+          "platform": "web",
+          "version": "1.3.2",
+          "build": "246.1",
+          "channel": "production",
+          "workflowRunId": "38772657148"
+        }
+      ]
     }
   ]
 }
