@@ -70,6 +70,14 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         final h = await _Harness.create();
+        final defaults = WorkoutPreferences.fromWorkout(_workout);
+        h.preferences.value = defaults.copyWith(
+          countdown: defaults.countdown.copyWith(
+            appearance: defaults.countdown.appearance.copyWith(
+              numberScale: 0.5,
+            ),
+          ),
+        );
         addTearDown(h.dispose);
         Uri? destination;
         final router = GoRouter(
@@ -120,6 +128,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(h.repository.starts, 1);
         expect(h.repository.session?.status, PlaybackStatus.playing);
+        expect(
+          h.repository.session?.workout.countdownAppearance.numberScale,
+          0.5,
+        );
         expect(
           h.repository.session?.targetDeviceIds,
           unorderedEquals(_targets),
@@ -449,6 +461,7 @@ class _User extends Fake implements User {
 }
 
 class _Preferences extends Fake implements WorkoutPreferencesRepository {
+  WorkoutPreferences? value;
   Completer<void>? gate;
   bool fail = false;
   int reads = 0;
@@ -460,7 +473,7 @@ class _Preferences extends Fake implements WorkoutPreferencesRepository {
     reads++;
     await gate?.future;
     if (fail) throw StateError('설정 조회 실패');
-    return null;
+    return value;
   }
 }
 

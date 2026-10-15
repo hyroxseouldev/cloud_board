@@ -1,3 +1,11 @@
+import 'dart:async';
+
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_preferences_repository.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
+import 'package:cloud_board/src/app/feature/device/domain/usecases/display_preparation_actions.dart';
+import 'package:cloud_board/src/app/feature/device/domain/repositories/device_pairing_repository.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/feature/device/domain/repositories/display_preparation_repository.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/display_preparation_repository_impl.dart';
@@ -18,6 +26,185 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  for (final modern in [false, true]) {
+    testWidgets(
+      'account countdown preferences prepare and verify without a manual TV check (modern=$modern)',
+      (tester) async {
+        final raw =
+            Workout.empty(
+              'w',
+              const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+            ).copyWith(
+              name: '수업',
+              modules: [WorkoutModule.empty('m').copyWith(name: '운동')],
+            );
+        final defaults = WorkoutPreferences.fromWorkout(raw);
+        final preferences = _Preferences()
+          ..value = defaults.copyWith(
+            countdown: defaults.countdown.copyWith(
+              appearance: defaults.countdown.appearance.copyWith(
+                numberScale: 0.5,
+              ),
+            ),
+          );
+        final effective = preferences.value!.applyTo(raw);
+        final repository = _PreparationRepository();
+        final device = DisplayDevice(
+          id: 'a',
+          name: '아이패드',
+          zoneId: 'main',
+          zoneName: '',
+          online: true,
+          lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
+          currentSessionId: null,
+          acknowledgedRevision: 0,
+          paired: true,
+          playbackProtocol: 5,
+          preparationProtocol: modern ? 1 : 0,
+        );
+        WorkoutPreflightSelection? selection;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              workoutPreferencesRepositoryProvider.overrideWith(
+                (_) => preferences,
+              ),
+              displayDevicesProvider.overrideWith(
+                (_) => Stream.value([device]),
+              ),
+              serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+              displayPreparationRepositoryProvider.overrideWithValue(
+                repository,
+              ),
+            ],
+            child: MaterialApp(
+              theme: XonTheme.light,
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () async =>
+                        selection = await showWorkoutPreflight(context, raw),
+                    child: const Text('열기'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('열기'));
+        await tester.pumpAndSettle();
+        expect(find.text('구형 TV 화면을 직접 확인했어요'), findsNothing);
+        expect(
+          find.byType(CheckboxListTile),
+          findsOneWidget,
+          reason: 'Only the playback target remains selectable.',
+        );
+        final start = find.widgetWithText(FilledButton, '수업 시작');
+        expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+        await tester.ensureVisible(start);
+        await tester.tap(start);
+        await tester.pumpAndSettle();
+        expect(
+          selection!.preparation!.manifestHash,
+          preparationFingerprint(effective, ['a']),
+        );
+        expect(
+          selection!.preparation!.manifestHash,
+          isNot(preparationFingerprint(raw, ['a'])),
+        );
+        final verify = DisplayPreparationActions(
+          repository,
+          _Devices([device]),
+        );
+        await verify.verifyStart(
+          await WorkoutPreferencesActions(preferences).apply(raw, fresh: true),
+          ['a'],
+          selection!.preparation,
+        );
+        preferences.value = defaults;
+        await expectLater(
+          verify.verifyStart(
+            await WorkoutPreferencesActions(preferences)
+                .apply(raw, fresh: true),
+            ['a'],
+            selection!.preparation,
+          ),
+          throwsStateError,
+        );
+        expect(preferences.freshReads, 3);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'settings failure blocks preparation and retries with readable feedback',
+    (tester) async {
+      final raw = Workout.empty(
+        'w',
+        const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+      ).copyWith(name: '수업', modules: [WorkoutModule.empty('m')]);
+      final preferences = _Preferences()
+        ..error = StateError('PRIVATE_SETTINGS_ERROR');
+      final sink = _PreflightDiagnostics();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            workoutPreferencesRepositoryProvider.overrideWith(
+              (_) => preferences,
+            ),
+            errorReporterProvider.overrideWithValue(ErrorReporter(sink)),
+            displayDevicesProvider.overrideWith((_) => Stream.value([])),
+          ],
+          child: MaterialApp(home: WorkoutPreflightDialog(workout: raw)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('수업 설정을 불러오지 못했어요'), findsOneWidget);
+      expect(find.textContaining('PRIVATE_SETTINGS_ERROR'), findsNothing);
+      expect(find.text('수업 시작'), findsNothing);
+      expect(
+        sink.events.single.context['action'],
+        'workout.preflight.preferences',
+      );
+      preferences.error = null;
+      await tester.tap(find.text('다시 시도'));
+      await tester.pumpAndSettle();
+      expect(find.text('수업 시작'), findsOneWidget);
+      expect(preferences.freshReads, 2);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'closing while preferences load cannot access a disposed provider',
+    (tester) async {
+      final preferences = _Preferences()..pending = Completer<void>();
+      final raw = Workout.empty(
+        'w',
+        const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            workoutPreferencesRepositoryProvider.overrideWith(
+              (_) => preferences,
+            ),
+          ],
+          child: MaterialApp(home: WorkoutPreflightDialog(workout: raw)),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('최신 수업 설정을 확인하고 있어요.'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      preferences.error = StateError('PRIVATE_LATE_SETTINGS_ERROR');
+      preferences.pending!.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('TV request error retains manual exclusion guidance and retry', (
     tester,
   ) async {
@@ -50,6 +237,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          workoutPreferencesRepositoryProvider.overrideWith(
+            (_) => _Preferences(),
+          ),
           displayDevicesProvider.overrideWith((_) => Stream.value([device])),
           serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
           displayPreparationRepositoryProvider.overrideWithValue(repository),
@@ -132,6 +322,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            workoutPreferencesRepositoryProvider.overrideWith(
+              (_) => _Preferences(),
+            ),
             displayDevicesProvider.overrideWith((ref) => Stream.value(devices)),
             serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
             displayPreparationRepositoryProvider.overrideWithValue(repository),
@@ -223,6 +416,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          workoutPreferencesRepositoryProvider.overrideWith(
+            (_) => _Preferences(),
+          ),
           displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
           errorReporterProvider.overrideWithValue(ErrorReporter(sink)),
         ],
@@ -271,6 +467,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          workoutPreferencesRepositoryProvider.overrideWith(
+            (_) => _Preferences(),
+          ),
           displayDevicesProvider.overrideWith((ref) => Stream.value(const [])),
         ],
         child: MaterialApp(
@@ -329,6 +528,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          workoutPreferencesRepositoryProvider.overrideWith(
+            (_) => _Preferences(),
+          ),
           displayDevicesProvider.overrideWith((ref) => Stream.value(devices)),
         ],
         child: MaterialApp(
@@ -338,8 +540,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final checkboxes = tester.widgetList<CheckboxListTile>(
       find.byWidgetPredicate(
@@ -437,4 +638,26 @@ class _PreparationRepository implements DisplayPreparationRepository {
     int attempt = 1,
     String? requestId,
   }) async {}
+}
+
+class _Preferences extends Fake implements WorkoutPreferencesRepository {
+  WorkoutPreferences? value;
+  Object? error;
+  Completer<void>? pending;
+  int freshReads = 0;
+  @override
+  Future<WorkoutPreferences?> load(String ownerId, {bool fresh = false}) async {
+    expect(fresh, isTrue);
+    freshReads++;
+    await pending?.future;
+    if (error != null) throw error!;
+    return value;
+  }
+}
+
+class _Devices extends Fake implements DevicePairingRepository {
+  _Devices(this.devices);
+  final List<DisplayDevice> devices;
+  @override
+  Stream<List<DisplayDevice>> watchDevices() => Stream.value(devices);
 }

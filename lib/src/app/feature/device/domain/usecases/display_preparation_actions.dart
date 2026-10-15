@@ -30,23 +30,25 @@ class DisplayPreparationActions {
     final selected = targets.isEmpty
         ? all
         : all.where((d) => targets.contains(d.id)).toList();
-    if (targets.any((id) => !selected.any((d) => d.id == id))) {
+    if (targets.any((id) => !selected.any((d) => d.id == id)) ||
+        selected.any((device) => !device.paired)) {
       throw StateError('디스플레이 연결이 변경됐어요. 수업 준비를 다시 확인해 주세요.');
     }
     final required = requiredTimingProtocol(workout);
     if (selected.any((d) => d.playbackProtocol < required)) {
       throw StateError('이 수업은 TV 앱 업데이트가 필요해요.');
     }
-    // Legacy compatible direct starts remain available. New clients advertise
-    // preparation explicitly and cannot bypass its media readiness check.
+    if (selected.isEmpty) return;
+    // Older displays use connection/timing compatibility; modern displays still
+    // need the exact candidate and media receipt. No manual checkbox is evidence.
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
-    if (modern.isEmpty && proof == null) return;
-    if (proof == null ||
-        proof.manifestHash != preparationFingerprint(workout, targets)) {
+    if ((modern.isNotEmpty && proof == null) ||
+        (proof != null &&
+            proof.manifestHash != preparationFingerprint(workout, targets))) {
       throw StateError('수업 내용이나 설정이 바뀌었어요. 수업 준비를 다시 확인해 주세요.');
     }
     // Resolve optional modern evidence before reading the server clock, so
-    // both manual legacy confirmations and media receipts use the same final
+    // both legacy connections and media receipts use the same final
     // freshness check immediately before starting.
     final request = modern.isEmpty ? null : await repository.current();
     final receipts = modern.isEmpty
@@ -57,12 +59,13 @@ class DisplayPreparationActions {
         await serverNow?.call() ??
         DateTime.now().millisecondsSinceEpoch;
     for (final old in selected.where((d) => d.preparationProtocol < 1)) {
-      if (!proof.legacyDeviceIds.contains(old.id) || !old.recentlySeen(now)) {
-        throw StateError('구형 TV의 화면을 직접 확인하거나 재생 대상에서 제외해 주세요.');
+      if (!old.recentlySeen(now)) {
+        throw StateError('최근 응답이 없는 TV가 있어요. 연결을 확인하거나 재생 대상에서 제외해 주세요.');
       }
     }
     if (modern.isEmpty) return;
-    if (request == null ||
+    if (proof == null ||
+        request == null ||
         request.sessionId != proof.sessionId ||
         request.revision != proof.revision ||
         request.manifestHash != proof.manifestHash ||

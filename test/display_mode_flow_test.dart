@@ -101,12 +101,6 @@ class _PreparationStreams implements DisplayPreparationRepository {
 }
 
 class _PairActions implements DevicePairingActions {
-  final identificationAcks = <String>[];
-  @override
-  Future<void> acknowledgeIdentification(String deviceId, String nonce) async {
-    identificationAcks.add('$deviceId:$nonce');
-  }
-
   @override
   Future<void> acknowledge({
     required String deviceId,
@@ -449,7 +443,7 @@ void main() {
   );
 
   testWidgets(
-    'TV paints a silent identification card and ACKs only while idle and connected',
+    'legacy identification requests never cover standby or active playback',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 720);
       tester.view.devicePixelRatio = 1;
@@ -500,15 +494,14 @@ void main() {
       sessions.add(null);
       devices.add([identifying('nonce-4321')]);
       await tester.pumpAndSettle();
-      expect(find.text('TV 연결 확인'), findsOneWidget);
-      expect(find.text('4321'), findsOneWidget);
-      expect(actions.identificationAcks, ['tv:nonce-4321']);
+      expect(find.text('TV 연결 확인'), findsNothing);
+      expect(find.byType(StoreWelcomeBoard), findsOneWidget);
+      expect(find.text('4321'), findsNothing);
       sessions.add(running());
       devices.add([identifying('nonce-9999')]);
       await tester.pump();
       await tester.pump();
       expect(find.text('TV 연결 확인'), findsNothing);
-      expect(actions.identificationAcks, ['tv:nonce-4321']);
       sessions.add(null);
       devices.add([identifying('nonce-0000', expired: true)]);
       await tester.pumpAndSettle();
@@ -517,7 +510,6 @@ void main() {
       devices.add([identifying('nonce-1111')]);
       await tester.pumpAndSettle();
       expect(find.text('TV 연결 확인'), findsNothing);
-      expect(actions.identificationAcks, ['tv:nonce-4321']);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await devices.close();

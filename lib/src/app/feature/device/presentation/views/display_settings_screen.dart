@@ -1,6 +1,5 @@
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_recovery_dialog.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
@@ -290,28 +289,6 @@ class DisplaySettingsScreen extends HookConsumerWidget {
                       },
                       onRecover: () =>
                           showDisplayRecovery(context, ref, device),
-                      onVerify: () => showDialog<void>(
-                        context: context,
-                        builder: (dialogContext) => AppAlertDialog(
-                          title: const Text('TV 응답 확인'),
-                          content: SizedBox(
-                            width: 360,
-                            child: SingleChildScrollView(
-                              child: DisplayVerification(
-                                deviceId: device.id,
-                                onDone: () => Navigator.of(dialogContext).pop(),
-                              ),
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(),
-                              child: const Text('닫기'),
-                            ),
-                          ],
-                        ),
-                      ),
                       onPreferences: () => showDialog<void>(
                         context: context,
                         barrierDismissible: false,
@@ -372,7 +349,6 @@ class _DisplayTile extends StatelessWidget {
     required this.onRename,
     required this.onPreferences,
     required this.onToggle,
-    required this.onVerify,
     required this.onRecover,
   });
   final DisplayDevice device;
@@ -382,7 +358,6 @@ class _DisplayTile extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onRename;
   final VoidCallback onPreferences;
-  final VoidCallback onVerify;
   final VoidCallback onRecover;
   final ValueChanged<bool> onToggle;
 
@@ -429,7 +404,7 @@ class _DisplayTile extends StatelessWidget {
                         '${device.recentlySeen(nowMs)}:${device.appBuild}:${device.lastSeenAtMs}',
                     child: Text(
                       '${device.zoneName} · ${device.recentlySeen(nowMs) ? '온라인' : '오프라인'}\n'
-                      '${device.displayState == 'auto' ? '송출 켜짐' : '송출 꺼짐'} · ${device.recentlySeen(nowMs) ? '최근 응답 수신' : 'TV 응답 확인 필요'}'
+                      '${device.displayState == 'auto' ? '송출 켜짐' : '송출 꺼짐'} · ${device.recentlySeen(nowMs) ? '최근 응답 수신' : '연결 확인 필요'}'
                       '${device.recentlySeen(nowMs) ? '' : '\nTV 앱과 인터넷 연결을 확인해 주세요.'}',
                       style: const TextStyle(
                         color: AppColors.muted,
@@ -457,8 +432,6 @@ class _DisplayTile extends StatelessWidget {
                 icon: const Icon(Icons.more_vert, color: AppColors.muted),
                 onSelected: (value) => value == 'recover'
                     ? onRecover()
-                    : value == 'verify'
-                    ? onVerify()
                     : value == 'rename'
                     ? onRename()
                     : value == 'preferences'
@@ -466,7 +439,6 @@ class _DisplayTile extends StatelessWidget {
                     : onRemove(),
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'recover', child: Text('연결 복구')),
-                  PopupMenuItem(value: 'verify', child: Text('TV 응답 확인')),
                   PopupMenuItem(value: 'rename', child: Text('이름 수정')),
                   PopupMenuItem(value: 'preferences', child: Text('화면 맞춤')),
                   PopupMenuItem(value: 'remove', child: Text('연결 해제')),
