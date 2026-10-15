@@ -367,6 +367,51 @@
           "workflowRunId": "38672704214"
         }
       ]
+    },
+    {
+      "client": "1.2.1-main-ebecc66480cf",
+      "sourceCommit": "ebecc66480cf6f383a9871bc6b04397555c1b2e5",
+      "platforms": [
+        "ios",
+        "android",
+        "tv"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.2.1-main-ebecc66480cf.json",
+      "sha256": "04c7c887cbf63c3df455a1ff676593c10a40759021beb9b7df8b3c92c43a7b63",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/1.2.1-main-ebecc66480cf.json",
+        "sha256": "dddb70de0e2aeb4b2b9fb61e7e6e49983c9ebb2929ac94ff33a72d0b63672b30"
+      },
+      "releases": [
+        {
+          "platform": "ios",
+          "version": "1.2.1",
+          "build": "559",
+          "channel": "testflight",
+          "workflowRunId": "38744472429",
+          "artifactSha256": "5319df6f2fda244bc81639d51e092cefc804ea90b72d65bd813004c8b99fb609"
+        },
+        {
+          "platform": "android",
+          "version": "1.2.1",
+          "build": "74",
+          "channel": "internal",
+          "workflowRunId": "38744472655",
+          "artifactSha256": "6e632931d97e592f9153448639de507c2690f672bbb41c7d262864a3b4171719"
+        },
+        {
+          "platform": "tv",
+          "version": "1.2.1",
+          "build": "74",
+          "channel": "internal",
+          "workflowRunId": "38744472655",
+          "artifactSha256": "6e632931d97e592f9153448639de507c2690f672bbb41c7d262864a3b4171719"
+        }
+      ]
     }
   ]
 }
