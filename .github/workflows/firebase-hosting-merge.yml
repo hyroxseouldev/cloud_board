@@ -321,10 +321,40 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  smoke_inputs:
+    name: Prepare current candidate smoke inputs
+    needs: deployment_plan
+    if: needs.deployment_plan.outputs.validation_mode == 'skipped' && contains(fromJSON('["backend","rules","full"]'), needs.deployment_plan.outputs.scope)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RELEASE_SOURCE_SHA: ${{ needs.deployment_plan.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - name: Export candidate payloads for retained live smoke (not integration CI)
+        run: |
+          flutter pub get
+          flutter test tool/export_workout_save_fixtures_test.dart tool/export_app_contracts_test.dart
+          node tool/firebase/smoke-inputs.mjs prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firebase-smoke-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/smoke-inputs/
+          if-no-files-found: error
+          retention-days: 90
+
   firebase_required:
     name: firebase-required
     if: always() && needs.deployment_plan.result == 'success' && !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
-    needs: [app_validation, firebase_contracts, deployment_plan, class_start_regressions, web_build]
+    needs: [app_validation, firebase_contracts, deployment_plan, class_start_regressions, smoke_inputs, web_build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -356,6 +386,11 @@ jobs:
         with:
           name: firebase-contracts-${{ github.run_id }}-${{ github.run_attempt }}
           path: build
+      - uses: actions/download-artifact@v4
+        if: needs.deployment_plan.outputs.validation_mode == 'skipped' && contains(fromJSON('["backend","rules","full"]'), needs.deployment_plan.outputs.scope)
+        with:
+          name: firebase-smoke-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/smoke-inputs
       - name: Verify evidence and seal release manifest
         run: node tool/firebase/release.mjs aggregate
       - uses: actions/upload-artifact@v4
@@ -412,7 +447,7 @@ jobs:
         run: |
           node tool/firebase/release.mjs current
           node tool/firebase/release.mjs verify
-      - name: Validate backend canary configuration
+      - name: Validate backend canary configuration and current smoke inputs
         if: needs.deployment_plan.outputs.scope != 'web'
         run: node functions/tools/release-smoke.mjs preflight
       - name: Confirm rules-only candidate preserves deployed Functions

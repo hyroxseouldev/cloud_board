@@ -137,9 +137,14 @@ test('validation audit binds the policy to the exact source, tag, attempt and ac
 
 test('skipped CI keeps build prerequisites and rejects failed or fabricated heavy job results', () => {
   const jobs = {deployment_plan: {result: 'success'}, web_build: {result: 'success'},
+    smoke_inputs: {result: 'success'},
     app_validation: {result: 'skipped'}, firebase_contracts: {result: 'skipped'}, class_start_regressions: {result: 'skipped'}};
   requireReleaseJobs(jobs, 'full', 'v1.2.3', 'skipped');
   requireReleaseJobs({...jobs, web_build: {result: 'skipped'}}, 'backend', 'v1.2.3', 'skipped');
+  requireReleaseJobs({...jobs, web_build: {result: 'skipped'}}, 'rules', 'v1.2.3', 'skipped');
+  requireReleaseJobs({...jobs, smoke_inputs: {result: 'skipped'}}, 'web', 'v1.2.3', 'skipped');
+  assert.throws(() => requireReleaseJobs({...jobs, smoke_inputs: {result: 'skipped'}}, 'full', 'v1.2.3', 'skipped'), /smoke_inputs/);
+  assert.throws(() => requireReleaseJobs(jobs, 'web', 'v1.2.3', 'skipped'), /Unexpected job result: smoke_inputs/);
   for (const scope of ['none', 'verify']) assert.throws(() => requireReleaseJobs(jobs, scope, 'v1.2.3', 'skipped'));
   assert.throws(() => requireReleaseJobs(jobs, 'full', '', 'skipped'));
   assert.throws(() => requireReleaseJobs(jobs, 'full', 'v1.2.3', 'required'));

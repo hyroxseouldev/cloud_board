@@ -5,6 +5,10 @@ import {pathToFileURL} from 'node:url';
 import {readJson, writeJson, hashFile, hash, canonical, filesIn} from './common.mjs';
 import {retirementPolicyFile, validateRetirements} from './support_retirements.mjs';
 import {releaseValidationFile, validateReleaseValidation} from './release-validation.mjs';
+// A dynamic import here deadlocks when this module's CLI awaits the caller:
+// latest-release imports these shared guards back from this module.
+import {latestRelease} from './latest-release.mjs';
+import {verifySmokeInputs} from './smoke-inputs.mjs';
 
 export const targets = Object.freeze({project: 'cloud-board-stationd', firestore: '(default)',
   database: 'cloud-board-stationd-default-rtdb', databaseURL: 'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -60,6 +64,7 @@ export function requireReleaseJobs(needs, scope = deploymentScope(), releaseTag 
     }
   }
   const required = ['deployment_plan', ...(['web', 'full', 'verify'].includes(scope) ? ['web_build'] : []),
+    ...(validationMode === 'skipped' && includesBackend(scope) ? ['smoke_inputs'] : []),
     ...(validationMode === 'required' && (releaseTag || ['web', 'full', 'verify'].includes(scope)) ? ['app_validation', 'class_start_regressions'] : []),
     ...(validationMode === 'required' && ['backend', 'rules', 'full', 'verify'].includes(scope) ? ['firebase_contracts'] : [])];
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
@@ -133,6 +138,8 @@ export function makeManifest() {
   assert.notEqual(scope, 'none', 'No deployment candidate for unchanged components');
   const validation = currentValidation(id);
   const contractsRequired = validation?.validationMode !== 'skipped';
+  const smokeInputsRequired = includesBackend(scope) && !contractsRequired;
+  if (smokeInputsRequired) verifySmokeInputs({sourceSha: id.sha});
   if (includesBackend(scope) && contractsRequired) {
     validateReport(readJson('build/firebase-contracts/report.json'), id);
     validateReaderReport(readJson('build/contracts/released-readers/report.json'));
@@ -150,6 +157,7 @@ export function makeManifest() {
     'tool/firebase/supported-clients.json', 'tool/firebase/contract-suites.json', 'tool/firebase/compatibility-policy.json', retirementPolicyFile, 'tool/firebase/support_retirements.mjs', 'tool/firebase/released_reader_contract_test.dart',
     ...filesIn('functions/src'), ...filesIn('functions/tools'), ...filesIn('functions/certificates'), ...filesIn('functions/test/fixtures'),
     ...(validation ? [releaseValidationFile] : []),
+    ...(smokeInputsRequired ? filesIn('build/release/smoke-inputs') : []),
     ...(includesBackend(scope) && contractsRequired ? [...filesIn('build/contracts'), ...filesIn('build/firebase-contracts')] : []),
     ...(includesWeb(scope) ? filesIn('build/web') : [])];
   if (includesWeb(scope)) assert(paths.some(p => p === 'build/web/index.html'), 'Missing release web build');
@@ -166,6 +174,8 @@ export function verifyManifest(manifest, id = identity()) {
   assert.equal(validationMode, process.env.RELEASE_VALIDATION_MODE || 'required', 'Candidate validation mode mismatch');
   const validation = currentValidation(id);
   if (validation) assert.deepEqual(manifest.validation, validation, 'Candidate validation audit mismatch');
+  const smokeInputsRequired = includesBackend(manifest.scope || 'full') && validationMode === 'skipped';
+  if (smokeInputsRequired) verifySmokeInputs({sourceSha: id.sha});
   assert.deepEqual(manifest.targets, targets, 'Wrong Firebase target');
   assert.equal(manifest.databaseSemanticHash, hash(canonical(readJson('database.rules.json'))));
   for (const path of ruleFiles) assert(manifest.files[path], `Missing ${path}`);
@@ -174,7 +184,8 @@ export function verifyManifest(manifest, id = identity()) {
     assert(!path.includes('..') && !path.startsWith('/') && /^[a-zA-Z0-9_./-]+$/.test(path), 'Unsafe manifest path');
     assert.equal(hashFile(path), digest, `Artifact changed: ${path}`);
   }
-  for (const directory of [...(includesWeb(manifest.scope || 'full') ? ['build/web'] : []), 'functions/src', 'functions/tools', 'functions/certificates']) {
+  for (const directory of [...(includesWeb(manifest.scope || 'full') ? ['build/web'] : []),
+    ...(smokeInputsRequired ? ['build/release/smoke-inputs'] : []), 'functions/src', 'functions/tools', 'functions/certificates']) {
     assert.deepEqual(filesIn(directory), Object.keys(manifest.files).filter(p => p.startsWith(`${directory}/`)).sort(), `Files added/removed after verification: ${directory}`);
   }
   if (includesBackend(manifest.scope || 'full') && validationMode === 'required') {
@@ -244,7 +255,6 @@ export async function requireCurrentMain({sha, ref, tag = process.env.RELEASE_TA
 }
 export async function requireNoRollback({repository, sha, ref, tag, request, readArtifact, scope, ignoreRunId}) {
   await requireCurrentMain({repository, sha, ref, tag, request});
-  const {latestRelease} = await import('./latest-release.mjs');
   for (const component of [...(includesBackend(scope) ? ['backend'] : []), ...(includesWeb(scope) ? ['web'] : [])]) {
     const previous = await latestRelease({repository, request, readArtifact, ignoreRunId, component, attemptOnly: true});
     const comparison = await request(`/repos/${repository}/compare/${previous.run.head_sha}...${sha}`);

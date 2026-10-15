@@ -8,24 +8,25 @@ client version, a release-policy document, a store track, or store review state.
 
 ## Development-app QA and tagged production
 
-A relevant `main` push starts the **existing development app** path for
-TestFlight/Play internal QA, building only after store readiness is confirmed.
-The paths cover Flutter code/assets/dependencies, the platform's native files,
-Firebase app configuration and release tooling; server-only changes do not build
-mobile apps. No whole-app/TV suite or production backend rollout is repeated.
+`main` is the integration branch; merging or pushing to it does not start mobile
+deployment. A `dev/vX.Y.Z-N` tag on main history starts the **existing development
+app** path for TestFlight/Play internal QA, building only after store readiness is
+confirmed. The tag version must match `pubspec.yaml`. No whole-app/TV suite or
+production backend rollout is repeated.
 
 Automatic production `vX.Y.Z` tags run required CI by default in
-`firebase-hosting-merge.yml`. Only a completed successful release workflow run
-triggers native production workflows (`workflow_run`); an unfinished or failed
-run does not authorize upload. The source tag must still point to the recorded
-SHA, be in main history, and match the selected `pubspec.yaml` version. The exact
+`firebase-hosting-merge.yml`. Native production workflows are configured to follow
+a completed successful release workflow (`workflow_run`); confirm that those runs
+actually start, using the manual fallback below if absent. An unfinished or failed
+run does not authorize automatic upload. The source tag must still point to the
+recorded SHA, be in main history, and match the selected `pubspec.yaml` version. The exact
 source's common CI evidence or an explicit audited manual skip is checked before
 upload, along with live production backend compatibility. Native workflows do
 not deploy Firebase or Hosting.
 
 | Route | App bundle/package | Firebase | Store destination |
 | --- | --- | --- | --- |
-| Main / manual `qa` | `com.sunmkim.cloudboard.dev` | `cloud-board-development` | Development app's TestFlight / Play internal |
+| Development tag / manual `qa` | `com.sunmkim.cloudboard.dev` | `cloud-board-development` | Development app's TestFlight / Play internal |
 | Release tag / manual `release` | `com.sunmkim.cloudboard` | `cloud-board-stationd` | TestFlight / Play internal |
 
 Both routes can use the existing store-account authentication in GitHub environments
@@ -33,21 +34,23 @@ Both routes can use the existing store-account authentication in GitHub environm
 be verified for each app. Build-number sequences and upload concurrency groups
 are separate per app. Actual
 signed AAB/IPA native settings and compiled Dart markers must match the selected
-environment: development for QA, production for release. Main web/server and
-mobile QA share `cloud-board-development`.
+environment: development for QA, production for release. Development-tag web/server
+and mobile QA share `cloud-board-development`.
 Neither route automatically submits public App Store/Play review, changes tester
 groups, or promotes a public store release. TestFlight distribution follows the
 existing App Store Connect groups; QA is not Apple's “TestFlight Internal Only”
 export restriction. Store processing and any later review remain external steps.
 
 Manual runs use the trusted workflow **from main** and select `source_ref`:
-QA accepts reviewed main/develop history (branch, tag or full SHA); production
-release accepts only a `vX.Y.Z` tag in main history with matching marketing version.
-A reference resolves once to an immutable source SHA. Unmerged branches/fork URLs
-are rejected. `upload_to_testflight=false` or `upload_to_play=false` keeps a signed
-artifact only (default false); signing/version/artifact checks still run, while
+QA accepts only a `dev/vX.Y.Z-N` tag; production release accepts only a `vX.Y.Z`
+tag. Both must be in main history and match the selected marketing version.
+Preflight pins the source SHA and the upload job verifies it again. Branches, raw
+SHAs and fork URLs are rejected. `upload_to_testflight=false` or
+`upload_to_play=false` keeps a signed artifact only (default false);
+signing/version/artifact checks still run, while
 store upload, Crashlytics upload and deployment gates are skipped. Automatic
-main/tag-triggered runs request upload after the applicable compatibility and artifact checks.
+development-tag/release-workflow runs request upload after the applicable
+compatibility and artifact checks.
 
 ### Start a new production release
 
@@ -75,11 +78,22 @@ the Firebase release workflow's manual retry from that exact tag, with the
 recorded `confirm_sha`, scope and CI choice. Do not rerun the starter to reuse a
 tag, and do not delete or move the tag.
 
+After Firebase finishes, verify the actual deployment steps and successful backend
+receipt; the overall workflow conclusion alone does not prove deployment. Then
+check for native runs for that release tag. If none starts, dispatch each missing
+native workflow from `main`, using the same `source_ref=vX.Y.Z`,
+`release_mode=release` and `upload_to_play=true` or `upload_to_testflight=true`.
+Use `skip_ci=false` to reuse the successful tag validation or its audited skip;
+an explicitly requested native skip instead requires `skip_ci=true` and a
+non-empty `skip_ci_reason`. Do not dispatch a duplicate while a run for that
+platform and tag is queued or running. Both paths retain the backend compatibility
+checks before building and uploading.
+
 Production internal testing is a stage before store availability. The same
 verified production build can later be promoted through the store's release
 process; that transition does not itself require CI skipping or a separate
-production QA mode. Main QA remains the separate `.dev` app and development
-Firebase.
+production QA mode. Development-tag QA remains the separate `.dev` app and
+development Firebase.
 
 ### Explicit manual CI skip
 
@@ -100,6 +114,9 @@ contracts. It does not omit exact tag/SHA/main ancestry/version checks, required
 builds, signing, environment identity, build numbering, artifact/manifest checks,
 post-deployment smoke or native production backend compatibility. Web builds still
 run when the selected scope needs them. Deployment remains limited to that scope.
+When CI is skipped for `backend`, `rules` or `full`, the two candidate DTO exporters
+separately create the live-smoke inputs; source SHA, file list and hashes are verified before writes.
+Generating those inputs is not a passing app or emulator-contract CI result.
 
 Firebase writes `release-validation-<run_id>-<run_attempt>` with a `release.json`
 audit record containing `schemaVersion: 1`, `kind: release-validation`, `sourceSha`,
