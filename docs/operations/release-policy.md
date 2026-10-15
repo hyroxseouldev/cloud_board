@@ -4,12 +4,13 @@
 
 ## Build, deployment and public availability
 
-Main merges start development Firebase builds/deployments and the separate
-development mobile QA path without repeating the full integration CI suites.
-Development apps use `cloud-board-development` and
-`com.sunmkim.cloudboard.dev`. Missing development store registration or signing
-credentials must be reported by the readiness gate; do not fall back to the
-production app. Development success never authorizes a production version policy.
+Main merges start development Firebase web/server builds and deployments, plus
+TestFlight / Play internal QA for the existing app, without repeating full integration
+CI. Web/server target `cloud-board-development`; both mobile QA and release use
+`com.sunmkim.cloudboard` with production Firebase `cloud-board-stationd`. No separate
+`.dev` store registration is needed. QA checks live production backend compatibility
+and is included in installed-client contract tracking. Development server success
+never substitutes for that check or authorizes a production version policy.
 
 Production candidates start with a `vX.Y.Z` tag on a commit in main history. The
 tag version must match the app version, and required CI must pass for the same
@@ -29,7 +30,7 @@ version, fixed SHA and the required CI result.
 Release automation does not submit an app for public availability merely because
 TestFlight or Play internal testing accepted an upload. It also does not
 automatically enable `appReleases`, raise `minimumBuild`, or prove that users can
-install the replacement. Development QA must not publish production update news.
+install the replacement. Mobile QA must not publish production update news.
 Keep store processing, review, public rollout and update-policy activation as
 separate recorded states.
 

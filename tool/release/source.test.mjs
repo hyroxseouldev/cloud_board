@@ -48,9 +48,11 @@ test('pinned source uploads cannot fall back to workflow SHA when their receipt 
   assert.equal(await mobileRunReceipt({run, jobs: [], artifacts: []}), null);
 });
 
-test('main push selects a development app and release requires successful exact tag CI', () => {
+test('main QA and release share production Firebase while release requires successful exact tag CI', () => {
   const qa = resolveSource({...input, eventName: 'push', runGit: fakeGit(['refs/remotes/origin/main'])});
-  assert.equal(qa.environment, 'development');
+  assert.equal(qa.environment, 'production');
+  assert.equal(qa.releaseMode, 'qa');
+  assert.equal(qa.releaseTag, undefined);
   const ci = {status: 'completed', conclusion: 'success', head_branch: 'v1.2.2', head_sha: sourceSha,
     head_repository: {full_name: 'owner/repo'}, event: 'push', path: '.github/workflows/firebase-hosting-merge.yml'};
   const args = {...input, mode: 'release', eventName: 'workflow_run', repository: 'owner/repo',
@@ -76,4 +78,15 @@ test('new development receipts cannot represent production bindings or authorize
     {package: 'com.sunmkim.cloudboard'}, {environment: 'production'}, {environmentBindingVerified: false}]) {
     assert.throws(() => validateMobileReceipt({...receipt, ...change}));
   }
+});
+
+test('current production-connected QA receipts need no release tag and remain distinct from release approval', () => {
+  const receipt = {schemaVersion: 2, kind: 'mobile-source', sourceSha, workflowSha, releaseMode: 'qa', platform: 'ios',
+    environment: 'production', firebaseProject: 'cloud-board-stationd', package: 'com.sunmkim.cloudboard',
+    environmentBindingVerified: true, version: '1.2.2', build: '558', artifactSha256: 'c'.repeat(64), runId: '1', runAttempt: '1'};
+  assert.equal(validateMobileReceipt(receipt).releaseMode, 'qa');
+  assert.throws(() => validateMobileReceipt({...receipt, releaseMode: 'release'}), /versioned release tag/);
+  assert.throws(() => validateMobileReceipt({...receipt, package: 'com.sunmkim.cloudboard.dev'}), /Unexpected mobile app/);
+  assert.throws(() => validateMobileReceipt({...receipt, firebaseProject: 'cloud-board-development'}), /Unexpected backend environment/);
+  assert.equal(validateMobileReceipt({...receipt, releaseMode: 'release', releaseTag: 'v1.2.2'}).releaseMode, 'release');
 });

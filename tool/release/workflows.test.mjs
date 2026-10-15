@@ -9,7 +9,7 @@ const evaluate = (expression, {upload = true, mode = 'qa'} = {}) =>
   runInNewContext(`(${expression})`, {env: {RELEASE_MODE: mode, UPLOAD_REQUESTED: String(upload)}}, {timeout: 100});
 
 for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobile and TV bundle'], ['testflight', 'testflight', 'Upload to TestFlight']]) {
-  test(`${workflow}: main development and completed tag release are separate from build-only`, () => {
+  test(`${workflow}: main existing-app QA and completed tag release are separate from build-only`, () => {
     const source = load(workflow);
     assert(!source.includes('backend_ready:'));
     assert(!source.includes('class_start_regressions:'));
@@ -24,18 +24,29 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert(source.includes('path: control'));
     assert(source.includes('path: app'));
     assert(source.includes('persist-credentials: false'));
-    assert(source.includes('BLOCKED — development mobile distribution is not configured'));
-    assert(source.includes('MOBILE_DEVELOPMENT_READY'));
-    assert(source.includes("if: needs.preflight.outputs.ready == 'true'"));
+    assert(!source.includes('preflight:'));
+    assert(!source.includes('MOBILE_DEVELOPMENT_READY'));
+    assert(!source.includes('com.sunmkim.cloudboard.dev'));
+    assert(source.includes(`group: ${workflow}-main`));
     const common = condition(step(source, 'Reuse tag integration validation for release upload'));
     assert.equal(evaluate(common, {mode: 'qa'}), false);
     assert.equal(evaluate(common, {mode: 'release'}), true);
     assert.equal(evaluate(common, {mode: 'release', upload: false}), false);
+    const earlyBackend = step(source, 'Check backend compatibility before native build');
+    assert.equal(evaluate(condition(earlyBackend), {upload: false}), false);
+    for (const mode of ['qa', 'release']) assert.equal(evaluate(condition(earlyBackend), {mode}), true);
+    assert(earlyBackend.includes('--mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only'));
+    const earlyPosition = source.indexOf('      - name: Check backend compatibility before native build');
+    assert(source.indexOf('      - name: Checkout selected app commit') < earlyPosition);
+    assert(earlyPosition < source.indexOf('      - name: Set up Flutter'));
+    assert(earlyPosition < source.indexOf(workflow === 'google-play'
+      ? '      - name: Derive marketing version and reserve' : '      - name: Set marketing version and next iOS build'));
+    if (workflow === 'google-play') assert(earlyPosition < source.indexOf('      - name: Set up Java'));
     const backendStep = step(source, 'Recheck backend compatibility and build number before publishing');
     assert.equal(evaluate(condition(backendStep), {upload: false}), false);
     assert.equal(evaluate(condition(backendStep)), true);
-    assert(backendStep.includes('if [[ "$APP_ENVIRONMENT" == production ]]'));
-    assert(backendStep.includes('--mode release --source-sha "$SOURCE_SHA" --check-only'));
+    assert(!backendStep.includes('if [['));
+    assert(backendStep.includes('--mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only'));
     const upload = condition(step(source, uploader));
     assert.equal(evaluate(upload, {upload: false}), false);
     assert.equal(evaluate(upload), true);
@@ -44,7 +55,7 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert(source.includes('--dart-define=FIREBASE_ENV="$APP_ENVIRONMENT"'));
     assert(source.includes('--flavor "$APP_ENVIRONMENT"'));
     assert(source.includes('--environment "$APP_ENVIRONMENT"'));
-    assert(source.includes("'com.sunmkim.cloudboard' || 'com.sunmkim.cloudboard.dev'"));
+    assert.match(source, /(?:IOS_BUNDLE_ID|ANDROID_PACKAGE_NAME): com\.sunmkim\.cloudboard\n/);
     assert(source.includes('--build-name "$RELEASE_VERSION_NAME"'));
     assert(source.includes(`upload_to_${option}:`));
     assert.equal(evaluate(condition(step(source, 'QA build does not publish app update news')), {mode: 'qa'}), true);

@@ -5,10 +5,10 @@ Marketing version comes from the selected app source's `pubspec.yaml`. Android/T
 App Store Connect build sequence. Neither helper changes a minimum supported
 client version, a release-policy document, a store track, or store review state.
 
-## Development QA and tagged production
+## Existing-app QA and tagged production
 
-A relevant `main` push builds the **development** app for TestFlight/Play internal
-QA. The paths cover Flutter code/assets/dependencies, the platform's native files,
+A relevant `main` push builds the **existing production-connected** app for
+TestFlight/Play internal QA. The paths cover Flutter code/assets/dependencies, the platform's native files,
 Firebase app configuration and release tooling; server-only changes do not build
 mobile apps. No whole-app/TV suite or production backend rollout is repeated.
 
@@ -22,13 +22,15 @@ deploy Firebase or Hosting. Failed/incomplete CI does not authorize upload.
 
 | Route | App bundle/package | Firebase | Store destination |
 | --- | --- | --- | --- |
-| Main / manual `qa` | `com.sunmkim.cloudboard.dev` | `cloud-board-development` | TestFlight / Play internal |
+| Main / manual `qa` | `com.sunmkim.cloudboard` | `cloud-board-stationd` | TestFlight / Play internal |
 | Validated tag / manual `release` | `com.sunmkim.cloudboard` | `cloud-board-stationd` | TestFlight / Play internal |
 
-Both routes intentionally share the existing store-account authentication in
-GitHub environments `testflight` and `google-play`. This does not share Firebase
-data or app identities: actual signed AAB/IPA native settings and compiled Dart
-markers must match the selected environment. There is no production-app fallback.
+Both routes use the existing store-account authentication in GitHub environments
+`testflight` and `google-play`, the same app ID and the same build-number sequence.
+QA and release uploads serialize in one concurrency group per platform. Actual
+signed AAB/IPA native settings and compiled Dart markers must match production.
+The independent main web/server workflow deploys to `cloud-board-development`;
+TestFlight/internal apps do not connect to that development backend.
 Neither route automatically submits public App Store/Play review, changes tester
 groups, or promotes a public store release. TestFlight distribution follows the
 existing App Store Connect groups; QA is not Apple's “TestFlight Internal Only”
@@ -41,41 +43,31 @@ A reference resolves once to an immutable source SHA. Unmerged branches/fork URL
 are rejected. `upload_to_testflight=false` or `upload_to_play=false` keeps a signed
 artifact only (default false); signing/version/artifact checks still run, while
 store upload, Crashlytics upload and deployment gates are skipped. Automatic
-main/tag-triggered runs request upload after readiness checks.
+main/tag-triggered runs request upload after the applicable compatibility and artifact checks.
 
-### Development store setup
+### Existing app and server compatibility
 
-Set `MOBILE_DEVELOPMENT_READY=true` **in each existing store environment** only
-after checking that its shared credentials can use the separate `.dev` store app
-and correct signing. With the variable missing/false, preflight records
-`BLOCKED — development mobile distribution is not configured` and skips the build
-and upload. A successful preflight job is not a deployment success.
+No separate `.dev` App Store Connect / Play app, readiness variable or development
+versionCode baseline is needed for store QA. Existing local development flavors can
+remain available, but main QA builds the production flavor intentionally.
 
-As of this change, repository Firebase development flavors exist, but development
-store registration, signing suitability and the readiness variable are unverified.
-No app, signing identity or store entitlement is created by this change.
-`native-development-readiness.yml` provides a manual diagnostic using the existing
-store credentials. Apple requests are GET-only and report app/Bundle ID/profile
-metadata; Play opens and discards an empty edit to inspect the separate package.
-It never commits that edit, uploads a build or changes a tester group. A 403/404
-means inaccessible/unverified, not proof that the app does not exist. The diagnostic
-does not prove the local private key matches a valid profile/Play upload key.
+Both QA and release check the actual production backend receipt against the
+candidate backend/rules fingerprint, before SDK installation/build and again before
+upload. This conservative equality check can also block unrelated server edits;
+it does not infer which new APIs the client actually needs. QA skips the whole-app CI suite; release requires the exact tag's
+successful CI. Development server success cannot satisfy the production check.
+A mobile candidate requiring APIs not deployed to production is blocked until a
+compatible production backend is available; use the development web app meanwhile.
 
-For Android, verify the complete development app upload history and add
-`tool/release/play-version-code-baseline-development.json` with the same schema
-as the production baseline and `packageName: com.sunmkim.cloudboard.dev` before
-enabling readiness. No synthetic baseline is committed. The Play app must be
-bootstrapped and its upload-key registration checked in Console; a fresh app may
-require its first bundle to be uploaded there. Do not reuse a guessed history.
-
-Development QA never publishes app update news or changes minimum/latest-version
-policy, and is excluded from the **production** installed-client ledger. Historical
-QA artifacts that really used production Firebase remain in that ledger.
+QA never publishes app update news or changes minimum/latest-version policy.
+Because QA uses production Firebase, actual QA uploads remain in the production
+installed-client ledger alongside release uploads. Verified development artifacts
+from local or historical workflows remain excluded.
 
 Every artifact has a `mobile-source-<run>-<attempt>` receipt with separate app
 source SHA and workflow SHA, mode, **verified environment**, Firebase identity,
-version/build and artifact hash. New production receipts also record the release
-tag. Guard tools run in the trusted workflow checkout (`control/`), compilation in
+version/build and artifact hash. Release-mode receipts also require the release
+tag; production-connected QA receipts do not. Guard tools run in the trusted workflow checkout (`control/`), compilation in
 `app/`. News and compatibility tracking read the app source from that receipt.
 
 AAB/IPA inspection checks version/build, package/bundle, native Firebase
@@ -91,8 +83,7 @@ mandatory. Bundletool is pinned to 1.18.3 and its release asset SHA-256.
 1. Reads current tracks, bundles and APKs in a temporary uncommitted Play edit,
    then deletes the edit. Read errors fail closed.
 2. Combines these values with the complete historical upload baseline and all
-   `refs/tags/play-version-code/N` reservations (development uses the separate
-   `refs/tags/play-version-code-development/N` namespace).
+   `refs/tags/play-version-code/N` reservations. QA and release share this namespace.
 3. Atomically creates the next unused reservation tag, including on reruns and
    build-only jobs. Competing allocations retry; other failures stop the build.
 4. Writes the receipt (source SHA, run/attempt, store observation and baseline).
