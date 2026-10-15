@@ -362,7 +362,7 @@ class WorkoutRepositoryImpl
       throw StateError('로그인 계정이 변경되었습니다. 편집 내용은 원래 계정의 임시저장에 남아 있어요.');
     }
     // A save can be the first operation after signing into another account.
-    // Reset the known-record set before using it to guard against deletion.
+    // Keep cached details and saved-ID bookkeeping scoped to that account.
     _owner();
     final stored = await _firestore.save(
       user.uid,
@@ -374,9 +374,8 @@ class WorkoutRepositoryImpl
     final saved = stored.toEntity();
     if (_auth.currentUser?.uid == user.uid) {
       _owner();
-      // Reopening this detail hits the cache, so its load callback will not
-      // run. A newly created or copied record must still be protected if
-      // another device deletes it before the next save.
+      // Reopening this detail hits the cache, so record its saved ID here too.
+      // Explicit saves can recreate it if another device later deletes it.
       _openedWorkoutIds.add(saved.id);
       _details.put((owner: user.uid, id: saved.id), saved);
       _versions[saved.id] = saved.updatedAt;

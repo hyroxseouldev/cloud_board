@@ -8,6 +8,7 @@ import {planAccess} from '../src/plan-policy.js';
 import {saveWorkout} from '../src/workout-save.js';
 import {mutateSlideLibrary} from '../src/slide-library.js';
 import {reconcilePlanUsage} from '../src/plan-usage.js';
+import {legacySettingKeys, normalizeSettings} from '../src/workout-settings-migration.js';
 assert.match(process.env.FIRESTORE_EMULATOR_HOST ?? '',/^(127\.0\.0\.1|localhost):\d+$/);
 const projectId='demo-cloudboard-plan-quotas',app=initializeApp({projectId}),db=getFirestore(app);
 const [host,port]=process.env.FIRESTORE_EMULATOR_HOST.split(':');
@@ -31,19 +32,48 @@ try {
   assert.equal((await save('first-save',first)).created,false); // Lost response, same payload.
   await save('first-save',{workout:{...workout('first-save',3000),name:'Edited'},expectedUpdatedAt:2000,requireExisting:true});
   assert.equal((await db.doc('users/owner/planUsage/current').get()).data().workoutCount,1);
-  await assert.rejects(save('first-save',{workout:{...workout('first-save',4000),name:'Stale'},expectedUpdatedAt:2000,requireExisting:true}),{code:'aborted'});
-  assert.equal((await db.doc('users/owner/workouts/first-save').get()).data().name,'Edited');
-  await assert.rejects(save('first-save',{workout:{...workout('first-save',4000),createdAt:999},expectedUpdatedAt:3000}),{code:'aborted'});
+  const latest={...workout('first-save',4000),name:'Latest save',createdAt:999};
+  await save('first-save',{workout:latest,expectedUpdatedAt:2000,requireExisting:true});
+  const overwritten=(await db.doc('users/owner/workouts/first-save').get()).data();
+  assert.equal(overwritten.name,'Latest save');
+  assert.equal(overwritten.createdAt.toMillis(),1000);
+  await db.doc('users/owner/workouts/first-save').update({futureMetadata:{retained:true},modules:[{...item('m1'),imageSource:'removed-image'},{...item('m2')}]});
+  const modules=[{...item('m1'),text:'Last slide content',imageUrl:''}];
+  const cleared=await save('first-save',{workout:{...latest,modules,futureMetadata:{retained:true}},expectedUpdatedAt:null});
+  assert.deepEqual(cleared.workout.modules,modules); // No removed slide/known field resurrection.
+  assert.deepEqual(cleared.workout.futureMetadata,{retained:true});
+  const imported=await save('first-save',{workout:{...latest,name:'Starter import'},ifAbsent:true});
+  assert.equal(imported.workout.name,'Latest save');
+  assert.equal(imported.created,false);
   await db.doc('users/owner/workouts/first-save').delete();
-  await assert.rejects(save('first-save',{...first,requireExisting:true}),{code:'aborted'});
-  assert.equal((await db.doc('users/owner/workouts/first-save').get()).exists,false);
-  await assert.rejects(save('settings-mismatch',{settingsContentOnly:true}),{code:'aborted'});
+  assert.equal((await save('first-save',{...first,requireExisting:true})).created,true);
+  assert.equal((await db.doc('users/owner/planUsage/current').get()).data().workoutCount,1);
   const firstRace=await Promise.allSettled(['A','B'].map(name=>save('same-new-id',{
     workout:{...workout('same-new-id',2000),name},expectedUpdatedAt:1000,requireExisting:false,
   })));
-  assert.equal(firstRace.filter(result=>result.status==='fulfilled').length,1);
-  assert.equal(firstRace.find(result=>result.status==='rejected').reason.code,'aborted');
-  console.log('PASS: released-client first-save revision, retry, subsequent edit, stale edit, immutable creation, deleted-record protection, settings mismatch and concurrent first save');
+  assert.equal(firstRace.filter(result=>result.status==='fulfilled').length,2);
+  assert(['A','B'].includes((await db.doc('users/owner/workouts/same-new-id').get()).data().name));
+  assert.equal((await db.doc('users/owner/planUsage/current').get()).data().workoutCount,2);
+  const preferences=normalizeSettings({brandL:'Current canonical brand',countdown:{seconds:17}});
+  const settingsRef=db.doc('users/owner/settings/workout');
+  await settingsRef.set({schemaVersion:1,revision:1,contentOnly:true,preferences});
+  const contentOnly=(await save('settings-migration',{settingsContentOnly:false})).workout;
+  assert.equal(contentOnly.schemaVersion,2);
+  assert(legacySettingKeys.every(key=>!Object.hasOwn(contentOnly,key)));
+  await settingsRef.update({contentOnly:false,revision:2});
+  const restored=(await save('settings-migration',{workout:{...contentOnly,name:'After restore'},settingsContentOnly:true})).workout;
+  assert.equal(restored.schemaVersion,undefined);
+  assert.equal(restored.brandL,'Current canonical brand');
+  assert.equal(restored.countdownSeconds,17);
+  await settingsRef.update({contentOnly:true,revision:3});
+  await save('settings-migration',{workout:restored,settingsContentOnly:false});
+  await settingsRef.delete();
+  await assert.rejects(save('settings-migration',{workout:contentOnly,settingsContentOnly:true}),{code:'failed-precondition'});
+  assert.equal((await db.doc('users/owner/workouts/settings-migration').get()).data().schemaVersion,2);
+  await assert.rejects(saveWorkout(db,null,{ownerId:'owner',workout:workout('no-auth')}),{code:'unauthenticated'});
+  await assert.rejects(save('other-owner',{ownerId:'other'}),{code:'permission-denied'});
+  await assert.rejects(save('other-author',{workout:{...workout('other-author'),author:{id:'other'}}}),{code:'invalid-argument'});
+  console.log('PASS: first-save/retry, last-write-wins, immutable creation, deliberate module removal, prepared future fields, ifAbsent import, restore quota, same-ID races, settings normalization and owner guards');
   await env.clearFirestore();
   await assert.rejects(save('missing'),{code:'failed-precondition'});
   await grant('free');
@@ -64,9 +94,9 @@ try {
   await assertSucceeds(updateDoc(doc(owner,'users/owner/workouts/w0'),{name:'Legacy edit'}));
   await assertSucceeds(deleteDoc(doc(owner,'users/owner/workouts/w1')));
   await save('after-delete');
-  await assert.rejects(save('w1'),{code:'resource-exhausted'}); // Restore consumes a new slot.
-  await assert.rejects(save('w0',{workout:{...workout('w0',2000),name:'Stale'},expectedUpdatedAt:500}),{code:'aborted'});
-  assert.equal((await db.doc('users/owner/workouts/w0').get()).data().name,'Legacy edit');
+  await assert.rejects(save('w1',{requireExisting:true}),{code:'resource-exhausted'}); // Restore consumes a new slot.
+  await save('w0',{workout:{...workout('w0',2000),name:'Latest owner save'},expectedUpdatedAt:500});
+  assert.equal((await db.doc('users/owner/workouts/w0').get()).data().name,'Latest owner save');
   // Upgrade permits growth; downgrade preserves all content and existing edits.
   await grant('plus');
   for(let i=0;i<3;i++) await save(`paid${i}`);
