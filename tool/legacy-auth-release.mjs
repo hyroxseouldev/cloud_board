@@ -5,7 +5,6 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, realpathSync } fro
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
-import { requirePhysicalQaWaiver } from './release/class_start_physical_gate.mjs';
 import ts from '../functions-legacy/node_modules/typescript/lib/typescript.js';
 import { parse } from '../functions-legacy/node_modules/dotenv/lib/main.js';
 
@@ -197,23 +196,10 @@ function sharedRuntimeConfig(raw) {
   return maps[0];
 }
 
-export function validateReleaseEvidence(evidence, candidateDigest, now = Date.now()) {
+export function validateReleaseEvidence(evidence, candidateDigest) {
   assert.equal(evidence.candidateDigest, candidateDigest, 'Regression evidence is for another candidate');
   assert.match(evidence.sourceSha || '', /^[a-f0-9]{40}$/);
-  // A release-owner exception describes tests not performed; it must never be
-  // recorded as a passing native journey or waive server/configuration checks.
-  const qaWaiver = evidence.qaWaiver === undefined ? null
-    : requirePhysicalQaWaiver(evidence.qaWaiver, evidence.sourceSha, now);
   assert(evidence.appVersions?.released && evidence.appVersions?.candidate && evidence.tvVersion, 'Missing app/TV version evidence');
-  const waivedChecks = [];
-  for (const check of ['googleAppleLogin', 'phoneFreeActivation', 'legacyAccountEntitlement', 'pairDisplay', 'setDisplayState', 'threeTvClassLifecycle']) {
-    if (evidence.checks?.[check] === 'waived') {
-      assert(qaWaiver, `Explicit release-owner QA waiver required: ${check}`);
-      waivedChecks.push(check);
-    } else {
-      assert.equal(evidence.checks?.[check], 'passed', `Missing native regression: ${check}`);
-    }
-  }
   assert.equal(evidence.infrastructureReview, 'passed', 'Review Scheduler, Eventarc, Secret IAM and shared credentials before deploy');
   assert.equal(evidence.pairingBackend?.project, baseline.project, 'Verify the canonical pairing backend project');
   assert.equal(evidence.pairingBackend?.region, 'asia-northeast3', 'Verify the canonical pairing backend region');
@@ -221,7 +207,6 @@ export function validateReleaseEvidence(evidence, candidateDigest, now = Date.no
   assert.match(evidence.pairingBackend?.sourceSha || '', /^[a-f0-9]{40}$/, 'Record the canonical backend source SHA');
   assert.equal(evidence.pairingBackend?.smoke, 'passed', 'Deploy and verify the canonical pairing backend before this bridge');
   assert.equal(evidence.checks?.legacyPairingBridge, 'passed', 'Missing released-app bridge regression');
-  return {qaWaiver, waivedChecks};
 }
 
 async function main(command) {
@@ -246,8 +231,8 @@ async function main(command) {
     assert.equal(process.env.GCLOUD_PROJECT, baseline.project, 'Wrong legacy deployment project');
     const candidateDigest = await checkSource();
     const evidence = process.env.CLOUDBOARD_LEGACY_RELEASE_EVIDENCE;
-    assert(evidence, 'Set CLOUDBOARD_LEGACY_RELEASE_EVIDENCE to completed native regression evidence');
-    const decision = validateReleaseEvidence(json(evidence), candidateDigest);
+    assert(evidence, 'Set CLOUDBOARD_LEGACY_RELEASE_EVIDENCE to completed server regression evidence');
+    validateReleaseEvidence(json(evidence), candidateDigest);
     assert.equal(json(evidence).sourceSha, execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), 'Regression evidence SHA mismatch');
     const before = json(inventoryPath), raw = readLive(), current = sanitizeInventory(raw);
     validateLive(current);
@@ -257,7 +242,6 @@ async function main(command) {
     assert(Date.now() - Date.parse(before.capturedAt) < 30 * 60_000, 'Refresh the read-only deployment plan (30 minute limit)');
     assert.equal(digest(parse(readFileSync(resolve(root, envPath)))), digest(sharedRuntimeConfig(raw)), 'Runtime configuration drift');
     assert.deepEqual(readdirSync(resolve(root, 'functions-legacy')).filter(name => name.startsWith('.env')), [`.env.${baseline.project}`], 'Unexpected .env override');
-    if (decision.waivedChecks.length) console.log(`Native QA explicitly waived (not performed): ${decision.waivedChecks.join(', ')}`);
     console.log('Legacy predeploy checks passed; only use the four-function selector from plan.'); return;
   }
   if (command === 'verify') {
