@@ -138,6 +138,20 @@ class _PhoneVerification extends HookConsumerWidget {
               ),
               const SizedBox(height: 16),
               if (starter != null) Text('${starter!.title} 선택은 그대로 이어집니다.'),
+              TextButton.icon(
+                key: const ValueKey('explore-before-verification'),
+                onPressed: action.isLoading
+                    ? null
+                    : () => context.push(
+                        starterLocation('/explore', starter, purpose: purpose),
+                      ),
+                icon: const Icon(Icons.play_circle_outline),
+                label: const Text('인증은 나중에 · 먼저 둘러보기'),
+              ),
+              const Text(
+                '예시 수업은 인증 없이 볼 수 있어요. 내 수업을 저장할 때 인증을 이어가 주세요.',
+                style: TextStyle(color: AppColors.muted, height: 1.6),
+              ),
               const SizedBox(height: 24),
               TextField(
                 controller: phone,

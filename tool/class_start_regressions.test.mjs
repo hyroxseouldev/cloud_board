@@ -94,8 +94,8 @@ test('production retains class-start CI while main development builds skip the h
   const development = readFileSync('.github/workflows/firebase-development.yml', 'utf8');
   assert.doesNotMatch(development, /class-start-regressions|flutter test|npm test|firebase_contracts/);
 });
-test('workflow and manifest aggregation accept the same four jobs and reject unverified class starts', () => {
-  const jobs = Object.fromEntries(['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions'].map(name => [name, {result: 'success'}]));
+test('required workflow and manifest aggregation accept the same five jobs and reject unverified class starts', () => {
+  const jobs = Object.fromEntries(['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions', 'web_build'].map(name => [name, {result: 'success'}]));
   requireReleaseJobs(jobs);
   for (const result of ['failure', 'skipped', 'cancelled', undefined]) {
     assert.throws(() => requireReleaseJobs({...jobs, class_start_regressions: {result}}));

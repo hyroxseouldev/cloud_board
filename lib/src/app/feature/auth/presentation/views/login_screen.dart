@@ -64,6 +64,9 @@ class LoginScreen extends HookConsumerWidget {
         busy: busy,
         showApple: showApple,
         signingInWith: signingInWith.value,
+        onExplore: () => context.push(
+          starterLocation('/explore', starter, purpose: purpose),
+        ),
         onApple: () => signIn('apple'),
         onGoogle: () => signIn('google'),
         onEmail: () => context.push(
@@ -274,6 +277,7 @@ class _QuietWelcome extends StatelessWidget {
     required this.busy,
     required this.showApple,
     required this.signingInWith,
+    required this.onExplore,
     required this.onApple,
     required this.onGoogle,
     required this.onEmail,
@@ -284,7 +288,7 @@ class _QuietWelcome extends StatelessWidget {
   final StarterWorkout? starter;
   final bool busy, showApple;
   final String? signingInWith;
-  final VoidCallback onApple, onGoogle, onEmail, onAccountHelp;
+  final VoidCallback onExplore, onApple, onGoogle, onEmail, onAccountHelp;
   final Widget? errorNotice;
 
   @override
@@ -352,6 +356,27 @@ class _QuietWelcome extends StatelessWidget {
                           ),
                         ),
                         SizedBox(height: compact ? 24 : 34),
+                        FilledButton.icon(
+                          key: const ValueKey('explore-without-account'),
+                          onPressed: busy ? null : onExplore,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          icon: const Icon(Icons.play_circle_outline),
+                          label: Text(
+                            starter == null ? '예시 수업 둘러보기' : '선택한 예시로 돌아가기',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          '계정·TV 없이 먼저 체험할 수 있어요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: AppColors.muted,
+                          ),
+                        ),
                         if (starter != null) ...[
                           const SizedBox(height: 12),
                           Text(

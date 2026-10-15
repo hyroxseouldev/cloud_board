@@ -5,6 +5,8 @@ import {pathToFileURL} from 'node:url';
 import {latestRelease} from './latest-release.mjs';
 import {readReleaseArtifact} from './github-artifact.mjs';
 import {github, requireCurrentMain, isReleaseTag, resolveReleaseTag} from './release.mjs';
+import {writeJson} from './common.mjs';
+import {releaseValidationFile, validateReleaseValidation} from './release-validation.mjs';
 
 export function changedScope(paths) {
   const backend = paths.some(p => /^(functions\/(src|certificates)\/|functions\/package(?:-lock)?\.json$|firebase\.json$)/.test(p));
@@ -47,6 +49,20 @@ export function pendingScope(currentPaths, backendPaths, webPaths) {
 export function deploymentPlan({eventName, ref, sha, event}) {
   assert.match(sha || '', /^[a-f0-9]{40}$/);
   const releaseTag = ref?.startsWith('refs/tags/') ? ref.slice('refs/tags/'.length) : '';
+  const skipInput = event.inputs?.skip_ci;
+  assert([undefined, false, true, 'false', 'true'].includes(skipInput), 'skip_ci must be a boolean');
+  const skip = skipInput === true || skipInput === 'true';
+  const validationMode = skip ? 'skipped' : 'required';
+  const rawReason = event.inputs?.skip_ci_reason;
+  const reason = skip && typeof rawReason === 'string' ? rawReason.trim() : '';
+  if (skip) {
+    assert.equal(eventName, 'workflow_dispatch', 'CI skip requires an explicit manual dispatch');
+    assert(isReleaseTag(releaseTag), 'CI skip requires a release tag');
+    assert.notEqual(event.inputs?.scope, 'verify', 'Validation-only runs cannot skip CI');
+    assert(reason, 'CI skip reason is required');
+    assert(rawReason.length <= 2000, 'CI skip reason must be at most 2000 characters');
+  }
+  const policy = {validationMode, reason};
   if (eventName === 'workflow_dispatch') {
     const scope = event.inputs?.scope;
     assert(['full', 'backend', 'rules', 'web', 'verify'].includes(scope), 'Explicit deployment scope is required');
@@ -54,15 +70,20 @@ export function deploymentPlan({eventName, ref, sha, event}) {
     if (!releaseTag) {
       assert.equal(ref, 'refs/heads/main', 'Validation-only dispatch must use main');
       assert.equal(scope, 'verify', 'Production retry requires a release tag ref');
-      return {scope, production: false, sha, releaseTag: ''};
+      return {scope, production: false, sha, releaseTag: '', ...policy};
     }
     assert(isReleaseTag(releaseTag), 'Production requires vX.Y.Z');
-    return {scope, production: scope !== 'verify', sha, releaseTag};
+    return {scope, production: scope !== 'verify', sha, releaseTag, ...policy};
   }
   assert.equal(eventName, 'push', 'Unsupported deployment event');
-  if (!releaseTag) return {scope: 'none', production: false, sha, releaseTag: ''};
+  if (!releaseTag) return {scope: 'none', production: false, sha, releaseTag: '', ...policy};
   assert(isReleaseTag(releaseTag), 'Production requires vX.Y.Z');
-  return {scope: 'auto', production: true, sha, releaseTag};
+  return {scope: 'auto', production: true, sha, releaseTag, ...policy};
+}
+export function releaseValidation(plan, env = process.env) {
+  return validateReleaseValidation({schemaVersion: 1, kind: 'release-validation', sourceSha: plan.sha,
+    releaseTag: plan.releaseTag, runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT,
+    validationMode: plan.validationMode, reason: plan.reason, actor: env.GITHUB_ACTOR});
 }
 export function taggedScope(backendPaths, webPaths) {
   const scope = pendingScope(['lib/__release_intent__'], backendPaths, webPaths);
@@ -99,6 +120,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     plan = await withReleaseBaseline(plan, options);
   }
   assert(process.env.GITHUB_OUTPUT, 'Workflow output path is required');
-  appendFileSync(process.env.GITHUB_OUTPUT, `scope=${plan.scope}\nsource_sha=${sha}\nrelease_tag=${releaseTag}\ncontract_base_sha=${plan.contractBaseSha || ''}\n`);
+  writeJson(releaseValidationFile, releaseValidation(plan));
+  appendFileSync(process.env.GITHUB_OUTPUT, `scope=${plan.scope}\nsource_sha=${sha}\nrelease_tag=${releaseTag}\ncontract_base_sha=${plan.contractBaseSha || ''}\nvalidation_mode=${plan.validationMode}\n`);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+    `Release validation policy: **${plan.validationMode === 'skipped' ? 'CI SKIPPED — tests were not run' : 'CI required — results are checked by the release gate'}**.\n\nSource: \`${sha}\`; tag: \`${releaseTag || 'none'}\`; actor: \`${process.env.GITHUB_ACTOR}\`.\n${plan.reason ? `\nReason (JSON): ${JSON.stringify(plan.reason)}\n` : ''}`);
   console.log(`Verified release plan: ${plan.scope} for ${sha}; tag=${releaseTag || 'none'}; production=${plan.production}`);
 }

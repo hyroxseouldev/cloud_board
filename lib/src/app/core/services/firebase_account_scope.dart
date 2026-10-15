@@ -24,12 +24,15 @@ String realtimeDatabaseUrlForOptions(FirebaseOptions? initializedOptions) =>
     : FirebaseEnvironment.databaseUrl;
 
 @Riverpod(keepAlive: true)
+FirebaseAuth firebaseClientAuth(Ref ref) => FirebaseAuth.instance;
+
+@Riverpod(keepAlive: true)
 Stream<User?> firebaseAccountUser(Ref ref) =>
-    FirebaseAuth.instance.userChanges();
+    ref.watch(firebaseClientAuthProvider).userChanges();
 
 @Riverpod(keepAlive: true)
 Stream<String?> accountOwnerId(Ref ref) {
-  final auth = FirebaseAuth.instance;
+  final auth = ref.watch(firebaseClientAuthProvider);
   final user = ref.watch(firebaseAccountUserProvider).value;
   if (user == null) return Stream.value(null);
   final directOwnerId = accountOwnerIdForUser(

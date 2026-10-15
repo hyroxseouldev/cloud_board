@@ -51,6 +51,16 @@ export function developmentDeployArgs(environment, scope) {
 }
 
 const digest = content => createHash('sha256').update(content).digest('hex');
+export function versionDevelopmentEntrypoint(index, bootstrap, bundle) {
+  const mainJsSha256 = digest(bundle);
+  assert(index.includes('src="flutter_bootstrap.js"'), 'Flutter bootstrap script missing');
+  assert(bootstrap.includes('"mainJsPath":"main.dart.js"'), 'Flutter JavaScript entrypoint missing');
+  return {
+    mainJsSha256,
+    index: index.replace('src="flutter_bootstrap.js"', `src="flutter_bootstrap.js?build=${mainJsSha256}"`),
+    bootstrap: bootstrap.replace('"mainJsPath":"main.dart.js"', `"mainJsPath":"main.dart.js?build=${mainJsSha256}"`),
+  };
+}
 export function validateDevelopmentWeb(stamp, bundle) {
   assert.equal(stamp.environment, 'development', 'Web build is not development');
   assert.equal(stamp.project, environments.development.project, 'Wrong web Firebase project');
@@ -65,8 +75,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const result = spawnSync(process.env.FLUTTER_BIN || 'flutter', ['build', 'web', '--release', '--dart-define=FIREBASE_ENV=development'], {stdio: 'inherit'});
     if (result.error) throw result.error;
     if (result.status !== 0) process.exitCode = result.status ?? 1;
-    else writeFileSync('build/web/firebase-environment.json', JSON.stringify({environment: 'development',
-      project: environments.development.project, mainJsSha256: digest(readFileSync('build/web/main.dart.js'))}));
+    else {
+      const versioned = versionDevelopmentEntrypoint(read('build/web/index.html'),
+        read('build/web/flutter_bootstrap.js'), readFileSync('build/web/main.dart.js'));
+      writeFileSync('build/web/index.html', versioned.index);
+      writeFileSync('build/web/flutter_bootstrap.js', versioned.bootstrap);
+      writeFileSync('build/web/firebase-environment.json', JSON.stringify({environment: 'development',
+        project: environments.development.project, mainJsSha256: versioned.mainJsSha256}));
+    }
   } else if (process.argv[2] === 'deploy') {
     assert.equal(process.argv.length, 5, 'Unexpected deploy arguments');
     const args = developmentDeployArgs(process.argv[3], process.argv[4]);

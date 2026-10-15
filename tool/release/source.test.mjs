@@ -48,9 +48,9 @@ test('pinned source uploads cannot fall back to workflow SHA when their receipt 
   assert.equal(await mobileRunReceipt({run, jobs: [], artifacts: []}), null);
 });
 
-test('main QA and release share production Firebase while release requires successful exact tag CI', () => {
+test('main QA uses development Firebase and release requires production with successful exact tag CI', () => {
   const qa = resolveSource({...input, eventName: 'push', runGit: fakeGit(['refs/remotes/origin/main'])});
-  assert.equal(qa.environment, 'production');
+  assert.equal(qa.environment, 'development');
   assert.equal(qa.releaseMode, 'qa');
   assert.equal(qa.releaseTag, undefined);
   const ci = {status: 'completed', conclusion: 'success', head_branch: 'v1.2.2', head_sha: sourceSha,
@@ -80,7 +80,7 @@ test('new development receipts cannot represent production bindings or authorize
   }
 });
 
-test('current production-connected QA receipts need no release tag and remain distinct from release approval', () => {
+test('historical production-connected QA receipts remain valid without authorizing release', () => {
   const receipt = {schemaVersion: 2, kind: 'mobile-source', sourceSha, workflowSha, releaseMode: 'qa', platform: 'ios',
     environment: 'production', firebaseProject: 'cloud-board-stationd', package: 'com.sunmkim.cloudboard',
     environmentBindingVerified: true, version: '1.2.2', build: '558', artifactSha256: 'c'.repeat(64), runId: '1', runAttempt: '1'};
@@ -89,4 +89,47 @@ test('current production-connected QA receipts need no release tag and remain di
   assert.throws(() => validateMobileReceipt({...receipt, package: 'com.sunmkim.cloudboard.dev'}), /Unexpected mobile app/);
   assert.throws(() => validateMobileReceipt({...receipt, firebaseProject: 'cloud-board-development'}), /Unexpected backend environment/);
   assert.equal(validateMobileReceipt({...receipt, releaseMode: 'release', releaseTag: 'v1.2.2'}).releaseMode, 'release');
+});
+
+test('current separate-app QA and release receipts cannot exchange app IDs or Firebase environments', () => {
+  const receipt = {schemaVersion: 3, kind: 'mobile-source', sourceSha, workflowSha, releaseMode: 'qa', platform: 'ios',
+    environment: 'development', firebaseProject: 'cloud-board-development', package: 'com.sunmkim.cloudboard.dev',
+    environmentBindingVerified: true, version: '1.2.2', build: '559', artifactSha256: 'c'.repeat(64), runId: '1', runAttempt: '1'};
+  assert.equal(validateMobileReceipt(receipt).environment, 'development');
+  for (const change of [{package: 'com.sunmkim.cloudboard'}, {environmentBindingVerified: false},
+    {environment: 'production', firebaseProject: 'cloud-board-stationd'}, {releaseMode: 'release', releaseTag: 'v1.2.2'}]) {
+    assert.throws(() => validateMobileReceipt({...receipt, ...change}));
+  }
+  const release = {...receipt, package: 'com.sunmkim.cloudboard', releaseMode: 'release', environment: 'production', firebaseProject: 'cloud-board-stationd', releaseTag: 'v1.2.2'};
+  assert.equal(validateMobileReceipt(release).releaseMode, 'release');
+  assert.throws(() => validateMobileReceipt({...release, releaseTag: undefined}));
+});
+
+test('native CI skipping needs a manual release, exact versioned tag, reason and actor', () => {
+  const args = {...input, sourceRef: 'v1.2.2', mode: 'release', skipCi: true,
+    skipReason: 'Emergency center fix', actor: 'release-operator', runGit: fakeGit(['refs/remotes/origin/main'])};
+  const result = resolveSource(args);
+  assert.deepEqual(result.validation, {validationMode: 'skipped', skipReason: 'Emergency center fix', validationActor: 'release-operator'});
+  for (const change of [{mode: 'qa'}, {sourceRef: 'main'}, {skipReason: ''}, {skipReason: '   '},
+    {actor: ''}, {eventName: 'push'}, {skipReason: 'x'.repeat(2001)}]) {
+    assert.throws(() => resolveSource({...args, ...change}));
+  }
+  assert.equal(resolveSource({...args, skipCi: false}).validation, undefined);
+});
+
+test('mobile validation audit distinguishes required, explicitly skipped and not requested', () => {
+  const receipt = {schemaVersion: 3, kind: 'mobile-source', sourceSha, workflowSha, releaseMode: 'release', platform: 'ios',
+    environment: 'production', firebaseProject: 'cloud-board-stationd', package: 'com.sunmkim.cloudboard',
+    environmentBindingVerified: true, version: '1.2.2', releaseTag: 'v1.2.2', build: '560',
+    artifactSha256: 'c'.repeat(64), runId: '1', runAttempt: '1', validationMode: 'skipped',
+    skipReason: 'On-site verification completed', validationActor: 'operator'};
+  assert.equal(validateMobileReceipt(receipt).validationMode, 'skipped');
+  for (const change of [{skipReason: ''}, {validationActor: ''}, {releaseTag: undefined}, {validationMode: 'passed'}]) {
+    assert.throws(() => validateMobileReceipt({...receipt, ...change}));
+  }
+  assert.equal(validateMobileReceipt({...receipt, validationMode: 'required'}).validationMode, 'required');
+  const qa = {...receipt, releaseMode: 'qa', environment: 'development', firebaseProject: 'cloud-board-development',
+    package: 'com.sunmkim.cloudboard.dev', validationMode: 'not_requested'};
+  assert.equal(validateMobileReceipt(qa).validationMode, 'not_requested');
+  assert.throws(() => validateMobileReceipt({...qa, validationMode: 'skipped'}));
 });

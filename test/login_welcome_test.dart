@@ -70,14 +70,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Android welcome offers sign-in without the retired demo entry', (
-    tester,
-  ) async {
+  testWidgets('Android welcome offers examples before sign-in', (tester) async {
     await mount(tester, platform: TargetPlatform.android);
     expect(find.text('오늘의 수업을,\n조금 더 여유롭게.'), findsOneWidget);
     expect(find.text('Apple로 계속하기'), findsNothing);
     expect(find.text('Google로 계속하기'), findsOneWidget);
-    expect(find.byKey(const ValueKey('explore-without-account')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('explore-without-account')),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(TextButton, '이메일로 로그인'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '이메일로 계속하기'), findsNothing);
     for (final label in ['이메일로 로그인', '기존 계정 로그인 안내']) {
@@ -183,9 +184,9 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(
         find.byKey(const ValueKey('explore-without-account')),
-        findsNothing,
+        findsOneWidget,
       );
-      for (final key in ['email-sign-in']) {
+      for (final key in ['explore-without-account', 'email-sign-in']) {
         final target = find.byKey(ValueKey(key));
         await tester.ensureVisible(target);
         await tester.pumpAndSettle();

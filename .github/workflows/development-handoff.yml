@@ -35,4 +35,4 @@ jobs:
       - name: Explain verification scope
         run: |
           echo 'PR handoff and patch checks passed. Application tests were NOT executed by this job.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Review the developer evidence in the PR. Main starts development web/server and existing-app QA; full integration validation runs for release tags before production deployment.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Review the developer evidence in the PR. Main starts development web/server and development .dev app QA; full integration validation runs for release tags before production deployment.' >> "$GITHUB_STEP_SUMMARY"

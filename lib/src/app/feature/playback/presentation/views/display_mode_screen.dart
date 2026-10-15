@@ -9,6 +9,7 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/display_prefe
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_pairing_card.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_pairing_error_message.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
 import 'dart:async';
@@ -38,7 +39,9 @@ import 'package:cloud_board/src/app/feature/operations/presentation/controllers/
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 
 class DisplayModeScreen extends HookConsumerWidget {
-  const DisplayModeScreen({super.key});
+  const DisplayModeScreen({super.key, this.onModeChanged});
+
+  final ValueChanged<DeviceMode>? onModeChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -381,6 +384,7 @@ class DisplayModeScreen extends HookConsumerWidget {
                               padding: const EdgeInsets.only(right: 18),
                               child: DeviceModeToggle(
                                 onChanged: (mode) {
+                                  onModeChanged?.call(mode);
                                   if (mode == DeviceMode.controller) {
                                     context.go('/displays');
                                   }
@@ -461,10 +465,13 @@ class _DisplayStandby extends StatelessWidget {
             children: [
               pairing.when(
                 loading: () => const CircularProgressIndicator(),
-                error: (_, _) => Column(
+                error: (error, _) => Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('연결 코드를 불러오지 못했습니다. 네트워크를 확인해 주세요.'),
+                    Text(
+                      '연결 코드를 불러오지 못했습니다.\n${devicePairingErrorMessage(error)}',
+                      textAlign: TextAlign.center,
+                    ),
                     TextButton.icon(
                       onPressed: onRefreshPairing,
                       icon: const Icon(Icons.refresh_rounded),

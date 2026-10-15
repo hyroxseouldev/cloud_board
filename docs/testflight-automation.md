@@ -1,24 +1,33 @@
 # TestFlight 자동 배포
 
-`main`에 관련 Flutter/iOS 변경이 병합되면 기존 앱 `com.sunmkim.cloudboard`를
-운영 Firebase `cloud-board-stationd`로 빌드해 TestFlight에 올린다. 전체 Flutter/TV CI를
-반복하지 않으며, 별도로 실행되는 개발 웹·서버 배포를 기다리지 않는다. 현재 운영 서버와의
-호환성 확인과 기능 담당자의 관련 검증 인계는 유지한다.
+`main`에 관련 Flutter/iOS 변경이 병합되면 기존 개발 앱 `com.sunmkim.cloudboard.dev`를
+`development` flavor·개발 Firebase `cloud-board-development`로 빌드해 TestFlight에 올리는 경로를 시작한다.
+스토어 등록·서명 준비를 확인하고 `testflight` Environment의 `MOBILE_DEVELOPMENT_READY=true`를
+설정해야 빌드·업로드가 진행된다. 준비 전에는 SDK 설치와 빌드를 시작하지 않는다. 전체 Flutter/TV CI를
+반복하지 않으며, 별도로 실행되는 개발 웹·서버 배포를 기다리지 않는다. 개발 환경 연결 확인과
+기능 담당자의 관련 검증 인계는 유지한다. 운영 backend receipt는 QA에 요구하지 않는다.
 
-`vX.Y.Z` 릴리즈 태그의 필수 CI가 성공하면 같은 앱의 release 모드가
+자동 `vX.Y.Z` 릴리즈 태그는 필수 CI를 기본 실행한다. 해당 실행이 완료되고 성공하면 운영 앱 `com.sunmkim.cloudboard`의 release 모드가
 `workflow_run`으로 시작한다. 태그의 main 포함 여부, 태그 이동 여부, 앱 버전 일치,
-동일 소스의 공통 검증과 현재 운영 백엔드 호환성을 확인한 뒤 업로드한다.
-태그 CI가 실패·대기 중이면 release 모드 업로드를 시작하지 않는다.
+동일 소스의 공통 검증과 현재 운영 백엔드 호환성을 확인한 뒤 production flavor로 업로드한다.
+명시적인 수동 CI 생략이 없으면 태그 CI가 실패·대기 중일 때 release 모드 업로드를 시작하지 않는다.
+
+수동 `release`에서는 `skip_ci=true`와 비어 있지 않은 `skip_ci_reason`으로 무거운 CI를 생략할 수 있다.
+이 경로는 먼저 Firebase CI 생략 실행을 만들 필요가 없다. main push·QA에서는 생략 옵션을 거절한다.
+Firebase 수동 태그 릴리즈의 생략 기록을 받아 자동으로 이어지는 경우에는 해당 run/attempt·SHA·태그를 확인한다.
+두 경우 모두 사유·실행자·실행·소스를 감사 artifact/receipt에 남기며 `CI SKIPPED`를 통과로 보고하지 않는다.
+태그·SHA·main 이력·버전, 운영 백엔드 호환성, 빌드·서명·환경·빌드 번호·실제 IPA 확인은 그대로 수행한다.
 
 자동화의 마지막 단계는 TestFlight 업로드다. App Store 공개·심사 제출이나 테스터 그룹 변경은 하지 않는다.
 배포 대상 그룹은 App Store Connect의 현재 설정을 따른다. QA 모드는 Apple의
 별도 `TestFlight Internal Only` 제한을 뜻하지는 않는다.
 
-QA와 release는 기존 `testflight` GitHub 환경의 Apple 계정 인증, 앱 ID, 빌드 번호 체계를
-공유한다. 업로드 작업도 같은 동시 실행 그룹에서 직렬화한다. 별도 `.dev` 스토어 앱이나
-`MOBILE_DEVELOPMENT_READY` 설정은 필요 없다. 실제 IPA의 운영 Firebase 연결을 검사한다.
-개발 웹·서버는 `cloud-board-development`로 배포되므로 TestFlight에서 그 데이터를 보거나
-아직 개발 서버에만 있는 API를 시험할 수는 없다. 운영 연결 QA도 설치 클라이언트 계약 추적에 포함한다.
+QA와 release는 기존 `testflight` GitHub 환경의 Apple 계정 인증을 사용할 수 있지만 앱 ID,
+빌드 번호와 업로드 동시 실행 그룹은 앱별로 분리한다. 개발 Firebase SDK 설정은 기존에 존재하며,
+`.dev`의 App Store Connect 등록·서명·업로드 준비 여부는 아직 확인되지 않았다.
+QA IPA는 개발 Firebase, release IPA는 운영 Firebase의 네이티브 SDK와 Dart 설정에 연결됐는지 검사한다.
+개발 QA는 운영 설치 클라이언트 계약 추적과 공개 소식에서 제외하며, 과거 실제 운영 Firebase 연결 QA 기록은 계속 추적한다.
+개발·운영 앱은 별도 앱 ID의 기존 샌드박스를 사용한다.
 
 내보낸 실제 IPA의 Apple 로그인 권한과 내장 프로비저닝 프로파일을 검사하고,
 `cloudboard-ios-signing-<빌드 번호>` 아티팩트에 진단 결과를 90일간 보관한다.
@@ -33,7 +42,8 @@ Xcode 빌드 설정의 알 수 없는 변수가 남으면 실패한다. 새 권�
 
 `develop` 및 Pull Request에서는 자동 업로드하지 않는다. 수동 실행은 main 워크플로에서
 `release_mode=qa`와 main/develop 계열 `source_ref`를 선택하거나, `release_mode=release`와
-검증된 `vX.Y.Z` 태그를 선택한다. `upload_to_testflight=false`이면 서명 IPA만 보관하며
+`vX.Y.Z` 태그를 선택한다. release 업로드는 CI 성공 증거 또는 명시적인 CI 생략 기록이 필요하다.
+`upload_to_testflight=false`이면 서명 IPA만 보관하며
 실제 TestFlight·Crashlytics 업로드는 하지 않는다. QA 업로드는 공개 업데이트 소식과 최소 지원 버전을 바꾸지 않는다.
 
 ## Crashlytics 심볼 업로드
@@ -56,12 +66,16 @@ Flutter가 내려받은 Swift Package Manager의 Firebase SDK `upload-symbols` �
 
 프로비저닝 프로필은 App Store Connect API 키를 사용해 Xcode가 자동으로 준비한다. 비밀 파일은 Git에 추가하지 않는다. 워크플로 실행 중 임시 키체인에 설치되며 작업 종료 시 제거된다.
 
+개발 앱의 App Store Connect 등록, 해당 번들의 서명 권한·프로비저닝 및 계정의 업로드 접근을 확인한 뒤
+이 Environment의 변수 `MOBILE_DEVELOPMENT_READY=true`를 설정한다. 기존 운영 앱의 인증 정보가 있다는
+사실만으로 개발 앱 준비가 확인되지는 않는다. 준비 확인은 실제 Google·Apple 로그인 검증과도 별개다.
+
 ## 배포 기준
 
-- 번들 ID: QA·release 모두 `com.sunmkim.cloudboard`
+- 번들 ID: QA `com.sunmkim.cloudboard.dev`, release `com.sunmkim.cloudboard`
 - Apple Team ID: `NL7AM62SB9`
-- 실행 조건: 관련 `main` push는 QA, 태그 CI 성공은 release, main에서 수동 재실행 가능
+- 실행 조건: 관련 `main` push는 QA, 성공한 태그 릴리즈 실행은 release, main에서 수동 release와 사유 있는 CI 생략 가능
 - GitHub Environment: `testflight`
-- 빌드 번호: 해당 번들의 전체 App Store Connect 이력 중 최대 빌드 번호 `+1`
+- 빌드 번호: 앱별로 해당 번들의 전체 App Store Connect 이력 중 최대 빌드 번호 `+1`
 
 구체적인 경로·빌드 번호·검증 조건은 [Native release 안내](../tool/release/README.md)를 따른다. 이 문서 수정만으로 실제 스토어 등록이나 GitHub 환경 변수가 설정되지는 않는다.
