@@ -86,17 +86,16 @@ test('a Flutter launch failure clears the old report and saves only new machine 
   assert.match(f.run().stderr, /ENOENT/);
   assert.equal(readFileSync(f.machine, 'utf8'), '');
 });
-test('all release and development deploys require the class-start job', () => {
-  for (const name of ['firebase-hosting-merge', 'firebase-development', 'google-play-main', 'testflight-main']) {
-    const workflow = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
-    assert.match(workflow, /uses: \.\/\.github\/workflows\/class-start-regressions.yml/);
-    assert.match(workflow, /needs: \[[^\n]*class_start_regressions/);
-  }
+test('production retains class-start CI while main development builds skip the heavy suite', () => {
   const required = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  assert.match(required, /uses: \.\/\.github\/workflows\/class-start-regressions.yml/);
+  assert.match(required, /needs: \[[^\n]*class_start_regressions/);
   assert.match(required, /requireReleaseJobs\(JSON.parse\(process.env.REQUIRED_JOBS\)\)/);
+  const development = readFileSync('.github/workflows/firebase-development.yml', 'utf8');
+  assert.doesNotMatch(development, /class-start-regressions|flutter test|npm test|firebase_contracts/);
 });
-test('workflow and manifest aggregation accept the same four jobs and reject unverified class starts', () => {
-  const jobs = Object.fromEntries(['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions'].map(name => [name, {result: 'success'}]));
+test('required workflow and manifest aggregation accept the same five jobs and reject unverified class starts', () => {
+  const jobs = Object.fromEntries(['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions', 'web_build'].map(name => [name, {result: 'success'}]));
   requireReleaseJobs(jobs);
   for (const result of ['failure', 'skipped', 'cancelled', undefined]) {
     assert.throws(() => requireReleaseJobs({...jobs, class_start_regressions: {result}}));
@@ -105,4 +104,21 @@ test('workflow and manifest aggregation accept the same four jobs and reject unv
   assert.throws(() => requireReleaseJobs(missing));
   const release = readFileSync('tool/firebase/release.mjs', 'utf8');
   assert.match(release, /if \(command === 'aggregate'\) \{\s+requireReleaseJobs\(/);
+});
+
+test('production deploy uses automated evidence without a physical QA approval or waiver', () => {
+  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  assert.doesNotMatch(workflow, /CLASS_START_PHYSICAL_|class_start_physical_gate|physical-qa-decision/);
+  for (const command of ['node tool/firebase/release.mjs current', 'node tool/firebase/release.mjs verify',
+    'node functions/tools/release-smoke.mjs preflight']) {
+    assert(workflow.includes(command), `Missing automated release check: ${command}`);
+    assert(workflow.indexOf(command) < workflow.indexOf('name: Authenticate Firebase rule deployment'));
+  }
+  for (const name of ['google-play-main', 'testflight-main']) {
+    const native = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
+    assert.doesNotMatch(native, /needs: \[[^\n]*backend_ready/);
+    assert.match(native, /release_backend_gate\.mjs/);
+    assert.match(native, /--check-only/);
+    assert.match(native, /common_validation\.mjs/);
+  }
 });

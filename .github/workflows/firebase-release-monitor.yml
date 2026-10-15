@@ -25,11 +25,13 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: functions/package-lock.json
-      - run: npm ci --prefix functions
       - name: Load latest verified production receipt
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node tool/firebase/latest-release.mjs
+      - name: Install observation dependencies only when a release is ready
+        if: env.FIREBASE_DEPLOYMENT_PENDING != 'true'
+        run: npm ci --omit=dev --prefix functions
       - uses: google-github-actions/auth@v2
         if: env.FIREBASE_DEPLOYMENT_PENDING != 'true'
         with:

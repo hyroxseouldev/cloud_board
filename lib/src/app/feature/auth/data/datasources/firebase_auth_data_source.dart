@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'package:cloud_board/src/app/feature/auth/data/datasources/web_google_sign_in.dart';
+
 class FirebaseAuthDataSource {
   FirebaseAuthDataSource(this._auth, this._googleSignIn);
 
@@ -39,7 +41,7 @@ class FirebaseAuthDataSource {
 
   Future<UserCredential> signInWithGoogle() async {
     if (kIsWeb) {
-      return _auth.signInWithPopup(GoogleAuthProvider());
+      return signInWithGoogleOnWeb(_auth, pageUri: Uri.base);
     }
 
     await _ensureGoogleInitialized();

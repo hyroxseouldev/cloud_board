@@ -3,6 +3,7 @@ import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -10,6 +11,7 @@ import 'package:cloud_board/src/app/feature/playback/presentation/views/display_
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/web_display_session.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 
 class DeviceModeHomeScreen extends HookConsumerWidget {
@@ -55,7 +57,18 @@ class DeviceModeHomeScreen extends HookConsumerWidget {
     }
     return switch (mode) {
       DeviceMode.controller => const WorkoutListScreen(),
-      DeviceMode.display => const DisplayModeScreen(),
+      DeviceMode.display =>
+        kIsWeb
+            ? WebDisplaySession(
+                onReturnToControl: () => ref
+                    .read(deviceModeControllerProvider.notifier)
+                    .setMode(DeviceMode.controller),
+                child: DisplayModeScreen(
+                  onModeChanged: (_) =>
+                      ref.invalidate(deviceModeControllerProvider),
+                ),
+              )
+            : const DisplayModeScreen(),
     };
   }
 }

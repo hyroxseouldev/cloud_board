@@ -1,13 +1,35 @@
 name: Upload iOS to TestFlight
+run-name: "testflight · ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }} · ${{ github.event.workflow_run.head_branch || inputs.source_ref || github.ref_name }}"
 
 on:
   push:
-    branches:
-      - main
+    tags: ['dev/v*']
+  workflow_run:
+    workflows: [Deploy Flutter Web to Firebase Hosting]
+    types: [completed]
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Deployment tag (QA dev/vX.Y.Z-N; release vX.Y.Z), already in main
+        required: true
+        type: string
+      release_mode:
+        description: "Separate apps: .dev QA uses development Firebase; validated release uses production"
+        required: true
+        type: choice
+        options: [qa, release]
+        default: qa
+      skip_ci:
+        description: Skip integration CI only for a manual release tag upload
+        required: true
+        type: boolean
+        default: false
+      skip_ci_reason:
+        description: Required reason when skip_ci is true
+        required: false
+        type: string
       upload_to_testflight:
-        description: Upload to TestFlight (disable to prepare a signed IPA only)
+        description: Upload to TestFlight (false keeps a signed artifact only)
         required: true
         type: boolean
         default: false
@@ -17,117 +39,122 @@ permissions:
   actions: read
 
 concurrency:
-  group: testflight-main
+  group: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'testflight-main' || 'testflight-development' }}
   cancel-in-progress: false
 
 jobs:
-  class_start_regressions:
-    uses: ./.github/workflows/class-start-regressions.yml
-
-  backend_ready:
-    name: Wait for verified backend deployment
+  preflight:
+    name: Check mobile environment readiness
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight) ||
-      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip testflight]') &&
-      !contains(github.event.head_commit.message, '[backend only]'))
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/dev/')) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    environment: testflight
+    outputs:
+      ready: ${{ steps.readiness.outputs.ready }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      control_sha: ${{ steps.source.outputs.control_sha }}
+    env:
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+      SKIP_CI: ${{ inputs.skip_ci || false }}
+      CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
+      UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout trusted preflight tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && 'main' || github.sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Require this commit's tested and deployed Firebase rules
+      - name: Resolve and pin trusted app source
+        id: source
+        working-directory: control
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node tool/release_backend_gate.mjs
-
-  verify:
-    name: Verify release
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (!contains(github.event.head_commit.message, '[skip testflight]') &&
-      !contains(github.event.head_commit.message, '[backend only]'))
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Test iOS signing checks
-        run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Test release metadata and artifact gates
+        run: node tool/release/source.mjs resolve
+      - name: Report blocked development store setup
+        id: readiness
+        env:
+          RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+          SKIP_CI: ${{ inputs.skip_ci || false }}
+          DEVELOPMENT_READY: ${{ vars.MOBILE_DEVELOPMENT_READY }}
         run: |
-          node --test tool/release/*.test.mjs
-          python3 -m unittest discover -s tool/release -p 'test_*.py'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: .fvmrc
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Require TV recovery regressions without missing or skipped cases
-        run: |
-          node --test tool/tv-recovery-check.test.mjs
-          node tool/tv-recovery-check.mjs
-
-      - name: Retain TV recovery regression evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tv-recovery-ios-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/sta176/
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test
+          if [[ "$SKIP_CI" == true && "$RELEASE_MODE" != release ]]; then
+            echo 'CI skipping requires a manual release with a versioned tag.' >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_MODE" == qa && "$DEVELOPMENT_READY" != true ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '## BLOCKED — development mobile distribution is not configured' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No app was built or uploaded. Confirm the .dev store app and signing access for the shared testflight account, then set this environment’s MOBILE_DEVELOPMENT_READY variable to true. App package and Firebase remain development-only.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
 
   upload:
-    name: Build and upload
-    needs: [verify, backend_ready, class_start_regressions]
-    if: >-
-      always() && !cancelled() && needs.verify.result == 'success' && needs.class_start_regressions.result == 'success' &&
-      (needs.backend_ready.result == 'success' ||
-      (github.event_name == 'workflow_dispatch' && !inputs.upload_to_testflight))
+    name: Build and optionally upload
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
     runs-on: macos-26
     timeout-minutes: 45
     environment: testflight
+    defaults:
+      run:
+        working-directory: app
     env:
-      IOS_BUNDLE_ID: com.sunmkim.cloudboard
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      PINNED_SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+      RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+      SKIP_CI: ${{ inputs.skip_ci || false }}
+      CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
+      UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight }}
+      IOS_BUNDLE_ID: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'com.sunmkim.cloudboard' || 'com.sunmkim.cloudboard.dev' }}
       IOS_TEAM_ID: NL7AM62SB9
 
     steps:
-      - name: Checkout repository
+      - name: Checkout trusted workflow tools
         uses: actions/checkout@v4
-
-      - name: Require a trusted release source
-        run: |
-          case "$GITHUB_REF" in
-            refs/heads/main|refs/heads/release/*) ;;
-            *) echo 'Signed builds require main or a release/* branch.' >&2; exit 1 ;;
-          esac
+        with:
+          ref: ${{ needs.preflight.outputs.control_sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Resolve and pin trusted app source
+        working-directory: control
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release/source.mjs resolve
+
+      - name: Checkout selected app commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: app
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check backend compatibility before native build
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
+
+      - name: QA build does not publish app update news
+        if: env.RELEASE_MODE == 'qa'
+        run: echo 'Development .dev app and development Firebase; QA does not publish public app news or minimum-version changes. Store tester groups retain their current settings.'
 
       - name: Check release credentials
         env:
@@ -162,7 +189,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: .fvmrc
+          flutter-version-file: app/.fvmrc
           channel: stable
           cache: true
 
@@ -229,8 +256,8 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          node tool/release/play_version_code.mjs --version-name
-          node tool/release/ios_build_number.mjs --next
+          node "$GITHUB_WORKSPACE/control/tool/release/play_version_code.mjs" --version-name
+          node "$GITHUB_WORKSPACE/control/tool/release/ios_build_number.mjs" --next
 
       - name: Create export options
         run: |
@@ -252,14 +279,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          flutter build ipa --flavor production \
+          flutter build ipa --flavor "$APP_ENVIRONMENT" \
             --release \
-            --dart-define=FIREBASE_ENV=production \
+            --dart-define=FIREBASE_ENV="$APP_ENVIRONMENT" \
             --build-name "$RELEASE_VERSION_NAME" \
             --no-codesign \
             --build-number "$TESTFLIGHT_BUILD_NUMBER"
 
-          archive_path="$GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive"
+          archive_path="$GITHUB_WORKSPACE/app/build/ios/archive/Runner.xcarchive"
           if [[ ! -d "$archive_path" ]]; then
             echo 'The unsigned iOS archive was not created.' >&2
             exit 1
@@ -270,37 +297,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-ios-dsyms-${{ env.TESTFLIGHT_BUILD_NUMBER }}
-          path: build/ios/archive/Runner.xcarchive/dSYMs
+          path: app/build/ios/archive/Runner.xcarchive/dSYMs
           if-no-files-found: error
           retention-days: 90
-
-      - name: Upload dSYMs to Firebase Crashlytics
-        if: github.event_name == 'push' || inputs.upload_to_testflight
-        run: |
-          set -euo pipefail
-
-          # Flutter stores the resolved Swift packages under build/ios.
-          upload_symbols="$GITHUB_WORKSPACE/build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols"
-          dsym_directory="$IOS_ARCHIVE_PATH/dSYMs"
-          google_service_plist="$IOS_ARCHIVE_PATH/Products/Applications/Runner.app/GoogleService-Info.plist"
-
-          if [[ ! -x "$upload_symbols" || ! -f "$google_service_plist" ]]; then
-            echo 'Missing Crashlytics upload tool or archived Firebase configuration.' >&2
-            exit 1
-          fi
-          for required_dsym in Runner.app.dSYM App.framework.dSYM; do
-            if [[ ! -d "$dsym_directory/$required_dsym" ]]; then
-              echo "Missing release dSYM: $required_dsym" >&2
-              exit 1
-            fi
-          done
-
-          "$upload_symbols" -gsp "$google_service_plist" -p ios "$dsym_directory"
 
       - name: Preserve source entitlements in unsigned archive
         run: |
           set -euo pipefail
-          python3 tool/prepare_ios_entitlements.py \
+          python3 "$GITHUB_WORKSPACE/control/tool/prepare_ios_entitlements.py" \
             "$IOS_ARCHIVE_PATH" ios/Runner/Runner.entitlements \
             --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
 
@@ -326,23 +330,40 @@ jobs:
         run: |
           set -euo pipefail
           ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
-          python3 tool/inspect_ios_signing.py "$ipa_path" "$RUNNER_TEMP/ios-signing.json" \
+          python3 "$GITHUB_WORKSPACE/control/tool/inspect_ios_signing.py" "$ipa_path" "$RUNNER_TEMP/ios-signing.json" \
             --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
 
       - name: Verify actual IPA version, package and native/Dart Firebase binding
         run: |
           set -euo pipefail
           ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
-          python3 tool/release/inspect_native.py ios "$ipa_path" \
+          python3 "$GITHUB_WORKSPACE/control/tool/release/inspect_native.py" ios "$ipa_path" \
             --version "$RELEASE_VERSION_NAME" --build "$TESTFLIGHT_BUILD_NUMBER" \
-            --output "$RUNNER_TEMP/ios-release-metadata.json"
+            --environment "$APP_ENVIRONMENT" --output "$RUNNER_TEMP/ios-release-metadata.json"
+
+      - name: Reuse tag integration validation for release upload
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/common_validation.mjs" --source-sha "$SOURCE_SHA" --release-tag "$RELEASE_TAG"
+
+      - name: Record app source and signed artifact identity
+        run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" receipt "$RUNNER_TEMP/ios-release-metadata.json" "$RUNNER_TEMP/release.json"
+
+      - name: Retain mobile source receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Keep signed IPA and release evidence
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-ios-release-${{ env.TESTFLIGHT_BUILD_NUMBER }}
           path: |
-            build/ios/ipa/*.ipa
+            app/build/ios/ipa/*.ipa
             ${{ runner.temp }}/ios-release-metadata.json
           if-no-files-found: error
           retention-days: 14
@@ -356,18 +377,49 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Recheck backend before publishing
-        if: github.event_name == 'push' || inputs.upload_to_testflight
+      - name: Recheck backend compatibility and build number before publishing
+        if: env.UPLOAD_REQUESTED == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          node tool/release_backend_gate.mjs --check-only
-          node tool/release/ios_build_number.mjs --recheck
+          if [[ "$RELEASE_MODE" == release ]]; then
+            node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode release --source-sha "$SOURCE_SHA" --check-only
+          fi
+          node "$GITHUB_WORKSPACE/control/tool/release/ios_build_number.mjs" --recheck
+
+      - name: Upload dSYMs to Firebase Crashlytics
+        if: env.UPLOAD_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+
+          # Flutter stores the resolved Swift packages under build/ios.
+          upload_symbols="$GITHUB_WORKSPACE/app/build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols"
+          dsym_directory="$IOS_ARCHIVE_PATH/dSYMs"
+          google_service_plist="$IOS_ARCHIVE_PATH/Products/Applications/Runner.app/GoogleService-Info.plist"
+
+          if [[ ! -x "$upload_symbols" || ! -f "$google_service_plist" ]]; then
+            echo 'Missing Crashlytics upload tool or archived Firebase configuration.' >&2
+            exit 1
+          fi
+          for required_dsym in Runner.app.dSYM App.framework.dSYM; do
+            if [[ ! -d "$dsym_directory/$required_dsym" ]]; then
+              echo "Missing release dSYM: $required_dsym" >&2
+              exit 1
+            fi
+          done
+
+          "$upload_symbols" -gsp "$google_service_plist" -p ios "$dsym_directory"
+
+      - name: Recheck deployment tag before upload
+        if: env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" recheck
 
       - name: Upload to TestFlight
-        if: github.event_name == 'push' || inputs.upload_to_testflight
+        if: env.UPLOAD_REQUESTED == 'true'
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}

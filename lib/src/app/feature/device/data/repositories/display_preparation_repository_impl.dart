@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
@@ -60,7 +59,7 @@ class DisplayPreparationRepositoryImpl implements DisplayPreparationRepository {
 
 @riverpod
 DisplayPreparationRepository displayPreparationRepository(Ref ref) {
-  final auth = FirebaseAuth.instance;
+  final auth = ref.watch(firebaseClientAuthProvider);
   final scope = ref.watch(accountOwnerIdProvider);
   final owner = scope.isLoading || scope.hasError ? null : scope.value;
   if (owner == null) throw StateError('연결된 센터를 확인해 주세요.');

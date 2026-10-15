@@ -7,7 +7,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -250,7 +250,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 
 @Riverpod(keepAlive: true)
 PlaybackRepository playbackRepository(Ref ref) {
-  final auth = FirebaseAuth.instance;
+  final auth = ref.watch(firebaseClientAuthProvider);
   final owner = ref.watch(accountOwnerIdProvider);
   final ownerId = owner.isLoading || owner.hasError ? null : owner.value;
   final database = FirebaseDatabase.instanceFor(

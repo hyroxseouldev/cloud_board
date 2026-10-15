@@ -51,13 +51,13 @@ test('post-deploy comparison rejects config drift, secret rotation and unrelated
   ]) { const after = structuredClone(before); mutate(after); assert.throws(() => verifyAfter(before, after)); }
 });
 
-test('native regression evidence must match the candidate and every required journey', () => {
+test('server regression evidence must match the candidate without requiring native QA', () => {
   const evidence = { candidateDigest: 'abc', sourceSha: 'a'.repeat(40), appVersions: { released: '1.1.0', candidate: '1.1.1' }, tvVersion: '1.1.1', infrastructureReview: 'passed',
     pairingBackend: { project: baseline.project, region: 'asia-northeast3', function: 'pairDisplayConnection', sourceSha: 'b'.repeat(40), smoke: 'passed' },
     checks: Object.fromEntries(['legacyPairingBridge', 'googleAppleLogin', 'phoneFreeActivation', 'legacyAccountEntitlement', 'pairDisplay', 'setDisplayState', 'threeTvClassLifecycle'].map(key => [key, 'passed'])) };
   assert.doesNotThrow(() => validateReleaseEvidence(evidence, 'abc'));
   assert.throws(() => validateReleaseEvidence(evidence, 'different'));
-  evidence.checks.threeTvClassLifecycle = 'pending'; assert.throws(() => validateReleaseEvidence(evidence, 'abc'));
+  evidence.checks.threeTvClassLifecycle = 'pending'; assert.doesNotThrow(() => validateReleaseEvidence(evidence, 'abc'));
 });
 
 test('migration cannot implicitly rotate a secret to a newer or disabled version', () => {
@@ -102,69 +102,42 @@ test('bridge release requires the deployed canonical backend and released-app br
   ]) { const changed = structuredClone(evidence); mutate(changed); assert.throws(() => validateReleaseEvidence(changed, 'abc')); }
 });
 
-const waiverNow = Date.parse('2026-10-15T00:00:00.000Z');
-const nativeChecks = ['googleAppleLogin', 'phoneFreeActivation', 'legacyAccountEntitlement', 'pairDisplay', 'setDisplayState', 'threeTvClassLifecycle'];
-function waivedEvidence() {
+function serverEvidence() {
   return {
     candidateDigest: 'abc', sourceSha: 'a'.repeat(40),
-    appVersions: {released: '1.1.1 (installed inventory only)', candidate: '1.2.0 (native QA waived)'},
-    tvVersion: '1.1.0/1.1.1 (installed inventory only; no physical test)',
+    appVersions: {released: '1.1.1', candidate: '1.2.1'}, tvVersion: '1.1.0/1.1.1',
     infrastructureReview: 'passed',
     pairingBackend: {project: baseline.project, region: 'asia-northeast3', function: 'pairDisplayConnection', sourceSha: 'b'.repeat(40), smoke: 'passed'},
-    checks: {legacyPairingBridge: 'passed', ...Object.fromEntries(nativeChecks.map(key => [key, 'waived']))},
-    qaWaiver: {sha: 'a'.repeat(40), result: 'waived', approvedBy: 'release owner',
-      approvedAt: '2026-10-14T23:00:00.000Z', expiresAt: '2026-10-15T01:00:00.000Z',
-      reason: 'The release owner explicitly waived physical/native QA for this candidate.', physicalQaPerformed: false},
+    checks: {legacyPairingBridge: 'passed'},
   };
 }
 
-test('explicit candidate-bound waiver records native checks as waived, not passed', () => {
-  const evidence = waivedEvidence();
-  const result = validateReleaseEvidence(evidence, 'abc', waiverNow);
-  assert.deepEqual(result.waivedChecks, nativeChecks);
-  assert.equal(result.qaWaiver.physicalQaPerformed, false);
-  assert(nativeChecks.every(check => evidence.checks[check] === 'waived'));
-  evidence.checks.pairDisplay = 'passed';
-  assert.deepEqual(validateReleaseEvidence(evidence, 'abc', waiverNow).waivedChecks, nativeChecks.filter(check => check !== 'pairDisplay'));
+test('automated server evidence permits release without physical QA or a waiver', () => {
+  const evidence = serverEvidence();
+  const original = structuredClone(evidence);
+  assert.doesNotThrow(() => validateReleaseEvidence(evidence, 'abc'));
+  assert.deepEqual(evidence, original, 'Do not manufacture passing physical QA evidence');
+  evidence.checks.threeTvClassLifecycle = 'pending';
+  assert.doesNotThrow(() => validateReleaseEvidence(evidence, 'abc'));
+  assert.equal(evidence.checks.threeTvClassLifecycle, 'pending');
 });
 
-test('waived native checks require a valid current waiver for this exact evidence SHA', () => {
-  for (const mutate of [
-    s => { delete s.qaWaiver; },
-    s => { s.qaWaiver = null; },
-    s => { s.qaWaiver = 'not JSON'; },
-    s => { s.qaWaiver.sha = 'c'.repeat(40); },
-    s => { s.qaWaiver.expiresAt = '2026-10-14T23:30:00.000Z'; },
-    s => { s.qaWaiver.result = 'passed'; },
-    s => { s.qaWaiver.physicalQaPerformed = true; },
-    s => { s.qaWaiver.approvedBy = ''; },
-    s => { s.qaWaiver.reason = ''; },
-  ]) {
-    const changed = waivedEvidence(); mutate(changed);
-    assert.throws(() => validateReleaseEvidence(changed, 'abc', waiverNow));
-  }
-});
-
-test('native waiver cannot bypass pending journeys or server, identity and infrastructure evidence', () => {
+test('server, identity, version and infrastructure checks remain required without physical QA', () => {
   for (const mutate of [
     s => { s.candidateDigest = 'different'; },
     s => { s.sourceSha = 'invalid'; },
-    s => { s.checks.pairDisplay = 'pending'; },
-    s => { delete s.checks.threeTvClassLifecycle; },
-    s => { s.infrastructureReview = 'waived'; },
-    s => { s.pairingBackend.smoke = 'waived'; },
+    s => { delete s.appVersions; },
+    s => { delete s.appVersions.released; },
+    s => { delete s.appVersions.candidate; },
+    s => { delete s.tvVersion; },
+    s => { s.infrastructureReview = 'pending'; },
+    s => { s.pairingBackend.smoke = 'pending'; },
     s => { delete s.pairingBackend; },
     s => { s.pairingBackend.project = 'different'; },
-    s => { s.checks.legacyPairingBridge = 'waived'; },
+    s => { s.checks.legacyPairingBridge = 'pending'; },
+    s => { delete s.checks; },
   ]) {
-    const changed = waivedEvidence(); mutate(changed);
-    assert.throws(() => validateReleaseEvidence(changed, 'abc', waiverNow));
+    const changed = serverEvidence(); mutate(changed);
+    assert.throws(() => validateReleaseEvidence(changed, 'abc'));
   }
-});
-
-test('an invalid supplied waiver is rejected even when every native check says passed', () => {
-  const evidence = waivedEvidence();
-  for (const check of nativeChecks) evidence.checks[check] = 'passed';
-  evidence.qaWaiver.sha = 'c'.repeat(40);
-  assert.throws(() => validateReleaseEvidence(evidence, 'abc', waiverNow));
 });

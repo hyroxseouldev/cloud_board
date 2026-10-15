@@ -140,4 +140,4 @@ final class StoreOperationsRepositoryProvider
 }
 
 String _$storeOperationsRepositoryHash() =>
-    r'cbd8c78d82cb1841fcb9e58961962b0558e0b813';
+    r'0a54727c5771315b4aed99bf5bb66a6409c6a7d4';

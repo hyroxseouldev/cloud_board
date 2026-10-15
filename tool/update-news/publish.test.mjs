@@ -112,7 +112,7 @@ async function withDeployment(options, check) {
       let data;
       if (parsed.pathname === prefix) {
         assert.equal(parsed.searchParams.get('head_sha'), deployedSha);
-        assert.equal(parsed.searchParams.get('branch'), 'main');
+        assert.equal(parsed.searchParams.get('branch'), null);
         data = {workflow_runs: deployments.map(result => result.run)};
       } else {
         const deployment = deployments.find(result => parsed.pathname.startsWith(`${prefix}/${result.run.id}`));
@@ -144,6 +144,77 @@ test('publisher needs no Linear credentials and prepares deployed-SHA editorial 
     assert.deepEqual(payload, {...note, builds: {web: '82.2', android: '52', ios: '542'}});
     assert.deepEqual(result.news, payload);
     assert.ok(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8').includes(deployedSha));
+  });
+});
+
+test('QA TestFlight uploads and build-only runs never publish public app news', async () => {
+  await withDeployment({}, async ({env, deployments, fakeFetch}) => {
+    const ios = deployments[2];
+    ios.jobs[0].steps.push({name: 'QA build does not publish app update news', conclusion: 'success'});
+    writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
+    assert.deepEqual(await publish(env, fakeFetch), {operation: 'skipped', reason: 'qa-build'});
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+    ios.jobs = [{steps: [{name: 'Resolve and pin trusted app source', conclusion: 'success'}]}];
+    assert.deepEqual(await publish(env, fakeFetch), {operation: 'skipped', reason: 'no-deployed-builds'});
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+  });
+});
+
+test('development receipt excludes an uploaded build even without the QA marker step', async () => {
+  await withDeployment({}, async ({env, deployments, fakeFetch, deployedSha}) => {
+    const ios = deployments[2];
+    ios.run.event = 'workflow_run';
+    ios.jobs[0].steps.push({name: 'Resolve and pin trusted app source', conclusion: 'success'});
+    ios.artifacts.push({name: `mobile-source-${ios.run.id}-${ios.run.run_attempt}`});
+    writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
+    assert.deepEqual(await publish(env, fakeFetch, async () => ({schemaVersion: 3, kind: 'mobile-source',
+      sourceSha: deployedSha, workflowSha: deployedSha, releaseMode: 'qa', environment: 'development', platform: 'ios',
+      firebaseProject: 'cloud-board-development', package: 'com.sunmkim.cloudboard.dev', environmentBindingVerified: true,
+      version: note.version, build: '542', artifactSha256: 'c'.repeat(64), runId: String(ios.run.id), runAttempt: String(ios.run.run_attempt)})),
+    {operation: 'skipped', reason: 'qa-build'});
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+  });
+});
+test('production-connected QA receipt excludes an uploaded build even without the QA marker step', async () => {
+  await withDeployment({}, async ({env, deployments, fakeFetch, deployedSha}) => {
+    const ios = deployments[2];
+    ios.run.event = 'workflow_run';
+    ios.jobs[0].steps.push({name: 'Resolve and pin trusted app source', conclusion: 'success'});
+    ios.artifacts.push({name: `mobile-source-${ios.run.id}-${ios.run.run_attempt}`});
+    writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
+    assert.deepEqual(await publish(env, fakeFetch, async () => ({schemaVersion: 2, kind: 'mobile-source',
+      sourceSha: deployedSha, workflowSha: deployedSha, releaseMode: 'qa', environment: 'production', platform: 'ios',
+      firebaseProject: 'cloud-board-stationd', package: 'com.sunmkim.cloudboard', environmentBindingVerified: true,
+      version: note.version, build: '542', artifactSha256: 'c'.repeat(64), runId: String(ios.run.id), runAttempt: String(ios.run.run_attempt)})),
+    {operation: 'skipped', reason: 'qa-build'});
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+  });
+});
+
+test('versioned production tag deployment and main native workflow-run are trusted; arbitrary tags are not', () => {
+  assert.equal(trustedRun(run({head_branch: 'v1.2.2'}), repository), true);
+  assert.equal(trustedRun(run({event: 'workflow_run', path: pipelines[2].path}), repository), true);
+  for (const head_branch of ['v-next', 'v1.2.2-rc1', 'test']) assert.equal(trustedRun(run({head_branch}), repository), false);
+  assert.equal(trustedRun(run({event: 'workflow_run'}), repository), false);
+});
+
+test('release TestFlight news uses artifact app source instead of the newer workflow commit', async () => {
+  await withDeployment({}, async ({git, env, deployments, fakeFetch, deployedSha}) => {
+    writeFileSync('workflow-only.txt', 'new control workflow');
+    git('add', 'workflow-only.txt'); git('commit', '-m', 'workflow update');
+    const workflowSha = git('rev-parse', 'HEAD');
+    const ios = deployments[2];
+    ios.run.head_sha = workflowSha;
+    ios.jobs[0].steps.push({name: 'Resolve and pin trusted app source', conclusion: 'success'});
+    ios.artifacts.push({name: `mobile-source-${ios.run.id}-${ios.run.run_attempt}`});
+    writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
+    const result = await publish(env, fakeFetch, async () => ({schemaVersion: 1, kind: 'mobile-source',
+      sourceSha: deployedSha, workflowSha, releaseMode: 'release', platform: 'ios',
+      firebaseProject: 'cloud-board-stationd', package: 'com.sunmkim.cloudboard', productionBindingVerified: true,
+      version: note.version, build: '542', artifactSha256: 'c'.repeat(64), runId: String(ios.run.id), runAttempt: String(ios.run.run_attempt)}));
+    assert.equal(result.operation, 'prepared');
+    assert.equal(result.news.builds.ios, '542');
+    assert(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8').includes(deployedSha));
   });
 });
 

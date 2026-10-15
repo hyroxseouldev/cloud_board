@@ -397,6 +397,9 @@ class _ScheduledPlayback extends Fake implements PlaybackRepository {
   Completer<void>? checkGate, startGate;
   final entered = Completer<void>();
   @override
+  Stream<int> watchServerTimeOffset() => Stream.value(0);
+
+  @override
   Future<bool> hasRunningSession() async {
     await checkGate?.future;
     return starts > 0;

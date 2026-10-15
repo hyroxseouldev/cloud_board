@@ -3,8 +3,10 @@ import {createSign} from 'node:crypto';
 import {readFileSync, writeFileSync, appendFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 
-export const packageName = 'com.sunmkim.cloudboard';
-export const reservationPrefix = 'refs/tags/play-version-code/';
+export const packageName = process.env.ANDROID_PACKAGE_NAME || 'com.sunmkim.cloudboard';
+assert(['com.sunmkim.cloudboard', 'com.sunmkim.cloudboard.dev'].includes(packageName), 'Unexpected Android package');
+export const reservationPrefix = `refs/tags/play-version-code${packageName.endsWith('.dev') ? '-development' : ''}/`;
+const reservationPath = reservationPrefix.slice('refs/'.length);
 const publisher = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}`;
 const maxCode = 2100000000;
 const integer = value => {
@@ -89,7 +91,7 @@ export async function reserveCode({inventory, baseline, repository, sha, githubT
   const base = `https://api.github.com/repos/${repository}/git`;
   const headers = {Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json'};
   for (let retry = 0; retry < 5; retry += 1) {
-    const refs = await request(`${base}/matching-refs/tags/play-version-code/`, {headers});
+    const refs = await request(`${base}/matching-refs/${reservationPath}`, {headers});
     assert(Array.isArray(refs), 'Could not verify prior versionCode reservations');
     const reservedCodes = refs.map(ref => {
       assert(ref.ref.startsWith(reservationPrefix), 'Unexpected reservation ref');
@@ -106,18 +108,18 @@ export async function reserveCode({inventory, baseline, repository, sha, githubT
     } catch (error) {
       if (![409, 422].includes(error.status)) throw error;
       // Retry only a genuine competing reservation; auth/schema failures stay fatal.
-      const existing = await request(`${base}/ref/tags/play-version-code/${code}`, {headers});
+      const existing = await request(`${base}/ref/${reservationPath}${code}`, {headers});
       assert.equal(existing.ref, ref, 'Reservation conflict was not a competing allocation');
     }
   }
   throw new Error('Could not reserve a unique Play versionCode after 5 attempts');
 }
 export async function recheckReservation(receipt, token, githubToken) {
-  assert.equal(receipt.sourceSha, process.env.GITHUB_SHA, 'Reservation belongs to another commit');
+  assert.equal(receipt.sourceSha, process.env.SOURCE_SHA || process.env.GITHUB_SHA, 'Reservation belongs to another commit');
   assert.equal(receipt.repository, process.env.GITHUB_REPOSITORY, 'Reservation belongs to another repository');
   const code = integer(receipt.versionCode);
   assert.equal(receipt.reservationRef, `${reservationPrefix}${code}`);
-  const ref = await checkedFetch(`https://api.github.com/repos/${receipt.repository}/git/ref/tags/play-version-code/${code}`,
+  const ref = await checkedFetch(`https://api.github.com/repos/${receipt.repository}/git/ref/${reservationPath}${code}`,
     {headers: {Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github+json'}});
   assert.equal(ref.object?.sha, receipt.sourceSha, 'Reservation was removed or changed');
   const inventory = await playInventory(token);
@@ -140,9 +142,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const inventory = await playInventory(token);
       if (mode === '--inventory-only') console.log(JSON.stringify(inventory, null, 2));
       else {
-        const baseline = JSON.parse(readFileSync('tool/release/play-version-code-baseline.json', 'utf8'));
+        const baseline = JSON.parse(readFileSync(`tool/release/play-version-code-baseline${packageName.endsWith('.dev') ? '-development' : ''}.json`, 'utf8'));
         const receipt = await reserveCode({inventory, baseline, repository: process.env.GITHUB_REPOSITORY,
-          sha: process.env.GITHUB_SHA, githubToken: process.env.GITHUB_TOKEN});
+          sha: process.env.SOURCE_SHA || process.env.GITHUB_SHA, githubToken: process.env.GITHUB_TOKEN});
         receipt.githubRunId = process.env.GITHUB_RUN_ID;
         receipt.githubRunAttempt = process.env.GITHUB_RUN_ATTEMPT;
         assert(process.argv[3], 'Reservation receipt path is required');

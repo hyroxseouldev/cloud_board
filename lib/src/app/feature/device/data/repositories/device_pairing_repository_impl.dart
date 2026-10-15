@@ -1,6 +1,5 @@
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_connection_state.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -65,14 +64,6 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
   );
 
   @override
-  Future<void> identify(String deviceId, String nonce, int expiresAtMs) =>
-      _dataSource.identify(deviceId, nonce, expiresAtMs);
-
-  @override
-  Future<void> acknowledgeIdentification(String deviceId, String nonce) =>
-      _dataSource.acknowledgeIdentification(deviceId, nonce);
-
-  @override
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,
@@ -86,7 +77,7 @@ class DevicePairingRepositoryImpl implements DevicePairingRepository {
 
 @Riverpod(keepAlive: true)
 DevicePairingRepository devicePairingRepository(Ref ref) {
-  final auth = FirebaseAuth.instance;
+  final auth = ref.watch(firebaseClientAuthProvider);
   final owner = ref.watch(accountOwnerIdProvider);
   final ownerId = owner.isLoading || owner.hasError ? null : owner.value;
   final database = FirebaseDatabase.instanceFor(

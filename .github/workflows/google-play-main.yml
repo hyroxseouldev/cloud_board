@@ -1,13 +1,35 @@
 name: Upload Android and TV to Google Play
+run-name: "google-play · ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }} · ${{ github.event.workflow_run.head_branch || inputs.source_ref || github.ref_name }}"
 
 on:
   push:
-    branches:
-      - main
+    tags: ['dev/v*']
+  workflow_run:
+    workflows: [Deploy Flutter Web to Firebase Hosting]
+    types: [completed]
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Deployment tag (QA dev/vX.Y.Z-N; release vX.Y.Z), already in main
+        required: true
+        type: string
+      release_mode:
+        description: "Separate apps: .dev QA uses development Firebase; validated release uses production"
+        required: true
+        type: choice
+        options: [qa, release]
+        default: qa
+      skip_ci:
+        description: Skip integration CI only for a manual release tag upload
+        required: true
+        type: boolean
+        default: false
+      skip_ci_reason:
+        description: Required reason when skip_ci is true
+        required: false
+        type: string
       upload_to_play:
-        description: Upload to internal testing (disable to build an AAB without publishing)
+        description: Upload to Google Play (false keeps a signed artifact only)
         required: true
         type: boolean
         default: false
@@ -17,65 +39,127 @@ permissions:
   actions: read
 
 concurrency:
-  group: google-play-main
+  group: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'google-play-main' || 'google-play-development' }}
   cancel-in-progress: false
 
 jobs:
-  class_start_regressions:
-    uses: ./.github/workflows/class-start-regressions.yml
-
-  backend_ready:
-    name: Wait for verified backend deployment
+  preflight:
+    name: Check mobile environment readiness
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.upload_to_play) ||
-      (github.event_name == 'push' && vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
-      !contains(github.event.head_commit.message, '[skip google-play]') &&
-      !contains(github.event.head_commit.message, '[backend only]'))
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/dev/')) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    environment: google-play
+    outputs:
+      ready: ${{ steps.readiness.outputs.ready }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      control_sha: ${{ steps.source.outputs.control_sha }}
+    env:
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+      SKIP_CI: ${{ inputs.skip_ci || false }}
+      CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
+      UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_play }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout trusted preflight tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && 'main' || github.sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Require this commit's tested and deployed Firebase rules
+      - name: Resolve and pin trusted app source
+        id: source
+        working-directory: control
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node tool/release_backend_gate.mjs
+        run: node tool/release/source.mjs resolve
+      - name: Report blocked development store setup
+        id: readiness
+        env:
+          RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+          SKIP_CI: ${{ inputs.skip_ci || false }}
+          DEVELOPMENT_READY: ${{ vars.MOBILE_DEVELOPMENT_READY }}
+        run: |
+          if [[ "$SKIP_CI" == true && "$RELEASE_MODE" != release ]]; then
+            echo 'CI skipping requires a manual release with a versioned tag.' >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_MODE" == qa && "$DEVELOPMENT_READY" != true ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '## BLOCKED — development mobile distribution is not configured' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No app was built or uploaded. Confirm the .dev store app and signing access for the shared google-play account, then set this environment’s MOBILE_DEVELOPMENT_READY variable to true. App package and Firebase remain development-only.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
 
   upload:
-    needs: [backend_ready, class_start_regressions]
-    name: Build and upload to internal testing
-    if: >-
-      always() && !cancelled() && needs.class_start_regressions.result == 'success' &&
-      (needs.backend_ready.result == 'success' ||
-      (github.event_name == 'workflow_dispatch' && !inputs.upload_to_play))
+    name: Build and optionally upload
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
     permissions:
-      contents: write # Append-only versionCode reservation tags; never update/delete them.
+      contents: write # Append-only versionCode reservations, including build-only runs.
       actions: read
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 45
     environment: google-play
+    defaults:
+      run:
+        working-directory: app
     env:
-      ANDROID_PACKAGE_NAME: com.sunmkim.cloudboard
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      PINNED_SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+      RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+      SKIP_CI: ${{ inputs.skip_ci || false }}
+      CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
+      UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_play }}
+      ANDROID_PACKAGE_NAME: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'com.sunmkim.cloudboard' || 'com.sunmkim.cloudboard.dev' }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout trusted workflow tools
         uses: actions/checkout@v4
-
-      - name: Require a trusted release source
-        run: |
-          case "$GITHUB_REF" in
-            refs/heads/main|refs/heads/release/*) ;;
-            *) echo 'Signed builds require main or a release/* branch.' >&2; exit 1 ;;
-          esac
+        with:
+          ref: ${{ needs.preflight.outputs.control_sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Resolve and pin trusted app source
+        working-directory: control
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release/source.mjs resolve
+
+      - name: Checkout selected app commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: app
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check backend compatibility before native build
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
+
+      - name: QA build does not publish app update news
+        if: env.RELEASE_MODE == 'qa'
+        run: echo 'Development .dev app and development Firebase; QA does not publish public app news or minimum-version changes. Store tester groups retain their current settings.'
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -86,9 +170,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: .fvmrc
+          flutter-version-file: app/.fvmrc
           channel: stable
           cache: true
+
+      - name: Require initialized Play application before requested upload
+        if: env.UPLOAD_REQUESTED == 'true'
+        env:
+          PLAY_BOOTSTRAPPED: ${{ vars.GOOGLE_PLAY_BOOTSTRAPPED }}
+        run: test "$PLAY_BOOTSTRAPPED" = 'true'
 
       - name: Check Android signing credentials
         env:
@@ -128,29 +218,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Require TV recovery regressions without missing or skipped cases
-        run: |
-          node --test tool/tv-recovery-check.test.mjs
-          node tool/tv-recovery-check.mjs
-
-      - name: Retain TV recovery regression evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tv-recovery-android-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/sta176/
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test
-
       - name: Install Android upload key
         env:
           ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
@@ -162,30 +229,25 @@ jobs:
           chmod 600 "$keystore_path"
           echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
-      - name: Test release metadata and artifact gates
-        run: |
-          node --test tool/release/*.test.mjs
-          python3 -m unittest discover -s tool/release -p 'test_*.py'
-
       - name: Derive marketing version and reserve a unique Play build number
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          node tool/release/play_version_code.mjs --version-name
-          node tool/release/play_version_code.mjs --reserve "$RUNNER_TEMP/play-build-reservation.json"
+          node "$GITHUB_WORKSPACE/control/tool/release/play_version_code.mjs" --version-name
+          node "$GITHUB_WORKSPACE/control/tool/release/play_version_code.mjs" --reserve "$RUNNER_TEMP/play-build-reservation.json"
 
       - name: Build signed Android App Bundle
         run: |
           set -euo pipefail
 
-          flutter build appbundle --flavor production \
+          flutter build appbundle --flavor "$APP_ENVIRONMENT" \
             --release \
-            --dart-define=FIREBASE_ENV=production \
+            --dart-define=FIREBASE_ENV="$APP_ENVIRONMENT" \
             --build-name "$RELEASE_VERSION_NAME" \
             --build-number "$PLAY_BUILD_NUMBER"
 
-          bundle_path="build/app/outputs/bundle/productionRelease/app-production-release.aab"
+          bundle_path="build/app/outputs/bundle/${{ env.APP_ENVIRONMENT }}Release/app-${{ env.APP_ENVIRONMENT }}-release.aab"
           if [[ ! -f "$bundle_path" ]]; then
             echo 'The signed Android App Bundle was not created.' >&2
             exit 1
@@ -198,10 +260,27 @@ jobs:
           curl --fail --silent --show-error --location --retry 3 \
             https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar \
             --output "$bundletool"
-          python3 tool/release/inspect_native.py android \
-            build/app/outputs/bundle/productionRelease/app-production-release.aab \
+          python3 "$GITHUB_WORKSPACE/control/tool/release/inspect_native.py" android \
+            build/app/outputs/bundle/${{ env.APP_ENVIRONMENT }}Release/app-${{ env.APP_ENVIRONMENT }}-release.aab \
             --version "$RELEASE_VERSION_NAME" --build "$PLAY_BUILD_NUMBER" \
-            --bundletool "$bundletool" --output "$RUNNER_TEMP/android-release-metadata.json"
+            --environment "$APP_ENVIRONMENT" --bundletool "$bundletool" --output "$RUNNER_TEMP/android-release-metadata.json"
+
+      - name: Reuse tag integration validation for release upload
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/common_validation.mjs" --source-sha "$SOURCE_SHA" --release-tag "$RELEASE_TAG"
+
+      - name: Record app source and signed artifact identity
+        run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" receipt "$RUNNER_TEMP/android-release-metadata.json" "$RUNNER_TEMP/release.json"
+
+      - name: Retain mobile source receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Keep Android release evidence
         uses: actions/upload-artifact@v4
@@ -217,32 +296,38 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-internal-aab-${{ env.PLAY_BUILD_NUMBER }}
-          path: build/app/outputs/bundle/productionRelease/app-production-release.aab
+          path: app/build/app/outputs/bundle/${{ env.APP_ENVIRONMENT }}Release/app-${{ env.APP_ENVIRONMENT }}-release.aab
           if-no-files-found: error
           retention-days: 14
 
-      # Keep automatic releases on internal testing while the first production
+      # Keep manual releases on internal testing while the first production
       # release is in review. Do not resubmit Alpha or production changes.
-      - name: Recheck backend before publishing
-        if: vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' && (github.event_name == 'push' || inputs.upload_to_play)
+      - name: Recheck backend compatibility and build number before publishing
+        if: env.UPLOAD_REQUESTED == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          node tool/release_backend_gate.mjs --check-only
-          node tool/release/play_version_code.mjs --recheck "$RUNNER_TEMP/play-build-reservation.json"
+          if [[ "$RELEASE_MODE" == release ]]; then
+            node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode release --source-sha "$SOURCE_SHA" --check-only
+          fi
+          node "$GITHUB_WORKSPACE/control/tool/release/play_version_code.mjs" --recheck "$RUNNER_TEMP/play-build-reservation.json"
+
+      - name: Recheck deployment tag before upload
+        if: env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" recheck
 
       - name: Upload mobile and TV bundle to internal testing
-        if: >-
-          vars.GOOGLE_PLAY_BOOTSTRAPPED == 'true' &&
-          (github.event_name == 'push' || inputs.upload_to_play)
+        if: env.UPLOAD_REQUESTED == 'true'
         uses: r0adkll/upload-google-play@v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ env.ANDROID_PACKAGE_NAME }}
-          releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
+          releaseFiles: app/build/app/outputs/bundle/${{ env.APP_ENVIRONMENT }}Release/app-${{ env.APP_ENVIRONMENT }}-release.aab
           track: internal
           status: completed
           # Google rejects changesNotSentForReview=true for this internal track.
           # Internal releases use the default commit behavior; no other track is edited.
-          releaseName: "${{ env.RELEASE_VERSION_NAME }} (${{ env.PLAY_BUILD_NUMBER }}) - Internal"
+          releaseName: "${{ env.RELEASE_VERSION_NAME }} (${{ env.PLAY_BUILD_NUMBER }}) - ${{ env.RELEASE_MODE }} Internal"

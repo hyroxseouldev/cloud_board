@@ -1,72 +1,58 @@
+import assert from 'node:assert/strict';
 import {appendFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
-import {validateReceipt} from './firebase/release.mjs';
-import {productionRuns} from './firebase/release-runs.mjs';
-import {hashFile} from './firebase/common.mjs';
+import {backendFingerprint, functionsFingerprint, github} from './firebase/release.mjs';
+import {latestRelease} from './firebase/latest-release.mjs';
+import {hash, writeJson} from './firebase/common.mjs';
 import {readReleaseArtifact} from './firebase/github-artifact.mjs';
 
-const workflow = 'firebase-hosting-merge.yml';
-
-// A passing Flutter build alone is insufficient: the exact commit must have
-// passed the rules contracts AND finished deploying its backend and web app.
-export async function requireBackend({repository, sha, ref, request, readArtifact, sleep, timeoutMs = 45 * 60_000, now = Date.now}) {
-  if (ref !== 'refs/heads/main' || !/^[a-f0-9]{40}$/.test(sha || '')) {
-    throw new Error('Production upload requires an exact main commit.');
+export async function requireBackend({repository, sha, request, readArtifact, mode = 'release', fingerprint, ignoreRunId, functionsOnly = false, candidateFunctionsFingerprint}) {
+  assert.match(sha || '', /^[a-f0-9]{40}$/, 'An exact source SHA is required');
+  fingerprint ??= backendFingerprint(sha);
+  assert(['release', 'qa'].includes(mode), 'Unknown release mode');
+  // A release tag remains valid when main advances. QA may use an integrated
+  // develop candidate, but never an unrelated branch carrying deployment keys.
+  const branches = mode === 'qa' ? ['main', 'develop'] : ['main'];
+  let trusted = false;
+  for (const branch of branches) {
+    const compare = await request(`/repos/${repository}/compare/${sha}...${branch}`);
+    if (['ahead', 'identical'].includes(compare.status) && compare.merge_base_commit?.sha === sha) { trusted = true; break; }
   }
-  const started = now();
-  do {
-    const head = await request(`/repos/${repository}/git/ref/heads/main`);
-    if (head.object.sha !== sha) throw new Error('This commit is no longer main. Upload the latest verified commit.');
-    const result = await request(`/repos/${repository}/actions/workflows/${workflow}/runs?branch=main&head_sha=${sha}&per_page=100`);
-    const run = productionRuns(result.workflow_runs, repository, sha)[0];
-    // Never fall back to an older successful run when its retry/latest run fails.
-    if (run?.status === 'completed') {
-      if (run.conclusion !== 'success') throw new Error(`Backend deployment ${run.id} ended with ${run.conclusion}. Client upload blocked.`);
-      // Also require the concrete deploy step. A future workflow skip must not
-      // accidentally turn a green validation-only run into a release permit.
-      const jobs = await request(`/repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
-      const job = jobs.jobs.find(j => j.name === 'firebase-production' && j.conclusion === 'success');
-      const required = jobs.jobs.find(j => j.name === 'firebase-required' && j.conclusion === 'success');
-      const steps = ['Deploy account deletion functions and data rules', 'Verify deployed rules',
-        'Verify client save, image and TV permissions', 'Deploy to Firebase Hosting', 'Publish verified release receipt', 'Retain verified release receipt'];
-      if (!required || !steps.every(name => job?.steps?.some(s => s.name === name && s.conclusion === 'success'))) {
-        throw new Error('No successful backend deployment and client smoke for this exact run attempt.');
-      }
-      const artifacts = await request(`/repos/${repository}/actions/runs/${run.id}/artifacts?per_page=100`);
-      const matching = artifacts.artifacts.filter(a => a.name === `firebase-release-${run.id}-${run.run_attempt}` && !a.expired);
-      if (matching.length !== 1 || !readArtifact) throw new Error('Missing unambiguous verified release receipt.');
-      const receipt = await readArtifact(matching[0]);
-      validateReceipt(receipt, {sha, runId: String(run.id), attempt: String(run.run_attempt), scope: 'full'});
-      for (const path of ['firestore.rules', 'database.rules.json', 'storage.rules']) {
-        if (receipt.manifest.files[path] !== hashFile(path)) throw new Error('Receipt rules do not match this client commit.');
-      }
-      // Main can advance during the artifact download too.
-      if ((await request(`/repos/${repository}/git/ref/heads/main`)).object.sha !== sha) throw new Error('This commit is no longer main.');
-      return run;
-    }
-    if (now() - started >= timeoutMs) break;
-    await sleep(Math.min(15_000, timeoutMs - (now() - started)));
-  } while (now() - started <= timeoutMs);
-  throw new Error('Timed out waiting for the matching rules test and backend deployment. Client upload blocked.');
+  assert(trusted, 'Source must be a trusted main/develop ancestor for the selected mode');
+  const result = await latestRelease({repository, request, readArtifact, ignoreRunId});
+  assert.equal(result.status, 'success', 'Backend deployment is in progress; retry upload after it completes');
+  const {receipt, run} = result;
+  assert(receipt.scope !== 'rules' || receipt.manifest.functionsFingerprint, 'Legacy rules-only receipt lacks verified Functions provenance; deploy backend once');
+  if (functionsOnly) {
+    assert.equal(receipt.manifest.functionsFingerprint || functionsFingerprint(receipt.sha), candidateFunctionsFingerprint || functionsFingerprint(sha),
+      'Rules-only deployment cannot publish an undeployed Functions fingerprint; deploy backend first');
+  } else if (receipt.manifest.backendFingerprint) {
+    assert.equal(receipt.manifest.backendFingerprint, fingerprint, 'Candidate requires a different backend. Deploy the server changes before uploading this app.');
+  } else {
+    // Backward-compatible transition from old full receipts: compare every
+    // deployed server input recorded in the original manifest, not just rules.
+    const paths = Object.keys(receipt.manifest.files).filter(path => /^(functions\/(src|certificates)\/|functions\/package(?:-lock)?\.json$|firestore\.(rules|indexes\.json)$|database\.rules\.json$|storage\.rules$)/.test(path));
+    assert(paths.some(path => path.startsWith('functions/src/')) && paths.includes('functions/package-lock.json'), 'Legacy receipt lacks backend source evidence');
+    for (const path of paths) assert.equal(hash(execFileSync('git', ['show', `${sha}:${path}`])), receipt.manifest.files[path], `Candidate backend differs: ${path}`);
+    // Also reject newly added functions/files absent from an old receipt.
+    assert.equal(backendFingerprint(receipt.sha), fingerprint, 'Candidate backend differs from the deployed backend');
+  }
+  return {...run, backendReference: {runId: String(run.id), sha: receipt.sha, fingerprint}};
 }
-
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const {GITHUB_TOKEN: token, GITHUB_REPOSITORY: repository, GITHUB_SHA: sha, GITHUB_REF: ref} = process.env;
-  if (!token || !repository) throw new Error('Missing GitHub release gate credentials.');
-  const run = await requireBackend({repository, sha, ref,
-    readArtifact: artifact => readReleaseArtifact(artifact, repository, token),
-    timeoutMs: process.argv.includes('--check-only') ? 0 : undefined,
-    sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
-    request: async path => {
-      const response = await fetch(`https://api.github.com${path}`, {
-        headers: {Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!response.ok) throw new Error(`Release gate GitHub request failed (${response.status}).`);
-      return response.json();
-    },
-  });
-  const message = `Backend ready for ${sha}: ${run.html_url}`;
+  const args = process.argv.slice(2);
+  const value = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
+  const sha = value('--source-sha') || process.env.SOURCE_SHA || process.env.RELEASE_SOURCE_SHA || process.env.GITHUB_SHA;
+  assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(), sha, 'Checkout must match the selected source SHA');
+  const repository = process.env.GITHUB_REPOSITORY;
+  assert(repository && process.env.GITHUB_TOKEN, 'Missing GitHub release gate credentials');
+  const run = await requireBackend({repository, sha, mode: value('--mode') || (args.includes('--qa') ? 'qa' : 'release'), request: github,
+    functionsOnly: args.includes('--rules'),
+    ignoreRunId: args.includes('--web') || args.includes('--rules') ? process.env.GITHUB_RUN_ID : undefined,
+    readArtifact: artifact => readReleaseArtifact(artifact, repository, process.env.GITHUB_TOKEN)});
+  if (args.includes('--web')) writeJson('build/release/backend-reference.json', run.backendReference);
+  const message = `Compatible deployed backend: ${run.html_url || run.id}; candidate ${sha}`;
   console.log(message);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
 }

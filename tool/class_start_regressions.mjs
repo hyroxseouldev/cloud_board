@@ -64,7 +64,7 @@ async function run(platform) {
   assert.equal(code, 0, `Flutter ${platform} failed; see build/class-start/${platform}.jsonl`);
   const events = output.split('\n').filter(line => line.trim().startsWith('{')).map(line => JSON.parse(line));
   const result = validateTestEvents(events);
-  writeFileSync(`build/class-start/${platform}.json`, JSON.stringify({sha: process.env.GITHUB_SHA || 'local', platform, ...result}, null, 2));
+  writeFileSync(`build/class-start/${platform}.json`, JSON.stringify({sha: process.env.RELEASE_SOURCE_SHA || process.env.GITHUB_SHA || 'local', platform, ...result}, null, 2));
   console.log(`${platform}: ${result.tests} required regressions passed without skips`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

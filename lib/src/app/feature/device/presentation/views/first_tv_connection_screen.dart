@@ -2,11 +2,9 @@ import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/add_display_dialog.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
 
 class FirstTvConnectionScreen extends ConsumerWidget {
   const FirstTvConnectionScreen({super.key});
@@ -46,14 +44,6 @@ class FirstTvConnectionScreen extends ConsumerWidget {
               title: Text('TV 이름과 구역 정하기'),
               subtitle: Text('코치가 구분할 수 있는 이름과 설치된 구역을 입력하세요.'),
             ),
-            const ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(child: Text('4')),
-              title: Text('무음 확인 번호로 실제 TV 확인'),
-              subtitle: Text(
-                '등록 뒤 소리 없는 확인 화면을 보냅니다. 원하는 TV의 번호가 맞으면 확인을 누르세요.',
-              ),
-            ),
             const SizedBox(height: 20),
             if (scope.value != null)
               FilledButton.icon(
@@ -77,7 +67,7 @@ class FirstTvConnectionScreen extends ConsumerWidget {
                 '새 TV 등록은 센터 소유자에게 요청해 주세요. 이미 등록된 TV는 아래에서 확인할 수 있습니다.',
               ),
             const SizedBox(height: 24),
-            Text('등록된 TV 확인', style: Theme.of(context).textTheme.titleLarge),
+            Text('등록된 TV', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             if (devices.isLoading) const LinearProgressIndicator(),
             if (devices.hasError)
@@ -94,29 +84,7 @@ class FirstTvConnectionScreen extends ConsumerWidget {
                 child: ListTile(
                   title: Text(device.name),
                   subtitle: Text(
-                    '${device.zoneName} · ${device.recentlySeen(nowMs) ? '온라인 · 응답 확인하기' : '오프라인 · TV 앱과 인터넷 확인'}',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => showDialog<void>(
-                    context: context,
-                    builder: (dialogContext) => AppAlertDialog(
-                      title: const Text('TV 응답 확인'),
-                      content: SizedBox(
-                        width: 360,
-                        child: SingleChildScrollView(
-                          child: DisplayVerification(
-                            deviceId: device.id,
-                            onDone: () => Navigator.of(dialogContext).pop(),
-                          ),
-                        ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('닫기'),
-                        ),
-                      ],
-                    ),
+                    '${device.zoneName} · ${device.recentlySeen(nowMs) ? '온라인' : '오프라인 · TV 앱과 인터넷 확인'}',
                   ),
                 ),
               ),

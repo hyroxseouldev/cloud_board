@@ -1,5 +1,4 @@
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_recovery.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_identification_overlay.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
@@ -10,6 +9,7 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/display_prefe
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_pairing_card.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_pairing_error_message.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
 
 import 'dart:async';
@@ -39,7 +39,9 @@ import 'package:cloud_board/src/app/feature/operations/presentation/controllers/
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 
 class DisplayModeScreen extends HookConsumerWidget {
-  const DisplayModeScreen({super.key});
+  const DisplayModeScreen({super.key, this.onModeChanged});
+
+  final ValueChanged<DeviceMode>? onModeChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -216,51 +218,6 @@ class DisplayModeScreen extends HookConsumerWidget {
         !recovery.hasError &&
         currentDevice?.paired == true &&
         remoteState == RemoteDisplayState.auto.name;
-    final identify =
-        foreground &&
-        connected &&
-        recovery.hasValue &&
-        !isActive &&
-        currentDevice?.paired == true &&
-        currentDevice?.identificationId != null &&
-        currentDevice!.identificationId!.length >= 4 &&
-        currentDevice.identificationExpiresAtMs >
-            DateTime.now().millisecondsSinceEpoch + serverOffset;
-    useEffect(
-      () {
-        if (!identify ||
-            deviceId == null ||
-            currentDevice.identificationAck == currentDevice.identificationId) {
-          return null;
-        }
-        var cancelled = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!cancelled &&
-              context.mounted &&
-              DateTime.now().millisecondsSinceEpoch + serverOffset <
-                  currentDevice.identificationExpiresAtMs) {
-            unawaited(
-              ref
-                  .read(devicePairingActionsProvider)
-                  .acknowledgeIdentification(
-                    deviceId,
-                    currentDevice.identificationId!,
-                  )
-                  .catchError((Object _) {}),
-            );
-          }
-        });
-        return () => cancelled = true;
-      },
-      [
-        identify,
-        deviceId,
-        currentDevice?.identificationId,
-        currentDevice?.identificationAck,
-        now.value.second,
-      ],
-    );
-
     useEffect(
       () {
         var cancelled = false;
@@ -361,8 +318,7 @@ class DisplayModeScreen extends HookConsumerWidget {
                 session != null &&
                 session.status != PlaybackStatus.completed) &&
             !showCompletion &&
-            !showBlack &&
-            !identify,
+            !showBlack,
         child: FocusTraversalGroup(
           policy: ReadingOrderTraversalPolicy(),
           child: Stack(
@@ -385,10 +341,6 @@ class DisplayModeScreen extends HookConsumerWidget {
                   allowPlayback &&
                   session.briefing != true)
                 player
-              else if (identify)
-                // The opaque identification surface owns layout while visible.
-                // Do not lay out hidden center content at system text scaling.
-                const SizedBox.expand()
               else
                 _DisplayStandby(
                   isLoading: active.isLoading,
@@ -408,15 +360,6 @@ class DisplayModeScreen extends HookConsumerWidget {
                       await ref.read(beepPlayerProvider).play();
                     } catch (_) {}
                   },
-                ),
-              if (identify)
-                Positioned.fill(
-                  child: DisplayIdentificationOverlay(
-                    deviceName: currentDevice.name,
-                    code: currentDevice.identificationId!.substring(
-                      currentDevice.identificationId!.length - 4,
-                    ),
-                  ),
                 ),
               if (!showBlack && !isTv)
                 Positioned(
@@ -441,6 +384,7 @@ class DisplayModeScreen extends HookConsumerWidget {
                               padding: const EdgeInsets.only(right: 18),
                               child: DeviceModeToggle(
                                 onChanged: (mode) {
+                                  onModeChanged?.call(mode);
                                   if (mode == DeviceMode.controller) {
                                     context.go('/displays');
                                   }
@@ -521,10 +465,13 @@ class _DisplayStandby extends StatelessWidget {
             children: [
               pairing.when(
                 loading: () => const CircularProgressIndicator(),
-                error: (_, _) => Column(
+                error: (error, _) => Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('연결 코드를 불러오지 못했습니다. 네트워크를 확인해 주세요.'),
+                    Text(
+                      '연결 코드를 불러오지 못했습니다.\n${devicePairingErrorMessage(error)}',
+                      textAlign: TextAlign.center,
+                    ),
                     TextButton.icon(
                       onPressed: onRefreshPairing,
                       icon: const Icon(Icons.refresh_rounded),

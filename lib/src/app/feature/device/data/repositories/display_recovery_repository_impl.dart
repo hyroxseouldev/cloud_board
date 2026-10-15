@@ -3,7 +3,6 @@ import 'package:cloud_board/src/app/feature/device/data/datasources/display_reco
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_recovery.dart';
 import 'package:cloud_board/src/app/feature/device/domain/repositories/display_recovery_repository.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'display_recovery_repository_impl.g.dart';
@@ -37,7 +36,7 @@ class DisplayRecoveryRepositoryImpl implements DisplayRecoveryRepository {
 DisplayRecoveryRepository displayRecoveryRepository(Ref ref) {
   final owner = ref.watch(accountOwnerIdProvider);
   final ownerId = owner.isLoading || owner.hasError ? null : owner.value;
-  final app = FirebaseAuth.instance.app;
+  final app = ref.watch(firebaseClientAuthProvider).app;
   final source = DisplayRecoveryDataSource(
     FirebaseDatabase.instanceFor(
       app: app,

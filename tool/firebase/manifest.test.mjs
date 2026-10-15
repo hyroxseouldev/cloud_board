@@ -10,14 +10,15 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
   // A separate repository-shaped directory exercises the actual manifest code
   // without rewriting the developer's build, source or test reports.
   const dir = mkdtempSync(join(tmpdir(), 'sta104-manifest-'));
-  const keys = ['GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FIREBASE_DEPLOY_SCOPE'];
+  const keys = ['GITHUB_SHA', 'RELEASE_SOURCE_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FIREBASE_DEPLOY_SCOPE', 'RELEASE_VALIDATION_MODE', 'RELEASE_TAG', 'GITHUB_EVENT_NAME', 'GITHUB_REF'];
   const previous = keys.map(k => process.env[k]);
+  for (const key of ['RELEASE_VALIDATION_MODE', 'RELEASE_TAG', 'GITHUB_EVENT_NAME', 'GITHUB_REF']) delete process.env[key];
   const id = {sha: 'a'.repeat(40), runId: '123', attempt: '2'};
-  Object.assign(process.env, {GITHUB_SHA: id.sha, GITHUB_RUN_ID: id.runId, GITHUB_RUN_ATTEMPT: id.attempt, FIREBASE_DEPLOY_SCOPE: 'full'});
+  Object.assign(process.env, {GITHUB_SHA: id.sha, RELEASE_SOURCE_SHA: id.sha, GITHUB_RUN_ID: id.runId, GITHUB_RUN_ATTEMPT: id.attempt, FIREBASE_DEPLOY_SCOPE: 'full'});
   const write = (file, content) => { mkdirSync(dirname(join(dir, file)), {recursive: true}); writeFileSync(join(dir, file), content); };
   const json = (file, value) => write(file, JSON.stringify(value));
   try {
-    for (const file of ['tool/firebase/release.mjs', 'tool/firebase/common.mjs', 'tool/firebase/support_retirements.mjs', 'firebase.json', 'firestore.rules', 'database.rules.json', 'storage.rules']) write(file, readFileSync(file));
+    for (const file of ['tool/firebase/release.mjs', 'tool/firebase/common.mjs', 'tool/firebase/release-validation.mjs', 'tool/firebase/support_retirements.mjs', 'firebase.json', 'firestore.rules', 'database.rules.json', 'storage.rules']) write(file, readFileSync(file));
     for (const directory of ['functions/src', 'functions/tools', 'functions/certificates', 'functions/test/fixtures']) write(`${directory}/example.js`, 'verified');
     for (const file of ['firestore.indexes.json', 'functions/package.json', 'functions/package-lock.json', 'build/contracts/app-current.json', 'build/contracts/workout-save-current.json', 'tool/firebase/compatibility-policy.json']) json(file, {});
     const sourceCommit = 'b'.repeat(40);
@@ -115,6 +116,55 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
     write('firebase.json', readFileSync('firebase.json'));
     symlinkSync(join(dir, 'storage.rules'), join(dir, 'build/web/rules'));
     assert.throws(() => makeManifest(), /Symlink not allowed/);
+    rmSync(join(dir, 'build/web/rules'));
+    process.env.FIREBASE_DEPLOY_SCOPE = 'backend';
+    rmSync(join(dir, 'build/web'), {recursive: true});
+    const backendOnly = makeManifest(); verifyManifest(backendOnly);
+    assert(!Object.keys(backendOnly.files).some(path => path.startsWith('build/web/')));
+    process.env.FIREBASE_DEPLOY_SCOPE = 'web';
+    write('build/web/index.html', '<html>verified</html>');
+    rmSync(join(dir, 'build/contracts'), {recursive: true});
+    rmSync(join(dir, 'build/firebase-contracts'), {recursive: true});
+    const webOnly = makeManifest(); verifyManifest(webOnly);
+    assert(!Object.keys(webOnly.files).some(path => path.startsWith('build/firebase-contracts/')));
+
+    // Explicit manual CI skip carries its own audit, never fabricated passing
+    // contract reports. Artifact integrity and production targeting still apply.
+    Object.assign(process.env, {FIREBASE_DEPLOY_SCOPE: 'full', RELEASE_TAG: 'v1.2.3',
+      GITHUB_REF: 'refs/tags/v1.2.3', GITHUB_EVENT_NAME: 'workflow_dispatch', RELEASE_VALIDATION_MODE: 'skipped'});
+    const auditFile = 'build/release/validation/release.json';
+    const audit = {schemaVersion: 1, kind: 'release-validation', sourceSha: id.sha, releaseTag: 'v1.2.3',
+      runId: id.runId, runAttempt: id.attempt, validationMode: 'skipped', reason: 'Incident recovery', actor: 'release-owner'};
+    const writeAudit = value => write(auditFile, `${JSON.stringify(value, null, 2)}\n`);
+    writeAudit(audit);
+    const skippedCi = makeManifest(); verifyManifest(skippedCi);
+    assert.deepEqual(skippedCi.validation, audit);
+    assert(!Object.keys(skippedCi.files).some(path => /^build\/(contracts|firebase-contracts)\//.test(path)));
+    for (const patch of [{reason: ''}, {sourceSha: 'c'.repeat(40)}, {runAttempt: '1'}, {releaseTag: 'v1.2.4'}, {actor: ''}]) {
+      writeAudit({...audit, ...patch});
+      assert.throws(() => makeManifest());
+      assert.throws(() => verifyManifest(skippedCi));
+    }
+    writeAudit(audit);
+    for (const [key, value] of [['GITHUB_EVENT_NAME', 'push'], ['GITHUB_REF', 'refs/heads/main'], ['FIREBASE_DEPLOY_SCOPE', 'verify']]) {
+      const before = process.env[key]; process.env[key] = value;
+      assert.throws(() => makeManifest()); process.env[key] = before;
+    }
+    const fakeEvidence = structuredClone(skippedCi);
+    fakeEvidence.files['build/firebase-contracts/report.json'] = hash('{}');
+    assert.throws(() => verifyManifest(fakeEvidence), /must not claim contract/);
+    const noAudit = structuredClone(skippedCi); delete noAudit.validation;
+    assert.throws(() => verifyManifest(noAudit), /validation mode mismatch/);
+    write('build/web/index.html', 'changed after CI was skipped');
+    assert.throws(() => verifyManifest(skippedCi), /Artifact changed/);
+    write('build/web/index.html', '<html>verified</html>');
+    process.env.RELEASE_VALIDATION_MODE = 'required';
+    writeAudit({...audit, validationMode: 'required', reason: ''});
+    assert.throws(() => makeManifest(), /ENOENT/);
+    assert.throws(() => verifyManifest(skippedCi), /validation mode mismatch/);
+    delete process.env.RELEASE_VALIDATION_MODE;
+    assert.throws(() => verifyManifest(skippedCi), /validation mode mismatch/);
+
   } finally {
     keys.forEach((key, i) => previous[i] === undefined ? delete process.env[key] : process.env[key] = previous[i]);
     rmSync(dir, {recursive: true, force: true});
