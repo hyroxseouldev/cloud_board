@@ -68,6 +68,11 @@ void main() {
       );
       expect(ready.centerReady, isFalse);
       expect(ready.next(onlineTv: false), FirstClassNext.connect);
+      expect(ready.next(onlineTv: true), FirstClassNext.play);
+      expect(
+        ready.copyWith(verifiedDeviceId: 'removed-tv').next(onlineTv: true),
+        FirstClassNext.play,
+      );
       final complete = ready.copyWith(
         verifiedDeviceId: 'tv',
         playedSessionId: 'session',

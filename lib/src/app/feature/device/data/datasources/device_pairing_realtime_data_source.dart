@@ -349,44 +349,6 @@ class DevicePairingRealtimeDataSource {
     });
   }
 
-  Future<void> identify(String deviceId, String nonce, int expiresAtMs) async {
-    await _connected();
-    final result = await _ownerRef.child('devices/$deviceId').runTransaction((
-      value,
-    ) {
-      if (value == null) return Transaction.success(null);
-      if (!isRegisteredDisplay(value)) return Transaction.abort();
-      return Transaction.success({
-        ...value as Map,
-        'identificationId': nonce,
-        'identificationExpiresAtMs': expiresAtMs,
-        'identificationAck': null,
-      });
-    }, applyLocally: false);
-    if (!result.committed || !result.snapshot.exists) {
-      throw StateError('디스플레이 연결이 해제되었습니다. 목록을 새로 확인해 주세요.');
-    }
-  }
-
-  Future<void> acknowledgeIdentification(String deviceId, String nonce) async {
-    final result = await _ownerRef.child('devices/$deviceId').runTransaction((
-      value,
-    ) {
-      if (value == null) return Transaction.success(null);
-      if (!isRegisteredDisplay(value) ||
-          (value as Map)['identificationId'] != nonce) {
-        return Transaction.abort();
-      }
-      return Transaction.success({
-        ...value,
-        'identificationAck': nonce,
-        'online': true,
-        'lastSeenAtMs': ServerValue.timestamp,
-      });
-    }, applyLocally: false);
-    if (!result.committed) throw StateError('TV 확인 요청이 변경되었습니다.');
-  }
-
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,

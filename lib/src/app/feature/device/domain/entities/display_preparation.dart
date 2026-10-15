@@ -107,12 +107,10 @@ class DisplayPreparationProof {
     required this.manifestHash,
     this.sessionId,
     this.revision,
-    this.legacyDeviceIds = const [],
   });
   final String manifestHash;
   final String? sessionId;
   final int? revision;
-  final List<String> legacyDeviceIds;
 }
 
 enum DisplayPreparationStatus {

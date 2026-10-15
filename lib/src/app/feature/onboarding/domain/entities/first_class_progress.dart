@@ -43,7 +43,7 @@ abstract class FirstClassProgress with _$FirstClassProgress {
     if (rehearsedWorkoutId != savedWorkoutId) return FirstClassNext.rehearse;
     // Center questionnaires are optional; verified service access is checked
     // by the server independently of this local preparation checklist.
-    if (verifiedDeviceId == null || !onlineTv) return FirstClassNext.connect;
+    if (!onlineTv) return FirstClassNext.connect;
     return FirstClassNext.play;
   }
 }

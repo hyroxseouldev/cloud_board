@@ -59,14 +59,10 @@ DisplayPreparationReceipt receipt(
   imageCount: imageCount ?? r.images.length,
   audioReady: audio,
 );
-DisplayPreparationProof proof(
-  DisplayPreparation r, {
-  List<String> legacy = const [],
-}) => DisplayPreparationProof(
+DisplayPreparationProof proof(DisplayPreparation r) => DisplayPreparationProof(
   manifestHash: r.manifestHash,
   sessionId: r.sessionId,
   revision: r.revision,
-  legacyDeviceIds: legacy,
 );
 
 void main() {
@@ -231,26 +227,42 @@ void main() {
       );
     },
   );
-  test('compatible old direct clients survive but UI proof needs explicit legacy confirmation', () async {
+  test('compatible legacy TVs start automatically after connection and protocol checks', () async {
     final r = request();
     final actions = DisplayPreparationActions(
       _Preparation(),
       _Devices([device('tv', preparation: 0)]),
     );
     await actions.verifyStart(workout, ['tv'], null, nowMs: now);
+    await actions.verifyStart(workout, ['tv'], proof(r), nowMs: now);
+  });
+  test('mixed displays still require the modern candidate receipt', () async {
+    final candidate = request(targets: ['old', 'tv']);
+    final repository = _Preparation()..value = candidate;
+    final devices = _Devices([device('old', preparation: 0), device('tv')]);
+    final actions = DisplayPreparationActions(repository, devices);
     await expectLater(
-      actions.verifyStart(workout, ['tv'], proof(r), nowMs: now),
+      actions.verifyStart(workout, ['old', 'tv'], proof(candidate), nowMs: now),
       throwsStateError,
     );
+    repository.acks = {'tv': receipt(candidate)};
     await actions.verifyStart(
       workout,
-      ['tv'],
-      proof(r, legacy: ['tv']),
+      ['old', 'tv'],
+      proof(candidate),
       nowMs: now,
+    );
+    devices.values = [
+      device('old', preparation: 0, seen: now - 75000),
+      device('tv'),
+    ];
+    await expectLater(
+      actions.verifyStart(workout, ['old', 'tv'], proof(candidate), nowMs: now),
+      throwsStateError,
     );
   });
   test(
-    'stale legacy TV cannot start with an explicit UI confirmation',
+    'stale legacy TV cannot start with or without preparation proof',
     () async {
       final candidate = request();
       final stale = device('tv', preparation: 0, seen: now - 75000);
@@ -264,12 +276,13 @@ void main() {
         DisplayPreparationStatus.offline,
       );
       await expectLater(
-        actions.verifyStart(workout, ['tv'], proof(candidate, legacy: ['tv'])),
+        actions.verifyStart(workout, ['tv'], proof(candidate)),
         throwsStateError,
       );
-      // Supported installed clients without the new UI proof retain their
-      // existing direct-start compatibility path.
-      await actions.verifyStart(workout, ['tv'], null);
+      await expectLater(
+        actions.verifyStart(workout, ['tv'], null),
+        throwsStateError,
+      );
     },
   );
   test(

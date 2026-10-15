@@ -1,5 +1,4 @@
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/widgets/device_pairing_error_message.dart';
@@ -31,7 +30,6 @@ class AddDisplayDialog extends HookConsumerWidget {
     final submitted = useState(false);
     final requesting = useState(false);
     final busy = action.isLoading || requesting.value;
-    final claimedCode = useState<String?>(null);
     final codeError = useState<String?>(null);
 
     Future<void> connect() async {
@@ -47,31 +45,10 @@ class AddDisplayDialog extends HookConsumerWidget {
         final success = await ref
             .read(deviceClaimControllerProvider.notifier)
             .claim(code: code.text, name: name.text, zoneName: zone.text);
-        if (success && context.mounted) claimedCode.value = code.text;
+        if (success && context.mounted) Navigator.of(context).pop(true);
       } finally {
         if (context.mounted) requesting.value = false;
       }
-    }
-
-    if (claimedCode.value != null) {
-      return AppAlertDialog(
-        title: const Text('등록 완료 · TV 응답 확인'),
-        content: SizedBox(
-          width: 360,
-          child: SingleChildScrollView(
-            child: DisplayVerification(
-              pairingCode: claimedCode.value,
-              onDone: () => Navigator.of(context).pop(true),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('나중에 확인'),
-          ),
-        ],
-      );
     }
 
     return PopScope(
