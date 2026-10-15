@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/display_preparation_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
@@ -41,6 +42,63 @@ Future<WorkoutPreflightSelection?> showWorkoutPreflight(
 class WorkoutPreflightDialog extends HookConsumerWidget {
   const WorkoutPreflightDialog({super.key, required this.workout});
 
+  final Workout workout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final retry = useState(0);
+    final preferences = ref.watch(workoutPreferencesActionsProvider);
+    final reporter = ref.read(errorReporterProvider);
+    final loading = useMemoized(
+      () => Future<Workout>.sync(() => preferences.apply(workout, fresh: true))
+          .catchError((Object error, StackTrace stack) {
+            reporter.capture(
+              error,
+              stack,
+              action: 'workout.preflight.preferences',
+            );
+            Error.throwWithStackTrace(error, stack);
+          }),
+      [preferences, workout, retry.value],
+    );
+    final resolved = useFuture(loading);
+    if (resolved.connectionState == ConnectionState.done && resolved.hasData) {
+      return _PreparedWorkoutPreflightDialog(workout: resolved.data!);
+    }
+    return AppAlertDialog(
+      title: const Text('수업 준비'),
+      content: resolved.hasError
+          ? Text(
+              workoutErrorMessage(
+                resolved.error,
+                fallback: '수업 설정을 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+              ),
+            )
+          : const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(),
+                SizedBox(height: 12),
+                Text('최신 수업 설정을 확인하고 있어요.'),
+              ],
+            ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        if (resolved.hasError)
+          FilledButton(
+            onPressed: () => retry.value++,
+            child: const Text('다시 시도'),
+          ),
+      ],
+    );
+  }
+}
+
+class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
+  const _PreparedWorkoutPreflightDialog({required this.workout});
   final Workout workout;
 
   @override
@@ -114,8 +172,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
         .where((d) => selectedDeviceIds.value.contains(d.id))
         .toList();
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
-    final legacy = selected.where((d) => d.preparationProtocol < 1).toList();
-    final legacyConfirmed = useState(false);
     final retry = useState(0);
     final signature = (selectedDeviceIds.value.toList()..sort()).join('|');
     final fingerprint = preparationFingerprint(
@@ -126,9 +182,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
         ? const DisplayPreparationState()
         : ref.watch(displayPreparationControllerProvider);
     useEffect(() {
-      Future.microtask(() {
-        if (context.mounted) legacyConfirmed.value = false;
-      });
       if (modern.isNotEmpty) {
         Future.microtask(() {
           if (context.mounted) {
@@ -156,7 +209,7 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
     final allPrepared = selected.every(
       (d) => switch (statusOf(d)) {
         DisplayPreparationStatus.ready => true,
-        DisplayPreparationStatus.legacy => legacyConfirmed.value,
+        DisplayPreparationStatus.legacy => true,
         _ => false,
       },
     );
@@ -175,9 +228,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                     manifestHash: fingerprint,
                     sessionId: matchingRequest?.sessionId,
                     revision: matchingRequest?.revision,
-                    legacyDeviceIds: legacyConfirmed.value
-                        ? legacy.map((d) => d.id).toList()
-                        : const [],
                   ),
           ),
         );
@@ -248,16 +298,6 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                   child: const Text('TV 준비 다시 확인'),
                 ),
               ],
-              if (legacy.isNotEmpty)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: legacyConfirmed.value,
-                  onChanged: (value) => legacyConfirmed.value = value ?? false,
-                  title: const Text('구형 TV 화면을 직접 확인했어요'),
-                  subtitle: const Text(
-                    '이 TV는 자료 준비를 자동 확인할 수 없어요. 업데이트하거나 화면을 직접 확인한 뒤 기존 방식으로 시작해요.',
-                  ),
-                ),
               if (onlineDevices.isNotEmpty) ...[
                 Row(
                   children: [
@@ -364,7 +404,7 @@ class _CheckTile extends StatelessWidget {
 String _preparationLabel(DisplayPreparationStatus status) => switch (status) {
   DisplayPreparationStatus.offline => '최근 응답 없음 · 연결 확인 또는 제외',
   DisplayPreparationStatus.updateRequired => '이 수업은 TV 업데이트가 필요해요',
-  DisplayPreparationStatus.legacy => '구형 TV · 자료 준비 자동 확인 불가',
+  DisplayPreparationStatus.legacy => '연결 및 재생 호환성 확인됨',
   DisplayPreparationStatus.waiting => '이 수업의 이미지·소리 준비 중',
   DisplayPreparationStatus.failed => '자료 준비 실패 · 재시도 또는 제외',
   DisplayPreparationStatus.ready => '이 수업의 이미지·소리 준비 완료',

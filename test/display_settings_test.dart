@@ -214,7 +214,7 @@ void main() {
   );
 
   testWidgets(
-    'add display preserves failed input and waits for TV confirmation after claim',
+    'add display preserves failed input and closes immediately after claim',
     (tester) async {
       final controller = _Claim();
       await tester.pumpWidget(
@@ -242,6 +242,8 @@ void main() {
       );
       await tester.tap(find.text('추가'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('기기 이름 · 구역'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('기기 이름 · 구역'));
       await tester.pumpAndSettle();
       expect(
@@ -254,7 +256,11 @@ void main() {
       );
       await tester.enterText(find.widgetWithText(TextField, '기기 이름'), '입구 TV');
       await tester.enterText(find.widgetWithText(TextField, '구역 이름'), '입구 구역');
+      await tester.ensureVisible(find.text('기기 이름 · 구역'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('기기 이름 · 구역'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('기기 이름 · 구역'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('기기 이름 · 구역'));
       await tester.pumpAndSettle();
@@ -287,11 +293,8 @@ void main() {
       );
       await tester.tap(find.text('연결하기'));
       await tester.pumpAndSettle();
-      expect(find.byType(AddDisplayDialog), findsOneWidget);
-      expect(find.text('등록 완료 · TV 응답 확인'), findsOneWidget);
+      expect(find.text('TV 응답 확인'), findsNothing);
       expect(find.text('이 TV가 맞아요'), findsNothing);
-      await tester.tap(find.text('나중에 확인'));
-      await tester.pumpAndSettle();
       expect(find.byType(AddDisplayDialog), findsNothing);
       expect(controller.calls.length, 2);
       expect(controller.calls.last, (

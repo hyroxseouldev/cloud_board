@@ -746,7 +746,7 @@ class _DisplayStatus extends ConsumerWidget {
         ? registered!.isEmpty
               ? '디스플레이 연결하기'
               : '등록된 디스플레이 오프라인 · TV 확인'
-        : '디스플레이 $count대 온라인 · 응답 확인';
+        : '디스플레이 $count대 온라인 · 연결 관리';
     return SizedBox(
       width: double.infinity,
       child: TextButton.icon(

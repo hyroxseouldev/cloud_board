@@ -1,5 +1,4 @@
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_recovery.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_identification_overlay.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
@@ -216,51 +215,6 @@ class DisplayModeScreen extends HookConsumerWidget {
         !recovery.hasError &&
         currentDevice?.paired == true &&
         remoteState == RemoteDisplayState.auto.name;
-    final identify =
-        foreground &&
-        connected &&
-        recovery.hasValue &&
-        !isActive &&
-        currentDevice?.paired == true &&
-        currentDevice?.identificationId != null &&
-        currentDevice!.identificationId!.length >= 4 &&
-        currentDevice.identificationExpiresAtMs >
-            DateTime.now().millisecondsSinceEpoch + serverOffset;
-    useEffect(
-      () {
-        if (!identify ||
-            deviceId == null ||
-            currentDevice.identificationAck == currentDevice.identificationId) {
-          return null;
-        }
-        var cancelled = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!cancelled &&
-              context.mounted &&
-              DateTime.now().millisecondsSinceEpoch + serverOffset <
-                  currentDevice.identificationExpiresAtMs) {
-            unawaited(
-              ref
-                  .read(devicePairingActionsProvider)
-                  .acknowledgeIdentification(
-                    deviceId,
-                    currentDevice.identificationId!,
-                  )
-                  .catchError((Object _) {}),
-            );
-          }
-        });
-        return () => cancelled = true;
-      },
-      [
-        identify,
-        deviceId,
-        currentDevice?.identificationId,
-        currentDevice?.identificationAck,
-        now.value.second,
-      ],
-    );
-
     useEffect(
       () {
         var cancelled = false;
@@ -361,8 +315,7 @@ class DisplayModeScreen extends HookConsumerWidget {
                 session != null &&
                 session.status != PlaybackStatus.completed) &&
             !showCompletion &&
-            !showBlack &&
-            !identify,
+            !showBlack,
         child: FocusTraversalGroup(
           policy: ReadingOrderTraversalPolicy(),
           child: Stack(
@@ -385,10 +338,6 @@ class DisplayModeScreen extends HookConsumerWidget {
                   allowPlayback &&
                   session.briefing != true)
                 player
-              else if (identify)
-                // The opaque identification surface owns layout while visible.
-                // Do not lay out hidden center content at system text scaling.
-                const SizedBox.expand()
               else
                 _DisplayStandby(
                   isLoading: active.isLoading,
@@ -408,15 +357,6 @@ class DisplayModeScreen extends HookConsumerWidget {
                       await ref.read(beepPlayerProvider).play();
                     } catch (_) {}
                   },
-                ),
-              if (identify)
-                Positioned.fill(
-                  child: DisplayIdentificationOverlay(
-                    deviceName: currentDevice.name,
-                    code: currentDevice.identificationId!.substring(
-                      currentDevice.identificationId!.length - 4,
-                    ),
-                  ),
                 ),
               if (!showBlack && !isTv)
                 Positioned(

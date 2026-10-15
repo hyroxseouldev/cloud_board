@@ -134,7 +134,8 @@ void main() {
       expect(find.textContaining('TV 앱과 인터넷 연결을 확인해 주세요.'), findsOneWidget);
       await tester.tap(find.byTooltip('디스플레이 메뉴'));
       await tester.pumpAndSettle();
-      expect(find.text('TV 응답 확인'), findsOneWidget);
+      expect(find.text('TV 응답 확인'), findsNothing);
+      expect(find.text('연결 해제'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

@@ -14,11 +14,11 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/first_class_progress.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 
-const _titles = ['센터 정보 확인 · 선택', '첫 수업 저장', 'TV 연결 확인', 'TV에서 첫 재생'];
+const _titles = ['센터 정보 확인 · 선택', '첫 수업 저장', 'TV 연결', 'TV에서 첫 재생'];
 const _details = [
   '센터 정보는 선택 사항이며 프로필에서 나중에 입력할 수 있어요.',
   '예시를 가져오거나 새 수업을 만들고 저장하세요.',
-  'QR·코드로 연결하고 이름과 확인 번호를 확인하세요.',
+  'QR·코드로 연결하고 TV 이름과 구역을 정하세요.',
   '저장한 수업을 TV로 보내면 TV 응답 후 완료됩니다.',
 ];
 
@@ -27,7 +27,7 @@ String _nextLabel(FirstClassNext next) => switch (next) {
   FirstClassNext.rehearse => '저장한 수업으로 이 기기에서 연습',
   FirstClassNext.center => '실제 수업을 위한 센터 정보 확인',
   FirstClassNext.connect => 'TV 연결 준비하기',
-  FirstClassNext.play => '확인한 TV에서 첫 수업 시작',
+  FirstClassNext.play => '연결한 TV에서 첫 수업 시작',
   FirstClassNext.repeat => '다음 수업 준비하기',
 };
 
@@ -52,17 +52,15 @@ class FirstClassScreen extends HookConsumerWidget {
           (d) => d.recentlySeen(nowMs) && d.paired && d.displayState == 'auto',
         ) ??
         false;
-    final next = progress?.next(
-      onlineTv:
-          devices.value?.any(
-            (d) =>
-                d.id == progress.verifiedDeviceId &&
-                d.recentlySeen(nowMs) &&
-                d.paired &&
-                d.displayState == 'auto',
-          ) ??
-          false,
-    );
+    final next = progress?.next(onlineTv: onlineTv);
+    bool stepDone(FirstClassStep step) => step == FirstClassStep.display
+        ? onlineTv || progress?.done(step) == true
+        : progress?.done(step) == true;
+    final preparationCount = const [
+      FirstClassStep.workout,
+      FirstClassStep.display,
+      FirstClassStep.playback,
+    ].where(stepDone).length;
     Future<void> rehearse() async {
       final id = progress?.savedWorkoutId;
       if (id == null || busy.value) return;
@@ -289,7 +287,7 @@ class FirstClassScreen extends HookConsumerWidget {
               const SizedBox(height: 20),
               ExpansionTile(
                 title: const Text('센터·TV 준비와 도움말'),
-                subtitle: Text('${progress.completedCount}/3 완료 · 실제 TV 수업 준비'),
+                subtitle: Text('$preparationCount/3 완료 · 실제 TV 수업 준비'),
                 children: [
                   for (final step in FirstClassStep.values)
                     Padding(
@@ -303,10 +301,10 @@ class FirstClassScreen extends HookConsumerWidget {
                               Row(
                                 children: [
                                   Icon(
-                                    progress.done(step)
+                                    stepDone(step)
                                         ? Icons.check_circle
                                         : Icons.radio_button_unchecked,
-                                    color: progress.done(step)
+                                    color: stepDone(step)
                                         ? Theme.of(context).colorScheme.primary
                                         : null,
                                   ),
@@ -334,7 +332,7 @@ class FirstClassScreen extends HookConsumerWidget {
                                             child: Text(switch (step) {
                                               FirstClassStep.center => '센터 정보는 프로필에서 다시 바꿀 수 있어요. 수업 준비는 바로 할 수 있고 TV 연결과 재생에는 이용 권한이 필요합니다.',
                                               FirstClassStep.workout => '시작 예시는 수정 가능한 내 수업으로 복사됩니다. 저장이 실패하면 완료로 표시하지 않아요. 편집 화면에서 다시 저장해 주세요.',
-                                              FirstClassStep.display => '이미 등록한 TV는 다시 추가하지 말고 목록에서 선택하세요. TV 앱을 켜고 인터넷과 앱 버전을 확인한 뒤 확인 화면을 다시 보내세요.',
+                                              FirstClassStep.display => '이미 등록한 TV는 다시 추가하지 말고 목록에서 선택하세요. TV 앱을 켜고 인터넷 연결과 등록 상태를 확인하세요.',
                                               FirstClassStep.playback => 'TV의 수업 시작 응답이 와야 완료됩니다. 이 기기에서만 재생하거나 TV가 오프라인이면 완료되지 않아요. TV 앱과 연결 상태를 확인하세요.',
                                             }),
                                           ),
@@ -355,7 +353,7 @@ class FirstClassScreen extends HookConsumerWidget {
                                     ? null
                                     : () => open(step),
                                 child: Text(
-                                  progress.done(step)
+                                  stepDone(step)
                                       ? '다시 열기'
                                       : switch (step) {
                                           FirstClassStep.center => '센터 정보 열기',
@@ -420,11 +418,7 @@ class FirstClassHomeCard extends ConsumerWidget {
         DateTime.now().millisecondsSinceEpoch;
     final next = progress.next(
       onlineTv: devices.any(
-        (d) =>
-            d.id == progress.verifiedDeviceId &&
-            d.recentlySeen(nowMs) &&
-            d.paired &&
-            d.displayState == 'auto',
+        (d) => d.recentlySeen(nowMs) && d.paired && d.displayState == 'auto',
       ),
     );
     return Card(

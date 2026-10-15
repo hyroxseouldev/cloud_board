@@ -293,6 +293,80 @@
           "workflowRunId": "38663844244"
         }
       ]
+    },
+    {
+      "client": "1.2.1-main-5976180f306f",
+      "sourceCommit": "5976180f306f561b85bb88ce419070198dfc2669",
+      "platforms": [
+        "ios",
+        "android",
+        "tv",
+        "web"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.2.1-main-5976180f306f.json",
+      "sha256": "1a6d147c5826587cd6d58b7ab5bb9c77eb23cccf94dfec3e44abb3ccc99d1221",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/1.2.1-main-5976180f306f.json",
+        "sha256": "d75daf7bb6ae1bb9989b4e6346bcbefa4c9c3f0a029794cd9013aa8c7072bd00"
+      },
+      "releases": [
+        {
+          "platform": "ios",
+          "version": "1.2.1",
+          "build": "557",
+          "channel": "testflight",
+          "workflowRunId": "38672688052",
+          "buildWorkflowRunId": "38671769889",
+          "uploaderWorkflowSha": "9304613666c55a998f8d5da59bfdc35bc80e8690",
+          "artifactSha256": "3d9aa35750c77c83886715055d48adb6b73a3214670de296734f5ebe70890e0a",
+          "uploadEvidenceArtifact": {
+            "id": "11944529529",
+            "name": "cloudboard-ios-mobile-first-38672688052-1",
+            "sha256": "d916a141fc7ad7fd6c0ebb8c0c7943fa1b45d73b3704f8de64f15c0197fa2f35"
+          }
+        },
+        {
+          "platform": "android",
+          "version": "1.2.1",
+          "build": "72",
+          "channel": "internal",
+          "workflowRunId": "38672690436",
+          "buildWorkflowRunId": "38671773120",
+          "uploaderWorkflowSha": "9304613666c55a998f8d5da59bfdc35bc80e8690",
+          "artifactSha256": "951dd4b136320b67478ce8516045e1acf103f624880494c8dd6e9db1b539395d",
+          "uploadEvidenceArtifact": {
+            "id": "11944514788",
+            "name": "cloudboard-android-mobile-first-evidence-38672690436-1",
+            "sha256": "8c4971fd98893cfee778f2d88142dae7f3caa0590521ba1339b5e9cc4f61dcc6"
+          }
+        },
+        {
+          "platform": "tv",
+          "version": "1.2.1",
+          "build": "72",
+          "channel": "internal",
+          "workflowRunId": "38672690436",
+          "buildWorkflowRunId": "38671773120",
+          "uploaderWorkflowSha": "9304613666c55a998f8d5da59bfdc35bc80e8690",
+          "artifactSha256": "951dd4b136320b67478ce8516045e1acf103f624880494c8dd6e9db1b539395d",
+          "uploadEvidenceArtifact": {
+            "id": "11944514788",
+            "name": "cloudboard-android-mobile-first-evidence-38672690436-1",
+            "sha256": "8c4971fd98893cfee778f2d88142dae7f3caa0590521ba1339b5e9cc4f61dcc6"
+          }
+        },
+        {
+          "platform": "web",
+          "version": "1.2.1",
+          "build": "232.1",
+          "channel": "production",
+          "workflowRunId": "38672704214"
+        }
+      ]
     }
   ]
 }

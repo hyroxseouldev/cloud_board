@@ -1,161 +1,42 @@
-import 'package:go_router/go_router.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
-
-import 'dart:async';
-
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/controllers/display_identification_controller.dart';
-import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_verification.dart';
+import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/first_class_progress.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
-import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
-
-class _Identification extends DisplayIdentificationController {
-  _Identification(this.expired);
-  final bool expired;
-  int calls = 0;
-  @override
-  AsyncValue<DisplayIdentification?> build(String deviceId) => AsyncData((
-    nonce: 'attempt-4321',
-    expiresAtMs:
-        DateTime.now().millisecondsSinceEpoch + (expired ? -1000 : 60000),
-  ));
-  @override
-  Future<void> identify() async {
-    calls++;
-  }
-}
+import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class _Progress extends FirstClassController {
-  final confirmed = <String>[];
+  _Progress(this.previousDevice);
+  final String? previousDevice;
   @override
-  Future<FirstClassProgress?> build() async =>
-      const FirstClassProgress(sessionId: 's');
-  @override
-  Future<void> verified(String deviceId) async {
-    confirmed.add(deviceId);
-  }
+  Future<FirstClassProgress?> build() async => FirstClassProgress(
+    sessionId: 's',
+    savedWorkoutId: 'saved',
+    rehearsedWorkoutId: 'saved',
+    verifiedDeviceId: previousDevice,
+  );
 }
 
-DisplayDevice tv(
-  String? ack, {
-  String id = 'tv',
-  String nonce = 'attempt-4321',
-  int? seenAtMs,
-}) => DisplayDevice(
-  id: id,
+DisplayDevice tv() => DisplayDevice(
+  id: 'new-tv',
   name: '메인 TV',
   zoneId: 'main',
-  zoneName: 'main',
+  zoneName: '메인 구역',
   online: true,
-  lastSeenAtMs: seenAtMs ?? DateTime.now().millisecondsSinceEpoch,
+  lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
   currentSessionId: null,
   acknowledgedRevision: 0,
   paired: true,
-  pairingCode: '123456',
-  identificationId: nonce,
-  identificationAck: ack,
 );
 
 void main() {
   testWidgets(
-    'claim/online/stale ACK cannot confirm; matching TV ACK still needs human confirmation',
+    'TV connection guide lists registration without a response challenge',
     (tester) async {
-      final devices = StreamController<List<DisplayDevice>>.broadcast();
-      final attempt = _Identification(false);
-      final progress = _Progress();
-      var finished = false;
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            displayDevicesProvider.overrideWith((_) => devices.stream),
-            displayIdentificationControllerProvider.overrideWith2(
-              (_) => attempt,
-            ),
-            firstClassControllerProvider.overrideWith(() => progress),
-            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
-          ],
-          child: MaterialApp(
-            theme: XonTheme.light,
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: DisplayVerification(
-                  deviceId: 'tv',
-                  onDone: () => finished = true,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      devices.add([tv(null)]);
-      await tester.pumpAndSettle();
-      bool canConfirm() =>
-          tester
-              .widget<FilledButton>(
-                find.widgetWithText(FilledButton, '이 TV가 맞아요'),
-              )
-              .onPressed !=
-          null;
-      expect(canConfirm(), isFalse);
-      devices.add([tv('old-attempt'), tv('attempt-4321', id: 'other')]);
-      await tester.pumpAndSettle();
-      expect(canConfirm(), isFalse);
-      devices.add([
-        tv(
-          'attempt-4321',
-          seenAtMs: DateTime.now().millisecondsSinceEpoch - 76000,
-        ),
-      ]);
-      await tester.pumpAndSettle();
-      expect(
-        canConfirm(),
-        isFalse,
-        reason: 'A stale heartbeat cannot confirm even a matching ACK',
-      );
-      devices.add([tv('attempt-4321')]);
-      await tester.pumpAndSettle();
-      expect(canConfirm(), isTrue);
-      expect(finished, isFalse);
-      await tester.tap(find.text('이 TV가 맞아요'));
-      await tester.pumpAndSettle();
-      expect(progress.confirmed, ['tv']);
-      expect(finished, isTrue);
-      expect(attempt.calls, 1);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      await devices.close();
-    },
-  );
-
-  testWidgets(
-    'confirming an existing TV closes the root dialog, not the shell route',
-    (tester) async {
-      final router = GoRouter(
-        initialLocation: '/guide',
-        routes: [
-          ShellRoute(
-            builder: (_, _, child) => child,
-            routes: [
-              GoRoute(
-                path: '/',
-                builder: (_, _) => const Scaffold(body: Text('Home')),
-              ),
-              GoRoute(
-                path: '/guide',
-                builder: (_, _) => const FirstTvConnectionScreen(),
-              ),
-            ],
-          ),
-        ],
-      );
-      final attempt = _Identification(false);
-      final progress = _Progress();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -163,79 +44,63 @@ void main() {
               (_) async =>
                   (userId: 'owner', centerId: 'center', centerReady: true),
             ),
-            displayDevicesProvider.overrideWith(
-              (_) => Stream.value([tv('attempt-4321')]),
+            displayDevicesProvider.overrideWith((_) => Stream.value([tv()])),
+            displayHealthNowProvider.overrideWith(
+              (_) => Stream.value(DateTime.now().millisecondsSinceEpoch),
             ),
-            displayIdentificationControllerProvider.overrideWith2(
-              (_) => attempt,
-            ),
-            firstClassControllerProvider.overrideWith(() => progress),
-            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
           ],
-          child: MaterialApp.router(
+          child: MaterialApp(
             theme: XonTheme.light,
-            routerConfig: router,
+            home: const FirstTvConnectionScreen(),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('메인 TV'));
-      await tester.tap(find.text('메인 TV'));
-      await tester.pumpAndSettle();
-      expect(find.byType(DisplayVerification), findsOneWidget);
-      await tester.tap(find.text('이 TV가 맞아요'));
-      await tester.pumpAndSettle();
-      expect(find.byType(DisplayVerification), findsNothing);
-      expect(find.byType(FirstTvConnectionScreen), findsOneWidget);
-      expect(router.routeInformationProvider.value.uri.path, '/guide');
-      expect(progress.confirmed, ['tv']);
+      expect(find.text('TV 응답 확인'), findsNothing);
+      expect(find.textContaining('확인 번호'), findsNothing);
+      final row = tester.widget<ListTile>(
+        find.widgetWithText(ListTile, '메인 TV'),
+      );
+      expect(row.onTap, isNull);
+      expect(row.trailing, isNull);
+      expect(find.text('메인 구역 · 온라인'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      router.dispose();
     },
   );
 
-  testWidgets(
-    'expired attempt explains retry and does not accept an old matching ACK',
-    (tester) async {
-      final attempt = _Identification(true);
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            displayDevicesProvider.overrideWith(
-              (_) => Stream.value([tv('attempt-4321')]),
-            ),
-            displayIdentificationControllerProvider.overrideWith2(
-              (_) => attempt,
-            ),
-            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
-          ],
-          child: MaterialApp(
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: DisplayVerification(
-                  deviceId: 'tv',
-                  onDone: () => fail('Expired ACK was accepted'),
+  for (final previousDevice in [null, 'removed-tv']) {
+    for (final home in [false, true]) {
+      testWidgets(
+        'first class offers playback without a challenge (old=$previousDevice, home=$home)',
+        (tester) async {
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                firstClassControllerProvider.overrideWith(
+                  () => _Progress(previousDevice),
                 ),
+                displayDevicesProvider.overrideWith(
+                  (_) => Stream.value([tv()]),
+                ),
+                displayHealthNowProvider.overrideWith(
+                  (_) => Stream.value(DateTime.now().millisecondsSinceEpoch),
+                ),
+              ],
+              child: MaterialApp(
+                theme: XonTheme.light,
+                home: home
+                    ? const Scaffold(body: FirstClassHomeCard())
+                    : const FirstClassScreen(),
               ),
             ),
-          ),
-        ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.textContaining('연결한 TV에서 첫 수업 시작'), findsOneWidget);
+          expect(find.text('TV 연결 준비하기'), findsNothing);
+          expect(find.textContaining('확인 번호'), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
       );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('TV의 응답을 받지 못했습니다'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, '이 TV가 맞아요'),
-            )
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.text('확인 화면 다시 보내기'));
-      await tester.pumpAndSettle();
-      expect(attempt.calls, 2);
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
+    }
+  }
 }

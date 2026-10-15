@@ -28,10 +28,6 @@ abstract interface class DevicePairingRepository {
     required String displayState,
     List<String> replaceDeviceIds = const [],
   });
-  Future<void> identify(String deviceId, String nonce, int expiresAtMs);
-
-  Future<void> acknowledgeIdentification(String deviceId, String nonce);
-
   Future<void> acknowledge({
     required String deviceId,
     required String sessionId,

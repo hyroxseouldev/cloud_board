@@ -2,6 +2,7 @@ import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairin
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 
 import 'support/workout_recovery_fixture.dart';
+import 'support/workout_preferences_fixture.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_list_card.dart';
 
@@ -13,6 +14,7 @@ import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_edi
 import 'support/workout_catalog_fixture.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 
@@ -93,6 +95,9 @@ void main() {
             ),
             fixtureWorkoutDetails,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            workoutPreferencesRepositoryProvider.overrideWithValue(
+              FixtureWorkoutPreferences(ownerId: 'u'),
+            ),
             accountWorkoutPreferencesProvider('u')
                 .overrideWith((ref) async => const WorkoutPreferences()),
             displayDevicesProvider.overrideWith(
@@ -164,6 +169,9 @@ void main() {
             ),
             fixtureWorkoutDetails,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
+            workoutPreferencesRepositoryProvider.overrideWithValue(
+              FixtureWorkoutPreferences(ownerId: 'u'),
+            ),
             accountWorkoutPreferencesProvider('u')
                 .overrideWith((ref) async => const WorkoutPreferences()),
             displayDevicesProvider.overrideWith(
