@@ -6,7 +6,6 @@ import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/starter_workouts.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
-import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/exploration_controller.dart';
 
 import 'package:cloud_board/src/app/core/widgets/welcome_motion.dart';
 
@@ -47,38 +46,8 @@ class OnboardingScreen extends HookConsumerWidget {
       authStateProvider.select((state) => state.value?.id),
     );
     final progress = ref.watch(onboardingControllerProvider);
-    final exploration = ref.watch(explorationControllerProvider);
-    final continuedStarter =
-        starter ??
-        (exploration.value?.pendingImport == true
-            ? starterFromKey(exploration.value?.templateKey)
-            : null);
-    final continuedPurpose =
-        purpose ??
-        (exploration.value?.pendingImport == true
-            ? exploration.value?.purpose
-            : null);
-    useEffect(() {
-      if (starter != null) {
-        unawaited(
-          ref
-              .read(explorationControllerProvider.notifier)
-              .beginImport(starter!, purpose: explorationPurpose(purpose))
-              .catchError((Object _) {}),
-        );
-      }
-      if (explorationPurpose(purpose) != null) {
-        unawaited(
-          ref
-              .read(explorationControllerProvider.notifier)
-              .purpose(purpose!)
-              .catchError((Object _) {}),
-        );
-      }
-      return null;
-    }, [starter, purpose]);
     return Scaffold(
-      body: exploration.isLoading || progress.isLoading
+      body: progress.isLoading
           ? const Center(child: CircularProgressIndicator())
           : AsyncValueWidget<CenterOnboarding>(
               value: progress,
@@ -88,23 +57,23 @@ class OnboardingScreen extends HookConsumerWidget {
                       (!data.serviceReady || verifyPhone || editing)
                   ? _PhoneVerification(
                       key: ValueKey(userId),
-                      starter: continuedStarter,
-                      purpose: continuedPurpose,
+                      starter: starter,
+                      purpose: purpose,
                     )
                   : !data.serviceReady || !editing
                   ? _ActivationResult(
                       progress: data,
                       returnTo: returnTo,
-                      starter: continuedStarter,
-                      purpose: continuedPurpose,
+                      starter: starter,
+                      purpose: purpose,
                     )
                   : _OnboardingForm(
                       key: ValueKey(data.storeId),
                       initial: data,
                       editing: editing,
                       guard: guard,
-                      starter: continuedStarter,
-                      purpose: continuedPurpose,
+                      starter: starter,
+                      purpose: purpose,
                     ),
             ),
     );
@@ -139,11 +108,7 @@ class _PhoneVerification extends HookConsumerWidget {
           onPressed: action.isLoading
               ? null
               : () {
-                  if (starter != null) {
-                    context.go(
-                      starterLocation('/explore', starter, purpose: purpose),
-                    );
-                  } else if (context.canPop()) {
+                  if (context.canPop()) {
                     context.pop();
                   } else {
                     ref.read(authControllerProvider.notifier).signOut();
@@ -173,18 +138,6 @@ class _PhoneVerification extends HookConsumerWidget {
               ),
               const SizedBox(height: 16),
               if (starter != null) Text('${starter!.title} 선택은 그대로 이어집니다.'),
-              TextButton.icon(
-                onPressed: action.isLoading
-                    ? null
-                    : () => context.go(
-                        starterLocation('/explore', starter, purpose: purpose),
-                      ),
-                icon: const Icon(Icons.play_circle_outline),
-                label: const Text('인증은 나중에 · 먼저 둘러보기'),
-              ),
-              const Text(
-                '둘러보기와 이 기기 연습에는 인증이 필요 없어요. 내 계정에 수업을 저장하려면 인증을 이어가 주세요.',
-              ),
               const SizedBox(height: 24),
               TextField(
                 controller: phone,
@@ -360,14 +313,8 @@ class _ActivationResult extends ConsumerWidget {
                 TextButton(
                   onPressed: action.isLoading
                       ? null
-                      : () => context.go(
-                          starterLocation(
-                            '/explore',
-                            starter,
-                            purpose: purpose,
-                          ),
-                        ),
-                  child: const Text('먼저 둘러보기'),
+                      : ref.read(authControllerProvider.notifier).signOut,
+                  child: const Text('로그아웃'),
                 ),
             ],
           ),
@@ -432,11 +379,7 @@ class _OnboardingForm extends HookConsumerWidget {
       if (await save(step.value, action: 'defer') && context.mounted) {
         context.go(
           starterLocation(
-            starter != null
-                ? '/starter-workouts'
-                : profile.value.purpose == 'operating'
-                ? '/first-class'
-                : '/explore',
+            starter != null ? '/starter-workouts' : '/',
             starter,
             purpose: profile.value.purpose,
           ),
@@ -451,7 +394,7 @@ class _OnboardingForm extends HookConsumerWidget {
             starterLocation(
               profile.value.purpose == 'preparing' || starter != null
                   ? '/starter-workouts'
-                  : '/explore',
+                  : '/',
               starter,
               purpose: profile.value.purpose,
             ),
@@ -638,18 +581,6 @@ class _OnboardingForm extends HookConsumerWidget {
                             '이제 제목이나 운동 하나를 바꿔 저장하고, 이 기기에서 연습해 보세요.',
                           ),
                           const SizedBox(height: 28),
-                          OutlinedButton.icon(
-                            onPressed: () => context.push(
-                              starterLocation(
-                                '/explore',
-                                starter,
-                                purpose: profile.value.purpose,
-                              ),
-                            ),
-                            icon: const Icon(Icons.play_circle_outline_rounded),
-                            label: const Text('예시 수업 미리보기'),
-                          ),
-                          const SizedBox(height: 12),
                           OutlinedButton.icon(
                             onPressed: () {
                               context.go('/');

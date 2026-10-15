@@ -23,7 +23,7 @@ const _details = [
 ];
 
 String _nextLabel(FirstClassNext next) => switch (next) {
-  FirstClassNext.explore => '예시 수업 둘러보기',
+  FirstClassNext.explore => '예시로 내 수업 만들기',
   FirstClassNext.rehearse => '저장한 수업으로 이 기기에서 연습',
   FirstClassNext.center => '실제 수업을 위한 센터 정보 확인',
   FirstClassNext.connect => 'TV 연결 준비하기',
@@ -106,7 +106,7 @@ class FirstClassScreen extends HookConsumerWidget {
         case FirstClassStep.center:
           context.push('/onboarding?edit=true');
         case FirstClassStep.workout:
-          context.push('/explore');
+          context.push('/starter-workouts');
         case FirstClassStep.display:
           context.push('/displays/connect');
         case FirstClassStep.playback:
@@ -220,8 +220,7 @@ class FirstClassScreen extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(switch (next!) {
-                        FirstClassNext.explore =>
-                          'TV 없이 예시를 조작해 보고 내 수업으로 만들어 보세요.',
+                        FirstClassNext.explore => '예시를 선택하고 내 수업으로 저장해 보세요.',
                         FirstClassNext.rehearse =>
                           '수업이 저장됐어요. 실제 TV로 보내기 전에 이 기기에서 연습해 보세요.',
                         FirstClassNext.center =>
@@ -242,7 +241,7 @@ class FirstClassScreen extends HookConsumerWidget {
                             : () {
                                 switch (next) {
                                   case FirstClassNext.explore:
-                                    context.push('/explore');
+                                    context.push('/starter-workouts');
                                   case FirstClassNext.rehearse:
                                     rehearse();
                                   case FirstClassNext.center:
@@ -263,12 +262,6 @@ class FirstClassScreen extends HookConsumerWidget {
                           onPressed: busy.value ? null : rehearse,
                           child: const Text('TV 없이 연습 계속하기'),
                         ),
-                      TextButton(
-                        onPressed: busy.value
-                            ? null
-                            : () => context.push('/explore'),
-                        child: const Text('둘러보기 다시 보기'),
-                      ),
                     ],
                   ),
                 ),
@@ -367,7 +360,7 @@ class FirstClassScreen extends HookConsumerWidget {
                                       : switch (step) {
                                           FirstClassStep.center => '센터 정보 열기',
                                           FirstClassStep.workout =>
-                                            '예시 수업 둘러보기',
+                                            '예시로 내 수업 만들기',
                                           FirstClassStep.display => 'TV 연결하기',
                                           FirstClassStep.playback =>
                                             progress.savedWorkoutId == null

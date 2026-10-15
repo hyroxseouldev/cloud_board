@@ -295,7 +295,7 @@ void main() {
   );
 
   testWidgets(
-    'restart resumes saved sample selection and retries server activation without SMS',
+    'restart ignores retired sample selection and retries server activation without SMS',
     (tester) async {
       await LocalExplorationRepository(SharedPreferencesAsync()).save(
         'owner',
@@ -315,9 +315,11 @@ void main() {
       repo.value = confirmedFree;
       await tapVisible(tester, '이용 상태 다시 확인');
       await tester.pumpAndSettle();
-      await tapVisible(tester, '선택한 예시로 내 수업 만들기');
+      expect(find.text('선택한 예시로 내 수업 만들기'), findsNothing);
+      expect(find.text('먼저 둘러보기'), findsNothing);
+      await tapVisible(tester, '내 수업으로 가기');
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('resumed-team')), findsOneWidget);
+      expect(find.text('내 수업 화면'), findsOneWidget);
       expect(repo.verifications, 0);
       expect(repo.saves, 0);
     },

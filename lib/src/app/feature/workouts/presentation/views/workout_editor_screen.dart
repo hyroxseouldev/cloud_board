@@ -954,12 +954,6 @@ class _EditorBody extends HookConsumerWidget {
                                         '수업은 여러 슬라이드로 구성돼요. 이름을 정하고 각 슬라이드의 운동 내용과 시간을 바꾼 뒤 수업을 저장해 주세요.',
                                       ),
                                     ),
-                                    if (draft.value.modules.isEmpty)
-                                      TextButton(
-                                        onPressed: () =>
-                                            context.push('/explore'),
-                                        child: const Text('완성된 예시 수업 보기'),
-                                      ),
                                     TextButton(
                                       onPressed: () => guideHidden.value = true,
                                       child: const Text('만들기 안내 숨기기'),

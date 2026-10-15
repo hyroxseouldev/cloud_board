@@ -38,6 +38,8 @@ void main() {
       '/auth-loading?from=/profile',
       '/login?from=/profile',
       '/onboarding',
+      '/explore?starter=basics&purpose=operating',
+      '/explore/play/basics',
       r'/\example.com',
       'profile',
     ]) {
@@ -401,7 +403,7 @@ void main() {
   );
 
   testWidgets(
-    'saved pending sample survives returning entry, explicit destinations win',
+    'retired saved exploration cannot replace home or explicit destinations',
     (tester) async {
       await LocalExplorationRepository(SharedPreferencesAsync()).save(
         'owner',
@@ -418,9 +420,14 @@ void main() {
       addTearDown(harness.dispose);
       harness.users.add(onboardingUser);
       await _frames(tester);
+      expect(await harness.redirect('/onboarding'), '/');
       expect(
-        await harness.redirect('/onboarding'),
-        '/starter-workouts?starter=team&purpose=preparing',
+        await harness.redirect('/explore?starter=basics&purpose=operating'),
+        '/',
+      );
+      expect(
+        await harness.redirect('/login?from=%2Fexplore%3Fstarter%3Dbasics'),
+        '/',
       );
       expect(await harness.redirect('/login?from=%2Fprofile'), '/profile');
       expect(
