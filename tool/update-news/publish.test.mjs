@@ -175,6 +175,21 @@ test('development receipt excludes an uploaded build even without the QA marker 
     assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
   });
 });
+test('production-connected QA receipt excludes an uploaded build even without the QA marker step', async () => {
+  await withDeployment({}, async ({env, deployments, fakeFetch, deployedSha}) => {
+    const ios = deployments[2];
+    ios.run.event = 'workflow_run';
+    ios.jobs[0].steps.push({name: 'Resolve and pin trusted app source', conclusion: 'success'});
+    ios.artifacts.push({name: `mobile-source-${ios.run.id}-${ios.run.run_attempt}`});
+    writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
+    assert.deepEqual(await publish(env, fakeFetch, async () => ({schemaVersion: 2, kind: 'mobile-source',
+      sourceSha: deployedSha, workflowSha: deployedSha, releaseMode: 'qa', environment: 'production', platform: 'ios',
+      firebaseProject: 'cloud-board-stationd', package: 'com.sunmkim.cloudboard', environmentBindingVerified: true,
+      version: note.version, build: '542', artifactSha256: 'c'.repeat(64), runId: String(ios.run.id), runAttempt: String(ios.run.run_attempt)})),
+    {operation: 'skipped', reason: 'qa-build'});
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+  });
+});
 
 test('versioned production tag deployment and main native workflow-run are trusted; arbitrary tags are not', () => {
   assert.equal(trustedRun(run({head_branch: 'v1.2.2'}), repository), true);

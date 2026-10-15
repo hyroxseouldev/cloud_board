@@ -36,8 +36,8 @@ test('production-connected QA is tracked by actual app source and artifact, not 
   };
   let index = 0;
   const result = await verifyInstalledClients({clients: registry, repository: 'owner/repo', request,
-    readArtifact: async () => ({schemaVersion: 1, kind: 'mobile-source', sourceSha: sha, workflowSha,
-      releaseMode: 'qa', platform: index++ === 0 ? 'ios' : 'android-tv', firebaseProject: 'cloud-board-stationd',
+    readArtifact: async () => ({schemaVersion: 2, kind: 'mobile-source', sourceSha: sha, workflowSha,
+      environment: 'production', environmentBindingVerified: true, releaseMode: 'qa', platform: index++ === 0 ? 'ios' : 'android-tv', firebaseProject: 'cloud-board-stationd',
       package: 'com.sunmkim.cloudboard', productionBindingVerified: true, version: '1.2.2', build: '558',
       artifactSha256, runId: '1', runAttempt: '1'})});
   assert(result.every(row => row.sha === sha));

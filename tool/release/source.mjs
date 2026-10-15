@@ -21,8 +21,8 @@ export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventN
   assert(['qa', 'release'].includes(mode), 'Choose qa or release');
   let reference;
   if (eventName === 'push') {
-    assert.equal(workflowRef, 'refs/heads/main', 'Automatic development builds require main');
-    assert.equal(mode, 'qa', 'Main pushes only build the development app');
+    assert.equal(workflowRef, 'refs/heads/main', 'Automatic QA builds require main');
+    assert.equal(mode, 'qa', 'Main pushes only build the QA candidate');
     reference = workflowSha;
   } else if (eventName === 'workflow_run') {
     const run = event.workflow_run;
@@ -55,7 +55,7 @@ export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventN
     assert.equal(releaseTag, `v${version}`, 'Release tag must match the selected app version');
   }
   return {sourceSha: sha, workflowSha, sourceRef: sourceRef || workflowRef,
-    releaseMode: mode, environment: mode === 'release' ? 'production' : 'development', ...(releaseTag ? {releaseTag} : {})};
+    releaseMode: mode, environment: 'production', ...(releaseTag ? {releaseTag} : {})};
 }
 
 export function validateMobileReceipt(receipt, {run, platform} = {}) {
@@ -71,8 +71,8 @@ export function validateMobileReceipt(receipt, {run, platform} = {}) {
   if (receipt.schemaVersion === 1) assert.equal(receipt.productionBindingVerified, true, 'Artifact environment was not inspected');
   else {
     assert.equal(receipt.environmentBindingVerified, true, 'Artifact environment was not inspected');
-    assert.equal(receipt.releaseMode, development ? 'qa' : 'release', 'Release mode differs from actual app environment');
-    if (!development) assert.equal(receipt.releaseTag, `v${receipt.version}`, 'Production receipt needs its versioned release tag');
+    if (development) assert.equal(receipt.releaseMode, 'qa', 'Development artifacts cannot authorize release');
+    if (receipt.releaseMode === 'release') assert.equal(receipt.releaseTag, `v${receipt.version}`, 'Release receipt needs its versioned release tag');
   }
   assert.match(receipt.version || '', /^\d+\.\d+\.\d+$/);
   assert.match(receipt.build || '', /^[1-9]\d*$/);
@@ -105,7 +105,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       workflowRef: env.GITHUB_REF, workflowSha: env.GITHUB_SHA, eventName: env.GITHUB_EVENT_NAME,
       event: env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')) : {}, repository: env.GITHUB_REPOSITORY});
     assert(env.GITHUB_ENV, 'GITHUB_ENV is required');
-    appendFileSync(env.GITHUB_ENV, `SOURCE_SHA=${source.sourceSha}\nSOURCE_REF=${source.sourceRef}\nWORKFLOW_SHA=${source.workflowSha}\nAPP_ENVIRONMENT=${source.environment}\nRELEASE_TAG=${source.releaseTag || ''}\nAPP_PACKAGE=com.sunmkim.cloudboard${source.environment === 'development' ? '.dev' : ''}\n`);
+    appendFileSync(env.GITHUB_ENV, `SOURCE_SHA=${source.sourceSha}\nSOURCE_REF=${source.sourceRef}\nWORKFLOW_SHA=${source.workflowSha}\nAPP_ENVIRONMENT=${source.environment}\nRELEASE_TAG=${source.releaseTag || ''}\nAPP_PACKAGE=com.sunmkim.cloudboard\n`);
     console.log(`Build ${source.sourceSha} (${source.releaseMode}); workflow ${source.workflowSha}`);
   } else if (process.argv[2] === 'receipt') {
     assert.equal(git('rev-parse', 'HEAD'), env.SOURCE_SHA, 'Checked out app differs from selected source');
