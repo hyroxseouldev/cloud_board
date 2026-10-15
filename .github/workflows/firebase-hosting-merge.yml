@@ -373,7 +373,12 @@ jobs:
   firebase_production:
     name: firebase-production
     needs: [firebase_required, deployment_plan]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/v') && !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
+    if: >-
+      always() && !cancelled() &&
+      needs.firebase_required.result == 'success' && needs.deployment_plan.result == 'success' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     concurrency:

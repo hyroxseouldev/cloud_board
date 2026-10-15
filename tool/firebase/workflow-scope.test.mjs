@@ -77,6 +77,36 @@ test('validation has no workflow-wide queue while production writes remain seria
   assert.match(production, /    concurrency:\n      group: firebase-production\n      cancel-in-progress: false/);
 });
 
+test('production runs after audited CI skips only when both release gates pass', () => {
+  const condition = jobCondition('firebase-hosting-merge.yml', 'firebase_production');
+  const allowed = ({ancestor = 'skipped', gate = 'success', plan = 'success', cancelled = false,
+    event = 'workflow_dispatch', ref = 'refs/tags/v1.3.0', scope = 'full'} = {}) => {
+    // GitHub adds success() to expressions without a status function; ancestor
+    // skips therefore propagate even when the immediate aggregation job passes.
+    const explicitStatus = /\b(?:always|cancelled|failure|success)\s*\(/.test(condition);
+    if (!explicitStatus && ancestor !== 'success') return false;
+    return evaluate(condition, {
+      always: () => true, cancelled: () => cancelled,
+      success: () => ancestor === 'success', failure: () => ancestor === 'failure',
+      github: {event_name: event, ref},
+      needs: {firebase_required: {result: gate}, deployment_plan: {result: plan, outputs: {scope}}},
+      startsWith: (value, prefix) => value.startsWith(prefix),
+      contains: (values, value) => values.includes(value), fromJSON: JSON.parse,
+    });
+  };
+  assert.equal(allowed(), true, 'audited CI skips must not skip production deployment');
+  assert.equal(allowed({ancestor: 'success', event: 'push'}), true);
+  for (const result of ['failure', 'cancelled', 'skipped']) {
+    assert.equal(allowed({gate: result}), false);
+    assert.equal(allowed({plan: result}), false);
+  }
+  assert.equal(allowed({cancelled: true}), false);
+  assert.equal(allowed({event: 'pull_request'}), false);
+  assert.equal(allowed({ref: 'refs/heads/main'}), false);
+  for (const scope of ['none', 'verify']) assert.equal(allowed({scope}), false);
+  for (const scope of ['full', 'web', 'backend', 'rules']) assert.equal(allowed({scope}), true);
+});
+
 test('explicit CI skip omits heavy jobs while preserving the selected web build', () => {
   const file = 'firebase-hosting-merge.yml';
   for (const validation_mode of ['required', 'skipped']) {
