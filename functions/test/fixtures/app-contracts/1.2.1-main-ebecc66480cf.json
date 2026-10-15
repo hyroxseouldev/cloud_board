@@ -1,0 +1,621 @@
+{
+  "format": 1,
+  "settings": {
+    "schemaVersion": 1,
+    "revision": 1,
+    "updatedAt": {
+      "__serverTimestamp": true
+    },
+    "contentOnly": false,
+    "preferences": {
+      "brandL": "CloudBoard",
+      "brandR": "",
+      "soundTheme": "videoBeep",
+      "countdownSound": "videoBeep",
+      "workStartSound": "videoBeep",
+      "restStartSound": "videoBeep",
+      "workoutEndSound": "videoBeep",
+      "soundVolume": 1,
+      "countdown": {
+        "seconds": 3,
+        "backgroundColor": 4278190080,
+        "imageSource": "",
+        "appearance": {
+          "showReady": true,
+          "showTitle": true,
+          "numberScale": 1,
+          "numberFormat": "seconds",
+          "numberColor": null,
+          "numberShadow": false,
+          "overlayEnabled": true,
+          "overlayOpacity": null,
+          "overlayColor": null
+        }
+      }
+    }
+  },
+  "playback": [
+    {
+      "split": false,
+      "state": {
+        "id": "session-v1",
+        "ownerId": "owner",
+        "zoneId": "main",
+        "targetDeviceIds": [
+          "tv"
+        ],
+        "workoutSnapshot": {
+          "id": "contract-workout",
+          "ownerId": "owner",
+          "name": "Contract",
+          "folder": "",
+          "brandL": "CloudBoard",
+          "brandR": "",
+          "soundTheme": "videoBeep",
+          "countdownSound": "videoBeep",
+          "workStartSound": "videoBeep",
+          "restStartSound": "videoBeep",
+          "workoutEndSound": "videoBeep",
+          "soundVolume": 1,
+          "countdownSeconds": 3,
+          "countdownBackgroundColor": 4278190080,
+          "countdownImageSource": "",
+          "countdownAppearance": {
+            "showReady": true,
+            "showTitle": true,
+            "numberScale": 1,
+            "numberFormat": "seconds",
+            "numberColor": null,
+            "numberShadow": false,
+            "overlayEnabled": true,
+            "overlayOpacity": null,
+            "overlayColor": null
+          },
+          "author": {
+            "id": "owner",
+            "displayName": "Test",
+            "photoUrl": null
+          },
+          "modules": [
+            {
+              "id": "slide",
+              "name": "",
+              "text": "",
+              "imageUrl": "",
+              "designHeaderLabel": "",
+              "designSubtitle": "",
+              "designLayout": "auto",
+              "designFontWeight": 700,
+              "designItalic": false,
+              "designSpacing": 1,
+              "workSeconds": 60,
+              "sets": 1,
+              "restSeconds": 0,
+              "includeFinalRest": true,
+              "timingVersion": 2,
+              "rounds": 1,
+              "roundRestSeconds": 0,
+              "timerMode": "custom",
+              "timerDirection": "down",
+              "includeFinalRoundRest": true,
+              "showTimer": true,
+              "appearance": {
+                "timerX": 0.84,
+                "timerY": 0.5,
+                "timerSize": 1,
+                "ringWidth": 30,
+                "setsSize": 1,
+                "setsOffsetY": 0.07,
+                "showTitle": true,
+                "showBody": true,
+                "showBrand": true,
+                "titleColor": 4294967295,
+                "bodyColor": 4294967295,
+                "setsColor": 3019898879,
+                "brandColor": 4294967295
+              },
+              "showTimerGauge": true,
+              "showSets": true,
+              "beep": true,
+              "coverImage": false,
+              "favorite": false,
+              "category": "",
+              "timerColorValue": null,
+              "workGaugeColor": null,
+              "restGaugeColor": null,
+              "workTextColor": null,
+              "restTextColor": null,
+              "intervalBlocks": []
+            }
+          ],
+          "createdAt": "2026-10-16T01:03:05.071873",
+          "updatedAt": "2026-10-16T01:03:05.071874"
+        },
+        "status": "playing",
+        "briefing": false,
+        "timerCompleted": false,
+        "startDelayMs": 3000,
+        "stepIndex": 0,
+        "remainingMs": 60000,
+        "anchorServerMs": {
+          ".sv": "timestamp"
+        },
+        "revision": 1,
+        "updatedByDeviceId": "phone"
+      },
+      "snapshot": null
+    },
+    {
+      "split": true,
+      "state": {
+        "id": "session-v2",
+        "ownerId": "owner",
+        "zoneId": "main",
+        "targetDeviceIds": [
+          "tv"
+        ],
+        "status": "playing",
+        "briefing": false,
+        "timerCompleted": false,
+        "startDelayMs": 3000,
+        "stepIndex": 0,
+        "remainingMs": 60000,
+        "anchorServerMs": {
+          ".sv": "timestamp"
+        },
+        "revision": 1,
+        "updatedByDeviceId": "phone",
+        "schemaVersion": 2,
+        "snapshotId": "session-v2",
+        "workoutId": "contract-workout",
+        "workoutName": "Contract"
+      },
+      "snapshot": {
+        "id": "contract-workout",
+        "ownerId": "owner",
+        "name": "Contract",
+        "folder": "",
+        "brandL": "CloudBoard",
+        "brandR": "",
+        "soundTheme": "videoBeep",
+        "countdownSound": "videoBeep",
+        "workStartSound": "videoBeep",
+        "restStartSound": "videoBeep",
+        "workoutEndSound": "videoBeep",
+        "soundVolume": 1,
+        "countdownSeconds": 3,
+        "countdownBackgroundColor": 4278190080,
+        "countdownImageSource": "",
+        "countdownAppearance": {
+          "showReady": true,
+          "showTitle": true,
+          "numberScale": 1,
+          "numberFormat": "seconds",
+          "numberColor": null,
+          "numberShadow": false,
+          "overlayEnabled": true,
+          "overlayOpacity": null,
+          "overlayColor": null
+        },
+        "author": {
+          "id": "owner",
+          "displayName": "Test",
+          "photoUrl": null
+        },
+        "modules": [
+          {
+            "id": "slide",
+            "name": "",
+            "text": "",
+            "imageUrl": "",
+            "designHeaderLabel": "",
+            "designSubtitle": "",
+            "designLayout": "auto",
+            "designFontWeight": 700,
+            "designItalic": false,
+            "designSpacing": 1,
+            "workSeconds": 60,
+            "sets": 1,
+            "restSeconds": 0,
+            "includeFinalRest": true,
+            "timingVersion": 2,
+            "rounds": 1,
+            "roundRestSeconds": 0,
+            "timerMode": "custom",
+            "timerDirection": "down",
+            "includeFinalRoundRest": true,
+            "showTimer": true,
+            "appearance": {
+              "timerX": 0.84,
+              "timerY": 0.5,
+              "timerSize": 1,
+              "ringWidth": 30,
+              "setsSize": 1,
+              "setsOffsetY": 0.07,
+              "showTitle": true,
+              "showBody": true,
+              "showBrand": true,
+              "titleColor": 4294967295,
+              "bodyColor": 4294967295,
+              "setsColor": 3019898879,
+              "brandColor": 4294967295
+            },
+            "showTimerGauge": true,
+            "showSets": true,
+            "beep": true,
+            "coverImage": false,
+            "favorite": false,
+            "category": "",
+            "timerColorValue": null,
+            "workGaugeColor": null,
+            "restGaugeColor": null,
+            "workTextColor": null,
+            "restTextColor": null,
+            "intervalBlocks": []
+          }
+        ],
+        "createdAt": "2026-10-16T01:03:05.071873",
+        "updatedAt": "2026-10-16T01:03:05.071874",
+        "_storedAtMs": {
+          ".sv": "timestamp"
+        }
+      }
+    }
+  ],
+  "behavior": [
+    {
+      "name": "fixed",
+      "state": {
+        "id": "behavior-fixed",
+        "ownerId": "owner",
+        "zoneId": "main",
+        "targetDeviceIds": [
+          "tv"
+        ],
+        "workoutSnapshot": {
+          "id": "contract-workout",
+          "ownerId": "owner",
+          "name": "Contract",
+          "folder": "",
+          "brandL": "CloudBoard",
+          "brandR": "",
+          "soundTheme": "videoBeep",
+          "countdownSound": "videoBeep",
+          "workStartSound": "videoBeep",
+          "restStartSound": "videoBeep",
+          "workoutEndSound": "videoBeep",
+          "soundVolume": 1,
+          "countdownSeconds": 3,
+          "countdownBackgroundColor": 4278190080,
+          "countdownImageSource": "",
+          "countdownAppearance": {
+            "showReady": true,
+            "showTitle": true,
+            "numberScale": 1,
+            "numberFormat": "seconds",
+            "numberColor": null,
+            "numberShadow": false,
+            "overlayEnabled": true,
+            "overlayOpacity": null,
+            "overlayColor": null
+          },
+          "author": {
+            "id": "owner",
+            "displayName": "Test",
+            "photoUrl": null
+          },
+          "modules": [
+            {
+              "id": "behavior-slide",
+              "name": "",
+              "text": "",
+              "imageUrl": "",
+              "designHeaderLabel": "",
+              "designSubtitle": "",
+              "designLayout": "auto",
+              "designFontWeight": 700,
+              "designItalic": false,
+              "designSpacing": 1,
+              "workSeconds": 60,
+              "sets": 1,
+              "restSeconds": 0,
+              "includeFinalRest": true,
+              "timingVersion": 2,
+              "rounds": 1,
+              "roundRestSeconds": 0,
+              "timerMode": "custom",
+              "timerDirection": "down",
+              "includeFinalRoundRest": true,
+              "showTimer": true,
+              "appearance": {
+                "timerX": 0.84,
+                "timerY": 0.5,
+                "timerSize": 1,
+                "ringWidth": 30,
+                "setsSize": 1,
+                "setsOffsetY": 0.07,
+                "showTitle": true,
+                "showBody": true,
+                "showBrand": true,
+                "titleColor": 4294967295,
+                "bodyColor": 4294967295,
+                "setsColor": 3019898879,
+                "brandColor": 4294967295
+              },
+              "showTimerGauge": true,
+              "showSets": true,
+              "beep": true,
+              "coverImage": false,
+              "favorite": false,
+              "category": "",
+              "timerColorValue": null,
+              "workGaugeColor": null,
+              "restGaugeColor": null,
+              "workTextColor": null,
+              "restTextColor": null,
+              "intervalBlocks": []
+            }
+          ],
+          "createdAt": "2026-10-16T01:03:05.071873",
+          "updatedAt": "2026-10-16T01:03:05.071874"
+        },
+        "status": "playing",
+        "briefing": false,
+        "timerCompleted": false,
+        "startDelayMs": 0,
+        "stepIndex": 0,
+        "remainingMs": 60000,
+        "anchorServerMs": 1000,
+        "revision": 1,
+        "updatedByDeviceId": "phone"
+      },
+      "serverNowMs": 62000,
+      "expectedDurationsMs": [
+        60000
+      ],
+      "expectedIndex": 1,
+      "expectedRemainingMs": 0
+    },
+    {
+      "name": "maximum",
+      "state": {
+        "id": "behavior-maximum",
+        "ownerId": "owner",
+        "zoneId": "main",
+        "targetDeviceIds": [
+          "tv"
+        ],
+        "workoutSnapshot": {
+          "id": "contract-workout",
+          "ownerId": "owner",
+          "name": "Contract",
+          "folder": "",
+          "brandL": "CloudBoard",
+          "brandR": "",
+          "soundTheme": "videoBeep",
+          "countdownSound": "videoBeep",
+          "workStartSound": "videoBeep",
+          "restStartSound": "videoBeep",
+          "workoutEndSound": "videoBeep",
+          "soundVolume": 1,
+          "countdownSeconds": 3,
+          "countdownBackgroundColor": 4278190080,
+          "countdownImageSource": "",
+          "countdownAppearance": {
+            "showReady": true,
+            "showTitle": true,
+            "numberScale": 1,
+            "numberFormat": "seconds",
+            "numberColor": null,
+            "numberShadow": false,
+            "overlayEnabled": true,
+            "overlayOpacity": null,
+            "overlayColor": null
+          },
+          "author": {
+            "id": "owner",
+            "displayName": "Test",
+            "photoUrl": null
+          },
+          "modules": [
+            {
+              "id": "behavior-slide",
+              "name": "",
+              "text": "",
+              "imageUrl": "",
+              "designHeaderLabel": "",
+              "designSubtitle": "",
+              "designLayout": "auto",
+              "designFontWeight": 700,
+              "designItalic": false,
+              "designSpacing": 1,
+              "workSeconds": 60,
+              "sets": 1,
+              "restSeconds": 0,
+              "includeFinalRest": true,
+              "timingVersion": 3,
+              "rounds": 1,
+              "roundRestSeconds": 0,
+              "timerMode": "forTime",
+              "timerDirection": "up",
+              "includeFinalRoundRest": true,
+              "showTimer": true,
+              "appearance": {
+                "timerX": 0.84,
+                "timerY": 0.5,
+                "timerSize": 1,
+                "ringWidth": 30,
+                "setsSize": 1,
+                "setsOffsetY": 0.07,
+                "showTitle": true,
+                "showBody": true,
+                "showBrand": true,
+                "titleColor": 4294967295,
+                "bodyColor": 4294967295,
+                "setsColor": 3019898879,
+                "brandColor": 4294967295
+              },
+              "showTimerGauge": true,
+              "showSets": true,
+              "beep": true,
+              "coverImage": false,
+              "favorite": false,
+              "category": "",
+              "timerColorValue": null,
+              "workGaugeColor": null,
+              "restGaugeColor": null,
+              "workTextColor": null,
+              "restTextColor": null,
+              "intervalBlocks": []
+            }
+          ],
+          "createdAt": "2026-10-16T01:03:05.071873",
+          "updatedAt": "2026-10-16T01:03:05.071874"
+        },
+        "status": "playing",
+        "briefing": false,
+        "timerCompleted": false,
+        "startDelayMs": 0,
+        "stepIndex": 0,
+        "remainingMs": 60000,
+        "anchorServerMs": 1000,
+        "revision": 1,
+        "updatedByDeviceId": "phone"
+      },
+      "serverNowMs": 62000,
+      "expectedDurationsMs": [
+        60000
+      ],
+      "expectedIndex": 0,
+      "expectedRemainingMs": 0
+    },
+    {
+      "name": "open",
+      "state": {
+        "id": "behavior-open",
+        "ownerId": "owner",
+        "zoneId": "main",
+        "targetDeviceIds": [
+          "tv"
+        ],
+        "workoutSnapshot": {
+          "id": "contract-workout",
+          "ownerId": "owner",
+          "name": "Contract",
+          "folder": "",
+          "brandL": "CloudBoard",
+          "brandR": "",
+          "soundTheme": "videoBeep",
+          "countdownSound": "videoBeep",
+          "workStartSound": "videoBeep",
+          "restStartSound": "videoBeep",
+          "workoutEndSound": "videoBeep",
+          "soundVolume": 1,
+          "countdownSeconds": 3,
+          "countdownBackgroundColor": 4278190080,
+          "countdownImageSource": "",
+          "countdownAppearance": {
+            "showReady": true,
+            "showTitle": true,
+            "numberScale": 1,
+            "numberFormat": "seconds",
+            "numberColor": null,
+            "numberShadow": false,
+            "overlayEnabled": true,
+            "overlayOpacity": null,
+            "overlayColor": null
+          },
+          "author": {
+            "id": "owner",
+            "displayName": "Test",
+            "photoUrl": null
+          },
+          "modules": [
+            {
+              "id": "behavior-slide",
+              "name": "",
+              "text": "",
+              "imageUrl": "",
+              "designHeaderLabel": "",
+              "designSubtitle": "",
+              "designLayout": "auto",
+              "designFontWeight": 700,
+              "designItalic": false,
+              "designSpacing": 1,
+              "workSeconds": 0,
+              "sets": 1,
+              "restSeconds": 0,
+              "includeFinalRest": true,
+              "timingVersion": 3,
+              "rounds": 1,
+              "roundRestSeconds": 0,
+              "timerMode": "forTime",
+              "timerDirection": "up",
+              "includeFinalRoundRest": true,
+              "showTimer": true,
+              "appearance": {
+                "timerX": 0.84,
+                "timerY": 0.5,
+                "timerSize": 1,
+                "ringWidth": 30,
+                "setsSize": 1,
+                "setsOffsetY": 0.07,
+                "showTitle": true,
+                "showBody": true,
+                "showBrand": true,
+                "titleColor": 4294967295,
+                "bodyColor": 4294967295,
+                "setsColor": 3019898879,
+                "brandColor": 4294967295
+              },
+              "showTimerGauge": true,
+              "showSets": true,
+              "beep": true,
+              "coverImage": false,
+              "favorite": false,
+              "category": "",
+              "timerColorValue": null,
+              "workGaugeColor": null,
+              "restGaugeColor": null,
+              "workTextColor": null,
+              "restTextColor": null,
+              "intervalBlocks": []
+            }
+          ],
+          "createdAt": "2026-10-16T01:03:05.071873",
+          "updatedAt": "2026-10-16T01:03:05.071874"
+        },
+        "status": "playing",
+        "briefing": false,
+        "timerCompleted": false,
+        "startDelayMs": 0,
+        "stepIndex": 0,
+        "remainingMs": 0,
+        "anchorServerMs": 1000,
+        "revision": 1,
+        "updatedByDeviceId": "phone"
+      },
+      "serverNowMs": 62000,
+      "expectedDurationsMs": [
+        0
+      ],
+      "expectedIndex": 0,
+      "expectedRemainingMs": 61000
+    }
+  ],
+  "client": "1.2.1-main-ebecc66480cf",
+  "sourceCommit": "ebecc66480cf6f383a9871bc6b04397555c1b2e5",
+  "provenance": {
+    "kind": "exported-from-released-source",
+    "sourceTree": "fdd608790f75c0971e592e44baa41558adf6f3b3",
+    "exporter": "tool/export_app_contracts_test.dart",
+    "exporterBlob": "3bd8cd2e7db68fa023c9bfbe34657626cb513143",
+    "capture": {
+      "flutterVersion": "3.47.0",
+      "pubspecLockSha256": "b2e5f0572d698fd100cccab3c3185dd0de085a0e1981a0a17653afb28ebd2541",
+      "lockfileEnforced": true,
+      "command": "flutter test --no-pub tool/export_app_contracts_test.dart",
+      "originalExportSha256": "81e10766e1a73a9bf704ca358964308678cfdbc9b4c082af827e23ba8005672c"
+    }
+  }
+}
