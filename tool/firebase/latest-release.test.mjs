@@ -20,6 +20,16 @@ test('monitor follows a verified rules/backend manual receipt without requiring 
     assert.equal(result.receipt.scope, scope);
   }
 });
+test('tag releases require matching tag evidence while historical main receipts remain usable', async () => {
+  const tag = 'v1.2.3', base = options([{...successful, head_branch: tag}]);
+  const receipt = await base.readArtifact();
+  await assert.rejects(latestRelease(base), /release tag mismatch/);
+  receipt.manifest.releaseTag = 'v1.2.4'; receipt.manifestHash = manifestHash(receipt.manifest);
+  await assert.rejects(latestRelease({...base, readArtifact: async () => receipt}), /release tag mismatch/);
+  receipt.manifest.releaseTag = tag; receipt.manifestHash = manifestHash(receipt.manifest);
+  assert.equal((await latestRelease({...base, readArtifact: async () => receipt})).run.head_branch, tag);
+  assert.equal((await latestRelease(options([successful]))).run.head_branch, 'main');
+});
 test('monitor never hides failed or partial manual repairs behind an older successful push', async () => {
   for (const conclusion of ['failure', 'cancelled', 'skipped']) {
     await assert.rejects(latestRelease(options([successful, {...successful, id: 13, event: 'workflow_dispatch', conclusion}])), /refusing an older receipt/);

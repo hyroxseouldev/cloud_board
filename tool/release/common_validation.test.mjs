@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {requireCommonValidation} from './common_validation.mjs';
 const sha = 'a'.repeat(40), repository = 'owner/repo';
-const run = (id, extra = {}) => ({id, head_sha: sha, head_branch: 'main', head_repository: {full_name: repository},
+const run = (id, extra = {}) => ({id, head_sha: sha, head_branch: 'v1.2.3', head_repository: {full_name: repository},
   event: 'push', run_attempt: 1, run_started_at: `2026-10-15T00:0${id}:00Z`, ...extra});
 const successfulJobs = [
   {name: 'app-validation', conclusion: 'success', steps: ['Analyze', 'Test'].map(name => ({name, conclusion: 'success'}))},
@@ -18,14 +18,14 @@ test('latest retry must pass; no fallback to older green runs or lightweight han
   for (const state of ['failure', 'skipped', null]) {
     await assert.rejects(requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
       ? {workflow_runs: [run(2), run(1)]}
-      : {jobs: path.includes('/runs/2/') ? [{name: 'app-validation', conclusion: state}, {name: 'firebase-required', conclusion: 'success'}] : successfulJobs}}), /Latest main validation/);
+      : {jobs: path.includes('/runs/2/') ? [{name: 'app-validation', conclusion: state}, {name: 'firebase-required', conclusion: 'success'}] : successfulJobs}}), /Latest release validation/);
   }
   await assert.rejects(requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
-    ? {workflow_runs: [run(1, {run_attempt: 2})]} : {jobs: successfulJobs.map(j => ({...j, steps: []}))}}), /Latest main validation/);
+    ? {workflow_runs: [run(1, {run_attempt: 2})]} : {jobs: successfulJobs.map(j => ({...j, steps: []}))}}), /Latest release validation/);
 });
 test('foreign, PR and different source validations cannot approve a release', async () => {
-  for (const extra of [{event: 'pull_request'}, {head_branch: 'develop'}, {head_sha: 'b'.repeat(40)}, {head_repository: {full_name: 'fork/repo'}}]) {
-    await assert.rejects(requireCommonValidation({repository, sha, request: async () => ({workflow_runs: [run(1, extra)]})}), /No main integration/);
+  for (const extra of [{event: 'pull_request'}, {head_branch: 'develop'}, {head_branch: 'main'}, {head_sha: 'b'.repeat(40)}, {head_repository: {full_name: 'fork/repo'}}]) {
+    await assert.rejects(requireCommonValidation({repository, sha, request: async () => ({workflow_runs: [run(1, extra)]})}), /No release integration/);
   }
 });
 
@@ -33,14 +33,13 @@ const plannedSkipJobs = [
   {name: 'Verify deployment target', conclusion: 'success'},
   ...successfulJobs.map(job => ({name: job.name, conclusion: 'skipped'})),
 ];
-test('later planned backend-only and no-op runs preserve earlier common validation for the same SHA', async () => {
+test('tag retries must run common checks even when deployment planning succeeds', async () => {
   for (const conclusion of ['success', 'failure', null]) {
     for (const skippedName of [successfulJobs[1].name, 'class_start_regressions']) {
       const skippedJobs = plannedSkipJobs.map(job => job.name === successfulJobs[1].name ? {...job, name: skippedName} : job);
-      const selected = await requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
+      await assert.rejects(requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
         ? {workflow_runs: [run(2, {event: 'workflow_dispatch', conclusion}), run(1)]}
-        : {jobs: path.includes('/runs/2/') ? skippedJobs : successfulJobs}});
-      assert.equal(selected.id, 1);
+        : {jobs: path.includes('/runs/2/') ? skippedJobs : successfulJobs}}), /Latest release validation/);
     }
   }
 });
@@ -56,10 +55,10 @@ test('cancelled, unplanned, partial, pending, failed or missing common validatio
   for (const candidate of cases) {
     await assert.rejects(requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
       ? {workflow_runs: [run(2, {conclusion: candidate.conclusion}), run(1)]}
-      : {jobs: path.includes('/runs/2/') ? candidate.jobs : successfulJobs}}), /Latest main validation/);
+      : {jobs: path.includes('/runs/2/') ? candidate.jobs : successfulJobs}}), /Latest release validation/);
   }
 });
 test('planned non-validation runs cannot authorize release when no actual common validation exists', async () => {
   await assert.rejects(requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
-    ? {workflow_runs: [run(1)]} : {jobs: plannedSkipJobs}}), /No main integration/);
+    ? {workflow_runs: [run(1)]} : {jobs: plannedSkipJobs}}), /Latest release validation/);
 });

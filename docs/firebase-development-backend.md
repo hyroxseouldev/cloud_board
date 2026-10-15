@@ -18,6 +18,59 @@ to this project. No production provider credentials are copied. Store purchases
 and external provider integration need their own separately configured tests.
 Google and email/password sign-in use the development Firebase Auth project.
 
+## Main development deployment and release tags
+
+The normal development trigger is a merge into `main`. The development workflow
+builds the web app and deploys only `cloud-board-development`; development mobile
+QA is a separate platform workflow. Main does not run the complete Flutter,
+Chrome and Firebase contract suites before each development build. Environment
+isolation, successful compilation, artifact identity and deployment results still
+need to be checked. A development deployment is not production validation.
+
+Production starts from a `vX.Y.Z` tag whose commit belongs to main history and whose
+version matches the app version. Required integration CI must pass for that exact
+tag SHA before production deployment or release-mode mobile upload. A main push
+does not authorize production deployment, and a development receipt does not
+authorize a production mobile upload. See [feature verification](feature-verification.md).
+
+The development workflow authenticates using this Workload Identity provider:
+
+```text
+projects/1339501332/locations/global/workloadIdentityPools/github-development/providers/github
+github-development@cloud-board-development.iam.gserviceaccount.com
+```
+
+Before enabling main deployments, verify that the provider permits
+`refs/heads/main` and
+`hyroxseouldev/cloud_board/.github/workflows/firebase-development.yml@refs/heads/main`.
+Keep the repository ID `1356721972`, owner ID `218802270`, and `push` / manual
+dispatch restrictions. The repository-scoped `roles/iam.workloadIdentityUser`
+binding remains sufficient; do not broaden project permissions for a ref change.
+Repository workflow changes and remote identity-policy changes are separate
+steps, and both must be confirmed before claiming authentication works.
+
+Development mobile apps use `com.sunmkim.cloudboard.dev` and this development
+Firebase project. Their App Store Connect / Play app registrations and app-specific
+signing/upload permissions must be confirmed separately. The readiness gate reports
+missing setup and blocks that platform's upload. Do not substitute the production
+app or production Firebase when development setup is incomplete. Registration,
+build success, upload success and tester installation are separate evidence;
+none is established merely by adding the workflow.
+
+Store account authentication is intentionally shared through the existing GitHub
+Environments `testflight` and `google-play`; do not create duplicate environments
+or copy the same secrets. Set `MOBILE_DEVELOPMENT_READY=true` in the corresponding
+environment only after the development app registration, signing and upload
+permissions are confirmed. Without that setting, preflight reports `BLOCKED`
+and skips the development build/upload. Sharing account authentication does not
+change the app target: artifact checks still enforce the `.dev` app ID and
+development Firebase binding. The store-readiness diagnostic is read-only: it
+does not create apps or issue signing certificates.
+
+Neither development builds nor TestFlight/internal-track uploads publish the app
+to the general public, publish production update news, or raise minimum supported
+versions. Store review and production availability remain separate operations.
+
 ## Test onboarding without sending SMS
 
 Provision a fresh random value in this project's Secret Manager under

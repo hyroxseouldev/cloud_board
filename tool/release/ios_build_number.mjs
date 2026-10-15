@@ -15,15 +15,16 @@ export function highestIosBuild(builds) {
   });
   return Math.max(...numbers);
 }
-export async function inventoryIos(token, request = fetch) {
+export async function inventoryIos(token, request = fetch, bundleId = process.env.IOS_BUNDLE_ID || 'com.sunmkim.cloudboard') {
+  assert(['com.sunmkim.cloudboard', 'com.sunmkim.cloudboard.dev'].includes(bundleId), 'Unexpected iOS bundle');
   async function get(url) {
     assert(url.startsWith(`${base}/v1/`), 'Unexpected App Store Connect pagination target');
     const response = await request(url, {headers: {Authorization: `Bearer ${token}`}, signal: AbortSignal.timeout(30000)});
     assert(response.ok, `App Store Connect metadata request failed: HTTP ${response.status}`);
     return response.json();
   }
-  const apps = await get(`${base}/v1/apps?filter%5BbundleId%5D=com.sunmkim.cloudboard&limit=2`);
-  assert.equal(apps.data?.length, 1, 'Expected one production iOS app');
+  const apps = await get(`${base}/v1/apps?filter%5BbundleId%5D=${bundleId}&limit=2`);
+  assert.equal(apps.data?.length, 1, `Expected exactly one registered iOS app for ${bundleId}`);
   const appId = apps.data[0].id;
   assert(/^\d+$/.test(appId), 'Invalid App Store Connect app identity');
   let next = `${base}/v1/builds?filter%5Bapp%5D=${appId}&sort=-uploadedDate&limit=200`;
@@ -36,9 +37,9 @@ export async function inventoryIos(token, request = fetch) {
     builds.push(...page.data);
     next = page.links?.next;
   }
-  return {appId, highestBuild: highestIosBuild(builds), observedBuildCount: builds.length};
+  return {appId, highestBuild: builds.length === 0 && bundleId.endsWith('.dev') ? 0 : highestIosBuild(builds), observedBuildCount: builds.length};
 }
-function accessToken() {
+export function accessToken() {
   const header = {alg: 'ES256', kid: process.env.APP_STORE_CONNECT_KEY_ID, typ: 'JWT'};
   const payload = {iss: process.env.APP_STORE_CONNECT_ISSUER_ID, exp: Math.floor(Date.now() / 1000) + 1200, aud: 'appstoreconnect-v1'};
   assert(header.kid && payload.iss, 'Missing App Store Connect credential');

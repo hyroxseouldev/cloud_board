@@ -2,6 +2,39 @@
 
 `appReleases/ios`, `appReleases/android`, and `appReleases/tv` are the update-policy source. `latestBuild` is the recommended build. Platform build numbers are independent. Remote Config must not duplicate these version fields.
 
+## Build, deployment and public availability
+
+Main merges start development Firebase builds/deployments and the separate
+development mobile QA path without repeating the full integration CI suites.
+Development apps use `cloud-board-development` and
+`com.sunmkim.cloudboard.dev`. Missing development store registration or signing
+credentials must be reported by the readiness gate; do not fall back to the
+production app. Development success never authorizes a production version policy.
+
+Production candidates start with a `vX.Y.Z` tag on a commit in main history. The
+tag version must match the app version, and required CI must pass for the same
+tag SHA before production server/web deployment or release-mode mobile upload.
+Record the tag, app source SHA, validation run, backend receipt and actual platform
+upload results. Existing release tags must not be moved, deleted or reused for a
+different candidate. A manual retry or recovery still requires the release's
+verified source and evidence.
+
+The repository tag ruleset blocks updates and deletion of `refs/tags/v*` without
+restricting tag creation. Its versioned definition is
+[`tool/firebase/release-tag-rules.json`](../../tool/firebase/release-tag-rules.json).
+This is separate from main/develop branch protection. Tag creation permission
+alone does not authorize deployment: the workflow still verifies main ancestry,
+version, fixed SHA and the required CI result.
+
+Release automation does not submit an app for public availability merely because
+TestFlight or Play internal testing accepted an upload. It also does not
+automatically enable `appReleases`, raise `minimumBuild`, or prove that users can
+install the replacement. Development QA must not publish production update news.
+Keep store processing, review, public rollout and update-policy activation as
+separate recorded states.
+
+## Update-policy activation
+
 Never equate a successful TestFlight/internal-track upload with a publicly installable release. Before enabling a global policy, record an availability evidence JSON containing `platform`, `build`, `version`, `storeUrl`, `installable: true`, `track: "production"`, `sourceSha`, verified `countries`, `deviceVerification` (OS/device and actual install result), `verifiedBy`, `verifiedAt`, and an official `verificationUrl`. Verification must be within seven days. Country/device coverage is operator evidence; the command does not pretend an HTTP 200 proves installation. If public distribution is not verified, leave the policy disabled.
 
 1. Read current value and hash:

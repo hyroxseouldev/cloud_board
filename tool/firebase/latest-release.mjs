@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import {appendFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
-import {github, validateReceipt} from './release.mjs';
+import {github, validateReceipt, isReleaseTag} from './release.mjs';
 import {readReleaseArtifact} from './github-artifact.mjs';
 import {writeJson} from './common.mjs';
 import {productionRuns} from './release-runs.mjs';
 
-export async function latestRelease({repository, request, readArtifact, ignoreRunId, component = 'backend', allowFailed = false}) {
-  // Keep the first-page URL stable; older backend releases can sit behind many
-  // web/docs runs. Bound API work explicitly instead of silently stopping at 100.
+export async function latestRelease({repository, request, readArtifact, ignoreRunId, component = 'backend', allowFailed = false, attemptOnly = false}) {
+  // Search both release tags and historical main deployments; older backend
+  // releases can sit behind many web/docs runs. Bound API work explicitly instead of silently stopping at 100.
   const maximumPages = 10;
   for (let page = 1; page <= maximumPages; page++) {
-    const recent = await request(`/repos/${repository}/actions/workflows/firebase-hosting-merge.yml/runs?branch=main&per_page=100${page === 1 ? '' : `&page=${page}`}`);
+    const recent = await request(`/repos/${repository}/actions/workflows/firebase-hosting-merge.yml/runs?per_page=100${page === 1 ? '' : `&page=${page}`}`);
     for (const run of productionRuns(recent.workflow_runs, repository).filter(run => String(run.id) !== String(ignoreRunId))) {
       const jobs = await request(`/repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
       const production = jobs.jobs?.find(job => job.name === 'firebase-production');
@@ -21,6 +21,13 @@ export async function latestRelease({repository, request, readArtifact, ignoreRu
         : ['Deploy account deletion functions and data rules', 'Deploy data rules only'];
       const steps = (production.steps || []).filter(step => names.includes(step.name));
       if (steps.length && steps.every(step => step.conclusion === 'skipped')) continue;
+      if (attemptOnly) {
+        // A newer tag waiting for the production lock has not changed any
+        // service. It must not invalidate a deployment already holding it.
+        if (!steps.some(step => step.conclusion && step.conclusion !== 'skipped'
+          || step.status === 'in_progress' || step.started_at)) continue;
+        return {status: 'attempt', run};
+      }
       if (allowFailed && (run.status !== 'completed' || run.conclusion !== 'success')) continue;
       if (run.status !== 'completed') return {status: 'deferred'};
       assert.equal(run.conclusion, 'success', `Latest production attempt ${run.id} failed or may be partial; refusing an older receipt`);
@@ -29,6 +36,7 @@ export async function latestRelease({repository, request, readArtifact, ignoreRu
       assert.equal(matches.length, 1, 'Latest production run has no verified release receipt');
       const receipt = await readArtifact(matches[0]);
       validateReceipt(receipt, {sha: run.head_sha, runId: String(run.id), attempt: String(run.run_attempt)});
+      if (isReleaseTag(run.head_branch)) assert.equal(receipt.manifest.releaseTag, run.head_branch, 'Receipt release tag mismatch');
       const scope = receipt.scope || 'full';
       if (component === 'backend' ? scope === 'web' : !['web', 'full'].includes(scope)) continue;
       return {status: 'success', run, receipt};

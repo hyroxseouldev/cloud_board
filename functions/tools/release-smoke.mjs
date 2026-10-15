@@ -12,9 +12,10 @@ import {targets} from '../../tool/firebase/release.mjs';
 import {readJson, writeJson, emulatorAddress, requireDemo} from '../../tool/firebase/common.mjs';
 
 export function preflight(env = process.env) {
-  assert.equal(env.FIREBASE_RELEASE_CANARY_ENABLED, 'true', 'Enable the provisioned release canary before promoting main');
+  assert.equal(env.FIREBASE_RELEASE_CANARY_ENABLED, 'true', 'Enable the provisioned release canary before publishing a release tag');
   assert.match(env.FIREBASE_WEB_API_KEY || '', /^AIza[A-Za-z0-9_-]+$/, 'Firebase web API key required');
-  assert.equal(env.GITHUB_REF, 'refs/heads/main', 'Live smoke only runs on main');
+  assert.match(env.GITHUB_REF || '', /^refs\/tags\/v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/, 'Live smoke requires a production release tag');
+  assert.equal(env.RELEASE_TAG, env.GITHUB_REF.slice(10), 'Live smoke tag differs from verified release');
   for (const key of ['FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST', 'FIREBASE_DATABASE_EMULATOR_HOST', 'FIREBASE_STORAGE_EMULATOR_HOST']) assert(!env[key], 'Emulator environment in production job');
 }
 const decode = data => JSON.parse(JSON.stringify(data), (_, value) => value?.__timestampMillis !== undefined ? Timestamp.fromMillis(value.__timestampMillis) : value);

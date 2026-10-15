@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import {versionName, currentStoreCodes, nextCode, reserveCode, playInventory, reservationPrefix} from './play_version_code.mjs';
 const baseline = {packageName: 'com.sunmkim.cloudboard', highestEverVersionCode: 65,
   completeUploadHistory: true, verifiedAt: new Date().toISOString(), verifiedBy: 'release operator',
@@ -52,4 +53,21 @@ test('inventory edit is always discarded, including partial read failure', async
   }));
   assert.equal(methods.at(-1), 'DELETE');
   assert(!methods.includes('PUT'));
+});
+test('development Play numbering uses its own package, history and reservation namespace', () => {
+  const module = new URL('./play_version_code.mjs', import.meta.url).href;
+  const code = `import assert from 'node:assert/strict';
+    import {packageName, reservationPrefix, validateBaseline, playInventory} from ${JSON.stringify(module)};
+    assert.equal(packageName, 'com.sunmkim.cloudboard.dev');
+    assert.equal(reservationPrefix, 'refs/tags/play-version-code-development/');
+    assert.throws(() => validateBaseline({packageName: 'com.sunmkim.cloudboard'}), /Wrong baseline/);
+    await playInventory('test', async (url, options) => {
+      assert(url.includes('/applications/com.sunmkim.cloudboard.dev/'));
+      if (options.method === 'POST') return {id: '1'};
+      if (options.method === 'DELETE') return null;
+      return url.endsWith('/tracks') ? {tracks: []} : {};
+    });`;
+  execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+    env: {...process.env, ANDROID_PACKAGE_NAME: 'com.sunmkim.cloudboard.dev'}, stdio: 'pipe',
+  });
 });
