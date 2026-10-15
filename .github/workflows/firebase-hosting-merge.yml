@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: 'Production target: rules only, Functions and rules, or full release'
+        description: 'Verify only, Hosting only, backend, rules, or full release'
         required: true
         type: choice
         default: rules
-        options: [rules, backend, full]
+        options: [verify, web, rules, backend, full]
       confirm_sha:
         description: 'Paste the exact current main commit SHA (40 characters)'
         required: true
@@ -20,12 +20,12 @@ permissions:
   contents: read
   actions: read
 
-concurrency:
-  group: firebase-check-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# Validation can run concurrently. Only production writes hold a non-cancelling lock.
 
 jobs:
   class_start_regressions:
+    needs: deployment_plan
+    if: contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
     uses: ./.github/workflows/class-start-regressions.yml
 
   deployment_plan:
@@ -36,6 +36,8 @@ jobs:
       scope: ${{ steps.plan.outputs.scope }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -48,6 +50,7 @@ jobs:
   app_validation:
     name: app-validation
     needs: deployment_plan
+    if: contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -152,6 +155,7 @@ jobs:
         run: flutter test --platform chrome test/support_ticket_test.dart test/support_screen_test.dart test/error_reporter_test.dart test/auth_router_test.dart
 
       - name: Test legacy server compatibility
+        if: needs.deployment_plan.outputs.scope == 'verify'
         run: |
           npm ci --prefix functions-legacy
           npm run check --prefix functions-legacy
@@ -159,6 +163,7 @@ jobs:
           node --test tool/legacy-auth-release.test.mjs
 
       - name: Test account deletion functions
+        if: needs.deployment_plan.outputs.scope == 'verify'
         run: |
           npm ci --prefix functions
           npm test --prefix functions
@@ -184,7 +189,7 @@ jobs:
           echo "Web build: $build_name ($build_number)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Encrypt web symbols
-        if: needs.deployment_plan.outputs.scope == 'full' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         env:
           WEB_SYMBOLS_ENCRYPTION_KEY: ${{ secrets.WEB_SYMBOLS_ENCRYPTION_KEY }}
         run: |
@@ -194,7 +199,7 @@ jobs:
           node tool/web_symbols.mjs seal "$RUNNER_TEMP/web-symbols.tgz" "$RUNNER_TEMP/web-symbols-v1.tgz.enc"
 
       - name: Retain encrypted web symbols
-        if: needs.deployment_plan.outputs.scope == 'full' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-web-symbols-${{ github.run_number }}-${{ github.run_attempt }}
@@ -225,6 +230,7 @@ jobs:
   firebase_contracts:
     name: firebase-contracts
     needs: deployment_plan
+    if: contains(fromJSON('["backend","rules","full","verify"]'), needs.deployment_plan.outputs.scope)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -249,6 +255,10 @@ jobs:
         run: |
           flutter pub get
           npm ci --prefix functions
+      - name: Test server and release tooling
+        run: |
+          npm test --prefix functions
+          node --test tool/release_backend_gate.test.mjs tool/firebase/*.test.mjs
       - name: Verify latest installed clients have frozen contracts
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -270,7 +280,7 @@ jobs:
 
   firebase_required:
     name: firebase-required
-    if: always()
+    if: always() && needs.deployment_plan.result == 'success' && !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
     needs: [app_validation, firebase_contracts, deployment_plan, class_start_regressions]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -279,16 +289,20 @@ jobs:
       FIREBASE_DEPLOY_SCOPE: ${{ needs.deployment_plan.outputs.scope }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Reject failed, skipped, cancelled or missing jobs
         run: node --input-type=module -e "import {requireReleaseJobs} from './tool/firebase/release.mjs'; requireReleaseJobs(JSON.parse(process.env.REQUIRED_JOBS))"
       - uses: actions/download-artifact@v4
+        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope)
         with:
           name: firebase-web-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/web
       - uses: actions/download-artifact@v4
+        if: contains(fromJSON('["backend","rules","full"]'), needs.deployment_plan.outputs.scope)
         with:
           name: firebase-contracts-${{ github.run_id }}-${{ github.run_attempt }}
           path: build
@@ -309,7 +323,7 @@ jobs:
   firebase_production:
     name: firebase-production
     needs: [firebase_required, deployment_plan]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     concurrency:
@@ -322,6 +336,8 @@ jobs:
       FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -332,18 +348,26 @@ jobs:
         with:
           name: firebase-candidate-${{ github.run_id }}-${{ github.run_attempt }}
           path: build
-      - name: Validate candidate and canary configuration before any deployment
+      - name: Validate candidate before deployment
         run: |
           node tool/firebase/release.mjs current
           node tool/firebase/release.mjs verify
-          node functions/tools/release-smoke.mjs preflight
+      - name: Validate backend canary configuration
+        if: needs.deployment_plan.outputs.scope != 'web'
+        run: node functions/tools/release-smoke.mjs preflight
+      - name: Confirm rules-only candidate preserves deployed Functions
+        if: needs.deployment_plan.outputs.scope == 'rules'
+        run: node tool/release_backend_gate.mjs --rules --check-only
+      - name: Confirm Hosting candidate uses the deployed backend
+        if: needs.deployment_plan.outputs.scope == 'web'
+        run: node tool/release_backend_gate.mjs --web --check-only
       - name: Authenticate Firebase rule deployment
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
 
       - name: Deploy account deletion functions and data rules
-        if: needs.deployment_plan.outputs.scope != 'rules'
+        if: contains(fromJSON('["backend","full"]'), needs.deployment_plan.outputs.scope)
         env:
           SOLAPI_FROM: ${{ secrets.SOLAPI_FROM }}
           APPLE_IAP_SECRETS_ENABLED: ${{ vars.APPLE_IAP_SECRETS_ENABLED || 'false' }}
@@ -381,18 +405,20 @@ jobs:
           node tool/firebase/release.mjs verify
           npx --yes firebase-tools@15.29.0 deploy --only firestore:rules,firestore:indexes,database,storage --project cloud-board-stationd --non-interactive
       - name: Verify deployed rules
+        if: needs.deployment_plan.outputs.scope != 'web'
         run: node functions/tools/live-rules.mjs build/release/manifest.json --wait
       - name: Verify client save, image and TV permissions
+        if: needs.deployment_plan.outputs.scope != 'web'
         run: node functions/tools/release-smoke.mjs
       - name: Deploy to Firebase Hosting
-        if: needs.deployment_plan.outputs.scope == 'full'
+        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope)
         run: |
           node tool/firebase/release.mjs current
           node tool/firebase/release.mjs verify
           npx --yes firebase-tools@15.29.0 deploy --only hosting --project cloud-board-stationd --non-interactive
       - name: Publish verified release receipt
         run: |
-          node functions/tools/live-rules.mjs
+          if [ "$FIREBASE_DEPLOY_SCOPE" != web ]; then node functions/tools/live-rules.mjs; fi
           node tool/firebase/release.mjs ready
       - name: Retain verified release receipt
         uses: actions/upload-artifact@v4

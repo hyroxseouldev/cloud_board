@@ -7,12 +7,12 @@ function jobCondition(file, job) {
   const text = readFileSync(`.github/workflows/${file}`, 'utf8');
   const block = text.match(new RegExp(`^  ${job}:\\n([\\s\\S]*?)(?=^  [a-z_]+:|$(?![\\s\\S]))`, 'm'))?.[1];
   assert(block, `Missing workflow job: ${job}`);
-  return block.match(/^    if: >-\n((?:      .+\n)+)/m)?.[1].trim();
+  return block.match(/^    if: >-\n((?:      .+\n)+)/m)?.[1].trim() ?? block.match(/^    if: (.+)$/m)?.[1];
 }
 const context = (event = 'push', message = 'Release', bootstrapped = 'true', upload = true) => {
   const scheduled = event === 'workflow_dispatch';
   return {
-    github: {event_name: event, event: {head_commit: {message}}},
+    github: {event_name: event, ref: 'refs/heads/main', event: {head_commit: {message}}},
     vars: {GOOGLE_PLAY_BOOTSTRAPPED: bootstrapped},
     inputs: {upload_to_play: upload, upload_to_testflight: upload},
     needs: {
@@ -32,8 +32,8 @@ const evaluate = (condition, values) => {
 
 test('native releases run only on explicit dispatch and build-only skips backend deployment', () => {
   for (const [file, jobs] of [
-    ['testflight-main.yml', ['class_start_regressions', 'backend_ready', 'verify', 'upload']],
-    ['google-play-main.yml', ['class_start_regressions', 'backend_ready', 'upload']],
+    ['testflight-main.yml', ['upload']],
+    ['google-play-main.yml', ['upload']],
   ]) {
     const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
     const triggers = workflow.match(/^on:\n([\s\S]*?)(?=^\S)/m)?.[1];
@@ -55,10 +55,23 @@ test('native releases run only on explicit dispatch and build-only skips backend
   }
 });
 
-test('real Hosting step publishes only the full scope', () => {
+test('Hosting and Functions are deployed only by their selected scopes', () => {
   const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
-  const condition = workflow.match(/- name: Deploy to Firebase Hosting\n\s+if: ([^\n]+)/)?.[1];
-  for (const scope of ['full', 'backend', 'rules']) {
-    assert.equal(evaluate(condition, {needs: {deployment_plan: {outputs: {scope}}}}), scope === 'full');
+  for (const [step, allowed] of [
+    ['Deploy to Firebase Hosting', ['web', 'full']],
+    ['Deploy account deletion functions and data rules', ['backend', 'full']],
+  ]) {
+    const condition = workflow.match(new RegExp(`- name: ${step}\\n\\s+if: ([^\\n]+)`))?.[1];
+    for (const scope of ['full', 'web', 'backend', 'rules', 'none', 'verify']) {
+      assert.equal(evaluate(condition, {needs: {deployment_plan: {outputs: {scope}}},
+        contains: (values, value) => values.includes(value), fromJSON: JSON.parse}), allowed.includes(scope));
+    }
   }
+});
+
+test('validation has no workflow-wide queue while production writes remain serialized', () => {
+  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  assert(!/^concurrency:/m.test(workflow));
+  const production = workflow.slice(workflow.indexOf('  firebase_production:'));
+  assert.match(production, /    concurrency:\n      group: firebase-production\n      cancel-in-progress: false/);
 });

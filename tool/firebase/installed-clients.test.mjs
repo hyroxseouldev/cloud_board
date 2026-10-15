@@ -21,3 +21,27 @@ test('checks upload steps even when subsequent cleanup failed; skips current and
 test('missing remote deployment evidence fails closed', async () => {
   await assert.rejects(verifyInstalledClients({clients, repository:'owner/repo',request:async () => ({workflow_runs:[]})}), /Cannot verify/);
 });
+test('production-connected QA is tracked by actual app source and artifact, not uploader source', async () => {
+  const workflowSha = 'b'.repeat(40), artifactSha256 = 'c'.repeat(64);
+  const registry = [{...clients[0], releases: clients[0].releases.map(r => ({...r, artifactSha256}))}];
+  const request = async path => {
+    const workflow = installedWorkflows.find(w => path.includes(`/workflows/${w.file}/`));
+    if (workflow) {
+      return {workflow_runs: [{id: 1, run_attempt: 1, head_sha: workflow.platforms[0] === 'web' ? sha : workflowSha,
+        head_branch: 'main', event: 'workflow_dispatch', status: 'completed'}]};
+    }
+    if (path.endsWith('/artifacts?per_page=100')) return {artifacts: [{name: 'mobile-source-1-1'}]};
+    return {jobs: [{steps: [...installedWorkflows.map(w => ({name: w.step, conclusion: 'success'})),
+      {name: 'Resolve and pin trusted app source', conclusion: 'success'}]}]};
+  };
+  let index = 0;
+  const result = await verifyInstalledClients({clients: registry, repository: 'owner/repo', request,
+    readArtifact: async () => ({schemaVersion: 1, kind: 'mobile-source', sourceSha: sha, workflowSha,
+      releaseMode: 'qa', platform: index++ === 0 ? 'ios' : 'android-tv', firebaseProject: 'cloud-board-stationd',
+      package: 'com.sunmkim.cloudboard', productionBindingVerified: true, version: '1.2.2', build: '558',
+      artifactSha256, runId: '1', runAttempt: '1'})});
+  assert(result.every(row => row.sha === sha));
+  assert.equal(result[0].workflowSha, workflowSha);
+  assert.equal(result[0].releaseMode, 'qa');
+  assert.throws(() => requireRegisteredUpload(clients, {id: 1, head_sha: workflowSha, sourceSha: sha, artifactSha256}, ['ios']));
+});

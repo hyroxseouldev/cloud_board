@@ -86,8 +86,8 @@ test('a Flutter launch failure clears the old report and saves only new machine 
   assert.match(f.run().stderr, /ENOENT/);
   assert.equal(readFileSync(f.machine, 'utf8'), '');
 });
-test('all release and development deploys require the class-start job', () => {
-  for (const name of ['firebase-hosting-merge', 'firebase-development', 'google-play-main', 'testflight-main']) {
+test('shared web release and development validation retain the class-start job', () => {
+  for (const name of ['firebase-hosting-merge', 'firebase-development']) {
     const workflow = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
     assert.match(workflow, /uses: \.\/\.github\/workflows\/class-start-regressions.yml/);
     assert.match(workflow, /needs: \[[^\n]*class_start_regressions/);
@@ -117,7 +117,9 @@ test('production deploy uses automated evidence without a physical QA approval o
   }
   for (const name of ['google-play-main', 'testflight-main']) {
     const native = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
-    assert.match(native, /needs: \[[^\n]*backend_ready/);
-    assert.match(native, /node tool\/release_backend_gate.mjs --check-only/);
+    assert.doesNotMatch(native, /needs: \[[^\n]*backend_ready/);
+    assert.match(native, /release_backend_gate\.mjs/);
+    assert.match(native, /--check-only/);
+    assert.match(native, /common_validation\.mjs/);
   }
 });

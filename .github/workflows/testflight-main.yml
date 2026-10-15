@@ -1,10 +1,22 @@
 name: Upload iOS to TestFlight
+run-name: "iOS ${{ inputs.release_mode }} · ${{ inputs.source_ref }}"
 
 on:
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: App source in this repository (main, develop, release branch, tag or full SHA)
+        required: true
+        type: string
+        default: develop
+      release_mode:
+        description: QA internal testing or release candidate (release reuses main validation)
+        required: true
+        type: choice
+        options: [qa, release]
+        default: qa
       upload_to_testflight:
-        description: Upload to TestFlight (disable to prepare a signed IPA only)
+        description: Upload to TestFlight (false keeps a signed artifact only)
         required: true
         type: boolean
         default: false
@@ -18,111 +30,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  class_start_regressions:
-    if: >-
-      github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/class-start-regressions.yml
-
-  backend_ready:
-    name: Wait for verified backend deployment
-    if: >-
-      github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight
-    runs-on: ubuntu-latest
-    timeout-minutes: 50
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Require this commit's tested and deployed Firebase rules
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node tool/release_backend_gate.mjs
-
-  verify:
-    name: Verify release
-    if: >-
-      github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Test iOS signing checks
-        run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Test release metadata and artifact gates
-        run: |
-          node --test tool/release/*.test.mjs
-          python3 -m unittest discover -s tool/release -p 'test_*.py'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: .fvmrc
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Require TV recovery regressions without missing or skipped cases
-        run: |
-          node --test tool/tv-recovery-check.test.mjs
-          node tool/tv-recovery-check.mjs
-
-      - name: Retain TV recovery regression evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tv-recovery-ios-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/sta176/
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test
-
   upload:
-    name: Build and upload
-    needs: [verify, backend_ready, class_start_regressions]
-    if: >-
-      always() && !cancelled() && github.event_name == 'workflow_dispatch' &&
-      needs.verify.result == 'success' && needs.class_start_regressions.result == 'success' &&
-      (needs.backend_ready.result == 'success' || !inputs.upload_to_testflight)
+    name: Build and optionally upload
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: macos-26
     timeout-minutes: 45
     environment: testflight
+    defaults:
+      run:
+        working-directory: app
     env:
+      SOURCE_REF: ${{ inputs.source_ref }}
+      RELEASE_MODE: ${{ inputs.release_mode }}
       IOS_BUNDLE_ID: com.sunmkim.cloudboard
       IOS_TEAM_ID: NL7AM62SB9
 
     steps:
-      - name: Checkout repository
+      - name: Checkout trusted workflow tools
         uses: actions/checkout@v4
-
-      - name: Require a trusted release source
-        run: |
-          case "$GITHUB_REF" in
-            refs/heads/main|refs/heads/release/*) ;;
-            *) echo 'Signed builds require main or a release/* branch.' >&2; exit 1 ;;
-          esac
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Resolve and pin trusted app source
+        working-directory: control
+        run: node tool/release/source.mjs resolve
+
+      - name: Checkout selected app commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: app
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: QA build does not publish app update news
+        if: inputs.release_mode == 'qa'
+        run: echo 'Internal QA only; no public update news or minimum-version changes.'
 
       - name: Check release credentials
         env:
@@ -157,7 +107,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: .fvmrc
+          flutter-version-file: app/.fvmrc
           channel: stable
           cache: true
 
@@ -224,8 +174,8 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          node tool/release/play_version_code.mjs --version-name
-          node tool/release/ios_build_number.mjs --next
+          node "$GITHUB_WORKSPACE/control/tool/release/play_version_code.mjs" --version-name
+          node "$GITHUB_WORKSPACE/control/tool/release/ios_build_number.mjs" --next
 
       - name: Create export options
         run: |
@@ -254,7 +204,7 @@ jobs:
             --no-codesign \
             --build-number "$TESTFLIGHT_BUILD_NUMBER"
 
-          archive_path="$GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive"
+          archive_path="$GITHUB_WORKSPACE/app/build/ios/archive/Runner.xcarchive"
           if [[ ! -d "$archive_path" ]]; then
             echo 'The unsigned iOS archive was not created.' >&2
             exit 1
@@ -265,7 +215,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-ios-dsyms-${{ env.TESTFLIGHT_BUILD_NUMBER }}
-          path: build/ios/archive/Runner.xcarchive/dSYMs
+          path: app/build/ios/archive/Runner.xcarchive/dSYMs
           if-no-files-found: error
           retention-days: 90
 
@@ -275,7 +225,7 @@ jobs:
           set -euo pipefail
 
           # Flutter stores the resolved Swift packages under build/ios.
-          upload_symbols="$GITHUB_WORKSPACE/build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols"
+          upload_symbols="$GITHUB_WORKSPACE/app/build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols"
           dsym_directory="$IOS_ARCHIVE_PATH/dSYMs"
           google_service_plist="$IOS_ARCHIVE_PATH/Products/Applications/Runner.app/GoogleService-Info.plist"
 
@@ -295,7 +245,7 @@ jobs:
       - name: Preserve source entitlements in unsigned archive
         run: |
           set -euo pipefail
-          python3 tool/prepare_ios_entitlements.py \
+          python3 "$GITHUB_WORKSPACE/control/tool/prepare_ios_entitlements.py" \
             "$IOS_ARCHIVE_PATH" ios/Runner/Runner.entitlements \
             --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
 
@@ -321,23 +271,34 @@ jobs:
         run: |
           set -euo pipefail
           ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
-          python3 tool/inspect_ios_signing.py "$ipa_path" "$RUNNER_TEMP/ios-signing.json" \
+          python3 "$GITHUB_WORKSPACE/control/tool/inspect_ios_signing.py" "$ipa_path" "$RUNNER_TEMP/ios-signing.json" \
             --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
 
       - name: Verify actual IPA version, package and native/Dart Firebase binding
         run: |
           set -euo pipefail
           ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
-          python3 tool/release/inspect_native.py ios "$ipa_path" \
+          python3 "$GITHUB_WORKSPACE/control/tool/release/inspect_native.py" ios "$ipa_path" \
             --version "$RELEASE_VERSION_NAME" --build "$TESTFLIGHT_BUILD_NUMBER" \
             --output "$RUNNER_TEMP/ios-release-metadata.json"
+
+      - name: Record app source and signed artifact identity
+        run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" receipt "$RUNNER_TEMP/ios-release-metadata.json" "$RUNNER_TEMP/release.json"
+
+      - name: Retain mobile source receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Keep signed IPA and release evidence
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-ios-release-${{ env.TESTFLIGHT_BUILD_NUMBER }}
           path: |
-            build/ios/ipa/*.ipa
+            app/build/ios/ipa/*.ipa
             ${{ runner.temp }}/ios-release-metadata.json
           if-no-files-found: error
           retention-days: 14
@@ -351,15 +312,21 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Recheck backend before publishing
+      - name: Reuse main integration validation for release upload
+        if: inputs.release_mode == 'release' && inputs.upload_to_testflight
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/common_validation.mjs" --source-sha "$SOURCE_SHA"
+
+      - name: Recheck backend compatibility and build number before publishing
         if: github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight
         env:
           GITHUB_TOKEN: ${{ github.token }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          node tool/release_backend_gate.mjs --check-only
-          node tool/release/ios_build_number.mjs --recheck
+          node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
+          node "$GITHUB_WORKSPACE/control/tool/release/ios_build_number.mjs" --recheck
 
       - name: Upload to TestFlight
         if: github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight
