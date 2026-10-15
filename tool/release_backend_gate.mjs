@@ -43,7 +43,7 @@ export async function requireBackend({repository, sha, request, readArtifact, mo
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const value = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
-  const sha = value('--source-sha') || process.env.SOURCE_SHA || process.env.GITHUB_SHA;
+  const sha = value('--source-sha') || process.env.SOURCE_SHA || process.env.RELEASE_SOURCE_SHA || process.env.GITHUB_SHA;
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(), sha, 'Checkout must match the selected source SHA');
   const repository = process.env.GITHUB_REPOSITORY;
   assert(repository && process.env.GITHUB_TOKEN, 'Missing GitHub release gate credentials');

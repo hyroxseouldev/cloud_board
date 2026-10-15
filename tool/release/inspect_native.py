@@ -16,13 +16,28 @@ PROJECT = "cloud-board-stationd"
 MARKER = b"cloudboard-release-binding:env=production;flavor=production;"
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 BUNDLETOOL_SHA256 = "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29"
-FIREBASE = {
-    "project_id": PROJECT,
-    "gcm_defaultSenderId": "428540903054",
-    "google_app_id": "1:428540903054:android:372a37e13694a69b3d93df",
-    "firebase_database_url": "https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app",
-    "google_storage_bucket": "cloud-board-stationd.firebasestorage.app",
-}
+
+
+def binding(environment="production"):
+    require(environment in ("production", "development"), "Unknown artifact environment")
+    dev = environment == "development"
+    project = "cloud-board-development" if dev else PROJECT
+    return {
+        "package": PACKAGE + (".dev" if dev else ""), "project": project,
+        "sender": "1339501332" if dev else "428540903054",
+        "android_app": "1:1339501332:android:1afe8ec27a953ed01ef001" if dev else "1:428540903054:android:372a37e13694a69b3d93df",
+        "ios_app": "1:1339501332:ios:56b1f0d4a67a4e0c1ef001" if dev else "1:428540903054:ios:2483df8a16e997ba3d93df",
+        "database": f"https://{project}-default-rtdb.asia-southeast1.firebasedatabase.app",
+        "bucket": f"{project}.firebasestorage.app",
+        "marker": f"cloudboard-release-binding:env={environment};flavor={environment};".encode(),
+    }
+
+
+def firebase_resources(environment="production"):
+    config = binding(environment)
+    return {"project_id": config["project"], "gcm_defaultSenderId": config["sender"],
+            "google_app_id": config["android_app"], "firebase_database_url": config["database"],
+            "google_storage_bucket": config["bucket"]}
 
 
 def require(condition, message):
@@ -30,10 +45,13 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def verify_binding(binary, name):
-    require(MARKER in binary, f"{name}: compiled Dart production binding is missing")
+FIREBASE = firebase_resources()
+
+def verify_binding(binary, name, environment="production"):
+    marker = binding(environment)["marker"]
+    require(marker in binary, f"{name}: compiled Dart {environment} binding is missing")
     markers = re.findall(rb"cloudboard-release-binding:env=[^;\x00]{0,40};flavor=[^;\x00]{0,40};", binary)
-    require(set(markers) == {MARKER}, f"{name}: conflicting Dart environment binding")
+    require(set(markers) == {marker}, f"{name}: conflicting Dart environment binding")
 
 
 def macho_slices(binary):
@@ -52,36 +70,37 @@ def macho_slices(binary):
         yield "native", binary
 
 
-def check_ios_metadata(info, firebase, version, build):
-    for key, expected in {"CFBundleIdentifier": PACKAGE, "CFBundleShortVersionString": version,
+def check_ios_metadata(info, firebase, version, build, environment="production"):
+    config = binding(environment)
+    for key, expected in {"CFBundleIdentifier": config["package"], "CFBundleShortVersionString": version,
                           "CFBundleVersion": str(build)}.items():
         require(info.get(key) == expected, f"IPA {key} mismatch")
     for key, expected in {
-        "BUNDLE_ID": PACKAGE, "PROJECT_ID": PROJECT, "GCM_SENDER_ID": "428540903054",
-        "GOOGLE_APP_ID": "1:428540903054:ios:2483df8a16e997ba3d93df",
-        "DATABASE_URL": FIREBASE["firebase_database_url"], "STORAGE_BUCKET": FIREBASE["google_storage_bucket"],
+        "BUNDLE_ID": config["package"], "PROJECT_ID": config["project"], "GCM_SENDER_ID": config["sender"],
+        "GOOGLE_APP_ID": config["ios_app"],
+        "DATABASE_URL": config["database"], "STORAGE_BUCKET": config["bucket"],
     }.items():
         require(firebase.get(key) == expected, f"IPA Firebase {key} mismatch")
 
 
-def inspect_ios(path, version, build):
+def inspect_ios(path, version, build, environment="production"):
     with zipfile.ZipFile(path) as archive:
         infos = [name for name in archive.namelist() if re.fullmatch(r"Payload/[^/]+\.app/Info\.plist", name)]
         require(len(infos) == 1, "Expected one application in IPA")
         prefix = infos[0].removesuffix("Info.plist")
         info = plistlib.loads(archive.read(infos[0]))
         firebase = plistlib.loads(archive.read(prefix + "GoogleService-Info.plist"))
-        check_ios_metadata(info, firebase, version, build)
+        check_ios_metadata(info, firebase, version, build, environment)
         architectures = []
         for architecture, binary in macho_slices(archive.read(prefix + "Frameworks/App.framework/App")):
-            verify_binding(binary, architecture)
+            verify_binding(binary, architecture, environment)
             architectures.append(architecture)
         return {"platform": "ios", "package": info["CFBundleIdentifier"], "firebaseProject": firebase["PROJECT_ID"],
                 "version": info["CFBundleShortVersionString"], "build": info["CFBundleVersion"], "dartArchitectures": architectures}
 
 
-def check_android_manifest(manifest, version, build):
-    require(manifest.get("package") == PACKAGE, "AAB package mismatch")
+def check_android_manifest(manifest, version, build, environment="production"):
+    require(manifest.get("package") == binding(environment)["package"], "AAB package mismatch")
     require(manifest.get(ANDROID_NS + "versionName") == version, "AAB versionName mismatch")
     require(manifest.get(ANDROID_NS + "versionCode") == str(build), "AAB versionCode mismatch")
     sdk = manifest.find("uses-sdk")
@@ -130,7 +149,7 @@ def verify_android_signature(path):
     return actual
 
 
-def inspect_android(path, version, build, bundletool):
+def inspect_android(path, version, build, bundletool, environment="production"):
     require(bundletool and Path(bundletool).is_file(), "Pinned bundletool is required")
     require(hashlib.sha256(Path(bundletool).read_bytes()).hexdigest() == BUNDLETOOL_SHA256, "bundletool checksum mismatch")
     def dump(*args):
@@ -138,16 +157,16 @@ def inspect_android(path, version, build, bundletool):
                               capture_output=True, check=True, text=True).stdout
     signing_certificate = verify_android_signature(path)
     manifest = ET.fromstring(dump("manifest", "--module=base"))
-    check_android_manifest(manifest, version, build)
-    for name, expected in FIREBASE.items():
+    check_android_manifest(manifest, version, build, environment)
+    for name, expected in firebase_resources(environment).items():
         check_resource_dump(dump("resources", f"--resource=string/{name}", "--values"), name, expected)
     with zipfile.ZipFile(path) as archive:
         libraries = [name for name in archive.namelist() if re.fullmatch(r"base/lib/[^/]+/libapp\.so", name)]
         abis = {name.split("/")[2] for name in libraries}
         require(abis == {"armeabi-v7a", "arm64-v8a", "x86_64"}, "Expected all three release Android ABIs")
         for library in libraries:
-            verify_binding(archive.read(library), library)
-    return {"platform": "android-tv", "package": PACKAGE, "firebaseProject": PROJECT, "version": version,
+            verify_binding(archive.read(library), library, environment)
+    return {"platform": "android-tv", "package": binding(environment)["package"], "firebaseProject": binding(environment)["project"], "version": version,
             "build": str(build), "minSdk": 24, "targetSdk": 36,
             "dartArchitectures": sorted(abis), "uploadCertificateSha256": signing_certificate}
 
@@ -160,15 +179,18 @@ def main():
     parser.add_argument("--build", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--bundletool")
+    parser.add_argument("--environment", choices=["production", "development"], required=True)
     args = parser.parse_args()
     require(re.fullmatch(r"\d+\.\d+\.\d+", args.version), "Invalid marketing version")
     require(re.fullmatch(r"[1-9]\d*", args.build), "Invalid native build number")
     path = Path(args.artifact)
-    report = (inspect_ios(path, args.version, args.build) if args.platform == "ios"
-              else inspect_android(path, args.version, args.build, args.bundletool))
+    report = (inspect_ios(path, args.version, args.build, args.environment) if args.platform == "ios"
+              else inspect_android(path, args.version, args.build, args.bundletool, args.environment))
     report["artifactSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
     report["artifact"] = path.name
-    report["productionBindingVerified"] = True
+    report["environment"] = args.environment
+    report["environmentBindingVerified"] = True
+    report["productionBindingVerified"] = args.environment == "production"
     Path(args.output).write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
 

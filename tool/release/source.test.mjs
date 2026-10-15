@@ -6,6 +6,7 @@ const sourceSha = 'a'.repeat(40), workflowSha = 'b'.repeat(40);
 const input = {sourceRef: 'develop', mode: 'qa', workflowRef: 'refs/heads/main', workflowSha, eventName: 'workflow_dispatch'};
 const fakeGit = allowed => (...args) => {
   if (args[0] === 'rev-parse') return sourceSha;
+  if (args[0] === 'show') return 'version: 1.2.2+1\n';
   if (!allowed.includes(args.at(-1))) throw new Error('not ancestor');
   return '';
 };
@@ -24,10 +25,10 @@ test('tags and SHAs cannot bypass trusted ancestry or select an unmerged release
     assert.equal(resolveSource({...input, sourceRef, runGit: fakeGit(['refs/remotes/origin/develop'])}).sourceSha, sourceSha);
     assert.throws(() => resolveSource({...input, sourceRef, runGit: fakeGit([])}), /Merge/);
   }
-  assert.throws(() => resolveSource({...input, mode: 'release', runGit: fakeGit(['refs/remotes/origin/develop'])}), /main/);
-  assert.equal(resolveSource({...input, mode: 'release', runGit: fakeGit(['refs/remotes/origin/main'])}).sourceSha, sourceSha);
+  assert.throws(() => resolveSource({...input, sourceRef: 'v1.2.2', mode: 'release', runGit: fakeGit(['refs/remotes/origin/develop'])}), /main/);
+  assert.equal(resolveSource({...input, sourceRef: 'v1.2.2', mode: 'release', runGit: fakeGit(['refs/remotes/origin/main'])}).sourceSha, sourceSha);
   assert.throws(() => resolveSource({...input, workflowRef: 'refs/heads/develop', runGit: fakeGit([])}), /trusted workflow/);
-  assert.throws(() => resolveSource({...input, eventName: 'push', runGit: fakeGit([])}), /manual/);
+  assert.throws(() => resolveSource({...input, eventName: 'push', mode: 'release', runGit: fakeGit([])}), /only build/);
 });
 test('mobile provenance separates app and workflow commits and validates the exact run and artifact', () => {
   const receipt = {schemaVersion: 1, kind: 'mobile-source', sourceSha, workflowSha, releaseMode: 'qa', platform: 'ios',
@@ -45,4 +46,34 @@ test('pinned source uploads cannot fall back to workflow SHA when their receipt 
   await assert.rejects(mobileRunReceipt({run, jobs, artifacts: []}), /receipt/);
   await assert.rejects(mobileRunReceipt({run, jobs, artifacts: [{name: 'mobile-source-1-2', expired: true}]}), /receipt/);
   assert.equal(await mobileRunReceipt({run, jobs: [], artifacts: []}), null);
+});
+
+test('main push selects a development app and release requires successful exact tag CI', () => {
+  const qa = resolveSource({...input, eventName: 'push', runGit: fakeGit(['refs/remotes/origin/main'])});
+  assert.equal(qa.environment, 'development');
+  const ci = {status: 'completed', conclusion: 'success', head_branch: 'v1.2.2', head_sha: sourceSha,
+    head_repository: {full_name: 'owner/repo'}, event: 'push', path: '.github/workflows/firebase-hosting-merge.yml'};
+  const args = {...input, mode: 'release', eventName: 'workflow_run', repository: 'owner/repo',
+    event: {workflow_run: ci}, runGit: fakeGit(['refs/remotes/origin/main'])};
+  assert.equal(resolveSource(args).environment, 'production');
+  assert.equal(resolveSource(args).releaseTag, 'v1.2.2');
+  for (const change of [{conclusion: 'failure'}, {status: 'in_progress'}, {head_branch: 'main'},
+    {head_repository: {full_name: 'fork/repo'}}, {head_sha: workflowSha}, {head_branch: 'v9.9.9'},
+    {path: '.github/workflows/other.yml'}]) {
+    assert.throws(() => resolveSource({...args, event: {workflow_run: {...ci, ...change}}}));
+  }
+  for (const sourceRef of ['main', sourceSha, 'release/1.2.2']) {
+    assert.throws(() => resolveSource({...input, mode: 'release', sourceRef,
+      runGit: fakeGit(['refs/remotes/origin/main'])}), /vX.Y.Z tag/);
+  }
+});
+test('new development receipts cannot represent production bindings or authorize release', () => {
+  const receipt = {schemaVersion: 2, kind: 'mobile-source', sourceSha, workflowSha, releaseMode: 'qa', platform: 'ios',
+    environment: 'development', firebaseProject: 'cloud-board-development', package: 'com.sunmkim.cloudboard.dev',
+    environmentBindingVerified: true, version: '1.2.2', build: '1', artifactSha256: 'c'.repeat(64), runId: '1', runAttempt: '1'};
+  assert.equal(validateMobileReceipt(receipt).environment, 'development');
+  for (const change of [{releaseMode: 'release'}, {firebaseProject: 'cloud-board-stationd'},
+    {package: 'com.sunmkim.cloudboard'}, {environment: 'production'}, {environmentBindingVerified: false}]) {
+    assert.throws(() => validateMobileReceipt({...receipt, ...change}));
+  }
 });

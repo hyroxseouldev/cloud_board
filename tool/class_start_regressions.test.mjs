@@ -86,14 +86,13 @@ test('a Flutter launch failure clears the old report and saves only new machine 
   assert.match(f.run().stderr, /ENOENT/);
   assert.equal(readFileSync(f.machine, 'utf8'), '');
 });
-test('shared web release and development validation retain the class-start job', () => {
-  for (const name of ['firebase-hosting-merge', 'firebase-development']) {
-    const workflow = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
-    assert.match(workflow, /uses: \.\/\.github\/workflows\/class-start-regressions.yml/);
-    assert.match(workflow, /needs: \[[^\n]*class_start_regressions/);
-  }
+test('production retains class-start CI while main development builds skip the heavy suite', () => {
   const required = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  assert.match(required, /uses: \.\/\.github\/workflows\/class-start-regressions.yml/);
+  assert.match(required, /needs: \[[^\n]*class_start_regressions/);
   assert.match(required, /requireReleaseJobs\(JSON.parse\(process.env.REQUIRED_JOBS\)\)/);
+  const development = readFileSync('.github/workflows/firebase-development.yml', 'utf8');
+  assert.doesNotMatch(development, /class-start-regressions|flutter test|npm test|firebase_contracts/);
 });
 test('workflow and manifest aggregation accept the same four jobs and reject unverified class starts', () => {
   const jobs = Object.fromEntries(['app_validation', 'firebase_contracts', 'deployment_plan', 'class_start_regressions'].map(name => [name, {result: 'success'}]));

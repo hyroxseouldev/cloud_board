@@ -45,3 +45,25 @@ test('production-connected QA is tracked by actual app source and artifact, not 
   assert.equal(result[0].releaseMode, 'qa');
   assert.throws(() => requireRegisteredUpload(clients, {id: 1, head_sha: workflowSha, sourceSha: sha, artifactSha256}, ['ios']));
 });
+test('verified development uploads do not replace the latest production client contract', async () => {
+  let platform;
+  const request = async path => {
+    const workflow = installedWorkflows.find(w => path.includes(`/workflows/${w.file}/`));
+    if (workflow) {
+      platform = workflow.platforms[0];
+      const old = {id: 1, head_sha: sha, head_branch: 'v1.2.2', event: 'push', status: 'completed', run_attempt: 1};
+      return {workflow_runs: platform === 'web' ? [old] : [
+        {...old, id: 2, head_sha: 'b'.repeat(40), head_branch: 'main'}, old]};
+    }
+    if (path.includes('/artifacts?')) return {artifacts: [{name: 'mobile-source-2-1'}]};
+    return {jobs: [{steps: [...installedWorkflows.map(w => ({name: w.step, conclusion: 'success'})),
+      ...(path.includes('/runs/2/') ? [{name: 'Resolve and pin trusted app source', conclusion: 'success'}] : [])]}]};
+  };
+  const result = await verifyInstalledClients({clients, repository: 'owner/repo', request, readArtifact: async () => ({
+    schemaVersion: 2, kind: 'mobile-source', sourceSha: 'c'.repeat(40), workflowSha: 'b'.repeat(40),
+    releaseMode: 'qa', environment: 'development', platform: platform === 'ios' ? 'ios' : 'android-tv',
+    firebaseProject: 'cloud-board-development', package: 'com.sunmkim.cloudboard.dev', environmentBindingVerified: true,
+    version: '1.2.2', build: '1', artifactSha256: 'd'.repeat(64), runId: '2', runAttempt: '1',
+  })});
+  assert(result.every(row => row.runId === '1' && row.sha === sha));
+});

@@ -21,11 +21,12 @@ export async function verifyInstalledClients({clients, repository, request, curr
   assert.match(repository || '', /^[\w.-]+\/[\w.-]+$/);
   const result = [];
   for (const workflow of installedWorkflows) {
-    const {workflow_runs: runs} = await request(`/repos/${repository}/actions/workflows/${workflow.file}/runs?branch=main&per_page=30`);
     let found;
-    for (const run of runs ?? []) {
-      if (String(run.id) === String(currentRunId) || run.status !== 'completed' || run.head_branch !== 'main' ||
-          !['push', 'workflow_dispatch'].includes(run.event)) continue;
+    for (let page = 1; page <= 10 && !found; page++) {
+      const {workflow_runs: runs} = await request(`/repos/${repository}/actions/workflows/${workflow.file}/runs?per_page=100&page=${page}`);
+      for (const run of runs ?? []) {
+      if (String(run.id) === String(currentRunId) || run.status !== 'completed' || (run.head_branch !== 'main' && !/^v\d+\.\d+\.\d+$/.test(run.head_branch || '')) ||
+          !['push', 'workflow_dispatch', 'workflow_run'].includes(run.event)) continue;
       const {jobs} = await request(`/repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
       // An upload can succeed before a later cleanup step fails. Track the upload
       // step, not just the workflow conclusion. Backend-only repairs don't count.
@@ -37,10 +38,13 @@ export async function verifyInstalledClients({clients, repository, request, curr
           const {artifacts} = await request(`/repos/${repository}/actions/runs/${run.id}/artifacts?per_page=100`);
           const receipt = await mobileRunReceipt({run, jobs, artifacts, readArtifact,
             platform: workflow.platforms[0] === 'ios' ? 'ios' : 'android-tv'});
+          if (receipt.environment === 'development') continue;
           found = {...run, sourceSha: receipt.sourceSha, artifactSha256: receipt.artifactSha256, releaseMode: receipt.releaseMode};
         }
       }
       found ??= run; break;
+      }
+      if ((runs ?? []).length < 100) break;
     }
     assert(found, `Cannot verify the latest installed client for ${workflow.file}; inspect deployment history.`);
     requireRegisteredUpload(clients, found, workflow.platforms);

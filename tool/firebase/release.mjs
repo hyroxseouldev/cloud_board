@@ -21,7 +21,7 @@ export function receiptScope(receipt) {
   return scope;
 }
 export function identity(env = process.env) {
-  const sha = env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
+  const sha = env.RELEASE_SOURCE_SHA || env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
   assert.match(sha, /^[a-f0-9]{40}$/);
   return {sha, runId: env.GITHUB_RUN_ID || 'local', attempt: env.GITHUB_RUN_ATTEMPT || '1'};
 }
@@ -48,8 +48,8 @@ export function requireSuccess(needs, required) {
   assert.deepEqual(Object.keys(needs).sort(), [...required].sort());
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
 }
-export function requireReleaseJobs(needs, scope = deploymentScope()) {
-  const required = ['deployment_plan', ...(['web', 'full', 'verify'].includes(scope) ? ['app_validation', 'class_start_regressions'] : []),
+export function requireReleaseJobs(needs, scope = deploymentScope(), releaseTag = process.env.RELEASE_TAG) {
+  const required = ['deployment_plan', ...(releaseTag || ['web', 'full', 'verify'].includes(scope) ? ['app_validation', 'class_start_regressions'] : []),
     ...(['backend', 'rules', 'full', 'verify'].includes(scope) ? ['firebase_contracts'] : [])];
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
   for (const [name, job] of Object.entries(needs)) assert(required.includes(name) || job.result === 'skipped', `Unexpected job result: ${name}`);
@@ -117,11 +117,12 @@ export function makeManifest() {
     ...(includesWeb(scope) ? filesIn('build/web') : [])];
   if (includesWeb(scope)) assert(paths.some(p => p === 'build/web/index.html'), 'Missing release web build');
   assert(!paths.some(p => p.startsWith('build/web/') && p.endsWith('.map')), 'Public source map');
-  return {format: 1, ...id, scope, backendFingerprint: backendFingerprint(), functionsFingerprint: functionsFingerprint(), targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
+  return {format: 1, ...id, scope, ...(process.env.RELEASE_TAG ? {releaseTag: process.env.RELEASE_TAG} : {}), backendFingerprint: backendFingerprint(), functionsFingerprint: functionsFingerprint(), targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
     files: Object.fromEntries(paths.sort().map(path => [path, hashFile(path)]))};
 }
 export function verifyManifest(manifest, id = identity()) {
   assert.equal(manifest.format, 1);
+  if (process.env.RELEASE_TAG) assert.equal(manifest.releaseTag, process.env.RELEASE_TAG, 'Candidate release tag mismatch');
   assert.equal(deploymentScope(manifest.scope === undefined ? 'full' : manifest.scope), deploymentScope(), 'Candidate deployment scope mismatch');
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(manifest[key], id[key], `Manifest ${key} mismatch`);
   assert.deepEqual(manifest.targets, targets, 'Wrong Firebase target');
@@ -152,6 +153,7 @@ export function validateReceipt(receipt, id) {
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(String(receipt[key]), String(id[key]), `Receipt ${key} mismatch`);
   assert.deepEqual(receipt.manifest.targets, targets);
   assert.equal(receipt.manifestHash, manifestHash(receipt.manifest));
+  if (receipt.manifest.releaseTag !== undefined) assert(isReleaseTag(receipt.manifest.releaseTag), 'Invalid receipt release tag');
   assert.match(receipt.manifest.databaseSemanticHash || '', /^[a-f0-9]{64}$/);
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(receipt.manifest[key], String(id[key]));
   for (const path of ruleFiles) assert.match(receipt.manifest.files[path] || '', /^[a-f0-9]{64}$/);
@@ -171,11 +173,42 @@ export function validateReceipt(receipt, id) {
     assert(receipt.rules.services[service].version);
   }
 }
-export async function requireCurrentMain({sha, ref, repository, request}) {
-  assert.equal(ref, 'refs/heads/main', 'Production requires main');
+export const isReleaseTag = value => /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(value || '');
+export async function resolveReleaseTag({tag, repository, request}) {
+  assert(isReleaseTag(tag), 'Production requires an immutable vX.Y.Z release tag');
+  let object = (await request(`/repos/${repository}/git/ref/tags/${tag}`)).object;
+  for (let depth = 0; object?.type === 'tag' && depth < 5; depth++) {
+    object = (await request(`/repos/${repository}/git/tags/${object.sha}`)).object;
+  }
+  assert.equal(object?.type, 'commit', 'Release tag must resolve to one commit');
+  assert.match(object.sha || '', /^[a-f0-9]{40}$/);
+  return object.sha;
+}
+export async function requireCurrentMain({sha, ref, tag = process.env.RELEASE_TAG, repository, request}) {
   assert.match(sha || '', /^[a-f0-9]{40}$/);
-  const current = await request(`/repos/${repository}/git/ref/heads/main`);
-  assert.equal(current.object?.sha, sha, 'Superseded main commit: production change blocked');
+  tag ||= ref?.startsWith('refs/tags/') ? ref.slice('refs/tags/'.length) : '';
+  assert(isReleaseTag(tag), 'Production requires an immutable vX.Y.Z release tag');
+  assert.equal(ref, `refs/tags/${tag}`, 'Production retry must run on its release tag ref');
+  assert.equal(await resolveReleaseTag({tag, repository, request}), sha, 'Release tag moved; production change blocked');
+  const main = await request(`/repos/${repository}/compare/${sha}...main`);
+  assert(['ahead', 'identical'].includes(main.status) && main.merge_base_commit?.sha === sha, 'Release source must be included in main');
+  const previous = await request(`/repos/${repository}/actions/workflows/firebase-hosting-merge.yml/runs?branch=${tag}&per_page=100`);
+  assert((previous.total_count ?? previous.workflow_runs?.length ?? 0) <= 100, 'Release tag history is too large to verify immutability');
+  for (const run of previous.workflow_runs || []) {
+    if (run.head_branch === tag && run.head_repository?.full_name === repository && ['push', 'workflow_dispatch'].includes(run.event)) {
+      assert.equal(run.head_sha, sha, 'Release tag was reused for a different commit; create a new version tag');
+    }
+  }
+}
+export async function requireNoRollback({repository, sha, ref, tag, request, readArtifact, scope, ignoreRunId}) {
+  await requireCurrentMain({repository, sha, ref, tag, request});
+  const {latestRelease} = await import('./latest-release.mjs');
+  for (const component of [...(includesBackend(scope) ? ['backend'] : []), ...(includesWeb(scope) ? ['web'] : [])]) {
+    const previous = await latestRelease({repository, request, readArtifact, ignoreRunId, component, attemptOnly: true});
+    const comparison = await request(`/repos/${repository}/compare/${previous.run.head_sha}...${sha}`);
+    assert(['ahead', 'identical'].includes(comparison.status) && comparison.merge_base_commit?.sha === previous.run.head_sha,
+      `A newer ${component} production attempt exists; refusing to deploy an older source`);
+  }
 }
 export async function github(path, {method = 'GET', body} = {}) {
   assert(process.env.GITHUB_TOKEN, 'GitHub token required');
@@ -194,9 +227,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const file of ruleFiles) copyFileSync(file, `build/release/rules/${file}`);
     writeJson('build/release/manifest.json', makeManifest());
   } else if (command === 'verify') verifyManifest(readJson('build/release/manifest.json'));
-  else if (command === 'current') await requireCurrentMain({sha: process.env.GITHUB_SHA, ref: process.env.GITHUB_REF, repository: process.env.GITHUB_REPOSITORY, request: github});
+  else if (command === 'current') await requireNoRollback({sha: identity().sha, ref: process.env.GITHUB_REF, tag: process.env.RELEASE_TAG, repository: process.env.GITHUB_REPOSITORY, request: github, scope: deploymentScope(), ignoreRunId: process.env.GITHUB_RUN_ID});
   else if (command === 'ready') {
-    await requireCurrentMain({sha: process.env.GITHUB_SHA, ref: process.env.GITHUB_REF, repository: process.env.GITHUB_REPOSITORY, request: github});
+    await requireNoRollback({sha: identity().sha, ref: process.env.GITHUB_REF, tag: process.env.RELEASE_TAG, repository: process.env.GITHUB_REPOSITORY, request: github, scope: deploymentScope(), ignoreRunId: process.env.GITHUB_RUN_ID});
     const manifest = readJson('build/release/manifest.json'); verifyManifest(manifest);
     const receipt = {format: 1, ...identity(), scope: manifest.scope, status: 'success', completedAt: new Date().toISOString(), manifest, manifestHash: manifestHash(manifest),
       ...(manifest.scope === 'web' ? {backend: readJson('build/release/backend-reference.json')}
