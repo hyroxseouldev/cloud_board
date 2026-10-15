@@ -16,7 +16,16 @@ export function sourceReference(value) {
   return `refs/tags/${tag}`;
 }
 
-export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventName, event = {}, repository, runGit = git}) {
+export function ciSkipDecision({skipCi = false, reason = '', actor = '', mode, eventName}) {
+  if (!skipCi) return null;
+  assert(eventName === 'workflow_dispatch' && mode === 'release', 'CI skipping requires a manual release with a versioned tag');
+  assert(typeof reason === 'string' && reason.trim() && reason.length <= 2000, 'CI skipping requires a reason (maximum 2000 characters)');
+  assert(typeof actor === 'string' && actor.trim() && !/[\r\n]/.test(actor), 'CI skipping requires the requesting actor');
+  return {validationMode: 'skipped', skipReason: reason.trim(), validationActor: actor};
+}
+
+export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventName, event = {}, repository,
+  skipCi = false, skipReason = '', actor = '', runGit = git}) {
   assert.match(workflowSha || '', shaPattern, 'Missing workflow source SHA');
   assert(['qa', 'release'].includes(mode), 'Choose qa or release');
   let reference;
@@ -54,7 +63,8 @@ export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventN
     const version = runGit('show', `${sha}:pubspec.yaml`).match(/^version:\s*(\d+\.\d+\.\d+)\+\d+\s*$/m)?.[1];
     assert.equal(releaseTag, `v${version}`, 'Release tag must match the selected app version');
   }
-  return {sourceSha: sha, workflowSha, sourceRef: sourceRef || workflowRef,
+  const validation = ciSkipDecision({skipCi, reason: skipReason, actor, mode, eventName});
+  return {sourceSha: sha, workflowSha, sourceRef: sourceRef || workflowRef, ...(validation ? {validation} : {}),
     releaseMode: mode, environment: mode === 'release' ? 'production' : 'development', ...(releaseTag ? {releaseTag} : {})};
 }
 
@@ -75,6 +85,18 @@ export function validateMobileReceipt(receipt, {run, platform} = {}) {
       receipt.releaseMode === 'release' ? 'production' : 'development', 'Release mode differs from artifact environment');
     if (development) assert.equal(receipt.releaseMode, 'qa', 'Development artifacts cannot authorize release');
     if (receipt.releaseMode === 'release') assert.equal(receipt.releaseTag, `v${receipt.version}`, 'Release receipt needs its versioned release tag');
+  }
+  // Older receipts predate the validation audit fields. Current writers always
+  // supply them; retaining old receipts keeps installed-client history usable.
+  if (receipt.validationMode !== undefined) {
+    assert(['required', 'skipped', 'not_requested'].includes(receipt.validationMode), 'Invalid validation mode');
+    if (receipt.validationMode === 'skipped') {
+      assert.equal(receipt.releaseMode, 'release', 'Only release validation can be explicitly skipped');
+      assert.equal(receipt.releaseTag, `v${receipt.version}`, 'Skipped validation requires a release tag');
+      assert(typeof receipt.skipReason === 'string' && receipt.skipReason.trim(), 'Skipped validation needs its reason');
+      assert(typeof receipt.validationActor === 'string' && receipt.validationActor.trim(), 'Skipped validation needs its actor');
+    }
+    if (receipt.releaseMode === 'qa') assert.equal(receipt.validationMode, 'not_requested', 'QA does not run release CI');
   }
   assert.match(receipt.version || '', /^\d+\.\d+\.\d+$/);
   assert.match(receipt.build || '', /^[1-9]\d*$/);
@@ -105,14 +127,21 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (process.argv[2] === 'resolve') {
     const source = resolveSource({sourceRef: env.SOURCE_REF, mode: env.RELEASE_MODE,
       workflowRef: env.GITHUB_REF, workflowSha: env.GITHUB_SHA, eventName: env.GITHUB_EVENT_NAME,
-      event: env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')) : {}, repository: env.GITHUB_REPOSITORY});
+      event: env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')) : {}, repository: env.GITHUB_REPOSITORY,
+      skipCi: env.SKIP_CI === 'true', skipReason: env.CI_SKIP_REASON || '', actor: env.GITHUB_ACTOR || ''});
     assert(env.GITHUB_ENV, 'GITHUB_ENV is required');
     appendFileSync(env.GITHUB_ENV, `SOURCE_SHA=${source.sourceSha}\nSOURCE_REF=${source.sourceRef}\nWORKFLOW_SHA=${source.workflowSha}\nAPP_ENVIRONMENT=${source.environment}\nRELEASE_TAG=${source.releaseTag || ''}\nAPP_PACKAGE=com.sunmkim.cloudboard${source.environment === 'development' ? '.dev' : ''}\n`);
+    const validationPath = `${env.RUNNER_TEMP}/mobile-validation.json`;
+    const validation = source.releaseMode === 'qa' || env.UPLOAD_REQUESTED !== 'true'
+      ? {validationMode: 'not_requested'} : source.validation ?? {validationMode: 'required'};
+    writeFileSync(validationPath, JSON.stringify(validation, null, 2) + '\n');
+    appendFileSync(env.GITHUB_ENV, `MOBILE_VALIDATION_PATH=${validationPath}\n`);
     console.log(`Build ${source.sourceSha} (${source.releaseMode}); workflow ${source.workflowSha}`);
   } else if (process.argv[2] === 'receipt') {
     assert.equal(git('rev-parse', 'HEAD'), env.SOURCE_SHA, 'Checked out app differs from selected source');
     const metadata = JSON.parse(readFileSync(process.argv[3], 'utf8'));
-    const receipt = validateMobileReceipt({...metadata, schemaVersion: 3, kind: 'mobile-source',
+    const validation = JSON.parse(readFileSync(env.MOBILE_VALIDATION_PATH, 'utf8'));
+    const receipt = validateMobileReceipt({...metadata, ...validation, schemaVersion: 3, kind: 'mobile-source',
       sourceSha: env.SOURCE_SHA, workflowSha: env.WORKFLOW_SHA, sourceRef: env.SOURCE_REF,
       releaseMode: env.RELEASE_MODE, environment: env.APP_ENVIRONMENT, releaseTag: env.RELEASE_TAG || undefined, runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT});
     writeFileSync(process.argv[4], JSON.stringify(receipt, null, 2) + '\n');
@@ -120,6 +149,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       `### ${receipt.releaseMode === 'qa' ? 'QA internal test build' : 'Release candidate'}\n` +
       `App source: ${receipt.sourceSha}\n\nWorkflow source: ${receipt.workflowSha}\n\n` +
       `${receipt.platform} ${receipt.version} (${receipt.build}) · ${receipt.firebaseProject}\n\n` +
+      `Integration validation: ${receipt.validationMode}${receipt.skipReason ? ` — explicitly skipped by ${receipt.validationActor}: ${JSON.stringify(receipt.skipReason)}` : ''}.\n\n` +
       'Build/signature checks are not a claim that full integration CI or store review passed.\n');
   } else throw new Error('Use resolve or receipt');
 }

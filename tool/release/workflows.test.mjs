@@ -77,3 +77,21 @@ test('build-only iOS does not upload crash symbols; signature and version collis
   }
   assert(play.includes('track: internal'));
 });
+
+test('manual release skip is explicit, audited before receipt, and retains upload safety gates', () => {
+  for (const workflow of ['testflight', 'google-play']) {
+    const source = load(workflow);
+    assert.match(source, /skip_ci:\n[\s\S]*?type: boolean\n\s+default: false/);
+    assert(source.includes('skip_ci_reason:'));
+    assert(source.includes('SKIP_CI: ${{ inputs.skip_ci || false }}'));
+    assert(source.includes("CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}"));
+    assert(source.includes('if [[ "$SKIP_CI" == true && "$RELEASE_MODE" != release ]]'));
+    const common = step(source, 'Reuse tag integration validation for release upload');
+    assert(common.includes('--release-tag "$RELEASE_TAG"'));
+    assert(source.indexOf('      - name: Reuse tag integration validation for release upload') <
+      source.indexOf('      - name: Record app source and signed artifact identity'));
+    assert(!condition(common).includes('SKIP_CI'));
+    assert(!condition(step(source, 'Check backend compatibility before native build')).includes('SKIP_CI'));
+    assert(!condition(step(source, 'Recheck backend compatibility and build number before publishing')).includes('SKIP_CI'));
+  }
+});

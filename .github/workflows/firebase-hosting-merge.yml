@@ -15,6 +15,15 @@ on:
         description: 'Paste the exact selected tag commit SHA (main SHA for verification only)'
         required: true
         type: string
+      skip_ci:
+        description: 'Skip heavy CI only for this manual release-tag deployment; required build and deploy checks still run'
+        required: false
+        type: boolean
+        default: false
+      skip_ci_reason:
+        description: 'Required explanation when skip_ci is true; recorded in release audit evidence'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -25,7 +34,7 @@ permissions:
 jobs:
   class_start_regressions:
     needs: deployment_plan
-    if: needs.deployment_plan.outputs.release_tag != '' || contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
+    if: needs.deployment_plan.outputs.validation_mode == 'required' && (needs.deployment_plan.outputs.release_tag != '' || contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope))
     uses: ./.github/workflows/class-start-regressions.yml
 
   deployment_plan:
@@ -37,6 +46,7 @@ jobs:
       source_sha: ${{ steps.plan.outputs.source_sha }}
       release_tag: ${{ steps.plan.outputs.release_tag }}
       contract_base_sha: ${{ steps.plan.outputs.contract_base_sha }}
+      validation_mode: ${{ steps.plan.outputs.validation_mode }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,11 +59,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node tool/firebase/deployment-plan.mjs
+      - name: Retain release validation policy (not test results)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/validation/release.json
+          if-no-files-found: error
+          retention-days: 90
 
   app_validation:
     name: app-validation
     needs: deployment_plan
-    if: needs.deployment_plan.outputs.release_tag != '' || contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
+    if: needs.deployment_plan.outputs.validation_mode == 'required' && (needs.deployment_plan.outputs.release_tag != '' || contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope))
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -172,6 +189,29 @@ jobs:
           npm test --prefix functions
           node --test tool/web_symbols.test.mjs tool/release_backend_gate.test.mjs tool/firebase/*.test.mjs
 
+  web_build:
+    name: web-build
+    needs: deployment_plan
+    if: contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify build identity and Firebase environment isolation
+        run: |
+          node tool/brand.mjs --check
+          node tool/firebase/environments.mjs check
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - name: Install build dependencies
+        run: flutter pub get
+
       - name: Build Flutter web app
         run: |
           set -euo pipefail
@@ -233,7 +273,7 @@ jobs:
   firebase_contracts:
     name: firebase-contracts
     needs: deployment_plan
-    if: contains(fromJSON('["backend","rules","full","verify"]'), needs.deployment_plan.outputs.scope)
+    if: needs.deployment_plan.outputs.validation_mode == 'required' && contains(fromJSON('["backend","rules","full","verify"]'), needs.deployment_plan.outputs.scope)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -284,7 +324,7 @@ jobs:
   firebase_required:
     name: firebase-required
     if: always() && needs.deployment_plan.result == 'success' && !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
-    needs: [app_validation, firebase_contracts, deployment_plan, class_start_regressions]
+    needs: [app_validation, firebase_contracts, deployment_plan, class_start_regressions, web_build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -292,6 +332,7 @@ jobs:
       FIREBASE_DEPLOY_SCOPE: ${{ needs.deployment_plan.outputs.scope }}
       RELEASE_SOURCE_SHA: ${{ needs.deployment_plan.outputs.source_sha }}
       RELEASE_TAG: ${{ needs.deployment_plan.outputs.release_tag }}
+      RELEASE_VALIDATION_MODE: ${{ needs.deployment_plan.outputs.validation_mode }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -299,7 +340,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Reject failed, skipped, cancelled or missing jobs
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/validation
+      - name: Check deployment prerequisites and the explicit CI policy
         run: node --input-type=module -e "import {requireReleaseJobs} from './tool/firebase/release.mjs'; requireReleaseJobs(JSON.parse(process.env.REQUIRED_JOBS))"
       - uses: actions/download-artifact@v4
         if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope)
@@ -307,7 +352,7 @@ jobs:
           name: firebase-web-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/web
       - uses: actions/download-artifact@v4
-        if: contains(fromJSON('["backend","rules","full"]'), needs.deployment_plan.outputs.scope)
+        if: needs.deployment_plan.outputs.validation_mode == 'required' && contains(fromJSON('["backend","rules","full"]'), needs.deployment_plan.outputs.scope)
         with:
           name: firebase-contracts-${{ github.run_id }}-${{ github.run_attempt }}
           path: build
@@ -339,6 +384,7 @@ jobs:
       FIREBASE_DEPLOY_SCOPE: ${{ needs.deployment_plan.outputs.scope }}
       RELEASE_SOURCE_SHA: ${{ needs.deployment_plan.outputs.source_sha }}
       RELEASE_TAG: ${{ needs.deployment_plan.outputs.release_tag }}
+      RELEASE_VALIDATION_MODE: ${{ needs.deployment_plan.outputs.validation_mode }}
       FIREBASE_RELEASE_CANARY_ENABLED: ${{ vars.FIREBASE_RELEASE_CANARY_ENABLED }}
       FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
     steps:
@@ -350,6 +396,8 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: functions/package-lock.json
+      - name: Verify production Firebase environment isolation
+        run: node tool/firebase/environments.mjs check
       - run: npm ci --prefix functions
       - uses: actions/download-artifact@v4
         with:

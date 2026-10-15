@@ -74,3 +74,28 @@ test('validation has no workflow-wide queue while production writes remain seria
   const production = workflow.slice(workflow.indexOf('  firebase_production:'));
   assert.match(production, /    concurrency:\n      group: firebase-production\n      cancel-in-progress: false/);
 });
+
+test('explicit CI skip omits heavy jobs while preserving the selected web build', () => {
+  const file = 'firebase-hosting-merge.yml';
+  for (const validation_mode of ['required', 'skipped']) {
+    for (const scope of ['full', 'web', 'backend', 'rules', 'verify']) {
+      const values = {needs: {deployment_plan: {outputs: {scope, release_tag: 'v1.2.3', validation_mode}}},
+        contains: (items, value) => items.includes(value), fromJSON: JSON.parse};
+      for (const job of ['app_validation', 'class_start_regressions']) {
+        assert.equal(evaluate(jobCondition(file, job), values), validation_mode === 'required');
+      }
+      assert.equal(evaluate(jobCondition(file, 'firebase_contracts'), values), validation_mode === 'required' && scope !== 'web');
+      assert.equal(evaluate(jobCondition(file, 'web_build'), values), ['full', 'web', 'verify'].includes(scope));
+    }
+  }
+  const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
+  assert.match(workflow, /skip_ci:\n(?:[^\n]+\n)*?        type: boolean\n        default: false/);
+  assert.match(workflow, /name: release-validation-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
+  assert.match(workflow, /path: build\/release\/validation\/release.json/);
+  const build = workflow.slice(workflow.indexOf('  web_build:'), workflow.indexOf('  firebase_contracts:'));
+  for (const command of ['node tool/firebase/environments.mjs check', 'flutter build web --release', 'node tool/web_symbols.mjs seal']) assert(build.includes(command));
+  assert(!/flutter test|flutter analyze|node --test/.test(build));
+  const deploy = workflow.slice(workflow.indexOf('  firebase_production:'));
+  for (const command of ['node tool/firebase/environments.mjs check', 'npm ci --prefix functions', 'node tool/firebase/release.mjs current', 'node tool/firebase/release.mjs verify', 'node functions/tools/release-smoke.mjs']) assert(deploy.includes(command));
+  assert.match(workflow, /needs: \[[^\n]*web_build\]/);
+});

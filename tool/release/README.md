@@ -14,18 +14,19 @@ The paths cover Flutter code/assets/dependencies, the platform's native files,
 Firebase app configuration and release tooling; server-only changes do not build
 mobile apps. No whole-app/TV suite or production backend rollout is repeated.
 
-Production `vX.Y.Z` tags first run the required CI in
-`firebase-hosting-merge.yml`. Only a completed successful run triggers native
-production workflows (`workflow_run`), so no build races an unfinished CI gate.
-The source tag must still point to the CI SHA, be in main history, and match the
-selected `pubspec.yaml` version. The exact source's common CI and live production
-backend compatibility are checked again before upload. Native workflows do not
-deploy Firebase or Hosting. Failed/incomplete CI does not authorize upload.
+Automatic production `vX.Y.Z` tags run required CI by default in
+`firebase-hosting-merge.yml`. Only a completed successful release workflow run
+triggers native production workflows (`workflow_run`); an unfinished or failed
+run does not authorize upload. The source tag must still point to the recorded
+SHA, be in main history, and match the selected `pubspec.yaml` version. The exact
+source's common CI evidence or an explicit audited manual skip is checked before
+upload, along with live production backend compatibility. Native workflows do
+not deploy Firebase or Hosting.
 
 | Route | App bundle/package | Firebase | Store destination |
 | --- | --- | --- | --- |
 | Main / manual `qa` | `com.sunmkim.cloudboard.dev` | `cloud-board-development` | Development app's TestFlight / Play internal |
-| Validated tag / manual `release` | `com.sunmkim.cloudboard` | `cloud-board-stationd` | TestFlight / Play internal |
+| Release tag / manual `release` | `com.sunmkim.cloudboard` | `cloud-board-stationd` | TestFlight / Play internal |
 
 Both routes can use the existing store-account authentication in GitHub environments
 `testflight` and `google-play`, but app registration and signing/upload access must
@@ -48,6 +49,71 @@ artifact only (default false); signing/version/artifact checks still run, while
 store upload, Crashlytics upload and deployment gates are skipped. Automatic
 main/tag-triggered runs request upload after the applicable compatibility and artifact checks.
 
+### Start a new production release
+
+Use **Actions → Start production release → Run workflow** from `main`. Enter a
+new `tag` matching that commit's `pubspec.yaml` version, choose `scope` (`full` by
+default, or `web` / `backend` / `rules`), and leave `skip_ci=false` for normal CI.
+To explicitly omit heavy CI, select `skip_ci=true` and provide `skip_ci_reason`.
+The source is the main SHA captured when this run starts; a later main update does
+not silently change the release candidate.
+
+This menu checks main ancestry and the app version, rejects an existing tag or
+past Firebase workflow history for that tag, creates the immutable tag with the
+workflow's `GITHUB_TOKEN`, then dispatches the Firebase release workflow once from
+that tag. GitHub does not start a tag-push workflow for this token's tag creation;
+the explicit `workflow_dispatch` starts the requested run. This avoids launching
+both default push CI and a separate manual skip run. External/manual tag pushes
+still start default CI. See [GitHub's workflow trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
+The `release-start-<run>-<attempt>` artifact records the original actor, tag,
+source SHA, scope, CI choice/reason and dispatch status in `release-start.json`.
+An accepted dispatch is not a deployment or CI success. If tag creation succeeds
+but dispatch fails or times out, the tag stays in place and the starter does not
+retry or delete it. First check Actions for an accepted run; if none exists, use
+the Firebase release workflow's manual retry from that exact tag, with the
+recorded `confirm_sha`, scope and CI choice. Do not rerun the starter to reuse a
+tag, and do not delete or move the tag.
+
+Production internal testing is a stage before store availability. The same
+verified production build can later be promoted through the store's release
+process; that transition does not itself require CI skipping or a separate
+production QA mode. Main QA remains the separate `.dev` app and development
+Firebase.
+
+### Explicit manual CI skip
+
+Both manual Firebase tag releases and manual native `release` runs accept
+`skip_ci` (boolean, default `false`) and `skip_ci_reason` (required and non-empty
+when skipping). Firebase requires dispatching from the release tag, the matching
+`confirm_sha`, and an actual deployment scope: `full`, `backend`, `rules` or `web`.
+Main/`verify` and mobile QA reject the skip option. Automatic tag pushes retain
+required CI by default.
+
+For server/web, use Actions manual dispatch on a tag that contains this workflow
+version. An older tag's workflow may not support the new inputs. Pushing a tag
+starts the default CI run; `skip_ci` is not a tag-creation option. Starting a
+separate manual skip run does not alter the already-started automatic run.
+
+The skip omits heavy app validation, class-start regressions and Firebase emulator
+contracts. It does not omit exact tag/SHA/main ancestry/version checks, required
+builds, signing, environment identity, build numbering, artifact/manifest checks,
+post-deployment smoke or native production backend compatibility. Web builds still
+run when the selected scope needs them. Deployment remains limited to that scope.
+
+Firebase writes `release-validation-<run_id>-<run_attempt>` with a `release.json`
+audit record containing `schemaVersion: 1`, `kind: release-validation`, `sourceSha`,
+`releaseTag`, `runId`, `runAttempt`, `validationMode: required | skipped`, `reason`
+and `actor`. `required` records the requested mode, not passing test results.
+`skipped` is explicitly reported as `CI SKIPPED`, never as CI success.
+
+A manual native release can request its own skip without a prior Firebase skip
+receipt. An automatic native continuation may inherit a Firebase skip only after
+checking that successful trusted release run's exact run/attempt, SHA and tag.
+Mobile receipts preserve the skip source, reason, actor and execution details.
+Ordinary release uploads still require actual CI evidence; QA and build-only
+runs record that the release CI proof was not requested.
+
 ### Development app readiness and environment boundaries
 
 The `.dev` Firebase SDK registrations/configuration already exist. Its App Store
@@ -58,7 +124,7 @@ before SDK installation, build and upload, including manual QA build-only runs.
 The development Play baseline file is not yet present; prepare it from the actual
 development app's complete store history. Do not reuse production's baseline.
 QA uses the development flavor and `.dev` app ID; release uses production and the
-base app ID after exact-tag CI success.
+base app ID with exact-tag CI evidence or an explicit audited manual skip.
 
 QA does not require a production backend receipt. Release checks the actual
 production receipt against candidate backend/rules fingerprints before native

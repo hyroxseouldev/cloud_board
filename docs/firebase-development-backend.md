@@ -47,11 +47,18 @@ isolation, successful compilation, artifact identity and deployment results stil
 need to be checked. A development deployment is not production validation.
 
 Production starts from a `vX.Y.Z` tag whose commit belongs to main history and whose
-version matches the app version. Required integration CI must pass for that exact
-tag SHA before production deployment or release-mode mobile upload. A main push
-does not authorize production server/web deployment. Development-app mobile QA is
-allowed without full CI and does not require a production backend receipt. Release
-mode still requires verified tag CI and actual production backend compatibility. See [feature verification](feature-verification.md).
+version matches the app version. Automatic tag runs execute required integration
+CI by default and require success for that exact tag SHA before production
+deployment or release-mode mobile upload. Only manual Firebase tag releases or
+manual native `release` runs may omit heavy CI with `skip_ci=true` and a non-empty
+`skip_ci_reason`. Audit artifacts/receipts record the skip, reason, actor, run and
+source/tag; a skip is not reported as passed CI. Tag/SHA/main ancestry/version,
+build, environment, signing, numbering and artifact checks remain, as does native
+production backend compatibility. Production deployment scope remains explicit.
+A main push does not authorize production server/web deployment. Development-app
+mobile QA is allowed without full CI and does not require a production backend
+receipt; the release-only skip option is rejected for main and QA. See
+[feature verification](feature-verification.md).
 
 The development workflow authenticates using this Workload Identity provider:
 

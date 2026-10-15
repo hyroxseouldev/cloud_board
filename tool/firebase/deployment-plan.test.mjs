@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {deploymentPlan, pendingScope, configChanges, changedScope, taggedScope, pubspecContentChanged, withReleaseBaseline} from './deployment-plan.mjs';
+import {deploymentPlan, pendingScope, configChanges, changedScope, taggedScope, pubspecContentChanged, withReleaseBaseline, releaseValidation} from './deployment-plan.mjs';
+import {validateReleaseValidation, releaseValidationFile} from './release-validation.mjs';
+import {hash} from './common.mjs';
 import {validateReceipt, receiptScope, manifestHash, requireReleaseJobs} from './release.mjs';
 import {receiptFor} from './test-fixtures.mjs';
 
@@ -19,7 +21,7 @@ test('main never promotes production and a semver tag explicitly requests releas
   const push = {eventName: 'push', ref: 'refs/heads/main', sha, event: {}};
   assert.equal(deploymentPlan(push).scope, 'none');
   assert.equal(deploymentPlan(push).production, false);
-  assert.deepEqual(deploymentPlan({...push, ref: 'refs/tags/v1.2.3'}), {scope: 'auto', production: true, sha, releaseTag: 'v1.2.3'});
+  assert.deepEqual(deploymentPlan({...push, ref: 'refs/tags/v1.2.3'}), {scope: 'auto', production: true, sha, releaseTag: 'v1.2.3', validationMode: 'required', reason: ''});
   for (const tag of ['test', 'v1.2', 'v01.2.3', 'v1.2.3-qa']) assert.throws(() => deploymentPlan({...push, ref: `refs/tags/${tag}`}));
   assert.throws(() => deploymentPlan({...manual, ref: 'refs/heads/main'}), /release tag/);
   assert.equal(deploymentPlan({...manual, ref: 'refs/heads/main', event: {inputs: {scope: 'verify', confirm_sha: sha}}}).production, false);
@@ -80,15 +82,74 @@ test('pending deploy changes survive later pushes, but docs never publish', () =
 });
 
 test('verify runs require all checks while backend does not require web jobs', () => {
-  const all = Object.fromEntries(['deployment_plan', 'app_validation', 'firebase_contracts', 'class_start_regressions'].map(name => [name, {result: 'success'}]));
+  const all = Object.fromEntries(['deployment_plan', 'app_validation', 'firebase_contracts', 'class_start_regressions', 'web_build'].map(name => [name, {result: 'success'}]));
   requireReleaseJobs(all, 'verify');
   assert.throws(() => requireReleaseJobs({...all, app_validation: {result: 'skipped'}}, 'verify'));
-  requireReleaseJobs({...all, app_validation: {result: 'skipped'}, class_start_regressions: {result: 'skipped'}}, 'backend', '');
+  const backend = {...all, web_build: {result: 'skipped'}};
+  requireReleaseJobs({...backend, app_validation: {result: 'skipped'}, class_start_regressions: {result: 'skipped'}}, 'backend', '');
   for (const scope of ['backend', 'rules']) {
-    requireReleaseJobs(all, scope, 'v1.2.3');
-    assert.throws(() => requireReleaseJobs({...all, app_validation: {result: 'failure'}}, scope, 'v1.2.3'));
-    assert.throws(() => requireReleaseJobs({...all, class_start_regressions: {result: 'skipped'}}, scope, 'v1.2.3'));
+    requireReleaseJobs(backend, scope, 'v1.2.3');
+    assert.throws(() => requireReleaseJobs({...backend, app_validation: {result: 'failure'}}, scope, 'v1.2.3'));
+    assert.throws(() => requireReleaseJobs({...backend, class_start_regressions: {result: 'skipped'}}, scope, 'v1.2.3'));
   }
+});
+
+test('CI skip requires an explicit manual release tag deployment and a reason', () => {
+  const skip = {...manual, event: {inputs: {...manual.event.inputs, skip_ci: true, skip_ci_reason: '  Incident recovery\nReviewed source  '}}};
+  const plan = deploymentPlan(skip);
+  assert.equal(plan.validationMode, 'skipped');
+  assert.equal(plan.reason, 'Incident recovery\nReviewed source');
+  assert.equal(deploymentPlan({...skip, event: {inputs: {...skip.event.inputs, skip_ci: 'true'}}}).validationMode, 'skipped');
+  for (const change of [
+    {eventName: 'push'}, {ref: 'refs/heads/main'}, {ref: 'refs/heads/develop'}, {ref: 'refs/tags/v1.2'},
+    {event: {inputs: {...skip.event.inputs, scope: 'verify'}}},
+    {event: {inputs: {...skip.event.inputs, confirm_sha: 'b'.repeat(40)}}},
+    ...['', ' \n ', undefined, 'x'.repeat(2001), `${'x'.repeat(2000)} `].map(skip_ci_reason => ({event: {inputs: {...skip.event.inputs, skip_ci_reason}}})),
+    {event: {inputs: {...skip.event.inputs, skip_ci: 'yes'}}},
+  ]) assert.throws(() => deploymentPlan({...skip, ...change}));
+  assert.equal(deploymentPlan({...skip, event: {inputs: {...skip.event.inputs, skip_ci_reason: 'x'.repeat(2000)}}}).reason.length, 2000);
+  for (const skip_ci of [false, 'false', undefined]) {
+    assert.equal(deploymentPlan({...skip, event: {inputs: {...skip.event.inputs, skip_ci}}}).validationMode, 'required');
+    assert.equal(deploymentPlan({...skip, event: {inputs: {...skip.event.inputs, skip_ci}}}).reason, '');
+  }
+});
+
+test('validation audit binds the policy to the exact source, tag, attempt and actor without claiming test success', () => {
+  const plan = deploymentPlan({...manual, event: {inputs: {...manual.event.inputs, skip_ci: true, skip_ci_reason: 'Incident recovery'}}});
+  const audit = releaseValidation(plan, {GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '2', GITHUB_ACTOR: 'release-owner'});
+  assert.deepEqual(audit, {schemaVersion: 1, kind: 'release-validation', sourceSha: sha, releaseTag: 'v1.2.3', runId: '123', runAttempt: '2', validationMode: 'skipped', reason: 'Incident recovery', actor: 'release-owner'});
+  assert.equal(audit.status, undefined);
+  for (const patch of [{sourceSha: ''}, {releaseTag: ''}, {runId: 123}, {runAttempt: '0'}, {actor: ''}, {reason: ''}, {reason: 'x'.repeat(2001)}, {reason: `${'x'.repeat(2000)} `}, {validationMode: 'success'}]) {
+    assert.throws(() => validateReleaseValidation({...audit, ...patch}));
+  }
+  assert.equal(validateReleaseValidation({...audit, reason: 'x'.repeat(2000)}).reason.length, 2000);
+  assert.throws(() => validateReleaseValidation(audit, {sourceSha: 'b'.repeat(40)}));
+  assert.throws(() => validateReleaseValidation(audit, {runAttempt: '1'}));
+  const receipt = receiptFor();
+  receipt.manifest.releaseTag = audit.releaseTag;
+  receipt.manifest.validation = {...audit, sourceSha: receipt.sha, runId: receipt.runId, runAttempt: receipt.attempt};
+  receipt.manifest.files[releaseValidationFile] = hash(`${JSON.stringify(receipt.manifest.validation, null, 2)}\n`);
+  receipt.manifestHash = manifestHash(receipt.manifest);
+  validateReceipt(receipt, receipt);
+  const forged = structuredClone(receipt); forged.manifest.validation.runAttempt = '99'; forged.manifestHash = manifestHash(forged.manifest);
+  assert.throws(() => validateReceipt(forged, forged), /runAttempt mismatch/);
+});
+
+test('skipped CI keeps build prerequisites and rejects failed or fabricated heavy job results', () => {
+  const jobs = {deployment_plan: {result: 'success'}, web_build: {result: 'success'},
+    app_validation: {result: 'skipped'}, firebase_contracts: {result: 'skipped'}, class_start_regressions: {result: 'skipped'}};
+  requireReleaseJobs(jobs, 'full', 'v1.2.3', 'skipped');
+  requireReleaseJobs({...jobs, web_build: {result: 'skipped'}}, 'backend', 'v1.2.3', 'skipped');
+  for (const scope of ['none', 'verify']) assert.throws(() => requireReleaseJobs(jobs, scope, 'v1.2.3', 'skipped'));
+  assert.throws(() => requireReleaseJobs(jobs, 'full', '', 'skipped'));
+  assert.throws(() => requireReleaseJobs(jobs, 'full', 'v1.2.3', 'required'));
+  for (const name of Object.keys(jobs)) {
+    for (const result of ['failure', 'cancelled', undefined]) assert.throws(() => requireReleaseJobs({...jobs, [name]: {result}}, 'full', 'v1.2.3', 'skipped'));
+  }
+  for (const name of ['app_validation', 'firebase_contracts', 'class_start_regressions']) {
+    assert.throws(() => requireReleaseJobs({...jobs, [name]: {result: 'success'}}, 'full', 'v1.2.3', 'skipped'));
+  }
+  assert.throws(() => requireReleaseJobs({...jobs, web_build: {result: 'skipped'}}, 'web', 'v1.2.3', 'skipped'));
 });
 
 test('a native release version bump alone does not publish Hosting, but dependency changes do', () => {

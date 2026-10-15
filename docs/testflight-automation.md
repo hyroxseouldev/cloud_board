@@ -7,10 +7,16 @@
 반복하지 않으며, 별도로 실행되는 개발 웹·서버 배포를 기다리지 않는다. 개발 환경 연결 확인과
 기능 담당자의 관련 검증 인계는 유지한다. 운영 backend receipt는 QA에 요구하지 않는다.
 
-`vX.Y.Z` 릴리즈 태그의 필수 CI 전체 실행이 완료되고 성공하면 운영 앱 `com.sunmkim.cloudboard`의 release 모드가
+자동 `vX.Y.Z` 릴리즈 태그는 필수 CI를 기본 실행한다. 해당 실행이 완료되고 성공하면 운영 앱 `com.sunmkim.cloudboard`의 release 모드가
 `workflow_run`으로 시작한다. 태그의 main 포함 여부, 태그 이동 여부, 앱 버전 일치,
 동일 소스의 공통 검증과 현재 운영 백엔드 호환성을 확인한 뒤 production flavor로 업로드한다.
-태그 CI가 실패·대기 중이면 release 모드 업로드를 시작하지 않는다.
+명시적인 수동 CI 생략이 없으면 태그 CI가 실패·대기 중일 때 release 모드 업로드를 시작하지 않는다.
+
+수동 `release`에서는 `skip_ci=true`와 비어 있지 않은 `skip_ci_reason`으로 무거운 CI를 생략할 수 있다.
+이 경로는 먼저 Firebase CI 생략 실행을 만들 필요가 없다. main push·QA에서는 생략 옵션을 거절한다.
+Firebase 수동 태그 릴리즈의 생략 기록을 받아 자동으로 이어지는 경우에는 해당 run/attempt·SHA·태그를 확인한다.
+두 경우 모두 사유·실행자·실행·소스를 감사 artifact/receipt에 남기며 `CI SKIPPED`를 통과로 보고하지 않는다.
+태그·SHA·main 이력·버전, 운영 백엔드 호환성, 빌드·서명·환경·빌드 번호·실제 IPA 확인은 그대로 수행한다.
 
 자동화의 마지막 단계는 TestFlight 업로드다. App Store 공개·심사 제출이나 테스터 그룹 변경은 하지 않는다.
 배포 대상 그룹은 App Store Connect의 현재 설정을 따른다. QA 모드는 Apple의
@@ -36,7 +42,8 @@ Xcode 빌드 설정의 알 수 없는 변수가 남으면 실패한다. 새 권�
 
 `develop` 및 Pull Request에서는 자동 업로드하지 않는다. 수동 실행은 main 워크플로에서
 `release_mode=qa`와 main/develop 계열 `source_ref`를 선택하거나, `release_mode=release`와
-검증된 `vX.Y.Z` 태그를 선택한다. `upload_to_testflight=false`이면 서명 IPA만 보관하며
+`vX.Y.Z` 태그를 선택한다. release 업로드는 CI 성공 증거 또는 명시적인 CI 생략 기록이 필요하다.
+`upload_to_testflight=false`이면 서명 IPA만 보관하며
 실제 TestFlight·Crashlytics 업로드는 하지 않는다. QA 업로드는 공개 업데이트 소식과 최소 지원 버전을 바꾸지 않는다.
 
 ## Crashlytics 심볼 업로드
@@ -67,7 +74,7 @@ Flutter가 내려받은 Swift Package Manager의 Firebase SDK `upload-symbols` �
 
 - 번들 ID: QA `com.sunmkim.cloudboard.dev`, release `com.sunmkim.cloudboard`
 - Apple Team ID: `NL7AM62SB9`
-- 실행 조건: 관련 `main` push는 QA, 태그 CI 성공은 release, main에서 수동 재실행 가능
+- 실행 조건: 관련 `main` push는 QA, 성공한 태그 릴리즈 실행은 release, main에서 수동 release와 사유 있는 CI 생략 가능
 - GitHub Environment: `testflight`
 - 빌드 번호: 앱별로 해당 번들의 전체 App Store Connect 이력 중 최대 빌드 번호 `+1`
 
