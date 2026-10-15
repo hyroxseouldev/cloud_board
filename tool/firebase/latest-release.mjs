@@ -10,27 +10,40 @@ export async function latestRelease({repository, request, readArtifact, ignoreRu
   // Search both release tags and historical main deployments; older backend
   // releases can sit behind many web/docs runs. Bound API work explicitly instead of silently stopping at 100.
   const maximumPages = 10;
+  const names = component === 'web' ? ['Deploy to Firebase Hosting']
+    : ['Deploy account deletion functions and data rules', 'Deploy data rules only'];
   for (let page = 1; page <= maximumPages; page++) {
     const recent = await request(`/repos/${repository}/actions/workflows/firebase-hosting-merge.yml/runs?per_page=100${page === 1 ? '' : `&page=${page}`}`);
-    for (const run of productionRuns(recent.workflow_runs, repository).filter(run => String(run.id) !== String(ignoreRunId))) {
-      const jobs = await request(`/repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
-      const production = jobs.jobs?.find(job => job.name === 'firebase-production');
-      // Validation-only / documentation runs never replace a deployed receipt.
-      if (!production || production.conclusion === 'skipped') continue;
-      const names = component === 'web' ? ['Deploy to Firebase Hosting']
-        : ['Deploy account deletion functions and data rules', 'Deploy data rules only'];
-      const steps = (production.steps || []).filter(step => names.includes(step.name));
-      if (steps.length && steps.every(step => step.conclusion === 'skipped')) continue;
-      if (attemptOnly) {
-        // A newer tag waiting for the production lock has not changed any
-        // service. It must not invalidate a deployment already holding it.
-        if (!steps.some(step => step.conclusion && step.conclusion !== 'skipped'
-          || step.status === 'in_progress' || step.started_at)) continue;
-        return {status: 'attempt', run};
+    for (const candidate of productionRuns(recent.workflow_runs, repository).filter(run => String(run.id) !== String(ignoreRunId))) {
+      assert(Number.isSafeInteger(candidate.run_attempt) && candidate.run_attempt > 0 && candidate.run_attempt <= 100,
+        'Production attempt history is too large or invalid');
+      let selected;
+      // A retry that fails before deployment cannot erase an earlier partial
+      // write. Only look back when this attempt did not deploy the component.
+      for (let attempt = candidate.run_attempt; attempt >= 1; attempt--) {
+        const jobs = await request(`/repos/${repository}/actions/runs/${candidate.id}/attempts/${attempt}/jobs?per_page=100`);
+        assert(Array.isArray(jobs.jobs) && (jobs.total_count ?? jobs.jobs.length) <= 100,
+          'Production job history is missing or truncated');
+        const production = jobs.jobs.find(job => job.name === 'firebase-production');
+        // Validation-only / documentation runs never replace a deployed receipt.
+        if (!production || production.conclusion === 'skipped') continue;
+        const steps = (production.steps || []).filter(step => names.includes(step.name));
+        assert(attempt === candidate.run_attempt || steps.length, 'Previous production deployment steps are unavailable');
+        if (steps.length && steps.every(step => step.conclusion === 'skipped')) continue;
+        // A newer tag waiting for the production lock has not written yet, but
+        // a previous attempt of that same run may already have changed service.
+        if (attemptOnly && !steps.some(step => step.conclusion !== 'skipped' &&
+          (step.conclusion || step.status === 'in_progress' || step.started_at))) continue;
+        selected = {run: {...candidate, run_attempt: attempt}, production};
+        break;
       }
-      if (allowFailed && (run.status !== 'completed' || run.conclusion !== 'success')) continue;
+      if (!selected) continue;
+      const {run, production} = selected;
+      if (attemptOnly) return {status: 'attempt', run};
+      if (allowFailed && (run.status !== 'completed' || run.conclusion !== 'success' || production.conclusion !== 'success')) continue;
       if (run.status !== 'completed') return {status: 'deferred'};
-      assert.equal(run.conclusion, 'success', `Latest production attempt ${run.id} failed or may be partial; refusing an older receipt`);
+      assert(run.conclusion === 'success' && production.conclusion === 'success',
+        `Latest production attempt ${run.id} failed or may be partial; refusing an older receipt`);
       const result = await request(`/repos/${repository}/actions/runs/${run.id}/artifacts?per_page=100`);
       const matches = result.artifacts.filter(a => a.name === `firebase-release-${run.id}-${run.run_attempt}` && !a.expired);
       assert.equal(matches.length, 1, 'Latest production run has no verified release receipt');
