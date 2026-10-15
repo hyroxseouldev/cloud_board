@@ -74,9 +74,10 @@ jobs:
       - name: Test iOS signing checks
         run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
 
-      - name: Test native release identity and build-only upload guards
+      - name: Test native release identity, update news, and build-only upload guards
         run: |
           node --test tool/release/*.test.mjs
+          node --test tool/update-news/*.test.mjs
           python3 -m unittest discover -s tool/release -p 'test_*.py'
 
       - name: Set up Flutter
@@ -331,9 +332,10 @@ jobs:
           node tool/firebase/release.mjs current
           node tool/firebase/release.mjs verify
           node functions/tools/release-smoke.mjs preflight
-      - name: Require physical class-start approval before production changes
+      - name: Require physical class-start approval or explicit release waiver
         env:
           CLASS_START_PHYSICAL_APPROVAL: ${{ vars.CLASS_START_PHYSICAL_APPROVAL }}
+          CLASS_START_PHYSICAL_WAIVER: ${{ vars.CLASS_START_PHYSICAL_WAIVER }}
         run: node tool/release/class_start_physical_gate.mjs
       - name: Authenticate Firebase rule deployment
         uses: google-github-actions/auth@v2

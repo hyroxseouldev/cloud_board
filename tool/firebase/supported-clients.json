@@ -259,6 +259,40 @@
           "workflowRunId": "38530731453"
         }
       ]
+    },
+    {
+      "client": "1.2.0-main-eeb6fcf3a894",
+      "sourceCommit": "eeb6fcf3a894467bf9ca52b50a15150f34ec18bb",
+      "platforms": [
+        "ios",
+        "web"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.2.0-main-eeb6fcf3a894.json",
+      "sha256": "eed20851f917dca93a73e3baeb59ed9072a2a9402c3abf15a63d5f849dc4cc5c",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/1.2.0-main-eeb6fcf3a894.json",
+        "sha256": "604e2d33d284bcd9d6b48c53934d8298c7c12863b2965a7f4944a2cac6be1395"
+      },
+      "releases": [
+        {
+          "platform": "ios",
+          "version": "1.2.0",
+          "build": "556",
+          "channel": "testflight",
+          "workflowRunId": "38663787667"
+        },
+        {
+          "platform": "web",
+          "version": "1.2.0",
+          "build": "221.1",
+          "channel": "production",
+          "workflowRunId": "38663844244"
+        }
+      ]
     }
   ]
 }

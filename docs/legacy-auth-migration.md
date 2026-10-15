@@ -106,6 +106,27 @@ Complete a local release evidence JSON (keep `checks` pending until performed):
 }
 ```
 
+If the release owner explicitly waives physical/native QA for this candidate,
+record each unperformed native journey above as `"waived"`, not `"passed"`.
+Attach the same `qaWaiver` record accepted by
+[`requirePhysicalQaWaiver`](../tool/release/class_start_physical_gate.mjs):
+`sha` equal to `sourceSha`, `result: "waived"`, non-empty `approvedBy` and
+`reason`, UTC ISO `approvedAt`/`expiresAt` (at most 24 hours apart, current at
+predeploy), and `physicalQaPerformed: false`. The guard rejects an invalid
+supplied waiver even when other checks say passed. A pending/missing journey
+does not implicitly become waived. Keep version inventory truthful; it is not
+evidence that those app/TV builds were physically tested. Preserve this release
+evidence JSON with the deployment record; predeploy prints waived journeys as
+not performed.
+
+The waiver applies only to `googleAppleLogin`, `phoneFreeActivation`,
+`legacyAccountEntitlement`, `pairDisplay`, `setDisplayState` and
+`threeTvClassLifecycle` native journeys. It does not waive canonical backend
+deployment/smoke, `checks.legacyPairingBridge`, infrastructure review, candidate
+source/digest, live drift, runtime configuration or secret-version checks.
+Server/API and source-contract evidence must describe the actual automated
+checks performed, separately from the unperformed native journeys.
+
 Capture supporting screenshots/log references with the evidence. Test isolated
 accounts in the development backend with both the released and candidate app:
 Google/Apple login, phone verification/Free activation, Google subject linkage

@@ -101,3 +101,70 @@ test('bridge release requires the deployed canonical backend and released-app br
     s => { s.checks.legacyPairingBridge = 'pending'; },
   ]) { const changed = structuredClone(evidence); mutate(changed); assert.throws(() => validateReleaseEvidence(changed, 'abc')); }
 });
+
+const waiverNow = Date.parse('2026-10-15T00:00:00.000Z');
+const nativeChecks = ['googleAppleLogin', 'phoneFreeActivation', 'legacyAccountEntitlement', 'pairDisplay', 'setDisplayState', 'threeTvClassLifecycle'];
+function waivedEvidence() {
+  return {
+    candidateDigest: 'abc', sourceSha: 'a'.repeat(40),
+    appVersions: {released: '1.1.1 (installed inventory only)', candidate: '1.2.0 (native QA waived)'},
+    tvVersion: '1.1.0/1.1.1 (installed inventory only; no physical test)',
+    infrastructureReview: 'passed',
+    pairingBackend: {project: baseline.project, region: 'asia-northeast3', function: 'pairDisplayConnection', sourceSha: 'b'.repeat(40), smoke: 'passed'},
+    checks: {legacyPairingBridge: 'passed', ...Object.fromEntries(nativeChecks.map(key => [key, 'waived']))},
+    qaWaiver: {sha: 'a'.repeat(40), result: 'waived', approvedBy: 'release owner',
+      approvedAt: '2026-10-14T23:00:00.000Z', expiresAt: '2026-10-15T01:00:00.000Z',
+      reason: 'The release owner explicitly waived physical/native QA for this candidate.', physicalQaPerformed: false},
+  };
+}
+
+test('explicit candidate-bound waiver records native checks as waived, not passed', () => {
+  const evidence = waivedEvidence();
+  const result = validateReleaseEvidence(evidence, 'abc', waiverNow);
+  assert.deepEqual(result.waivedChecks, nativeChecks);
+  assert.equal(result.qaWaiver.physicalQaPerformed, false);
+  assert(nativeChecks.every(check => evidence.checks[check] === 'waived'));
+  evidence.checks.pairDisplay = 'passed';
+  assert.deepEqual(validateReleaseEvidence(evidence, 'abc', waiverNow).waivedChecks, nativeChecks.filter(check => check !== 'pairDisplay'));
+});
+
+test('waived native checks require a valid current waiver for this exact evidence SHA', () => {
+  for (const mutate of [
+    s => { delete s.qaWaiver; },
+    s => { s.qaWaiver = null; },
+    s => { s.qaWaiver = 'not JSON'; },
+    s => { s.qaWaiver.sha = 'c'.repeat(40); },
+    s => { s.qaWaiver.expiresAt = '2026-10-14T23:30:00.000Z'; },
+    s => { s.qaWaiver.result = 'passed'; },
+    s => { s.qaWaiver.physicalQaPerformed = true; },
+    s => { s.qaWaiver.approvedBy = ''; },
+    s => { s.qaWaiver.reason = ''; },
+  ]) {
+    const changed = waivedEvidence(); mutate(changed);
+    assert.throws(() => validateReleaseEvidence(changed, 'abc', waiverNow));
+  }
+});
+
+test('native waiver cannot bypass pending journeys or server, identity and infrastructure evidence', () => {
+  for (const mutate of [
+    s => { s.candidateDigest = 'different'; },
+    s => { s.sourceSha = 'invalid'; },
+    s => { s.checks.pairDisplay = 'pending'; },
+    s => { delete s.checks.threeTvClassLifecycle; },
+    s => { s.infrastructureReview = 'waived'; },
+    s => { s.pairingBackend.smoke = 'waived'; },
+    s => { delete s.pairingBackend; },
+    s => { s.pairingBackend.project = 'different'; },
+    s => { s.checks.legacyPairingBridge = 'waived'; },
+  ]) {
+    const changed = waivedEvidence(); mutate(changed);
+    assert.throws(() => validateReleaseEvidence(changed, 'abc', waiverNow));
+  }
+});
+
+test('an invalid supplied waiver is rejected even when every native check says passed', () => {
+  const evidence = waivedEvidence();
+  for (const check of nativeChecks) evidence.checks[check] = 'passed';
+  evidence.qaWaiver.sha = 'c'.repeat(40);
+  assert.throws(() => validateReleaseEvidence(evidence, 'abc', waiverNow));
+});

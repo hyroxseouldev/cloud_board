@@ -21,9 +21,13 @@ Firebase 인증은 기존 GitHub `FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND`
 
 게시 실패 시 GitHub에서 `Publish app update news`를 재실행하거나, main에서 수동 실행하며 `deployment_run_id`에 기존 main 배포 실행 ID를 입력한다. 앱을 다시 빌드하거나 배포하지 않고 최신 게시 코드로 해당 배포의 소식만 복구한다. 자동 실행과 수동 복구는 직렬 처리한다. 전환 중 이전 워크플로의 실행과도 직렬 처리되도록 concurrency group 이름 `linear-deployment-publisher`는 유지한다.
 
+배포 커밋에 소식이 없거나 소식 버전이 앱 버전과 다르면, 검토한 수정 소식을 `release-notes/corrections/<배포 커밋의 40자리 SHA>.json`에 추가할 수 있다. 형식은 `current.json`과 같고 `version`은 **그 배포 커밋의** `pubspec.yaml`과 일치해야 한다. 내용은 해당 커밋에 실제 포함된 변경만 설명한다. 게시기는 신뢰된 main 체크아웃에 커밋된 파일만 사용하며, 기존 배포 소식의 버전이 이미 맞으면 수정 파일로 덮어쓰지 않는다. 수정 파일은 최초 추가 이후 Git blob이 바뀌거나 삭제 후 재추가되면 거부한다. 검토 후 main에 병합하고 기존 배포 실행 ID로 수동 게시하면, 앱 재빌드 없이 동일한 배포 성공·산출물 검증을 거쳐 소식을 복구할 수 있다.
+
 워크플로와 스크립트가 기본 브랜치 main에 있어야 `workflow_run`이 실행된다. PR/포크 배포는 게시 대상에서 제외하며, 수동 복구도 GitHub에서 조회한 실행의 저장소·브랜치·이벤트·워크플로를 재검증한다. 실행 코드는 신뢰할 수 있는 기본 브랜치에서만 체크아웃한다. GitHub Token은 배포 증거를 읽는 단계에만 전달하며 contents/actions 읽기 권한만 사용한다. 배포 워크플로 이름, 업로드 단계 이름, 산출물 이름을 바꿀 때는 `tool/update-news/publish.mjs`의 `pipelines` 설정도 함께 수정한다.
 
 ## 검증
+
+PR에서 `pubspec.yaml`만 바꾸어도 소식 검사를 실행하며, 실제 앱 버전과 `current.json`의 버전이 다르면 실패한다. 필수 `firebase-required` 검사에 연결된 `app-validation`에서도 동일한 테스트를 실행한다. 버전 변경 시 두 파일을 함께 갱신한다.
 
 ```sh
 node --test tool/update-news/*.test.mjs

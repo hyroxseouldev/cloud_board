@@ -119,7 +119,7 @@ class EmailLoginScreen extends HookConsumerWidget {
                       const SizedBox(height: 12),
                       Text(
                         signup
-                            ? '내 수업을 저장할 계정을 만들어요. 선택한 예시는 가입 후에도 이어집니다. 둘러보기는 계정 없이 가능해요.'
+                            ? '내 수업을 저장할 계정을 만들어요. 선택한 예시는 가입 후에도 이어집니다.'
                             : reset
                             ? '가입한 이메일로 비밀번호 재설정 링크를 보내드려요.'
                             : '가입한 이메일과 비밀번호를 입력해 주세요.',

@@ -1,7 +1,6 @@
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_editor_screen.dart';
 import 'package:cloud_board/src/app/core/router/app_router.dart';
 import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
-import 'package:cloud_board/src/app/feature/onboarding/presentation/views/explore_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_mode_controller.dart';
@@ -166,21 +165,17 @@ void main() {
   );
 
   navigationTest(
-    'more keeps first-class help and public exploration reachable',
+    'more keeps first-class help without the retired exploration entry',
     (tester) async {
       final data = await mountNavigation(tester, active: false);
       final router = data.container.read(appRouterProvider);
-      for (final (label, screen) in [
-        ('첫 수업 준비', FirstClassScreen),
-        ('예시 수업 둘러보기', ExploreScreen),
-      ]) {
-        router.go('/more');
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text(label));
-        await tester.tap(find.text(label));
-        await tester.pumpAndSettle();
-        expect(find.byType(screen), findsOneWidget);
-      }
+      router.go('/more');
+      await tester.pumpAndSettle();
+      expect(find.text('예시 수업 둘러보기'), findsNothing);
+      await tester.ensureVisible(find.text('첫 수업 준비'));
+      await tester.tap(find.text('첫 수업 준비'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FirstClassScreen), findsOneWidget);
     },
   );
 

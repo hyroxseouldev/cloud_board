@@ -119,13 +119,6 @@ class MoreScreen extends ConsumerWidget {
                 '/first-class',
               ),
               const Divider(height: 1),
-              destination(
-                '예시 수업 둘러보기',
-                '예시를 체험하고 내 수업으로 시작하기',
-                Icons.auto_awesome_mosaic_outlined,
-                '/explore',
-              ),
-              const Divider(height: 1),
               const UpdateNewsTile(
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 8,
