@@ -55,4 +55,4 @@ final class DisplayRecoveryRepositoryProvider
 }
 
 String _$displayRecoveryRepositoryHash() =>
-    r'063c68c47fc5761ee8e6f2bcd8333ea9d45db510';
+    r'cb2d214b18ceef7034a29dcb0cba208141a7602b';

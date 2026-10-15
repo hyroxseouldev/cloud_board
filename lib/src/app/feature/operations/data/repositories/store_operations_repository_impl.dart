@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -173,7 +172,7 @@ AudienceBrandingMemory audienceBrandingMemory(Ref ref, String ownerId) =>
 
 @Riverpod(keepAlive: true)
 StoreOperationsRepository storeOperationsRepository(Ref ref) {
-  final auth = FirebaseAuth.instance;
+  final auth = ref.watch(firebaseClientAuthProvider);
   final ownerId = ref.watch(accountOwnerIdProvider).value;
   final database = FirebaseDatabase.instanceFor(
     app: auth.app,
@@ -181,7 +180,10 @@ StoreOperationsRepository storeOperationsRepository(Ref ref) {
   );
   return StoreOperationsRepositoryImpl(
     StoreOperationsRealtimeDataSource(database, ownerId),
-    StoreBrandStorageDataSource(FirebaseStorage.instance, auth),
+    StoreBrandStorageDataSource(
+      FirebaseStorage.instanceFor(app: auth.app),
+      auth,
+    ),
     StoreOperationsLocalDataSource(SharedPreferencesAsync(), ownerId: ownerId),
     audienceMemory: ownerId == null
         ? null
