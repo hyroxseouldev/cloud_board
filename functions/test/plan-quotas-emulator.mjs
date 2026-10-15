@@ -14,12 +14,36 @@ const [host,port]=process.env.FIRESTORE_EMULATOR_HOST.split(':');
 const env=await initializeTestEnvironment({projectId,firestore:{host,port:Number(port),rules:fs.readFileSync(new URL('../../firestore.rules',import.meta.url),'utf8')}});
 const entitlement=plan=>({...planAccess(plan),plan,status:'active',validUntilMs:Date.now()+86400000});
 const workout=(id,updatedAt=1000)=>({id,ownerId:'owner',author:{id:'owner',displayName:'Coach',photoUrl:null},name:id,folder:'',modules:[],createdAt:1000,updatedAt,brandL:'Keep brand',brandR:''});
-const save=(id,extra={})=>saveWorkout(db,'owner',{ownerId:'owner',workout:workout(id),...extra});
+// The released Flutter repository sends the draft revision on first save too.
+const save=(id,extra={})=>saveWorkout(db,'owner',{ownerId:'owner',workout:workout(id),expectedUpdatedAt:1000,...extra});
 const item=id=>({id,name:id,text:'Workout text',category:'',imageUrl:'',workSeconds:60,restSeconds:0,sets:1,showTimer:true,beep:true,coverImage:false,favorite:true,appearance:{},intervalBlocks:[]});
 const patch=(id,base=null,value=item(id))=>({id,base,value});
 const library=(changes,extra={})=>mutateSlideLibrary(db,'owner',{ownerId:'owner',kind:'templates',changes,...extra});
 const grant=plan=>db.doc('subscriptionEntitlements/owner').set(entitlement(plan));
 try {
+  await env.clearFirestore();
+  await grant('free');
+  const first={workout:workout('first-save',2000),expectedUpdatedAt:1000,requireExisting:false};
+  assert.equal((await save('first-save',first)).created,true);
+  assert.equal((await db.doc('users/owner/workouts/first-save').get()).data().updatedAt.toMillis(),2000);
+  assert.equal((await db.doc('users/owner/workoutSummaries/first-save').get()).exists,true);
+  assert.equal((await db.doc('users/owner/planUsage/current').get()).data().workoutCount,1);
+  assert.equal((await save('first-save',first)).created,false); // Lost response, same payload.
+  await save('first-save',{workout:{...workout('first-save',3000),name:'Edited'},expectedUpdatedAt:2000,requireExisting:true});
+  assert.equal((await db.doc('users/owner/planUsage/current').get()).data().workoutCount,1);
+  await assert.rejects(save('first-save',{workout:{...workout('first-save',4000),name:'Stale'},expectedUpdatedAt:2000,requireExisting:true}),{code:'aborted'});
+  assert.equal((await db.doc('users/owner/workouts/first-save').get()).data().name,'Edited');
+  await assert.rejects(save('first-save',{workout:{...workout('first-save',4000),createdAt:999},expectedUpdatedAt:3000}),{code:'aborted'});
+  await db.doc('users/owner/workouts/first-save').delete();
+  await assert.rejects(save('first-save',{...first,requireExisting:true}),{code:'aborted'});
+  assert.equal((await db.doc('users/owner/workouts/first-save').get()).exists,false);
+  await assert.rejects(save('settings-mismatch',{settingsContentOnly:true}),{code:'aborted'});
+  const firstRace=await Promise.allSettled(['A','B'].map(name=>save('same-new-id',{
+    workout:{...workout('same-new-id',2000),name},expectedUpdatedAt:1000,requireExisting:false,
+  })));
+  assert.equal(firstRace.filter(result=>result.status==='fulfilled').length,1);
+  assert.equal(firstRace.find(result=>result.status==='rejected').reason.code,'aborted');
+  console.log('PASS: released-client first-save revision, retry, subsequent edit, stale edit, immutable creation, deleted-record protection, settings mismatch and concurrent first save');
   await env.clearFirestore();
   await assert.rejects(save('missing'),{code:'failed-precondition'});
   await grant('free');

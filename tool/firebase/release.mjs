@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {copyFileSync, mkdirSync} from 'node:fs';
+import {appendFileSync, copyFileSync, mkdirSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {readJson, writeJson, hashFile, hash, canonical, filesIn} from './common.mjs';
 import {retirementPolicyFile, validateRetirements} from './support_retirements.mjs';
+import {releaseValidationFile, validateReleaseValidation} from './release-validation.mjs';
 
 export const targets = Object.freeze({project: 'cloud-board-stationd', firestore: '(default)',
   database: 'cloud-board-stationd-default-rtdb', databaseURL: 'https://cloud-board-stationd-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -48,11 +49,44 @@ export function requireSuccess(needs, required) {
   assert.deepEqual(Object.keys(needs).sort(), [...required].sort());
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
 }
-export function requireReleaseJobs(needs, scope = deploymentScope(), releaseTag = process.env.RELEASE_TAG) {
-  const required = ['deployment_plan', ...(releaseTag || ['web', 'full', 'verify'].includes(scope) ? ['app_validation', 'class_start_regressions'] : []),
-    ...(['backend', 'rules', 'full', 'verify'].includes(scope) ? ['firebase_contracts'] : [])];
+export function requireReleaseJobs(needs, scope = deploymentScope(), releaseTag = process.env.RELEASE_TAG,
+  validationMode = process.env.RELEASE_VALIDATION_MODE || 'required') {
+  assert(['required', 'skipped'].includes(validationMode), 'Unknown release validation mode');
+  if (validationMode === 'skipped') {
+    assert(isReleaseTag(releaseTag), 'CI skip requires a release tag');
+    assert(['web', 'rules', 'backend', 'full'].includes(scope), 'Validation-only runs cannot skip CI');
+    for (const name of ['app_validation', 'class_start_regressions', 'firebase_contracts']) {
+      assert.equal(needs[name]?.result, 'skipped', `Skipped CI requires an explicit skipped result: ${name}`);
+    }
+  }
+  const required = ['deployment_plan', ...(['web', 'full', 'verify'].includes(scope) ? ['web_build'] : []),
+    ...(validationMode === 'required' && (releaseTag || ['web', 'full', 'verify'].includes(scope)) ? ['app_validation', 'class_start_regressions'] : []),
+    ...(validationMode === 'required' && ['backend', 'rules', 'full', 'verify'].includes(scope) ? ['firebase_contracts'] : [])];
   for (const name of required) assert.equal(needs[name]?.result, 'success', `Required job ${name} did not succeed`);
   for (const [name, job] of Object.entries(needs)) assert(required.includes(name) || job.result === 'skipped', `Unexpected job result: ${name}`);
+}
+function currentValidation(id = identity()) {
+  const mode = process.env.RELEASE_VALIDATION_MODE;
+  if (mode === undefined) return null; // Existing receipts and local legacy verification retain required CI.
+  const validation = validateReleaseValidation(readJson(releaseValidationFile), {sourceSha: id.sha,
+    releaseTag: process.env.RELEASE_TAG || '', runId: id.runId, runAttempt: id.attempt, validationMode: mode});
+  if (mode === 'skipped') {
+    assert.equal(process.env.GITHUB_EVENT_NAME, 'workflow_dispatch', 'CI skip requires an explicit manual dispatch');
+    assert.equal(process.env.GITHUB_REF, `refs/tags/${validation.releaseTag}`, 'CI skip requires its release tag ref');
+    assert(['web', 'rules', 'backend', 'full'].includes(deploymentScope()), 'Validation-only runs cannot skip CI');
+  }
+  return validation;
+}
+function validateManifestValidation(manifest) {
+  if (manifest.validation === undefined) return 'required';
+  const validation = validateReleaseValidation(manifest.validation, {sourceSha: manifest.sha,
+    releaseTag: manifest.releaseTag || '', runId: manifest.runId, runAttempt: manifest.attempt});
+  assert.equal(manifest.files[releaseValidationFile], hash(`${JSON.stringify(validation, null, 2)}\n`), 'Release validation audit hash mismatch');
+  if (validation.validationMode === 'skipped') {
+    assert(!Object.keys(manifest.files).some(path => /^(build\/contracts\/|build\/firebase-contracts\/)/.test(path)),
+      'Skipped CI must not claim contract test evidence');
+  }
+  return validation.validationMode;
 }
 function backendInputs(sourceSha) {
   const read = path => sourceSha ? execFileSync('git', ['show', `${sourceSha}:${path}`]) : null;
@@ -97,7 +131,9 @@ export function makeManifest() {
   const id = identity();
   const scope = deploymentScope();
   assert.notEqual(scope, 'none', 'No deployment candidate for unchanged components');
-  if (includesBackend(scope)) {
+  const validation = currentValidation(id);
+  const contractsRequired = validation?.validationMode !== 'skipped';
+  if (includesBackend(scope) && contractsRequired) {
     validateReport(readJson('build/firebase-contracts/report.json'), id);
     validateReaderReport(readJson('build/contracts/released-readers/report.json'));
   }
@@ -113,11 +149,12 @@ export function makeManifest() {
   const paths = [...ruleFiles, 'firestore.indexes.json', 'firebase.json', 'functions/package.json', 'functions/package-lock.json',
     'tool/firebase/supported-clients.json', 'tool/firebase/contract-suites.json', 'tool/firebase/compatibility-policy.json', retirementPolicyFile, 'tool/firebase/support_retirements.mjs', 'tool/firebase/released_reader_contract_test.dart',
     ...filesIn('functions/src'), ...filesIn('functions/tools'), ...filesIn('functions/certificates'), ...filesIn('functions/test/fixtures'),
-    ...(includesBackend(scope) ? [...filesIn('build/contracts'), ...filesIn('build/firebase-contracts')] : []),
+    ...(validation ? [releaseValidationFile] : []),
+    ...(includesBackend(scope) && contractsRequired ? [...filesIn('build/contracts'), ...filesIn('build/firebase-contracts')] : []),
     ...(includesWeb(scope) ? filesIn('build/web') : [])];
   if (includesWeb(scope)) assert(paths.some(p => p === 'build/web/index.html'), 'Missing release web build');
   assert(!paths.some(p => p.startsWith('build/web/') && p.endsWith('.map')), 'Public source map');
-  return {format: 1, ...id, scope, ...(process.env.RELEASE_TAG ? {releaseTag: process.env.RELEASE_TAG} : {}), backendFingerprint: backendFingerprint(), functionsFingerprint: functionsFingerprint(), targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
+  return {format: 1, ...id, scope, ...(validation ? {validation} : {}), ...(process.env.RELEASE_TAG ? {releaseTag: process.env.RELEASE_TAG} : {}), backendFingerprint: backendFingerprint(), functionsFingerprint: functionsFingerprint(), targets, databaseSemanticHash: hash(canonical(readJson('database.rules.json'))), createdAt: new Date().toISOString(),
     files: Object.fromEntries(paths.sort().map(path => [path, hashFile(path)]))};
 }
 export function verifyManifest(manifest, id = identity()) {
@@ -125,6 +162,10 @@ export function verifyManifest(manifest, id = identity()) {
   if (process.env.RELEASE_TAG) assert.equal(manifest.releaseTag, process.env.RELEASE_TAG, 'Candidate release tag mismatch');
   assert.equal(deploymentScope(manifest.scope === undefined ? 'full' : manifest.scope), deploymentScope(), 'Candidate deployment scope mismatch');
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(manifest[key], id[key], `Manifest ${key} mismatch`);
+  const validationMode = validateManifestValidation(manifest);
+  assert.equal(validationMode, process.env.RELEASE_VALIDATION_MODE || 'required', 'Candidate validation mode mismatch');
+  const validation = currentValidation(id);
+  if (validation) assert.deepEqual(manifest.validation, validation, 'Candidate validation audit mismatch');
   assert.deepEqual(manifest.targets, targets, 'Wrong Firebase target');
   assert.equal(manifest.databaseSemanticHash, hash(canonical(readJson('database.rules.json'))));
   for (const path of ruleFiles) assert(manifest.files[path], `Missing ${path}`);
@@ -136,7 +177,7 @@ export function verifyManifest(manifest, id = identity()) {
   for (const directory of [...(includesWeb(manifest.scope || 'full') ? ['build/web'] : []), 'functions/src', 'functions/tools', 'functions/certificates']) {
     assert.deepEqual(filesIn(directory), Object.keys(manifest.files).filter(p => p.startsWith(`${directory}/`)).sort(), `Files added/removed after verification: ${directory}`);
   }
-  if (includesBackend(manifest.scope || 'full')) {
+  if (includesBackend(manifest.scope || 'full') && validationMode === 'required') {
     validateReport(readJson('build/firebase-contracts/report.json'), id);
     validateReaderReport(readJson('build/contracts/released-readers/report.json'));
   }
@@ -153,6 +194,7 @@ export function validateReceipt(receipt, id) {
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(String(receipt[key]), String(id[key]), `Receipt ${key} mismatch`);
   assert.deepEqual(receipt.manifest.targets, targets);
   assert.equal(receipt.manifestHash, manifestHash(receipt.manifest));
+  validateManifestValidation(receipt.manifest);
   if (receipt.manifest.releaseTag !== undefined) assert(isReleaseTag(receipt.manifest.releaseTag), 'Invalid receipt release tag');
   assert.match(receipt.manifest.databaseSemanticHash || '', /^[a-f0-9]{64}$/);
   for (const key of ['sha', 'runId', 'attempt']) assert.equal(receipt.manifest[key], String(id[key]));
@@ -225,7 +267,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     requireReleaseJobs(JSON.parse(process.env.REQUIRED_JOBS || '{}'));
     mkdirSync('build/release/rules', {recursive: true});
     for (const file of ruleFiles) copyFileSync(file, `build/release/rules/${file}`);
-    writeJson('build/release/manifest.json', makeManifest());
+    const manifest = makeManifest();
+    writeJson('build/release/manifest.json', manifest);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+      manifest.validation?.validationMode === 'skipped'
+        ? `CI **SKIPPED** by explicit manual request; test success is not claimed. Deployment prerequisites and artifact integrity passed.\n\nReason (JSON): ${JSON.stringify(manifest.validation.reason)}\n`
+        : 'Required CI jobs and deployment artifact checks passed.\n');
   } else if (command === 'verify') verifyManifest(readJson('build/release/manifest.json'));
   else if (command === 'current') await requireNoRollback({sha: identity().sha, ref: process.env.GITHUB_REF, tag: process.env.RELEASE_TAG, repository: process.env.GITHUB_REPOSITORY, request: github, scope: deploymentScope(), ignoreRunId: process.env.GITHUB_RUN_ID});
   else if (command === 'ready') {

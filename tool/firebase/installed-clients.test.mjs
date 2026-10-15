@@ -60,7 +60,7 @@ test('verified development uploads do not replace the latest production client c
       ...(path.includes('/runs/2/') ? [{name: 'Resolve and pin trusted app source', conclusion: 'success'}] : [])]}]};
   };
   const result = await verifyInstalledClients({clients, repository: 'owner/repo', request, readArtifact: async () => ({
-    schemaVersion: 2, kind: 'mobile-source', sourceSha: 'c'.repeat(40), workflowSha: 'b'.repeat(40),
+    schemaVersion: 3, kind: 'mobile-source', sourceSha: 'c'.repeat(40), workflowSha: 'b'.repeat(40),
     releaseMode: 'qa', environment: 'development', platform: platform === 'ios' ? 'ios' : 'android-tv',
     firebaseProject: 'cloud-board-development', package: 'com.sunmkim.cloudboard.dev', environmentBindingVerified: true,
     version: '1.2.2', build: '1', artifactSha256: 'd'.repeat(64), runId: '2', runAttempt: '1',

@@ -27,6 +27,22 @@
 문구·문서·단순 시각 변경은 해당 변경에 맞는 확인과 불필요한 검사를 생략한 이유로 충분합니다.
 -->
 
+## main 반영 정보
+
+<!-- main 대상 PR에서 작성합니다. 기능 PR은 '해당 없음: develop 대상'으로 적습니다.
+main merge 커밋 제목은 PR 제목, 본문은 PR 본문으로 남깁니다.
+제목 예: release: CloudBoard 1.2.2 - 수업 저장과 TV 연결 개선
+main 병합 자체는 배포하지 않습니다. 배포하려는 태그와 실제 완료 상태를 구분합니다.
+-->
+
+- 앱 표시 버전:
+- 주요 변경:
+- 배포 대상: 개발 / 운영 / 통합만
+- 배포 예정 태그: 개발 dev/vX.Y.Z-N / 운영 vX.Y.Z / 없음
+- CI 정책: 개발 기본 미요청 / 운영 실행(기본) / 운영 명시적 생략(사유)
+- 앱 업데이트 소식 비교: 직전 실제 배포 main SHA → 이번 후보 SHA
+- 버전 변경의 develop 동기화:
+
 ## 미확인 사항과 인계
 
 <!-- mock으로 확인하지 못한 부분, 남은 실패, 환경 제약, 충돌 해결 후 재검증이 필요한 범위를 적습니다. 없으면 없다고 적습니다. -->
@@ -40,8 +56,8 @@
 <!--
 PR/develop에서는 코드와 위 증거를 리뷰하며 전체 CI를 반복 실행하는 것을 기능 인계 조건으로 삼지 않습니다.
 기능 브랜치→develop은 squash 한 번, develop→main 출시 승격은 merge 한 번으로 진행합니다.
-정식 배포 전에는 실제 대상 커밋과 배포 범위에 필요한 통합 검증이 성공해야 합니다.
-모바일은 기본 브랜치의 수동 workflow에서 release_mode(qa/release), source_ref를 선택합니다. qa는 태그 없이 가능하고 release는 검증된 vX.Y.Z 태그가 필요합니다. 두 모드 모두 기존 앱·운영 Firebase를 사용하며 소스는 고정 SHA로 기록합니다.
+자동 릴리즈 태그는 실제 대상 커밋과 배포 범위에 필요한 통합 CI를 기본으로 실행합니다. 수동 태그 릴리즈에서만 skip_ci=true와 필수 skip_ci_reason으로 무거운 CI를 생략할 수 있으며, 사유·실행자·run·소스 SHA를 남기고 통과로 기록하지 않습니다. 태그·버전·빌드·서명·환경·번호·산출물 확인은 유지합니다. main/QA에는 생략 옵션을 사용하지 않습니다.
+모바일은 기본 브랜치의 수동 workflow에서 release_mode(qa/release), source_ref를 선택합니다. qa는 main 이력의 dev/vX.Y.Z-N 태그로 기존 개발 앱 com.sunmkim.cloudboard.dev와 개발 Firebase를 사용하고, release는 vX.Y.Z 태그의 CI 성공 또는 명시적인 수동 생략 기록을 바탕으로 com.sunmkim.cloudboard와 운영 Firebase를 사용합니다. QA 빌드는 해당 GitHub Environment의 스토어 준비 확인과 MOBILE_DEVELOPMENT_READY=true가 필요합니다. 소스는 고정 SHA로 기록합니다.
 qa 업로드는 서버·웹 배포나 정식 출시 완료가 아닙니다. 정식 배포 소식·최소 지원 버전을 승격하지 않습니다.
 STA-184 E2E 자동화의 계획을 실제 검증 결과로 기재하지 마세요.
 정책: docs/feature-verification.md

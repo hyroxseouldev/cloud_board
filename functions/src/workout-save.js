@@ -50,7 +50,7 @@ export async function saveWorkout(db, uid, input) {
       return {workout: workoutWire(current), created: false};
     }
     if ((requireExisting && !previous.exists) ||
-        (expectedUpdatedAt !== null && millis(current?.updatedAt) !== expectedUpdatedAt) ||
+        (previous.exists && expectedUpdatedAt !== null && millis(current.updatedAt) !== expectedUpdatedAt) ||
         (previous.exists && expectedUpdatedAt === null) ||
         (previous.exists && millis(current.createdAt) !== source.createdAt)) throw conflict();
     if ((settings.data()?.contentOnly === true) !== settingsContentOnly) throw conflict();
