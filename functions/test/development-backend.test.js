@@ -4,6 +4,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {Timestamp} from 'firebase-admin/firestore';
 import {developmentProject, developmentFunctionNames, developmentFunctionCodebase, developmentDeployTargets,
+  developmentLegacyFunctionNames, developmentLegacyFunctionCodebase,
   developmentOnboardingSecret, onboardingSecretBindings} from '../src/development-backend-config.js';
 import {assertDevelopmentSmsTester, sendDevelopmentOnboardingSms} from '../src/development-onboarding.js';
 import {parseDevelopmentAction, runDevelopmentAction} from '../scripts/development-onboarding.mjs';
@@ -21,14 +22,33 @@ test('dev target list contains actual core exports with no provider billing/AI e
   assert.equal(new Set(developmentFunctionNames).size, developmentFunctionNames.length);
   for (const name of developmentFunctionNames) assert(source.includes(`export const ${name}`));
   assert(!developmentFunctionNames.some(name => /Ai|Billing|appStore|GooglePlay|googlePlay|AppStore/.test(name)));
-  assert.equal(developmentDeployTargets(developmentProject).split(',').length, developmentFunctionNames.length);
+  assert.equal(developmentDeployTargets(developmentProject).split(',').length,
+    developmentFunctionNames.length + developmentLegacyFunctionNames.length);
   const config = JSON.parse(readFileSync(new URL('../../firebase.development.json', import.meta.url)));
   assert.equal(config.functions[0].codebase, developmentFunctionCodebase);
-  assert.deepEqual(developmentDeployTargets(developmentProject).split(','),
-    developmentFunctionNames.map(name => `functions:${config.functions[0].codebase}:${name}`));
+  assert.deepEqual(developmentDeployTargets(developmentProject).split(','), [
+    ...developmentFunctionNames.map(name => `functions:${config.functions[0].codebase}:${name}`),
+    ...developmentLegacyFunctionNames.map(name => `functions:${developmentLegacyFunctionCodebase}:${name}`),
+  ]);
   assert.throws(() => developmentDeployTargets('cloud-board-stationd'));
   // The tester check must occur before any challenge/rate-limit writes.
   assert(source.indexOf('assertDevelopmentSmsTester(projectId, request.auth') < source.indexOf('return handleOnboarding'));
+});
+
+test('development includes the app output switch and excludes unrelated legacy services', () => {
+  const source = readFileSync(new URL('../../functions-legacy/src/index.ts', import.meta.url), 'utf8');
+  const client = readFileSync(new URL('../../lib/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart', import.meta.url), 'utf8');
+  const config = JSON.parse(readFileSync(new URL('../../firebase.development.json', import.meta.url)));
+  assert.deepEqual(developmentLegacyFunctionNames, ['cloudboardSetDisplayState']);
+  assert(source.includes('export const cloudboardSetDisplayState'));
+  assert(client.includes("'cloudboardSetDisplayState'"));
+  assert.equal(config.functions.filter(entry => entry.codebase === developmentLegacyFunctionCodebase).length, 1);
+  const targets = developmentDeployTargets(developmentProject).split(',');
+  assert.deepEqual(targets.filter(target => target.startsWith(`functions:${developmentLegacyFunctionCodebase}:`)),
+    ['functions:cloudboard-auth:cloudboardSetDisplayState']);
+  for (const excluded of ['cloudboardAuth', 'cloudboardLinkAccount', 'cloudboardPairDisplay']) {
+    assert(!targets.some(target => target.endsWith(`:${excluded}`)), excluded);
+  }
 });
 
 test('development deploy includes app-called core functions and plan projection triggers', () => {

@@ -1,9 +1,10 @@
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
+import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -57,18 +58,29 @@ class DeviceModeHomeScreen extends HookConsumerWidget {
     }
     return switch (mode) {
       DeviceMode.controller => const WorkoutListScreen(),
-      DeviceMode.display =>
-        kIsWeb
-            ? WebDisplaySession(
-                onReturnToControl: () => ref
-                    .read(deviceModeControllerProvider.notifier)
-                    .setMode(DeviceMode.controller),
-                child: DisplayModeScreen(
-                  onModeChanged: (_) =>
-                      ref.invalidate(deviceModeControllerProvider),
-                ),
-              )
-            : const DisplayModeScreen(),
+      DeviceMode.display => WebDisplaySession(
+        onReturnToControl: () => ref
+            .read(deviceModeControllerProvider.notifier)
+            .setMode(DeviceMode.controller),
+        child: _DisplayPlayback(
+          onModeChanged: (_) => ref.invalidate(deviceModeControllerProvider),
+        ),
+      ),
     };
+  }
+}
+
+class _DisplayPlayback extends ConsumerWidget {
+  const _DisplayPlayback({required this.onModeChanged});
+  final ValueChanged<DeviceMode> onModeChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The session resolves form factor before mounting this child. Recovery,
+    // visibility and audio must use the display's own credentials and scope.
+    return TvPlaybackLifecycle(
+      isTv: ref.watch(androidTvProvider).requireValue,
+      child: DisplayModeScreen(onModeChanged: onModeChanged),
+    );
   }
 }

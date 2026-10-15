@@ -48,6 +48,12 @@
         "*-debug.log",
         "test"
       ]
+    },
+    {
+      "source": "build/development-display-functions",
+      "codebase": "cloudboard-auth",
+      "runtime": "nodejs22",
+      "ignore": ["node_modules", ".git", ".env*", ".secret*", "*-debug.log", "test"]
     }
   ]
 }

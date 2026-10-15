@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {developmentDeployTargets} from '../../functions/src/development-backend-config.js';
+import {developmentDisplaySource, prepareDevelopmentDisplayPackage} from './prepare-development-display.mjs';
 
 export const environments = Object.freeze({
   development: {project: 'cloud-board-development', number: '1339501332', bundle: 'com.sunmkim.cloudboard.dev',
@@ -31,7 +32,11 @@ export function verifyEnvironments() {
   assert.equal(dev.hosting.site, environments.development.project);
   assert.equal(dev.database.instance, `${environments.development.project}-default-rtdb`);
   assert.deepEqual(dev.storage, [{bucket: `${environments.development.project}.firebasestorage.app`, rules: 'storage.rules'}]);
-  assert.deepEqual(dev.functions, prod.functions, 'Development uses the tested server source with a restricted endpoint allowlist');
+  assert.deepEqual(dev.functions.filter(entry => entry.codebase !== 'cloudboard-auth'), prod.functions,
+    'Development uses the tested core server source');
+  const displayFunctions = dev.functions.filter(entry => entry.codebase === 'cloudboard-auth');
+  assert.equal(displayFunctions.length, 1, 'Development includes exactly one isolated display codebase');
+  assert.equal(displayFunctions[0].source, developmentDisplaySource);
   assert(!JSON.stringify(dev).includes(environments.production.project));
   assert.equal(prod.storage[0].bucket, `${environments.production.project}.firebasestorage.app`);
   const nativeInfo = read('ios/Runner/Info-Development.plist');
@@ -86,6 +91,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   } else if (process.argv[2] === 'deploy') {
     assert.equal(process.argv.length, 5, 'Unexpected deploy arguments');
     const args = developmentDeployArgs(process.argv[3], process.argv[4]);
+    if (process.argv[4] === 'backend') {
+      const build = spawnSync('npm', ['run', 'build', '--prefix', 'functions-legacy'], {stdio: 'inherit'});
+      if (build.error) throw build.error;
+      assert.equal(build.status, 0, 'The existing display callable must compile before deployment');
+      await prepareDevelopmentDisplayPackage(environments.development.project);
+    }
     if (process.argv[4] === 'web') validateDevelopmentWeb(json('build/web/firebase-environment.json'), readFileSync('build/web/main.dart.js'));
     const result = spawnSync('npx', args, {stdio: 'inherit'});
     if (result.error) throw result.error;

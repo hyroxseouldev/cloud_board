@@ -91,8 +91,13 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: functions/package-lock.json
+          cache-dependency-path: |
+            functions/package-lock.json
+            functions-legacy/package-lock.json
       - run: npm ci --prefix functions
+      - name: Install isolated display-state backend build dependencies
+        if: needs.plan.outputs.backend == 'true'
+        run: npm ci --prefix functions-legacy
       - name: Confirm fixed development tag and prevent rollback
         run: node tool/firebase/development-plan.mjs current
       - name: Authenticate only to development

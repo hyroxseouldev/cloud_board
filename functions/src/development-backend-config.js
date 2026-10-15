@@ -1,5 +1,7 @@
 export const developmentProject = 'cloud-board-development';
 export const developmentFunctionCodebase = 'account-deletion';
+export const developmentLegacyFunctionCodebase = 'cloudboard-auth';
+export const developmentLegacyFunctionNames = Object.freeze(['cloudboardSetDisplayState']);
 export const developmentOnboardingSecret = 'CLOUDBOARD_DEVELOPMENT_ONBOARDING_SECRET';
 
 // An explicit deploy boundary: no AI provider, SMS provider, store receipt or
@@ -26,5 +28,8 @@ export function onboardingSecretBindings(projectId) {
 
 export function developmentDeployTargets(projectId) {
   if (projectId !== developmentProject) throw new Error('Explicit development project required');
-  return developmentFunctionNames.map(name => `functions:${developmentFunctionCodebase}:${name}`).join(',');
+  return [
+    ...developmentFunctionNames.map(name => `functions:${developmentFunctionCodebase}:${name}`),
+    ...developmentLegacyFunctionNames.map(name => `functions:${developmentLegacyFunctionCodebase}:${name}`),
+  ].join(',');
 }

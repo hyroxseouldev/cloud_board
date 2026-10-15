@@ -31,6 +31,11 @@ test('development tags are strict and compare version and sequence numerically',
 test('tagged development selects changed components, not documents or native-only files', () => {
   assert.deepEqual(developmentPlan({...input, changedFiles: ['lib/home.dart']}), {web: true, backend: false, rules: false});
   assert.deepEqual(developmentChanges(['functions/src/save.js', 'firestore.rules']), {web: false, backend: true, rules: true});
+  for (const file of ['functions-legacy/src/index.ts', 'functions-legacy/package.json',
+    'functions-legacy/package-lock.json', 'functions-legacy/tsconfig.json',
+    'tool/firebase/prepare-development-display.mjs']) {
+    assert.deepEqual(developmentChanges([file]), {web: false, backend: true, rules: false});
+  }
   assert.deepEqual(developmentChanges(['AGENTS.md', 'ios/Runner/Info.plist']), {web: false, backend: false, rules: false});
   assert.deepEqual(developmentChanges(['firebase.development.json']), {web: true, backend: true, rules: true});
 });

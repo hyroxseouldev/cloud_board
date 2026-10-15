@@ -11,6 +11,10 @@ test('development deploy cannot target production or accept arbitrary scope', ()
   const targets = backend[backend.indexOf('--only') + 1];
   assert(targets.includes('functions:account-deletion:cloudboardAppOnboarding'));
   assert(targets.includes('functions:account-deletion:syncVerifiedFreeAccess'));
+  assert(targets.includes('functions:cloudboard-auth:cloudboardSetDisplayState'));
+  assert(!targets.includes('functions:cloudboard-auth:cloudboardAuth'));
+  assert(!targets.includes('functions:cloudboard-auth:cloudboardLinkAccount'));
+  assert(!targets.includes('functions:cloudboard-auth:cloudboardPairDisplay'));
   assert(!targets.includes('Billing') && !targets.includes('Ai') && !targets.includes('processAppStore'));
   const args = developmentDeployArgs('development', 'rules');
   assert.equal(args[args.indexOf('--project') + 1], environments.development.project);
