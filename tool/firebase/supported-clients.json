@@ -412,6 +412,32 @@
           "artifactSha256": "6e632931d97e592f9153448639de507c2690f672bbb41c7d262864a3b4171719"
         }
       ]
+    },
+    {
+      "client": "1.2.1-main-493be2fa0801",
+      "sourceCommit": "493be2fa080110c8455f1079d4fbca83ebcd402c",
+      "platforms": [
+        "web"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/1.2.1-main-493be2fa0801.json",
+      "sha256": "2ea1e3fbf2466e67267b68b1886eb28a02eb5a23ffd3dbe191f03afb1ab6f57c",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/1.2.1-main-493be2fa0801.json",
+        "sha256": "b8f2aeb40301fc0b0a24adfd3479a732c30610e20e9082b09e14a16ecce88164"
+      },
+      "releases": [
+        {
+          "platform": "web",
+          "version": "1.2.1",
+          "build": "242.1",
+          "channel": "production",
+          "workflowRunId": "38696235893"
+        }
+      ]
     }
   ]
 }

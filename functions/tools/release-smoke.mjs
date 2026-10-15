@@ -10,6 +10,7 @@ import {getStorage, connectStorageEmulator, ref as storageRef, uploadBytes, getB
 import {canaryUsers, checkRunId, prepareCanary, cleanupCanary} from './release-canary.mjs';
 import {targets} from '../../tool/firebase/release.mjs';
 import {readJson, writeJson, emulatorAddress, requireDemo} from '../../tool/firebase/common.mjs';
+import {validateSmokePayloads, verifySmokeInputs} from '../../tool/firebase/smoke-inputs.mjs';
 
 export function preflight(env = process.env) {
   assert.equal(env.FIREBASE_RELEASE_CANARY_ENABLED, 'true', 'Enable the provisioned release canary before publishing a release tag');
@@ -21,8 +22,16 @@ export function preflight(env = process.env) {
 const decode = data => JSON.parse(JSON.stringify(data), (_, value) => value?.__timestampMillis !== undefined ? Timestamp.fromMillis(value.__timestampMillis) : value);
 const deny = task => assert.rejects(task, error => ['permission-denied', 'PERMISSION_DENIED', 'storage/unauthorized'].includes(error.code), 'Expected a permission denial, not a network/server error');
 
-export async function runSmoke({app, config, runId, emulator = false}) {
+export function loadSmokeInputs({validationMode = process.env.RELEASE_VALIDATION_MODE || 'required',
+  sourceSha = process.env.RELEASE_SOURCE_SHA || process.env.GITHUB_SHA} = {}) {
+  assert(['required', 'skipped'].includes(validationMode), 'Unknown smoke validation mode');
+  if (validationMode === 'skipped') return verifySmokeInputs({sourceSha});
+  return validateSmokePayloads(readJson('build/contracts/workout-save-current.json'), readJson('build/contracts/app-current.json'));
+}
+
+export async function runSmoke({app, config, runId, emulator = false, inputs}) {
   const id = checkRunId(runId);
+  inputs ??= loadSmokeInputs(emulator ? {validationMode: 'required'} : {});
   if (emulator) requireDemo(config.projectId);
   else {
     assert.equal(config.projectId, targets.project); assert.equal(config.databaseURL, targets.databaseURL); assert.equal(config.storageBucket, targets.storage);
@@ -44,7 +53,7 @@ export async function runSmoke({app, config, runId, emulator = false}) {
     const [ownerApp, otherApp, tvApp] = clients;
     result.phase = 'workout';
     const owner = canaryUsers.owner, db = getFirestore(ownerApp);
-    const fixture = decode(readJson('build/contracts/workout-save-current.json').scenarios.find(s => s.contentOnly).writes[0]);
+    const fixture = decode(inputs.workout.scenarios.find(s => s.contentOnly).writes[0]);
     const workout = {...fixture.workout, id, ownerId: owner, author: {...fixture.workout.author, id: owner}};
     const summary = {...fixture.summary, id};
     const workoutRef = doc(db, `users/${owner}/workouts/${id}`), summaryRef = doc(db, `users/${owner}/workoutSummaries/${id}`);
@@ -63,7 +72,7 @@ export async function runSmoke({app, config, runId, emulator = false}) {
     await deny(getBytes(storageRef(getStorage(otherApp), path)));
     await deleteObject(image); result.checks.push('storage');
     result.phase = 'tv';
-    const wire = readJson('build/contracts/app-current.json').playback.find(p => p.split);
+    const wire = inputs.app.playback.find(p => p.split);
     const state = {...wire.state, id, ownerId: owner, snapshotId: id, workoutId: id, targetDeviceIds: [id]};
     const snapshot = {...wire.snapshot, id, ownerId: owner, author: {...wire.snapshot.author, id: owner}};
     await update(ref(getDatabase(ownerApp), `users/${owner}`), {activeSession: state, [`playbackSnapshots/${id}`]: snapshot});
@@ -110,10 +119,12 @@ export async function runSmoke({app, config, runId, emulator = false}) {
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   preflight();
+  // Validate current candidate payloads before authentication or canary writes.
+  const inputs = loadSmokeInputs();
   if (process.argv[2] !== 'preflight') {
     const app = adminApp({credential: applicationDefault(), projectId: targets.project, databaseURL: targets.databaseURL, storageBucket: targets.storage});
     try {
-      const result = await runSmoke({app, config: {projectId: targets.project, databaseURL: targets.databaseURL, storageBucket: targets.storage, apiKey: process.env.FIREBASE_WEB_API_KEY}, runId: `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`});
+      const result = await runSmoke({app, config: {projectId: targets.project, databaseURL: targets.databaseURL, storageBucket: targets.storage, apiKey: process.env.FIREBASE_WEB_API_KEY}, runId: `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`, inputs});
       writeJson('build/release/smoke.json', result);
       console.log(`Release smoke: ${result.status}; cleanup: ${result.cleanup}`);
       if (result.status !== 'success') process.exitCode = 1;

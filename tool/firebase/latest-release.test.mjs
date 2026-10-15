@@ -101,3 +101,69 @@ test('a partial backend failure on the next page still blocks an older success',
   };
   await assert.rejects(latestRelease({...base, request}), /refusing an older receipt/);
 });
+
+const deployment = (started_at, conclusion = 'success') => ({name: 'firebase-production', conclusion,
+  steps: [{name: 'Deploy account deletion functions and data rules', conclusion, started_at}]});
+function attemptHistory(runs, jobs) {
+  const visited = [];
+  return {repository, visited, request: async path => {
+    visited.push(path);
+    if (path.includes('/workflows/')) return {workflow_runs: runs};
+    const attempt = path.match(/\/runs\/(\d+)\/attempts\/(\d+)\/jobs/);
+    if (attempt) {
+      const key = `${attempt[1]}/${attempt[2]}`;
+      assert(Object.hasOwn(jobs, key), `Unavailable attempt history: ${key}`);
+      return {jobs: jobs[key]};
+    }
+    const artifact = path.match(/\/runs\/(\d+)\/artifacts/);
+    if (artifact) {
+      const run = runs.find(value => String(value.id) === artifact[1]);
+      return {artifacts: Array.from({length: run.run_attempt}, (_, index) => ({id: run.id,
+        attempt: index + 1, name: `firebase-release-${run.id}-${index + 1}`, expired: false}))};
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  }, readArtifact: async artifact => {
+    const run = runs.find(value => value.id === artifact.id);
+    return receiptFor({sha: run.head_sha, runId: String(run.id), attempt: String(artifact.attempt)});
+  }};
+}
+
+test('a retry without writes cannot hide a previous partial deployment', async () => {
+  const retry = {...successful, id: 13, conclusion: 'failure'};
+  const value = attemptHistory([retry, successful], {
+    '13/2': [{name: 'firebase-production', conclusion: 'failure', steps: [
+      {name: 'Deploy account deletion functions and data rules', conclusion: 'skipped'}]}],
+    '13/1': [deployment('2026-10-15T14:00:00Z', 'failure')],
+    '12/2': [deployment('2026-10-15T13:00:00Z')],
+  });
+  await assert.rejects(latestRelease(value), /refusing an older receipt/);
+  const attempt = await latestRelease({...value, attemptOnly: true});
+  assert.equal(attempt.run.id, 13);
+  assert.equal(attempt.run.run_attempt, 1);
+  assert.equal((await latestRelease({...value, allowFailed: true})).run.id, 12);
+  assert(value.visited.some(path => path.includes('/runs/13/attempts/1/jobs')));
+});
+
+test('a retry with no production job retains earlier writes and fails closed on missing attempt history', async () => {
+  const retry = {...successful, id: 13, conclusion: 'cancelled'};
+  const value = attemptHistory([retry, successful], {
+    '13/2': [], '13/1': [deployment('2026-10-15T14:00:00Z')],
+    '12/2': [deployment('2026-10-15T13:00:00Z')],
+  });
+  await assert.rejects(latestRelease(value), /refusing an older receipt/);
+  assert.equal((await latestRelease({...value, attemptOnly: true})).run.id, 13);
+  const missing = attemptHistory([retry, successful], {'13/2': [], '12/2': []});
+  await assert.rejects(latestRelease({...missing, attemptOnly: true}), /Unavailable attempt history/);
+});
+
+test('the active run is ignored across attempts without hiding another run partial write', async () => {
+  const current = {...successful, id: 14, run_attempt: 3};
+  const partial = {...successful, id: 13, conclusion: 'failure'};
+  const value = attemptHistory([current, partial, successful], {
+    '13/2': [], '13/1': [deployment('2026-10-15T14:00:00Z', 'failure')],
+    '12/2': [deployment('2026-10-15T13:00:00Z')],
+  });
+  const selected = await latestRelease({...value, attemptOnly: true, ignoreRunId: '14'});
+  assert.equal(selected.run.id, 13);
+  assert(!value.visited.some(path => path.includes('/runs/14/')));
+});
