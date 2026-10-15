@@ -1,5 +1,6 @@
 import 'package:cloud_board/src/app/core/router/auth_entry_routes.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
+import 'package:cloud_board/src/app/core/config/firebase_environment.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:async';
@@ -136,6 +137,13 @@ class _PhoneVerification extends HookConsumerWidget {
                 'Free 플랜을 사용하려면 휴대폰 인증을 완료해 주세요.',
                 style: TextStyle(color: AppColors.muted, height: 1.6),
               ),
+              if (!FirebaseEnvironment.isProduction) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  '개발 환경에서는 실제 문자가 발송되지 않아요. 등록된 테스트 계정으로 요청한 뒤, 개발 담당자가 확인한 인증번호를 입력해 주세요.',
+                  style: TextStyle(color: AppColors.muted, height: 1.6),
+                ),
+              ],
               const SizedBox(height: 16),
               if (starter != null) Text('${starter!.title} 선택은 그대로 이어집니다.'),
               TextButton.icon(
@@ -200,9 +208,11 @@ class _PhoneVerification extends HookConsumerWidget {
                   autofillHints: const [AutofillHints.oneTimeCode],
                   maxLength: 6,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '인증번호',
-                    helperText: '문자로 받은 6자리 · 5분 이내 입력',
+                    helperText: FirebaseEnvironment.isProduction
+                        ? '문자로 받은 6자리 · 5분 이내 입력'
+                        : '개발용 인증번호 6자리 · 5분 이내 입력',
                   ),
                 ),
                 const SizedBox(height: 20),

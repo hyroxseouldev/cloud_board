@@ -1,4 +1,3 @@
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_document.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_save_documents.dart';
 
@@ -164,9 +163,10 @@ class WorkoutFirestoreDataSource {
     DateTime? expectedUpdatedAt,
     bool requireExisting = false,
   }) async {
-    // Prepare with the same versioned DTO policy, then let the server recheck
-    // this revision and the account quota in its atomic commit. Rejected or
-    // offline requests never become locally committed successful saves.
+    // Explicit saves overwrite the same workout, even when its editor revision
+    // is stale or another device deleted it. Read the latest document only to
+    // preserve unknown fields and legacy settings; the server still enforces
+    // account access and quota in its atomic commit.
     final settings =
         (await _firestore
                 .doc('users/$userId/settings/workout')
@@ -179,49 +179,34 @@ class WorkoutFirestoreDataSource {
     if (ifAbsent && previous != null) {
       return WorkoutDocument.decode({...previous, 'id': workout.id});
     }
-    ensureWorkoutRevision(
-      expected: expectedUpdatedAt,
-      requireExisting: requireExisting,
-      current: previous == null
-          ? null
-          : const FirestoreTimestampConverter().fromJson(previous['updatedAt']),
-    );
     final documents = WorkoutSaveDocuments(
       workout,
       contentOnly: settings?['contentOnly'] == true,
       previous: previous,
     );
-    try {
-      final result =
-          await (_functions ??
-                  FirebaseFunctions.instanceFor(region: 'asia-northeast3'))
-              .httpsCallable('saveWorkout')
-              .call({
-                'ownerId': userId,
-                'workout': {
-                  ..._callableValue(documents.workout) as Map<String, dynamic>,
-                  'createdAt': workout.createdAt.millisecondsSinceEpoch,
-                  'updatedAt': workout.updatedAt.millisecondsSinceEpoch,
-                },
-                'ifAbsent': ifAbsent,
-                'requireExisting': requireExisting,
-                'settingsContentOnly': settings?['contentOnly'] == true,
-                'expectedUpdatedAt':
-                    (expectedUpdatedAt ??
-                            (previous == null
-                                ? null
-                                : const FirestoreTimestampConverter().fromJson(
-                                    previous['updatedAt'],
-                                  )))
-                        ?.millisecondsSinceEpoch,
-              });
-      return WorkoutDocument.decode(
-        _documentValue((result.data as Map)['workout']) as Map<String, dynamic>,
-      );
-    } on FirebaseFunctionsException catch (error) {
-      if (error.code == 'aborted') throw const WorkoutWriteConflict();
-      rethrow;
-    }
+    final result =
+        await (_functions ??
+                FirebaseFunctions.instanceFor(region: 'asia-northeast3'))
+            .httpsCallable('saveWorkout')
+            .call({
+              'ownerId': userId,
+              'workout': {
+                ..._callableValue(documents.workout) as Map<String, dynamic>,
+                'createdAt': workout.createdAt.millisecondsSinceEpoch,
+                'updatedAt': workout.updatedAt.millisecondsSinceEpoch,
+              },
+              'ifAbsent': ifAbsent,
+              'requireExisting': requireExisting,
+              'settingsContentOnly': settings?['contentOnly'] == true,
+              'expectedUpdatedAt': previous == null
+                  ? null
+                  : const FirestoreTimestampConverter()
+                        .fromJson(previous['updatedAt'])
+                        .millisecondsSinceEpoch,
+            });
+    return WorkoutDocument.decode(
+      _documentValue((result.data as Map)['workout']) as Map<String, dynamic>,
+    );
   }
 
   Future<void> delete(String userId, String workoutId) async {

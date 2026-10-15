@@ -406,7 +406,7 @@ class WorkoutActionController extends _$WorkoutActionController {
     state = const AsyncLoading();
     Workout? saved;
     state = await AsyncValue.guard(() async {
-      // Keep the editor's original version for the transaction conflict check.
+      // Save the complete editor draft; the latest explicit save wins.
       final value = workout;
       await _ensureEditable(workout.id);
       final save = await ref.read(saveWorkoutProvider.future);

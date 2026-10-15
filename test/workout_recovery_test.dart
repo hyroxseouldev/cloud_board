@@ -5,7 +5,6 @@ import 'package:cloud_board/src/app/feature/workouts/data/datasources/draft_asse
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_recovery_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_recovery_repository.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_recovery_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -143,17 +142,6 @@ void main() {
     container.dispose();
     await Future<void>.delayed(Duration.zero);
     expect(await reopen().load('a', 'new'), isNull);
-  });
-
-  test('stale editor revision rejects concurrent changes but allows create and matching edit', () {
-    final old = DateTime.utc(2026, 10, 12);
-    final latest = old.add(const Duration(seconds: 1));
-    expect(
-      () => ensureWorkoutRevision(expected: old, current: latest),
-      throwsA(isA<WorkoutWriteConflict>()),
-    );
-    ensureWorkoutRevision(expected: old, current: old);
-    ensureWorkoutRevision(expected: old, current: null);
   });
 }
 
