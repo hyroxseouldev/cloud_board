@@ -17,9 +17,9 @@ test('emulator and canary boundaries reject production, URL and path overrides',
   assert.deepEqual(emulatorAddress('127.0.0.1:19380'), {host: '127.0.0.1', port: 19380});
   assert.throws(() => requireDemo('cloud-board-stationd'));
   for (const id of ['../customer', 'a-1', '123', '1-0/other']) assert.throws(() => checkRunId(id));
-  const valid = {FIREBASE_RELEASE_CANARY_ENABLED: 'true', FIREBASE_WEB_API_KEY: 'AIzaexample', GITHUB_REF: 'refs/heads/main'};
+  const valid = {FIREBASE_RELEASE_CANARY_ENABLED: 'true', FIREBASE_WEB_API_KEY: 'AIzaexample', GITHUB_REF: 'refs/tags/v1.2.3', RELEASE_TAG: 'v1.2.3'};
   preflight(valid);
-  for (const patch of [{FIREBASE_RELEASE_CANARY_ENABLED: ''}, {FIREBASE_WEB_API_KEY: ''}, {GITHUB_REF: 'refs/heads/develop'}, {FIRESTORE_EMULATOR_HOST: 'localhost:1'}]) assert.throws(() => preflight({...valid, ...patch}));
+  for (const patch of [{FIREBASE_RELEASE_CANARY_ENABLED: ''}, {FIREBASE_WEB_API_KEY: ''}, {GITHUB_REF: 'refs/heads/main'}, {GITHUB_REF: 'refs/heads/develop'}, {RELEASE_TAG: ''}, {RELEASE_TAG: 'v1.2.4'}, {FIRESTORE_EMULATOR_HOST: 'localhost:1'}]) assert.throws(() => preflight({...valid, ...patch}));
 });
 test('Storage cross-service rules use the emulator project rather than a suite-only Firestore namespace', () => {
   const support = {id: 'support-tickets', project: 'demo-cloudboard', coverage: ['firestore'], requires: ['firestore', 'storage']};
@@ -61,11 +61,14 @@ test('receipt binds exact attempt, rules and actual smoke including cleanup', ()
     const copy = structuredClone(valid); change(copy); assert.throws(() => validateReceipt(copy, valid));
   }
 });
-test('stale or non-main candidate cannot mutate production', async () => {
-  const id = {sha: 'a'.repeat(40), ref: 'refs/heads/main', repository: 'hyroxseouldev/cloud_board', request: async () => ({object: {sha: 'a'.repeat(40)}})};
+test('only an unchanged release tag included in main may mutate production', async () => {
+  const sha = 'a'.repeat(40), tag = 'v1.2.3';
+  const id = {sha, tag, ref: `refs/tags/${tag}`, repository: 'hyroxseouldev/cloud_board',
+    request: async path => path.includes('/git/ref/') ? {object: {type: 'commit', sha}}
+      : path.includes('/compare/') ? {status: 'ahead', merge_base_commit: {sha}} : {workflow_runs: []}};
   await requireCurrentMain(id);
-  await assert.rejects(requireCurrentMain({...id, ref: 'refs/heads/develop'}));
-  await assert.rejects(requireCurrentMain({...id, request: async () => ({object: {sha: 'b'.repeat(40)}})}));
+  await assert.rejects(requireCurrentMain({...id, ref: 'refs/heads/main'}));
+  await assert.rejects(requireCurrentMain({...id, request: async () => ({object: {type: 'commit', sha: 'b'.repeat(40)}})}));
 });
 test('branch protection requires trusted source, fresh base and no bypass; plan is offline', async () => {
   const good = {required_status_checks: {strict: true, checks: [{context: 'firebase-required', app_id: actionsAppId}]},

@@ -2,17 +2,17 @@ name: Deploy Flutter Web to Firebase Hosting
 
 on:
   push:
-    branches: [main]
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
   workflow_dispatch:
     inputs:
       scope:
-        description: 'Verify only, Hosting only, backend, rules, or full release'
+        description: 'Run on a release tag for production retry; main supports verify only'
         required: true
         type: choice
-        default: rules
+        default: verify
         options: [verify, web, rules, backend, full]
       confirm_sha:
-        description: 'Paste the exact current main commit SHA (40 characters)'
+        description: 'Paste the exact selected tag commit SHA (main SHA for verification only)'
         required: true
         type: string
 
@@ -25,7 +25,7 @@ permissions:
 jobs:
   class_start_regressions:
     needs: deployment_plan
-    if: contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
+    if: needs.deployment_plan.outputs.release_tag != '' || contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
     uses: ./.github/workflows/class-start-regressions.yml
 
   deployment_plan:
@@ -34,6 +34,9 @@ jobs:
     timeout-minutes: 5
     outputs:
       scope: ${{ steps.plan.outputs.scope }}
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      release_tag: ${{ steps.plan.outputs.release_tag }}
+      contract_base_sha: ${{ steps.plan.outputs.contract_base_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,7 +44,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate event, target and exact current main
+      - name: Validate release tag, reviewed source and deployment scope
         id: plan
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -50,7 +53,7 @@ jobs:
   app_validation:
     name: app-validation
     needs: deployment_plan
-    if: contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
+    if: needs.deployment_plan.outputs.release_tag != '' || contains(fromJSON('["web","full","verify"]'), needs.deployment_plan.outputs.scope)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -189,7 +192,7 @@ jobs:
           echo "Web build: $build_name ($build_number)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Encrypt web symbols
-        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/v')
         env:
           WEB_SYMBOLS_ENCRYPTION_KEY: ${{ secrets.WEB_SYMBOLS_ENCRYPTION_KEY }}
         run: |
@@ -199,7 +202,7 @@ jobs:
           node tool/web_symbols.mjs seal "$RUNNER_TEMP/web-symbols.tgz" "$RUNNER_TEMP/web-symbols-v1.tgz.enc"
 
       - name: Retain encrypted web symbols
-        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        if: contains(fromJSON('["web","full"]'), needs.deployment_plan.outputs.scope) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: cloudboard-web-symbols-${{ github.run_number }}-${{ github.run_attempt }}
@@ -265,7 +268,7 @@ jobs:
         run: node tool/firebase/installed-clients.mjs
       - name: Run every Firebase contract
         env:
-          CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+          CONTRACT_BASE_REF: ${{ needs.deployment_plan.outputs.contract_base_sha }}
         run: node tool/firebase_contracts.mjs
       - name: Retain contract results even on failure
         if: always()
@@ -287,6 +290,8 @@ jobs:
     env:
       REQUIRED_JOBS: ${{ toJSON(needs) }}
       FIREBASE_DEPLOY_SCOPE: ${{ needs.deployment_plan.outputs.scope }}
+      RELEASE_SOURCE_SHA: ${{ needs.deployment_plan.outputs.source_sha }}
+      RELEASE_TAG: ${{ needs.deployment_plan.outputs.release_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -323,7 +328,7 @@ jobs:
   firebase_production:
     name: firebase-production
     needs: [firebase_required, deployment_plan]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/v') && !contains(fromJSON('["none","verify"]'), needs.deployment_plan.outputs.scope)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     concurrency:
@@ -332,6 +337,8 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
       FIREBASE_DEPLOY_SCOPE: ${{ needs.deployment_plan.outputs.scope }}
+      RELEASE_SOURCE_SHA: ${{ needs.deployment_plan.outputs.source_sha }}
+      RELEASE_TAG: ${{ needs.deployment_plan.outputs.release_tag }}
       FIREBASE_RELEASE_CANARY_ENABLED: ${{ vars.FIREBASE_RELEASE_CANARY_ENABLED }}
       FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
     steps:

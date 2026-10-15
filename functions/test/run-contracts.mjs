@@ -24,7 +24,7 @@ assert.deepEqual(manifest.suites.map(s => s.file).filter(f => f.startsWith('func
   'Every emulator suite must be registered');
 rmSync(resolve(root, output), {recursive: true, force: true});
 mkdirSync(resolve(root, output), {recursive: true});
-const report = {format: 1, sha: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
+const report = {format: 1, sha: process.env.RELEASE_SOURCE_SHA || process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
   runId: process.env.GITHUB_RUN_ID || 'local', attempt: process.env.GITHUB_RUN_ATTEMPT || '1',
   manifestHash: hashFile('tool/firebase/contract-suites.json'), startedAt: new Date().toISOString(), status: 'running', suites: []};
 const persist = () => writeJson(`${output}/report.json`, report);

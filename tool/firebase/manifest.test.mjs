@@ -10,10 +10,10 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
   // A separate repository-shaped directory exercises the actual manifest code
   // without rewriting the developer's build, source or test reports.
   const dir = mkdtempSync(join(tmpdir(), 'sta104-manifest-'));
-  const keys = ['GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FIREBASE_DEPLOY_SCOPE'];
+  const keys = ['GITHUB_SHA', 'RELEASE_SOURCE_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FIREBASE_DEPLOY_SCOPE'];
   const previous = keys.map(k => process.env[k]);
   const id = {sha: 'a'.repeat(40), runId: '123', attempt: '2'};
-  Object.assign(process.env, {GITHUB_SHA: id.sha, GITHUB_RUN_ID: id.runId, GITHUB_RUN_ATTEMPT: id.attempt, FIREBASE_DEPLOY_SCOPE: 'full'});
+  Object.assign(process.env, {GITHUB_SHA: id.sha, RELEASE_SOURCE_SHA: id.sha, GITHUB_RUN_ID: id.runId, GITHUB_RUN_ATTEMPT: id.attempt, FIREBASE_DEPLOY_SCOPE: 'full'});
   const write = (file, content) => { mkdirSync(dirname(join(dir, file)), {recursive: true}); writeFileSync(join(dir, file), content); };
   const json = (file, value) => write(file, JSON.stringify(value));
   try {

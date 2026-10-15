@@ -56,4 +56,18 @@ class NativeArtifactTests(unittest.TestCase):
         with self.assertRaises(ValueError): gate.check_resource_dump(dump.replace('"cloud-board-stationd"', 'cloud-board-stationd'), 'project_id', gate.PROJECT)
         gate.check_resource_dump(dump.replace('[STR]', '[RAW_STR]'), 'project_id', gate.PROJECT)
 
+    def test_development_artifact_cannot_be_confused_with_production(self):
+        config = gate.binding('development')
+        gate.verify_binding(config['marker'], 'arm64', 'development')
+        for code in [gate.MARKER, config['marker'] + gate.MARKER]:
+            with self.assertRaises(ValueError): gate.verify_binding(code, 'arm64', 'development')
+        info = {'CFBundleIdentifier': config['package'], 'CFBundleShortVersionString': '1.2.2', 'CFBundleVersion': '1'}
+        firebase = {'BUNDLE_ID': config['package'], 'PROJECT_ID': config['project'], 'GCM_SENDER_ID': config['sender'],
+                    'GOOGLE_APP_ID': config['ios_app'], 'DATABASE_URL': config['database'], 'STORAGE_BUCKET': config['bucket']}
+        gate.check_ios_metadata(info, firebase, '1.2.2', '1', 'development')
+        with self.assertRaises(ValueError): gate.check_ios_metadata(info, firebase, '1.2.2', '1', 'production')
+        for key in firebase:
+            wrong = {**firebase, key: 'production-value'}
+            with self.assertRaises(ValueError): gate.check_ios_metadata(info, wrong, '1.2.2', '1', 'development')
+
 if __name__ == '__main__': unittest.main()

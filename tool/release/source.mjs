@@ -16,33 +16,64 @@ export function sourceReference(value) {
   return `refs/tags/${tag}`;
 }
 
-export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventName, runGit = git}) {
-  assert.equal(eventName, 'workflow_dispatch', 'Native builds are manual');
-  assert.equal(workflowRef, 'refs/heads/main', 'Run the trusted workflow from main; choose app code with source_ref');
+export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventName, event = {}, repository, runGit = git}) {
   assert.match(workflowSha || '', shaPattern, 'Missing workflow source SHA');
   assert(['qa', 'release'].includes(mode), 'Choose qa or release');
-  const reference = sourceReference(sourceRef);
+  let reference;
+  if (eventName === 'push') {
+    assert.equal(workflowRef, 'refs/heads/main', 'Automatic development builds require main');
+    assert.equal(mode, 'qa', 'Main pushes only build the development app');
+    reference = workflowSha;
+  } else if (eventName === 'workflow_run') {
+    const run = event.workflow_run;
+    assert(mode === 'release' && run?.status === 'completed' && run.conclusion === 'success' &&
+      run.head_repository?.full_name === repository &&
+      run.path === '.github/workflows/firebase-hosting-merge.yml' &&
+      ['push', 'workflow_dispatch'].includes(run.event), 'Release requires this repository’s successful production CI');
+    assert.match(run.head_branch || '', /^v\d+\.\d+\.\d+$/, 'Production CI must identify a release tag');
+    sourceRef = run.head_branch;
+    reference = sourceReference(sourceRef);
+    assert.equal(runGit('rev-parse', '--verify', `${reference}^{commit}`), run.head_sha, 'Release tag moved after CI');
+  } else {
+    assert.equal(eventName, 'workflow_dispatch', 'Unsupported native build event');
+    assert.equal(workflowRef, 'refs/heads/main', 'Run the trusted workflow from main; choose app code with source_ref');
+    reference = sourceReference(sourceRef);
+  }
   const sha = runGit('rev-parse', '--verify', `${reference}^{commit}`);
   assert.match(sha, shaPattern, 'Source did not resolve to a commit');
   const ancestorOf = branch => {
     try { runGit('merge-base', '--is-ancestor', sha, branch); return true; } catch { return false; }
   };
-  // A tag or SHA must still identify reviewed main/develop history. Merely
-  // creating a tag must not authorize arbitrary fork code with signing secrets.
   assert(ancestorOf('refs/remotes/origin/main') ||
     (mode === 'qa' && ancestorOf('refs/remotes/origin/develop')),
   'Release source must be in main; QA source must be in main or develop. Merge the source before signing.');
-  return {sourceSha: sha, workflowSha, sourceRef, releaseMode: mode};
+  let releaseTag;
+  if (mode === 'release') {
+    releaseTag = sourceRef?.replace(/^refs\/tags\//, '');
+    assert.match(releaseTag || '', /^v\d+\.\d+\.\d+$/, 'Production releases require a vX.Y.Z tag');
+    const version = runGit('show', `${sha}:pubspec.yaml`).match(/^version:\s*(\d+\.\d+\.\d+)\+\d+\s*$/m)?.[1];
+    assert.equal(releaseTag, `v${version}`, 'Release tag must match the selected app version');
+  }
+  return {sourceSha: sha, workflowSha, sourceRef: sourceRef || workflowRef,
+    releaseMode: mode, environment: mode === 'release' ? 'production' : 'development', ...(releaseTag ? {releaseTag} : {})};
 }
 
 export function validateMobileReceipt(receipt, {run, platform} = {}) {
-  assert(receipt?.schemaVersion === 1 && receipt.kind === 'mobile-source', 'Invalid mobile source receipt');
+  assert([1, 2].includes(receipt?.schemaVersion) && receipt.kind === 'mobile-source', 'Invalid mobile source receipt');
   for (const key of ['sourceSha', 'workflowSha']) assert.match(receipt[key] || '', shaPattern, `Invalid ${key}`);
   assert(['qa', 'release'].includes(receipt.releaseMode), 'Invalid release mode');
   assert(['ios', 'android-tv'].includes(receipt.platform), 'Invalid mobile platform');
-  assert.equal(receipt.firebaseProject, 'cloud-board-stationd', 'Unexpected backend environment');
-  assert.equal(receipt.package, 'com.sunmkim.cloudboard', 'Unexpected mobile app');
-  assert.equal(receipt.productionBindingVerified, true, 'Artifact environment was not inspected');
+  const environment = receipt.schemaVersion === 1 ? 'production' : receipt.environment;
+  assert(['production', 'development'].includes(environment), 'Invalid mobile environment');
+  const development = environment === 'development';
+  assert.equal(receipt.firebaseProject, development ? 'cloud-board-development' : 'cloud-board-stationd', 'Unexpected backend environment');
+  assert.equal(receipt.package, `com.sunmkim.cloudboard${development ? '.dev' : ''}`, 'Unexpected mobile app');
+  if (receipt.schemaVersion === 1) assert.equal(receipt.productionBindingVerified, true, 'Artifact environment was not inspected');
+  else {
+    assert.equal(receipt.environmentBindingVerified, true, 'Artifact environment was not inspected');
+    assert.equal(receipt.releaseMode, development ? 'qa' : 'release', 'Release mode differs from actual app environment');
+    if (!development) assert.equal(receipt.releaseTag, `v${receipt.version}`, 'Production receipt needs its versioned release tag');
+  }
   assert.match(receipt.version || '', /^\d+\.\d+\.\d+$/);
   assert.match(receipt.build || '', /^[1-9]\d*$/);
   assert.match(receipt.artifactSha256 || '', /^[a-f0-9]{64}$/);
@@ -71,16 +102,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const env = process.env;
   if (process.argv[2] === 'resolve') {
     const source = resolveSource({sourceRef: env.SOURCE_REF, mode: env.RELEASE_MODE,
-      workflowRef: env.GITHUB_REF, workflowSha: env.GITHUB_SHA, eventName: env.GITHUB_EVENT_NAME});
+      workflowRef: env.GITHUB_REF, workflowSha: env.GITHUB_SHA, eventName: env.GITHUB_EVENT_NAME,
+      event: env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')) : {}, repository: env.GITHUB_REPOSITORY});
     assert(env.GITHUB_ENV, 'GITHUB_ENV is required');
-    appendFileSync(env.GITHUB_ENV, `SOURCE_SHA=${source.sourceSha}\nWORKFLOW_SHA=${source.workflowSha}\n`);
+    appendFileSync(env.GITHUB_ENV, `SOURCE_SHA=${source.sourceSha}\nSOURCE_REF=${source.sourceRef}\nWORKFLOW_SHA=${source.workflowSha}\nAPP_ENVIRONMENT=${source.environment}\nRELEASE_TAG=${source.releaseTag || ''}\nAPP_PACKAGE=com.sunmkim.cloudboard${source.environment === 'development' ? '.dev' : ''}\n`);
     console.log(`Build ${source.sourceSha} (${source.releaseMode}); workflow ${source.workflowSha}`);
   } else if (process.argv[2] === 'receipt') {
     assert.equal(git('rev-parse', 'HEAD'), env.SOURCE_SHA, 'Checked out app differs from selected source');
     const metadata = JSON.parse(readFileSync(process.argv[3], 'utf8'));
-    const receipt = validateMobileReceipt({...metadata, schemaVersion: 1, kind: 'mobile-source',
+    const receipt = validateMobileReceipt({...metadata, schemaVersion: 2, kind: 'mobile-source',
       sourceSha: env.SOURCE_SHA, workflowSha: env.WORKFLOW_SHA, sourceRef: env.SOURCE_REF,
-      releaseMode: env.RELEASE_MODE, runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT});
+      releaseMode: env.RELEASE_MODE, environment: env.APP_ENVIRONMENT, releaseTag: env.RELEASE_TAG || undefined, runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT});
     writeFileSync(process.argv[4], JSON.stringify(receipt, null, 2) + '\n');
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY,
       `### ${receipt.releaseMode === 'qa' ? 'QA internal test build' : 'Release candidate'}\n` +

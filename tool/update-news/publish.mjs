@@ -18,8 +18,11 @@ export const pipelines = [
 ];
 
 export function trustedRun(run, repository) {
-  return run?.head_branch === 'main' && run?.head_repository?.full_name === repository &&
-    ['push', 'workflow_dispatch'].includes(run.event) && pipelines.some(p => p.path === run.path);
+  if (run?.head_repository?.full_name !== repository || !pipelines.some(p => p.path === run.path)) return false;
+  const isMain = run.head_branch === 'main';
+  const isReleaseTag = /^v\d+\.\d+\.\d+$/.test(run.head_branch || '');
+  if (run.event === 'workflow_run') return isMain && run.path !== pipelines[0].path;
+  return (isMain || isReleaseTag) && ['push', 'workflow_dispatch'].includes(run.event);
 }
 
 export function latestRuns(runs, sha, repository) {
@@ -135,7 +138,7 @@ export async function publish(env = process.env, fetchImpl = fetch, readArtifact
   const triggerReceipt = triggerPipeline.key === 'web' ? null : await mobileRunReceipt({run: trigger,
     jobs: triggerJobs, artifacts: triggerArtifacts, readArtifact,
     platform: triggerPipeline.key === 'ios' ? 'ios' : 'android-tv'});
-  if (triggerReceipt?.releaseMode === 'qa') return skipTrigger('qa-build', 'internal QA builds do not publish app update news.');
+  if (triggerReceipt?.releaseMode === 'qa' || triggerReceipt?.environment === 'development') return skipTrigger('qa-build', 'internal QA builds do not publish app update news.');
   const sha = triggerReceipt?.sourceSha ?? trigger.head_sha;
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid commit SHA.');
   const newsPath = 'release-notes/current.json';
@@ -162,7 +165,7 @@ export async function publish(env = process.env, fetchImpl = fetch, readArtifact
     return finish({operation: 'skipped', reason: 'no-news'});
   }
   if (news.version !== version) throw new Error('Update news version must match the deployed app version');
-  const allRuns = await list(`/actions/runs?head_sha=${sha}&branch=main`, 'workflow_runs');
+  const allRuns = await list(`/actions/runs?head_sha=${sha}`, 'workflow_runs');
   const runs = latestRuns([...allRuns.filter(run => run.id !== trigger.id), {...trigger, head_sha: sha}], sha, repository);
   const results = [];
   for (let i = 0; i < pipelines.length; i++) {
@@ -175,7 +178,7 @@ export async function publish(env = process.env, fetchImpl = fetch, readArtifact
     else if (run && pipelines[i].key !== 'web' && uploaded(pipelines[i], jobs)) {
       const receipt = run.id === trigger.id ? triggerReceipt : await mobileRunReceipt({run, jobs, artifacts, readArtifact,
         platform: pipelines[i].key === 'ios' ? 'ios' : 'android-tv'});
-      if (receipt && (receipt.releaseMode === 'qa' || receipt.sourceSha !== sha)) jobs = [];
+      if (receipt && (receipt.releaseMode === 'qa' || receipt.environment === 'development' || receipt.sourceSha !== sha)) jobs = [];
     }
     results.push({pipeline: pipelines[i], run, jobs, artifacts});
   }

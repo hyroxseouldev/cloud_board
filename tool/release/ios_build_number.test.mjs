@@ -16,3 +16,14 @@ test('iOS traverses all history pages and refuses foreign pagination', async () 
   assert.deepEqual(await inventoryIos('test-only', request), {appId: '6809105126', highestBuild: 553, observedBuildCount: 2});
   await assert.rejects(inventoryIos('test-only', async url => ({ok: true, json: async () => url.includes('/apps?') ? {data: [{id: '1'}]} : {data: [], links: {next: 'https://attacker.invalid/v1/builds'}}})), /pagination/);
 });
+
+test('development iOS allocation reads only the distinct bundle and permits its first build', async () => {
+  const seen = [];
+  const inventory = await inventoryIos('test-only', async url => {
+    seen.push(url);
+    return {ok: true, json: async () => url.includes('/apps?') ? {data: [{id: '123'}]} : {data: []}};
+  }, 'com.sunmkim.cloudboard.dev');
+  assert.match(seen[0], /com.sunmkim.cloudboard.dev/);
+  assert.equal(inventory.highestBuild, 0);
+  await assert.rejects(inventoryIos('test-only', async () => {throw new Error('must not request');}, 'other.bundle'), /Unexpected iOS bundle/);
+});
