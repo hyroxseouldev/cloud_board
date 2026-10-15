@@ -3,16 +3,27 @@ import assert from 'node:assert/strict';
 import {requireCommonValidation} from './common_validation.mjs';
 const sha = 'a'.repeat(40), repository = 'owner/repo';
 const run = (id, extra = {}) => ({id, head_sha: sha, head_branch: 'v1.2.3', head_repository: {full_name: repository},
-  event: 'push', run_attempt: 1, run_started_at: `2026-10-15T00:0${id}:00Z`, ...extra});
+  event: 'push', status: 'completed', conclusion: 'success', run_attempt: 1, run_started_at: `2026-10-15T00:0${id}:00Z`, ...extra});
 const successfulJobs = [
   {name: 'app-validation', conclusion: 'success', steps: ['Analyze', 'Test'].map(name => ({name, conclusion: 'success'}))},
   {name: 'class_start_regressions / Class start lifecycle and TV preparation', conclusion: 'success',
     steps: ['Required native logic regressions', 'Required web regressions'].map(name => ({name, conclusion: 'success'}))},
 ];
-test('release reuses exact app validation while independent deployment can still be running', async () => {
+test('release reuses completed successful tag CI with concrete app validation', async () => {
   const selected = await requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
-    ? {workflow_runs: [run(1, {status: 'in_progress'})]} : {jobs: successfulJobs}});
+    ? {workflow_runs: [run(1)]} : {jobs: successfulJobs}});
   assert.equal(selected.id, 1);
+});
+test('manual release cannot bypass failed Firebase contracts or incomplete tag CI despite green app checks', async () => {
+  for (const extra of [
+    {status: 'queued', conclusion: null}, {status: 'in_progress', conclusion: null},
+    ...['failure', 'cancelled', 'timed_out', 'skipped', 'neutral', null].map(conclusion => ({conclusion})),
+  ]) {
+    await assert.rejects(requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
+      ? {workflow_runs: [run(2, extra), run(1)]}
+      : {jobs: [...successfulJobs, {name: 'firebase-contracts', conclusion: 'failure'}]}}),
+    /Latest release validation workflow has not completed successfully/);
+  }
 });
 test('latest retry must pass; no fallback to older green runs or lightweight handoff checks', async () => {
   for (const state of ['failure', 'skipped', null]) {
@@ -54,7 +65,7 @@ test('cancelled, unplanned, partial, pending, failed or missing common validatio
   ];
   for (const candidate of cases) {
     await assert.rejects(requireCommonValidation({repository, sha, request: async path => path.includes('/workflows/')
-      ? {workflow_runs: [run(2, {conclusion: candidate.conclusion}), run(1)]}
+      ? {workflow_runs: [run(2, {conclusion: candidate.conclusion ?? 'success'}), run(1)]}
       : {jobs: path.includes('/runs/2/') ? candidate.jobs : successfulJobs}}), /Latest release validation/);
   }
 });

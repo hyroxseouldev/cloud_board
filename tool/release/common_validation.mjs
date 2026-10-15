@@ -19,19 +19,21 @@ export async function requireCommonValidation({repository, sha, request}) {
   for (const run of runs) {
     assert(Number.isSafeInteger(run.run_attempt) && run.run_attempt > 0,
       'Latest release validation attempt is missing; an older successful attempt cannot authorize release.');
+    // Manual uploads follow the same completion rule as the automatic
+    // workflow_run trigger. Passing app checks cannot bypass failed contracts
+    // or an unfinished production release attempt.
+    assert(run.status === 'completed' && run.conclusion === 'success',
+      'Latest release validation workflow has not completed successfully; an older successful attempt cannot authorize release.');
     const {jobs} = await request(`/repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
     // Every release tag runs both common checks, even for backend-only changes.
     // A skipped or incomplete retry cannot reuse an older green tag attempt.
-    assert(run.conclusion !== 'cancelled',
-      'Latest release validation was cancelled; an older successful attempt cannot authorize release.');
     for (const check of checks) {
       const job = jobs?.find(job => job.name === check.name);
       assert(job?.conclusion === 'success' && check.steps.every(name =>
         job.steps?.some(step => step.name === name && step.conclusion === 'success')),
       `Latest release validation has not passed ${check.name}; an older successful attempt cannot authorize release.`);
     }
-    // Only validation is reused. Server/Hosting jobs need not finish; the separate
-    // backend gate checks compatibility with what is actually deployed now.
+    // The separate backend gate still checks the live deployment at upload time.
     return run;
   }
   assert.fail('No release integration validation for this app source. Run the release-tag validation, or use QA mode for internal testing.');

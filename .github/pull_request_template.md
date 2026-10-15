@@ -41,7 +41,7 @@
 PR/develop에서는 코드와 위 증거를 리뷰하며 전체 CI를 반복 실행하는 것을 기능 인계 조건으로 삼지 않습니다.
 기능 브랜치→develop은 squash 한 번, develop→main 출시 승격은 merge 한 번으로 진행합니다.
 정식 배포 전에는 실제 대상 커밋과 배포 범위에 필요한 통합 검증이 성공해야 합니다.
-모바일은 기본 브랜치의 수동 workflow에서 release_mode(qa/release), source_ref를 선택합니다. 태그는 선택 사항이며 소스는 고정 SHA로 기록합니다.
+모바일은 기본 브랜치의 수동 workflow에서 release_mode(qa/release), source_ref를 선택합니다. qa는 태그 없이 가능하고 release는 검증된 vX.Y.Z 태그가 필요합니다. 두 모드 모두 기존 앱·운영 Firebase를 사용하며 소스는 고정 SHA로 기록합니다.
 qa 업로드는 서버·웹 배포나 정식 출시 완료가 아닙니다. 정식 배포 소식·최소 지원 버전을 승격하지 않습니다.
 STA-184 E2E 자동화의 계획을 실제 검증 결과로 기재하지 마세요.
 정책: docs/feature-verification.md
