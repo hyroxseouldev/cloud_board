@@ -118,6 +118,7 @@ test('explicit CI skip omits heavy jobs while preserving the selected web build'
       }
       assert.equal(evaluate(jobCondition(file, 'firebase_contracts'), values), validation_mode === 'required' && scope !== 'web');
       assert.equal(evaluate(jobCondition(file, 'web_build'), values), ['full', 'web', 'verify'].includes(scope));
+      assert.equal(evaluate(jobCondition(file, 'smoke_inputs'), values), validation_mode === 'skipped' && ['backend', 'rules', 'full'].includes(scope));
     }
   }
   const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
@@ -130,4 +131,16 @@ test('explicit CI skip omits heavy jobs while preserving the selected web build'
   const deploy = workflow.slice(workflow.indexOf('  firebase_production:'));
   for (const command of ['node tool/firebase/environments.mjs check', 'npm ci --prefix functions', 'node tool/firebase/release.mjs current', 'node tool/firebase/release.mjs verify', 'node functions/tools/release-smoke.mjs']) assert(deploy.includes(command));
   assert.match(workflow, /needs: \[[^\n]*web_build\]/);
+});
+
+test('skipped backend CI exports current smoke payloads and validates them before production writes', () => {
+  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  const inputs = workflow.slice(workflow.indexOf('  smoke_inputs:'), workflow.indexOf('  firebase_required:'));
+  assert(inputs.includes('flutter test tool/export_workout_save_fixtures_test.dart tool/export_app_contracts_test.dart'));
+  assert(inputs.includes('node tool/firebase/smoke-inputs.mjs prepare'));
+  assert(!/firebase_contracts\.mjs|emulators:exec|flutter analyze/.test(inputs));
+  assert.match(workflow, /needs: \[[^\n]*smoke_inputs[^\n]*\]/);
+  assert.match(workflow, /name: firebase-smoke-inputs-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}\n          path: build\/release\/smoke-inputs/);
+  const deploy = workflow.slice(workflow.indexOf('  firebase_production:'));
+  assert(deploy.indexOf('node functions/tools/release-smoke.mjs preflight') < deploy.indexOf('name: Authenticate Firebase rule deployment'));
 });

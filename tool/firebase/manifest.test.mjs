@@ -5,6 +5,7 @@ import {join, dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {pathToFileURL} from 'node:url';
 import {hash, readJson} from './common.mjs';
+import {prepareSmokeInputs} from './smoke-inputs.mjs';
 
 test('candidate verification rejects missing evidence, changed artifacts, wrong targets and new files', async () => {
   // A separate repository-shaped directory exercises the actual manifest code
@@ -18,7 +19,9 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
   const write = (file, content) => { mkdirSync(dirname(join(dir, file)), {recursive: true}); writeFileSync(join(dir, file), content); };
   const json = (file, value) => write(file, JSON.stringify(value));
   try {
-    for (const file of ['tool/firebase/release.mjs', 'tool/firebase/common.mjs', 'tool/firebase/release-validation.mjs', 'tool/firebase/support_retirements.mjs', 'firebase.json', 'firestore.rules', 'database.rules.json', 'storage.rules']) write(file, readFileSync(file));
+    for (const file of ['tool/firebase/release.mjs', 'tool/firebase/common.mjs', 'tool/firebase/release-validation.mjs', 'tool/firebase/support_retirements.mjs',
+      'tool/firebase/latest-release.mjs', 'tool/firebase/release-runs.mjs', 'tool/firebase/github-artifact.mjs', 'tool/firebase/smoke-inputs.mjs',
+      'firebase.json', 'firestore.rules', 'database.rules.json', 'storage.rules']) write(file, readFileSync(file));
     for (const directory of ['functions/src', 'functions/tools', 'functions/certificates', 'functions/test/fixtures']) write(`${directory}/example.js`, 'verified');
     for (const file of ['firestore.indexes.json', 'functions/package.json', 'functions/package-lock.json', 'build/contracts/app-current.json', 'build/contracts/workout-save-current.json', 'tool/firebase/compatibility-policy.json']) json(file, {});
     const sourceCommit = 'b'.repeat(40);
@@ -137,9 +140,27 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
       runId: id.runId, runAttempt: id.attempt, validationMode: 'skipped', reason: 'Incident recovery', actor: 'release-owner'};
     const writeAudit = value => write(auditFile, `${JSON.stringify(value, null, 2)}\n`);
     writeAudit(audit);
+    assert.throws(() => makeManifest(), /ENOENT/);
+    json('build/contracts/workout-save-current.json', {format: 1, scenarios: [{contentOnly: true,
+      writes: [{workout: {author: {}}, summary: {}}]}]});
+    json('build/contracts/app-current.json', {format: 1, playback: [{split: true, state: {}, snapshot: {author: {}}}]});
+    prepareSmokeInputs({sourceSha: id.sha, rootDir: dir});
     const skippedCi = makeManifest(); verifyManifest(skippedCi);
     assert.deepEqual(skippedCi.validation, audit);
     assert(!Object.keys(skippedCi.files).some(path => /^build\/(contracts|firebase-contracts)\//.test(path)));
+    const smokePaths = ['app-current.json', 'workout-save-current.json', 'metadata.json'].map(name => `build/release/smoke-inputs/${name}`);
+    for (const file of smokePaths) {
+      assert.equal(skippedCi.files[file], hash(readFileSync(join(dir, file))));
+      const missingSmoke = structuredClone(skippedCi); delete missingSmoke.files[file];
+      assert.throws(() => verifyManifest(missingSmoke), /Files added\/removed/);
+    }
+    const smokeMetadata = JSON.parse(readFileSync(join(dir, smokePaths[2])));
+    json(smokePaths[2], {...smokeMetadata, sourceSha: 'c'.repeat(40)});
+    assert.throws(() => verifyManifest(skippedCi), /Smoke input source SHA mismatch/);
+    prepareSmokeInputs({sourceSha: id.sha, rootDir: dir});
+    write(smokePaths[0], '{}');
+    assert.throws(() => verifyManifest(skippedCi), /Smoke input changed/);
+    prepareSmokeInputs({sourceSha: id.sha, rootDir: dir});
     for (const patch of [{reason: ''}, {sourceSha: 'c'.repeat(40)}, {runAttempt: '1'}, {releaseTag: 'v1.2.4'}, {actor: ''}]) {
       writeAudit({...audit, ...patch});
       assert.throws(() => makeManifest());
