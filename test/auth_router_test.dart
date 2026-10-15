@@ -403,7 +403,7 @@ void main() {
   );
 
   testWidgets(
-    'retired saved exploration cannot replace home or explicit destinations',
+    'saved exploration cannot replace home or explicit destinations',
     (tester) async {
       await LocalExplorationRepository(SharedPreferencesAsync()).save(
         'owner',
@@ -423,7 +423,7 @@ void main() {
       expect(await harness.redirect('/onboarding'), '/');
       expect(
         await harness.redirect('/explore?starter=basics&purpose=operating'),
-        '/',
+        '/explore?starter=basics&purpose=operating',
       );
       expect(
         await harness.redirect('/login?from=%2Fexplore%3Fstarter%3Dbasics'),

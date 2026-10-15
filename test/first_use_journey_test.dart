@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/router/app_router.dart';
+import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/auth/domain/entities/auth_user.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/onboarding/data/repositories/exploration_repository_impl.dart';
+import 'package:cloud_board/src/app/feature/onboarding/data/repositories/onboarding_repository.dart';
+import 'package:cloud_board/src/app/feature/onboarding/domain/entities/center_onboarding.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/first_class_progress.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/exploration_controller.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
@@ -25,6 +28,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/onboarding_fixture.dart';
 
 const _user = AuthUser(id: 'owner', email: '', displayName: '', photoUrl: null);
 const _author = WorkoutAuthor(id: 'owner', displayName: '', photoUrl: null);
@@ -163,7 +168,7 @@ void main() {
   });
 
   testWidgets(
-    'retired exploration returns to normal entry and private routes stay guarded',
+    'examples remain public while creating and private routes stay guarded',
     (tester) async {
       final users = StreamController<AuthUser?>();
       var needsSetup = true;
@@ -188,8 +193,11 @@ void main() {
             router.configuration.findMatch(Uri.parse(path)),
             redirectHistory: [],
           )).uri.toString();
-      // Obsolete demo links now use the same authentication entry as home.
-      expect(await redirect('/explore/play/interval'), '/auth-loading');
+      // Examples are usable even while authentication is restoring.
+      expect(
+        await redirect('/explore/play/interval'),
+        '/explore/play/interval',
+      );
       final restoring = await redirect(
         '/starter-workouts?starter=team&purpose=preparing',
       );
@@ -215,7 +223,7 @@ void main() {
         '/explore/play/team',
         '/explore/play/private',
       ]) {
-        expect(await redirect(path), '/login');
+        expect(await redirect(path), path);
       }
       expect(
         await redirect('/starter-workouts?starter=team'),
@@ -231,7 +239,7 @@ void main() {
         await redirect('/login/email?starter=team&purpose=preparing'),
         '/onboarding?starter=team&purpose=preparing',
       );
-      expect(await redirect('/explore/play/team'), '/onboarding');
+      expect(await redirect('/explore/play/team'), '/explore/play/team');
       expect(
         Uri.parse(await redirect('/editor/new')).queryParameters['from'],
         '/editor/new',
@@ -246,11 +254,92 @@ void main() {
         '/starter-workouts?starter=team',
       );
       expect(await redirect('/login?from=https://evil.invalid'), '/');
-      expect(await redirect('/explore?starter=basics&purpose=operating'), '/');
+      expect(
+        await redirect('/explore?starter=basics&purpose=operating'),
+        '/explore?starter=basics&purpose=operating',
+      );
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump(const Duration(milliseconds: 1));
     },
   );
+
+  for (final signedIn in [false, true]) {
+    testWidgets(
+      'example playback returns to ${signedIn ? 'verification with entered phone' : 'login'}',
+      (tester) async {
+        final repository = FakeOnboarding(const CenterOnboarding());
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith(
+              (_) => Stream.value(signedIn ? onboardingUser : null),
+            ),
+            androidTvProvider.overrideWith((_) async => false),
+            onboardingRepositoryProvider.overrideWith((_) => repository),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.listen(authStateProvider, (_, _) {});
+        await tester.pump();
+        if (signedIn) {
+          container.listen(onboardingRequiredProvider, (_, _) {});
+          await tester.pump();
+          expect(container.read(onboardingRequiredProvider).value, isTrue);
+        }
+        final router = container.read(appRouterProvider);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              theme: XonTheme.light,
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final entry = signedIn ? '/onboarding' : '/login';
+        expect(router.routeInformationProvider.value.uri.path, entry);
+        if (signedIn) {
+          await tester.enterText(find.byType(TextField), '01012345678');
+        }
+        final button = find.byKey(
+          ValueKey(
+            signedIn
+                ? 'explore-before-verification'
+                : 'explore-without-account',
+          ),
+        );
+        await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(find.byType(ExploreScreen), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('play-recommended-example')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(WorkoutRehearsalScreen), findsOneWidget);
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(ExploreScreen), findsOneWidget);
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(router.routeInformationProvider.value.uri.path, entry);
+        expect(button, findsOneWidget);
+        if (signedIn) {
+          expect(
+            tester.widget<TextField>(find.byType(TextField)).controller!.text,
+            '01012345678',
+          );
+        }
+        expect(repository.sentPhone, isNull);
+        expect(repository.saves, 0);
+        expect(container.exists(playbackActionControllerProvider), isFalse);
+        expect(container.exists(workoutActionControllerProvider), isFalse);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 
   for (final size in [const Size(320, 568), const Size(834, 1194)]) {
     testWidgets(

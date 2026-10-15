@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {environments, validateSdk, developmentDeployArgs, verifyEnvironments, validateDevelopmentWeb} from './environments.mjs';
+import {environments, validateSdk, developmentDeployArgs, verifyEnvironments, validateDevelopmentWeb, versionDevelopmentEntrypoint} from './environments.mjs';
 test('development deploy cannot target production or accept arbitrary scope', () => {
   assert.throws(() => developmentDeployArgs('production', 'rules'));
   assert.throws(() => developmentDeployArgs('development', 'functions'));
@@ -32,4 +32,17 @@ test('development Hosting rejects an unstamped, production or overwritten web bu
   assert.throws(() => validateDevelopmentWeb({...stamp, project: 'cloud-board-stationd'}, bundle));
   assert.throws(() => validateDevelopmentWeb(stamp, Buffer.from('production bundle')));
   assert.throws(() => validateDevelopmentWeb({}, bundle));
+});
+
+test('each changed development bundle gets fresh bootstrap and entrypoint URLs', () => {
+  const index = '<script src="flutter_bootstrap.js" async></script>';
+  const bootstrap = '_flutter.buildConfig = {"builds":[{"mainJsPath":"main.dart.js"}]}';
+  const first = versionDevelopmentEntrypoint(index, bootstrap, 'first build');
+  const second = versionDevelopmentEntrypoint(index, bootstrap, 'second build');
+  assert.notEqual(first.mainJsSha256, second.mainJsSha256);
+  assert(first.index.includes(`flutter_bootstrap.js?build=${first.mainJsSha256}`));
+  assert(first.bootstrap.includes(`main.dart.js?build=${first.mainJsSha256}`));
+  assert.deepEqual(first, versionDevelopmentEntrypoint(index, bootstrap, 'first build'));
+  assert.throws(() => versionDevelopmentEntrypoint('', bootstrap, 'build'));
+  assert.throws(() => versionDevelopmentEntrypoint(index, '', 'build'));
 });

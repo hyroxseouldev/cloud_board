@@ -27,6 +27,11 @@ popup closed without delivering the auth result (`popup-closed-by-user`). Local
 previews and production retain popup sign-in. Verify the real Google round trip
 and the returned app session; a successful build alone does not verify OAuth.
 
+The guarded development build versions both the Flutter bootstrap and app script
+URLs with the app bundle's SHA-256. Development Hosting revalidates cached files
+so a reopened page loads the deployed build instead of retaining an older login
+flow. This changes only development build output and Hosting configuration.
+
 ## Main development deployment and release tags
 
 The normal development trigger is a merge into `main`. The development workflow
