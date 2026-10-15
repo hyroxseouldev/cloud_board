@@ -28,27 +28,10 @@
 
 `class-start-regressions.yml`은 VM 및 Chrome에서 명시한 필수 파일을 실행하고, 실제 machine 이벤트에 성공 완료·실행된 테스트가 있는지 확인한다. fail/error/skip/missing/0건은 모두 실패다. web `firebase-required`, 개발 Firebase 배포, Android 업로드, iOS 업로드가 이 job 성공을 필요로 한다. TV 일부 미응답과 컨트롤러 재연결까지 포함한 필수 파일 및 전체 앱 테스트의 결과는 통합 PR의 검증 항목과 Checks에서 관리한다. 각 CI run/attempt의 `class-start-*` artifact에 후보 SHA, 플랫폼, suite, 실행 수와 원본 결과를 보관한다. Firebase 계약 게이트와 기존 exact-SHA backend 검증도 유지한다.
 
-## 실기기 검수와 운영 승인
+## 배포 검증과 후속 실기기 확인
 
-자동 검증은 실기기 검수를 대체하지 않는다. 사용자 요청대로 실기기 테스트·배포·스토어 업로드는 수행하지 않는다. 격리 개발 Firebase 후보와 테스트 계정을 사용하여 Android/iOS/Web 컨트롤러별 실제 TV 3대 시작 10회, 일시정지/재개/종료, 재실행/연결 복구, 기존·후보 TV 빌드를 검수한다. 기기 모델, 빌드, 후보 SHA, session ID, 시각, 화면 및 CI 증거는 접근 제한된 QA 기록에 남긴다.
+2026-10-15 릴리스 담당자 요청으로 실기기 검수 승인·면제를 운영 배포의 필수 조건에서 제거했다. TV 3대 반복 시작 결과나 별도 승인 변수를 입력할 필요 없이 필수 자동 회귀, Firebase 계약, 배포 전후 검증이 성공하면 배포가 진행된다. internal/TestFlight 업로드는 같은 main 커밋의 검증된 운영 backend 배포와 서명·버전 검사를 계속 요구한다.
 
-운영 Firebase/web 변경은 릴리스 담당자가 `CLASS_START_PHYSICAL_APPROVAL` repository variable에 아래 JSON 형태의 실제 승인 기록을 입력해야 진행한다. 예시는 승인 결과가 아니며 저장소/변수에 자동 설정하지 않는다. SHA가 바뀌면 기존 승인은 통과하지 않는다. 내부 build-only 산출물과 개발 환경 검증은 이 운영 승인 조건의 대상이 아니다. 승인 전 Android/iOS 기기 검수는 같은 후보 소스를 개발 Firebase 대상으로 빌드한 개발 서명 앱을 내부 설치하여 진행할 수 있다. 기존 internal/TestFlight 업로드의 exact-SHA 운영 backend 확인은 유지되므로, 그 자동 업로드를 승인 전 검수의 유일한 진입 경로로 사용하지 않는다. 스토어 공개/단계적 rollout은 별도 운영 승인 후 진행하며 이 저장소의 internal/TestFlight 업로드가 공개 출시 승인을 의미하지 않는다.
-
-```json
-{
-  "sha": "<40-character candidate SHA>",
-  "result": "passed",
-  "approvedBy": "<release owner>",
-  "testedAt": "<ISO timestamp>",
-  "evidenceUrl": "https://<restricted QA record>",
-  "isolatedTestAccount": true,
-  "tvBuilds": ["<supported build>", "<candidate build>"],
-  "controllers": {
-    "android": {"starts": 10, "tvCount": 3, "pauseResumeEnd": true, "reconnectAndRestart": true, "build": "<build>"},
-    "ios": {"starts": 10, "tvCount": 3, "pauseResumeEnd": true, "reconnectAndRestart": true, "build": "<build>"},
-    "web": {"starts": 10, "tvCount": 3, "pauseResumeEnd": true, "reconnectAndRestart": true, "build": "<build>"}
-  }
-}
-```
+실기기 확인은 필요할 때 격리 계정으로 진행하는 후속 품질 점검이다. 실제 수행한 기기·빌드·수업 시작·일시정지/재개·종료·재연결 결과를 기록하며 자동 테스트 성공을 실기기 성공으로 기록하지 않는다.
 
 이미 설치된 1.1.0/1.1.1 네이티브 앱의 provider 수명 문제는 서버 배포만으로 고쳐지지 않는다. 패치 앱 업데이트가 필요하며 버전·빌드는 실제 업로드 시 기존 릴리스 도구로 결정한다. 출시 후 실제 시작 시도 대비 성공률과 동일 Crashlytics 오류를 확인하고, 시작 시도가 없는 상태를 성공으로 기록하지 않는다.

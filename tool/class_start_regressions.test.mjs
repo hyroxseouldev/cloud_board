@@ -106,3 +106,18 @@ test('workflow and manifest aggregation accept the same four jobs and reject unv
   const release = readFileSync('tool/firebase/release.mjs', 'utf8');
   assert.match(release, /if \(command === 'aggregate'\) \{\s+requireReleaseJobs\(/);
 });
+
+test('production deploy uses automated evidence without a physical QA approval or waiver', () => {
+  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  assert.doesNotMatch(workflow, /CLASS_START_PHYSICAL_|class_start_physical_gate|physical-qa-decision/);
+  for (const command of ['node tool/firebase/release.mjs current', 'node tool/firebase/release.mjs verify',
+    'node functions/tools/release-smoke.mjs preflight']) {
+    assert(workflow.includes(command), `Missing automated release check: ${command}`);
+    assert(workflow.indexOf(command) < workflow.indexOf('name: Authenticate Firebase rule deployment'));
+  }
+  for (const name of ['google-play-main', 'testflight-main']) {
+    const native = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
+    assert.match(native, /needs: \[[^\n]*backend_ready/);
+    assert.match(native, /node tool\/release_backend_gate.mjs --check-only/);
+  }
+});
