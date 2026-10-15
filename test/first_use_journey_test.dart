@@ -163,7 +163,7 @@ void main() {
   });
 
   testWidgets(
-    'public fixtures bypass onboarding, private routes and signup continuation remain guarded',
+    'retired exploration returns to normal entry and private routes stay guarded',
     (tester) async {
       final users = StreamController<AuthUser?>();
       var needsSetup = true;
@@ -188,11 +188,8 @@ void main() {
             router.configuration.findMatch(Uri.parse(path)),
             redirectHistory: [],
           )).uri.toString();
-      // The demo also remains available while auth is being restored.
-      expect(
-        await redirect('/explore/play/interval'),
-        '/explore/play/interval',
-      );
+      // Obsolete demo links now use the same authentication entry as home.
+      expect(await redirect('/explore/play/interval'), '/auth-loading');
       final restoring = await redirect(
         '/starter-workouts?starter=team&purpose=preparing',
       );
@@ -208,13 +205,18 @@ void main() {
         '/player/private',
         '/displays',
         '/profile',
-        '/explore/play/private',
       ]) {
         final redirected = Uri.parse(await redirect(path));
         expect(redirected.path, '/login');
         expect(redirected.queryParameters['from'], path);
       }
-      expect(await redirect('/explore'), '/explore');
+      for (final path in [
+        '/explore?starter=basics&purpose=operating',
+        '/explore/play/team',
+        '/explore/play/private',
+      ]) {
+        expect(await redirect(path), '/login');
+      }
       expect(
         await redirect('/starter-workouts?starter=team'),
         '/login?starter=team',
@@ -229,7 +231,7 @@ void main() {
         await redirect('/login/email?starter=team&purpose=preparing'),
         '/onboarding?starter=team&purpose=preparing',
       );
-      expect(await redirect('/explore/play/team'), '/explore/play/team');
+      expect(await redirect('/explore/play/team'), '/onboarding');
       expect(
         Uri.parse(await redirect('/editor/new')).queryParameters['from'],
         '/editor/new',
@@ -244,6 +246,7 @@ void main() {
         '/starter-workouts?starter=team',
       );
       expect(await redirect('/login?from=https://evil.invalid'), '/');
+      expect(await redirect('/explore?starter=basics&purpose=operating'), '/');
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump(const Duration(milliseconds: 1));
     },

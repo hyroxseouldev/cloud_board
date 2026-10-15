@@ -26,5 +26,4 @@ String starterLocation(
 }
 
 bool isExplorationPath(String path) =>
-    path == '/explore' ||
-    StarterWorkout.values.any((t) => path == '/explore/play/${t.key}');
+    path == '/explore' || path.startsWith('/explore/');

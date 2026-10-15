@@ -10,7 +10,6 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/starter_workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
-import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
 
 class StarterWorkoutsScreen extends HookConsumerWidget {
   const StarterWorkoutsScreen({super.key, this.initialTemplate, this.purpose});
@@ -111,31 +110,6 @@ class StarterWorkoutsScreen extends HookConsumerWidget {
               '${workout.modules.length}개 슬라이드 · ${workoutDurationText(workout)}',
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: action.isLoading
-                  ? null
-                  : () => context.push(
-                      starterLocation(
-                        '/explore/play/${selected.value.key}',
-                        null,
-                        purpose: purpose,
-                      ),
-                    ),
-              icon: const Icon(Icons.play_circle_outline),
-              label: const Text('저장 전에 이 기기에서 체험'),
-            ),
-            TextButton(
-              onPressed: action.isLoading
-                  ? null
-                  : () => context.go(
-                      starterLocation(
-                        '/explore',
-                        selected.value,
-                        purpose: purpose,
-                      ),
-                    ),
-              child: const Text('다른 예시 둘러보기'),
-            ),
             const SizedBox(height: 16),
             WorkoutSlidePreview(module: workout.modules.first, isRest: false),
             const SizedBox(height: 8),

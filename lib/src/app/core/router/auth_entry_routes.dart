@@ -7,6 +7,8 @@ String? entryReturnLocation(String? value) {
       !uri.path.startsWith('/') ||
       uri.path.startsWith('//') ||
       uri.path.contains(r'\') ||
+      uri.path == '/explore' ||
+      uri.path.startsWith('/explore/') ||
       const ['/auth-loading', '/login', '/login/email'].contains(uri.path)) {
     return null;
   }

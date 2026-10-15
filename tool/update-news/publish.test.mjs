@@ -4,7 +4,7 @@ import {readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync, existsSync}
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {pipelines, trustedRun, latestRuns, deploymentStatus, sourceRunId, requestJson, publish} from './publish.mjs';
+import {pipelines, trustedRun, latestRuns, deploymentStatus, sourceRunId, requestJson, readCorrection, publish} from './publish.mjs';
 
 const repository = 'test/repo';
 const sha = 'a'.repeat(40);
@@ -85,7 +85,7 @@ async function withDeployment(options, check) {
     writeFileSync('pubspec.yaml', `version: ${options.version ?? note.version}+2\n`);
     if (options.withNews !== false) {
       mkdirSync('release-notes');
-      writeFileSync('release-notes/current.json', JSON.stringify(note));
+      writeFileSync('release-notes/current.json', JSON.stringify(options.news ?? note));
     }
     git('add', '.');
     git('commit', '-m', 'deployed release');
@@ -193,4 +193,81 @@ test('dry runs verify deployments without requiring or writing an output payload
     assert.equal(existsSync(outputPath), false);
     assert.match(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8'), /Dry run: no app feed payload written/);
   });
+});
+
+function commitCorrection(git, deployedSha, news = note) {
+  const path = `release-notes/corrections/${deployedSha}.json`;
+  mkdirSync('release-notes/corrections', {recursive: true});
+  writeFileSync(path, JSON.stringify(news));
+  git('add', path);
+  git('commit', '-m', 'review exact deployed-SHA news correction');
+  return path;
+}
+
+const staleNews = {...note, id: 'old-release', version: '1.1.1'};
+
+test('exact-SHA corrections recover stale or missing editorial using confirmed deployment builds', async () => {
+  for (const options of [{news: staleNews}, {withNews: false}]) {
+    await withDeployment(options, async ({git, env, deployments, fakeFetch, deployedSha}) => {
+      const path = commitCorrection(git, deployedSha);
+      const result = await publish(env, fakeFetch);
+      assert.deepEqual(result.news, {...note, builds: {web: '82.2', android: '52', ios: '542'}});
+      assert.match(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8'), new RegExp(path));
+      // Editorial recovery cannot turn a failed upload into a deployed build.
+      for (const deployment of deployments) deployment.jobs = jobs(deployment.pipeline, 'failure');
+      assert.deepEqual(await publish(env, fakeFetch), {operation: 'skipped', reason: 'no-deployed-builds'});
+      assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+    });
+  }
+});
+
+test('valid deployed editorial is never overridden by a later correction', async () => {
+  await withDeployment({}, async ({git, env, fakeFetch, deployedSha}) => {
+    commitCorrection(git, deployedSha, {...note, title: 'Not part of this deployed release'});
+    const result = await publish(env, fakeFetch);
+    assert.equal(result.news.title, note.title);
+    assert.doesNotMatch(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8'), /Editorial correction:/);
+  });
+});
+
+test('corrections require an exact SHA, committed content, and the deployed app version', async () => {
+  for (const invalidSha of ['', '../current', 'a'.repeat(39), 'A'.repeat(40)]) {
+    assert.throws(() => readCorrection(invalidSha), /Invalid correction commit SHA/);
+  }
+  await withDeployment({news: staleNews}, async ({git, env, fakeFetch, deployedSha}) => {
+    commitCorrection(git, 'b'.repeat(40));
+    await assert.rejects(publish(env, fakeFetch), /version must match/);
+    const target = `release-notes/corrections/${deployedSha}.json`;
+    writeFileSync(target, JSON.stringify(note));
+    await assert.rejects(publish(env, fakeFetch), /version must match/);
+    assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+  });
+  for (const correction of [{...note, version: '9.9.9'}, {...note, debugLog: 'not-public'}]) {
+    await withDeployment({news: staleNews}, async ({git, env, fakeFetch, deployedSha}) => {
+      commitCorrection(git, deployedSha, correction);
+      await assert.rejects(publish(env, fakeFetch), /version must match|Unknown news field/);
+      assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+    });
+  }
+});
+
+test('a correction cannot be edited or deleted and re-added after its first commit', async () => {
+  for (const change of ['edit', 'delete-and-readd']) {
+    await withDeployment({news: staleNews}, async ({git, env, fakeFetch, deployedSha}) => {
+      const path = commitCorrection(git, deployedSha);
+      if (change === 'edit') {
+        // Even a whitespace-only edit changes the immutable Git blob.
+        writeFileSync(path, `${JSON.stringify(note)}\n`);
+        git('add', path);
+        git('commit', '-m', 'change correction after approval');
+      } else {
+        git('rm', path);
+        git('commit', '-m', 'delete correction');
+        commitCorrection(git, deployedSha);
+      }
+      writeFileSync(env.UPDATE_NEWS_OUTPUT_PATH, '{"stale":true}');
+      await assert.rejects(publish(env, fakeFetch), /correction is immutable/);
+      assert.equal(existsSync(env.UPDATE_NEWS_OUTPUT_PATH), false);
+    });
+  }
 });

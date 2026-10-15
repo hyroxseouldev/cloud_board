@@ -1,10 +1,8 @@
-import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/exploration_controller.dart';
 import 'package:cloud_board/src/app/feature/support/presentation/views/support_screen.dart';
 import 'package:cloud_board/src/app/core/router/main_tab_page.dart';
 import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
 import 'package:cloud_board/src/app/feature/profile/presentation/views/more_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
-import 'package:cloud_board/src/app/feature/onboarding/presentation/views/explore_screen.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/exploration_routes.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/starter_workouts_screen.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/views/first_tv_connection_screen.dart';
@@ -60,7 +58,6 @@ GoRouter appRouter(Ref ref) {
     authRefresh.value++;
   });
   ref.listen(onboardingRequiredProvider, (_, _) => authRefresh.value++);
-  ref.listen(explorationControllerProvider, (_, _) => authRefresh.value++);
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
   final imageCreationGuard = ExitGuard();
@@ -72,7 +69,9 @@ GoRouter appRouter(Ref ref) {
     initialLocation: '/',
     refreshListenable: authRefresh,
     redirect: (context, state) {
-      if (isExplorationPath(state.uri.path)) return null;
+      // Retired public exploration links must not restore an onboarding loop.
+      // The normal home route still applies sign-in and server access checks.
+      if (isExplorationPath(state.uri.path)) return '/';
       // Support remains reachable when sign-in/onboarding itself fails. The
       // form requires a signed-in account before enabling server submission.
       if (state.uri.path == '/support') return null;
@@ -114,7 +113,7 @@ GoRouter appRouter(Ref ref) {
         starter,
         purpose: purpose,
       );
-      var destination = entryOwnerChanged ? fallback : original ?? fallback;
+      final destination = entryOwnerChanged ? fallback : original ?? fallback;
       String enter(String path) {
         entryOwnerId ??= auth.value?.id;
         if (path == '/onboarding' &&
@@ -153,25 +152,6 @@ GoRouter appRouter(Ref ref) {
         }
       }
       if (isEntryRoute) {
-        // This local continuation used to be restored by OnboardingScreen.
-        // Explicit URLs take priority, and stale account data is never resumed.
-        if (!entryOwnerChanged && original == null && starter == null) {
-          final exploration = ref.read(explorationControllerProvider);
-          if (exploration.isLoading) {
-            return isLoadingRoute ? null : enter('/auth-loading');
-          }
-          final progress = exploration.hasError ? null : exploration.value;
-          final saved = progress?.pendingImport == true
-              ? starterFromKey(progress?.templateKey)
-              : null;
-          if (saved != null) {
-            destination = starterLocation(
-              '/starter-workouts',
-              saved,
-              purpose: purpose ?? progress?.purpose,
-            );
-          }
-        }
         entryOwnerId = null;
         entryOwnerChanged = false;
         return destination;
@@ -186,28 +166,8 @@ GoRouter appRouter(Ref ref) {
     routes: [
       GoRoute(
         path: '/explore',
-        builder: (_, state) => ExploreScreen(
-          initialTemplate: starterFromKey(state.uri.queryParameters['starter']),
-          initialPurpose: explorationPurpose(
-            state.uri.queryParameters['purpose'],
-          ),
-        ),
-        routes: [
-          GoRoute(
-            path: 'play/:template',
-            builder: (_, state) {
-              final template = starterFromKey(state.pathParameters['template']);
-              return template == null
-                  ? const ExploreScreen()
-                  : ExploreDemoScreen(
-                      template: template,
-                      purpose: explorationPurpose(
-                        state.uri.queryParameters['purpose'],
-                      ),
-                    );
-            },
-          ),
-        ],
+        redirect: (_, _) => '/',
+        routes: [GoRoute(path: 'play/:template', redirect: (_, _) => '/')],
       ),
       GoRoute(
         path: '/auth-loading',
