@@ -1,16 +1,9 @@
-name: Upload iOS to TestFlight
+# One-time owner-authorized upload of the already verified 1.2.1 IPA.
+# This workflow is restricted to its temporary branch and must not be merged.
+name: Upload verified iOS 1.2.1 artifact to TestFlight
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
-    inputs:
-      upload_to_testflight:
-        description: Upload to TestFlight (disable to prepare a signed IPA only)
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -21,121 +14,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  class_start_regressions:
-    uses: ./.github/workflows/class-start-regressions.yml
-
-  backend_ready:
-    name: Wait for verified backend deployment
+  upload:
+    name: Upload verified IPA to TestFlight
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight) ||
-      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip testflight]') &&
-      !contains(github.event.head_commit.message, '[backend only]'))
-    runs-on: ubuntu-latest
-    timeout-minutes: 50
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'hyroxseouldev/cloud_board' &&
+      github.ref == 'refs/heads/hyroxseouldev/release121-mobile-first'
+    runs-on: macos-26
+    timeout-minutes: 30
+    environment: testflight
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout temporary upload-only branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Require this commit's tested and deployed Firebase rules
+
+      - name: Verify owner exception, unchanged backend and exact signed IPA
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node tool/release_backend_gate.mjs
+        run: python3 tool/release/mobile_first_artifact.py ios
 
-  verify:
-    name: Verify release
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (!contains(github.event.head_commit.message, '[skip testflight]') &&
-      !contains(github.event.head_commit.message, '[backend only]'))
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Test iOS signing checks
-        run: python3 -m unittest discover -s tool -p 'test_ios_signing.py'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Test release metadata and artifact gates
-        run: |
-          node --test tool/release/*.test.mjs
-          python3 -m unittest discover -s tool/release -p 'test_*.py'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: .fvmrc
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Require TV recovery regressions without missing or skipped cases
-        run: |
-          node --test tool/tv-recovery-check.test.mjs
-          node tool/tv-recovery-check.mjs
-
-      - name: Retain TV recovery regression evidence
-        if: always()
+      - name: Retain native metadata and owner exception audit
+        if: >-
+          always() && !cancelled() &&
+          env.NATIVE_METADATA_PATH != '' && env.NATIVE_AUDIT_PATH != ''
         uses: actions/upload-artifact@v4
         with:
-          name: tv-recovery-ios-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/sta176/
+          name: cloudboard-ios-mobile-first-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.NATIVE_METADATA_PATH }}
+            ${{ env.NATIVE_AUDIT_PATH }}
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
 
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test
-
-  upload:
-    name: Build and upload
-    needs: [verify, backend_ready, class_start_regressions]
-    if: >-
-      always() && !cancelled() && needs.verify.result == 'success' && needs.class_start_regressions.result == 'success' &&
-      (needs.backend_ready.result == 'success' ||
-      (github.event_name == 'workflow_dispatch' && !inputs.upload_to_testflight))
-    runs-on: macos-26
-    timeout-minutes: 45
-    environment: testflight
-    env:
-      IOS_BUNDLE_ID: com.sunmkim.cloudboard
-      IOS_TEAM_ID: NL7AM62SB9
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Require a trusted release source
-        run: |
-          case "$GITHUB_REF" in
-            refs/heads/main|refs/heads/release/*) ;;
-            *) echo 'Signed builds require main or a release/* branch.' >&2; exit 1 ;;
-          esac
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Check release credentials
+      - name: Install App Store Connect API key
         env:
           APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
-          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -143,44 +65,15 @@ jobs:
             APP_STORE_CONNECT_API_KEY_BASE64
             APP_STORE_CONNECT_ISSUER_ID
             APP_STORE_CONNECT_KEY_ID
-            IOS_DISTRIBUTION_CERTIFICATE_BASE64
-            IOS_DISTRIBUTION_CERTIFICATE_PASSWORD
           )
-
-          missing=()
           for variable in "${required[@]}"; do
             if [[ -z "${!variable:-}" ]]; then
-              missing+=("$variable")
+              echo "Missing TestFlight environment secret: $variable" >&2
+              exit 1
             fi
           done
 
-          if (( ${#missing[@]} > 0 )); then
-            echo "Missing TestFlight environment secrets: ${missing[*]}" >&2
-            exit 1
-          fi
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: .fvmrc
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Verify Xcode
-        run: |
-          set -euo pipefail
-          xcodebuild -version
-
-      - name: Install App Store Connect API key
-        env:
-          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-        run: |
-          set -euo pipefail
-
+          umask 077
           private_keys_directory="$HOME/.appstoreconnect/private_keys"
           api_key_path="$private_keys_directory/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8"
           echo "APP_STORE_CONNECT_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
@@ -188,211 +81,38 @@ jobs:
           printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > "$api_key_path"
           chmod 600 "$api_key_path"
 
-      - name: Install iOS signing identity
-        env:
-          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
-          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
-        run: |
-          set -euo pipefail
-
-          certificate_path="$RUNNER_TEMP/distribution.p12"
-          keychain_path="$RUNNER_TEMP/testflight-signing.keychain-db"
-          keychain_password="$(uuidgen)"
-
-          echo "IOS_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
-
-          printf '%s' "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
-
-          security create-keychain -p "$keychain_password" "$keychain_path"
-          security set-keychain-settings -lut 21600 "$keychain_path"
-          security unlock-keychain -p "$keychain_password" "$keychain_path"
-          security import "$certificate_path" \
-            -P "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" \
-            -A \
-            -t cert \
-            -f pkcs12 \
-            -k "$keychain_path"
-          security set-key-partition-list \
-            -S apple-tool:,apple: \
-            -s \
-            -k "$keychain_password" \
-            "$keychain_path"
-          security list-keychains -d user -s "$keychain_path"
-
-          if ! security find-identity -v -p codesigning "$keychain_path" | grep -q 'Apple Distribution'; then
-            echo 'Apple Distribution signing identity was not imported.' >&2
-            exit 1
-          fi
-
-      - name: Set marketing version and next iOS build from complete history
-        env:
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-        run: |
-          node tool/release/play_version_code.mjs --version-name
-          node tool/release/ios_build_number.mjs --next
-
-      - name: Create export options
-        run: |
-          set -euo pipefail
-
-          export_options_path="$RUNNER_TEMP/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c 'Clear dict' "$export_options_path"
-          /usr/libexec/PlistBuddy -c 'Add :method string app-store-connect' "$export_options_path"
-          /usr/libexec/PlistBuddy -c 'Add :destination string export' "$export_options_path"
-          /usr/libexec/PlistBuddy -c 'Add :signingStyle string automatic' "$export_options_path"
-          /usr/libexec/PlistBuddy -c "Add :teamID string $IOS_TEAM_ID" "$export_options_path"
-          /usr/libexec/PlistBuddy -c 'Add :manageAppVersionAndBuildNumber bool false' "$export_options_path"
-          /usr/libexec/PlistBuddy -c 'Add :uploadSymbols bool true' "$export_options_path"
-
-          plutil -lint "$export_options_path"
-          echo "IOS_EXPORT_OPTIONS_PATH=$export_options_path" >> "$GITHUB_ENV"
-
-      - name: Build unsigned archive
-        run: |
-          set -euo pipefail
-
-          flutter build ipa --flavor production \
-            --release \
-            --dart-define=FIREBASE_ENV=production \
-            --build-name "$RELEASE_VERSION_NAME" \
-            --no-codesign \
-            --build-number "$TESTFLIGHT_BUILD_NUMBER"
-
-          archive_path="$GITHUB_WORKSPACE/build/ios/archive/Runner.xcarchive"
-          if [[ ! -d "$archive_path" ]]; then
-            echo 'The unsigned iOS archive was not created.' >&2
-            exit 1
-          fi
-          echo "IOS_ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
-
-      - name: Keep dSYMs for crash report recovery
-        uses: actions/upload-artifact@v4
-        with:
-          name: cloudboard-ios-dsyms-${{ env.TESTFLIGHT_BUILD_NUMBER }}
-          path: build/ios/archive/Runner.xcarchive/dSYMs
-          if-no-files-found: error
-          retention-days: 90
-
-      - name: Upload dSYMs to Firebase Crashlytics
-        if: github.event_name == 'push' || inputs.upload_to_testflight
-        run: |
-          set -euo pipefail
-
-          # Flutter stores the resolved Swift packages under build/ios.
-          upload_symbols="$GITHUB_WORKSPACE/build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols"
-          dsym_directory="$IOS_ARCHIVE_PATH/dSYMs"
-          google_service_plist="$IOS_ARCHIVE_PATH/Products/Applications/Runner.app/GoogleService-Info.plist"
-
-          if [[ ! -x "$upload_symbols" || ! -f "$google_service_plist" ]]; then
-            echo 'Missing Crashlytics upload tool or archived Firebase configuration.' >&2
-            exit 1
-          fi
-          for required_dsym in Runner.app.dSYM App.framework.dSYM; do
-            if [[ ! -d "$dsym_directory/$required_dsym" ]]; then
-              echo "Missing release dSYM: $required_dsym" >&2
-              exit 1
-            fi
-          done
-
-          "$upload_symbols" -gsp "$google_service_plist" -p ios "$dsym_directory"
-
-      - name: Preserve source entitlements in unsigned archive
-        run: |
-          set -euo pipefail
-          python3 tool/prepare_ios_entitlements.py \
-            "$IOS_ARCHIVE_PATH" ios/Runner/Runner.entitlements \
-            --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
-
-      - name: Export signed IPA
+      - name: Recheck App Store Connect build history before publishing
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
           set -euo pipefail
-
-          mkdir -p build/ios/ipa
-          xcodebuild \
-            -exportArchive \
-            -archivePath "$IOS_ARCHIVE_PATH" \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist "$IOS_EXPORT_OPTIONS_PATH" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$APP_STORE_CONNECT_API_KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
-
-      - name: Inspect exported Apple sign-in permissions
-        run: |
-          set -euo pipefail
-          ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
-          python3 tool/inspect_ios_signing.py "$ipa_path" "$RUNNER_TEMP/ios-signing.json" \
-            --team-id "$IOS_TEAM_ID" --bundle-id "$IOS_BUNDLE_ID"
-
-      - name: Verify actual IPA version, package and native/Dart Firebase binding
-        run: |
-          set -euo pipefail
-          ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
-          python3 tool/release/inspect_native.py ios "$ipa_path" \
-            --version "$RELEASE_VERSION_NAME" --build "$TESTFLIGHT_BUILD_NUMBER" \
-            --output "$RUNNER_TEMP/ios-release-metadata.json"
-
-      - name: Keep signed IPA and release evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: cloudboard-ios-release-${{ env.TESTFLIGHT_BUILD_NUMBER }}
-          path: |
-            build/ios/ipa/*.ipa
-            ${{ runner.temp }}/ios-release-metadata.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Keep signing diagnostics
-        if: ${{ !cancelled() && env.TESTFLIGHT_BUILD_NUMBER != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: cloudboard-ios-signing-${{ env.TESTFLIGHT_BUILD_NUMBER }}
-          path: ${{ runner.temp }}/ios-signing.json
-          if-no-files-found: warn
-          retention-days: 90
-
-      - name: Recheck backend before publishing
-        if: github.event_name == 'push' || inputs.upload_to_testflight
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-        run: |
-          node tool/release_backend_gate.mjs --check-only
+          test "$RELEASE_VERSION_NAME" = '1.2.1'
+          test -n "$NATIVE_BUILD_NUMBER"
+          test -f "$NATIVE_ARTIFACT_PATH"
+          test -f "$NATIVE_METADATA_PATH"
+          test -f "$NATIVE_AUDIT_PATH"
+          export TESTFLIGHT_BUILD_NUMBER="$NATIVE_BUILD_NUMBER"
+          echo "TESTFLIGHT_BUILD_NUMBER=$TESTFLIGHT_BUILD_NUMBER" >> "$GITHUB_ENV"
           node tool/release/ios_build_number.mjs --recheck
 
       - name: Upload to TestFlight
-        if: github.event_name == 'push' || inputs.upload_to_testflight
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
           set -euo pipefail
-
-          ipa_path="$(find build/ios/ipa -type f -name '*.ipa' -print -quit)"
-          if [[ -z "$ipa_path" ]]; then
-            echo 'The signed IPA was not created.' >&2
-            exit 1
-          fi
-
+          test -f "$NATIVE_ARTIFACT_PATH"
           xcrun altool \
             --upload-app \
             --type ios \
-            --file "$ipa_path" \
+            --file "$NATIVE_ARTIFACT_PATH" \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
 
-      - name: Clean up signing files
+      - name: Clean up App Store Connect API key
         if: always()
         run: |
-          if [[ -n "${IOS_KEYCHAIN_PATH:-}" ]]; then
-            security delete-keychain "$IOS_KEYCHAIN_PATH" || true
-          fi
           if [[ -n "${APP_STORE_CONNECT_API_KEY_PATH:-}" ]]; then
             rm -f "$APP_STORE_CONNECT_API_KEY_PATH"
           fi
