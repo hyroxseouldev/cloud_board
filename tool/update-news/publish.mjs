@@ -58,6 +58,21 @@ function git(...args) {
   return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }).trim();
 }
 
+// A reviewed correction can repair missing/stale editorial for one already
+// deployed SHA without rebuilding that app. Read only committed publisher code;
+// each exact-SHA correction is append-only, including across delete/re-adds.
+export function readCorrection(sha) {
+  if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid correction commit SHA.');
+  const path = `release-notes/corrections/${sha}.json`;
+  if (git('ls-tree', '--name-only', 'HEAD', path) !== path) return null;
+  const additions = git('log', '--format=%H', '--diff-filter=A', '--', path).split('\n').filter(Boolean);
+  const content = git('show', `HEAD:${path}`);
+  if (additions.length !== 1 || git('rev-parse', `HEAD:${path}`) !== git('rev-parse', `${additions[0]}:${path}`)) {
+    throw new Error('A deployed-SHA news correction is immutable after its first commit.');
+  }
+  return {news: validateNews(JSON.parse(content)), path};
+}
+
 export function sourceRunId(event, eventName, ref, repository) {
   if (eventName === 'workflow_dispatch') {
     if (ref !== 'refs/heads/main' || !/^\d+$/.test(event.inputs?.deployment_run_id ?? '')) {
@@ -105,13 +120,21 @@ export async function publish(env = process.env, fetchImpl = fetch) {
     console.log(body);
     return result;
   };
-  if (git('ls-tree', '--name-only', sha, newsPath) !== newsPath) {
+  // Read the deployed commit, not newer editorial changes in the publisher checkout.
+  let news = git('ls-tree', '--name-only', sha, newsPath) === newsPath
+    ? validateNews(JSON.parse(git('show', `${sha}:${newsPath}`))) : null;
+  const version = git('show', `${sha}:pubspec.yaml`).match(/^version:\s*([^\s+#]+)/m)?.[1];
+  if (!news || news.version !== version) {
+    const correction = readCorrection(sha);
+    if (correction) {
+      news = correction.news;
+      summary.push(`Editorial correction: ${correction.path}`);
+    }
+  }
+  if (!news) {
     summary.push('', 'Skipped: the deployed commit has no update news.');
     return finish({operation: 'skipped', reason: 'no-news'});
   }
-  // Read the deployed commit, not newer editorial changes in the publisher checkout.
-  const news = validateNews(JSON.parse(git('show', `${sha}:${newsPath}`)));
-  const version = git('show', `${sha}:pubspec.yaml`).match(/^version:\s*([^\s+#]+)/m)?.[1];
   if (news.version !== version) throw new Error('Update news version must match the deployed app version');
   const allRuns = await list(`/actions/runs?head_sha=${sha}&branch=main`, 'workflow_runs');
   const runs = latestRuns([...allRuns.filter(run => run.id !== trigger.id), trigger], sha, repository);

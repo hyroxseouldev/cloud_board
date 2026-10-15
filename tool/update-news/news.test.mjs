@@ -11,6 +11,13 @@ const results = pipelines.map(pipeline => ({pipeline,
   artifacts: [{name: pipeline.key === 'ios' ? 'cloudboard-ios-dsyms-542' : 'cloudboard-alpha-aab-52'}],
 }));
 
+test('current release news matches the actual app version', () => {
+  const pubspec = readFileSync(new URL('../../pubspec.yaml', import.meta.url), 'utf8');
+  const version = pubspec.match(/^version:\s*([^\s+#]+)/m)?.[1];
+  assert.ok(version, 'App version is missing');
+  assert.equal(note.version, version, 'Update current.json when changing the app version');
+});
+
 test('editorial source validates without allowing operational fields or malformed content', () => {
   assert.equal(validateNews(note), note);
   assert.throws(() => validateNews({...note, debugLog: 'not-public'}), /Unknown/);
