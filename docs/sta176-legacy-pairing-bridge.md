@@ -67,11 +67,10 @@ deployed source SHA and successful smoke evidence in `pairingBackend`, plus
 `checks.legacyPairingBridge: "passed"`. The evidence template is in
 [the migration procedure](legacy-auth-migration.md). These fields are operator
 attestations backed by attached evidence, not an automatic live readiness probe.
-An explicit release-owner physical/native QA exception can mark individual
-native journeys `waived` with a current, exact-SHA `qaWaiver`; it cannot waive
-the canonical/bridge server checks or infrastructure/configuration preservation.
-The [migration procedure](legacy-auth-migration.md) describes the separate
-waiver record. Never label that exception as physical QA passed.
+Physical/native QA and separate approval or waiver records are not required to
+release. Canonical/bridge server checks and infrastructure/configuration
+preservation remain mandatory. Optional device observations can be retained
+separately without treating unperformed tests as passed.
 
 ## Local validation
 

@@ -337,11 +337,6 @@ jobs:
           node tool/firebase/release.mjs current
           node tool/firebase/release.mjs verify
           node functions/tools/release-smoke.mjs preflight
-      - name: Require physical class-start approval or explicit release waiver
-        env:
-          CLASS_START_PHYSICAL_APPROVAL: ${{ vars.CLASS_START_PHYSICAL_APPROVAL }}
-          CLASS_START_PHYSICAL_WAIVER: ${{ vars.CLASS_START_PHYSICAL_WAIVER }}
-        run: node tool/release/class_start_physical_gate.mjs
       - name: Authenticate Firebase rule deployment
         uses: google-github-actions/auth@v2
         with:

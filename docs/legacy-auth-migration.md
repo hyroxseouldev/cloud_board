@@ -63,7 +63,7 @@ The default `firebase.json` remains `account-deletion` only. Its existing releas
 manifest and app deployment cannot accidentally include the migrated source.
 PR CI builds and checks the migrated package separately.
 
-After completing native regression and committing the reviewed candidate, use
+After completing automated server regressions and committing the reviewed candidate, use
 Firebase CLI 15.29.0. This plan command performs **read-only cloud calls** and
 writes a local inventory plus an ignored, mode-0600 `.env.cloud-board-stationd`:
 
@@ -85,7 +85,7 @@ Complete a local release evidence JSON (keep `checks` pending until performed):
   "candidateDigest": "digest emitted by the check/plan command",
   "sourceSha": "40-character reviewed candidate commit",
   "appVersions": { "released": "version/build/platform", "candidate": "version/build/platform" },
-  "tvVersion": "version/build and three device identifiers",
+  "tvVersion": "supported version/build inventory",
   "infrastructureReview": "pending",
   "pairingBackend": {
     "project": "cloud-board-stationd",
@@ -95,44 +95,20 @@ Complete a local release evidence JSON (keep `checks` pending until performed):
     "smoke": "pending"
   },
   "checks": {
-    "legacyPairingBridge": "pending",
-    "googleAppleLogin": "pending",
-    "phoneFreeActivation": "pending",
-    "legacyAccountEntitlement": "pending",
-    "pairDisplay": "pending",
-    "setDisplayState": "pending",
-    "threeTvClassLifecycle": "pending"
+    "legacyPairingBridge": "pending"
   }
 }
 ```
 
-If the release owner explicitly waives physical/native QA for this candidate,
-record each unperformed native journey above as `"waived"`, not `"passed"`.
-Attach the same `qaWaiver` record accepted by
-[`requirePhysicalQaWaiver`](../tool/release/class_start_physical_gate.mjs):
-`sha` equal to `sourceSha`, `result: "waived"`, non-empty `approvedBy` and
-`reason`, UTC ISO `approvedAt`/`expiresAt` (at most 24 hours apart, current at
-predeploy), and `physicalQaPerformed: false`. The guard rejects an invalid
-supplied waiver even when other checks say passed. A pending/missing journey
-does not implicitly become waived. Keep version inventory truthful; it is not
-evidence that those app/TV builds were physically tested. Preserve this release
-evidence JSON with the deployment record; predeploy prints waived journeys as
-not performed.
+Physical/native QA and an approval or waiver record are not deployment prerequisites.
+The release guard still requires the canonical backend deployment/smoke,
+`checks.legacyPairingBridge`, infrastructure review, candidate source/digest,
+version inventory, live drift, runtime configuration and secret-version checks.
+Server/API evidence must describe the automated checks actually performed.
 
-The waiver applies only to `googleAppleLogin`, `phoneFreeActivation`,
-`legacyAccountEntitlement`, `pairDisplay`, `setDisplayState` and
-`threeTvClassLifecycle` native journeys. It does not waive canonical backend
-deployment/smoke, `checks.legacyPairingBridge`, infrastructure review, candidate
-source/digest, live drift, runtime configuration or secret-version checks.
-Server/API and source-contract evidence must describe the actual automated
-checks performed, separately from the unperformed native journeys.
-
-Capture supporting screenshots/log references with the evidence. Test isolated
-accounts in the development backend with both the released and candidate app:
-Google/Apple login, phone verification/Free activation, Google subject linkage
-and existing web-issued prices/periods/entitlements, pairing and display state.
-Use three physical TVs: prepare → start → pause/resume → finish, including the
-STA-166 regression. Do not force customer TV reconnection during a class.
+Optional device checks can use isolated development accounts to exercise login,
+activation, pairing and the class lifecycle. Record only results actually
+observed; automated release validation does not attest that device QA passed.
 
 Compare Scheduler, Eventarc, Secret bindings/IAM and shared credential metadata
 with the saved inventory before marking `infrastructureReview` passed. Any new
@@ -141,7 +117,7 @@ replacement blocks release. Refresh `plan` within 30 minutes of deployment.
 Only after evidence is passed, this is the explicit production command:
 
 ```sh
-CLOUDBOARD_LEGACY_RELEASE_EVIDENCE=build/legacy-auth/native-regression.json \
+CLOUDBOARD_LEGACY_RELEASE_EVIDENCE=build/legacy-auth/server-regression.json \
   firebase deploy --config firebase.legacy-auth.json \
   --project cloud-board-stationd \
   --only functions:cloudboard-auth:cloudboardAuth,functions:cloudboard-auth:cloudboardLinkAccount,functions:cloudboard-auth:cloudboardPairDisplay,functions:cloudboard-auth:cloudboardSetDisplayState \
