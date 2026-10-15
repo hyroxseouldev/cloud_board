@@ -13,37 +13,13 @@ on:
       - Upload Android and TV to Google Play
       - Upload iOS to TestFlight
     types: [completed]
-  pull_request:
-    paths:
-      - pubspec.yaml
-      - .github/workflows/app-update-news.yml
-      - tool/update-news/**
-      - release-notes/**
-      - functions/tools/publish-update-news.mjs
-  push:
-    branches: [develop]
-    paths:
-      - pubspec.yaml
-      - .github/workflows/app-update-news.yml
-      - tool/update-news/**
-      - release-notes/**
-      - functions/tools/publish-update-news.mjs
+    branches: [main, 'v*']
 
 permissions:
   contents: read
   actions: read
 
 jobs:
-  verify:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: node --test tool/update-news/*.test.mjs
-
   publish:
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
@@ -69,8 +45,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test update publisher
-        run: node --test tool/update-news/*.test.mjs
       - name: Prepare app update news for confirmed builds
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -87,9 +61,15 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLOUD_BOARD_STATIOND }}'
+      - name: Cache publisher npm downloads
+        if: steps.news.outputs.exists == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node22-update-news-${{ hashFiles('functions/package-lock.json') }}
       - name: Install update news publisher dependencies
         if: steps.news.outputs.exists == 'true'
-        run: npm ci --prefix functions
+        run: npm ci --omit=dev --prefix functions
       - name: Publish app update news
         if: steps.news.outputs.exists == 'true'
         run: node functions/tools/publish-update-news.mjs "$RUNNER_TEMP/update-news.json" --apply

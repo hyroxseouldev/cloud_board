@@ -167,7 +167,7 @@ test('development receipt excludes an uploaded build even without the QA marker 
     ios.jobs[0].steps.push({name: 'Resolve and pin trusted app source', conclusion: 'success'});
     ios.artifacts.push({name: `mobile-source-${ios.run.id}-${ios.run.run_attempt}`});
     writeFileSync(env.GITHUB_EVENT_PATH, JSON.stringify({workflow_run: ios.run}));
-    assert.deepEqual(await publish(env, fakeFetch, async () => ({schemaVersion: 2, kind: 'mobile-source',
+    assert.deepEqual(await publish(env, fakeFetch, async () => ({schemaVersion: 3, kind: 'mobile-source',
       sourceSha: deployedSha, workflowSha: deployedSha, releaseMode: 'qa', environment: 'development', platform: 'ios',
       firebaseProject: 'cloud-board-development', package: 'com.sunmkim.cloudboard.dev', environmentBindingVerified: true,
       version: note.version, build: '542', artifactSha256: 'c'.repeat(64), runId: String(ios.run.id), runAttempt: String(ios.run.run_attempt)})),

@@ -1,37 +1,33 @@
 name: Upload iOS to TestFlight
-run-name: "testflight · ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }} · ${{ github.event.workflow_run.head_branch || inputs.source_ref || github.sha }}"
+run-name: "testflight · ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }} · ${{ github.event.workflow_run.head_branch || inputs.source_ref || github.ref_name }}"
 
 on:
   push:
-    branches: [main]
-    paths:
-      - lib/**
-      - assets/**
-      - pubspec.yaml
-      - pubspec.lock
-      - .fvmrc
-      - config/firebase/**
-      - config/brand.json
-      - tool/release/**
-      - ios/**
-      - tool/*ios*
-      - .github/workflows/testflight-main.yml
+    tags: ['dev/v*']
   workflow_run:
     workflows: [Deploy Flutter Web to Firebase Hosting]
     types: [completed]
   workflow_dispatch:
     inputs:
       source_ref:
-        description: App source (QA main/develop history; release requires vX.Y.Z tag)
+        description: Deployment tag (QA dev/vX.Y.Z-N; release vX.Y.Z), already in main
         required: true
         type: string
-        default: main
       release_mode:
-        description: Existing app QA or release candidate from a validated vX.Y.Z tag (both use production Firebase)
+        description: "Separate apps: .dev QA uses development Firebase; validated release uses production"
         required: true
         type: choice
         options: [qa, release]
         default: qa
+      skip_ci:
+        description: Skip integration CI only for a manual release tag upload
+        required: true
+        type: boolean
+        default: false
+      skip_ci_reason:
+        description: Required reason when skip_ci is true
+        required: false
+        type: string
       upload_to_testflight:
         description: Upload to TestFlight (false keeps a signed artifact only)
         required: true
@@ -43,18 +39,70 @@ permissions:
   actions: read
 
 concurrency:
-  group: testflight-main
+  group: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'testflight-main' || 'testflight-development' }}
   cancel-in-progress: false
 
 jobs:
-  upload:
-    name: Build and optionally upload
+  preflight:
+    name: Check mobile environment readiness
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/dev/')) ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    environment: testflight
+    outputs:
+      ready: ${{ steps.readiness.outputs.ready }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      control_sha: ${{ steps.source.outputs.control_sha }}
+    env:
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+      SKIP_CI: ${{ inputs.skip_ci || false }}
+      CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
+      UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight }}
+    steps:
+      - name: Checkout trusted preflight tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && 'main' || github.sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve and pin trusted app source
+        id: source
+        working-directory: control
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release/source.mjs resolve
+      - name: Report blocked development store setup
+        id: readiness
+        env:
+          RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+          SKIP_CI: ${{ inputs.skip_ci || false }}
+          DEVELOPMENT_READY: ${{ vars.MOBILE_DEVELOPMENT_READY }}
+        run: |
+          if [[ "$SKIP_CI" == true && "$RELEASE_MODE" != release ]]; then
+            echo 'CI skipping requires a manual release with a versioned tag.' >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_MODE" == qa && "$DEVELOPMENT_READY" != true ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '## BLOCKED — development mobile distribution is not configured' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No app was built or uploaded. Confirm the .dev store app and signing access for the shared testflight account, then set this environment’s MOBILE_DEVELOPMENT_READY variable to true. App package and Firebase remain development-only.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+
+  upload:
+    name: Build and optionally upload
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
     runs-on: macos-26
     timeout-minutes: 45
     environment: testflight
@@ -63,16 +111,19 @@ jobs:
         working-directory: app
     env:
       SOURCE_REF: ${{ inputs.source_ref || github.ref }}
+      PINNED_SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
       RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
+      SKIP_CI: ${{ inputs.skip_ci || false }}
+      CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}
       UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight }}
-      IOS_BUNDLE_ID: com.sunmkim.cloudboard
+      IOS_BUNDLE_ID: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'com.sunmkim.cloudboard' || 'com.sunmkim.cloudboard.dev' }}
       IOS_TEAM_ID: NL7AM62SB9
 
     steps:
       - name: Checkout trusted workflow tools
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.preflight.outputs.control_sha }}
           path: control
           fetch-depth: 0
           persist-credentials: false
@@ -83,6 +134,8 @@ jobs:
 
       - name: Resolve and pin trusted app source
         working-directory: control
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: node tool/release/source.mjs resolve
 
       - name: Checkout selected app commit
@@ -94,14 +147,14 @@ jobs:
           persist-credentials: false
 
       - name: Check backend compatibility before native build
-        if: env.UPLOAD_REQUESTED == 'true'
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
 
       - name: QA build does not publish app update news
         if: env.RELEASE_MODE == 'qa'
-        run: echo 'Existing store app and production Firebase; QA does not publish public app news or minimum-version changes. Store tester groups retain their current settings.'
+        run: echo 'Development .dev app and development Firebase; QA does not publish public app news or minimum-version changes. Store tester groups retain their current settings.'
 
       - name: Check release credentials
         env:
@@ -288,6 +341,12 @@ jobs:
             --version "$RELEASE_VERSION_NAME" --build "$TESTFLIGHT_BUILD_NUMBER" \
             --environment "$APP_ENVIRONMENT" --output "$RUNNER_TEMP/ios-release-metadata.json"
 
+      - name: Reuse tag integration validation for release upload
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/common_validation.mjs" --source-sha "$SOURCE_SHA" --release-tag "$RELEASE_TAG"
+
       - name: Record app source and signed artifact identity
         run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" receipt "$RUNNER_TEMP/ios-release-metadata.json" "$RUNNER_TEMP/release.json"
 
@@ -318,12 +377,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Reuse tag integration validation for release upload
-        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node "$GITHUB_WORKSPACE/control/tool/release/common_validation.mjs" --source-sha "$SOURCE_SHA"
-
       - name: Recheck backend compatibility and build number before publishing
         if: env.UPLOAD_REQUESTED == 'true'
         env:
@@ -331,7 +384,9 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
         run: |
-          node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
+          if [[ "$RELEASE_MODE" == release ]]; then
+            node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode release --source-sha "$SOURCE_SHA" --check-only
+          fi
           node "$GITHUB_WORKSPACE/control/tool/release/ios_build_number.mjs" --recheck
 
       - name: Upload dSYMs to Firebase Crashlytics
@@ -356,6 +411,12 @@ jobs:
           done
 
           "$upload_symbols" -gsp "$google_service_plist" -p ios "$dsym_directory"
+
+      - name: Recheck deployment tag before upload
+        if: env.UPLOAD_REQUESTED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/control/tool/release/source.mjs" recheck
 
       - name: Upload to TestFlight
         if: env.UPLOAD_REQUESTED == 'true'

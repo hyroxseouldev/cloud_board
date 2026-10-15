@@ -1,0 +1,59 @@
+name: Start production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'New vX.Y.Z tag matching the app version on this main commit'
+        required: true
+        type: string
+      scope:
+        description: 'Production deployment scope'
+        required: true
+        type: choice
+        default: full
+        options: [full, web, backend, rules]
+      skip_ci:
+        description: 'Explicitly skip heavy CI; build and deployment checks remain'
+        required: false
+        type: boolean
+        default: false
+      skip_ci_reason:
+        description: 'Required reason when skipping CI; retained in audit evidence'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: start-production-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  start:
+    name: Create immutable release tag and dispatch once
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Start release from the pinned main commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release/start_release.mjs
+      - name: Retain release start audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-start-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-start.json
+          if-no-files-found: ignore
+          retention-days: 90

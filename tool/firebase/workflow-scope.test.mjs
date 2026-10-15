@@ -30,25 +30,29 @@ const evaluate = (condition, values) => {
   return runInNewContext(`(${condition})`, values, {timeout: 100});
 };
 
-test('native existing-app QA uses main and release requires successful trusted tag CI', () => {
+test('native QA requires a development tag and main pushes never deploy', () => {
   for (const file of ['testflight-main.yml', 'google-play-main.yml']) {
     const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
     const triggers = workflow.match(/^on:\n([\s\S]*?)(?=^\S)/m)?.[1];
     assert.deepEqual([...triggers.matchAll(/^  ([a-z_]+):/gm)].map(match => match[1]), ['push', 'workflow_run', 'workflow_dispatch']);
-    const check = (event, branch = 'v1.2.2', conclusion = 'success', repo = 'owner/repo') => evaluate(jobCondition(file, 'upload'), {
-      github: {event_name: event, ref: 'refs/heads/main', repository: 'owner/repo',
+    const check = (event, branch = 'v1.2.2', conclusion = 'success', repo = 'owner/repo', ref = 'refs/heads/main') => evaluate(jobCondition(file, 'preflight'), {
+      github: {event_name: event, ref, repository: 'owner/repo',
         event: {workflow_run: {head_branch: branch, conclusion, head_repository: {full_name: repo}}}},
       startsWith: (value, prefix) => value?.startsWith(prefix) ?? false,
     });
-    assert.equal(check('push'), true);
+    assert.equal(check('push'), false);
+    assert.equal(check('push', undefined, undefined, undefined, 'refs/tags/dev/v1.2.2-1'), true);
+    assert.equal(check('push', undefined, undefined, undefined, 'refs/tags/v1.2.2'), false);
     assert.equal(check('workflow_dispatch'), true);
     assert.equal(check('workflow_run'), true);
     assert.equal(check('workflow_run', 'main'), false);
     assert.equal(check('workflow_run', 'v1.2.2', 'failure'), false);
     assert.equal(check('workflow_run', 'v1.2.2', 'success', 'fork/repo'), false);
     assert.equal(check('pull_request'), false);
-    assert(!workflow.includes('MOBILE_DEVELOPMENT_READY'));
-    assert(!workflow.includes('preflight:'));
+    assert(workflow.includes('MOBILE_DEVELOPMENT_READY'));
+    for (const ready of ['true', 'false', '']) {
+      assert.equal(evaluate(jobCondition(file, 'upload'), {needs: {preflight: {outputs: {ready}}}}), ready === 'true');
+    }
   }
 });
 
@@ -71,4 +75,29 @@ test('validation has no workflow-wide queue while production writes remain seria
   assert(!/^concurrency:/m.test(workflow));
   const production = workflow.slice(workflow.indexOf('  firebase_production:'));
   assert.match(production, /    concurrency:\n      group: firebase-production\n      cancel-in-progress: false/);
+});
+
+test('explicit CI skip omits heavy jobs while preserving the selected web build', () => {
+  const file = 'firebase-hosting-merge.yml';
+  for (const validation_mode of ['required', 'skipped']) {
+    for (const scope of ['full', 'web', 'backend', 'rules', 'verify']) {
+      const values = {needs: {deployment_plan: {outputs: {scope, release_tag: 'v1.2.3', validation_mode}}},
+        contains: (items, value) => items.includes(value), fromJSON: JSON.parse};
+      for (const job of ['app_validation', 'class_start_regressions']) {
+        assert.equal(evaluate(jobCondition(file, job), values), validation_mode === 'required');
+      }
+      assert.equal(evaluate(jobCondition(file, 'firebase_contracts'), values), validation_mode === 'required' && scope !== 'web');
+      assert.equal(evaluate(jobCondition(file, 'web_build'), values), ['full', 'web', 'verify'].includes(scope));
+    }
+  }
+  const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
+  assert.match(workflow, /skip_ci:\n(?:[^\n]+\n)*?        type: boolean\n        default: false/);
+  assert.match(workflow, /name: release-validation-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
+  assert.match(workflow, /path: build\/release\/validation\/release.json/);
+  const build = workflow.slice(workflow.indexOf('  web_build:'), workflow.indexOf('  firebase_contracts:'));
+  for (const command of ['node tool/firebase/environments.mjs check', 'flutter build web --release', 'node tool/web_symbols.mjs seal']) assert(build.includes(command));
+  assert(!/flutter test|flutter analyze|node --test/.test(build));
+  const deploy = workflow.slice(workflow.indexOf('  firebase_production:'));
+  for (const command of ['node tool/firebase/environments.mjs check', 'npm ci --prefix functions', 'node tool/firebase/release.mjs current', 'node tool/firebase/release.mjs verify', 'node functions/tools/release-smoke.mjs']) assert(deploy.includes(command));
+  assert.match(workflow, /needs: \[[^\n]*web_build\]/);
 });

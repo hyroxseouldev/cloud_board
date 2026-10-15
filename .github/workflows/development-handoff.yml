@@ -22,7 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # The PR merge commit and its two parents cover this patch check.
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -35,4 +36,4 @@ jobs:
       - name: Explain verification scope
         run: |
           echo 'PR handoff and patch checks passed. Application tests were NOT executed by this job.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Review the developer evidence in the PR. Main starts development web/server and existing-app QA; full integration validation runs for release tags before production deployment.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Review the developer evidence in the PR. Main merges do not deploy. dev/vX.Y.Z-N tags start development deployment; vX.Y.Z tags start production release with required CI or an explicit audited manual skip.' >> "$GITHUB_STEP_SUMMARY"

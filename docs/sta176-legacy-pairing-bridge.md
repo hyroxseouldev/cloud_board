@@ -55,12 +55,13 @@ exceptions and a return to the original pairing implementation. All other
 baseline module hashes, the dependency lock, export list, settings and secret
 bindings remain checked. The candidate digest includes this reviewed delta.
 
-The source migration in PR #62 is now merged into `develop` (`06fbd65`). This
-follow-up targets `develop` and includes that base. The existing
-`operations-compatibility.yml` runs the legacy build/test/source/release checks
-for this target; there is no `continue-on-error` on those steps. Repository
-branch-protection configuration is outside this patch; its required-check
-settings were not changed or verified here.
+The source migration in PR #62 was merged into `develop` (`06fbd65`), which this
+follow-up included. Current manual diagnostics use `firebase-hosting-merge.yml`
+from `main` with `scope=verify` and that commit's `confirm_sha`. Its legacy
+build/test/source/release checks preserve the same commands without
+`continue-on-error`; the duplicate `operations-compatibility.yml` has been
+removed. This verification mode does not deploy production. Repository protection
+settings are separate from these legacy compatibility checks.
 
 Predeploy additionally requires canonical backend project/region/function,
 deployed source SHA and successful smoke evidence in `pairingBackend`, plus
