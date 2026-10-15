@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
+import {readReleaseArtifact} from './github-artifact.mjs';
+import {mobileRunReceipt} from '../release/source.mjs';
 
 export const installedWorkflows = [
   {file: 'testflight-main.yml', step: 'Upload to TestFlight', platforms: ['ios']},
@@ -8,12 +10,14 @@ export const installedWorkflows = [
   {file: 'firebase-hosting-merge.yml', step: 'Deploy to Firebase Hosting', platforms: ['web']},
 ];
 export function requireRegisteredUpload(clients, upload, platforms) {
-  for (const platform of platforms) assert(clients.some(client => client.sourceCommit === upload.head_sha &&
+  const sourceSha = upload.sourceSha ?? upload.head_sha;
+  for (const platform of platforms) assert(clients.some(client => client.sourceCommit === sourceSha &&
     client.platforms.includes(platform) && client.releases?.some(release => release.platform === platform &&
-      String(release.workflowRunId) === String(upload.id))),
-  `Latest installed ${platform} source/run has no frozen contract: ${upload.head_sha} / ${upload.id}. Register the released client before changing its server contract.`);
+      String(release.workflowRunId) === String(upload.id) &&
+      (!upload.artifactSha256 || release.artifactSha256 === upload.artifactSha256))),
+  `Latest installed ${platform} source/run has no frozen contract: ${sourceSha} / ${upload.id}. Register the installed client (including production-connected QA) before changing its server contract.`);
 }
-export async function verifyInstalledClients({clients, repository, request, currentRunId}) {
+export async function verifyInstalledClients({clients, repository, request, currentRunId, readArtifact}) {
   assert.match(repository || '', /^[\w.-]+\/[\w.-]+$/);
   const result = [];
   for (const workflow of installedWorkflows) {
@@ -26,11 +30,22 @@ export async function verifyInstalledClients({clients, repository, request, curr
       // An upload can succeed before a later cleanup step fails. Track the upload
       // step, not just the workflow conclusion. Backend-only repairs don't count.
       if (!jobs?.some(job => job.steps?.some(step => step.name === workflow.step && step.conclusion === 'success'))) continue;
-      found = run; break;
+      if (workflow.platforms[0] !== 'web') {
+        const pinnedSource = jobs.some(job => job.steps?.some(step =>
+          step.name === 'Resolve and pin trusted app source' && step.conclusion === 'success'));
+        if (pinnedSource) {
+          const {artifacts} = await request(`/repos/${repository}/actions/runs/${run.id}/artifacts?per_page=100`);
+          const receipt = await mobileRunReceipt({run, jobs, artifacts, readArtifact,
+            platform: workflow.platforms[0] === 'ios' ? 'ios' : 'android-tv'});
+          found = {...run, sourceSha: receipt.sourceSha, artifactSha256: receipt.artifactSha256, releaseMode: receipt.releaseMode};
+        }
+      }
+      found ??= run; break;
     }
     assert(found, `Cannot verify the latest installed client for ${workflow.file}; inspect deployment history.`);
     requireRegisteredUpload(clients, found, workflow.platforms);
-    result.push({platforms: workflow.platforms, runId: String(found.id), sha: found.head_sha});
+    result.push({platforms: workflow.platforms, runId: String(found.id), sha: found.sourceSha ?? found.head_sha,
+      ...(found.sourceSha ? {workflowSha: found.head_sha, releaseMode: found.releaseMode} : {})});
   }
   return result;
 }
@@ -45,5 +60,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   };
   const {clients} = JSON.parse(readFileSync('tool/firebase/supported-clients.json', 'utf8'));
   console.log(JSON.stringify(await verifyInstalledClients({clients, request,
+    readArtifact: artifact => readReleaseArtifact(artifact, process.env.GITHUB_REPOSITORY, process.env.GITHUB_TOKEN),
     repository: process.env.GITHUB_REPOSITORY, currentRunId: process.env.GITHUB_RUN_ID}), null, 2));
 }

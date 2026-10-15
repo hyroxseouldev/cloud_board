@@ -115,6 +115,18 @@ test('candidate verification rejects missing evidence, changed artifacts, wrong 
     write('firebase.json', readFileSync('firebase.json'));
     symlinkSync(join(dir, 'storage.rules'), join(dir, 'build/web/rules'));
     assert.throws(() => makeManifest(), /Symlink not allowed/);
+    rmSync(join(dir, 'build/web/rules'));
+    process.env.FIREBASE_DEPLOY_SCOPE = 'backend';
+    rmSync(join(dir, 'build/web'), {recursive: true});
+    const backendOnly = makeManifest(); verifyManifest(backendOnly);
+    assert(!Object.keys(backendOnly.files).some(path => path.startsWith('build/web/')));
+    process.env.FIREBASE_DEPLOY_SCOPE = 'web';
+    write('build/web/index.html', '<html>verified</html>');
+    rmSync(join(dir, 'build/contracts'), {recursive: true});
+    rmSync(join(dir, 'build/firebase-contracts'), {recursive: true});
+    const webOnly = makeManifest(); verifyManifest(webOnly);
+    assert(!Object.keys(webOnly.files).some(path => path.startsWith('build/firebase-contracts/')));
+
   } finally {
     keys.forEach((key, i) => previous[i] === undefined ? delete process.env[key] : process.env[key] = previous[i]);
     rmSync(dir, {recursive: true, force: true});
