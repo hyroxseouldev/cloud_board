@@ -1,9 +1,14 @@
 # Firebase release safety
 
-This change is developed and reviewed against `develop`. Pull requests run checks;
-a push to `develop` also runs the isolated development deployment workflow for
-`cloud-board-development`. Production deployment is limited to `main` and the
-explicit production workflow inputs. A develop PR does not deploy production.
+Feature work is developed and reviewed against `develop`, then integrated into
+`main`. Main and develop pushes do not deploy. Development deployment starts from
+a version-matched `dev/vX.Y.Z-N` tag in main history and targets only
+`cloud-board-development`, including `.dev` mobile QA. Manual QA requires the same
+development-tag identity. Production uses a version-matched `vX.Y.Z` tag and
+`cloud-board-stationd`, with required CI by default and an explicitly reasoned
+manual `skip_ci` option. The current trigger, version-commit and evidence policy
+is [feature verification](feature-verification.md); the detailed checks below do
+not authorize branch-push deployment or equate a CI skip with a passing test.
 
 ## Run the complete check locally
 
@@ -61,33 +66,39 @@ is still needed for platform SDK/offline differences.
 
 ## Required check and deployment sequence
 
-1. `app-validation`: Flutter analysis/tests, Functions and gate tests, release web
-   build, encrypted symbols on main, and removal of public source maps.
-2. `firebase-contracts`: complete fixture/emulator suite, with reports retained
-   even when a test fails.
-3. `firebase-required`: always runs and requires explicit success from both jobs,
-   checks every suite and evidence hash, then creates the candidate manifest.
-   Missing, skipped, neutral, failed, cancelled or timed-out checks never grant a
-   release permit.
-4. `firebase-production`: **main push or explicit manual execution on current main**,
-   one production deployment at a time. Manual execution requires the exact main
-   SHA and a declared `rules`, `backend` or `full` scope; mobile upload requires a
-   successful `full` receipt.
-   Verify SHA, targets, every artifact hash and canary configuration before any
-   Firebase change. Recheck current main immediately before backend/rules changes
-   and Hosting publication. A superseded run cannot intentionally redeploy old rules.
-5. Read actual Firestore/Storage Rules releases and RTDB rules, then perform client
+1. Verify the immutable production tag, fixed source SHA, main ancestry, app
+   version and deployment scope. Main advancement does not change this source.
+   `Start production release` creates only a production tag; finalize the version
+   commit first. Direct tag pushes run normal CI by default. A manual deployment
+   may set `skip_ci=true` with a required `skip_ci_reason` and retained audit record.
+2. Under the normal CI policy, run `app-validation`, class-start regressions and
+   the Firebase contracts required by the selected scope, retaining their reports.
+   An explicit skip omits heavy validation, never records it as passed, and does
+   not remove environment, source, build or deployment checks.
+3. Build the web artifact when the scope includes web, encrypt its symbols and
+   remove public source maps. Aggregate the scope's required evidence and artifact
+   hashes into the candidate manifest. Missing or failed required evidence blocks
+   deployment; the explicit skip must be represented in the validation receipt.
+4. `firebase-production` writes one production deployment at a time. A manual
+   tag retry confirms the exact tag SHA and `web`, `rules`, `backend` or `full`
+   scope. Verify targets, artifact hashes and canary configuration before writes;
+   recheck tag identity, main ancestry and deployment ordering before publication.
+   Web-only changes do not redeploy Functions; backend-only changes do not require
+   a web build. Combined changes deploy and verify the backend before web.
+5. Keep the applicable live-rule read-back and client smoke checks: client
    save/update/server-read, image CRUD, TV session/ACK and cross-account denial.
-   Rule-version propagation has a bounded wait; authentication/API errors fail immediately.
-6. Publish Hosting, recheck live rules/current main, seal `release.json`, and retain
-   the matching run/attempt receipt for 90 days. Store-upload workflows download and
-   verify this receipt before the release build and immediately before upload.
-   Explicit native build-only execution can prepare signed artifacts on a trusted
-   `release/*` branch without deploying or uploading; it grants no upload permit.
+   Rule propagation has a bounded wait; authentication/API errors fail immediately.
+6. Seal `release.json` with the actual deployed scope and source, and retain the
+   matching run/attempt receipt for 90 days. Production store uploads check current
+   backend compatibility before the release build and immediately before upload;
+   they do not demand a new full deployment for an unchanged backend. Build-only
+   artifacts still require the appropriate development/production tag and grant
+   no upload permit by themselves.
 
-Use **Re-run all jobs** for a failed workflow. A new attempt must produce fresh
-contracts, build, manifest and receipt together; mixing artifacts from attempts
-is rejected even when an individual older job was successful.
+Use **Re-run all jobs** for a failed workflow or the explicit manual retry from
+the same immutable release tag. Each attempt must produce the evidence required
+by its scope and declared CI mode; mixing artifacts from attempts is rejected
+even when an individual older job was successful.
 
 Firebase services cannot deploy atomically. If Functions succeeds but another
 service or smoke fails, `firebase-attempt-*` and the workflow steps show partial
@@ -95,7 +106,7 @@ progress; no verified receipt or mobile permit is produced. Existing installed
 clients still see whatever backend steps succeeded, which is why backward
 compatibility and recovery matter. Rule checks are not an IAM test.
 
-## Before promotion to main
+## Before production rollout
 
 These are rollout prerequisites, **not operations performed by this PR**:
 
@@ -180,16 +191,17 @@ node tool/firebase/recovery.mjs PATH/release.json PATH/rules build/recovery
    the currently deployed Functions. Copy a suitable candidate into a new isolated
    branch; run the full current contracts and review its diff. If old rules cannot
    support new writes, make a compatible forward fix instead.
-4. Release a newly verified main commit through the normal gate. Do not rerun an old
-   workflow to bypass the current-main check. An emergency bypass, if needed, is an
-   explicit operator decision and must be documented and later removed.
+4. Integrate the repair into main, finalize its version and release it through a
+   new production tag. Keep the fixed source, ancestry, ordering and compatibility
+   checks. An explicit manual CI skip requires a reason and audit evidence and
+   does not authorize tag movement, source substitution or failed smoke checks.
 5. Verify live versions, smoke cleanup and actual alert delivery; record detection
    and recovery timings. Keep data restoration (STA-71) and draft recovery (STA-97)
    separate from rules rollback.
 
 The emulator suite records deny-all/allow-all detection and restored contracts in
 `recovery-drill.json`, followed by the real client smoke twice. These measurements
-are local verification evidence, not a production recovery SLA. Main rollout must
+are local verification evidence, not a production recovery SLA. Production rollout must
 record the actual IAM/read-back/canary/receiver results before those Linear acceptance
 items are checked off.
 

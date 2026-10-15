@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import {isReleaseTag, resolveReleaseTag, requireCurrentMain, requireNoRollback} from './release.mjs';
 
 const repository = 'owner/cloud_board', sha = 'a'.repeat(40), previousSha = 'b'.repeat(40), tag = 'v1.2.3';
 const source = {repository, sha, tag, ref: `refs/tags/${tag}`};
+test('both development and production deployment tags cannot be moved or deleted', () => {
+  const rules = JSON.parse(readFileSync(new URL('./release-tag-rules.json', import.meta.url), 'utf8'));
+  assert.equal(rules.target, 'tag');
+  assert.equal(rules.enforcement, 'active');
+  assert.deepEqual(rules.conditions.ref_name, {include: ['refs/tags/v*', 'refs/tags/dev/v*'], exclude: []});
+  assert.deepEqual(rules.bypass_actors, []);
+  assert.deepEqual(rules.rules.map(rule => rule.type).sort(), ['deletion', 'update']);
+});
 const run = {id: 12, run_attempt: 1, head_sha: previousSha, head_branch: 'v1.2.2',
   head_repository: {full_name: repository}, event: 'push', status: 'completed', conclusion: 'failure'};
 function requestWith({history = [], main = 'ahead', compare = 'ahead', queued = false} = {}) {

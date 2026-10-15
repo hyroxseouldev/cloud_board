@@ -9,13 +9,17 @@ const evaluate = (expression, {upload = true, mode = 'qa'} = {}) =>
   runInNewContext(`(${expression})`, {env: {RELEASE_MODE: mode, UPLOAD_REQUESTED: String(upload)}}, {timeout: 100});
 
 for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobile and TV bundle'], ['testflight', 'testflight', 'Upload to TestFlight']]) {
-  test(`${workflow}: main development-app QA and completed tag release are separate from build-only`, () => {
+  test(`${workflow}: development-tag QA and completed release-tag runs are separate from build-only`, () => {
     const source = load(workflow);
     assert(!source.includes('backend_ready:'));
     assert(!source.includes('class_start_regressions:'));
     assert(!source.includes('flutter test'));
     assert(!source.includes('flutter analyze'));
-    assert(source.includes('branches: [main]'));
+    const pushTrigger = source.split('  push:\n')[1].split('  workflow_run:')[0];
+    assert(pushTrigger.includes("tags: ['dev/v*']"));
+    assert(!pushTrigger.includes('branches:'));
+    assert(!pushTrigger.includes('paths:'));
+    assert(!source.includes('default: main'));
     assert(source.includes('workflows: [Deploy Flutter Web to Firebase Hosting]'));
     assert(source.includes('types: [completed]'));
     assert(source.includes('source_ref:'));
@@ -25,6 +29,10 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert(source.includes('path: app'));
     assert(source.includes('persist-credentials: false'));
     assert(source.includes('preflight:'));
+    assert(source.includes("ref: ${{ github.event_name == 'push' && 'main' || github.sha }}"));
+    assert(source.includes('ref: ${{ needs.preflight.outputs.control_sha }}'));
+    assert(source.includes('PINNED_SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}'));
+    assert(source.indexOf('      - name: Resolve and pin trusted app source') < source.indexOf('      - name: Report blocked development store setup'));
     assert(source.includes("if: needs.preflight.outputs.ready == 'true'"));
     assert(source.includes('MOBILE_DEVELOPMENT_READY'));
     assert(source.includes('com.sunmkim.cloudboard.dev'));
@@ -54,6 +62,11 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert.equal(evaluate(upload), true);
     assert(source.indexOf('Verify actual ') < source.indexOf(`      - name: ${uploader}`));
     assert(source.indexOf('Retain mobile source receipt') < source.indexOf(`      - name: ${uploader}`));
+    const sourceRecheck = step(source, 'Recheck deployment tag before upload');
+    assert.equal(evaluate(condition(sourceRecheck), {upload: false}), false);
+    assert.equal(evaluate(condition(sourceRecheck)), true);
+    assert(sourceRecheck.includes('control/tool/release/source.mjs" recheck'));
+    assert(source.indexOf('      - name: Recheck deployment tag before upload') < source.indexOf(`      - name: ${uploader}`));
     assert(source.includes('--dart-define=FIREBASE_ENV="$APP_ENVIRONMENT"'));
     assert(source.includes('--flavor "$APP_ENVIRONMENT"'));
     assert(source.includes('--environment "$APP_ENVIRONMENT"'));
