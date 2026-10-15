@@ -14,8 +14,12 @@ on:
       - functions/src/**
       - functions/certificates/**
       - functions/package*.json
+      - functions-legacy/src/**
+      - functions-legacy/package*.json
+      - functions-legacy/tsconfig.json
       - firebase.development.json
       - tool/firebase/environments.mjs
+      - tool/firebase/prepare-development-display.mjs
       - firestore.rules
       - firestore.indexes.json
       - database.rules.json
@@ -100,8 +104,13 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: functions/package-lock.json
+          cache-dependency-path: |
+            functions/package-lock.json
+            functions-legacy/package-lock.json
       - run: npm ci --prefix functions
+      - name: Install the existing display output callable dependencies
+        if: needs.plan.outputs.backend == 'true'
+        run: npm ci --prefix functions-legacy
       - name: Confirm latest development source
         run: node tool/firebase/development-plan.mjs current
       - name: Authenticate only to development

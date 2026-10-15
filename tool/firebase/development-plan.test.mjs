@@ -8,6 +8,11 @@ test('main deploys only changed development components, not documents or native-
   assert.deepEqual(developmentPlan({...input, changedFiles: ['functions/src/save.js', 'firestore.rules']}), {web: false, backend: true, rules: true});
   assert.deepEqual(developmentPlan({...input, changedFiles: ['AGENTS.md', 'ios/Runner/Info.plist']}), {web: false, backend: false, rules: false});
   assert.deepEqual(developmentPlan({...input, changedFiles: ['firebase.development.json']}), {web: true, backend: true, rules: true});
+  for (const file of ['functions-legacy/src/services/display-activation.ts',
+    'functions-legacy/package.json', 'functions-legacy/package-lock.json', 'functions-legacy/tsconfig.json',
+    'tool/firebase/prepare-development-display.mjs']) {
+    assert.deepEqual(developmentPlan({...input, changedFiles: [file]}), {web: false, backend: true, rules: false}, file);
+  }
 });
 test('manual retry requires main and an explicit isolated scope', () => {
   const eventName = 'workflow_dispatch';

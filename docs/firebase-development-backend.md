@@ -11,12 +11,21 @@ by these operator commands.
 node functions/scripts/development-onboarding.mjs deploy-targets --project cloud-board-development
 ```
 
-The 15 endpoints support workout summaries, settings compatibility, libraries,
+The approved endpoints support workout summaries, settings compatibility, libraries,
 account deletion, onboarding/trials, diagnostics and playback snapshot cleanup.
 AI generation, real SMS and Apple/Google Play billing endpoints are not deployed
 to this project. No production provider credentials are copied. Store purchases
 and external provider integration need their own separately configured tests.
 Google and email/password sign-in use the development Firebase Auth project.
+
+The output switch also requires the existing `cloudboardSetDisplayState` callable
+in `asia-southeast1`, codebase `cloudboard-auth`. The guarded backend command
+compiles `functions-legacy` and prepares `build/development-display-functions`.
+Its generated entrypoint extracts that existing handler unchanged and exports
+only that callable, using the development runtime identity. It has no provider
+parameters or secrets and rejects any project other than `cloud-board-development`.
+The pinned production legacy entrypoint remains unchanged; Better Auth, SQL,
+SMS and billing endpoints are excluded from the development deploy target list.
 
 The development web's canonical URL is
 `https://cloud-board-development.firebaseapp.com/`. Its `web.app` alias redirects

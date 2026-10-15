@@ -16,7 +16,7 @@ export function developmentPlan({eventName, ref, sha, event = {}, changedFiles =
   const shared = changedFiles.some(p => ['firebase.development.json', 'tool/firebase/environments.mjs'].includes(p));
   return {
     web: shared || changedFiles.some(p => /^(lib\/|assets\/|web\/|config\/brand\.json$|pubspec\.(yaml|lock)$|\.fvmrc$)/.test(p)),
-    backend: shared || changedFiles.some(p => /^(functions\/(src|certificates)\/|functions\/package(?:-lock)?\.json$)/.test(p)),
+    backend: shared || changedFiles.some(p => /^(functions\/(src|certificates)\/|functions\/package(?:-lock)?\.json$|functions-legacy\/src\/|functions-legacy\/(package(?:-lock)?|tsconfig)\.json$|tool\/firebase\/prepare-development-display\.mjs$)/.test(p)),
     rules: shared || changedFiles.some(p => /^(firestore\.rules|firestore\.indexes\.json|database\.rules\.json|storage\.rules)$/.test(p)),
   };
 }
