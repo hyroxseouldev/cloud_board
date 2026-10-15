@@ -4,28 +4,53 @@
 
 ## Build, deployment and public availability
 
-Main merges start development Firebase web/server builds and deployments, plus
-TestFlight / Play internal QA for the existing app, without repeating full integration
-CI. Web/server target `cloud-board-development`; both mobile QA and release use
-`com.sunmkim.cloudboard` with production Firebase `cloud-board-stationd`. No separate
-`.dev` store registration is needed. QA checks live production backend compatibility
-and is included in installed-client contract tracking. Development server success
-never substitutes for that check or authorizes a production version policy.
+Main merges start development Firebase web/server deployment and development-app
+TestFlight / Play internal QA without repeating full integration CI. Main QA uses
+the existing `com.sunmkim.cloudboard.dev` app and `development` flavor targeting
+`cloud-board-development`. Release uses `com.sunmkim.cloudboard` and the
+`production` flavor targeting `cloud-board-stationd`. Build numbering and upload
+concurrency are separate for each app. Existing store-account credentials do not
+prove development-app registration or signing access: confirm those separately,
+then set `MOBILE_DEVELOPMENT_READY=true` in each applicable GitHub Environment.
+Until ready, QA stops before SDK installation, build and upload. The development
+Play baseline is not yet present and must be based on the development app's own
+verified store history.
+QA does not require production backend compatibility or enter the production
+installed-client ledger. Historical production-connected uploads remain tracked.
+The separate app IDs retain separate app sandboxes; web environments use separate
+origins. Never promote a development QA binary to public release; use the validated
+production-flavor artifact.
 
 Production candidates start with a `vX.Y.Z` tag on a commit in main history. The
-tag version must match the app version, and required CI must pass for the same
-tag SHA before production server/web deployment or release-mode mobile upload.
-Record the tag, app source SHA, validation run, backend receipt and actual platform
-upload results. Existing release tags must not be moved, deleted or reused for a
-different candidate. A manual retry or recovery still requires the release's
-verified source and evidence.
+tag version must match the app version. Automatic tag runs execute required CI by
+default and require success for the same tag SHA before production server/web
+deployment or release-mode mobile upload. Record the tag, app source SHA,
+validation run, backend receipt and actual platform upload results. Existing
+release tags must not be moved, deleted or reused for a different candidate.
+
+Manual Firebase tag releases and manual native `release` runs may explicitly set
+`skip_ci=true` with a non-empty `skip_ci_reason` to omit heavy CI. This option is
+rejected for main verification and QA. A skipped run is not a passing CI result:
+audit artifacts/receipts record `skipped`, the reason, actor, run and source/tag.
+Fixed source SHA, main ancestry, tag immutability and version matching remain
+required, as do build, signing, environment, numbering and actual artifact checks.
+Native production backend compatibility checks also remain. Firebase deploys only
+the selected production scope; skipping CI does not expand deployment targets.
+A manual retry or recovery still requires the release's exact source and either
+valid CI evidence or the explicit audited skip.
+
+For server/web, select the release tag in Actions manual dispatch; that tag must
+contain a workflow version supporting these inputs. Older tagged workflows may
+not offer them. Pushing a tag still starts normal CI automatically: `skip_ci` is
+not a tag-creation option, and a separate manual run does not change an existing
+automatic run into a skipped run.
 
 The repository tag ruleset blocks updates and deletion of `refs/tags/v*` without
 restricting tag creation. Its versioned definition is
 [`tool/firebase/release-tag-rules.json`](../../tool/firebase/release-tag-rules.json).
 This is separate from main/develop branch protection. Tag creation permission
 alone does not authorize deployment: the workflow still verifies main ancestry,
-version, fixed SHA and the required CI result.
+version, fixed SHA and the required CI result or explicit manual skip record.
 
 Release automation does not submit an app for public availability merely because
 TestFlight or Play internal testing accepted an upload. It also does not

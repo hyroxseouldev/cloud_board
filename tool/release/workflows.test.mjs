@@ -9,7 +9,7 @@ const evaluate = (expression, {upload = true, mode = 'qa'} = {}) =>
   runInNewContext(`(${expression})`, {env: {RELEASE_MODE: mode, UPLOAD_REQUESTED: String(upload)}}, {timeout: 100});
 
 for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobile and TV bundle'], ['testflight', 'testflight', 'Upload to TestFlight']]) {
-  test(`${workflow}: main existing-app QA and completed tag release are separate from build-only`, () => {
+  test(`${workflow}: main development-app QA and completed tag release are separate from build-only`, () => {
     const source = load(workflow);
     assert(!source.includes('backend_ready:'));
     assert(!source.includes('class_start_regressions:'));
@@ -24,17 +24,19 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert(source.includes('path: control'));
     assert(source.includes('path: app'));
     assert(source.includes('persist-credentials: false'));
-    assert(!source.includes('preflight:'));
-    assert(!source.includes('MOBILE_DEVELOPMENT_READY'));
-    assert(!source.includes('com.sunmkim.cloudboard.dev'));
-    assert(source.includes(`group: ${workflow}-main`));
+    assert(source.includes('preflight:'));
+    assert(source.includes("if: needs.preflight.outputs.ready == 'true'"));
+    assert(source.includes('MOBILE_DEVELOPMENT_READY'));
+    assert(source.includes('com.sunmkim.cloudboard.dev'));
+    assert(source.includes(`'${workflow}-main' || '${workflow}-development'`));
     const common = condition(step(source, 'Reuse tag integration validation for release upload'));
     assert.equal(evaluate(common, {mode: 'qa'}), false);
     assert.equal(evaluate(common, {mode: 'release'}), true);
     assert.equal(evaluate(common, {mode: 'release', upload: false}), false);
     const earlyBackend = step(source, 'Check backend compatibility before native build');
     assert.equal(evaluate(condition(earlyBackend), {upload: false}), false);
-    for (const mode of ['qa', 'release']) assert.equal(evaluate(condition(earlyBackend), {mode}), true);
+    assert.equal(evaluate(condition(earlyBackend), {mode: 'qa'}), false);
+    assert.equal(evaluate(condition(earlyBackend), {mode: 'release'}), true);
     assert(earlyBackend.includes('--mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only'));
     const earlyPosition = source.indexOf('      - name: Check backend compatibility before native build');
     assert(source.indexOf('      - name: Checkout selected app commit') < earlyPosition);
@@ -45,8 +47,8 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     const backendStep = step(source, 'Recheck backend compatibility and build number before publishing');
     assert.equal(evaluate(condition(backendStep), {upload: false}), false);
     assert.equal(evaluate(condition(backendStep)), true);
-    assert(!backendStep.includes('if [['));
-    assert(backendStep.includes('--mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only'));
+    assert(backendStep.includes('if [[ "$RELEASE_MODE" == release ]]'));
+    assert(backendStep.includes('--mode release --source-sha "$SOURCE_SHA" --check-only'));
     const upload = condition(step(source, uploader));
     assert.equal(evaluate(upload, {upload: false}), false);
     assert.equal(evaluate(upload), true);
@@ -55,7 +57,7 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert(source.includes('--dart-define=FIREBASE_ENV="$APP_ENVIRONMENT"'));
     assert(source.includes('--flavor "$APP_ENVIRONMENT"'));
     assert(source.includes('--environment "$APP_ENVIRONMENT"'));
-    assert.match(source, /(?:IOS_BUNDLE_ID|ANDROID_PACKAGE_NAME): com\.sunmkim\.cloudboard\n/);
+    assert.match(source, /(?:IOS_BUNDLE_ID|ANDROID_PACKAGE_NAME): .*'com\.sunmkim\.cloudboard' \|\| 'com\.sunmkim\.cloudboard\.dev'/);
     assert(source.includes('--build-name "$RELEASE_VERSION_NAME"'));
     assert(source.includes(`upload_to_${option}:`));
     assert.equal(evaluate(condition(step(source, 'QA build does not publish app update news')), {mode: 'qa'}), true);
@@ -74,4 +76,22 @@ test('build-only iOS does not upload crash symbols; signature and version collis
     assert(play.includes(`secrets.${name}`));
   }
   assert(play.includes('track: internal'));
+});
+
+test('manual release skip is explicit, audited before receipt, and retains upload safety gates', () => {
+  for (const workflow of ['testflight', 'google-play']) {
+    const source = load(workflow);
+    assert.match(source, /skip_ci:\n[\s\S]*?type: boolean\n\s+default: false/);
+    assert(source.includes('skip_ci_reason:'));
+    assert(source.includes('SKIP_CI: ${{ inputs.skip_ci || false }}'));
+    assert(source.includes("CI_SKIP_REASON: ${{ inputs.skip_ci_reason || '' }}"));
+    assert(source.includes('if [[ "$SKIP_CI" == true && "$RELEASE_MODE" != release ]]'));
+    const common = step(source, 'Reuse tag integration validation for release upload');
+    assert(common.includes('--release-tag "$RELEASE_TAG"'));
+    assert(source.indexOf('      - name: Reuse tag integration validation for release upload') <
+      source.indexOf('      - name: Record app source and signed artifact identity'));
+    assert(!condition(common).includes('SKIP_CI'));
+    assert(!condition(step(source, 'Check backend compatibility before native build')).includes('SKIP_CI'));
+    assert(!condition(step(source, 'Recheck backend compatibility and build number before publishing')).includes('SKIP_CI'));
+  }
 });

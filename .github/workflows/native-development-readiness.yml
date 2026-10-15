@@ -1,0 +1,46 @@
+name: Inspect development mobile store readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: testflight
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect development Apple app and profile metadata only
+        env:
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          set -euo pipefail
+          export APP_STORE_CONNECT_API_KEY_PATH="$RUNNER_TEMP/development-readiness.p8"
+          trap 'rm -f "$APP_STORE_CONNECT_API_KEY_PATH"' EXIT
+          printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > "$APP_STORE_CONNECT_API_KEY_PATH"
+          chmod 600 "$APP_STORE_CONNECT_API_KEY_PATH"
+          node tool/release/development_readiness.mjs ios
+  android:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: google-play
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect development Play inventory without commit or upload
+        env:
+          ANDROID_PACKAGE_NAME: com.sunmkim.cloudboard.dev
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: node tool/release/development_readiness.mjs android
