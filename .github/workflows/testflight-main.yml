@@ -1,9 +1,6 @@
 name: Upload iOS to TestFlight
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       upload_to_testflight:
@@ -22,14 +19,14 @@ concurrency:
 
 jobs:
   class_start_regressions:
+    if: >-
+      github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/class-start-regressions.yml
 
   backend_ready:
     name: Wait for verified backend deployment
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight) ||
-      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip testflight]') &&
-      !contains(github.event.head_commit.message, '[backend only]'))
+      github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -45,9 +42,7 @@ jobs:
   verify:
     name: Verify release
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (!contains(github.event.head_commit.message, '[skip testflight]') &&
-      !contains(github.event.head_commit.message, '[backend only]'))
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -104,9 +99,9 @@ jobs:
     name: Build and upload
     needs: [verify, backend_ready, class_start_regressions]
     if: >-
-      always() && !cancelled() && needs.verify.result == 'success' && needs.class_start_regressions.result == 'success' &&
-      (needs.backend_ready.result == 'success' ||
-      (github.event_name == 'workflow_dispatch' && !inputs.upload_to_testflight))
+      always() && !cancelled() && github.event_name == 'workflow_dispatch' &&
+      needs.verify.result == 'success' && needs.class_start_regressions.result == 'success' &&
+      (needs.backend_ready.result == 'success' || !inputs.upload_to_testflight)
     runs-on: macos-26
     timeout-minutes: 45
     environment: testflight
@@ -275,7 +270,7 @@ jobs:
           retention-days: 90
 
       - name: Upload dSYMs to Firebase Crashlytics
-        if: github.event_name == 'push' || inputs.upload_to_testflight
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight
         run: |
           set -euo pipefail
 
@@ -357,7 +352,7 @@ jobs:
           retention-days: 90
 
       - name: Recheck backend before publishing
-        if: github.event_name == 'push' || inputs.upload_to_testflight
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight
         env:
           GITHUB_TOKEN: ${{ github.token }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -367,7 +362,7 @@ jobs:
           node tool/release/ios_build_number.mjs --recheck
 
       - name: Upload to TestFlight
-        if: github.event_name == 'push' || inputs.upload_to_testflight
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}

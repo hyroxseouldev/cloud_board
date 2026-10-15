@@ -2,9 +2,7 @@ name: Deploy Flutter Web to Firebase Hosting
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+    branches: [main]
   workflow_dispatch:
     inputs:
       scope:
@@ -152,6 +150,13 @@ jobs:
 
       - name: Test support submission and account boundaries in Chrome
         run: flutter test --platform chrome test/support_ticket_test.dart test/support_screen_test.dart test/error_reporter_test.dart test/auth_router_test.dart
+
+      - name: Test legacy server compatibility
+        run: |
+          npm ci --prefix functions-legacy
+          npm run check --prefix functions-legacy
+          node tool/legacy-auth-release.mjs check
+          node --test tool/legacy-auth-release.test.mjs
 
       - name: Test account deletion functions
         run: |

@@ -24,7 +24,9 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert.equal(evaluate(build, {manual: true, upload: false, backend: 'skipped'}), true);
     assert.equal(evaluate(build, {manual: true, upload: true, backend: 'failure'}), false);
     assert.equal(evaluate(build, {manual: false, upload: false, backend: 'failure'}), false);
-    assert.equal(evaluate(build, {manual: false, upload: false, backend: 'success'}), true);
+    assert.equal(evaluate(backend, {manual: false, upload: true}), false);
+    assert.equal(evaluate(build, {manual: false, upload: false, backend: 'success'}), false);
+    assert.equal(evaluate(build, {manual: false, upload: true, backend: 'success'}), false);
     for (const regressions of ['failure', 'skipped', 'cancelled', null]) {
       assert.equal(evaluate(build, {manual: true, upload: false, backend: 'skipped', regressions}), false);
       assert.equal(evaluate(build, {manual: true, upload: true, backend: 'success', regressions}), false);
@@ -34,6 +36,13 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     const condition = step.match(/        if: (?:>-\n)?([\s\S]*?)\n        (?:uses|env):/)[1].trim();
     assert.equal(evaluate(condition, {manual: true, upload: false}), false);
     assert.equal(evaluate(condition, {manual: true, upload: true}), true);
+    assert.equal(evaluate(condition, {manual: false, upload: true}), false);
+    if (workflow === 'google-play') assert.equal(evaluate(condition, {manual: true, upload: true, bootstrapped: false}), false);
+    const recheck = source.slice(source.indexOf('      - name: Recheck backend before publishing')).split('\n      - name:')[0];
+    const recheckCondition = recheck.match(/        if: (.*)/)[1];
+    assert.equal(evaluate(recheckCondition, {manual: true, upload: false}), false);
+    assert.equal(evaluate(recheckCondition, {manual: true, upload: true}), true);
+    assert.equal(evaluate(recheckCondition, {manual: false, upload: true}), false);
     assert(source.indexOf('Verify actual ') < source.indexOf(`      - name: ${uploader}`));
     assert(source.includes('--dart-define=FIREBASE_ENV=production'));
     assert(source.includes('--build-name "$RELEASE_VERSION_NAME"'));
@@ -46,4 +55,5 @@ test('build-only iOS never uploads production crash symbols', () => {
   const source = load('testflight');
   const step = source.slice(source.indexOf('      - name: Upload dSYMs to Firebase Crashlytics')).split('\n      - name:')[0];
   assert.equal(evaluate(step.match(/        if: (.*)/)[1], {manual: true, upload: false}), false);
+  assert.equal(evaluate(step.match(/        if: (.*)/)[1], {manual: false, upload: true}), false);
 });
