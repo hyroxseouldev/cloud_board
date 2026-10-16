@@ -81,8 +81,13 @@ class _SlideDesignArtwork extends HookWidget {
         ),
       );
     }
-    return CustomPaint(
-      painter: SlideDesignPainter(module, originalImage: image.value),
+    return Semantics(
+      label: isIllustratedStarterDesign(module)
+          ? '${module.name}. ${module.text.replaceAll('\n', ', ')}. ${module.designSubtitle}'
+          : null,
+      child: CustomPaint(
+        painter: SlideDesignPainter(module, originalImage: image.value),
+      ),
     );
   }
 }
@@ -318,7 +323,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
             sets: module.showSets
                 ? Text(
                     positionLabel ??
-                        '${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
+                        '${isIllustratedStarterDesign(module) && isRest ? '휴식 · ' : ''}${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
                     key: const ValueKey('slide-sets'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
