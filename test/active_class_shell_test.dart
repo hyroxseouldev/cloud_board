@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/services/workout_media_controller.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_mode.dart';
@@ -19,6 +21,48 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'playback failure shows text without support and retains diagnostics',
+    (tester) async {
+      final commands = _Commands();
+      final sink = _Diagnostics();
+      final error = StateError('수업 제어 실패');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            deviceModeControllerProvider.overrideWith(_Mode.new),
+            activePlaybackSessionProvider.overrideWith(
+              (ref) => Stream.value(null),
+            ),
+            playbackRecoveryControllerProvider.overrideWith(_Recovery.new),
+            playbackActionControllerProvider.overrideWith(() => commands),
+            errorReporterProvider.overrideWithValue(ErrorReporter(sink)),
+          ],
+          child: MaterialApp(
+            theme: XonTheme.light,
+            home: const ActiveClassShell(
+              playerVisible: false,
+              child: Scaffold(body: Text('수업 화면')),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      commands.fail(error);
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(
+        find.text('수업을 제어하지 못했습니다. 연결과 현재 수업 상태를 확인한 뒤 다시 시도해 주세요.'),
+        findsOneWidget,
+      );
+      expect(tester.widget<SnackBar>(find.byType(SnackBar)).action, isNull);
+      expect(find.text('문제 문의하기'), findsNothing);
+      expect(sink.events.single.error, same(error));
+      expect(sink.events.single.context['action'], 'playback.action');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final size in [
     const Size(320, 568),
     const Size(390, 844),
@@ -275,6 +319,7 @@ class _Mode extends DeviceModeController {
 }
 
 class _Commands extends PlaybackActionController {
+  void fail(Object error) => state = AsyncError(error, StackTrace.current);
   int ends = 0;
   final seeks = <int>[];
   Completer<bool>? pendingSeek;
@@ -298,6 +343,12 @@ class _Commands extends PlaybackActionController {
     ends++;
     return true;
   }
+}
+
+class _Diagnostics implements DiagnosticSink {
+  final events = <DiagnosticEvent>[];
+  @override
+  Future<void> send(DiagnosticEvent event) async => events.add(event);
 }
 
 class _Media implements WorkoutMediaController {

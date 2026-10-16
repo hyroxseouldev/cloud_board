@@ -296,10 +296,20 @@ void main() {
       repo.pending!.complete();
       await tester.pumpAndSettle();
       expect(find.text('이메일 또는 비밀번호를 확인해 주세요.'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(tester.widget<SnackBar>(find.byType(SnackBar)).action, isNull);
+      expect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.text('이메일 또는 비밀번호를 확인해 주세요.'),
+        ),
+        findsOneWidget,
+      );
       expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
       repo.failure = null;
       await press(tester, submit);
       expect(repo.calls.length, 2);
+      expect(find.text('이메일 또는 비밀번호를 확인해 주세요.'), findsNothing);
     },
   );
 

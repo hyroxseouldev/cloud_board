@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -26,6 +27,7 @@ class AuthController extends _$AuthController {
         await ref.read(signInWithGoogleProvider).call();
         return '로그인되었습니다.';
       } catch (error, stack) {
+        if (_isSignInCancellation(error)) return null;
         ref
             .read(errorReporterProvider)
             .capture(error, stack, action: 'auth.signInWithGoogle');
@@ -41,13 +43,7 @@ class AuthController extends _$AuthController {
       await ref.read(signInWithAppleProvider).call();
       state = const AsyncData('로그인되었습니다.');
     } on FirebaseAuthException catch (error, stack) {
-      if (const {
-        'canceled',
-        'cancelled',
-        'web-context-canceled',
-        'popup-closed-by-user',
-        'user-cancelled',
-      }.contains(error.code)) {
+      if (_isSignInCancellation(error)) {
         state = const AsyncData(null);
       } else {
         ref
@@ -71,3 +67,15 @@ class AuthController extends _$AuthController {
     });
   }
 }
+
+bool _isSignInCancellation(Object error) =>
+    error is GoogleSignInException &&
+        error.code == GoogleSignInExceptionCode.canceled ||
+    error is FirebaseAuthException &&
+        const {
+          'canceled',
+          'cancelled',
+          'web-context-canceled',
+          'popup-closed-by-user',
+          'user-cancelled',
+        }.contains(error.code);
