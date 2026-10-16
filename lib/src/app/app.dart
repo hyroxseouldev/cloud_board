@@ -1,5 +1,4 @@
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
-import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
@@ -29,6 +28,15 @@ class XonBoardApp extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authNotice =
+        useRef<ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?>(
+          null,
+        );
+    void clearAuthNotice() {
+      authNotice.value?.close();
+      authNotice.value = null;
+    }
+
     ref.watch(billingPurchaseControllerProvider);
     useEffect(() {
       Future.microtask(() {
@@ -53,57 +61,35 @@ class XonBoardApp extends HookConsumerWidget {
       storeEntitlementProvider,
       (_, _) => ref.invalidate(userProfileControllerProvider),
     );
-    void showActionResult(
+    ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? showActionResult(
       AsyncValue<String?>? previous,
       AsyncValue<String?> next,
       String errorPrefix, {
       String Function(Object?)? errorMessage,
     }) {
-      if (previous?.isLoading != true) return;
+      if (next.isLoading || previous?.isLoading != true) return null;
       final isError = next.hasError;
       final message = isError
           ? errorMessage?.call(next.error) ?? '$errorPrefix. 잠시 후 다시 시도해 주세요.'
           : next.value;
-      if (message == null) return;
-      final supportOwnerId = ref.read(authStateProvider).value?.id;
-      _scaffoldMessengerKey.currentState
-        ?..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: isError ? Colors.red.shade800 : null,
-            action: isError
-                ? SnackBarAction(
-                    label: '문제 문의하기',
-                    onPressed: () {
-                      if (ref.read(authStateProvider).value?.id !=
-                          supportOwnerId) {
-                        ref.read(appRouterProvider).push('/support');
-                        return;
-                      }
-                      final reporter = ref.read(errorReporterProvider);
-                      final event =
-                          reporter.eventFor(next.error) ??
-                          reporter.capture(
-                            next.error!,
-                            next.stackTrace ?? StackTrace.current,
-                            action: 'ui.action',
-                          );
-                      ref
-                          .read(appRouterProvider)
-                          .push(
-                            '/support',
-                            extra: {
-                              ...supportDiagnosticsForEvent(event),
-                              '_supportOwnerId': supportOwnerId,
-                            },
-                          );
-                    },
-                  )
-                : null,
-          ),
-        );
+      if (message == null) return null;
+      if (isError) {
+        // Keep the former support-action fallback without requiring a click.
+        // capture reuses any event already recorded by the controller.
+        ref
+            .read(errorReporterProvider)
+            .capture(
+              next.error!,
+              next.stackTrace ?? StackTrace.current,
+              action: 'ui.action',
+            );
+      }
+      clearAuthNotice();
+      final messenger = _scaffoldMessengerKey.currentState;
+      messenger
+        ?..clearSnackBars()
+        ..removeCurrentSnackBar();
+      return messenger?.showSnackBar(SnackBar(content: Text(message)));
     }
 
     ref.listen(iosClassControlsProvider, (previous, next) {
@@ -127,6 +113,7 @@ class XonBoardApp extends HookConsumerWidget {
         ref.invalidate(userProfileControllerProvider);
       }
       if (next.value != null && previous?.value?.id != next.value?.id) {
+        clearAuthNotice();
         ref.invalidate(accountDeletionControllerProvider);
       }
     });
@@ -138,12 +125,19 @@ class XonBoardApp extends HookConsumerWidget {
       );
     });
     ref.listen(authControllerProvider, (previous, next) {
-      showActionResult(
+      if (next.isLoading) clearAuthNotice();
+      final notice = showActionResult(
         previous,
         next,
         '인증 작업에 실패했습니다',
         errorMessage: authErrorMessage,
       );
+      if (notice != null) {
+        authNotice.value = notice;
+        notice.closed.then((_) {
+          if (authNotice.value == notice) authNotice.value = null;
+        });
+      }
     });
     ref.listen(workoutActionControllerProvider, (previous, next) {
       // The invoking editor/list owns the actionable quota dialog and draft.
