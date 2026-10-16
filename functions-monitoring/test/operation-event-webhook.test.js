@@ -15,8 +15,8 @@ const input = {
 const payload = buildWebhookPayload(input);
 const connection = {payload, key: 'fake-secret-key', url: 'https://receiver.example/hooks'};
 
-test('three-field contract, accurate start/end semantics and stable path identity', () => {
-  assert.deepEqual(Object.keys(payload).sort(), ['event_id', 'message', 'title']);
+test('four-field contract, accurate start/end semantics and stable path identity', () => {
+  assert.deepEqual(Object.keys(payload).sort(), ['event_id', 'message', 'status', 'title']);
   assert.match(payload.event_id, /^[0-9a-f]{64}$/u);
   assert.match(payload.title, /서버 승인/u);
   assert.match(payload.message, /실제 TV 재생 여부는 이 기록만으로 확인되지 않습니다/u);
@@ -148,7 +148,8 @@ test('timeout aborts request even if injected fetch does not settle', async () =
 test('configuration validation prevents HTTP or expanded payload from reaching fetch', async () => {
   for (const override of [{url: 'http://receiver.example'}, {url: 'https://user:secret@receiver.example'},
     {url: 'not-url'}, {key: ''}, {key: 'secret\nInjected: x'}, {timeoutMs: -1},
-    {payload: {...payload, rawPayload: 'SECRET'}}]) {
+    {payload: {...payload, rawPayload: 'SECRET'}}, {payload: {...payload, status: 'warning'}},
+    {payload: {...payload, status: undefined}}]) {
     let called = false;
     await assert.rejects(deliverWebhook({...connection, ...override,
       fetchImpl: async () => { called = true; }}), {message: 'webhook_invalid_configuration'});
@@ -188,4 +189,21 @@ test('real loopback mock receives the exact contract with a fake key', async () 
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test('status classifies the recorded event without inferring playback or trusting input status', () => {
+  const groups = {
+    success: ['playback_started', 'playback_restored', 'connection_recovered'],
+    failure: ['command_failed', 'command_receipt_failed', 'playback_interrupted', 'connection_failed'],
+    info: ['playback_completed', 'device_online', 'device_offline', 'device_shutdown'],
+  };
+  for (const [status, types] of Object.entries(groups)) {
+    for (const type of types) {
+      const result = buildWebhookPayload({...input, event: {type, status: 'spoofed'}});
+      assert.equal(result.status, status, type);
+      assert.equal(result.event_id, payload.event_id, 'Classification must not alter retry identity');
+    }
+  }
+  const receiptFailure = buildWebhookPayload({...input, event: {type: 'command_receipt_failed'}});
+  assert.match(receiptFailure.message, /실제 재생 중단 여부는 별도 확인/u);
 });

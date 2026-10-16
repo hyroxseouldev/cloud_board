@@ -2,7 +2,7 @@
 
 A separate `class-monitoring` Functions codebase forwards newly created records at
 `users/{ownerId}/operations/events/{eventId}` in production's Singapore database.
-The receiver accepts exactly `event_id`, `title`, and `message`. The stable ID is
+The sender includes `event_id`, `title`, `message`, and `status`. The stable ID is
 a SHA-256 of the production project and full source event path. The message
 contains allowlisted event metadata; no email, full user document or lesson
 content is forwarded. Center names are unknown; the account ID is the mapping key.
@@ -28,6 +28,22 @@ change class state. Delivery is at least once; Moring confirmed duplicate-ID
 handling (first request 202, duplicate 200). Events may be lost after the retry
 window; this is not continuous proof of playback or a complete incident detector.
 
+## Notification status
+
+`status` classifies the recorded event, not the overall class or webhook HTTP
+response. It is derived from the event type, never copied from an input field.
+
+| status | Event types |
+| --- | --- |
+| success | playback_started, playback_restored, connection_recovered |
+| failure | command_failed, command_receipt_failed, playback_interrupted, connection_failed |
+| info | playback_completed, device_online, device_offline, device_shutdown |
+
+Normal app/tab closure can produce device_offline; completion does not distinguish
+normal completion from a manual stop. These remain informational. Receipt failure
+means missing confirmation, not proven playback failure. The existing completion
+receipt false alarm (STA-192) is a separate client fix and is not suppressed here.
+
 ## Isolated server release
 
 This codebase is released independently of app/rules/backend releases. It requires
@@ -45,7 +61,7 @@ npm test --prefix functions-monitoring
 firebase emulators:exec --project demo-cloudboard-monitoring \
   --config firebase.monitoring.emulator.json --only functions,database \
   'node functions-monitoring/test/emulator-smoke.mjs'
-node functions-monitoring/deploy.mjs monitoring/v1.0.0 MAIN_SHA 'STA-191 requested server-only deployment'
+node functions-monitoring/deploy.mjs monitoring/v1.0.1 MAIN_SHA 'STA-191 requested server-only deployment'
 ```
 
 After deployment verify ACTIVE, exact event path/instance, dedicated runtime and
