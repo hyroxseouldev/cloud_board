@@ -1,0 +1,9 @@
+{
+  "functions": [{
+    "source": "functions-monitoring",
+    "codebase": "class-monitoring",
+    "runtime": "nodejs22",
+    "predeploy": ["node functions-monitoring/verify-target.mjs"],
+    "ignore": ["node_modules", ".git", ".secret*", ".env*", "*-debug.log", "test"]
+  }]
+}
