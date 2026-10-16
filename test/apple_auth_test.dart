@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -221,7 +220,7 @@ void main() {
     },
   );
   testWidgets(
-    'failed Apple login keeps details available and copies a redacted report',
+    'failed Apple login has no persistent panel and retains redacted diagnostics',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -234,22 +233,6 @@ void main() {
       final reporter = ErrorReporter(
         sink,
         defaults: {'platform': 'iOS', 'version': '1.0.0', 'build': '548'},
-      );
-      String? copied;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'Clipboard.setData') {
-            copied = (call.arguments as Map)['text'] as String;
-          }
-          return null;
-        },
-      );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        ),
       );
       await tester.pumpWidget(
         ProviderScope(
@@ -273,22 +256,21 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 20));
-      expect(find.text('오류 코드: firebase_auth/unknown'), findsOneWidget);
-      await tester.ensureVisible(find.text('오류 상세'));
-      await tester.tap(find.text('오류 상세'));
-      await tester.pumpAndSettle();
+      expect(find.textContaining('오류 코드:'), findsNothing);
+      expect(find.text('오류 상세'), findsNothing);
+      expect(find.text('문제 문의하기'), findsNothing);
       expect(
         find.textContaining('AuthorizationError error 1000'),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.textContaining('build: 548'), findsOneWidget);
-      await tester.tap(find.text('복사'));
-      await tester.pumpAndSettle();
-      expect(copied, contains('auth.signInWithApple'));
-      expect(copied, contains('firebase_auth/unknown'));
-      expect(copied, isNot(contains('coach@example.com')));
-      expect(copied, isNot(contains('private-token')));
       expect(sink.events, hasLength(1));
+      final details = sink.events.single.details;
+      expect(details, contains('auth.signInWithApple'));
+      expect(details, contains('firebase_auth/unknown'));
+      expect(details, contains('AuthorizationError error 1000'));
+      expect(details, contains('build: 548'));
+      expect(details, isNot(contains('coach@example.com')));
+      expect(details, isNot(contains('private-token')));
       expect(tester.takeException(), isNull);
       debugDefaultTargetPlatformOverride = null;
     },

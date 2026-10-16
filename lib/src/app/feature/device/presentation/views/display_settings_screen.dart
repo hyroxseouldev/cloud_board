@@ -2,7 +2,6 @@ import 'package:cloud_board/src/app/feature/device/presentation/widgets/display_
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -49,22 +48,19 @@ class DisplaySettingsScreen extends HookConsumerWidget {
     ref.listen(deviceClaimControllerProvider, (previous, next) {
       if (next.hasError && next.error != previous?.error) {
         final error = next.error!;
+        ref
+            .read(errorReporterProvider)
+            .capture(
+              error,
+              next.stackTrace ?? StackTrace.current,
+              action: 'pairing.action',
+            );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               error is FirebaseException && error.code == 'resource-exhausted'
                   ? '동시 송출 한도에 도달했습니다. 송출 중인 TV를 먼저 끄거나 구독 관리에서 한도를 확인해 주세요.'
                   : diagnosticMessage(error),
-            ),
-            action: SnackBarAction(
-              label: '문제 문의하기',
-              onPressed: () => openSupportForError(
-                context,
-                ref.read(errorReporterProvider),
-                next.error!,
-                next.stackTrace,
-                'pairing.action',
-              ),
             ),
           ),
         );

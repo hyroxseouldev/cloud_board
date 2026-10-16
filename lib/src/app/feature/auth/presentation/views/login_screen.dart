@@ -14,7 +14,6 @@ import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
-import 'package:cloud_board/src/app/feature/auth/presentation/widgets/auth_error_notice.dart';
 
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key, this.starter, this.purpose, this.returnTo});
@@ -76,12 +75,6 @@ class LoginScreen extends HookConsumerWidget {
           ),
         ),
         onAccountHelp: () => _showAccountHelp(context),
-        errorNotice: authState.hasError
-            ? AuthErrorNotice(
-                error: authState.error!,
-                stack: authState.stackTrace,
-              )
-            : null,
       );
     }
     return Scaffold(
@@ -225,13 +218,6 @@ class LoginScreen extends HookConsumerWidget {
                                     ),
                                   ),
                           ),
-                          if (authState.hasError) ...[
-                            const SizedBox(height: 16),
-                            AuthErrorNotice(
-                              error: authState.error!,
-                              stack: authState.stackTrace,
-                            ),
-                          ],
                           const SizedBox(height: 22),
                           const Text(
                             '기존 회원은 이전 로그인 방법을 선택해 주세요.',
@@ -282,14 +268,12 @@ class _QuietWelcome extends StatelessWidget {
     required this.onGoogle,
     required this.onEmail,
     required this.onAccountHelp,
-    this.errorNotice,
   });
 
   final StarterWorkout? starter;
   final bool busy, showApple;
   final String? signingInWith;
   final VoidCallback onExplore, onApple, onGoogle, onEmail, onAccountHelp;
-  final Widget? errorNotice;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -425,10 +409,6 @@ class _QuietWelcome extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (errorNotice != null) ...[
-                          const SizedBox(height: 12),
-                          errorNotice!,
-                        ],
                         SizedBox(height: compact ? 20 : 44),
                         const Divider(height: 1),
                         const SizedBox(height: 8),
