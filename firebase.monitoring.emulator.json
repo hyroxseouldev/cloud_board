@@ -1,0 +1,12 @@
+{
+  "functions": [{"source":"functions-monitoring","codebase":"class-monitoring","runtime":"nodejs22"}],
+  "database": {"rules":"functions-monitoring/test/database.rules.json"},
+  "emulators": {
+    "functions": {"port":19401},
+    "database": {"port":19400},
+    "hub": {"port":19402},
+    "logging": {"port":19403},
+    "ui": {"enabled":false},
+    "singleProjectMode":true
+  }
+}
