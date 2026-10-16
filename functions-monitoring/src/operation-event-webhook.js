@@ -3,17 +3,17 @@ import {createHash} from 'node:crypto';
 export const productionProjectId = 'cloud-board-stationd';
 const unknown = '알 수 없음';
 const eventKinds = new Map([
-  ['playback_started', ['수업 시작 서버 승인', '서버가 수업 시작을 승인했습니다. 실제 TV 재생 여부는 이 기록만으로 확인되지 않습니다.']],
-  ['playback_completed', ['수업 종료 기록', '수업 종료 상태가 기록되었습니다. 정상 완주 여부는 이 기록만으로 확인되지 않습니다.']],
-  ['command_failed', ['수업 명령 처리 실패', '수업 명령 처리 실패가 기록되었습니다.']],
-  ['command_receipt_failed', ['TV 명령 수신 확인 실패', 'TV 명령 수신 확인에 실패했습니다. 실제 재생 중단 여부는 별도 확인이 필요합니다.']],
-  ['playback_interrupted', ['재생 중단 기록', '디스플레이의 재생 중단이 기록되었습니다.']],
-  ['playback_restored', ['재생 복구 기록', '디스플레이의 재생 복구가 기록되었습니다.']],
-  ['connection_failed', ['서버 연결 이상', '서버 연결 이상이 기록되었습니다. 실제 재생 중단 여부는 별도 확인이 필요합니다.']],
-  ['connection_recovered', ['서버 연결 복구', '서버 연결 복구가 기록되었습니다.']],
-  ['device_online', ['TV 서버 연결 기록', 'TV의 서버 연결이 기록되었습니다. 실제 TV 재생 여부는 이 기록만으로 확인되지 않습니다.']],
-  ['device_offline', ['TV 서버 연결 끊김 기록', 'TV의 서버 연결 끊김이 기록되었습니다. 실제 재생 중단 여부는 별도 확인이 필요합니다.']],
-  ['device_shutdown', ['앱 종료 신호 기록', '앱 종료 신호가 기록되었습니다. 전체 수업 종료 여부는 이 기록만으로 확인되지 않습니다.']],
+  ['playback_started', ['수업 시작 서버 승인', '서버가 수업 시작을 승인했습니다. 실제 TV 재생 여부는 이 기록만으로 확인되지 않습니다.', 'success']],
+  ['playback_completed', ['수업 종료 기록', '수업 종료 상태가 기록되었습니다. 정상 완주 여부는 이 기록만으로 확인되지 않습니다.', 'info']],
+  ['command_failed', ['수업 명령 처리 실패', '수업 명령 처리 실패가 기록되었습니다.', 'failure']],
+  ['command_receipt_failed', ['TV 명령 수신 확인 실패', 'TV 명령 수신 확인에 실패했습니다. 실제 재생 중단 여부는 별도 확인이 필요합니다.', 'failure']],
+  ['playback_interrupted', ['재생 중단 기록', '디스플레이의 재생 중단이 기록되었습니다.', 'failure']],
+  ['playback_restored', ['재생 복구 기록', '디스플레이의 재생 복구가 기록되었습니다.', 'success']],
+  ['connection_failed', ['서버 연결 이상', '서버 연결 이상이 기록되었습니다. 실제 재생 중단 여부는 별도 확인이 필요합니다.', 'failure']],
+  ['connection_recovered', ['서버 연결 복구', '서버 연결 복구가 기록되었습니다.', 'success']],
+  ['device_online', ['TV 서버 연결 기록', 'TV의 서버 연결이 기록되었습니다. 실제 TV 재생 여부는 이 기록만으로 확인되지 않습니다.', 'info']],
+  ['device_offline', ['TV 서버 연결 끊김 기록', 'TV의 서버 연결 끊김이 기록되었습니다. 실제 재생 중단 여부는 별도 확인이 필요합니다.', 'info']],
+  ['device_shutdown', ['앱 종료 신호 기록', '앱 종료 신호가 기록되었습니다. 전체 수업 종료 여부는 이 기록만으로 확인되지 않습니다.', 'info']],
 ]);
 const plainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const pathPart = (value) => typeof value === 'string' && value.length > 0 &&
@@ -74,7 +74,7 @@ export function buildWebhookPayload({projectId, ownerId, eventId, event, receive
     `재생 영향: ${impact}`,
     `대상 기기: ${targets(event.targetDeviceIds)}`,
   ].join('\n');
-  return {event_id, title: kind[0], message};
+  return {event_id, title: kind[0], message, status: kind[2]};
 }
 
 function deliveryError(code, status) {
@@ -85,7 +85,8 @@ function deliveryError(code, status) {
   return error;
 }
 function validPayload(payload) {
-  return plainObject(payload) && Object.keys(payload).sort().join(',') === 'event_id,message,title' &&
+  return plainObject(payload) && Object.keys(payload).sort().join(',') === 'event_id,message,status,title' &&
+    ['success', 'failure', 'info'].includes(payload.status) &&
     /^[a-f0-9]{64}$/u.test(payload.event_id) &&
     typeof payload.title === 'string' && payload.title.length > 0 && payload.title.length <= 200 &&
     typeof payload.message === 'string' && payload.message.length > 0 && payload.message.length <= 6000;
