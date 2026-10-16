@@ -10,6 +10,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_templ
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design_typography.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/original_slide_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/starter_exercise_artwork.dart';
 
 const slideDesignMinimumFontSize = SlideDesignTypography.minimumReadable;
 
@@ -186,12 +187,14 @@ class _Plan {
     this.cards, {
     this.shapes = const [],
     this.motifs = const [],
+    this.exercises = const [],
   });
   final SlideDesignLayoutMetrics metrics;
   final List<_DrawText> text;
   final List<Rect> cards;
   final List<_DrawShape> shapes;
   final List<_DrawText> motifs;
+  final List<({Rect rect, StarterExercise exercise})> exercises;
 }
 
 class _DrawShape {
@@ -335,6 +338,7 @@ _Plan _createPlan(WorkoutModule module) {
 }
 
 _Plan _measurePlan(WorkoutModule module) {
+  if (isIllustratedStarterDesign(module)) return _measureStarterPlan(module);
   if (isStudioSlideDesign(module)) return _measureStudioPlan(module);
   final exclusion = slideTimerGeometry(
     module,
@@ -375,6 +379,176 @@ _Plan _measurePlan(WorkoutModule module) {
     }
   }
   return best!;
+}
+
+_Plan _measureStarterPlan(WorkoutModule module) {
+  final lines = slideDesignLines(module.text);
+  final exclusion = slideTimerGeometry(
+    module,
+    SlideDesignPainter.size,
+  ).exclusion;
+  final region = _textRegion(exclusion);
+  // A coach can freely expand the content or move the timer. Keep every edited
+  // line visible using the existing measured layout if the illustrated rows no
+  // longer fit. Do not crop text or attach the old exercise to a new movement.
+  if (lines.isEmpty ||
+      lines.length > 3 ||
+      lines.any((line) => line == '##' || line.startsWith('## ')) ||
+      region.width < 930 ||
+      region.height < 800) {
+    return _measureStudioPlan(
+      module.copyWith(designTemplate: 'studio-v1-numbered'),
+    );
+  }
+  final foreground = _foreground(module);
+  final accent = Color(module.designAccentColor ?? 0xFF526B60);
+  final text = <_DrawText>[];
+  final shapes = <_DrawShape>[];
+  final exercises = <({Rect rect, StarterExercise exercise})>[];
+  final title = _fitStudioText(
+    module,
+    module.name,
+    Rect.fromLTWH(region.left + 28, region.top + 12, region.width - 36, 124),
+    94,
+    foreground,
+    role: 'title',
+    title: true,
+  );
+  text.add(title);
+  shapes.add(
+    _DrawShape(
+      Rect.fromLTWH(region.left, region.top + 12, 10, 104),
+      accent,
+      radius: 5,
+    ),
+  );
+  final hasInstruction = module.designSubtitle.trim().isNotEmpty;
+  final top = region.top + 190;
+  final bottom = region.bottom - (hasInstruction ? 82 : 0);
+  final rowHeight = (bottom - top) / lines.length;
+  for (var index = 0; index < lines.length; index++) {
+    final centerY = top + (index + .5) * rowHeight;
+    final exercise = starterExerciseForLine(lines[index]);
+    if (exercise != null) {
+      exercises.add((
+        rect: Rect.fromLTWH(region.left, centerY - 100, 270, 200),
+        exercise: exercise,
+      ));
+    }
+    final number = _fitStudioText(
+      module,
+      '${index + 1}'.padLeft(2, '0'),
+      Rect.fromLTWH(region.left + 306, centerY - 36, 78, 84),
+      54,
+      accent,
+      role: 'number',
+      label: true,
+    );
+    text.add(number);
+    final body = _fitStudioText(
+      module,
+      lines[index],
+      Rect.fromLTWH(region.left + 410, centerY - 70, region.width - 420, 140),
+      80,
+      foreground,
+      role: 'body',
+    );
+    text.add(
+      _DrawText(
+        body.value,
+        Rect.fromLTWH(
+          body.rect.left,
+          centerY - body.rect.height / 2,
+          body.rect.width,
+          body.rect.height,
+        ),
+        body.fontSize,
+        style: body.style,
+        role: body.role,
+      ),
+    );
+    if (index < lines.length - 1) {
+      shapes.add(
+        _DrawShape(
+          Rect.fromLTWH(
+            region.left + 306,
+            top + (index + 1) * rowHeight,
+            region.width - 306,
+            2,
+          ),
+          accent.withValues(alpha: .14),
+        ),
+      );
+    }
+  }
+  if (hasInstruction) {
+    text.add(
+      _fitStudioText(
+        module,
+        module.designSubtitle,
+        Rect.fromLTWH(region.left, region.bottom - 64, region.width, 64),
+        48,
+        accent,
+        role: 'subtitle',
+      ),
+    );
+  }
+  final headerArea = Rect.fromLTWH(
+    region.right + 60,
+    84,
+    math.max(1, 1824 - region.right - 60),
+    104,
+  );
+  if (module.designHeaderLabel.isNotEmpty &&
+      headerArea.width >= 300 &&
+      (exclusion == null || !headerArea.overlaps(exclusion))) {
+    text.add(
+      _fitStudioText(
+        module,
+        module.designHeaderLabel,
+        headerArea,
+        44,
+        accent,
+        role: 'header',
+        label: true,
+        align: TextAlign.right,
+      ),
+    );
+  }
+  final runs = [
+    for (final item in text)
+      SlideDesignTextBounds(
+        role: item.role,
+        value: item.value,
+        rect: item.rect,
+        fontSize: item.fontSize,
+        fontFamily: item.style!.fontFamily!,
+        fontWeight: item.style!.fontWeight!.value,
+        color: item.style!.color!.toARGB32(),
+        italic: item.style!.fontStyle == FontStyle.italic,
+      ),
+  ];
+  final minFont = runs.map((run) => run.fontSize).reduce(math.min);
+  final readable =
+      minFont >= slideDesignMinimumFontSize &&
+      runs.every((run) => exclusion == null || !run.rect.overlaps(exclusion));
+  return _Plan(
+    SlideDesignLayoutMetrics(
+      minFontSize: minFont,
+      columns: 1,
+      timerExclusion: exclusion,
+      textBounds: region,
+      sections: [
+        SlideDesignSectionBounds(heading: '', lines: lines, rect: region),
+      ],
+      textRuns: runs,
+      warning: readable ? null : '글씨가 너무 작아져요. 문장을 간결하게 다듬어 주세요.',
+    ),
+    text,
+    const [],
+    shapes: shapes,
+    exercises: exercises,
+  );
 }
 
 _Plan _planColumns(
@@ -1266,6 +1440,9 @@ class SlideDesignPainter extends CustomPainter {
         RRect.fromRectAndRadius(shape.rect, Radius.circular(shape.radius)),
         Paint()..color = shape.color,
       );
+    }
+    for (final item in plan.exercises) {
+      paintStarterExercise(canvas, item.rect, item.exercise);
     }
     for (final rect in plan.cards) {
       canvas.drawRRect(

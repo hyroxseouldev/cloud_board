@@ -69,6 +69,9 @@ void main() {
               designSubtitle: '코치가 직접 작성한 안내',
               designFontWeight: 900,
               designItalic: true,
+              designTemplate: 'studio-v1-numbered',
+              designAccentColor: 0xFF2563EB,
+              text: '코치가 저장한 운동',
             ),
           ],
         );
@@ -78,6 +81,9 @@ void main() {
         expect(retry.modules.first.designSubtitle, '코치가 직접 작성한 안내');
         expect(retry.modules.first.designFontWeight, 900);
         expect(retry.modules.first.designItalic, isTrue);
+        expect(retry.modules.first.designTemplate, 'studio-v1-numbered');
+        expect(retry.modules.first.designAccentColor, 0xFF2563EB);
+        expect(retry.modules.first.text, '코치가 저장한 운동');
         final sample = await action(template, _author);
         expect(isStarterWorkout(sample.id), isTrue);
         expect(sample.modules, original.modules);
@@ -366,11 +372,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(find.text('예시 · 자유롭게 수정하세요'), 180);
-        expect(find.text('예시 · 자유롭게 수정하세요').hitTestable(), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('저장 후 수정할 수 있어요'), 180);
+        await tester.pumpAndSettle();
+        expect(find.text('저장 후 수정할 수 있어요').hitTestable(), findsOneWidget);
         expect(
           find.ancestor(
-            of: find.text('예시 · 자유롭게 수정하세요'),
+            of: find.text('저장 후 수정할 수 있어요'),
             matching: find.byType(WorkoutSlidePreview),
           ),
           findsNothing,
@@ -391,9 +398,9 @@ void main() {
           container.read(explorationControllerProvider).value?.templateKey,
           'interval',
         );
-        await tester.scrollUntilVisible(find.text('이 기기에서 예시 재생'), 180);
+        await tester.scrollUntilVisible(find.text('예시 재생'), 180);
         await tester.pumpAndSettle();
-        expect(find.text('이 기기에서 예시 재생').hitTestable(), findsOneWidget);
+        expect(find.text('예시 재생').hitTestable(), findsOneWidget);
         expect(container.exists(playbackActionControllerProvider), isFalse);
         expect(container.exists(workoutActionControllerProvider), isFalse);
         expect(tester.takeException(), isNull);

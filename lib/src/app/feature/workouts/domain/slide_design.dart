@@ -18,6 +18,12 @@ const studioSlideDesigns = <String, String>{
   'studio-v1-interval': '인터벌',
 };
 
+// Opt-in for newly created examples only. Older clients keep the saved PNG;
+// existing starter IDs are deliberately not used to infer a new design.
+const starterIllustratedDesign = 'starter-v1-illustrated';
+bool isIllustratedStarterDesign(WorkoutModule module) =>
+    module.designTemplate == starterIllustratedDesign;
+
 const slideDesignFamilies = <String, String>{
   'banner': '밝은 번호 보드',
   'focus': '어두운 집중 보드',
@@ -28,7 +34,8 @@ const slideDesignFamilies = <String, String>{
 const slideDesignFontFamilies = <String, String>{'sans': '고딕', 'serif': '명조'};
 
 bool isStudioSlideDesign(WorkoutModule module) =>
-    studioSlideDesigns.containsKey(module.designTemplate);
+    studioSlideDesigns.containsKey(module.designTemplate) ||
+    isIllustratedStarterDesign(module);
 
 bool _supportsStudioStyle(WorkoutModule module) {
   final style = module.designStyle;
@@ -106,6 +113,7 @@ String? slideDesignKind(WorkoutModule module) {
   // A newer saved style keeps its baked PNG until this client understands its
   // contract, rather than silently painting a different layout or typeface.
   if (isStudioSlideDesign(module) && !_supportsStudioStyle(module)) return null;
+  if (isIllustratedStarterDesign(module)) return 'numbered';
   if (!slideDesigns.containsKey(template) &&
       !legacySlideDesigns.containsKey(template) &&
       !studioSlideDesigns.containsKey(template)) {
@@ -118,7 +126,9 @@ bool hasSlideDesign(WorkoutModule module) => slideDesignKind(module) != null;
 
 /// Keep an existing v1 selection valid without duplicate labels in the editor.
 Map<String, String> slideDesignOptions(WorkoutModule module) =>
-    isStudioSlideDesign(module)
+    isIllustratedStarterDesign(module)
+    ? {starterIllustratedDesign: '운동 일러스트', ...studioSlideDesigns}
+    : isStudioSlideDesign(module)
     ? studioSlideDesigns
     : legacySlideDesigns.containsKey(module.designTemplate)
     ? legacySlideDesigns
