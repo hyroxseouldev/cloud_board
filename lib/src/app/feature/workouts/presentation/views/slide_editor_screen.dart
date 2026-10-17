@@ -45,6 +45,7 @@ class SlideEditRequest {
     this.brandR = '',
     this.workout,
     this.needsInitialSave = false,
+    this.saveFailureHandledByParent = false,
   });
   final WorkoutModule module;
   final Future<bool> Function(WorkoutModule) onSave;
@@ -52,6 +53,10 @@ class SlideEditRequest {
   final String brandR;
   final Workout? workout;
   final bool needsInitialSave;
+
+  /// The workout editor reports a false save result through the app Snackbar
+  /// or its plan-limit dialog. Other entry points retain their inline notice.
+  final bool saveFailureHandledByParent;
 }
 
 class SlideEditorScreen extends ConsumerWidget {
@@ -176,6 +181,8 @@ class _SlideEditorBody extends HookConsumerWidget {
     final timerConfigured = useState(false);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final error = useState<String?>(null);
+    final saveFailed = useState(false);
+    final retrySave = saveFailed.value || error.value != null;
     final form = useMemoized(() => GlobalKey<FormState>());
     final description = useTextEditingController(text: module.text);
     final designHeader = useTextEditingController(
@@ -257,12 +264,16 @@ class _SlideEditorBody extends HookConsumerWidget {
       }
       busy.value = true;
       error.value = null;
+      saveFailed.value = false;
       final candidate = module.copyWith(name: module.name.trim());
       try {
         final saved = await request.onSave(candidate);
         if (!context.mounted) return;
         if (!saved) {
-          error.value = '저장하지 못했습니다. 편집 내용은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.';
+          saveFailed.value = true;
+          if (!request.saveFailureHandledByParent) {
+            error.value = '저장하지 못했습니다. 편집 내용은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.';
+          }
           return;
         }
         await actions.markSaved(candidate);
@@ -1072,7 +1083,7 @@ class _SlideEditorBody extends HookConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Tooltip(
-                message: error.value == null ? '저장' : '다시 저장',
+                message: retrySave ? '다시 저장' : '저장',
                 child: TextButton(
                   key: const ValueKey('slide-save-button'),
                   style: TextButton.styleFrom(
@@ -1091,7 +1102,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                             semanticsLabel: '저장 중',
                           ),
                         )
-                      : Text(error.value == null ? '저장' : '다시 저장'),
+                      : Text(retrySave ? '다시 저장' : '저장'),
                 ),
               ),
             ),
@@ -1200,7 +1211,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                                             ? workoutSaveProgressLabel(
                                                 uploadProgress,
                                               )
-                                            : error.value != null
+                                            : retrySave
                                             ? '저장 실패 · 편집 내용 유지됨'
                                             : state.dirty ||
                                                   needsInitialSave.value

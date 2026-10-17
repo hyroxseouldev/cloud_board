@@ -14,7 +14,6 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
-import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
 
@@ -519,6 +518,7 @@ class _EditorBody extends HookConsumerWidget {
         '/editor/${isNew ? 'new' : draft.value.id}/slides/${module.id}',
         extra: SlideEditRequest(
           module: module,
+          saveFailureHandledByParent: true,
           needsInitialSave: !hasPersisted.value || hasUnsavedChanges(),
           workout: draft.value.copyWith(name: name.text, folder: folder.text),
           brandL: draft.value.brandL,
@@ -827,19 +827,6 @@ class _EditorBody extends HookConsumerWidget {
                                 ),
                               ),
                             ),
-                            if (action.hasError)
-                              ErrorDetailsButton(
-                                error: action.error,
-                                stack: action.stackTrace,
-                                action: 'workout.save',
-                              ),
-                            if (action.hasError)
-                              Text(
-                                '저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
                             SizedBox(
                               height: 48,
                               child: Row(
