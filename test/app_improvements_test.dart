@@ -1241,10 +1241,9 @@ void main() {
         await tester.tap(find.byTooltip('저장'));
         await tester.pumpAndSettle();
         expect(saved, isEmpty);
-        expect(
-          find.text('저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.'),
-          findsOneWidget,
-        );
+        expect(find.text('저장하지 못했습니다. 변경사항은 유지됩니다. 다시 저장해 주세요.'), findsNothing);
+        expect(find.text('저장 실패 · 변경사항 유지됨'), findsOneWidget);
+        expect(find.text('다시 저장'), findsOneWidget);
         expect(
           tester
               .widget<TextButton>(

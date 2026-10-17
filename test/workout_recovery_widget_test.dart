@@ -93,7 +93,9 @@ void main() {
           local.draft!.workout.name,
           conflict ? 'Unsaved lesson 복구' : 'Unsaved lesson',
         );
-        expect(find.textContaining('변경사항은 유지됩니다'), findsOneWidget);
+        expect(find.textContaining('변경사항은 유지됩니다'), findsNothing);
+        expect(find.text('저장 실패 · 변경사항 유지됨'), findsOneWidget);
+        expect(find.text('다시 저장'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         container.dispose();
