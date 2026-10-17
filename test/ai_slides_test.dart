@@ -1,3 +1,5 @@
+import 'support/ui_layout_evidence.dart';
+
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
 
 import 'dart:async';
@@ -238,6 +240,172 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('ai-slides-generate')));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('STA-190 evidence template catalog', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await loadLayoutFonts(tester);
+    await mount(tester, FakeAiSlidesRepository(), (_) {});
+    await captureLayout(
+      tester,
+      find.byKey(const ValueKey('capture')),
+      'templates-390',
+    );
+    expect(tester.takeException(), isNull);
+  }, skip: layoutEvidenceDirectory.isEmpty);
+
+  for (final scene in uiLayoutScenes) {
+    testWidgets(
+      'creation bottom tabs and catalog ${scene.size} x${scene.scale}',
+      (tester) async {
+        tester.view.physicalSize = scene.size;
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+        tester.platformDispatcher.textScaleFactorTestValue = scene.scale;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await loadLayoutFonts(tester);
+        await mount(tester, FakeAiSlidesRepository(), (_) {});
+        final bar = find.byKey(const ValueKey('ai-creation-tabs'));
+        final rect = tester.getRect(bar);
+        expect(rect.bottom, scene.size.height);
+        expect(rect.height, greaterThanOrEqualTo(64 + 34));
+        expect(
+          tester
+              .getRect(find.byKey(const ValueKey('ai-slides-controls')))
+              .bottom,
+          lessThanOrEqualTo(rect.top),
+        );
+        final semantics = tester.ensureSemantics();
+        try {
+          for (final (tab, label) in [
+            ('content', '내용'),
+            ('templates', '템플릿'),
+            ('create', 'AI'),
+          ]) {
+            final target = find.byKey(ValueKey('ai-nav-$tab'));
+            expect(
+              tester.getSize(target).width,
+              closeTo(scene.size.width / 3, .01),
+            );
+            expect(tester.getSize(target).height, greaterThanOrEqualTo(48));
+            final icon = find
+                .descendant(of: target, matching: find.byType(Icon))
+                .first;
+            final text = find.descendant(
+              of: target,
+              matching: find.text(label),
+            );
+            expect(
+              tester.getCenter(icon).dx,
+              closeTo(tester.getCenter(text).dx, .01),
+            );
+            expect(
+              tester.getRect(text).bottom,
+              lessThanOrEqualTo(scene.size.height - 34),
+            );
+            expect(
+              tester.getSemantics(target),
+              matchesSemantics(
+                label: tab == 'create' ? 'AI, beta' : label,
+                isButton: true,
+                hasTapAction: true,
+                hasSelectedState: true,
+                isSelected: tab == 'templates',
+              ),
+            );
+          }
+          // All catalog cards remain mounted so selection/scroll survive tab changes.
+          final cards = find.byWidgetPredicate(
+            (w) => w is InkWell && w.key.toString().contains('ai-design-'),
+          );
+          final a = tester.getRect(cards.at(0));
+          final b = tester.getRect(cards.at(1));
+          if (scene.size.width < 360 || scene.scale > 1.3) {
+            expect(b.top, greaterThan(a.bottom));
+            expect(b.left, a.left);
+          } else {
+            expect(b.top, a.top);
+            expect(b.left - a.right, closeTo(12, .01));
+          }
+          await Scrollable.ensureVisible(
+            tester.element(cards.last),
+            alignment: 1,
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getRect(bar), rect);
+          expect(
+            cards.last.hitTestable(at: const Alignment(0, .95)),
+            findsOneWidget,
+          );
+          await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('ai-nav-templates')));
+          await tester.pumpAndSettle();
+          expect(
+            cards.last.hitTestable(at: const Alignment(0, .95)),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
+  }
+
+  testWidgets(
+    'creation keyboard restores selected tab, draft, focus and new generation',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = FakeAiSlidesRepository();
+      await mount(tester, repository, (_) {});
+      await generate(tester);
+      final title = find.byKey(const ValueKey('ai-slide-title'));
+      await reveal(tester, title);
+      await tester.enterText(title, '유지할 수업');
+      final field = tester.widget<TextField>(title);
+      field.controller!.selection = const TextSelection(
+        baseOffset: 1,
+        extentOffset: 3,
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('ai-creation-tabs')), findsNothing);
+      expect(
+        tester.widget<TextField>(title).controller,
+        same(field.controller),
+      );
+      expect(
+        field.controller!.selection,
+        const TextSelection(baseOffset: 1, extentOffset: 3),
+      );
+      tester.view.resetViewInsets();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('ai-nav-content')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(field.controller!.text, '유지할 수업');
+      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ai-nav-content')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(title).controller!.text, '유지할 수업');
+      expect(repository.calls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Plus can request one slide and sees shared monthly request units',

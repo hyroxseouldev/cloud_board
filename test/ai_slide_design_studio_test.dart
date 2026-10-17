@@ -596,7 +596,7 @@ void main() {
       );
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
-      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-creation-tabs')), findsOneWidget);
       expect(find.text('템플릿'), findsOneWidget);
       expect(find.text('스타일 제안'), findsNothing);
       expect(find.text('이미지로 시작'), findsNothing);
@@ -667,7 +667,9 @@ void main() {
       expect(find.text('스타일 제안'), findsOneWidget);
       expect(find.text('이미지로 시작'), findsOneWidget);
       expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
-      expect(find.byType(NavigationDestination), findsNWidgets(3));
+      for (final tab in ['content', 'templates', 'create']) {
+        expect(find.byKey(ValueKey('ai-nav-$tab')), findsOneWidget);
+      }
       expect(find.byKey(const ValueKey('ai-nav-source')), findsNothing);
       expect(
         find.descendant(
@@ -678,7 +680,7 @@ void main() {
       );
       expect(
         find.descendant(
-          of: find.byType(NavigationBar),
+          of: find.byKey(const ValueKey('ai-creation-tabs')),
           matching: find.byType(AiBetaBadge),
         ),
         findsWidgets,

@@ -81,6 +81,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final inset = MediaQuery.sizeOf(context).width < 360 ? 16.0 : 20.0;
     final state = ref.watch(aiSlidesControllerProvider);
     final controller = ref.read(aiSlidesControllerProvider.notifier);
     final adding = useState(false);
@@ -262,7 +263,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                   absorbing: state.generating,
                   child: ListView(
                     key: PageStorageKey('ai-slides-editor-${value.name}'),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    padding: EdgeInsets.fromLTRB(inset, 20, inset, 24),
                     children: [panel(value)],
                   ),
                 )
@@ -303,6 +304,9 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
             ),
           ),
         ),
+        bottomNavigationBar: keyboardVisible
+            ? null
+            : _CreationTabBar(selected: tab.value, onSelected: selectTab),
         body: SafeArea(
           top: false,
           bottom: false,
@@ -311,33 +315,6 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
               constraints: const BoxConstraints(maxWidth: 1120),
               child: Column(
                 children: [
-                  if (!keyboardVisible)
-                    NavigationBar(
-                      height: 72,
-                      selectedIndex: tab.value.index,
-                      onDestinationSelected: (index) =>
-                          selectTab(_EditorTab.values[index]),
-                      destinations: const [
-                        NavigationDestination(
-                          key: ValueKey('ai-nav-content'),
-                          icon: Icon(Icons.edit_note_outlined),
-                          selectedIcon: Icon(Icons.edit_note_rounded),
-                          label: '내용',
-                        ),
-                        NavigationDestination(
-                          key: ValueKey('ai-nav-templates'),
-                          icon: Icon(Icons.grid_view_outlined),
-                          selectedIcon: Icon(Icons.grid_view_rounded),
-                          label: '템플릿',
-                        ),
-                        NavigationDestination(
-                          key: ValueKey('ai-nav-create'),
-                          icon: _GenerationTabIcon(),
-                          selectedIcon: _GenerationTabIcon(selected: true),
-                          label: 'AI',
-                        ),
-                      ],
-                    ),
                   if (busy) const LinearProgressIndicator(minHeight: 2),
                   if (state.storageError != null)
                     AiSlidesNotice(state.storageError!, error: true),
@@ -403,6 +380,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                   if (module != null)
                     SafeArea(
                       top: false,
+                      bottom: keyboardVisible,
                       minimum: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                       child: SizedBox(
                         width: double.infinity,
@@ -424,17 +402,105 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
   }
 }
 
-class _GenerationTabIcon extends StatelessWidget {
-  const _GenerationTabIcon({this.selected = false});
-  final bool selected;
+class _CreationTabBar extends StatelessWidget {
+  const _CreationTabBar({required this.selected, required this.onSelected});
+  final _EditorTab selected;
+  final ValueChanged<_EditorTab> onSelected;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(selected ? Icons.auto_awesome_rounded : Icons.auto_awesome_outlined),
-      const SizedBox(width: 4),
-      const AiBetaBadge(compact: true),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      key: const ValueKey('ai-creation-tabs'),
+      color: colors.surface,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            children: [
+              for (final tab in _EditorTab.values)
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      final active = selected == tab;
+                      final label = switch (tab) {
+                        _EditorTab.content => '내용',
+                        _EditorTab.templates => '템플릿',
+                        _EditorTab.create => 'AI',
+                      };
+                      return Semantics(
+                        selected: active,
+                        button: true,
+                        label: tab == _EditorTab.create ? 'AI, beta' : label,
+                        onTap: () => onSelected(tab),
+                        child: ExcludeSemantics(
+                          child: InkWell(
+                            key: ValueKey('ai-nav-${tab.name}'),
+                            onTap: () => onSelected(tab),
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 64),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: active ? AppColors.selected : null,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Icon(
+                                        switch (tab) {
+                                          _EditorTab.content =>
+                                            Icons.edit_note_rounded,
+                                          _EditorTab.templates =>
+                                            Icons.grid_view_rounded,
+                                          _EditorTab.create =>
+                                            Icons.auto_awesome_rounded,
+                                        },
+                                        size: 24,
+                                        color: active
+                                            ? colors.primary
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                      if (tab == _EditorTab.create)
+                                        const Positioned(
+                                          left: 20,
+                                          top: -2,
+                                          child: AiBetaBadge(compact: true),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: active
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                      color: active
+                                          ? colors.primary
+                                          : colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
