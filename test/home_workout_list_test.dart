@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
+
+import 'support/ui_layout_evidence.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
@@ -27,6 +31,87 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets('STA-190 evidence class search', (tester) async {
+    await loadLayoutFonts(tester);
+    await _mount(
+      tester,
+      _CatalogRepository(_catalog(10)),
+      folders: ['Stationd'],
+    );
+    await tester.tap(find.byTooltip('검색'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('workout-search')), '수업');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await captureLayout(
+      tester,
+      find.byKey(const ValueKey('layout-evidence')),
+      'search-390',
+    );
+    expect(tester.takeException(), isNull);
+  }, skip: layoutEvidenceDirectory.isEmpty);
+
+  for (final scene in uiLayoutScenes) {
+    testWidgets(
+      'search and home have no usage entry ${scene.size} x${scene.scale}',
+      (tester) async {
+        await loadLayoutFonts(tester);
+        await _mount(
+          tester,
+          _CatalogRepository(_catalog(10)),
+          size: scene.size,
+          textScale: scene.scale,
+          folders: ['Stationd'],
+        );
+        addTearDown(tester.view.resetViewInsets);
+        final semantics = tester.ensureSemantics();
+        try {
+          void noUsage() {
+            expect(find.byType(PlanUsageNotice), findsNothing);
+            expect(find.textContaining('사용량'), findsNothing);
+            expect(find.bySemanticsLabel(RegExp('.*사용량.*')), findsNothing);
+            expect(tester.takeException(), isNull);
+          }
+
+          noUsage();
+          await tester.tap(find.byTooltip('검색'));
+          await tester.pumpAndSettle();
+          final search = find.byKey(const ValueKey('workout-search'));
+          await tester.enterText(search, '수업 01');
+          await tester.pumpAndSettle();
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('workout-scroll')),
+              matching: find.text('수업 01'),
+            ),
+            findsOneWidget,
+          );
+          expect(find.text('수업 02'), findsNothing);
+          noUsage();
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: scene.size.height < 540 ? 150 : 300,
+          );
+          await tester.pumpAndSettle();
+          expect(tester.widget<TextField>(search).focusNode!.hasFocus, isTrue);
+          noUsage();
+          tester.view.resetViewInsets();
+          await tester.tap(find.byTooltip('검색 지우기'));
+          await tester.pumpAndSettle();
+          expect(tester.widget<TextField>(search).controller!.text, isEmpty);
+          await tester.tap(find.byTooltip('검색 닫기'));
+          await tester.pumpAndSettle();
+          noUsage();
+        } finally {
+          semantics.dispose();
+        }
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
+  }
+
   for (final count in [10, 100, 500]) {
     testWidgets('folder menu uses metadata without draining $count workouts', (
       tester,
@@ -698,7 +783,10 @@ Future<ProviderContainer> _mount(
               builder: (context, child) => MediaQuery(
                 data: MediaQuery.of(context)
                     .copyWith(textScaler: TextScaler.linear(textScale)),
-                child: XonTheme.responsiveBuilder(context, child),
+                child: RepaintBoundary(
+                  key: const ValueKey('layout-evidence'),
+                  child: XonTheme.responsiveBuilder(context, child),
+                ),
               ),
               home: const WorkoutListScreen(),
             )

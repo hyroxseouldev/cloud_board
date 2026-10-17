@@ -186,7 +186,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           borderRadius: BorderRadius.circular(14),
           child: AnimatedContainer(
             duration: AppMotion.duration(context, AppMotion.stateChange),
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: selected
@@ -229,8 +229,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 13,
-                          letterSpacing: -0.13,
+                          fontSize: 14,
+                          letterSpacing: -0.14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -249,7 +249,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -262,11 +262,12 @@ class AiSlideDesignStudio extends HookConsumerWidget {
 
     Widget designGrid(List<AiSlideDesign> designs) => LayoutBuilder(
       builder: (context, bounds) {
-        final columns = bounds.maxWidth >= 560 ? 3 : 2;
-        final width = (bounds.maxWidth - (columns - 1) * 10) / columns;
+        final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+        final columns = bounds.maxWidth < 300 || largeText ? 1 : 2;
+        final width = (bounds.maxWidth - (columns - 1) * 12) / columns;
         return Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 12,
+          runSpacing: 12,
           children: [
             for (final design in designs)
               SizedBox(width: width, child: designCard(design)),
@@ -299,7 +300,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
             Text(
               '$count개',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
@@ -325,8 +326,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                             AiSlideCreationPath.reference => '이미지의 느낌을 가져와요',
                           },
                     style: const TextStyle(
-                      fontSize: 26,
-                      letterSpacing: -0.26,
+                      fontSize: 24,
+                      letterSpacing: -0.24,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -335,7 +336,10 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                     catalog
                         ? '마음에 드는 틀을 고르고 운동 내용만 바꿔 보세요.'
                         : '적어 둔 운동을 수업 화면으로 정리해요.',
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -392,7 +396,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         ],
         if (catalog && state.templateError != null)
           AiSlidesNotice(state.templateError!),
-        const SizedBox(height: 16),
+        if (!catalog) const SizedBox(height: 24),
         if (!catalog)
           Wrap(
             spacing: 8,
@@ -412,10 +416,10 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                 ),
             ],
           ),
-        const SizedBox(height: 14),
+        SizedBox(height: catalog ? 20 : 14),
         if (catalog) ...[
           const AiSlidesNotice('템플릿 선택과 직접 수정은 AI 토큰·생성 횟수를 사용하지 않아요.'),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           templateHeading(
             '프리미엄 템플릿',
             customerReferenceDesigns.length,
@@ -424,16 +428,16 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           const SizedBox(height: 6),
           const Text(
             '원본 그대로 선택하고, 수업 메모로 운동 내용만 채워 보세요.',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 14),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           designGrid(customerReferenceDesigns),
-          const Divider(height: 32),
+          const Divider(height: 48),
           templateHeading('일반 템플릿', aiSlideDesignCatalog.length),
           const SizedBox(height: 6),
           const Text(
             '예시 내용을 오늘의 운동으로 바꿔 시작해요.',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 12),
           designGrid(aiSlideDesignCatalog),

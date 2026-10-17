@@ -40,7 +40,7 @@ class SlideAppearanceControls extends StatelessWidget {
                 tooltip: '배치 초기화',
                 style: IconButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
-                  minimumSize: const Size(44, 44),
+                  minimumSize: const Size(48, 48),
                 ),
                 onPressed: () => onChanged(
                   value.copyWith(
@@ -113,7 +113,7 @@ class SlideAppearanceControls extends StatelessWidget {
           ),
           const Text(
             '타이머는 화면 밖으로 나가지 않도록 자동으로 맞춰집니다.',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 16),
         ],
@@ -203,27 +203,40 @@ class SlideAppearanceControls extends StatelessWidget {
     String display,
     ValueChanged<double> change,
   ) {
-    return SizedBox(
-      height: 48,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 78,
-            child: Text(label, style: const TextStyle(fontSize: 13)),
-          ),
-          Expanded(
-            child: Slider(
-              key: ValueKey(label),
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              divisions: divisions,
-              label: display,
-              onChanged: change,
-            ),
-          ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+        final slider = Slider(
+          key: ValueKey(label),
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: display,
+          semanticFormatterCallback: (_) => display,
+          onChanged: change,
+        );
+        return ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: largeText
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(label, style: const TextStyle(fontSize: 14)),
+                    slider,
+                  ],
+                )
+              : Row(
+                  children: [
+                    SizedBox(
+                      width: MediaQuery.textScalerOf(context).scale(84),
+                      child: Text(label, style: const TextStyle(fontSize: 14)),
+                    ),
+                    Expanded(child: slider),
+                  ],
+                ),
+        );
+      },
     );
   }
 }

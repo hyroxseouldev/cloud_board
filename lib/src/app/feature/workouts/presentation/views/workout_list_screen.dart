@@ -1,4 +1,5 @@
-import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart'
+    show allowPlanAddition, showPlanLimitNotice;
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
@@ -324,9 +325,6 @@ class _WorkoutListBody extends HookConsumerWidget {
               builder: (context, constraints) {
                 final mobile = constraints.maxWidth < 600;
                 final compactHeight = constraints.maxHeight < 300;
-                final compactUsage =
-                    constraints.maxHeight < 600 ||
-                    MediaQuery.textScalerOf(context).scale(14) > 20;
                 final maxWidth = kIsWeb
                     ? AppStyle.webPageMaxWidth
                     : AppStyle.cardWidth * 2 + 60;
@@ -412,7 +410,6 @@ class _WorkoutListBody extends HookConsumerWidget {
                                           }
                                         },
                                 ),
-                                if (!compactUsage) const PlanUsageNotice(),
                                 SizedBox(height: compactHeight ? 0 : 8),
                                 Row(
                                   children: [
@@ -431,8 +428,6 @@ class _WorkoutListBody extends HookConsumerWidget {
                                         ),
                                       ),
                                     ),
-                                    if (compactUsage)
-                                      const PlanUsageNotice(compact: true),
                                     if (MediaQuery.textScalerOf(context)
                                             .scale(14) <=
                                         20)
