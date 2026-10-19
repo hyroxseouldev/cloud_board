@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
@@ -44,6 +45,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
           activePlaybackSessionProvider.overrideWith(
             (ref) => Stream.value(session),
           ),

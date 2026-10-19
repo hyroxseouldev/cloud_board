@@ -195,6 +195,7 @@ class RecoveryDatabase extends Fake implements FirebaseDatabase {
   RecoveryDatabase(Object? initial) : cached = initial, server = initial;
   Object? cached, server;
   bool connected = true;
+  bool publishTransactions = true;
   // Playback mutations and best-effort telemetry are separate effects.
   int transactions = 0, writes = 0, operationEventWrites = 0;
   final operationEvents = <String, Map<String, dynamic>>{};
@@ -258,7 +259,8 @@ class _Reference extends Fake implements DatabaseReference {
     final value = Map<String, dynamic>.from(result.value! as Map)
       ..['anchorServerMs'] = DateTime.now().millisecondsSinceEpoch;
     db.writes++;
-    db.deliver(value);
+    db.server = value;
+    if (db.publishTransactions) db.deliver(value);
     return _Result(true, value);
   }
 }

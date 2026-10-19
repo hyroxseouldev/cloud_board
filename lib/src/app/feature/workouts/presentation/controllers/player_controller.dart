@@ -12,6 +12,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
@@ -136,7 +137,9 @@ class PlayerController extends _$PlayerController {
     final steps = _cachedSteps;
     final remote = sessionId == null
         ? null
-        : ref.watch(activePlaybackSessionProvider).value;
+        : canControl
+        ? ref.watch(activePlaybackSessionProvider).value
+        : ref.watch(displayPlaybackSessionProvider);
     final offset = ref.watch(serverTimeOffsetProvider).value ?? 0;
     final matchesSession = remote != null && remote.id == sessionId;
 
@@ -171,8 +174,11 @@ class PlayerController extends _$PlayerController {
           .indexWhere((step) => step.moduleIndex == startModule)
           .clamp(0, max(0, steps.length - 1));
       remainingMs = steps.isEmpty ? 0 : steps[index].duration * 1000;
-      isPaused = false;
-      countdownMs = workout.countdownSeconds.clamp(0, 60) * 1000;
+      // Losing a remote class must never fall back to local preview playback.
+      isPaused = sessionId != null;
+      countdownMs = sessionId == null
+          ? workout.countdownSeconds.clamp(0, 60) * 1000
+          : 0;
     }
 
     final initial = PlayerState(
@@ -186,7 +192,9 @@ class PlayerController extends _$PlayerController {
       timelineVersion: ++_timelineVersion,
     );
     _setDeadline(initial);
-    if (canControl || ref.read(tvPlaybackVisibleProvider)) {
+    final hasPlaybackSource = sessionId == null || matchesSession;
+    if (hasPlaybackSource &&
+        (canControl || ref.read(tvPlaybackVisibleProvider))) {
       _ticker = Timer.periodic(
         const Duration(milliseconds: 100),
         (_) => _tick(),
@@ -204,6 +212,7 @@ class PlayerController extends _$PlayerController {
     }
     Future.microtask(() {
       if (!ref.mounted ||
+          !hasPlaybackSource ||
           (!canControl && !ref.read(tvPlaybackVisibleProvider)) ||
           state.timelineVersion != initial.timelineVersion) {
         return;

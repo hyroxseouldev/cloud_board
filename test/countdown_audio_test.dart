@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
 
@@ -44,6 +45,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
           serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
           beepPlayerProvider.overrideWith((ref) => audio),
           playerClockProvider.overrideWith(
@@ -95,6 +97,7 @@ void main() {
       var now = DateTime(2026, 9, 30);
       final container = ProviderContainer(
         overrides: [
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
           serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
           beepPlayerProvider.overrideWith((ref) => _Audio()),
           playerClockProvider.overrideWith(
@@ -123,6 +126,7 @@ void main() {
         final audio = _Audio();
         final container = ProviderContainer(
           overrides: [
+            accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
             serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
             beepPlayerProvider.overrideWith((ref) => audio),
             playerClockProvider.overrideWith(
@@ -183,6 +187,7 @@ void main() {
           );
       final container = ProviderContainer(
         overrides: [
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
           serverTimeOffsetProvider.overrideWith((ref) => offset.stream),
           activePlaybackSessionProvider.overrideWith(
             (ref) => Stream.value(session),
@@ -220,6 +225,7 @@ void main() {
     final audio = _Audio();
     final container = ProviderContainer(
       overrides: [
+        accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
         serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
         beepPlayerProvider.overrideWith((ref) => audio),
         playerClockProvider.overrideWith(
@@ -251,6 +257,7 @@ void main() {
       final audio = _Audio();
       final container = ProviderContainer(
         overrides: [
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
           serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
           beepPlayerProvider.overrideWith((ref) => audio),
           playerClockProvider.overrideWith(

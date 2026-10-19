@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'firebase_account_scope.g.dart';
@@ -33,11 +34,22 @@ Stream<User?> firebaseAccountUser(Ref ref) =>
 @Riverpod(keepAlive: true)
 Stream<String?> accountOwnerId(Ref ref) {
   final auth = ref.watch(firebaseClientAuthProvider);
-  final user = ref.watch(firebaseAccountUserProvider).value;
-  if (user == null) return Stream.value(null);
+  // Token/profile refreshes emit a new User even when the authorization
+  // identity has not changed. Rebuilding this stream would reset every
+  // playback/presence subscription and briefly close the TV playback gate.
+  final identity = ref.watch(
+    firebaseAccountUserProvider.select(
+      (value) => (
+        uid: value.value?.uid,
+        anonymous: value.value?.isAnonymous,
+        unresolved: value.isLoading || value.hasError,
+      ),
+    ),
+  );
+  if (identity.unresolved || identity.uid == null) return Stream.value(null);
   final directOwnerId = accountOwnerIdForUser(
-    uid: user.uid,
-    isAnonymous: user.isAnonymous,
+    uid: identity.uid!,
+    isAnonymous: identity.anonymous!,
   );
   if (directOwnerId != null) return Stream.value(directOwnerId);
 
@@ -46,7 +58,7 @@ Stream<String?> accountOwnerId(Ref ref) {
     databaseURL: cloudBoardRealtimeDatabaseUrl,
   );
   return database
-      .ref('displayAccess/${user.uid}/ownerId')
+      .ref('displayAccess/${identity.uid}/ownerId')
       .onValue
       .map((event) => event.snapshot.value as String?);
 }
@@ -63,11 +75,13 @@ class AccountOperationScope {
     this._ref,
     this.ownerId,
     this.uid,
+    this.isAnonymous,
     this._onInvalidated,
   );
 
   final Ref _ref;
   final String ownerId, uid;
+  final bool isAnonymous;
   final void Function()? _onInvalidated;
   void Function()? _closeOwner, _closeUser;
   bool _closed = false;
@@ -90,6 +104,7 @@ class AccountOperationScope {
       ref,
       owner.value!,
       user.value!.uid,
+      user.value!.isAnonymous,
       onInvalidated,
     );
     scope._closeOwner = ref.listen(accountOwnerIdProvider, (_, next) {
@@ -98,7 +113,10 @@ class AccountOperationScope {
       }
     }).close;
     scope._closeUser = ref.listen(firebaseAccountUserProvider, (_, next) {
-      if (next.isLoading || next.hasError || next.value?.uid != scope.uid) {
+      if (next.isLoading ||
+          next.hasError ||
+          next.value?.uid != scope.uid ||
+          next.value?.isAnonymous != scope.isAnonymous) {
         scope._invalidate();
       }
     }).close;
@@ -114,7 +132,8 @@ class AccountOperationScope {
         owner.value != ownerId ||
         user.isLoading ||
         user.hasError ||
-        user.value?.uid != uid) {
+        user.value?.uid != uid ||
+        user.value?.isAnonymous != isAnonymous) {
       _invalidate();
       return false;
     }
