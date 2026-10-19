@@ -20,6 +20,7 @@ class AiSlidesContentEditor extends StatelessWidget {
   final String? validationMessage;
   @override
   Widget build(BuildContext context) {
+    if (draft.centerRecipe != null) return _centerEditor();
     final template = originalSlideTemplate(draft.designStyle?.originalTemplate);
     final title = draft.title.trim();
     final titleError = title.isEmpty
@@ -110,6 +111,78 @@ class AiSlidesContentEditor extends StatelessWidget {
         const SizedBox(height: 8),
         const Text(
           '운동 순서·횟수·단위를 확인해 주세요. 타이머는 슬라이드를 추가한 뒤에도 설정할 수 있어요.',
+          style: TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _centerEditor() {
+    final fields = draft.centerRecipe!.fields;
+    final indexes = {
+      ...fields
+          .where((field) => field.binding == 'line')
+          .map((field) => field.lineIndex!),
+      for (var i = 0; i < draft.lines.length; i++)
+        if (draft.lines[i].isNotEmpty) i,
+    }.toList()..sort();
+    void updateLine(int index, String value) {
+      final lines = [...draft.lines];
+      while (lines.length <= index) {
+        lines.add('');
+      }
+      lines[index] = value;
+      onChanged(draft.copyWith(lines: lines));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final warning in warnings) AiSlidesNotice(warning),
+        AiSlidesSyncedField(
+          fieldKey: const ValueKey('ai-slide-title'),
+          value: draft.title,
+          label: '슬라이드 제목',
+          maxLength: 60,
+          onChanged: (value) => onChanged(draft.copyWith(title: value)),
+        ),
+        if (fields.any((field) => field.binding == 'header')) ...[
+          const SizedBox(height: 8),
+          AiSlidesSyncedField(
+            fieldKey: const ValueKey('ai-slide-header'),
+            value: draft.designHeaderLabel,
+            label: '클래스 이름 · 분류',
+            maxLength: 120,
+            onChanged: (value) =>
+                onChanged(draft.copyWith(designHeaderLabel: value)),
+          ),
+        ],
+        if (fields.any((field) => field.binding == 'subtitle')) ...[
+          const SizedBox(height: 8),
+          AiSlidesSyncedField(
+            fieldKey: const ValueKey('ai-slide-subtitle'),
+            value: draft.designSubtitle,
+            label: '운동 안내 · 시간 문구',
+            maxLength: 120,
+            onChanged: (value) =>
+                onChanged(draft.copyWith(designSubtitle: value)),
+          ),
+        ],
+        for (final index in indexes) ...[
+          const SizedBox(height: 8),
+          AiSlidesSyncedField(
+            fieldKey: ValueKey('ai-center-line-$index'),
+            value: index < draft.lines.length ? draft.lines[index] : '',
+            label: '운동 문구 ${index + 1}',
+            maxLength: 120,
+            onChanged: (value) => updateLine(index, value),
+          ),
+        ],
+        if (validationMessage != null)
+          AiSlidesNotice(validationMessage!, error: true),
+        const SizedBox(height: 8),
+        const Text(
+          '빈 문구는 해당 위치에서 지워져요. 타이머는 슬라이드를 추가한 뒤 설정할 수 있어요.',
           style: TextStyle(fontSize: 12),
         ),
       ],

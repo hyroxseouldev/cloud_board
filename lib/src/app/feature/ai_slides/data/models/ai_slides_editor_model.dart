@@ -82,28 +82,35 @@ class AiSlideDraftModel {
   factory AiSlideDraftModel.fromJson(Map<String, dynamic> json) =>
       _$AiSlideDraftModelFromJson(json);
   Map<String, dynamic> toJson() => _$AiSlideDraftModelToJson(this);
-  factory AiSlideDraftModel.fromEntity(AiSlideDraft draft) => AiSlideDraftModel(
-    title: draft.title,
-    layout: draft.layout,
-    lines: draft.lines,
-    designStyle: draft.designStyle,
-    designHeaderLabel: draft.designHeaderLabel,
-    designSubtitle: draft.designSubtitle,
-    designBackgroundColor: draft.designBackgroundColor,
-    designTextColor: draft.designTextColor,
-    designAccentColor: draft.designAccentColor,
-    workSeconds: draft.workSeconds,
-    restSeconds: draft.restSeconds,
-    sets: draft.sets,
-    designLayout: draft.designLayout,
-    designFontWeight: draft.designFontWeight,
-    designItalic: draft.designItalic,
-    designSpacing: draft.designSpacing,
-    showTimer: draft.showTimer,
-    timerX: draft.timerX,
-    timerY: draft.timerY,
-    timerSize: draft.timerSize,
-  );
+  factory AiSlideDraftModel.fromEntity(AiSlideDraft draft) {
+    if (draft.centerRecipe != null) {
+      throw const FormatException(
+        'Center recipes are creation-only and cannot be saved as legacy themes or drafts',
+      );
+    }
+    return AiSlideDraftModel(
+      title: draft.title,
+      layout: draft.layout,
+      lines: draft.lines,
+      designStyle: draft.designStyle,
+      designHeaderLabel: draft.designHeaderLabel,
+      designSubtitle: draft.designSubtitle,
+      designBackgroundColor: draft.designBackgroundColor,
+      designTextColor: draft.designTextColor,
+      designAccentColor: draft.designAccentColor,
+      workSeconds: draft.workSeconds,
+      restSeconds: draft.restSeconds,
+      sets: draft.sets,
+      designLayout: draft.designLayout,
+      designFontWeight: draft.designFontWeight,
+      designItalic: draft.designItalic,
+      designSpacing: draft.designSpacing,
+      showTimer: draft.showTimer,
+      timerX: draft.timerX,
+      timerY: draft.timerY,
+      timerSize: draft.timerSize,
+    );
+  }
   AiSlideDraft toEntity() {
     _validateVisuals(toJson());
     _validateStudioStyle(designStyle);
@@ -159,20 +166,27 @@ class AiSlideThemeModel {
   factory AiSlideThemeModel.fromJson(Map<String, dynamic> json) =>
       _$AiSlideThemeModelFromJson(json);
   Map<String, dynamic> toJson() => _$AiSlideThemeModelToJson(this);
-  factory AiSlideThemeModel.fromEntity(AiSlideTheme theme) => AiSlideThemeModel(
-    designStyle: theme.designStyle,
-    designBackgroundColor: theme.designBackgroundColor,
-    designTextColor: theme.designTextColor,
-    designAccentColor: theme.designAccentColor,
-    designLayout: theme.designLayout,
-    designFontWeight: theme.designFontWeight,
-    designItalic: theme.designItalic,
-    designSpacing: theme.designSpacing,
-    showTimer: theme.showTimer,
-    timerX: theme.timerX,
-    timerY: theme.timerY,
-    timerSize: theme.timerSize,
-  );
+  factory AiSlideThemeModel.fromEntity(AiSlideTheme theme) {
+    if (theme.centerRecipe != null) {
+      throw const FormatException(
+        'Center recipes are creation-only and cannot be saved as legacy themes or drafts',
+      );
+    }
+    return AiSlideThemeModel(
+      designStyle: theme.designStyle,
+      designBackgroundColor: theme.designBackgroundColor,
+      designTextColor: theme.designTextColor,
+      designAccentColor: theme.designAccentColor,
+      designLayout: theme.designLayout,
+      designFontWeight: theme.designFontWeight,
+      designItalic: theme.designItalic,
+      designSpacing: theme.designSpacing,
+      showTimer: theme.showTimer,
+      timerX: theme.timerX,
+      timerY: theme.timerY,
+      timerSize: theme.timerSize,
+    );
+  }
   AiSlideTheme toEntity() {
     if (schemaVersion != 1) {
       throw const FormatException('Unsupported AI slide theme');

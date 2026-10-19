@@ -1,6 +1,8 @@
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
+
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 
 part 'ai_slides_editor.freezed.dart';
@@ -9,6 +11,7 @@ part 'ai_slides_editor.freezed.dart';
 @freezed
 abstract class AiSlideTheme with _$AiSlideTheme {
   const factory AiSlideTheme({
+    CenterSlideRecipe? centerRecipe,
     SlideDesignStyle? designStyle,
     int? designBackgroundColor,
     int? designTextColor,
@@ -56,6 +59,7 @@ abstract class AiSlidesEditorState with _$AiSlidesEditorState {
 }
 
 AiSlideTheme aiSlideThemeFromDraft(AiSlideDraft draft) => AiSlideTheme(
+  centerRecipe: draft.centerRecipe,
   designStyle: draft.designStyle,
   designBackgroundColor: draft.designBackgroundColor,
   designTextColor: draft.designTextColor,
@@ -72,6 +76,7 @@ AiSlideTheme aiSlideThemeFromDraft(AiSlideDraft draft) => AiSlideTheme(
 
 AiSlideDraft applyAiSlideTheme(AiSlideDraft draft, AiSlideTheme theme) =>
     draft.copyWith(
+      centerRecipe: theme.centerRecipe,
       layout: theme.designStyle == null
           ? draft.layout
           : theme.designStyle!.family == 'editorial'

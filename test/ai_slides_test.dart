@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
+
 import 'support/ui_layout_evidence.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
@@ -191,6 +194,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          centerSlideCatalogScopeProvider.overrideWithValue(null),
+          centerSlideCatalogProvider.overrideWith(
+            (ref) => Stream.value(emptyCenterSlideCatalog()),
+          ),
           aiSlideDesignOwnerIdProvider.overrideWithValue(null),
           aiSlideDesignStoreIdProvider.overrideWithValue(null),
           aiSlidesRepositoryProvider.overrideWithValue(repository),
@@ -760,7 +767,7 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('ai-slide-title')), findsNothing);
-      expect(find.text('프리미엄 템플릿'), findsOneWidget);
+      expect(find.text('기본 템플릿'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
       await tester.pumpAndSettle();
       expect(

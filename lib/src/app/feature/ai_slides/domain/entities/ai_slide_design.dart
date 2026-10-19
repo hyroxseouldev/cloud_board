@@ -14,6 +14,9 @@ abstract class AiSlideDesign with _$AiSlideDesign {
     required String name,
     @Default('') String description,
     required AiSlideTheme theme,
+
+    /// Initial editable content supplied by an authorized center catalog.
+    AiSlideDraft? sample,
     String? storeId,
   }) = _AiSlideDesign;
 }

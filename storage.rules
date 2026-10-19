@@ -17,6 +17,20 @@ service firebase.storage {
           && firestore.get(path).data.get('idleScreenCustomization', '') == 'custom'
           && firestore.get(path).data.get('canUseCenterLogo', false) == true);
     }
+    // Only the verified center owner can fetch original template PNGs. The
+    // operator uploads immutable objects without public download tokens.
+    match /center-templates/{centerId}/{templateId}/{fileName} {
+      allow get: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && isOwner(request.auth.uid)
+        && centerId.matches('^[A-Za-z0-9_-]{1,120}$')
+        && templateId.matches('^[A-Za-z0-9_-]{1,120}$')
+        && fileName.matches('^[a-f0-9]{64}[.]png$')
+        && firestore.exists(/databases/(default)/documents/centers/$(centerId))
+        && firestore.get(/databases/(default)/documents/centers/$(centerId)).data.ownerUid == request.auth.uid;
+      allow list, write: if false;
+    }
+
     match /users/{userId}/profile/{allPaths=**} {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId)
