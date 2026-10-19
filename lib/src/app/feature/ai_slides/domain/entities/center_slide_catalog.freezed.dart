@@ -216,7 +216,7 @@ return $default(_that.revision,_that.centerId,_that.centerName,_that.templates);
 
 class _CenterSlideCatalog implements CenterSlideCatalog {
   const _CenterSlideCatalog({required this.revision, required this.centerId, required this.centerName, required  List<AiSlideDesign> templates}): _templates = templates;
-  
+
 
 @override final  int revision;
 @override final  String centerId;
@@ -493,7 +493,7 @@ return $default(_that.ownerId,_that.centerId);case _:
 
 class _CenterSlideCatalogScope implements CenterSlideCatalogScope {
   const _CenterSlideCatalogScope({required this.ownerId, required this.centerId});
-  
+
 
 @override final  String ownerId;
 @override final  String centerId;
