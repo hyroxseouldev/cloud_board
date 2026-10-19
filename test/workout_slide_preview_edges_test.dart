@@ -172,15 +172,34 @@ Future<GlobalKey> _mount(
     ),
   );
   if (source.isNotEmpty) {
-    final provider = tester
-        .widget<Image>(
-          find.descendant(
-            of: find.byType(WorkoutImage),
-            matching: find.byType(Image),
-          ),
-        )
-        .image;
-    await tester.runAsync(() => precacheImage(provider, key.currentContext!));
+    if (kIsWeb) {
+      // Web decoding needs frames while loading; awaiting precacheImage alone
+      // stalls the widget test's fake clock. Bound the wait to expose failures.
+      for (var attempt = 0; attempt < 50; attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(milliseconds: 20));
+        if (tester.renderObject<RenderImage>(find.byType(RawImage)).image !=
+            null) {
+          break;
+        }
+      }
+      expect(
+        tester.renderObject<RenderImage>(find.byType(RawImage)).image,
+        isNotNull,
+      );
+    } else {
+      final provider = tester
+          .widget<Image>(
+            find.descendant(
+              of: find.byType(WorkoutImage),
+              matching: find.byType(Image),
+            ),
+          )
+          .image;
+      await tester.runAsync(() => precacheImage(provider, key.currentContext!));
+    }
   }
   await tester.pumpAndSettle();
   return key;
