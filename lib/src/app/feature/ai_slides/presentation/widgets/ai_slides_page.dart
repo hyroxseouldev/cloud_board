@@ -2,6 +2,11 @@ import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 
 import 'dart:math' as math;
 
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_creation.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_preview.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -55,15 +60,18 @@ Future<List<WorkoutModule>?> showAiSlidesPage(BuildContext context) {
 enum _EditorTab { content, templates, create }
 
 /// A full route keeps creation, reference designs and editing in one workspace.
-class AiSlidesPage extends HookWidget {
+class AiSlidesPage extends HookConsumerWidget {
   const AiSlidesPage({super.key, this.guard});
   final ExitGuard? guard;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scope = ref.watch(centerSlideCatalogScopeProvider);
+    final ownerId = ref.watch(aiSlidesOwnerIdProvider);
     final exitGuard = useMemoized(() => guard ?? ExitGuard(), [guard]);
     // A route owns its creation session. Saved template libraries stay shared,
     // while previous prompts, generated results and selections never leak in.
     return ProviderScope(
+      key: ValueKey((ownerId, scope)),
       overrides: [
         aiSlidesControllerProvider.overrideWith(AiSlidesController.fresh),
         aiSlideDesignControllerProvider.overrideWith(
@@ -93,6 +101,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
     final visited = useState(<_EditorTab>{tab.value});
     final creationPath = useState(AiSlideCreationPath.notes);
     void selectTab(_EditorTab value) {
+      if (adding.value) return;
       FocusScope.of(context).unfocus();
       visited.value = {...visited.value, value};
       tab.value = value;
@@ -112,8 +121,18 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
     }, [designState.selected]);
     final draft = state.draft;
     final module = draft == null ? null : previewAiSlide(draft);
-    final metrics = module == null ? null : measureSlideDesign(module);
-    final validation = module == null ? null : slideDesignError(module);
+    final centerTemplate = draft?.centerRecipe != null;
+    final flowPreview = draft?.centerRecipe?.body == null
+        ? null
+        : ref.watch(centerSlidePreviewProvider(draft!));
+    final metrics = module == null || centerTemplate
+        ? null
+        : measureSlideDesign(module);
+    final validation = draft == null
+        ? null
+        : centerTemplate
+        ? centerSlideDraftError(draft)
+        : slideDesignError(module!);
     final busy = state.generating || state.loading;
     final allowed =
         !access.isLoading &&
@@ -127,7 +146,11 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
         !adding.value &&
         !designState.generating &&
         validation == null &&
-        metrics!.readable;
+        (flowPreview == null ||
+            (!flowPreview.isLoading &&
+                !flowPreview.hasError &&
+                flowPreview.hasValue)) &&
+        (centerTemplate || metrics!.readable);
     ref.listen(aiSlidesControllerProvider, (previous, next) {
       final restored = previous?.loading == true && !next.loading;
       final generated =
@@ -149,16 +172,46 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
     Future<void> add() async {
       if (adding.value || draft == null || !canAdd) return;
       final ownerId = ref.read(aiSlidesOwnerIdProvider);
-      final value = confirmAiSlide(
-        draft,
-        'ai-${DateTime.now().microsecondsSinceEpoch}',
-      );
+      final scope = ref.read(centerSlideCatalogScopeProvider);
       adding.value = true;
-      await controller.clearDraft();
-      if (context.mounted && ref.read(aiSlidesOwnerIdProvider) == ownerId) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) Navigator.pop(context, [value]);
-        });
+      try {
+        final id = 'ai-${DateTime.now().microsecondsSinceEpoch}';
+        final value = centerTemplate
+            ? confirmCenterSlide(
+                draft,
+                id,
+                await ref
+                    .read(centerSlideTemplateActionsProvider)
+                    .renderDraft(draft),
+              )
+            : confirmAiSlide(draft, id);
+        if (!context.mounted ||
+            ref.read(aiSlidesOwnerIdProvider) != ownerId ||
+            ref.read(centerSlideCatalogScopeProvider) != scope) {
+          return;
+        }
+        if (ref.read(aiSlidesControllerProvider).draft != draft) {
+          throw const AiSlidesFailure('내용이 변경되었어요. 확인한 뒤 다시 추가해 주세요.');
+        }
+        await controller.clearDraft();
+        if (context.mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted &&
+                ref.read(aiSlidesOwnerIdProvider) == ownerId &&
+                ref.read(centerSlideCatalogScopeProvider) == scope) {
+              Navigator.pop(context, [value]);
+            }
+          });
+        }
+      } catch (error) {
+        if (context.mounted) {
+          controller.reportError(
+            error is AiSlidesFailure
+                ? error.message
+                : '슬라이드를 만들지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.',
+          );
+          adding.value = false;
+        }
       }
     }
 
@@ -186,6 +239,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
       onSelected: (design) {
         controller.applyDesign(
           design.theme,
+          sample: design.sample,
           classLabel: design.id.startsWith('ai-design-') ? design.name : null,
         );
         selectTab(_EditorTab.content);
@@ -240,7 +294,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           studio(AiSlideDesignStudioSection.templates),
-          if (draft != null) ...[
+          if (draft != null && !centerTemplate) ...[
             const Divider(height: 32),
             AiSlidesDesignEditor(
               draft: draft,
@@ -260,7 +314,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
         for (final value in _EditorTab.values)
           visited.value.contains(value)
               ? AbsorbPointer(
-                  absorbing: state.generating,
+                  absorbing: state.generating || adding.value,
                   child: ListView(
                     key: PageStorageKey('ai-slides-editor-${value.name}'),
                     padding: EdgeInsets.fromLTRB(inset, 20, inset, 24),
@@ -344,7 +398,9 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                                     0,
                                     12,
                                   ),
-                                  child: AiSlidesPreview(module: module),
+                                  child: centerTemplate
+                                      ? CenterSlidePreview(draft: draft!)
+                                      : AiSlidesPreview(module: module),
                                 ),
                               ),
                             if (showPreview && !wide)
@@ -362,10 +418,15 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                                           (bounds.maxWidth - 32) * 9 / 16,
                                           bounds.maxHeight * .46,
                                         ),
-                                  child: AiSlidesPreview(
-                                    module: module,
-                                    compact: true,
-                                  ),
+                                  child: centerTemplate
+                                      ? CenterSlidePreview(
+                                          draft: draft!,
+                                          compact: true,
+                                        )
+                                      : AiSlidesPreview(
+                                          module: module,
+                                          compact: true,
+                                        ),
                                 ),
                               ),
                             Expanded(

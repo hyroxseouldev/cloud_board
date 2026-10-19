@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 part 'tv_playback_lifecycle.g.dart';
 
 @Riverpod(keepAlive: true)
@@ -58,7 +61,17 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
     WidgetsBinding.instance.addObserver(this);
   }
 
-  void _block() {
+  bool get _canContinuePlayback {
+    if (!_eligible || !ref.read(tvPlaybackVisibleProvider)) return false;
+    final session = ref.read(displayPlaybackSessionProvider);
+    return session != null &&
+        session.ownerId == _owner &&
+        session.status != PlaybackStatus.completed &&
+        !session.briefing &&
+        session.workout.modules.isNotEmpty;
+  }
+
+  void _block({bool suspendRecovery = true}) {
     ++_epoch;
     _retry?.cancel();
     _retry = null;
@@ -68,7 +81,9 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
       ref.read(beepPlayerProvider).setEnabled(false).catchError((Object _) {}),
     );
     ref.read(tvPlaybackVisibleProvider.notifier).setVisible(false);
-    ref.read(playbackRecoveryControllerProvider.notifier).suspend();
+    if (suspendRecovery) {
+      ref.read(playbackRecoveryControllerProvider.notifier).suspend();
+    }
   }
 
   void _syncScope(AsyncValue<String?> scope) {
@@ -80,7 +95,7 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
     _owner = owner;
     _block();
     if (_eligible) {
-      unawaited(_recover());
+      unawaited(_recover(reason: 'account_scope'));
     } else if (_foreground &&
         !scope.isLoading &&
         !scope.hasError &&
@@ -104,7 +119,7 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
     _block();
     if (state == AppLifecycleState.resumed) {
       if (_eligible) {
-        unawaited(_recover());
+        unawaited(_recover(reason: 'foreground_resume'));
       } else if (!_scopeReady) {
         // No linked center means there is no class that can be resumed.
         ref.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
@@ -112,7 +127,7 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
     }
   }
 
-  Future<void> _recover() async {
+  Future<void> _recover({String reason = 'retry'}) async {
     if (!_eligible) return;
     _retry?.cancel();
     _retry = null;
@@ -126,6 +141,16 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
     }
     if (!_eligible || epoch != _epoch) return;
     _attempts++;
+    final reporter = ref.read(errorReporterProvider);
+    final elapsed = Stopwatch()..start();
+    final session = ref.read(displayPlaybackSessionProvider);
+    final context = <String, Object?>{
+      'sessionId': session?.id,
+      'status': session?.status.name,
+      'recovering': !_canContinuePlayback,
+      'retryCount': _attempts - 1,
+    };
+    reporter.breadcrumb('display.recovery.$reason.start', context);
     final pending = ref
         .read(playbackRecoveryControllerProvider.notifier)
         .recover(restartTransport: false);
@@ -134,6 +159,20 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
       await pending;
     } finally {
       if (identical(_pending, pending)) _pending = null;
+      if (mounted) {
+        final result = ref.read(playbackRecoveryControllerProvider);
+        reporter.breadcrumb('display.recovery.$reason.finished', {
+          ...context,
+          'elapsedMs': elapsed.elapsedMilliseconds,
+          'status': epoch != _epoch
+              ? 'cancelled'
+              : result.hasError
+              ? 'failed'
+              : 'confirmed',
+          if (result.hasError)
+            'firebaseCode': operationFailureCode(result.error),
+        });
+      }
     }
     if (!_eligible || epoch != _epoch) return;
     final result = ref.read(playbackRecoveryControllerProvider);
@@ -189,6 +228,7 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
   @override
   Widget build(BuildContext context) {
     if (widget.isTv) {
+      ref.watch(displayPlaybackSessionProvider);
       final scope = ref.watch(accountOwnerIdProvider);
       final render = ++_scopeRender;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -197,11 +237,24 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
       ref.listen(playbackConnectionProvider, (previous, next) {
         if (!_eligible || next.isLoading || next.hasError) return;
         if (next.value == false && previous?.value == true) {
-          _block();
-          unawaited(_recover());
+          // Keep an already verified foreground class running locally. A
+          // disconnected transport cannot be verified; recover on reconnect.
+          if (!_canContinuePlayback) {
+            _block();
+            unawaited(_recover(reason: 'standby_disconnected'));
+          }
         } else if (next.value == true && previous?.value != true) {
           _attempts = 0;
-          unawaited(_recover());
+          unawaited(_recover(reason: 'transport_connected'));
+        }
+      });
+      ref.listen(activePlaybackSessionProvider, (_, next) {
+        if (_eligible &&
+            next.hasError &&
+            playbackAuthorizationFailed(next.error)) {
+          // A revoked stream is a hard boundary, including queued audio.
+          // Explicit recovery or a later reconnect must confirm access again.
+          _block(suspendRecovery: false);
         }
       });
       // Manual/remote callers join the same controller and can release the gate.
@@ -210,8 +263,11 @@ class _TvPlaybackLifecycleState extends ConsumerState<TvPlaybackLifecycle>
         if (!next.isLoading && !next.hasError && next.hasValue) {
           _release();
         } else if (next.hasError) {
+          if (playbackAuthorizationFailed(next.error)) {
+            _block(suspendRecovery: false);
+          }
           _scheduleRetry(next.error);
-        } else if (next.isLoading) {
+        } else if (next.isLoading && !_canContinuePlayback) {
           unawaited(
             ref
                 .read(beepPlayerProvider)

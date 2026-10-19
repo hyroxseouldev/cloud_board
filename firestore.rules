@@ -29,6 +29,20 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // Center templates are operator-published. Display identities and client
+    // claims do not grant access to another center's authoring materials.
+    function ownsTemplateCenter(centerId) {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && isOwner(request.auth.uid)
+        && exists(/databases/$(database)/documents/centers/$(centerId))
+        && get(/databases/$(database)/documents/centers/$(centerId)).data.ownerUid == request.auth.uid;
+    }
+    match /centers/{centerId}/slideTemplateCatalog/current {
+      allow get: if ownsTemplateCenter(centerId);
+      allow list, write: if false;
+    }
+
     function validSound(v) {
       return v in ['silent', 'gentleBeep', 'classicBeep', 'sharpBeep', 'lowPulse',
         'boxingBell', 'softBell', 'doubleBeep', 'longFinish', 'videoBeep'];

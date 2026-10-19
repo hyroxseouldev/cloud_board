@@ -260,6 +260,7 @@ class PlaybackActionController extends _$PlaybackActionController {
           '재생을 종료했습니다.',
           'playback.complete',
           (actions, deviceId) => actions.complete(deviceId: deviceId),
+          awaitDisplayReceipt: false,
         ).whenComplete(() {
           if (identical(_completion, flight)) _completion = null;
         });
@@ -280,6 +281,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     String actionName,
     Future<void> Function(PlaybackActions actions, String deviceId) action, {
     bool throttle = false,
+    bool awaitDisplayReceipt = true,
   }) async {
     if (state.isLoading ||
         (throttle && !canSendTransportCommand) ||
@@ -355,14 +357,18 @@ class PlaybackActionController extends _$PlaybackActionController {
       // The server result remains authoritative after submission. A cancelled
       // account scope only suppresses stale UI, follow-up reads and event writes.
       if (!scope.isCurrent || epoch != _transportEpoch) return !result.hasError;
-      if (!result.hasError &&
-          expectedSession != null &&
-          commandDeviceId != null) {
-        _watchDisplayAcknowledgement(
-          expectedSession,
-          revision: expectedSession.revision + 1,
-          deviceId: commandDeviceId!,
-        );
+      if (!result.hasError) {
+        if (!awaitDisplayReceipt) {
+          // Existing displays stop acknowledging when the class completes.
+          // Server approval is sufficient here; do not invent a TV receipt.
+          _cancelAck?.call();
+        } else if (expectedSession != null && commandDeviceId != null) {
+          _watchDisplayAcknowledgement(
+            expectedSession,
+            revision: expectedSession.revision + 1,
+            deviceId: commandDeviceId!,
+          );
+        }
       }
       state = result;
       _reportResult(
@@ -479,6 +485,11 @@ class PlaybackActionController extends _$PlaybackActionController {
       }
       if (active.isLoading || deviceState.isLoading) return;
       final session = active.value;
+      if (session?.id == expected.id &&
+          session?.status == PlaybackStatus.completed) {
+        finish(PlaybackAckVerdict.cancelled);
+        return;
+      }
       // A new start can resolve before its stream replaces the previous class.
       // Wait through that initial baseline, but cancel for any later session.
       if (session?.id == expected.id) observedExpectedSession = true;
