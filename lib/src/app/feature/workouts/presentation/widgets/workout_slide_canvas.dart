@@ -17,9 +17,14 @@ import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 
 class _SlideDesignArtwork extends HookWidget {
-  const _SlideDesignArtwork({required this.module, required this.targetWidth});
+  const _SlideDesignArtwork({
+    required this.module,
+    required this.targetWidth,
+    required this.webHtmlElementStrategy,
+  });
   final WorkoutModule module;
   final int targetWidth;
+  final WebHtmlElementStrategy webHtmlElementStrategy;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +65,11 @@ class _SlideDesignArtwork extends HookWidget {
     }, [originalId, targetWidth, attempt.value]);
     if (originalId != null && image.value == null) {
       if (module.imageSource.isNotEmpty) {
-        return WorkoutImage(source: module.imageSource, fit: BoxFit.contain);
+        return WorkoutImage(
+          source: module.imageSource,
+          fit: BoxFit.contain,
+          webHtmlElementStrategy: webHtmlElementStrategy,
+        );
       }
       return ColoredBox(
         color: Colors.black,
@@ -123,11 +132,13 @@ class WorkoutSlideCanvas extends StatelessWidget {
     this.timer,
     this.positionLabel,
     this.displayPreferences = const DisplayPreferences(),
+    this.webHtmlElementStrategy = WebHtmlElementStrategy.prefer,
   });
 
   final Widget? timer;
   final String? positionLabel;
   final DisplayPreferences displayPreferences;
+  final WebHtmlElementStrategy webHtmlElementStrategy;
   DisplayPreferences get preferences => displayPreferences.enabled
       ? displayPreferences
       : const DisplayPreferences();
@@ -172,6 +183,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                             height: 1080,
                             child: _SlideDesignArtwork(
                               module: module,
+                              webHtmlElementStrategy: webHtmlElementStrategy,
                               targetWidth: _artworkPixelWidth(
                                 constraints,
                                 MediaQuery.devicePixelRatioOf(context),
@@ -185,6 +197,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                         )
                       : WorkoutImage(
                           source: module.imageSource,
+                          webHtmlElementStrategy: webHtmlElementStrategy,
                           fit:
                               (preferences.enabled
                                   ? preferences.cover

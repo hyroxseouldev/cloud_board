@@ -30,6 +30,9 @@ class WorkoutSlidePreview extends StatelessWidget {
     final durationMs = seconds * 1000;
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
+      // A square AA clip blends the black backing into fractional image edges.
+      // Keep rounded previews smooth without adding a seam to editor previews.
+      clipBehavior: borderRadius == 0 ? Clip.hardEdge : Clip.antiAlias,
       child: ColoredBox(
         color: Colors.black,
         child: AspectRatio(
@@ -45,6 +48,12 @@ class WorkoutSlidePreview extends StatelessWidget {
                 removeBottom: true,
                 child: WorkoutSlideCanvas(
                   module: module,
+                  // HTML platform views composite fractional edges separately
+                  // from the black canvas backing. Prefer one canvas for editor
+                  // previews, retaining HTML compatibility when CORS denies it.
+                  webHtmlElementStrategy: borderRadius == 0
+                      ? WebHtmlElementStrategy.fallback
+                      : WebHtmlElementStrategy.prefer,
                   isRest: phase?.isRest ?? isRest,
                   secondsLeft: seconds,
                   remainingMs: durationMs,

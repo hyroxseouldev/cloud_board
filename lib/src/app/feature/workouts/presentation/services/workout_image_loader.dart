@@ -59,17 +59,21 @@ WorkoutImageSize playbackImageSize(BuildContext context) {
   );
 }
 
-ImageProvider workoutImageProvider(String source, WorkoutImageSize size) {
+ImageProvider workoutImageProvider(
+  String source,
+  WorkoutImageSize size, {
+  WebHtmlElementStrategy webHtmlElementStrategy = WebHtmlElementStrategy.prefer,
+}) {
   final remote = source.startsWith('https://') || source.startsWith('http://');
   final ImageProvider provider = remote
       ? kIsWeb
             ? NetworkImage(
                 source,
-                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                webHtmlElementStrategy: webHtmlElementStrategy,
               )
             : CachedNetworkImageProvider(source)
       : MemoryImage(_bytesCache.decode(source));
-  // HTML network images use the browser's decoding/rendering path.
+  // Keep web network providers unresized so their HTML fallback stays available.
   if ((kIsWeb && remote) || (size.width == null && size.height == null)) {
     return provider;
   }
