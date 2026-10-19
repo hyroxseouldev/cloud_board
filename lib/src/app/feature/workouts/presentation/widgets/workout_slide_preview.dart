@@ -30,6 +30,9 @@ class WorkoutSlidePreview extends StatelessWidget {
     final durationMs = seconds * 1000;
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
+      // A square AA clip blends the black backing into fractional image edges.
+      // Keep rounded previews smooth without adding a seam to editor previews.
+      clipBehavior: borderRadius == 0 ? Clip.hardEdge : Clip.antiAlias,
       child: ColoredBox(
         color: Colors.black,
         child: AspectRatio(
