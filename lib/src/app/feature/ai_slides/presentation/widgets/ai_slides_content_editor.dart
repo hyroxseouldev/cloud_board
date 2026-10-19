@@ -1,3 +1,9 @@
+import 'dart:convert';
+
+import 'package:flutter_hooks/flutter_hooks.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_line_groups.dart';
+
 import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
@@ -119,21 +125,12 @@ class AiSlidesContentEditor extends StatelessWidget {
 
   Widget _centerEditor() {
     final fields = draft.centerRecipe!.fields;
-    final indexes = {
-      ...fields
-          .where((field) => field.binding == 'line')
-          .map((field) => field.lineIndex!),
-      for (var i = 0; i < draft.lines.length; i++)
-        if (draft.lines[i].isNotEmpty) i,
-    }.toList()..sort();
-    void updateLine(int index, String value) {
-      final lines = [...draft.lines];
-      while (lines.length <= index) {
-        lines.add('');
-      }
-      lines[index] = value;
-      onChanged(draft.copyWith(lines: lines));
-    }
+    final groups = centerSlideLineGroups(draft.centerRecipe!);
+    final assigned = groups.expand((group) => group).toSet();
+    final extra = [
+      for (var index = 0; index < draft.lines.length; index++)
+        if (!assigned.contains(index) && draft.lines[index].isNotEmpty) index,
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -168,24 +165,97 @@ class AiSlidesContentEditor extends StatelessWidget {
                 onChanged(draft.copyWith(designSubtitle: value)),
           ),
         ],
-        for (final index in indexes) ...[
-          const SizedBox(height: 8),
-          AiSlidesSyncedField(
-            fieldKey: ValueKey('ai-center-line-$index'),
-            value: index < draft.lines.length ? draft.lines[index] : '',
-            label: '운동 문구 ${index + 1}',
-            maxLength: 120,
-            onChanged: (value) => updateLine(index, value),
+        for (final (position, indexes) in groups.indexed) ...[
+          const SizedBox(height: 12),
+          _CenterColumnField(
+            key: ValueKey((draft.centerRecipe, position)),
+            fieldKey: ValueKey('ai-center-column-$position'),
+            draft: draft,
+            indexes: indexes,
+            label: groups.length == 1
+                ? '운동 내용'
+                : '${String.fromCharCode(65 + position)} 영역',
+            onChanged: onChanged,
+          ),
+        ],
+        if (extra.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _CenterColumnField(
+            key: ValueKey((draft.centerRecipe, 'extra')),
+            fieldKey: const ValueKey('ai-center-extra-lines'),
+            draft: draft,
+            indexes: extra,
+            label: '템플릿에 없는 내용',
+            unmapped: true,
+            onChanged: onChanged,
           ),
         ],
         if (validationMessage != null)
           AiSlidesNotice(validationMessage!, error: true),
         const SizedBox(height: 8),
         const Text(
-          '빈 문구는 해당 위치에서 지워져요. 타이머는 슬라이드를 추가한 뒤 설정할 수 있어요.',
+          '영역별로 내용을 붙여넣고 줄바꿈으로 나눠 주세요. 빈 줄은 해당 위치를 비워 둬요.',
           style: TextStyle(fontSize: 12),
         ),
       ],
+    );
+  }
+}
+
+class _CenterColumnField extends HookWidget {
+  const _CenterColumnField({
+    super.key,
+    required this.fieldKey,
+    required this.draft,
+    required this.indexes,
+    required this.label,
+    required this.onChanged,
+    this.unmapped = false,
+  });
+  final Key fieldKey;
+  final AiSlideDraft draft;
+  final List<int> indexes;
+  final String label;
+  final ValueChanged<AiSlideDraft> onChanged;
+  final bool unmapped;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = centerSlideGroupValues(draft.lines, indexes);
+    final projection = jsonEncode(values);
+    // Keep the exact typed text (including trailing blank lines) while its
+    // mapped slots are current. Undo or an external edit restores source text.
+    final editing = useState<(String, String)?>(null);
+    final value = editing.value?.$1 == projection
+        ? editing.value!.$2
+        : values.join('\n');
+    final rows = value
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .split('\n');
+    final error = unmapped
+        ? '이 내용은 템플릿에 표시되지 않아요. 다른 영역으로 옮기거나 지워 주세요.'
+        : rows.length > indexes.length
+        ? '$label은 최대 ${indexes.length}줄까지 넣을 수 있어요. 입력한 내용은 그대로 보관했어요.'
+        : rows.any((row) => row.length > 120)
+        ? '한 줄에 120자 이내로 입력해 주세요.'
+        : null;
+    return AiSlidesSyncedField(
+      fieldKey: fieldKey,
+      value: value,
+      label: '$label (최대 ${indexes.length}줄)',
+      minLines: indexes.length.clamp(2, 6),
+      maxLines: 12,
+      // No input formatter truncates pasted content. The error blocks adding.
+      errorText: error,
+      onChanged: (text) {
+        final lines = replaceCenterSlideGroup(draft.lines, indexes, text);
+        editing.value = (
+          jsonEncode(centerSlideGroupValues(lines, indexes)),
+          text,
+        );
+        onChanged(draft.copyWith(lines: lines));
+      },
     );
   }
 }

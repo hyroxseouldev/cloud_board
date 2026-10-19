@@ -67,6 +67,76 @@ Matcher _failure(String code) =>
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  test('concurrent previews share one image fetch and receive independent bytes', () async {
+    final gate = Completer<void>();
+    final entered = Completer<void>();
+    final fixture = _Fixture(beforeResponse: () async {
+      if (!entered.isCompleted) entered.complete();
+      await gate.future;
+    });
+    addTearDown(fixture.close);
+    final first = fixture.source.loadBackground('owner-a', fixture.recipe);
+    final second = fixture.source.loadBackground('owner-a', fixture.recipe);
+    await entered.future;
+    await _flush();
+    expect(fixture.requests, 1);
+    gate.complete();
+    final results = await Future.wait([first, second]);
+    expect(results[0], fixture.bytes);
+    expect(results[1], fixture.bytes);
+    results[0]![0] = 0;
+    expect(results[1], fixture.bytes);
+  });
+
+  test('catalog generation change never shares the old in-flight transfer', () async {
+    final gate = Completer<void>();
+    final entered = Completer<void>();
+    var responses = 0;
+    final fixture = _Fixture(beforeResponse: () async {
+      responses++;
+      if (responses == 1) {
+        entered.complete();
+        await gate.future;
+      }
+    });
+    addTearDown(fixture.close);
+    final subscription = fixture.source.watchCatalog('owner-a', 'center-a').listen((_) {});
+    addTearDown(subscription.cancel);
+    final stale = expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
+      throwsA(_failure('center_scope_changed')));
+    await entered.future;
+    fixture.events.add(CenterSlideDocument(
+      data: _catalog([_entry(recipe: fixture.recipe)], revision: 2), fromCache: false));
+    await _flush();
+    final current = await fixture.source.loadBackground('owner-a', fixture.recipe);
+    expect(current, fixture.bytes);
+    expect(fixture.requests, 2);
+    gate.complete();
+    await stale;
+  });
+
+  test('failed shared image request is removed so a later attempt can retry', () async {
+    final gate = Completer<void>();
+    final entered = Completer<void>();
+    final fixture = _Fixture(tamper: true, beforeResponse: () async {
+      if (!entered.isCompleted) entered.complete();
+      await gate.future;
+    });
+    addTearDown(fixture.close);
+    final first = expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
+      throwsA(_failure('center_asset_integrity')));
+    final second = expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
+      throwsA(_failure('center_asset_integrity')));
+    await entered.future;
+    await _flush();
+    expect(fixture.requests, 1);
+    gate.complete();
+    await Future.wait([first, second]);
+    await expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
+      throwsA(_failure('center_asset_integrity')));
+    expect(fixture.requests, 2);
+  });
+
   test(
     'omitted remote sample preserves source text and sparse line positions',
     () {

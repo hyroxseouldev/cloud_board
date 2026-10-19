@@ -12,6 +12,9 @@ String? centerSlideDraftError(AiSlideDraft draft) {
   if (recipe == null) return '센터 템플릿을 다시 선택해 주세요.';
   final recipeError = validateCenterSlideRecipe(recipe);
   if (recipeError != null) return '템플릿 정보를 확인할 수 없어요. 다시 선택해 주세요.';
+  if (draft.lines.any((line) => line.contains('\n') || line.contains('\r'))) {
+    return '영역별로 넣을 수 있는 줄 수를 초과했어요. 입력한 내용을 줄여 주세요.';
+  }
   if (draft.title.trim().isEmpty || draft.title.length > 60) {
     return '슬라이드 제목은 1~60자로 입력해 주세요.';
   }

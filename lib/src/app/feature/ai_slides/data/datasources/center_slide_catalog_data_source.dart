@@ -49,6 +49,7 @@ class CenterSlideCatalogDataSource {
   final DateTime Function() now;
   final _listeners = <StreamController<CenterSlideCatalog>>{};
   final _assets = <String, Uint8List>{};
+  final _assetRequests = <String, Future<Uint8List>>{};
   int _assetBytes = 0, _generation = 0;
   bool _disposed = false;
   CenterSlideCatalogModel? _catalog;
@@ -170,6 +171,7 @@ class CenterSlideCatalogDataSource {
         if (fingerprint != _catalogFingerprint) {
           _generation++;
           _assets.clear();
+          _assetRequests.clear();
           _assetBytes = 0;
           _catalogFingerprint = fingerprint;
         }
@@ -208,6 +210,7 @@ class CenterSlideCatalogDataSource {
     _expiry?.cancel();
     _expiry = null;
     _assets.clear();
+    _assetRequests.clear();
     _assetBytes = 0;
   }
 
@@ -294,6 +297,34 @@ class CenterSlideCatalogDataSource {
       return Uint8List.fromList(cached);
     }
     final generation = _generation;
+    // Initial card, editor and confirmation may request the same private PNG
+    // concurrently. Share its transfer only within this authorization generation.
+    final requestKey = '$generation/$key';
+    final pending = _assetRequests[requestKey] ??= _fetchBackground(
+      requestedOwner,
+      recipe,
+      path: path,
+      key: key,
+      generation: generation,
+    );
+    try {
+      final result = await pending;
+      ensureRecipeAuthorized(requestedOwner, recipe, generation: generation);
+      return Uint8List.fromList(result);
+    } finally {
+      if (identical(_assetRequests[requestKey], pending)) {
+        _assetRequests.remove(requestKey);
+      }
+    }
+  }
+
+  Future<Uint8List> _fetchBackground(
+    String requestedOwner,
+    CenterSlideRecipe recipe, {
+    required String path,
+    required String key,
+    required int generation,
+  }) async {
     final token = await idToken();
     ensureCurrent(
       requestedOwner,
