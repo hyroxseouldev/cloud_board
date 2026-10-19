@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -134,6 +137,10 @@ void main() {
         ..pending = Completer<AiSlideDesignResult>();
       final container = ProviderContainer(
         overrides: [
+          centerSlideCatalogScopeProvider.overrideWithValue(null),
+          centerSlideCatalogProvider.overrideWith(
+            (ref) => Stream.value(emptyCenterSlideCatalog()),
+          ),
           aiSlideDesignOwnerIdProvider.overrideWithValue('alice'),
           aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
           aiSlideDesignRepositoryProvider.overrideWithValue(repository),
@@ -172,6 +179,10 @@ void main() {
       ..onGenerated = () => content.remaining--;
     final container = ProviderContainer(
       overrides: [
+        centerSlideCatalogScopeProvider.overrideWithValue(null),
+        centerSlideCatalogProvider.overrideWith(
+          (ref) => Stream.value(emptyCenterSlideCatalog()),
+        ),
         aiSlidesOwnerIdProvider.overrideWithValue('alice'),
         aiSlideDesignOwnerIdProvider.overrideWithValue('alice'),
         aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
@@ -211,6 +222,10 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          centerSlideCatalogScopeProvider.overrideWithValue(null),
+          centerSlideCatalogProvider.overrideWith(
+            (ref) => Stream.value(emptyCenterSlideCatalog()),
+          ),
           aiSlidesOwnerIdProvider.overrideWithValue('alice'),
           aiSlidesEditorRepositoryProvider.overrideWithValue(
             MemoryAiSlidesEditorRepository(),
@@ -305,6 +320,10 @@ void main() {
       final content = _ContentRepository()..premium = true;
       final container = ProviderContainer(
         overrides: [
+          centerSlideCatalogScopeProvider.overrideWithValue(null),
+          centerSlideCatalogProvider.overrideWith(
+            (ref) => Stream.value(emptyCenterSlideCatalog()),
+          ),
           aiSlidesOwnerIdProvider.overrideWithValue('alice'),
           aiSlidesEditorRepositoryProvider.overrideWithValue(
             MemoryAiSlidesEditorRepository(),
@@ -482,6 +501,10 @@ void main() {
       ..restoring = Completer<AiSlideDesign?>();
     final container = ProviderContainer(
       overrides: [
+        centerSlideCatalogScopeProvider.overrideWithValue(null),
+        centerSlideCatalogProvider.overrideWith(
+          (ref) => Stream.value(emptyCenterSlideCatalog()),
+        ),
         aiSlideDesignOwnerIdProvider.overrideWithValue('alice'),
         aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
         aiSlideDesignRepositoryProvider.overrideWithValue(repository),
@@ -507,6 +530,10 @@ void main() {
       ..pending = Completer<AiSlideDesignResult>();
     final container = ProviderContainer(
       overrides: [
+        centerSlideCatalogScopeProvider.overrideWithValue(null),
+        centerSlideCatalogProvider.overrideWith(
+          (ref) => Stream.value(emptyCenterSlideCatalog()),
+        ),
         aiSlideDesignOwnerIdProvider.overrideWith((ref) => owner),
         aiSlideDesignStoreIdProvider.overrideWith((ref) => store),
         aiSlideDesignRepositoryProvider.overrideWithValue(repository),
@@ -537,6 +564,10 @@ void main() {
     final content = _ContentRepository()..premium = true;
     final container = ProviderContainer(
       overrides: [
+        centerSlideCatalogScopeProvider.overrideWithValue(null),
+        centerSlideCatalogProvider.overrideWith(
+          (ref) => Stream.value(emptyCenterSlideCatalog()),
+        ),
         aiSlidesOwnerIdProvider.overrideWithValue('alice'),
         aiSlidesEditorRepositoryProvider.overrideWithValue(
           MemoryAiSlidesEditorRepository(),
@@ -582,6 +613,17 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            centerSlideCatalogScopeProvider.overrideWithValue(null),
+            centerSlideCatalogProvider.overrideWith(
+              (ref) => Stream.value(
+                CenterSlideCatalog(
+                  revision: 1,
+                  centerId: 'center-a',
+                  centerName: '스테이션디',
+                  templates: customerReferenceDesigns,
+                ),
+              ),
+            ),
             aiSlidesOwnerIdProvider.overrideWithValue('alice'),
             aiSlidesEditorRepositoryProvider.overrideWithValue(
               MemoryAiSlidesEditorRepository(),
@@ -601,9 +643,9 @@ void main() {
       expect(find.text('스타일 제안'), findsNothing);
       expect(find.text('이미지로 시작'), findsNothing);
       expect(find.textContaining('AI 토큰·생성 횟수를 사용하지 않아요'), findsOneWidget);
-      expect(find.text('프리미엄 템플릿'), findsOneWidget);
+      expect(find.text('스테이션디 센터 템플릿'), findsOneWidget);
       expect(find.text('7개'), findsOneWidget);
-      expect(find.text('일반 템플릿'), findsOneWidget);
+      expect(find.text('기본 템플릿'), findsOneWidget);
       expect(find.text('12개'), findsOneWidget);
       for (final design in customerReferenceDesigns) {
         final premiumCard = find.byKey(ValueKey('ai-design-${design.id}'));

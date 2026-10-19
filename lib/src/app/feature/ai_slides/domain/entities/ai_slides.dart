@@ -1,5 +1,7 @@
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
 part 'ai_slides.freezed.dart';
 
 @freezed
@@ -26,6 +28,9 @@ abstract class AiSlideDraft with _$AiSlideDraft {
     required String title,
     required String layout,
     required List<String> lines,
+
+    /// Private creation-only recipe. Saved lessons receive the finished PNG.
+    CenterSlideRecipe? centerRecipe,
     SlideDesignStyle? designStyle,
     @Default('') String designHeaderLabel,
     @Default('') String designSubtitle,
