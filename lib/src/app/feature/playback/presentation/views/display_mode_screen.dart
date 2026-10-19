@@ -33,6 +33,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
@@ -149,9 +150,8 @@ class DisplayModeScreen extends HookConsumerWidget {
         !ownerScope.isLoading &&
         !ownerScope.hasError &&
         ownerScope.value != null;
-    final session = scopeReady && !active.isLoading && !active.hasError
-        ? active.value
-        : null;
+    final displaySession = ref.watch(displayPlaybackSessionProvider);
+    final session = scopeReady ? displaySession : null;
     useDisplayRecovery(
       context,
       ref,
@@ -213,9 +213,8 @@ class DisplayModeScreen extends HookConsumerWidget {
     final allowPlayback =
         foreground &&
         scopeReady &&
-        recovery.hasValue &&
-        !recovery.isLoading &&
-        !recovery.hasError &&
+        (session != null ||
+            (recovery.hasValue && !recovery.isLoading && !recovery.hasError)) &&
         currentDevice?.paired == true &&
         remoteState == RemoteDisplayState.auto.name;
     useEffect(
@@ -259,6 +258,12 @@ class DisplayModeScreen extends HookConsumerWidget {
           if (cancelled ||
               !context.mounted ||
               !connected ||
+              active.isLoading ||
+              active.hasError ||
+              active.value?.id != session.id ||
+              active.value?.revision != session.revision ||
+              recovery.isLoading ||
+              recovery.hasError ||
               !recovery.hasValue) {
             return;
           }
@@ -283,6 +288,10 @@ class DisplayModeScreen extends HookConsumerWidget {
         allowPlayback,
         connected,
         recovery.hasValue,
+        recovery.isLoading,
+        recovery.hasError,
+        active.isLoading,
+        active.hasError,
       ],
     );
 
@@ -327,8 +336,8 @@ class DisplayModeScreen extends HookConsumerWidget {
               if (!foreground)
                 PlaybackRecoveryView(
                   displayMode: true,
-                  error: recovery.error,
-                  stackTrace: recovery.stackTrace,
+                  error: recovery.error ?? active.error,
+                  stackTrace: recovery.stackTrace ?? active.stackTrace,
                   onRetry: () => unawaited(
                     ref
                         .read(playbackRecoveryControllerProvider.notifier)

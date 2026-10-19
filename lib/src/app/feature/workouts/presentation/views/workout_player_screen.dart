@@ -30,6 +30,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
@@ -61,7 +62,9 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     final remote = sessionId == null
         ? null
         : ref.watch(activePlaybackSessionProvider);
-    final remoteSession = remote?.value;
+    final remoteSession = displayMode && sessionId != null
+        ? ref.watch(displayPlaybackSessionProvider)
+        : remote?.value;
     final seenSession = useRef(false);
     final localSnapshot = useRef<Workout?>(null);
     if (localSnapshot.value?.id != workoutId) localSnapshot.value = null;
