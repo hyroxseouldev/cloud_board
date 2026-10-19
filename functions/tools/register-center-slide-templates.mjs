@@ -15,7 +15,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export class OperatorError extends Error {}
 const requireValue = (condition, message) => {if (!condition) throw new OperatorError(message);};
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
-const usage = 'Usage: register-center-slide-templates.mjs --project cloud-board-development --email <existing account> (--file <catalog.json> | --seed-stationd --center-id <verified center> --revision <n> [--center-name <name>]) [--image <PNG>] [--replace] [--auth adc|firebase-cli] [--flutter <path>] [--output <new JSON file>] [--apply]';
+const usage = 'Usage: register-center-slide-templates.mjs --project cloud-board-development --email <existing account> (--file <catalog.json> | --seed-stationd --center-id <verified center> --revision <n> [--center-name <name>]) [--image <PNG> | --images <ID-to-PNG JSON>] [--replace] [--auth adc|firebase-cli] [--flutter <path>] [--output <new JSON file>] [--apply]';
 
 export function parseArgs(args) {
   const value = {apply: false, replace: false, seed: false, auth: 'adc'};
@@ -27,7 +27,7 @@ export function parseArgs(args) {
     if (['--apply', '--replace', '--seed-stationd'].includes(flag)) {
       value[flag === '--seed-stationd' ? 'seed' : flag.slice(2)] = true;
     } else {
-      requireValue(['--project', '--email', '--file', '--image', '--center-id', '--center-name', '--revision', '--auth', '--flutter', '--output'].includes(flag), usage);
+      requireValue(['--project', '--email', '--file', '--image', '--images', '--center-id', '--center-name', '--revision', '--auth', '--flutter', '--output'].includes(flag), usage);
       const next = args[++i];
       requireValue(next !== undefined && !next.startsWith('--'), `Missing value for ${flag}`);
       value[flag.slice(2)] = next;
@@ -37,10 +37,11 @@ export function parseArgs(args) {
   requireValue(typeof value.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email), 'An explicit existing account email is required.');
   requireValue(Number(value.seed) + Number(Boolean(value.file)) === 1, usage);
   requireValue(['adc', 'firebase-cli'].includes(value.auth), 'Unsupported authentication method.');
+  requireValue(!value.image || !value.images, '--image and --images are mutually exclusive.');
   if (value['center-id'] !== undefined) requireValue(idPattern.test(value['center-id']), 'Invalid expected center ID.');
   if (value.seed) {
     requireValue(value['center-id'], '--seed-stationd requires an explicitly verified target center ID.');
-    requireValue(!value.image, '--image is only supported with a recipe catalog file.');
+    requireValue(!value.image && !value.images, '--image/--images are only supported with a recipe catalog file.');
     requireValue(/^[1-9]\d*$/.test(value.revision || '') && Number.isSafeInteger(Number(value.revision)), 'Seed revision must be a positive safe integer.');
     value.revision = Number(value.revision);
   } else {
@@ -53,6 +54,49 @@ export function readCatalogFile(path) {
   requireValue(statSync(path).size <= maxBytes, 'Catalog JSON exceeds 768 KiB.');
   try {return JSON.parse(readFileSync(path, 'utf8'));}
   catch {throw new OperatorError('Catalog file is not valid JSON.');}
+}
+
+// JSON objects normally discard duplicate keys. Read this deliberately flat
+// string-to-string manifest without allowing a repeated template ID to vanish.
+export function readImageManifest(path) {
+  requireValue(statSync(path).size <= maxBytes, 'Image manifest exceeds 768 KiB.');
+  const source = readFileSync(path, 'utf8');
+  let parsed;
+  try {parsed = JSON.parse(source);} catch {throw new OperatorError('Image manifest is not valid JSON.');}
+  requireValue(parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed),
+    'Image manifest must be a JSON object mapping template IDs to local PNG paths.');
+  const entries = [];
+  const seen = new Set();
+  let position = 0;
+  const whitespace = () => {while (/\s/.test(source[position] || '') && position < source.length) position++;};
+  const string = () => {
+    whitespace();
+    requireValue(source[position] === '"', 'Image manifest IDs and paths must be strings.');
+    const start = position++;
+    while (position < source.length) {
+      if (source[position] === '\\') {position += 2; continue;}
+      if (source[position++] === '"') return JSON.parse(source.slice(start, position));
+    }
+    throw new OperatorError('Invalid image manifest string.');
+  };
+  whitespace(); position++; // JSON.parse and the object check established '{'.
+  whitespace();
+  while (source[position] !== '}') {
+    const id = string();
+    requireValue(idPattern.test(id) && !seen.has(id), 'Invalid or duplicate image template ID.');
+    seen.add(id);
+    whitespace();
+    requireValue(source[position++] === ':', 'Invalid image manifest mapping.');
+    const file = string();
+    requireValue(file.length > 0 && !file.includes('\0') && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(file),
+      'Image paths must be local file paths, not URLs.');
+    entries.push([id, resolve(dirname(resolve(path)), file)]);
+    whitespace();
+    if (source[position] === '}') break;
+    requireValue(source[position++] === ',', 'Invalid image manifest mapping.');
+  }
+  requireValue(entries.length > 0 && entries.length <= 100, 'Image manifest requires 1 to 100 PNG paths.');
+  return Object.fromEntries(entries);
 }
 
 function header(value) {
@@ -77,9 +121,10 @@ export function mergeCatalog(current, incoming, replace = false) {
   return {...incoming, templates: [...items.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))};
 }
 
-export function preparePng(catalog, bytes, centerId) {
-  const candidates = catalog.templates.filter(item => item.published && item.recipe);
-  requireValue(candidates.length === 1, '--image requires exactly one published recipe in the input file.');
+export function preparePng(catalog, bytes, centerId, templateId) {
+  const candidates = catalog.templates.filter(item => item.published && item.recipe &&
+    (templateId === undefined || item.id === templateId));
+  requireValue(candidates.length === 1, 'Image requires exactly one matching published recipe in the input file.');
   requireValue(bytes.length >= 33 && bytes.length <= maxPngBytes &&
     bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
     bytes.readUInt32BE(8) === 13 && bytes.toString('ascii', 12, 16) === 'IHDR', 'Image must be a PNG no larger than 10 MiB.');
@@ -94,13 +139,42 @@ export function preparePng(catalog, bytes, centerId) {
   return {catalog: prepared, asset: {path, sha256: digest, bytes}};
 }
 
+export function prepareImages(catalog, images, centerId) {
+  header(catalog);
+  const ids = new Set();
+  for (const item of catalog.templates) {
+    requireValue(item && idPattern.test(item.id) && !ids.has(item.id) && typeof item.published === 'boolean',
+      'Invalid or duplicate catalog template ID/visibility.');
+    ids.add(item.id);
+  }
+  const recipes = catalog.templates.filter(item => item.published && item.recipe);
+  const mapped = Object.entries(images);
+  requireValue(mapped.length === recipes.length && mapped.length > 0 && mapped.every(([id]) =>
+    recipes.some(item => item.id === id)),
+  'Image manifest must map exactly the published recipes in the input catalog; no missing or extra IDs.');
+  let prepared = catalog;
+  const assets = [];
+  for (const item of recipes) {
+    const path = images[item.id];
+    const info = statSync(path);
+    requireValue(info.isFile() && info.size <= maxPngBytes, 'Each image must be a local PNG no larger than 10 MiB.');
+    const result = preparePng(prepared, readFileSync(path), centerId, item.id);
+    prepared = result.catalog;
+    assets.push(result.asset);
+  }
+  return {catalog: prepared, assets};
+}
+
 // Catalog and recipe validation belongs to the same Dart models as the app.
 // The renderer also decodes/validates an input PNG before any upload is allowed.
-export function validateWithApp(catalog, {centerId, flutter: executable, image, seed, revision, centerName = ''} = {}) {
+export function validateWithApp(catalog, {centerId, flutter: executable, image, images, seed, revision, centerName = ''} = {}) {
   const temporary = mkdtempSync(resolve(tmpdir(), 'center-slide-template-'));
   try {
     const input = resolve(temporary, 'input.json'), output = resolve(temporary, 'canonical.json');
     if (!seed) writeFileSync(input, JSON.stringify(catalog));
+    requireValue(!image || !images, 'Cannot validate single and batch images together.');
+    const imageManifest = images ? resolve(temporary, 'images.json') : '';
+    if (images) writeFileSync(imageManifest, JSON.stringify(images));
     let flutter = executable || process.env.CLOUDBOARD_FLUTTER || 'flutter';
     if (flutter.includes('/') && !isAbsolute(flutter)) flutter = resolve(flutter);
     const result = spawnSync(flutter, ['test', 'tool/center_slide_template_export_test.dart', '--no-pub', '--reporter', 'compact'], {
@@ -108,7 +182,7 @@ export function validateWithApp(catalog, {centerId, flutter: executable, image, 
       env: {...process.env, CENTER_CATALOG_INPUT: seed ? '' : input, CENTER_CATALOG_OUTPUT: output,
         CENTER_CATALOG_CENTER_ID: centerId, CENTER_CATALOG_SEED: seed ? 'stationd' : '',
         CENTER_CATALOG_REVISION: String(revision || ''), CENTER_CATALOG_CENTER_NAME: centerName,
-        CENTER_CATALOG_IMAGE: image ? resolve(image) : ''},
+        CENTER_CATALOG_IMAGE: image ? resolve(image) : '', CENTER_CATALOG_IMAGES: imageManifest},
     });
     requireValue(!result.error && result.status === 0, `App catalog/PNG validation failed; nothing was uploaded.\n${result.error?.message || `${result.stdout || ''}\n${result.stderr || ''}`.slice(-4000)}`);
     return JSON.parse(readFileSync(output, 'utf8'));
@@ -231,18 +305,23 @@ export async function run(args, {open = openServices, validate = validateWithApp
   const options = parseArgs(args);
   let incoming = options.file ? readCatalogFile(options.file) : null;
   if (incoming) header(incoming);
+  const images = options.images ? readImageManifest(options.images) : null;
   const services = await open(options);
   try {
     const {auth, db, bucket} = services;
     const target = await resolveTarget(auth, db, options.email, options['center-id']);
     const validation = {centerId: target.centerId, flutter: options.flutter};
     if (options.seed) incoming = validate(null, {...validation, seed: true, revision: options.revision, centerName: options['center-name'] || ''});
-    let asset;
-    if (options.image) {
+    let assets = [];
+    if (images) {
+      ({catalog: incoming, assets} = prepareImages(incoming, images, target.centerId));
+    } else if (options.image) {
       requireValue(statSync(options.image).size <= maxPngBytes, 'Image exceeds 10 MiB.');
-      ({catalog: incoming, asset} = preparePng(incoming, readFileSync(options.image), target.centerId));
+      const prepared = preparePng(incoming, readFileSync(options.image), target.centerId);
+      incoming = prepared.catalog;
+      assets = [prepared.asset];
     }
-    incoming = validate(incoming, {...validation, image: options.image});
+    incoming = validate(incoming, {...validation, image: options.image, images});
     const ref = db.doc(`centers/${target.centerId}/slideTemplateCatalog/current`);
     const snapshot = await ref.get(), current = snapshot.exists ? snapshot.data() : null;
     if (current) header(current);
@@ -250,25 +329,28 @@ export async function run(args, {open = openServices, validate = validateWithApp
     const candidate = validate(mergeCatalog(validatedCurrent, incoming, options.replace), validation);
     requireValue(!current || isDeepStrictEqual(candidate, current) || candidate.revision > current.revision,
       'Catalog revision must increase before publication.');
+    const preparedPaths = new Set(assets.map(asset => asset.path));
     for (const entry of incoming.templates.filter(item => item.published)) {
       const recipe = entry.recipe;
-      if (recipe?.backgroundPath && recipe.backgroundPath !== asset?.path) {
+      if (recipe?.backgroundPath && !preparedPaths.has(recipe.backgroundPath)) {
         await verifyExistingAsset(bucket, {path: recipe.backgroundPath, sha256: recipe.backgroundSha256});
       }
     }
     if (options.output) writeFileSync(resolve(options.output), `${JSON.stringify(candidate, null, 2)}\n`, {flag: 'wx'});
     if (!options.apply) {
       const result = {status: 'dry-run', project: options.project, centerId: target.centerId, revision: candidate.revision,
-        templates: candidate.templates.length, imageUpload: Boolean(asset), replaced: options.replace, writes: 0};
+        templates: candidate.templates.length, imageUpload: assets.length > 0, imageCount: assets.length, replaced: options.replace, writes: 0};
       log(JSON.stringify(result));
       return result;
     }
     // Reconfirm the same account-center binding before touching the new asset.
     const confirmed = await resolveTarget(auth, db, options.email, target.centerId);
     requireValue(confirmed.uid === target.uid, 'Target account changed before publication.');
-    if (asset) await ensureImmutableAsset(bucket, asset);
+    // Every mapping, PNG, sample render, merge and revision check has succeeded.
+    // An interrupted batch may leave private objects, but never a partial catalog.
+    for (const asset of assets) await ensureImmutableAsset(bucket, asset);
     const status = await publishCatalog(db, target, current, candidate);
-    const result = {status, project: options.project, centerId: target.centerId, revision: candidate.revision, templates: candidate.templates.length};
+    const result = {status, project: options.project, centerId: target.centerId, revision: candidate.revision, templates: candidate.templates.length, imageCount: assets.length};
     log(JSON.stringify(result));
     return result;
   } finally {await services.close();}

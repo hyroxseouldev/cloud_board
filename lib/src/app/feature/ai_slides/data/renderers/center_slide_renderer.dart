@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/data/renderers/center_slide_flow_renderer.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_flow.dart';
 import 'package:flutter/painting.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
@@ -28,6 +30,7 @@ Future<Uint8List> renderCenterSlide(
   }
 
   ui.Image? background;
+  CenterSlideFlowLayout? flow;
   final fields = <_PreparedField>[];
   final scale = math.min(
     centerSlideOutputWidth / recipe.width,
@@ -49,6 +52,13 @@ Future<Uint8List> renderCenterSlide(
       fields.add(_prepareField(field, recipe, value, scale));
     }
 
+    if (recipe.body != null) {
+      flow = layoutCenterSlideFlow(
+        recipe: recipe,
+        lines: draft.lines,
+        outputScale: scale,
+      );
+    }
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawRect(
@@ -98,6 +108,7 @@ Future<Uint8List> renderCenterSlide(
         canvas.restore();
       }
     }
+    flow?.paint(canvas);
     canvas.restore();
     final picture = recorder.endRecording();
     try {
@@ -123,6 +134,7 @@ Future<Uint8List> renderCenterSlide(
     for (final field in fields) {
       field.painter?.dispose();
     }
+    flow?.dispose();
     background?.dispose();
   }
 }
@@ -194,6 +206,11 @@ void _validateContent(CenterSlideRecipe recipe, AiSlideDraft draft) {
   validateText(draft.title, 60);
   validateText(draft.designSubtitle, 120);
   validateText(draft.designHeaderLabel, 120);
+  if (recipe.body != null) {
+    final error = centerSlideFlowContentError(draft.lines);
+    if (error != null) throw FormatException(error);
+    return;
+  }
   if (draft.lines.length > centerSlideMaximumLines) {
     throw const FormatException('센터 템플릿의 운동 문구는 24줄 이내로 입력해 주세요.');
   }
@@ -277,7 +294,10 @@ _PreparedField _prepareField(
     painter = text(size);
   }
   final padding = inset(size);
-  if (size * outputScale < centerSlideMinimumOutputFontSize ||
+  final minimum = recipe.schemaVersion == 2
+      ? centerSlideFlowMinimumOutputFontSize
+      : centerSlideMinimumOutputFontSize;
+  if (size * outputScale < minimum ||
       painter.width + padding * 2 > bounds.width + .01 ||
       painter.height > bounds.height + .01 ||
       painter.didExceedMaxLines) {

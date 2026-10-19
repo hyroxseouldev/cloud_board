@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -79,6 +80,25 @@ Future<Uint8List> centerSlidePreview(Ref ref, AiSlideDraft draft) async {
       '센터 템플릿 권한을 확인하고 있어요.',
       code: 'center_authority_unavailable',
     );
+  }
+  // Cancel pending preview work while a user types or pastes. Confirmation
+  // still performs its own current-authority validation.
+  if (draft.centerRecipe?.body != null) {
+    var disposed = false;
+    final ready = Completer<void>();
+    final timer = Timer(
+      const Duration(milliseconds: 180),
+      () => ready.complete(),
+    );
+    ref.onDispose(() {
+      disposed = true;
+      timer.cancel();
+      if (!ready.isCompleted) ready.complete();
+    });
+    await ready.future;
+    if (disposed || !ref.mounted) {
+      throw const AiSlidesFailure('미리보기를 갱신하고 있어요.');
+    }
   }
   return actions.renderDraft(draft);
 }

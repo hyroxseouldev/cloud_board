@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_line_groups.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_flow.dart';
 
 import 'package:flutter/material.dart';
 
@@ -125,6 +126,7 @@ class AiSlidesContentEditor extends StatelessWidget {
 
   Widget _centerEditor() {
     final fields = draft.centerRecipe!.fields;
+    final flow = draft.centerRecipe!.body != null;
     final groups = centerSlideLineGroups(draft.centerRecipe!);
     final assigned = groups.expand((group) => group).toSet();
     final extra = [
@@ -165,20 +167,42 @@ class AiSlidesContentEditor extends StatelessWidget {
                 onChanged(draft.copyWith(designSubtitle: value)),
           ),
         ],
-        for (final (position, indexes) in groups.indexed) ...[
+        if (flow) ...[
           const SizedBox(height: 12),
-          _CenterColumnField(
-            key: ValueKey((draft.centerRecipe, position)),
-            fieldKey: ValueKey('ai-center-column-$position'),
-            draft: draft,
-            indexes: indexes,
-            label: groups.length == 1
-                ? '운동 내용'
-                : '${String.fromCharCode(65 + position)} 영역',
-            onChanged: onChanged,
+          AiSlidesSyncedField(
+            fieldKey: const ValueKey('ai-center-wod'),
+            exactTextSync: true,
+            value: draft.lines.join('\n'),
+            label: '와드 내용',
+            hint: 'A. Running\n• Run 90s\n\nB. Strength\n1. Bench Press\n• 80% · 5 sets',
+            minLines: 12,
+            maxLines: 24,
+            errorText: centerSlideFlowContentError(draft.lines),
+            onChanged: (value) => onChanged(
+              draft.copyWith(
+                lines: value
+                    .replaceAll('\r\n', '\n')
+                    .replaceAll('\r', '\n')
+                    .split('\n'),
+              ),
+            ),
           ),
         ],
-        if (extra.isNotEmpty) ...[
+        if (!flow)
+          for (final (position, indexes) in groups.indexed) ...[
+            const SizedBox(height: 12),
+            _CenterColumnField(
+              key: ValueKey((draft.centerRecipe, position)),
+              fieldKey: ValueKey('ai-center-column-$position'),
+              draft: draft,
+              indexes: indexes,
+              label: groups.length == 1
+                  ? '운동 내용'
+                  : '${String.fromCharCode(65 + position)} 영역',
+              onChanged: onChanged,
+            ),
+          ],
+        if (!flow && extra.isNotEmpty) ...[
           const SizedBox(height: 12),
           _CenterColumnField(
             key: ValueKey((draft.centerRecipe, 'extra')),
@@ -193,8 +217,10 @@ class AiSlidesContentEditor extends StatelessWidget {
         if (validationMessage != null)
           AiSlidesNotice(validationMessage!, error: true),
         const SizedBox(height: 8),
-        const Text(
-          '영역별로 내용을 붙여넣고 줄바꿈으로 나눠 주세요. 빈 줄은 해당 위치를 비워 둬요.',
+        Text(
+          flow
+              ? '와드 전체를 붙여넣어 주세요. A. / B. 또는 ## 제목으로 구역을 나누면 내용에 맞게 배치돼요.'
+              : '영역별로 내용을 붙여넣고 줄바꿈으로 나눠 주세요. 빈 줄은 해당 위치를 비워 둬요.',
           style: TextStyle(fontSize: 12),
         ),
       ],

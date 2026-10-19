@@ -148,9 +148,10 @@ class CenterSlideCatalogEntryModel {
         _invalid();
       }
     }
+    if (recipe?.body != null && json['sample'] == null) _invalid();
     final sample = json['sample'] == null
         ? null
-        : _sample(_map(json['sample']));
+        : _sample(_map(json['sample']), flow: recipe?.body != null);
     if (sample != null && original != null) {
       final originalTemplate = originalSlideTemplate(original as String)!;
       if (sample.lines.length > originalTemplate.maxLines ||
@@ -261,7 +262,7 @@ AiSlideDraft _sampleFromRecipe(
   );
 }
 
-AiSlideDraft _sample(Map<String, dynamic> json) {
+AiSlideDraft _sample(Map<String, dynamic> json, {bool flow = false}) {
   _keys(json, const {
     'title',
     'subtitle',
@@ -272,10 +273,11 @@ AiSlideDraft _sample(Map<String, dynamic> json) {
     'sets',
   });
   final rawLines = json['lines'];
-  if (rawLines is! List || rawLines.length > 24) _invalid();
+  if (rawLines is! List || rawLines.length > (flow ? 60 : 24)) _invalid();
   final lines = rawLines
-      .map((line) => _string(line, 120))
+      .map((line) => _string(line, flow ? 240 : 120))
       .toList(growable: false);
+  if (flow && lines.join('\n').length > 6000) _invalid();
   return AiSlideDraft(
     title: _string(json['title'], 60, required: true),
     layout: 'list',

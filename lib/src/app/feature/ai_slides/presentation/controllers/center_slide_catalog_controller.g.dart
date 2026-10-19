@@ -59,7 +59,7 @@ final class CenterSlideCatalogScopeProvider
 }
 
 String _$centerSlideCatalogScopeHash() =>
-    r'ef364bd611042859359322813cccbb3813aed281';
+    r'b9aacb73c7ee9a3d28640f9641f097f71d14b789';
 
 @ProviderFor(centerSlideTemplateActions)
 final centerSlideTemplateActionsProvider =
@@ -207,7 +207,7 @@ final class CenterSlidePreviewProvider
 }
 
 String _$centerSlidePreviewHash() =>
-    r'5735f784fc428a35d53f7be90d786d103ef4f7e5';
+    r'863f57cc847b7f5f97735747e98240f3b98a46c9';
 
 final class CenterSlidePreviewFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<Uint8List>, AiSlideDraft> {

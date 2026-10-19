@@ -1,11 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
 
 /// Creation-only preview. The display/player never reads private templates.
-class CenterSlidePreview extends ConsumerWidget {
+class CenterSlidePreview extends HookConsumerWidget {
   const CenterSlidePreview({
     super.key,
     required this.draft,
@@ -17,6 +20,33 @@ class CenterSlidePreview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final preview = ref.watch(centerSlidePreviewProvider(draft));
+    final scope = ref.watch(centerSlideCatalogScopeProvider);
+    final previous = useMemoized(() => <Uint8List>[], [
+      scope,
+      draft.centerRecipe,
+    ]);
+    if (preview.hasError) previous.clear();
+    if (preview.hasValue && !preview.isLoading && !preview.hasError) {
+      previous
+        ..clear()
+        ..add(preview.requireValue);
+    }
+    Widget loading() {
+      if (draft.centerRecipe?.body == null || previous.isEmpty) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(previous.single, fit: BoxFit.contain),
+          const Align(
+            alignment: Alignment.bottomCenter,
+            child: LinearProgressIndicator(minHeight: 3),
+          ),
+        ],
+      );
+    }
+
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ClipRRect(
@@ -26,7 +56,7 @@ class CenterSlidePreview extends ConsumerWidget {
           skipLoadingOnRefresh: false,
           data: (bytes) =>
               Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: false),
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: loading,
           error: (error, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(12),

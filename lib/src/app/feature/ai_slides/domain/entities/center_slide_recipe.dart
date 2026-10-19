@@ -21,10 +21,40 @@ abstract class CenterSlideRecipe with _$CenterSlideRecipe {
     String? backgroundPath,
     String? backgroundSha256,
     required List<CenterSlideField> fields,
+    CenterSlideBody? body,
   }) = _CenterSlideRecipe;
 
   factory CenterSlideRecipe.fromJson(Map<String, dynamic> json) =>
       _recipeFromJson(json);
+}
+
+/// Flowing body content is creation-only and never serialized into a workout.
+@freezed
+abstract class CenterSlideBody with _$CenterSlideBody {
+  const factory CenterSlideBody({
+    required double x,
+    required double y,
+    required double width,
+    required double height,
+    required double fontSize,
+    required int color,
+    required int headingColor,
+    required String fontFamily,
+    @Default(600) int fontWeight,
+    @Default('auto') String layout,
+    @Default(3) int maxColumns,
+  }) = _CenterSlideBody;
+
+  factory CenterSlideBody.fromJson(Map<String, dynamic> json) =>
+      _bodyFromJson(json);
+}
+
+CenterSlideBody _bodyFromJson(Map<String, dynamic> json) {
+  _validateBodyJson(json);
+  final body = _$CenterSlideBodyFromJson(json);
+  final error = _validateBody(body);
+  if (error != null) throw FormatException(error);
+  return body;
 }
 
 @freezed
@@ -76,7 +106,7 @@ final _controlCharacters = RegExp(r'[\x00-\x1F\x7F]');
 
 /// Checks programmatically constructed recipes as well as parsed recipes.
 String? validateCenterSlideRecipe(CenterSlideRecipe recipe) {
-  if (recipe.schemaVersion != 1 ||
+  if (!const {1, 2}.contains(recipe.schemaVersion) ||
       recipe.revision < 1 ||
       !_identifier.hasMatch(recipe.templateId) ||
       !_identifier.hasMatch(recipe.centerId)) {
@@ -104,10 +134,23 @@ String? validateCenterSlideRecipe(CenterSlideRecipe recipe) {
   if (recipe.fields.length > centerSlideMaximumFields) {
     return '센터 템플릿의 편집 영역은 32개 이내로 지정해 주세요.';
   }
+  final body = recipe.body;
+  if ((recipe.schemaVersion == 1 && body != null) ||
+      (recipe.schemaVersion == 2 && body == null)) {
+    return '센터 템플릿의 버전과 본문 영역을 확인해 주세요.';
+  }
+  if (body != null) {
+    final error = _validateBody(body);
+    if (error != null) return error;
+  }
   final bindings = <String>{};
   for (final field in recipe.fields) {
     final error = _validateField(field);
     if (error != null) return error;
+    if (body != null &&
+        (field.binding == 'line' || _overlapsBody(field, body))) {
+      return '센터 템플릿의 본문과 제목 영역이 겹치거나 고정 운동 줄이 남아 있어요.';
+    }
     final key = '${field.binding}:${field.lineIndex ?? ''}';
     if (!bindings.add(key)) {
       return '센터 템플릿에 같은 내용의 편집 영역이 중복되어 있어요.';
@@ -174,6 +217,11 @@ void _validateRecipeJson(Map<String, dynamic> json) {
   for (final key in ['backgroundPath', 'backgroundSha256']) {
     if (json[key] != null && json[key] is! String) _invalidJson(key);
   }
+  final body = json['body'];
+  if (body != null) {
+    if (body is! Map<String, dynamic>) _invalidJson('body');
+    _validateBodyJson(body);
+  }
   final fields = json['fields'];
   if (fields is! List || fields.length > centerSlideMaximumFields) {
     _invalidJson('fields');
@@ -211,3 +259,66 @@ void _validateFieldJson(Map<String, dynamic> json) {
 
 Never _invalidJson(String key) =>
     throw FormatException('센터 템플릿의 $key 형식이 올바르지 않아요.');
+
+bool _overlapsBody(CenterSlideField field, CenterSlideBody body) =>
+    field.x < body.x + body.width - 1e-9 &&
+    field.x + field.width > body.x + 1e-9 &&
+    field.y < body.y + body.height - 1e-9 &&
+    field.y + field.height > body.y + 1e-9;
+
+String? _validateBody(CenterSlideBody body) {
+  if (!_within(body.x, 0, 1) ||
+      !_within(body.y, 0, 1) ||
+      !_within(body.width, 0, 1) ||
+      !_within(body.height, 0, 1) ||
+      body.width <= 0 ||
+      body.height <= 0 ||
+      body.x + body.width > 1 + 1e-9 ||
+      body.y + body.height > 1 + 1e-9) {
+    return '센터 템플릿의 본문 영역이 이미지 밖으로 벗어났어요.';
+  }
+  if (!_within(body.fontSize, 1, 4096) ||
+      !centerSlideFontFamilies.contains(body.fontFamily) ||
+      !_isArgb(body.color) ||
+      !_isArgb(body.headingColor) ||
+      body.fontWeight < 400 ||
+      body.fontWeight > 900 ||
+      body.fontWeight % 100 != 0 ||
+      !const {'auto', 'stack', 'columns'}.contains(body.layout) ||
+      body.maxColumns < 1 ||
+      body.maxColumns > 3) {
+    return '센터 템플릿의 본문 글씨와 배치 설정을 확인해 주세요.';
+  }
+  return null;
+}
+
+void _validateBodyJson(Map<String, dynamic> json) {
+  const keys = {
+    'x',
+    'y',
+    'width',
+    'height',
+    'fontSize',
+    'color',
+    'headingColor',
+    'fontFamily',
+    'fontWeight',
+    'layout',
+    'maxColumns',
+  };
+  if (json.keys.any((key) => !keys.contains(key))) _invalidJson('body');
+  for (final key in ['x', 'y', 'width', 'height', 'fontSize']) {
+    final value = json[key];
+    if (value is! num || !value.isFinite) _invalidJson('body.$key');
+  }
+  for (final key in ['color', 'headingColor']) {
+    if (json[key] is! int) _invalidJson('body.$key');
+  }
+  if (json['fontFamily'] is! String) _invalidJson('body.fontFamily');
+  for (final key in ['fontWeight', 'maxColumns']) {
+    if (json.containsKey(key) && json[key] is! int) _invalidJson('body.$key');
+  }
+  if (json.containsKey('layout') && json['layout'] is! String) {
+    _invalidJson('body.layout');
+  }
+}

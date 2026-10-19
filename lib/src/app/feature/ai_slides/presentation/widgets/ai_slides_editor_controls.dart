@@ -13,7 +13,11 @@ class AiSlidesSyncedField extends HookWidget {
     this.maxLength,
     this.hint,
     this.errorText,
+    this.exactTextSync = false,
   });
+
+  /// Multiline WOD drafts treat leading/trailing blank lines as content.
+  final bool exactTextSync;
   final Key fieldKey;
   final String value, label;
   final String? hint, errorText;
@@ -24,7 +28,10 @@ class AiSlidesSyncedField extends HookWidget {
   Widget build(BuildContext context) {
     final controller = useTextEditingController(text: value);
     useEffect(() {
-      if (controller.text.trim() != value.trim()) {
+      final changed = exactTextSync
+          ? controller.text != value
+          : controller.text.trim() != value.trim();
+      if (changed) {
         controller.value = TextEditingValue(
           text: value,
           selection: TextSelection.collapsed(
@@ -33,7 +40,7 @@ class AiSlidesSyncedField extends HookWidget {
         );
       }
       return null;
-    }, [value]);
+    }, [value, exactTextSync]);
     return TextField(
       key: fieldKey,
       controller: controller,

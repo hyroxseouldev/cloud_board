@@ -122,6 +122,9 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
     final draft = state.draft;
     final module = draft == null ? null : previewAiSlide(draft);
     final centerTemplate = draft?.centerRecipe != null;
+    final flowPreview = draft?.centerRecipe?.body == null
+        ? null
+        : ref.watch(centerSlidePreviewProvider(draft!));
     final metrics = module == null || centerTemplate
         ? null
         : measureSlideDesign(module);
@@ -143,6 +146,10 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
         !adding.value &&
         !designState.generating &&
         validation == null &&
+        (flowPreview == null ||
+            (!flowPreview.isLoading &&
+                !flowPreview.hasError &&
+                flowPreview.hasValue)) &&
         (centerTemplate || metrics!.readable);
     ref.listen(aiSlidesControllerProvider, (previous, next) {
       final restored = previous?.loading == true && !next.loading;

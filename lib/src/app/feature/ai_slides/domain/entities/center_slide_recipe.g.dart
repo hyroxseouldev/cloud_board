@@ -20,6 +20,9 @@ _CenterSlideRecipe _$CenterSlideRecipeFromJson(Map<String, dynamic> json) =>
       fields: (json['fields'] as List<dynamic>)
           .map((e) => CenterSlideField.fromJson(e as Map<String, dynamic>))
           .toList(),
+      body: json['body'] == null
+          ? null
+          : CenterSlideBody.fromJson(json['body'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$CenterSlideRecipeToJson(_CenterSlideRecipe instance) =>
@@ -34,6 +37,37 @@ Map<String, dynamic> _$CenterSlideRecipeToJson(_CenterSlideRecipe instance) =>
       'backgroundPath': instance.backgroundPath,
       'backgroundSha256': instance.backgroundSha256,
       'fields': instance.fields.map((e) => e.toJson()).toList(),
+      'body': instance.body?.toJson(),
+    };
+
+_CenterSlideBody _$CenterSlideBodyFromJson(Map<String, dynamic> json) =>
+    _CenterSlideBody(
+      x: (json['x'] as num).toDouble(),
+      y: (json['y'] as num).toDouble(),
+      width: (json['width'] as num).toDouble(),
+      height: (json['height'] as num).toDouble(),
+      fontSize: (json['fontSize'] as num).toDouble(),
+      color: (json['color'] as num).toInt(),
+      headingColor: (json['headingColor'] as num).toInt(),
+      fontFamily: json['fontFamily'] as String,
+      fontWeight: (json['fontWeight'] as num?)?.toInt() ?? 600,
+      layout: json['layout'] as String? ?? 'auto',
+      maxColumns: (json['maxColumns'] as num?)?.toInt() ?? 3,
+    );
+
+Map<String, dynamic> _$CenterSlideBodyToJson(_CenterSlideBody instance) =>
+    <String, dynamic>{
+      'x': instance.x,
+      'y': instance.y,
+      'width': instance.width,
+      'height': instance.height,
+      'fontSize': instance.fontSize,
+      'color': instance.color,
+      'headingColor': instance.headingColor,
+      'fontFamily': instance.fontFamily,
+      'fontWeight': instance.fontWeight,
+      'layout': instance.layout,
+      'maxColumns': instance.maxColumns,
     };
 
 _CenterSlideField _$CenterSlideFieldFromJson(Map<String, dynamic> json) =>

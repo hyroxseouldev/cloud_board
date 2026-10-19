@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_flow.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
@@ -12,7 +13,13 @@ String? centerSlideDraftError(AiSlideDraft draft) {
   if (recipe == null) return '센터 템플릿을 다시 선택해 주세요.';
   final recipeError = validateCenterSlideRecipe(recipe);
   if (recipeError != null) return '템플릿 정보를 확인할 수 없어요. 다시 선택해 주세요.';
-  if (draft.lines.any((line) => line.contains('\n') || line.contains('\r'))) {
+  final flow = recipe.body != null;
+  if (flow) {
+    final contentError = centerSlideFlowContentError(draft.lines);
+    if (contentError != null) return contentError;
+  }
+  if (!flow &&
+      draft.lines.any((line) => line.contains('\n') || line.contains('\r'))) {
     return '영역별로 넣을 수 있는 줄 수를 초과했어요. 입력한 내용을 줄여 주세요.';
   }
   if (draft.title.trim().isEmpty || draft.title.length > 60) {
@@ -20,7 +27,7 @@ String? centerSlideDraftError(AiSlideDraft draft) {
   }
   if (draft.designSubtitle.length > 120 ||
       draft.designHeaderLabel.length > 120 ||
-      draft.lines.any((line) => line.length > 120)) {
+      (!flow && draft.lines.any((line) => line.length > 120))) {
     return '각 문구는 120자 이내로 입력해 주세요.';
   }
   final indexes = recipe.fields
@@ -28,7 +35,7 @@ String? centerSlideDraftError(AiSlideDraft draft) {
       .map((field) => field.lineIndex!)
       .toSet();
   for (var i = 0; i < draft.lines.length; i++) {
-    if (!indexes.contains(i) && draft.lines[i].trim().isNotEmpty) {
+    if (!flow && !indexes.contains(i) && draft.lines[i].trim().isNotEmpty) {
       return '이 템플릿의 운동 문구는 ${indexes.length}개 영역에 넣을 수 있어요.';
     }
   }
