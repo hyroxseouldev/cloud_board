@@ -11,8 +11,10 @@ class WorkoutImage extends StatelessWidget {
     this.showLoadingIndicator = false,
     this.onError,
     this.resolutionScale = 1,
+    this.webHtmlElementStrategy = WebHtmlElementStrategy.prefer,
   });
 
+  final WebHtmlElementStrategy webHtmlElementStrategy;
   final double resolutionScale;
   final String source;
   final BoxFit fit;
@@ -30,6 +32,7 @@ class WorkoutImage extends StatelessWidget {
       ),
       showLoadingIndicator: showLoadingIndicator,
       onError: onError,
+      webHtmlElementStrategy: webHtmlElementStrategy,
     ),
   );
 }
@@ -41,22 +44,28 @@ class _SizedWorkoutImage extends HookWidget {
     required this.size,
     required this.showLoadingIndicator,
     required this.onError,
+    required this.webHtmlElementStrategy,
   });
   final String source;
   final BoxFit fit;
   final WorkoutImageSize size;
   final bool showLoadingIndicator;
   final VoidCallback? onError;
+  final WebHtmlElementStrategy webHtmlElementStrategy;
 
   @override
   Widget build(BuildContext context) {
     final provider = useMemoized(() {
       try {
-        return workoutImageProvider(source, size);
+        return workoutImageProvider(
+          source,
+          size,
+          webHtmlElementStrategy: webHtmlElementStrategy,
+        );
       } on FormatException {
         return null;
       }
-    }, [source, size]);
+    }, [source, size, webHtmlElementStrategy]);
     Widget error() {
       onError?.call();
       return const Center(
