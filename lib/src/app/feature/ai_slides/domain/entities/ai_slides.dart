@@ -31,6 +31,8 @@ abstract class AiSlideDraft with _$AiSlideDraft {
 
     /// Private creation-only recipe. Saved lessons receive the finished PNG.
     CenterSlideRecipe? centerRecipe,
+    int? centerColumns,
+    double? centerFontSize,
     SlideDesignStyle? designStyle,
     @Default('') String designHeaderLabel,
     @Default('') String designSubtitle,

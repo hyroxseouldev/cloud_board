@@ -109,7 +109,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'unchanged preview and Add reuse one PNG with independent returned bytes',
+    'unchanged final Add retries reuse one PNG with independent returned bytes',
     () async {
       final f = _Fixture();
       addTearDown(f.close);
@@ -118,11 +118,11 @@ void main() {
       final added = await f.render();
       expect(added, [1, 2, 3]);
       expect(f.renders, 1);
-      expect(f.authorityReads, 1);
+      expect(f.authorityReads, 2);
     },
   );
 
-  test('Add shares the exact preview currently rendering', () async {
+  test('duplicate Add shares the exact draft currently rendering', () async {
     final entered = Completer<void>(), release = Completer<void>();
     final f = _Fixture(
       renderer: (_, draft, {backgroundBytes}) async {
@@ -326,6 +326,27 @@ void main() {
     expect(f.renders, 2);
   });
 
+  test(
+    'final Add fails closed offline even with a previously rendered PNG',
+    () async {
+      final f = _Fixture();
+      addTearDown(f.close);
+      await f.render();
+      f.authorityError = FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'unavailable',
+      );
+      await expectLater(f.render(), throwsA(isA<FirebaseException>()));
+      expect(f.renders, 1);
+      f.authorityError = null;
+      await f.render();
+      expect(
+        f.renders,
+        2,
+      ); // A failed permission refresh discarded the old result.
+    },
+  );
+
   test('failed rendering is not cached and can be retried', () async {
     var fail = true;
     final f = _Fixture(
@@ -341,7 +362,7 @@ void main() {
     expect(f.renders, 2);
   });
 
-  test('real renderer preview/Add preserve the full 1920x1080 PNG', () async {
+  test('real renderer repeated Add preserves the full 1920x1080 PNG', () async {
     final f = _Fixture(renderer: renderCenterSlide);
     addTearDown(f.close);
     final plain = _draft.copyWith(lines: []);

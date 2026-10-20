@@ -22,7 +22,11 @@ class AiSlidesPreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: WorkoutSlidePreview(module: module, isRest: false),
+          child: WorkoutSlidePreview(
+            creationTypography: true,
+            module: module,
+            isRest: false,
+          ),
         ),
       ),
     );
@@ -54,7 +58,11 @@ Future<void> showAiSlidesPreview(BuildContext context, WorkoutModule module) =>
               padding: const EdgeInsets.all(16),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: WorkoutSlidePreview(module: module, isRest: false),
+                child: WorkoutSlidePreview(
+                  creationTypography: true,
+                  module: module,
+                  isRest: false,
+                ),
               ),
             ),
           ),

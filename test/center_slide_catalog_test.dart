@@ -67,75 +67,158 @@ Matcher _failure(String code) =>
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
 void main() {
-  test('concurrent previews share one image fetch and receive independent bytes', () async {
-    final gate = Completer<void>();
-    final entered = Completer<void>();
-    final fixture = _Fixture(beforeResponse: () async {
-      if (!entered.isCompleted) entered.complete();
-      await gate.future;
-    });
-    addTearDown(fixture.close);
-    final first = fixture.source.loadBackground('owner-a', fixture.recipe);
-    final second = fixture.source.loadBackground('owner-a', fixture.recipe);
-    await entered.future;
-    await _flush();
-    expect(fixture.requests, 1);
-    gate.complete();
-    final results = await Future.wait([first, second]);
-    expect(results[0], fixture.bytes);
-    expect(results[1], fixture.bytes);
-    results[0]![0] = 0;
-    expect(results[1], fixture.bytes);
+  test('optional thumbnail stays inside recipe and legacy catalogs retain defaults', () {
+    final old = _parse(_catalog([_entry(recipe: _recipe())]), strict: true);
+    expect(old.entries.single.recipe!.thumbnail, isNull);
+    final f = _Fixture(thumbnail: true);
+    addTearDown(f.close);
+    final current = _parse(f.document, strict: true);
+    expect(current.entries.single.recipe!.thumbnail, f.recipe.thumbnail);
+    final raw = (current.toJson()['templates'] as List).single as Map;
+    expect(raw.containsKey('thumbnail'), isFalse);
+    final invalid = f.recipe.toJson();
+    (invalid['thumbnail'] as Map)['width'] = 641;
+    expect(() => CenterSlideRecipe.fromJson(invalid), throwsFormatException);
+    (invalid['thumbnail'] as Map)['width'] = 16.5;
+    expect(() => CenterSlideRecipe.fromJson(invalid), throwsFormatException);
   });
 
-  test('catalog generation change never shares the old in-flight transfer', () async {
-    final gate = Completer<void>();
-    final entered = Completer<void>();
-    var responses = 0;
-    final fixture = _Fixture(beforeResponse: () async {
-      responses++;
-      if (responses == 1) {
-        entered.complete();
-        await gate.future;
-      }
-    });
-    addTearDown(fixture.close);
-    final subscription = fixture.source.watchCatalog('owner-a', 'center-a').listen((_) {});
-    addTearDown(subscription.cancel);
-    final stale = expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
-      throwsA(_failure('center_scope_changed')));
-    await entered.future;
-    fixture.events.add(CenterSlideDocument(
-      data: _catalog([_entry(recipe: fixture.recipe)], revision: 2), fromCache: false));
+  test('thumbnail shares authenticated cache and survives unrelated catalog revisions', () async {
+    final f = _Fixture(thumbnail: true);
+    addTearDown(f.close);
+    final sub = f.source.watchCatalog('owner-a', 'center-a').listen((_) {});
+    addTearDown(sub.cancel);
+    expect(await f.source.loadThumbnail('owner-a', f.recipe), f.bytes);
+    expect(f.lastRequest!.headers['Authorization'], 'Firebase test-id-token');
+    expect(f.lastRequest!.url.queryParameters.containsKey('token'), isFalse);
+    f.events.add(
+      CenterSlideDocument(
+        data: _catalog([
+          _entry(recipe: f.recipe),
+          _entry(id: 'another'),
+        ], revision: 2),
+        fromCache: false,
+      ),
+    );
     await _flush();
-    final current = await fixture.source.loadBackground('owner-a', fixture.recipe);
-    expect(current, fixture.bytes);
-    expect(fixture.requests, 2);
-    gate.complete();
-    await stale;
+    expect(await f.source.loadThumbnail('owner-a', f.recipe), f.bytes);
+    expect(f.requests, 1);
+    f.current = false;
+    await expectLater(
+      f.source.loadThumbnail('owner-a', f.recipe),
+      throwsA(_failure('center_scope_changed')),
+    );
   });
 
-  test('failed shared image request is removed so a later attempt can retry', () async {
-    final gate = Completer<void>();
-    final entered = Completer<void>();
-    final fixture = _Fixture(tamper: true, beforeResponse: () async {
-      if (!entered.isCompleted) entered.complete();
-      await gate.future;
-    });
-    addTearDown(fixture.close);
-    final first = expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
-      throwsA(_failure('center_asset_integrity')));
-    final second = expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
-      throwsA(_failure('center_asset_integrity')));
-    await entered.future;
-    await _flush();
-    expect(fixture.requests, 1);
-    gate.complete();
-    await Future.wait([first, second]);
-    await expectLater(fixture.source.loadBackground('owner-a', fixture.recipe),
-      throwsA(_failure('center_asset_integrity')));
-    expect(fixture.requests, 2);
+  test('old recipe thumbnail fallback performs no image download', () async {
+    final f = _Fixture();
+    addTearDown(f.close);
+    expect(await f.source.loadThumbnail('owner-a', f.recipe), isNull);
+    expect(f.requests, 0);
   });
+
+  test(
+    'concurrent previews share one image fetch and receive independent bytes',
+    () async {
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      final fixture = _Fixture(
+        beforeResponse: () async {
+          if (!entered.isCompleted) entered.complete();
+          await gate.future;
+        },
+      );
+      addTearDown(fixture.close);
+      final first = fixture.source.loadBackground('owner-a', fixture.recipe);
+      final second = fixture.source.loadBackground('owner-a', fixture.recipe);
+      await entered.future;
+      await _flush();
+      expect(fixture.requests, 1);
+      gate.complete();
+      final results = await Future.wait([first, second]);
+      expect(results[0], fixture.bytes);
+      expect(results[1], fixture.bytes);
+      results[0]![0] = 0;
+      expect(results[1], fixture.bytes);
+    },
+  );
+
+  test(
+    'catalog generation change never shares the old in-flight transfer',
+    () async {
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      var responses = 0;
+      final fixture = _Fixture(
+        beforeResponse: () async {
+          responses++;
+          if (responses == 1) {
+            entered.complete();
+            await gate.future;
+          }
+        },
+      );
+      addTearDown(fixture.close);
+      final subscription = fixture.source
+          .watchCatalog('owner-a', 'center-a')
+          .listen((_) {});
+      addTearDown(subscription.cancel);
+      final stale = expectLater(
+        fixture.source.loadBackground('owner-a', fixture.recipe),
+        throwsA(_failure('center_scope_changed')),
+      );
+      await entered.future;
+      fixture.events.add(
+        CenterSlideDocument(
+          data: _catalog([_entry(recipe: fixture.recipe)], revision: 2),
+          fromCache: false,
+        ),
+      );
+      await _flush();
+      final current = await fixture.source.loadBackground(
+        'owner-a',
+        fixture.recipe,
+      );
+      expect(current, fixture.bytes);
+      expect(fixture.requests, 2);
+      gate.complete();
+      await stale;
+    },
+  );
+
+  test(
+    'failed shared image request is removed so a later attempt can retry',
+    () async {
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      final fixture = _Fixture(
+        tamper: true,
+        beforeResponse: () async {
+          if (!entered.isCompleted) entered.complete();
+          await gate.future;
+        },
+      );
+      addTearDown(fixture.close);
+      final first = expectLater(
+        fixture.source.loadBackground('owner-a', fixture.recipe),
+        throwsA(_failure('center_asset_integrity')),
+      );
+      final second = expectLater(
+        fixture.source.loadBackground('owner-a', fixture.recipe),
+        throwsA(_failure('center_asset_integrity')),
+      );
+      await entered.future;
+      await _flush();
+      expect(fixture.requests, 1);
+      gate.complete();
+      await Future.wait([first, second]);
+      await expectLater(
+        fixture.source.loadBackground('owner-a', fixture.recipe),
+        throwsA(_failure('center_asset_integrity')),
+      );
+      expect(fixture.requests, 2);
+    },
+  );
 
   test(
     'omitted remote sample preserves source text and sparse line positions',
@@ -434,9 +517,24 @@ void main() {
 }
 
 class _Fixture {
-  _Fixture({Future<void> Function()? beforeResponse, bool tamper = false}) {
+  _Fixture({
+    Future<void> Function()? beforeResponse,
+    bool tamper = false,
+    bool thumbnail = false,
+  }) {
     bytes = Uint8List.fromList(img.encodePng(img.Image(width: 16, height: 9)));
-    recipe = _recipe(bytes);
+    final base = _recipe(bytes);
+    recipe = thumbnail
+        ? base.copyWith(
+            thumbnail: CenterSlideThumbnail(
+              path: base.backgroundPath!,
+              sha256: base.backgroundSha256!,
+              revision: 1,
+              width: 16,
+              height: 9,
+            ),
+          )
+        : base;
     document = _catalog([_entry(recipe: recipe)]);
     source = CenterSlideCatalogDataSource(
       projectId: 'test-project',

@@ -23,6 +23,11 @@ _CenterSlideRecipe _$CenterSlideRecipeFromJson(Map<String, dynamic> json) =>
       body: json['body'] == null
           ? null
           : CenterSlideBody.fromJson(json['body'] as Map<String, dynamic>),
+      thumbnail: json['thumbnail'] == null
+          ? null
+          : CenterSlideThumbnail.fromJson(
+              json['thumbnail'] as Map<String, dynamic>,
+            ),
     );
 
 Map<String, dynamic> _$CenterSlideRecipeToJson(_CenterSlideRecipe instance) =>
@@ -38,6 +43,7 @@ Map<String, dynamic> _$CenterSlideRecipeToJson(_CenterSlideRecipe instance) =>
       'backgroundSha256': instance.backgroundSha256,
       'fields': instance.fields.map((e) => e.toJson()).toList(),
       'body': instance.body?.toJson(),
+      'thumbnail': ?instance.thumbnail?.toJson(),
     };
 
 _CenterSlideBody _$CenterSlideBodyFromJson(Map<String, dynamic> json) =>
@@ -105,3 +111,23 @@ Map<String, dynamic> _$CenterSlideFieldToJson(_CenterSlideField instance) =>
       'originalText': instance.originalText,
       'clearColor': instance.clearColor,
     };
+
+_CenterSlideThumbnail _$CenterSlideThumbnailFromJson(
+  Map<String, dynamic> json,
+) => _CenterSlideThumbnail(
+  path: json['path'] as String,
+  sha256: json['sha256'] as String,
+  revision: (json['revision'] as num).toInt(),
+  width: (json['width'] as num).toInt(),
+  height: (json['height'] as num).toInt(),
+);
+
+Map<String, dynamic> _$CenterSlideThumbnailToJson(
+  _CenterSlideThumbnail instance,
+) => <String, dynamic>{
+  'path': instance.path,
+  'sha256': instance.sha256,
+  'revision': instance.revision,
+  'width': instance.width,
+  'height': instance.height,
+};

@@ -48,6 +48,13 @@ class CenterSlideTemplateActions {
     return result;
   }
 
+  Future<Uint8List?> loadThumbnail(CenterSlideRecipe recipe) async {
+    _guard(recipe);
+    final result = await repository!.loadThumbnail(scope!.ownerId, recipe);
+    _guard(recipe);
+    return result;
+  }
+
   Future<Uint8List> renderDraft(AiSlideDraft draft) async {
     final recipe = draft.centerRecipe;
     if (recipe == null) {

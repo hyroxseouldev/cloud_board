@@ -145,6 +145,10 @@ class _Repository implements CenterSlideTemplateRepository {
   }
 
   @override
+  Future<Uint8List?> loadThumbnail(String ownerId, CenterSlideRecipe recipe) =>
+      loadBackground(ownerId, recipe);
+
+  @override
   Future<Uint8List> renderDraft(String ownerId, AiSlideDraft draft) {
     calls.add('render:$ownerId:${draft.centerRecipe!.centerId}');
     return render.future;

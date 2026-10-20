@@ -1,14 +1,13 @@
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-
+import 'package:cloud_board/src/app/feature/ai_slides/data/renderers/center_slide_renderer.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
 
-/// Creation-only preview. The display/player never reads private templates.
-class CenterSlidePreview extends HookConsumerWidget {
+/// Direct creation canvas. Text edits never enter the final PNG exporter.
+class CenterSlidePreview extends ConsumerWidget {
   const CenterSlidePreview({
     super.key,
     required this.draft,
@@ -20,43 +19,21 @@ class CenterSlidePreview extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final preview = ref.watch(centerSlidePreviewProvider(draft));
-    final scope = ref.watch(centerSlideCatalogScopeProvider);
-    final previous = useMemoized(() => <Uint8List>[], [
-      scope,
-      draft.centerRecipe,
-    ]);
-    if (preview.hasError) previous.clear();
-    if (preview.hasValue && !preview.isLoading && !preview.hasError) {
-      previous
-        ..clear()
-        ..add(preview.requireValue);
-    }
-    Widget loading() {
-      if (draft.centerRecipe?.body == null || previous.isEmpty) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.memory(previous.single, fit: BoxFit.contain),
-          const Align(
-            alignment: Alignment.bottomCenter,
-            child: LinearProgressIndicator(minHeight: 3),
-          ),
-        ],
-      );
-    }
-
+    final background = ref.watch(
+      centerSlideBackgroundProvider(draft.centerRecipe!),
+    );
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(compact ? 8 : 12),
+      child: ColoredBox(
+        color: Color(draft.centerRecipe!.backgroundColor),
         child: preview.when(
           skipLoadingOnReload: false,
-          skipLoadingOnRefresh: false,
-          data: (bytes) =>
-              Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: false),
-          loading: loading,
+          data: (layout) => CustomPaint(
+            key: const ValueKey('center-slide-direct-canvas'),
+            painter: _CenterSlidePainter(layout, background.value),
+            size: Size.infinite,
+          ),
+          loading: () => const Center(child: Text('미리보기 준비 중…')),
           error: (error, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -66,15 +43,19 @@ class CenterSlidePreview extends HookConsumerWidget {
                   Text(
                     error is AiSlidesFailure
                         ? error.message
+                        : error is FormatException
+                        ? error.message
                         : '미리보기를 불러오지 못했어요.',
                     textAlign: TextAlign.center,
-                    maxLines: compact ? 2 : 4,
-                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: compact ? 11 : 14),
                   ),
                   TextButton(
-                    onPressed: () =>
-                        ref.invalidate(centerSlidePreviewProvider(draft)),
+                    onPressed: () {
+                      ref.invalidate(
+                        centerSlideBackgroundProvider(draft.centerRecipe!),
+                      );
+                      ref.invalidate(centerSlidePreviewProvider(draft));
+                    },
                     child: const Text('다시 시도'),
                   ),
                 ],
@@ -85,4 +66,16 @@ class CenterSlidePreview extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _CenterSlidePainter extends CustomPainter {
+  const _CenterSlidePainter(this.layout, this.background);
+  final CenterSlideLayout layout;
+  final ui.Image? background;
+  @override
+  void paint(Canvas canvas, Size size) =>
+      layout.paint(canvas, size, background: background);
+  @override
+  bool shouldRepaint(_CenterSlidePainter old) =>
+      layout != old.layout || background != old.background;
 }

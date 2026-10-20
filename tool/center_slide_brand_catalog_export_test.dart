@@ -6,524 +6,419 @@ import 'dart:ui' as ui;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'center_slide_export_fonts.dart';
-
 import 'package:cloud_board/src/app/feature/ai_slides/data/models/center_slide_catalog_model.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/data/renderers/center_slide_renderer.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_template.dart';
 
-/// Explicit, local-only operator export. This file never initializes Firebase.
-///
-/// CENTER_BRAND_EXPORT=1 CENTER_BRAND_INPUT=/tmp/sta193-sweatmonday-catalog.json
-/// CENTER_BRAND_SWEAT_IMAGE=/absolute/path/to/source.png
-/// CENTER_BRAND_OUTPUT=/tmp/sta193-brand-export
-/// flutter test tool/center_slide_brand_catalog_export_test.dart
-///
-/// Run after recipe-v2 code generation. All eight backgrounds and samples are
-/// validated/rendered before output is written; review previews before publishing.
+import 'center_slide_export_fonts.dart';
+
+/// Local-only: never initializes Firebase or publishes a catalog.
+/// CENTER_BRAND_EXPORT=1 CENTER_BRAND_INPUT=`<existing SWEAT catalog.json>`
+/// CENTER_BRAND_SWEAT_IMAGE=`<approved 1672x941 PNG>`
+/// CENTER_BRAND_LOGO_IMAGE=`<latest 1672x941 waiting-screen PNG>`
+/// CENTER_BRAND_OUTPUT=`<new output directory>` flutter test --no-pub `<this file>`
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final env = Platform.environment;
   test(
-    'export eight brand backgrounds and the matching server catalog',
+    'export exact source layouts with private thumbnails',
     () async {
-      final inputPath = _required(env, 'CENTER_BRAND_INPUT');
+      final input = Map<String, dynamic>.from(
+        jsonDecode(
+          await File(_required(env, 'CENTER_BRAND_INPUT')).readAsString(),
+        ) as Map,
+      );
       final sweatPath = _required(env, 'CENTER_BRAND_SWEAT_IMAGE');
-      final outputPath = _required(env, 'CENTER_BRAND_OUTPUT');
-      final output = Directory(outputPath).absolute;
-      if (!output.isAbsolute ||
-          output.path == Directory.current.path ||
-          output.path.startsWith('${Directory.current.path}/assets/')) {
+      final logoPath = _required(env, 'CENTER_BRAND_LOGO_IMAGE');
+      final output = Directory(_required(env, 'CENTER_BRAND_OUTPUT')).absolute;
+      if (await output.exists() || output.path.contains('/assets/')) {
         throw StateError(
-          'Choose a separate export directory, never source assets.',
+          'Choose a new artifact directory, never source assets.',
         );
       }
-      final input = Map<String, dynamic>.from(
-        jsonDecode(await File(inputPath).readAsString()) as Map,
-      );
       final previous = <String, Map<String, dynamic>>{
-        for (final value in input['templates'] as List)
-          (value as Map)['id'] as String: Map<String, dynamic>.from(value),
+        for (final entry in input['templates'] as List)
+          (entry as Map)['id'] as String: Map<String, dynamic>.from(entry),
       };
       const sweatId = 'sweatmonday-team-of-3-v1';
-      final sweatEntry = previous[sweatId];
-      if (sweatEntry == null ||
-          sweatEntry['recipe'] is! Map ||
-          sweatEntry['sample'] is! Map) {
-        throw const FormatException(
-          'The current SWEATMONDAY recipe and explicit sample are required.',
-        );
-      }
-      final centerId = (sweatEntry['recipe'] as Map)['centerId'] as String;
-      if (!RegExp(r'^[A-Za-z0-9_-]{1,120}$').hasMatch(centerId)) {
-        throw const FormatException('Invalid existing center identifier.');
-      }
+      final sweat = previous[sweatId]!;
+      final centerId = (sweat['recipe'] as Map)['centerId'] as String;
+      final revision = (input['revision'] as int) + 1;
       await loadCenterSlideExportFonts();
-      final sourcePaths = <String>[
-        for (final original in originalSlideTemplates) original.asset,
-        sweatPath,
-      ];
-      final originalDigests = <String, String>{
-        for (final path in sourcePaths)
-          path: sha256.convert(await File(path).readAsBytes()).toString(),
+      final sources = <String, String>{
+        for (final design in customerReferenceDesigns)
+          design.id: originalSlideTemplate(
+            design.theme.designStyle!.originalTemplate,
+          )!.asset,
+        sweatId: sweatPath,
+        'latest-logo': logoPath,
       };
-      final backgrounds = <String, Uint8List>{};
+      final sourceDigests = <String, String>{
+        for (final entry in sources.entries)
+          entry.key: sha256
+              .convert(await File(entry.value).readAsBytes())
+              .toString(),
+      };
       final entries = <Map<String, dynamic>>[];
-      final defaults = WorkoutModule.empty('brand-export-defaults');
-
+      final backgrounds = <String, Uint8List>{};
       for (final (index, design) in customerReferenceDesigns.indexed) {
         final original = originalSlideTemplate(
           design.theme.designStyle!.originalTemplate,
         )!;
-        final isDolpa = original.id == dolpaBrickOriginalTemplateId;
-        final source = await _readImage(original.asset);
-        late Uint8List background;
+        final image = await _read(original.asset);
+        final target = originalSlideImageRect(
+          const Size(1920, 1080),
+          sourceSize: original.sourceSize,
+        );
+        final scale = target.width / original.sourceSize.width;
+        Rect scaled(Rect rect) => Rect.fromLTWH(
+          target.left + rect.left * scale,
+          target.top + rect.top * scale,
+          rect.width * scale,
+          rect.height * scale,
+        );
         try {
-          if (source.width != original.sourceSize.width.toInt() ||
-              source.height != original.sourceSize.height.toInt()) {
-            throw FormatException('Source dimensions changed: ${design.id}');
-          }
-          background = await (isDolpa
-              ? _dolpaBackground(source)
-              : _stationBackground(source, original));
+          backgrounds[design.id] = await _png((canvas) {
+            canvas.drawColor(Color(original.backgroundColor), BlendMode.src);
+            canvas.drawImageRect(
+              image,
+              Offset.zero & original.sourceSize,
+              target,
+              Paint(),
+            );
+          });
         } finally {
-          source.dispose();
+          image.dispose();
         }
-        backgrounds[design.id] = background;
-        final prior = previous[design.id];
-        final sample = prior?['sample'] is Map
-            ? Map<String, dynamic>.from(prior!['sample'] as Map)
-            : <String, dynamic>{
-                'title': original.title,
-                'subtitle': original.subtitle,
-                'headerLabel': original.programLabel,
-                'lines': original.lines,
-              };
-        sample.putIfAbsent('workSeconds', () => defaults.workSeconds);
-        sample.putIfAbsent('restSeconds', () => defaults.restSeconds);
-        sample.putIfAbsent('sets', () => defaults.sets);
-        final digest = sha256.convert(background).toString();
-        final recipe = _recipe(
-          centerId: centerId,
-          id: design.id,
-          revision: 1,
-          digest: digest,
-          backgroundColor: original.backgroundColor,
-          fields: isDolpa ? _dolpaFields() : _stationFields(original),
-          body: isDolpa
-              ? _body(
-                  const Rect.fromLTWH(80, 350, 1760, 650),
-                  fontSize: 54,
-                  color: 0xffffffff,
-                  headingColor: 0xffea3458,
-                  fontFamily: 'NotoSerifKR',
-                  weight: 400,
-                )
-              : _body(
-                  const Rect.fromLTWH(84, 325, 1752, 675),
-                  fontSize: 56,
-                  color: 0xff000000,
-                  headingColor: original.accentColor,
-                ),
-        );
-        entries.add({
-          'id': design.id,
-          'name': (prior?['name'] as String? ?? design.name).replaceAll(
-            ' 원본',
-            '',
-          ),
-          'description': '브랜드 색감 · 내용에 맞춰 자동 배치',
-          'sortOrder': prior?['sortOrder'] ?? index,
-          'published': prior?['published'] ?? true,
-          'recipe': recipe,
-          'sample': sample,
-        });
-      }
-
-      final sweatImage = await _readImage(sweatPath);
-      late Uint8List sweatBackground;
-      try {
-        if (sweatImage.width != 1672 || sweatImage.height != 941) {
-          throw const FormatException(
-            'Expected the reviewed 1672×941 SWEATMONDAY source.',
-          );
-        }
-        sweatBackground = await _sweatBackground(sweatImage);
-      } finally {
-        sweatImage.dispose();
-      }
-      backgrounds[sweatId] = sweatBackground;
-      final sweatSample = Map<String, dynamic>.from(
-        sweatEntry['sample'] as Map,
-      );
-      final sourceLines = List<String>.from(sweatSample['lines'] as List);
-      if (sourceLines.length != 18) {
-        throw const FormatException(
-          'Expected the original eighteen SWEATMONDAY text lines.',
-        );
-      }
-      sweatSample['lines'] = [
-        for (var section = 0; section < 3; section++) ...[
-          '## ${String.fromCharCode(65 + section)}',
-          ...sourceLines.skip(section * 6).take(6),
-        ],
-      ];
-      // Preserve the original explicit timer contract (300 / 100 / 2).
-      for (final entry in {
-        'workSeconds': 300,
-        'restSeconds': 100,
-        'sets': 2,
-      }.entries) {
-        if (sweatSample[entry.key] != entry.value) {
-          throw FormatException('Unexpected SWEATMONDAY timing: ${entry.key}');
-        }
-      }
-      entries.add({
-        'id': sweatId,
-        'name': sweatEntry['name'],
-        'description': '로고와 크림색 배경 · 내용에 맞춰 자동 배치',
-        'sortOrder': sweatEntry['sortOrder'] ?? -1,
-        'published': sweatEntry['published'] ?? true,
-        'recipe': _recipe(
-          centerId: centerId,
-          id: sweatId,
-          revision: 2,
-          digest: sha256.convert(sweatBackground).toString(),
-          backgroundColor: 0xfff6f0e5,
-          fields: [
+        final fields = <Map<String, dynamic>>[
+          // Brick's title intersects its calligraphy in the approved flattened
+          // source. Keep those exact pixels; the lesson title remains metadata.
+          if (!original.fixedTitle)
             _field(
               'title',
-              const Rect.fromLTWH(72, 225, 1768, 100),
-              fontSize: 84,
-              color: 0xff080706,
-              weight: 800,
-              italic: true,
+              scaled(original.titleBounds),
+              original.titleFontSize * scale,
+              original.title,
+              color: 0xffffffff,
+              font: 'RacingSansOne',
+              weight: 400,
+              clear: original.accentColor,
             ),
-            _field(
-              'subtitle',
-              const Rect.fromLTWH(72, 340, 1768, 70),
-              fontSize: 48,
-              color: 0xffdb4b00,
-              weight: 700,
-            ),
-            _field(
-              'header',
-              const Rect.fromLTWH(650, 75, 1190, 80),
-              fontSize: 46,
-              color: 0xffdb4b00,
-              weight: 700,
-              align: 'right',
-            ),
-          ],
-          body: _body(
-            const Rect.fromLTWH(72, 455, 1768, 575),
-            fontSize: 56,
-            color: 0xff17130f,
-            headingColor: 0xffdb4b00,
+          _field(
+            'subtitle',
+            scaled(original.subtitleBounds),
+            original.subtitleFontSize * scale,
+            original.subtitle,
+            color: original.fixedTitle
+                ? original.textColor
+                : original.accentColor,
+            font: original.fontFamily,
+            weight: original.fixedTitle ? 400 : 800,
+            clear: original.backgroundColor,
           ),
+          for (var i = 0; i < original.maxLines; i++)
+            _field(
+              'line',
+              scaled(original.exerciseBounds[i]),
+              original.bodyFontSize * scale,
+              original.lines[i],
+              line: i,
+              color: original.textColor,
+              font: original.fontFamily,
+              weight: original.bodyWeight,
+              clear: original.backgroundColor,
+            ),
+        ];
+        entries.add(
+          _entry(
+            previous[design.id],
+            design.id,
+            design.name,
+            centerId,
+            index,
+            revision,
+            backgrounds[design.id]!,
+            original.backgroundColor,
+            fields,
+            {
+              'title': original.title,
+              'subtitle': original.subtitle,
+              'headerLabel': original.programLabel,
+              'lines': original.lines,
+            },
+          ),
+        );
+      }
+      final source = await _read(sweatPath);
+      final logo = await _read(logoPath);
+      try {
+        if (source.width != 1672 ||
+            source.height != 941 ||
+            logo.width != 1672 ||
+            logo.height != 941) {
+          throw const FormatException(
+            'Reviewed SWEAT source and latest logo use must both be 1672x941.',
+          );
+        }
+        backgrounds[sweatId] = await _png((canvas) {
+          canvas.scale(1920 / 1672, 1080 / 941);
+          canvas.drawImage(source, Offset.zero, Paint());
+          // Cover only the old mark using the original blank cream texture.
+          canvas.drawImageRect(
+            source,
+            const Rect.fromLTWH(1100, 0, 500, 215),
+            const Rect.fromLTWH(0, 0, 500, 215),
+            Paint(),
+          );
+          // Exact horizontal symbol + wordmark + EST.2026; excludes the message.
+          canvas.drawImageRect(
+            logo,
+            const Rect.fromLTWH(535, 300, 615, 265),
+            const Rect.fromLTWH(60, 34, 410, 176.67),
+            Paint()..filterQuality = FilterQuality.high,
+          );
+        });
+      } finally {
+        source.dispose();
+        logo.dispose();
+      }
+      final sample = Map<String, dynamic>.from(sweat['sample'] as Map);
+      final lines = List<String>.from(sample['lines'] as List);
+      if (lines.length != 18) {
+        throw const FormatException(
+          'Use the original eighteen-line SWEAT sample.',
+        );
+      }
+      Rect sweatBounds(double x, double y, double w, double h) => Rect.fromLTWH(
+        x * 1920 / 1672,
+        y * 1080 / 941,
+        w * 1920 / 1672,
+        h * 1080 / 941,
+      );
+      final fields = <Map<String, dynamic>>[
+        _field(
+          'title',
+          sweatBounds(58, 220, 840, 78),
+          66 * 1920 / 1672,
+          sample['title'] as String,
+          weight: 800,
+          italic: true,
+          clear: 0xfff6f0e5,
         ),
-        'sample': sweatSample,
-      });
+        _field(
+          'subtitle',
+          sweatBounds(60, 302, 850, 48),
+          32 * 1920 / 1672,
+          sample['subtitle'] as String,
+          color: 0xffdb4b00,
+          weight: 700,
+          clear: 0xfff6f0e5,
+        ),
+        for (var column = 0; column < 3; column++)
+          for (var row = 0; row < 6; row++)
+            _field(
+              'line',
+              sweatBounds(
+                [60.0, 315.0, 590.0][column],
+                462 + (row ~/ 2) * 102 + (row.isOdd ? 44 : 0),
+                [235.0, 255.0, 345.0][column],
+                row.isOdd ? 39 : 47,
+              ),
+              (row.isOdd ? 28 : 36) * 1920 / 1672,
+              lines[column * 6 + row],
+              line: column * 6 + row,
+              color: row.isOdd ? 0xffa29487 : 0xff080706,
+              weight: row.isOdd ? 600 : 800,
+              italic: row.isEven,
+              clear: 0xfff6f0e5,
+            ),
+      ];
+      entries.add(
+        _entry(
+          sweat,
+          sweatId,
+          sweat['name'] as String,
+          centerId,
+          -1,
+          revision,
+          backgrounds[sweatId]!,
+          0xfff6f0e5,
+          fields,
+          sample,
+        ),
+      );
 
+      // Generate each final sample once, then downsample to the catalog thumbnail.
+      final previews = <String, Uint8List>{};
+      final thumbnails = <String, Uint8List>{};
+      for (final entry in entries) {
+        final single = CenterSlideCatalogModel.fromJson(
+          {
+            'schemaVersion': 1,
+            'revision': revision,
+            'centerName': input['centerName'] ?? '',
+            'templates': [entry],
+          },
+          centerId: centerId,
+          rejectInvalidItems: true,
+        ).toEntity().templates.single;
+        final recipe = single.theme.centerRecipe!;
+        final png = await renderCenterSlide(
+          recipe,
+          single.sample!,
+          backgroundBytes: backgrounds[single.id],
+        );
+        previews[single.id] = png;
+        final codec = await ui.instantiateImageCodec(
+          png,
+          targetWidth: 640,
+          targetHeight: 360,
+        );
+        final image = (await codec.getNextFrame()).image;
+        codec.dispose();
+        try {
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          thumbnails[single.id] = bytes!.buffer.asUint8List(
+            bytes.offsetInBytes,
+            bytes.lengthInBytes,
+          );
+        } finally {
+          image.dispose();
+        }
+        final hash = sha256.convert(thumbnails[single.id]!).toString();
+        (entry['recipe'] as Map)['thumbnail'] = {
+          'path': 'center-templates/$centerId/${single.id}/$hash.png',
+          'sha256': hash,
+          'revision': recipe.revision,
+          'width': 640,
+          'height': 360,
+        };
+      }
       final model = CenterSlideCatalogModel.fromJson(
         {
           'schemaVersion': 1,
-          'revision': 3,
+          'revision': revision,
           'centerName': input['centerName'] ?? '',
           'templates': entries,
         },
         centerId: centerId,
         rejectInvalidItems: true,
       );
-      final expectedIds = {
-        ...customerReferenceDesigns.map((design) => design.id),
-        sweatId,
-      };
-      expect(model.entries.map((entry) => entry.id).toSet(), expectedIds);
-      expect(model.entries, hasLength(8));
-      final previews = <String, Uint8List>{};
-      final wodPath = env['CENTER_BRAND_PREVIEW_WOD'];
-      final exampleLines = wodPath == null
-          ? null
-          : (await File(
-              wodPath,
-            ).readAsString()).replaceAll('\r\n', '\n').split('\n');
-      for (final design in model.toEntity().templates) {
-        previews[design.id] = await renderCenterSlide(
-          design.theme.centerRecipe!,
-          design.sample!,
-          backgroundBytes: backgrounds[design.id],
-        );
-        if (exampleLines != null) {
-          previews['${design.id}-wod'] = await renderCenterSlide(
-            design.theme.centerRecipe!,
-            design.sample!.copyWith(
-              title: 'RUN + STRENGTH',
-              designSubtitle: '',
-              lines: exampleLines,
-            ),
-            backgroundBytes: backgrounds[design.id],
-          );
+      final manifests = <String, Map<String, String>>{};
+      for (final group in {
+        'backgrounds': backgrounds,
+        'previews': previews,
+        'thumbnails': thumbnails,
+      }.entries) {
+        await Directory('${output.path}/${group.key}').create(recursive: true);
+        manifests[group.key] = {};
+        for (final entry in group.value.entries) {
+          final path = '${output.path}/${group.key}/${entry.key}.png';
+          await File(path).writeAsBytes(entry.value);
+          manifests[group.key]![entry.key] = path;
         }
       }
-      for (final path in sourcePaths) {
-        expect(
-          sha256.convert(await File(path).readAsBytes()).toString(),
-          originalDigests[path],
-          reason: 'Source artwork must remain unchanged: $path',
-        );
-      }
-      await Directory('${output.path}/backgrounds').create(recursive: true);
-      await Directory('${output.path}/previews').create(recursive: true);
-      final imagePaths = <String, String>{};
-      for (final entry in backgrounds.entries) {
-        final file = File('${output.path}/backgrounds/${entry.key}.png');
-        await file.writeAsBytes(entry.value, flush: true);
-        imagePaths[entry.key] = file.absolute.path;
-      }
-      for (final entry in previews.entries) {
-        await File('${output.path}/previews/${entry.key}.png')
-            .writeAsBytes(entry.value, flush: true);
-      }
       const encoder = JsonEncoder.withIndent('  ');
-      await File('${output.path}/catalog.json')
-          .writeAsString('${encoder.convert(model.toJson())}\n', flush: true);
-      await File('${output.path}/images.json')
-          .writeAsString('${encoder.convert(imagePaths)}\n', flush: true);
-      await File('${output.path}/source-digests.json')
-          .writeAsString('${encoder.convert(originalDigests)}\n', flush: true);
-      // No network, Firebase calls, source edits, or publication occur here.
+      for (final entry in {
+        'catalog': model.toJson(),
+        'images': manifests['backgrounds'],
+        'thumbnails': manifests['thumbnails'],
+        'source-digests': sourceDigests,
+        'sources': sources,
+      }.entries) {
+        await File('${output.path}/${entry.key}.json')
+            .writeAsString('${encoder.convert(entry.value)}\n');
+      }
     },
     skip: env['CENTER_BRAND_EXPORT'] != '1',
     timeout: const Timeout(Duration(minutes: 5)),
   );
 }
 
-String _required(Map<String, String> env, String name) {
-  final value = env[name];
-  if (value == null || value.isEmpty) throw StateError('$name is required.');
-  return value;
+Map<String, dynamic> _entry(
+  Map<String, dynamic>? prior,
+  String id,
+  String name,
+  String centerId,
+  int order,
+  int catalogRevision,
+  Uint8List background,
+  int color,
+  List<Map<String, dynamic>> fields,
+  Map<String, dynamic> sample,
+) {
+  final hash = sha256.convert(background).toString();
+  return {
+    'id': id,
+    'name': name.replaceAll(' 원본', ''),
+    'description': '원본 배치와 글자 크기 유지 · 운동 문구 편집',
+    'sortOrder': prior?['sortOrder'] ?? order,
+    'published': prior?['published'] ?? true,
+    'recipe': {
+      'schemaVersion': 1,
+      'templateId': id,
+      'revision': ((prior?['recipe'] as Map?)?['revision'] as int? ?? 0) + 1,
+      'centerId': centerId,
+      'width': 1920,
+      'height': 1080,
+      'backgroundColor': color,
+      'backgroundPath': 'center-templates/$centerId/$id/$hash.png',
+      'backgroundSha256': hash,
+      'fields': fields,
+    },
+    'sample': sample,
+  };
 }
-
-Map<String, dynamic> _recipe({
-  required String centerId,
-  required String id,
-  required int revision,
-  required String digest,
-  required int backgroundColor,
-  required List<Map<String, dynamic>> fields,
-  required Map<String, dynamic> body,
-}) => {
-  'schemaVersion': 2,
-  'templateId': id,
-  'revision': revision,
-  'centerId': centerId,
-  'width': 1920,
-  'height': 1080,
-  'backgroundColor': backgroundColor,
-  'backgroundPath': 'center-templates/$centerId/$id/$digest.png',
-  'backgroundSha256': digest,
-  'fields': fields,
-  'body': body,
-};
 
 Map<String, dynamic> _field(
   String binding,
-  Rect bounds, {
-  required double fontSize,
-  required int color,
-  String fontFamily = 'Pretendard',
+  Rect bounds,
+  double size,
+  String original, {
+  int? line,
+  int color = 0xff000000,
+  String font = 'Pretendard',
   int weight = 700,
   bool italic = false,
-  String align = 'left',
-  String? originalText,
-  int? clearColor,
+  int? clear,
 }) => {
   'binding': binding,
+  'lineIndex': ?line,
   'x': bounds.left / 1920,
   'y': bounds.top / 1080,
   'width': bounds.width / 1920,
   'height': bounds.height / 1080,
-  'fontSize': fontSize,
-  'color': color,
-  'fontFamily': fontFamily,
+  'fontSize': size,
+  'fontFamily': font,
   'fontWeight': weight,
   'italic': italic,
-  'align': align,
-  'originalText': ?originalText,
-  'clearColor': ?clearColor,
-};
-
-Map<String, dynamic> _body(
-  Rect bounds, {
-  required double fontSize,
-  required int color,
-  required int headingColor,
-  String fontFamily = 'Pretendard',
-  int weight = 600,
-}) => {
-  'x': bounds.left / 1920,
-  'y': bounds.top / 1080,
-  'width': bounds.width / 1920,
-  'height': bounds.height / 1080,
-  'fontSize': fontSize,
   'color': color,
-  'headingColor': headingColor,
-  'fontFamily': fontFamily,
-  'fontWeight': weight,
-  'layout': 'auto',
-  'maxColumns': 3,
+  'originalText': original,
+  'clearColor': ?clear,
 };
-
-List<Map<String, dynamic>> _stationFields(OriginalSlideTemplate original) => [
-  _field(
-    'title',
-    const Rect.fromLTWH(72, 25, 1150, 112),
-    fontSize: 80,
-    color: 0xffffffff,
-    fontFamily: 'RacingSansOne',
-    weight: 400,
-  ),
-  _field(
-    'subtitle',
-    const Rect.fromLTWH(84, 195, 1752, 90),
-    fontSize: 60,
-    color: original.accentColor,
-    weight: 800,
-  ),
-  _field(
-    'header',
-    const Rect.fromLTWH(1300, 25, 560, 112),
-    fontSize: 60,
-    color: 0xffffffff,
-    fontFamily: 'RacingSansOne',
-    weight: 400,
-    align: 'right',
-    originalText: original.programLabel,
-    clearColor: original.accentColor,
-  ),
-];
-
-List<Map<String, dynamic>> _dolpaFields() => [
-  _field(
-    'title',
-    const Rect.fromLTWH(80, 40, 1320, 112),
-    fontSize: 84,
-    color: 0xffea3458,
-    fontFamily: 'NotoSerifKR',
-    weight: 700,
-  ),
-  _field(
-    'subtitle',
-    const Rect.fromLTWH(80, 180, 1320, 70),
-    fontSize: 50,
-    color: 0xffffffff,
-    fontFamily: 'NotoSerifKR',
-    weight: 400,
-  ),
-  _field(
-    'header',
-    const Rect.fromLTWH(80, 280, 1760, 42),
-    fontSize: 32,
-    color: 0xffea3458,
-    weight: 600,
-  ),
-];
-
-Future<ui.Image> _readImage(String path) async {
+String _required(Map<String, String> env, String key) =>
+    env[key] ?? (throw StateError('$key is required.'));
+Future<ui.Image> _read(String path) async {
   final codec = await ui.instantiateImageCodec(await File(path).readAsBytes());
   try {
-    if (codec.frameCount != 1) {
-      throw FormatException('Still PNG required: $path');
-    }
     return (await codec.getNextFrame()).image;
   } finally {
     codec.dispose();
   }
 }
 
-Future<Uint8List> _stationBackground(
-  ui.Image source,
-  OriginalSlideTemplate original,
-) => _paintPng((canvas) {
-  canvas.drawColor(const Color(0xffffffff), BlendMode.src);
-  canvas.drawRect(
-    const Rect.fromLTWH(0, 0, 1920, 156),
-    Paint()..color = Color(original.accentColor),
-  );
-  // Crop only the original right-hand program identity. Neither the old
-  // editable title nor any body text/number badges enters the new background.
-  canvas.drawImageRect(
-    source,
-    const Rect.fromLTWH(2600, 0, 1240, 312),
-    const Rect.fromLTWH(1300, 0, 620, 156),
-    Paint()..filterQuality = FilterQuality.high,
-  );
-});
-
-Future<Uint8List> _dolpaBackground(ui.Image source) => _paintPng((canvas) {
-  canvas.drawColor(const Color(0xff000000), BlendMode.src);
-  // This reviewed source region contains only the large dark-red calligraphy,
-  // entirely to the right of the original Brick Session / workout text.
-  _drawContained(
-    canvas,
-    source,
-    const Rect.fromLTWH(1135, 100, 1170, 1050),
-    const Rect.fromLTWH(1480, 16, 360, 240),
-  );
-  canvas.drawRect(
-    const Rect.fromLTWH(80, 263, 1760, 3),
-    Paint()..color = const Color(0xffea3458),
-  );
-});
-
-Future<Uint8List> _sweatBackground(ui.Image source) => _paintPng((canvas) {
-  // The source's unused right side supplies the cream texture without any
-  // exercises, headings or rep counts. Preserve the actual logo as a crop.
-  canvas.drawImageRect(
-    source,
-    const Rect.fromLTWH(950, 0, 722, 941),
-    const Rect.fromLTWH(0, 0, 1920, 1080),
-    Paint()..filterQuality = FilterQuality.high,
-  );
-  canvas.drawImageRect(
-    source,
-    const Rect.fromLTWH(45, 45, 410, 145),
-    const Rect.fromLTWH(68, 40, 451, 159.5),
-    Paint()..filterQuality = FilterQuality.high,
-  );
-});
-
-void _drawContained(
-  Canvas canvas,
-  ui.Image image,
-  Rect source,
-  Rect destination,
-) {
-  final fitted = applyBoxFit(BoxFit.contain, source.size, destination.size);
-  final target = Alignment.center.inscribe(fitted.destination, destination);
-  canvas.drawImageRect(
-    image,
-    source,
-    target,
-    Paint()..filterQuality = FilterQuality.high,
-  );
-}
-
-Future<Uint8List> _paintPng(void Function(Canvas) draw) async {
+Future<Uint8List> _png(void Function(Canvas) draw) async {
   final recorder = ui.PictureRecorder();
   draw(Canvas(recorder));
   final picture = recorder.endRecording();
   try {
     final image = await picture.toImage(1920, 1080);
     try {
-      final png = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (png == null) throw StateError('PNG export failed.');
-      return Uint8List.fromList(
-        png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes),
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      return bytes!.buffer.asUint8List(
+        bytes.offsetInBytes,
+        bytes.lengthInBytes,
       );
     } finally {
       image.dispose();

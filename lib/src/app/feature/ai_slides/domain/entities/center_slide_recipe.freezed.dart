@@ -16,7 +16,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CenterSlideRecipe {
 
- int get schemaVersion; String get templateId; int get revision; String get centerId; int get width; int get height; int get backgroundColor; String? get backgroundPath; String? get backgroundSha256; List<CenterSlideField> get fields; CenterSlideBody? get body;
+ int get schemaVersion; String get templateId; int get revision; String get centerId; int get width; int get height; int get backgroundColor; String? get backgroundPath; String? get backgroundSha256; List<CenterSlideField> get fields; CenterSlideBody? get body;/// Nested here so deployed catalog readers ignore this optional metadata.
+@JsonKey(includeIfNull: false) CenterSlideThumbnail? get thumbnail;
 /// Create a copy of CenterSlideRecipe
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +31,20 @@ $CenterSlideRecipeCopyWith<CenterSlideRecipe> get copyWith => _$CenterSlideRecip
 @override
 bool operator ==(Object other) {
   final _this = this as CenterSlideRecipe;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CenterSlideRecipe&&(identical(other.schemaVersion, _this.schemaVersion) || other.schemaVersion == _this.schemaVersion)&&(identical(other.templateId, _this.templateId) || other.templateId == _this.templateId)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.centerId, _this.centerId) || other.centerId == _this.centerId)&&(identical(other.width, _this.width) || other.width == _this.width)&&(identical(other.height, _this.height) || other.height == _this.height)&&(identical(other.backgroundColor, _this.backgroundColor) || other.backgroundColor == _this.backgroundColor)&&(identical(other.backgroundPath, _this.backgroundPath) || other.backgroundPath == _this.backgroundPath)&&(identical(other.backgroundSha256, _this.backgroundSha256) || other.backgroundSha256 == _this.backgroundSha256)&&const DeepCollectionEquality().equals(other.fields, _this.fields)&&(identical(other.body, _this.body) || other.body == _this.body));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CenterSlideRecipe&&(identical(other.schemaVersion, _this.schemaVersion) || other.schemaVersion == _this.schemaVersion)&&(identical(other.templateId, _this.templateId) || other.templateId == _this.templateId)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.centerId, _this.centerId) || other.centerId == _this.centerId)&&(identical(other.width, _this.width) || other.width == _this.width)&&(identical(other.height, _this.height) || other.height == _this.height)&&(identical(other.backgroundColor, _this.backgroundColor) || other.backgroundColor == _this.backgroundColor)&&(identical(other.backgroundPath, _this.backgroundPath) || other.backgroundPath == _this.backgroundPath)&&(identical(other.backgroundSha256, _this.backgroundSha256) || other.backgroundSha256 == _this.backgroundSha256)&&const DeepCollectionEquality().equals(other.fields, _this.fields)&&(identical(other.body, _this.body) || other.body == _this.body)&&(identical(other.thumbnail, _this.thumbnail) || other.thumbnail == _this.thumbnail));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as CenterSlideRecipe;
-  return Object.hash(runtimeType,_this.schemaVersion,_this.templateId,_this.revision,_this.centerId,_this.width,_this.height,_this.backgroundColor,_this.backgroundPath,_this.backgroundSha256,const DeepCollectionEquality().hash(_this.fields),_this.body);
+  return Object.hash(runtimeType,_this.schemaVersion,_this.templateId,_this.revision,_this.centerId,_this.width,_this.height,_this.backgroundColor,_this.backgroundPath,_this.backgroundSha256,const DeepCollectionEquality().hash(_this.fields),_this.body,_this.thumbnail);
 }
 
 @override
 String toString() {
   final _this = this as CenterSlideRecipe;
-  return 'CenterSlideRecipe(schemaVersion: ${_this.schemaVersion}, templateId: ${_this.templateId}, revision: ${_this.revision}, centerId: ${_this.centerId}, width: ${_this.width}, height: ${_this.height}, backgroundColor: ${_this.backgroundColor}, backgroundPath: ${_this.backgroundPath}, backgroundSha256: ${_this.backgroundSha256}, fields: ${_this.fields}, body: ${_this.body})';
+  return 'CenterSlideRecipe(schemaVersion: ${_this.schemaVersion}, templateId: ${_this.templateId}, revision: ${_this.revision}, centerId: ${_this.centerId}, width: ${_this.width}, height: ${_this.height}, backgroundColor: ${_this.backgroundColor}, backgroundPath: ${_this.backgroundPath}, backgroundSha256: ${_this.backgroundSha256}, fields: ${_this.fields}, body: ${_this.body}, thumbnail: ${_this.thumbnail})';
 }
 
 
@@ -54,11 +55,11 @@ abstract mixin class $CenterSlideRecipeCopyWith<$Res>  {
   factory $CenterSlideRecipeCopyWith(CenterSlideRecipe value, $Res Function(CenterSlideRecipe) _then) = _$CenterSlideRecipeCopyWithImpl;
 @useResult
 $Res call({
- int schemaVersion, String templateId, int revision, String centerId, int width, int height, int backgroundColor, String? backgroundPath, String? backgroundSha256, List<CenterSlideField> fields, CenterSlideBody? body
+ int schemaVersion, String templateId, int revision, String centerId, int width, int height, int backgroundColor, String? backgroundPath, String? backgroundSha256, List<CenterSlideField> fields, CenterSlideBody? body,@JsonKey(includeIfNull: false) CenterSlideThumbnail? thumbnail
 });
 
 
-$CenterSlideBodyCopyWith<$Res>? get body;
+$CenterSlideBodyCopyWith<$Res>? get body;$CenterSlideThumbnailCopyWith<$Res>? get thumbnail;
 
 }
 /// @nodoc
@@ -71,7 +72,7 @@ class _$CenterSlideRecipeCopyWithImpl<$Res>
 
 /// Create a copy of CenterSlideRecipe
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? schemaVersion = null,Object? templateId = null,Object? revision = null,Object? centerId = null,Object? width = null,Object? height = null,Object? backgroundColor = null,Object? backgroundPath = freezed,Object? backgroundSha256 = freezed,Object? fields = null,Object? body = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? schemaVersion = null,Object? templateId = null,Object? revision = null,Object? centerId = null,Object? width = null,Object? height = null,Object? backgroundColor = null,Object? backgroundPath = freezed,Object? backgroundSha256 = freezed,Object? fields = null,Object? body = freezed,Object? thumbnail = freezed,}) {
   return _then(CenterSlideRecipe(
 schemaVersion: null == schemaVersion ? _self.schemaVersion : schemaVersion // ignore: cast_nullable_to_non_nullable
 as int,templateId: null == templateId ? _self.templateId : templateId // ignore: cast_nullable_to_non_nullable
@@ -84,7 +85,8 @@ as int,backgroundPath: freezed == backgroundPath ? _self.backgroundPath : backgr
 as String?,backgroundSha256: freezed == backgroundSha256 ? _self.backgroundSha256 : backgroundSha256 // ignore: cast_nullable_to_non_nullable
 as String?,fields: null == fields ? _self.fields : fields // ignore: cast_nullable_to_non_nullable
 as List<CenterSlideField>,body: freezed == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
-as CenterSlideBody?,
+as CenterSlideBody?,thumbnail: freezed == thumbnail ? _self.thumbnail : thumbnail // ignore: cast_nullable_to_non_nullable
+as CenterSlideThumbnail?,
   ));
 }
 /// Create a copy of CenterSlideRecipe
@@ -98,6 +100,18 @@ $CenterSlideBodyCopyWith<$Res>? get body {
 
   return $CenterSlideBodyCopyWith<$Res>(_self.body!, (value) {
     return _then(_self.copyWith(body: value));
+  });
+}/// Create a copy of CenterSlideRecipe
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CenterSlideThumbnailCopyWith<$Res>? get thumbnail {
+    if (_self.thumbnail == null) {
+    return null;
+  }
+
+  return $CenterSlideThumbnailCopyWith<$Res>(_self.thumbnail!, (value) {
+    return _then(_self.copyWith(thumbnail: value));
   });
 }
 }
@@ -181,10 +195,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int schemaVersion,  String templateId,  int revision,  String centerId,  int width,  int height,  int backgroundColor,  String? backgroundPath,  String? backgroundSha256,  List<CenterSlideField> fields,  CenterSlideBody? body)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int schemaVersion,  String templateId,  int revision,  String centerId,  int width,  int height,  int backgroundColor,  String? backgroundPath,  String? backgroundSha256,  List<CenterSlideField> fields,  CenterSlideBody? body, @JsonKey(includeIfNull: false)  CenterSlideThumbnail? thumbnail)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CenterSlideRecipe() when $default != null:
-return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.centerId,_that.width,_that.height,_that.backgroundColor,_that.backgroundPath,_that.backgroundSha256,_that.fields,_that.body);case _:
+return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.centerId,_that.width,_that.height,_that.backgroundColor,_that.backgroundPath,_that.backgroundSha256,_that.fields,_that.body,_that.thumbnail);case _:
   return orElse();
 
 }
@@ -202,10 +216,10 @@ return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.center
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int schemaVersion,  String templateId,  int revision,  String centerId,  int width,  int height,  int backgroundColor,  String? backgroundPath,  String? backgroundSha256,  List<CenterSlideField> fields,  CenterSlideBody? body)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int schemaVersion,  String templateId,  int revision,  String centerId,  int width,  int height,  int backgroundColor,  String? backgroundPath,  String? backgroundSha256,  List<CenterSlideField> fields,  CenterSlideBody? body, @JsonKey(includeIfNull: false)  CenterSlideThumbnail? thumbnail)  $default,) {final _that = this;
 switch (_that) {
 case _CenterSlideRecipe():
-return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.centerId,_that.width,_that.height,_that.backgroundColor,_that.backgroundPath,_that.backgroundSha256,_that.fields,_that.body);case _:
+return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.centerId,_that.width,_that.height,_that.backgroundColor,_that.backgroundPath,_that.backgroundSha256,_that.fields,_that.body,_that.thumbnail);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -222,10 +236,10 @@ return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.center
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int schemaVersion,  String templateId,  int revision,  String centerId,  int width,  int height,  int backgroundColor,  String? backgroundPath,  String? backgroundSha256,  List<CenterSlideField> fields,  CenterSlideBody? body)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int schemaVersion,  String templateId,  int revision,  String centerId,  int width,  int height,  int backgroundColor,  String? backgroundPath,  String? backgroundSha256,  List<CenterSlideField> fields,  CenterSlideBody? body, @JsonKey(includeIfNull: false)  CenterSlideThumbnail? thumbnail)?  $default,) {final _that = this;
 switch (_that) {
 case _CenterSlideRecipe() when $default != null:
-return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.centerId,_that.width,_that.height,_that.backgroundColor,_that.backgroundPath,_that.backgroundSha256,_that.fields,_that.body);case _:
+return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.centerId,_that.width,_that.height,_that.backgroundColor,_that.backgroundPath,_that.backgroundSha256,_that.fields,_that.body,_that.thumbnail);case _:
   return null;
 
 }
@@ -237,7 +251,7 @@ return $default(_that.schemaVersion,_that.templateId,_that.revision,_that.center
 
 @JsonSerializable(explicitToJson: true)
 class _CenterSlideRecipe implements CenterSlideRecipe {
-  const _CenterSlideRecipe({this.schemaVersion = 1, required this.templateId, required this.revision, required this.centerId, required this.width, required this.height, required this.backgroundColor, this.backgroundPath, this.backgroundSha256, required  List<CenterSlideField> fields, this.body}): _fields = fields;
+  const _CenterSlideRecipe({this.schemaVersion = 1, required this.templateId, required this.revision, required this.centerId, required this.width, required this.height, required this.backgroundColor, this.backgroundPath, this.backgroundSha256, required  List<CenterSlideField> fields, this.body, @JsonKey(includeIfNull: false) this.thumbnail}): _fields = fields;
   factory _CenterSlideRecipe.fromJson(Map<String, dynamic> json) => _$CenterSlideRecipeFromJson(json);
 
 @override@JsonKey() final  int schemaVersion;
@@ -257,6 +271,8 @@ class _CenterSlideRecipe implements CenterSlideRecipe {
 }
 
 @override final  CenterSlideBody? body;
+/// Nested here so deployed catalog readers ignore this optional metadata.
+@override@JsonKey(includeIfNull: false) final  CenterSlideThumbnail? thumbnail;
 
 /// Create a copy of CenterSlideRecipe
 /// with the given fields replaced by the non-null parameter values.
@@ -271,18 +287,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CenterSlideRecipe&&(identical(other.schemaVersion, schemaVersion) || other.schemaVersion == schemaVersion)&&(identical(other.templateId, templateId) || other.templateId == templateId)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.centerId, centerId) || other.centerId == centerId)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.backgroundColor, backgroundColor) || other.backgroundColor == backgroundColor)&&(identical(other.backgroundPath, backgroundPath) || other.backgroundPath == backgroundPath)&&(identical(other.backgroundSha256, backgroundSha256) || other.backgroundSha256 == backgroundSha256)&&const DeepCollectionEquality().equals(other.fields, _fields)&&(identical(other.body, body) || other.body == body));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CenterSlideRecipe&&(identical(other.schemaVersion, schemaVersion) || other.schemaVersion == schemaVersion)&&(identical(other.templateId, templateId) || other.templateId == templateId)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.centerId, centerId) || other.centerId == centerId)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.backgroundColor, backgroundColor) || other.backgroundColor == backgroundColor)&&(identical(other.backgroundPath, backgroundPath) || other.backgroundPath == backgroundPath)&&(identical(other.backgroundSha256, backgroundSha256) || other.backgroundSha256 == backgroundSha256)&&const DeepCollectionEquality().equals(other.fields, _fields)&&(identical(other.body, body) || other.body == body)&&(identical(other.thumbnail, thumbnail) || other.thumbnail == thumbnail));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,schemaVersion,templateId,revision,centerId,width,height,backgroundColor,backgroundPath,backgroundSha256,const DeepCollectionEquality().hash(_fields),body);
+    return Object.hash(runtimeType,schemaVersion,templateId,revision,centerId,width,height,backgroundColor,backgroundPath,backgroundSha256,const DeepCollectionEquality().hash(_fields),body,thumbnail);
 }
 
 @override
 String toString() {
-    return 'CenterSlideRecipe(schemaVersion: $schemaVersion, templateId: $templateId, revision: $revision, centerId: $centerId, width: $width, height: $height, backgroundColor: $backgroundColor, backgroundPath: $backgroundPath, backgroundSha256: $backgroundSha256, fields: $fields, body: $body)';
+    return 'CenterSlideRecipe(schemaVersion: $schemaVersion, templateId: $templateId, revision: $revision, centerId: $centerId, width: $width, height: $height, backgroundColor: $backgroundColor, backgroundPath: $backgroundPath, backgroundSha256: $backgroundSha256, fields: $fields, body: $body, thumbnail: $thumbnail)';
 }
 
 
@@ -293,11 +309,11 @@ abstract mixin class _$CenterSlideRecipeCopyWith<$Res> implements $CenterSlideRe
   factory _$CenterSlideRecipeCopyWith(_CenterSlideRecipe value, $Res Function(_CenterSlideRecipe) _then) = __$CenterSlideRecipeCopyWithImpl;
 @override @useResult
 $Res call({
- int schemaVersion, String templateId, int revision, String centerId, int width, int height, int backgroundColor, String? backgroundPath, String? backgroundSha256, List<CenterSlideField> fields, CenterSlideBody? body
+ int schemaVersion, String templateId, int revision, String centerId, int width, int height, int backgroundColor, String? backgroundPath, String? backgroundSha256, List<CenterSlideField> fields, CenterSlideBody? body,@JsonKey(includeIfNull: false) CenterSlideThumbnail? thumbnail
 });
 
 
-@override $CenterSlideBodyCopyWith<$Res>? get body;
+@override $CenterSlideBodyCopyWith<$Res>? get body;@override $CenterSlideThumbnailCopyWith<$Res>? get thumbnail;
 
 }
 /// @nodoc
@@ -310,7 +326,7 @@ class __$CenterSlideRecipeCopyWithImpl<$Res>
 
 /// Create a copy of CenterSlideRecipe
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? schemaVersion = null,Object? templateId = null,Object? revision = null,Object? centerId = null,Object? width = null,Object? height = null,Object? backgroundColor = null,Object? backgroundPath = freezed,Object? backgroundSha256 = freezed,Object? fields = null,Object? body = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? schemaVersion = null,Object? templateId = null,Object? revision = null,Object? centerId = null,Object? width = null,Object? height = null,Object? backgroundColor = null,Object? backgroundPath = freezed,Object? backgroundSha256 = freezed,Object? fields = null,Object? body = freezed,Object? thumbnail = freezed,}) {
   return _then(_CenterSlideRecipe(
 schemaVersion: null == schemaVersion ? _self.schemaVersion : schemaVersion // ignore: cast_nullable_to_non_nullable
 as int,templateId: null == templateId ? _self.templateId : templateId // ignore: cast_nullable_to_non_nullable
@@ -323,7 +339,8 @@ as int,backgroundPath: freezed == backgroundPath ? _self.backgroundPath : backgr
 as String?,backgroundSha256: freezed == backgroundSha256 ? _self.backgroundSha256 : backgroundSha256 // ignore: cast_nullable_to_non_nullable
 as String?,fields: null == fields ? _self._fields : fields // ignore: cast_nullable_to_non_nullable
 as List<CenterSlideField>,body: freezed == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
-as CenterSlideBody?,
+as CenterSlideBody?,thumbnail: freezed == thumbnail ? _self.thumbnail : thumbnail // ignore: cast_nullable_to_non_nullable
+as CenterSlideThumbnail?,
   ));
 }
 
@@ -338,6 +355,18 @@ $CenterSlideBodyCopyWith<$Res>? get body {
 
   return $CenterSlideBodyCopyWith<$Res>(_self.body!, (value) {
     return _then(_self.copyWith(body: value));
+  });
+}/// Create a copy of CenterSlideRecipe
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CenterSlideThumbnailCopyWith<$Res>? get thumbnail {
+    if (_self.thumbnail == null) {
+    return null;
+  }
+
+  return $CenterSlideThumbnailCopyWith<$Res>(_self.thumbnail!, (value) {
+    return _then(_self.copyWith(thumbnail: value));
   });
 }
 }
@@ -945,6 +974,288 @@ as bool,align: null == align ? _self.align : align // ignore: cast_nullable_to_n
 as String,originalText: freezed == originalText ? _self.originalText : originalText // ignore: cast_nullable_to_non_nullable
 as String?,clearColor: freezed == clearColor ? _self.clearColor : clearColor // ignore: cast_nullable_to_non_nullable
 as int?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$CenterSlideThumbnail {
+
+ String get path; String get sha256; int get revision; int get width; int get height;
+/// Create a copy of CenterSlideThumbnail
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$CenterSlideThumbnailCopyWith<CenterSlideThumbnail> get copyWith => _$CenterSlideThumbnailCopyWithImpl<CenterSlideThumbnail>(this as CenterSlideThumbnail, _$identity);
+
+  /// Serializes this CenterSlideThumbnail to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  final _this = this as CenterSlideThumbnail;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CenterSlideThumbnail&&(identical(other.path, _this.path) || other.path == _this.path)&&(identical(other.sha256, _this.sha256) || other.sha256 == _this.sha256)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.width, _this.width) || other.width == _this.width)&&(identical(other.height, _this.height) || other.height == _this.height));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode {
+  final _this = this as CenterSlideThumbnail;
+  return Object.hash(runtimeType,_this.path,_this.sha256,_this.revision,_this.width,_this.height);
+}
+
+@override
+String toString() {
+  final _this = this as CenterSlideThumbnail;
+  return 'CenterSlideThumbnail(path: ${_this.path}, sha256: ${_this.sha256}, revision: ${_this.revision}, width: ${_this.width}, height: ${_this.height})';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $CenterSlideThumbnailCopyWith<$Res>  {
+  factory $CenterSlideThumbnailCopyWith(CenterSlideThumbnail value, $Res Function(CenterSlideThumbnail) _then) = _$CenterSlideThumbnailCopyWithImpl;
+@useResult
+$Res call({
+ String path, String sha256, int revision, int width, int height
+});
+
+
+
+
+}
+/// @nodoc
+class _$CenterSlideThumbnailCopyWithImpl<$Res>
+    implements $CenterSlideThumbnailCopyWith<$Res> {
+  _$CenterSlideThumbnailCopyWithImpl(this._self, this._then);
+
+  final CenterSlideThumbnail _self;
+  final $Res Function(CenterSlideThumbnail) _then;
+
+/// Create a copy of CenterSlideThumbnail
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? path = null,Object? sha256 = null,Object? revision = null,Object? width = null,Object? height = null,}) {
+  return _then(CenterSlideThumbnail(
+path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,sha256: null == sha256 ? _self.sha256 : sha256 // ignore: cast_nullable_to_non_nullable
+as String,revision: null == revision ? _self.revision : revision // ignore: cast_nullable_to_non_nullable
+as int,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
+as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [CenterSlideThumbnail].
+extension CenterSlideThumbnailPatterns on CenterSlideThumbnail {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _CenterSlideThumbnail value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _CenterSlideThumbnail() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _CenterSlideThumbnail value)  $default,){
+final _that = this;
+switch (_that) {
+case _CenterSlideThumbnail():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _CenterSlideThumbnail value)?  $default,){
+final _that = this;
+switch (_that) {
+case _CenterSlideThumbnail() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String path,  String sha256,  int revision,  int width,  int height)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _CenterSlideThumbnail() when $default != null:
+return $default(_that.path,_that.sha256,_that.revision,_that.width,_that.height);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String path,  String sha256,  int revision,  int width,  int height)  $default,) {final _that = this;
+switch (_that) {
+case _CenterSlideThumbnail():
+return $default(_that.path,_that.sha256,_that.revision,_that.width,_that.height);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String path,  String sha256,  int revision,  int width,  int height)?  $default,) {final _that = this;
+switch (_that) {
+case _CenterSlideThumbnail() when $default != null:
+return $default(_that.path,_that.sha256,_that.revision,_that.width,_that.height);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _CenterSlideThumbnail implements CenterSlideThumbnail {
+  const _CenterSlideThumbnail({required this.path, required this.sha256, required this.revision, required this.width, required this.height});
+  factory _CenterSlideThumbnail.fromJson(Map<String, dynamic> json) => _$CenterSlideThumbnailFromJson(json);
+
+@override final  String path;
+@override final  String sha256;
+@override final  int revision;
+@override final  int width;
+@override final  int height;
+
+/// Create a copy of CenterSlideThumbnail
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$CenterSlideThumbnailCopyWith<_CenterSlideThumbnail> get copyWith => __$CenterSlideThumbnailCopyWithImpl<_CenterSlideThumbnail>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$CenterSlideThumbnailToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CenterSlideThumbnail&&(identical(other.path, path) || other.path == path)&&(identical(other.sha256, sha256) || other.sha256 == sha256)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode {
+    return Object.hash(runtimeType,path,sha256,revision,width,height);
+}
+
+@override
+String toString() {
+    return 'CenterSlideThumbnail(path: $path, sha256: $sha256, revision: $revision, width: $width, height: $height)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$CenterSlideThumbnailCopyWith<$Res> implements $CenterSlideThumbnailCopyWith<$Res> {
+  factory _$CenterSlideThumbnailCopyWith(_CenterSlideThumbnail value, $Res Function(_CenterSlideThumbnail) _then) = __$CenterSlideThumbnailCopyWithImpl;
+@override @useResult
+$Res call({
+ String path, String sha256, int revision, int width, int height
+});
+
+
+
+
+}
+/// @nodoc
+class __$CenterSlideThumbnailCopyWithImpl<$Res>
+    implements _$CenterSlideThumbnailCopyWith<$Res> {
+  __$CenterSlideThumbnailCopyWithImpl(this._self, this._then);
+
+  final _CenterSlideThumbnail _self;
+  final $Res Function(_CenterSlideThumbnail) _then;
+
+/// Create a copy of CenterSlideThumbnail
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? path = null,Object? sha256 = null,Object? revision = null,Object? width = null,Object? height = null,}) {
+  return _then(_CenterSlideThumbnail(
+path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,sha256: null == sha256 ? _self.sha256 : sha256 // ignore: cast_nullable_to_non_nullable
+as String,revision: null == revision ? _self.revision : revision // ignore: cast_nullable_to_non_nullable
+as int,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
+as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
