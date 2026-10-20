@@ -9,6 +9,7 @@ const functions = fileURLToPath(new URL('../', import.meta.url));
 const root = await mkdtemp(path.join(tmpdir(), 'sta189-callable-'));
 const fixture = path.join(root, 'functions');
 const project = 'demo-cloudboard-sta189-callable';
+const flutterClient = process.argv.includes('--flutter-client');
 const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
 try {
   await mkdir(fixture);
@@ -24,18 +25,22 @@ try {
   await writeFile(path.join(root, 'firebase.json'), JSON.stringify({
     functions: [{source: 'functions', codebase: 'sta189-local', runtime: 'nodejs22'}],
     firestore: {rules: path.resolve(functions, '../firestore.rules')},
+    ...(flutterClient ? {storage: {rules: path.resolve(functions, '../storage.rules')}} : {}),
     emulators: {
       auth: {host: '127.0.0.1', port: 19490},
       firestore: {host: '127.0.0.1', port: 19480, websocketPort: 19481},
       functions: {host: '127.0.0.1', port: 19401},
+      ...(flutterClient ? {storage: {host: '127.0.0.1', port: 19499}} : {}),
       hub: {host: '127.0.0.1', port: 19440},
       logging: {host: '127.0.0.1', port: 19450},
       ui: {enabled: false}, singleProjectMode: true,
     },
   }));
-  const command = `${quote(process.execPath)} ${quote(path.join(functions, 'test/workout-save-callable-emulator.mjs'))}`;
+  const script = flutterClient ? 'workout-save-flutter-emulator.mjs' : 'workout-save-callable-emulator.mjs';
+  const command = `${quote(process.execPath)} ${quote(path.join(functions, 'test', script))}`;
   const child = spawn('firebase', ['emulators:exec', '--project', project,
-    '--config', path.join(root, 'firebase.json'), '--only', 'auth,firestore,functions', command], {
+    '--config', path.join(root, 'firebase.json'), '--only',
+    flutterClient ? 'auth,firestore,functions,storage' : 'auth,firestore,functions', command], {
     cwd: root, stdio: 'inherit', env: {...process.env,
       GCLOUD_PROJECT: project, GOOGLE_CLOUD_PROJECT: project,
       STA189_FUNCTIONS_EMULATOR_HOST: '127.0.0.1:19401'},

@@ -310,6 +310,7 @@ class CenterSlideCatalogDataSource {
     CenterSlideRecipe recipe,
   ) async {
     final generation = await authorizeRecipe(requestedOwner, recipe);
+    ensureRecipeAuthorized(requestedOwner, recipe, generation: generation);
     final path = recipe.backgroundPath;
     if (path == null) return null;
     final key = '$cacheScope/$path';

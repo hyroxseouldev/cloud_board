@@ -14,6 +14,7 @@
   문서를 projection으로 집계한다. 두 마지막 슬롯 요청은 공유 usage 충돌로
   직렬화된다. 레거시 직접 삭제 직후도 실제 문서를 세므로 비동기 트리거를 기다리지 않는다.
   기존 문서를 읽은 뒤 동시 삭제되면 Firestore 트랜잭션이 재시도해 생성 분기로 간다.
+  생성/복원의 usage 읽기와 실문서 집계는 같은 트랜잭션 안에서 병렬 수행한다.
 - `syncWorkoutPlanUsage`는 before/after 문서가 둘 다 존재하는 수정만 생략한다.
   생성/삭제 또는 불완전한 이벤트는 기존 현재 문서 재집계를 유지한다.
   중복/역순 이벤트는 event count delta를 적용하지 않는다.
@@ -31,7 +32,7 @@
 
 Flutter 3.47.0 / Dart 3.13.0 설치 경로: `/Users/sunmkim/fvm/versions/3.47.0/bin`.
 서버: Node 22.21.1, Android Studio JBR OpenJDK 21.0.8, Firebase CLI.
-기본 시스템 Java 19로 에뮬레이터 시작이 한 번 실패했고 JBR 21로 재실행했다.
+Firebase 에뮬레이터는 Java 21 이상이 필요하다.
 
 ```sh
 flutter test test/workout_quota_save_data_source_test.dart \
@@ -47,6 +48,9 @@ firebase emulators:exec --project demo-cloudboard-plan-quotas \
   'node functions/test/plan-quotas-emulator.mjs'
 
 node functions/test/run-workout-save-callable-emulator.mjs
+
+FLUTTER_BIN=/Users/sunmkim/fvm/versions/3.47.0/bin/flutter \
+  node functions/test/run-workout-save-callable-emulator.mjs --flutter-client
 ```
 
 - Flutter 관련 68개와 Node 관련 11개 통과. 변경 Dart 파일 정적 분석도 수행.
@@ -60,6 +64,15 @@ node functions/test/run-workout-save-callable-emulator.mjs
   비동기 usage 수정 생략은 별도 단위 및 Firestore 에뮬레이터 검증으로 확인했다.
   포트는 Functions 19401, Auth 19490, Firestore 19480, hub 19440이다.
   runner는 demo 프로젝트와 임시 로컬 fixture만 쓰고 종료 시 정리한다.
+- Chrome 실제 Dart 경로: `--flutter-client`는 Storage 19499도 실행하고
+  `test/manual/workout_save_emulator_probe.dart`를 실행한다. 앱의 실제 웹 플러그인/
+  SDK와 `WorkoutRepositoryImpl`/`WorkoutFirestoreDataSource`를 사용한다.
+  로컬 센터 카탈로그 → preview/Add PNG → Storage 업로드 → callable →
+  Firestore 서버 재조회, PNG SHA/타입/크기, plain image 타이머, unknown field/
+  createdAt/레거시 설정/요약 보존, 수정 usage 불변, 삭제 후 복원, 로그아웃
+  차단을 검사한다. Node admin이 저장된 수업/사용량을 별도로 다시 확인한다.
+  UI 버튼 조작을 재현하는 검증은 아니며 mock Firebase SDK도 사용하지 않는다.
+  이 수동 probe는 일반 `*_test.dart` 전체 검색 대상에서 제외하고 명시적으로 실행한다.
 - 캐시: 동일 미리보기/추가 렌더 횟수 1, 실제 PNG 1920×1080, 진행 중 공유,
   편집·레시피·권한·계정·센터 무효화, 늦은 결과 차단, 8 MiB 상한, 실패 재시도 검증.
 
@@ -67,7 +80,8 @@ node functions/test/run-workout-save-callable-emulator.mjs
 
 ## 통합 담당의 실제 앱 확인
 
-앱 E2E와 웹 브라우저 CORS 네트워크 검증은 아직 하지 않았다.
+iOS 화면 조작 E2E와 배포된 개발 Firebase의 웹 CORS 검증은 아직 하지 않았다.
+Chrome의 실제 앱 저장 코드와 로컬 SDK/callable 경로는 위 별도 probe로 검증한다.
 
 1. 같은 통합 SHA의 iOS 컨트롤러와 웹에서 기존 수업 수정 → 저장 → 재열기.
    실제 `saveWorkout` 실행과 Firestore 내용/요약이 맞는지 확인한다.

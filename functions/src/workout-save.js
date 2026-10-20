@@ -80,8 +80,10 @@ export async function saveWorkout(db, uid, input) {
       // including legacy direct deletes whose trigger has not run yet. An edit
       // reads its workout in this transaction; a concurrent delete retries here
       // as a create, so skipping usage for edits cannot bypass the final slot.
-      await tx.get(planUsageRef(db, uid));
-      counts = await readPlanUsage(tx, db, uid);
+      const [, currentCounts] = await Promise.all([
+        tx.get(planUsageRef(db, uid)), readPlanUsage(tx, db, uid),
+      ]);
+      counts = currentCounts;
       assertPlanCapacity(entitlement.data(), 'workouts', counts.workoutCount);
     }
     const summary = summarizeWorkout(value, value.id);
