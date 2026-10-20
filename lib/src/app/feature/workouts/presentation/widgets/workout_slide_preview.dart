@@ -9,6 +9,7 @@ class WorkoutSlidePreview extends StatelessWidget {
     super.key,
     required this.module,
     required this.isRest,
+    this.previewPhase,
     this.brandL = '',
     this.brandR = '',
     this.borderRadius = 12,
@@ -19,6 +20,10 @@ class WorkoutSlidePreview extends StatelessWidget {
   final bool creationTypography;
   final WorkoutModule module;
   final bool isRest;
+
+  /// A selected phase from the complete module timeline. Keep [module] intact
+  /// so interval/round labels and appearance use the same context as playback.
+  final WorkoutPhase? previewPhase;
   final String brandL;
   final String brandR;
 
@@ -26,6 +31,7 @@ class WorkoutSlidePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final phases = workoutModuleTimeline(module);
     final phase =
+        previewPhase ??
         phases.where((p) => p.isRest == isRest).firstOrNull ??
         phases.firstOrNull;
     final seconds = phase?.seconds ?? 0;
