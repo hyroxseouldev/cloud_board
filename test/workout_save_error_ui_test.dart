@@ -366,6 +366,7 @@ Future<ProviderContainer> _mount(
     overrides: [
       memoryWorkoutRecovery,
       fixtureWorkoutDetails,
+      fixtureSavedSlideOrder,
       workoutControllerProvider.overrideWith(_Workouts.new),
       workoutActionControllerProvider.overrideWith(() => actions),
       slideEditorRepositoryProvider.overrideWithValue(
