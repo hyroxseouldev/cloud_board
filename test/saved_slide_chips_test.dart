@@ -16,9 +16,11 @@ void main() {
     double width = 700,
     double textScale = 1,
     TargetPlatform platform = TargetPlatform.windows,
+    List<String>? storedIds,
   }) async {
     final ids = List.generate(count, (i) => 'slide-$i');
-    final db = OrderFirestore()..seed('owner', ids, order: ids);
+    final db = OrderFirestore()
+      ..seed('owner', storedIds ?? ids, order: storedIds ?? ids);
     final added = <String>[];
     addTearDown(db.events.close);
     await tester.pumpWidget(
@@ -61,6 +63,25 @@ void main() {
   }
 
   Finder chip(int i) => find.byKey(ValueKey('saved-slide-chip-slide-$i'));
+
+  testWidgets('delayed library snapshot settles without repeated persistence', (
+    tester,
+  ) async {
+    final fixture = await mount(
+      tester,
+      count: 1,
+      storedIds: ['slide-0', 'slide-1'],
+    );
+    expect(fixture.db.transactions, 1);
+    expect(fixture.db.docs['users/owner']!['savedSlideOrder'], [
+      'slide-0',
+      'slide-1',
+    ]);
+    expect(find.byType(InputChip), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(fixture.db.transactions, 1);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'only chip scrollbars hidden; tap adds and horizontal swipe reaches last chip',

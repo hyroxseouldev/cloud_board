@@ -8,6 +8,36 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/sa
 import 'support/saved_slide_order_fixture.dart';
 
 void main() {
+  test('delayed library snapshot synchronizes once per input pair, then responds to new inputs', () async {
+    final db = OrderFirestore()..seed('owner', ['a', 'b'], order: ['a', 'b']);
+    addTearDown(db.events.close);
+    final container = ProviderContainer(
+      overrides: [
+        savedSlideOrderRepositoryProvider.overrideWith(
+          (ref) => orderRepository(db, OrderAuth()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = savedSlideOrderControllerProvider('owner');
+    container.listen(provider, (_, _) {});
+    await Future<void>.delayed(Duration.zero);
+    final controller = container.read(provider.notifier);
+    for (var i = 0; i < 10; i++) {
+      await controller.synchronize(['a']);
+    }
+    expect(db.transactions, 1);
+    expect(container.read(provider).ids, ['a', 'b']);
+    expect(container.read(provider).saving, false);
+
+    // A newer library snapshot causes exactly one new reconciliation.
+    db.put('users/owner/slideTemplates/b', {'deleted': true});
+    db.put('users/owner/slideTemplates/c', {'deleted': false});
+    await controller.synchronize(['a', 'c']);
+    expect(db.transactions, 2);
+    expect(container.read(provider).ids, ['a', 'c']);
+  });
+
   test('optional legacy order, malformed values, duplicates and stale IDs', () {
     expect(readSavedSlideOrder(null), isEmpty);
     expect(readSavedSlideOrder(['a', 'a', null, 2, '../b']), ['a']);

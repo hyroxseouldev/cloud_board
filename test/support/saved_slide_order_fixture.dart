@@ -12,6 +12,7 @@ class OrderFirestore extends Fake implements FirebaseFirestore {
   final events = StreamController<void>.broadcast();
   final writes = <(String, Map<String, dynamic>)>[];
   int revision = 0;
+  int transactions = 0;
   bool fail = false;
   void Function()? beforeCommit;
   void put(String path, Map<String, dynamic> value) {
@@ -48,6 +49,7 @@ class OrderFirestore extends Fake implements FirebaseFirestore {
     Duration timeout = const Duration(seconds: 30),
     int maxAttempts = 5,
   }) async {
+    transactions++;
     for (var i = 0; i < maxAttempts; i++) {
       final before = revision;
       final tx = _Transaction(this);

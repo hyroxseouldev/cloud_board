@@ -60,7 +60,7 @@ final class SavedSlideOrderControllerProvider
 }
 
 String _$savedSlideOrderControllerHash() =>
-    r'f44e79db2158abee465140b5244cac79c6f74da3';
+    r'44cab2f49f6c516ebcc364c2b798723750e05a88';
 
 final class SavedSlideOrderControllerFamily extends $Family
     with

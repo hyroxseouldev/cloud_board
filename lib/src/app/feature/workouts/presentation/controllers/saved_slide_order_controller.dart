@@ -23,6 +23,7 @@ abstract class SavedSlideOrderState with _$SavedSlideOrderState {
 class SavedSlideOrderController extends _$SavedSlideOrderController {
   List<String> _remote = [];
   List<String> _known = [];
+  String? _lastSynchronization;
   SavedSlideMove? _retryMove;
   late SavedSlideOrderActions _actions;
 
@@ -53,7 +54,16 @@ class SavedSlideOrderController extends _$SavedSlideOrderController {
     if (!state.ready || state.saving || state.error != null) return;
     final next = reconcileSavedSlideOrder(state.ids, liveIds);
     if (!const ListEquality<String>().equals(state.ids, next)) {
+      // The library and profile are independent streams. A delayed library
+      // snapshot can omit a still-live ID which the transaction must preserve.
+      // Do not retry that same pair on every saving/ids notification.
+      final sortedLive = liveIds.toSet().toList()..sort();
+      final inputs = '${sortedLive.join(",")}|${state.ids.join(",")}';
+      if (_lastSynchronization == inputs) return;
+      _lastSynchronization = inputs;
       await _write();
+    } else {
+      _lastSynchronization = null;
     }
   }
 
