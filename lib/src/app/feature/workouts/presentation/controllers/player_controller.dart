@@ -101,6 +101,23 @@ int synchronizedRemainingMs({
 @riverpod
 DateTime Function() playerClock(Ref ref) => DateTime.now;
 
+/// Remember only the last displayed class across player/widget disposal. This
+/// is an audio marker, not a playback checkpoint or permission to keep playing.
+@Riverpod(keepAlive: true)
+DisplayAudioAttachment displayAudioAttachment(Ref ref) =>
+    DisplayAudioAttachment();
+
+class DisplayAudioAttachment {
+  (String, String)? _lastSession;
+
+  bool isReattachment(PlaybackSession session) {
+    final identity = (session.ownerId, session.id);
+    final seen = _lastSession == identity;
+    _lastSession = identity;
+    return seen;
+  }
+}
+
 @riverpod
 class PlayerController extends _$PlayerController {
   Timer? _ticker;
@@ -116,6 +133,8 @@ class PlayerController extends _$PlayerController {
   bool _announcedCompletion = false;
   String? _preparationIdentity;
   int _lastPreparationSecond = 4;
+  bool _attachedDisplayAudio = false;
+  bool _restoringDisplayAudio = false;
 
   @override
   PlayerState build(
@@ -142,6 +161,12 @@ class PlayerController extends _$PlayerController {
         : ref.watch(displayPlaybackSessionProvider);
     final offset = ref.watch(serverTimeOffsetProvider).value ?? 0;
     final matchesSession = remote != null && remote.id == sessionId;
+    if (!canControl && matchesSession && !_attachedDisplayAudio) {
+      _attachedDisplayAudio = true;
+      _restoringDisplayAudio = ref
+          .read(displayAudioAttachmentProvider)
+          .isReattachment(remote);
+    }
 
     late final int index;
     late final int remainingMs;
@@ -206,6 +231,7 @@ class PlayerController extends _$PlayerController {
           _ticker?.cancel();
         } else {
           // Foreground handshake has completed; rebuild from the current session.
+          _restoringDisplayAudio = sessionId != null;
           ref.invalidateSelf();
         }
       });
@@ -215,6 +241,11 @@ class PlayerController extends _$PlayerController {
           !hasPlaybackSource ||
           (!canControl && !ref.read(tvPlaybackVisibleProvider)) ||
           state.timelineVersion != initial.timelineVersion) {
+        return;
+      }
+      if (_restoringDisplayAudio) {
+        _restoringDisplayAudio = false;
+        _restoreAudioPosition();
         return;
       }
       if (index >= steps.length) {
@@ -236,6 +267,20 @@ class PlayerController extends _$PlayerController {
   }
 
   DateTime _now() => ref.read(playerClockProvider)();
+
+  void _restoreAudioPosition() {
+    // Resync restores where the class is now. It is not a new interval,
+    // countdown second or completion event, even if boundaries passed offline.
+    _announcedSessionId = sessionId;
+    _announcedStepIndex = state.countdownMs > 0 ? null : state.index;
+    _announcedCompletion = state.index >= state.steps.length || forTimeEnded;
+    if (state.countdownMs > 0) {
+      _lastPreparationSecond = min(
+        _lastPreparationSecond,
+        (state.countdownMs / 1000).ceil(),
+      );
+    }
+  }
 
   PlayerStep? get currentStep =>
       state.steps.isEmpty ||
