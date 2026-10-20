@@ -30,6 +30,48 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 // recovery I/O, wall clock and native audio output are substituted.
 // This deliberately does not override displayPlaybackSessionProvider.
 void main() {
+  for (final displayMode in [true, false]) {
+    testWidgets(
+      'offline ${displayMode ? 'display hides notices' : 'controller keeps its connection message'}',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final h = _Harness();
+        await h.initialize(tester);
+        h.container.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: h.container,
+            child: MaterialApp(
+              home: WorkoutPlayerScreen(
+                workoutId: h.workout.id,
+                startModule: 0,
+                sessionId: 'class',
+                displayMode: displayMode,
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 1));
+        h.connection.add(false);
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(find.byType(WorkoutPlayerScreen), findsOneWidget);
+        expect(find.text('오프라인 · 로컬 재생'), findsNothing);
+        expect(
+          find.text('컨트롤러의 서버 연결이 끊겼습니다. 연결 복구 후 수업 상태를 확인해 주세요.'),
+          displayMode ? findsNothing : findsOneWidget,
+        );
+        if (displayMode) expect(find.byType(Chip), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await h.dispose();
+        await tester.pump();
+      },
+    );
+  }
+
   testWidgets(
     'checkpoint survives raw invalidation and transient errors in one owner scope',
     (tester) async {
@@ -496,6 +538,7 @@ void main() {
       h.container.invalidate(activePlaybackSessionProvider);
       h.recovery.update(const AsyncLoading());
       await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('오프라인 · 로컬 재생'), findsNothing);
       final player = playerControllerProvider(
         h.workout,
         sessionId: 'class',

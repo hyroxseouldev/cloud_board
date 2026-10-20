@@ -245,12 +245,17 @@ void useDisplayPreparation(
                       final value = WorkoutSound.values
                           .where((v) => v.name == sound)
                           .first;
-                      await player.setSource(workoutSoundSource(value));
+                      final source = await workoutSoundSource(value);
+                      if (attemptStopped()) return;
+                      await player.setSource(source);
                       if (attemptStopped()) return;
                       if (value == WorkoutSound.videoBeep) {
-                        await player.setSource(
-                          workoutSoundSource(value, countdown: true),
+                        final tick = await workoutSoundSource(
+                          value,
+                          countdown: true,
                         );
+                        if (attemptStopped()) return;
+                        await player.setSource(tick);
                       }
                     }
                   },
