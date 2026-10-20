@@ -165,7 +165,7 @@ void main() {
   }
 
   testWidgets(
-    'display rebuild during same preparation second does not repeat cue',
+    'display rebuild and remount during same preparation second do not repeat cue',
     (tester) async {
       var now = DateTime(2026, 9, 22);
       final offset = StreamController<int>();
@@ -200,13 +200,20 @@ void main() {
         ],
       );
       final p = playerControllerProvider(w, sessionId: 's', canControl: false);
-      container.listen(p, (_, _) {});
+      final subscription = container.listen(p, (_, _) {});
       await tester.pump();
       now = now.add(const Duration(seconds: 57));
       await tester.pump(const Duration(milliseconds: 100));
       expect(audio.ticks, hasLength(1));
       offset.add(1);
       await tester.pump();
+      expect(audio.ticks, hasLength(1));
+      subscription.close();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(container.exists(p), isFalse);
+      container.listen(p, (_, _) {});
+      await tester.pump(const Duration(milliseconds: 1));
       expect(audio.ticks, hasLength(1));
       // Delayed tick: do not queue missed 2-second and 1-second cues.
       now = now.add(const Duration(seconds: 3));
@@ -217,6 +224,126 @@ void main() {
       unawaited(offset.close());
     },
   );
+
+  for (final unmount in [false, true]) {
+    for (final gapMs in [100, 5000, 20000, 30000]) {
+      testWidgets(
+        'display ${unmount ? 'remount' : 'visibility recovery'} after $gapMs ms restores playback silently',
+        (tester) async {
+          var now = DateTime(2026, 10, 20);
+          final audio = _Audio();
+          final w = workout(0).copyWith(
+            workStartSound: WorkoutSound.classicBeep,
+            restStartSound: WorkoutSound.gentleBeep,
+            workoutEndSound: WorkoutSound.videoBeep,
+          );
+          var session = PlaybackSessionModel.fromWorkout(
+            id: 's',
+            ownerId: 'u',
+            zoneId: 'main',
+            targetDeviceIds: ['tv'],
+            workout: w,
+            stepIndex: 0,
+            durationMs: 10000,
+            deviceId: 'c',
+          ).toEntity().copyWith(anchorServerMs: now.millisecondsSinceEpoch);
+          final container = ProviderContainer(
+            overrides: [
+              accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
+              serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+              activePlaybackSessionProvider.overrideWith(
+                (_) => Stream.value(session),
+              ),
+              beepPlayerProvider.overrideWith((_) => audio),
+              playerClockProvider.overrideWith(
+                (_) =>
+                    () => now,
+              ),
+            ],
+          );
+          final provider = playerControllerProvider(
+            w,
+            sessionId: 's',
+            canControl: false,
+          );
+          final subscription = container.listen(provider, (_, _) {});
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 1));
+          await tester.pump(const Duration(milliseconds: 1));
+          expect(audio.starts, [WorkoutSound.classicBeep]);
+          final original = container.read(provider.notifier);
+          if (unmount) {
+            subscription.close();
+            await tester.pump(const Duration(milliseconds: 1));
+            await tester.pump(const Duration(milliseconds: 1));
+            expect(container.exists(provider), isFalse);
+          } else {
+            container
+                .read(tvPlaybackVisibleProvider.notifier)
+                .setVisible(false);
+          }
+
+          now = now.add(Duration(milliseconds: gapMs));
+          if (unmount) {
+            container.listen(provider, (_, _) {});
+          } else {
+            container.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+          }
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 1));
+          expect(
+            identical(container.read(provider.notifier), original),
+            !unmount,
+          );
+          expect(
+            audio.starts,
+            [WorkoutSound.classicBeep],
+            reason: 'Reopening a running class is not a new interval or finish',
+          );
+
+          // The next real boundary still sounds after a silent restoration.
+          if (gapMs <= 5000) {
+            expect(container.read(provider).remainingMs, 10000 - gapMs);
+            now = now.add(Duration(milliseconds: 10000 - gapMs));
+            await tester.pump(const Duration(milliseconds: 100));
+            expect(container.read(provider).index, 1);
+            expect(audio.starts, [
+              WorkoutSound.classicBeep,
+              WorkoutSound.gentleBeep,
+            ]);
+            now = now.add(const Duration(seconds: 5));
+            await tester.pump(const Duration(milliseconds: 100));
+            now = now.add(const Duration(seconds: 10));
+            await tester.pump(const Duration(milliseconds: 100));
+            now = now.add(const Duration(seconds: 5));
+            await tester.pump(const Duration(milliseconds: 100));
+            expect(audio.starts.last, WorkoutSound.videoBeep);
+          }
+
+          // A different class must still emit its initial start cue.
+          final beforeNextClass = audio.starts.length;
+          session = session.copyWith(
+            id: 'next-class',
+            anchorServerMs: now.millisecondsSinceEpoch,
+          );
+          container.invalidate(activePlaybackSessionProvider);
+          container.listen(
+            playerControllerProvider(
+              w,
+              sessionId: session.id,
+              canControl: false,
+            ),
+            (_, _) {},
+          );
+          await tester.pump(const Duration(milliseconds: 1));
+          await tester.pump(const Duration(milliseconds: 1));
+          expect(audio.starts.length, beforeNextClass + 1);
+          expect(audio.starts.last, WorkoutSound.classicBeep);
+          container.dispose();
+        },
+      );
+    }
+  }
 
   testWidgets('late preparation tick skips expired interval start', (
     tester,

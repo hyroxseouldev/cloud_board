@@ -56,6 +56,62 @@ final class PlayerClockProvider
 
 String _$playerClockHash() => r'447f09b8ea5bea395c948aa7b162abf3544cd84f';
 
+/// Remember only the last displayed class across player/widget disposal. This
+/// is an audio marker, not a playback checkpoint or permission to keep playing.
+
+@ProviderFor(displayAudioAttachment)
+final displayAudioAttachmentProvider = DisplayAudioAttachmentProvider._();
+
+/// Remember only the last displayed class across player/widget disposal. This
+/// is an audio marker, not a playback checkpoint or permission to keep playing.
+
+final class DisplayAudioAttachmentProvider
+    extends
+        $FunctionalProvider<
+          DisplayAudioAttachment,
+          DisplayAudioAttachment,
+          DisplayAudioAttachment
+        >
+    with $Provider<DisplayAudioAttachment> {
+  /// Remember only the last displayed class across player/widget disposal. This
+  /// is an audio marker, not a playback checkpoint or permission to keep playing.
+  DisplayAudioAttachmentProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'displayAudioAttachmentProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$displayAudioAttachmentHash();
+
+  @$internal
+  @override
+  $ProviderElement<DisplayAudioAttachment> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DisplayAudioAttachment create(Ref ref) {
+    return displayAudioAttachment(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DisplayAudioAttachment value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DisplayAudioAttachment>(value),
+    );
+  }
+}
+
+String _$displayAudioAttachmentHash() =>
+    r'5a41d1633c6b96e27c9dd5bd8999abcf916d9563';
+
 @ProviderFor(PlayerController)
 final playerControllerProvider = PlayerControllerFamily._();
 
@@ -106,7 +162,7 @@ final class PlayerControllerProvider
   }
 }
 
-String _$playerControllerHash() => r'28192f2e380874312ff36ff412623f6469d26070';
+String _$playerControllerHash() => r'f75e924aeabd2f9d459e0cbec04367a63a32b90d';
 
 final class PlayerControllerFamily extends $Family
     with
