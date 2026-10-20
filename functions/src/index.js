@@ -422,14 +422,14 @@ export const recordOperationTelemetry = onCall({region, timeoutSeconds: 30, maxI
   return recordOperation({db, realtime, auth: request.auth, payload: request.data, emit: entry => logger.write(entry)});
 });
 
-// Quota-checked saves atomically commit content, summary and account usage.
+// Saves atomically commit content/summary; creates also check and update usage.
 export const saveWorkout = onCall({region, timeoutSeconds: 60, maxInstances: 10}, async request => {
   const {saveWorkout: save} = await import('./workout-save.js');
   return save(db, request.auth?.uid, request.data);
 });
 export const syncWorkoutPlanUsage = onDocumentWritten({region, document: 'users/{uid}/workouts/{id}', retry: true, maxInstances: 3}, async event => {
-  const {reconcilePlanUsage} = await import('./plan-usage.js');
-  await reconcilePlanUsage(db, event.params.uid);
+  const {reconcileWorkoutPlanUsage} = await import('./plan-usage.js');
+  await reconcileWorkoutPlanUsage(db, event.params.uid, event.data);
 });
 export const syncSlidePlanUsage = onDocumentWritten({region, document: 'users/{uid}/slideTemplates/{id}', retry: true, maxInstances: 3}, async event => {
   const {reconcilePlanUsage} = await import('./plan-usage.js');

@@ -48,6 +48,7 @@ class CenterSlideCatalogDataSource {
   final http.Client client;
   final DateTime Function() now;
   final _listeners = <StreamController<CenterSlideCatalog>>{};
+  final _authorityInvalidationListeners = <void Function()>{};
   final _assets = <String, Uint8List>{};
   final _assetRequests = <String, Future<Uint8List>>{};
   int _assetBytes = 0, _generation = 0;
@@ -61,6 +62,18 @@ class CenterSlideCatalogDataSource {
 
   String get cacheScope => '$projectId/$ownerId/$centerId';
   int get authorityGeneration => _generation;
+  // Derived private data (for example a rendered preview) must expire with
+  // catalog/permission changes, even when no further render is requested.
+  void addAuthorityInvalidationListener(void Function() listener) =>
+      _authorityInvalidationListeners.add(listener);
+
+  void _invalidateAuthorityGeneration() {
+    _generation++;
+    for (final listener in _authorityInvalidationListeners.toList()) {
+      listener();
+    }
+  }
+
   bool get _authorized =>
       _catalog != null &&
       _authorizedUntil != null &&
@@ -169,7 +182,7 @@ class CenterSlideCatalogDataSource {
       if (_catalog == null || model.revision >= _catalog!.revision) {
         final fingerprint = jsonEncode(model.toJson());
         if (fingerprint != _catalogFingerprint) {
-          _generation++;
+          _invalidateAuthorityGeneration();
           _assets.clear();
           _assetRequests.clear();
           _assetBytes = 0;
@@ -203,7 +216,7 @@ class CenterSlideCatalogDataSource {
       const {'permission-denied', 'unauthenticated'}.contains(error.code);
 
   void _forget() {
-    _generation++;
+    _invalidateAuthorityGeneration();
     _catalog = null;
     _catalogFingerprint = null;
     _authorizedUntil = null;
@@ -218,6 +231,7 @@ class CenterSlideCatalogDataSource {
     ensureCurrent(ownerId);
     if (_authorized) return;
     if (_authorityRead != null) return _authorityRead!;
+    if (_catalog != null) _forget();
     final generation = _generation;
     final request = () async {
       try {
@@ -275,7 +289,7 @@ class CenterSlideCatalogDataSource {
     }
   }
 
-  Future<Uint8List?> loadBackground(
+  Future<int> authorizeRecipe(
     String requestedOwner,
     CenterSlideRecipe recipe,
   ) async {
@@ -288,6 +302,15 @@ class CenterSlideCatalogDataSource {
     }
     await _requireAuthority();
     ensureRecipeAuthorized(requestedOwner, recipe);
+    return _generation;
+  }
+
+  Future<Uint8List?> loadBackground(
+    String requestedOwner,
+    CenterSlideRecipe recipe,
+  ) async {
+    final generation = await authorizeRecipe(requestedOwner, recipe);
+    ensureRecipeAuthorized(requestedOwner, recipe, generation: generation);
     final path = recipe.backgroundPath;
     if (path == null) return null;
     final key = '$cacheScope/$path';
@@ -296,7 +319,6 @@ class CenterSlideCatalogDataSource {
       _assets[key] = cached;
       return Uint8List.fromList(cached);
     }
-    final generation = _generation;
     // Initial card, editor and confirmation may request the same private PNG
     // concurrently. Share its transfer only within this authorization generation.
     final requestKey = '$generation/$key';
@@ -445,6 +467,7 @@ class CenterSlideCatalogDataSource {
     if (_disposed) return;
     _disposed = true;
     _forget();
+    _authorityInvalidationListeners.clear();
     final subscription = _subscription;
     _subscription = null;
     if (subscription != null) unawaited(subscription.cancel());
