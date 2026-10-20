@@ -747,14 +747,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                                       backgroundColor: Colors.black87,
                                     ),
                                   ),
-                                Positioned(
-                                  top: 42 * scale,
-                                  left: 34 * scale,
-                                  child: _ConnectionChip(
-                                    connected: isConnected,
-                                    scale: scale,
-                                  ),
-                                ),
                               ],
                             );
                           },
@@ -812,31 +804,4 @@ class _PlayerTimer extends ConsumerWidget {
       scale: scale,
     );
   }
-}
-
-class _ConnectionChip extends StatelessWidget {
-  const _ConnectionChip({required this.connected, required this.scale});
-
-  final bool connected;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) => connected
-      ? const SizedBox.shrink()
-      : Chip(
-          avatar: Icon(
-            Icons.circle,
-            size: 10 * scale,
-            color: connected ? Colors.greenAccent : Colors.orangeAccent,
-          ),
-          label: Text(
-            '오프라인 · 로컬 재생',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13 * scale,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          backgroundColor: Colors.black87,
-        );
 }

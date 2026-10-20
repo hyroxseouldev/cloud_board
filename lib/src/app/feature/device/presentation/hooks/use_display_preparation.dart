@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/device/domain/usecases/complete_display_preparation.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_image_retention.dart';
 import 'package:cloud_board/src/app/core/runtime_policy/display_heartbeat_policy_service.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 
@@ -168,6 +169,14 @@ void useDisplayPreparation(
           !context.mounted ||
           request.expired(preparationServerNow(offset));
 
+      final retainedImages = ref.read(displayImageRetentionProvider);
+      retainedImages.prepare(
+        request.sessionId,
+        Duration(
+          milliseconds: request.expiresAtMs - preparationServerNow(offset),
+        ),
+        sources: request.images,
+      );
       Future<void> run() async {
         final attempt = telemetry.start('tv.prepare');
         var failureCode = 'prepare_images';
@@ -223,6 +232,7 @@ void useDisplayPreparation(
                     context,
                     sources,
                     isCancelled: attemptStopped,
+                    retention: retainedImages,
                   ),
                   audio: (sounds) async {
                     if (sounds.isEmpty || attemptStopped()) return;
@@ -235,12 +245,17 @@ void useDisplayPreparation(
                       final value = WorkoutSound.values
                           .where((v) => v.name == sound)
                           .first;
-                      await player.setSource(workoutSoundSource(value));
+                      final source = await workoutSoundSource(value);
+                      if (attemptStopped()) return;
+                      await player.setSource(source);
                       if (attemptStopped()) return;
                       if (value == WorkoutSound.videoBeep) {
-                        await player.setSource(
-                          workoutSoundSource(value, countdown: true),
+                        final tick = await workoutSoundSource(
+                          value,
+                          countdown: true,
                         );
+                        if (attemptStopped()) return;
+                        await player.setSource(tick);
                       }
                     }
                   },

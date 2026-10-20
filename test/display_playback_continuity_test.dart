@@ -30,6 +30,48 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 // recovery I/O, wall clock and native audio output are substituted.
 // This deliberately does not override displayPlaybackSessionProvider.
 void main() {
+  for (final displayMode in [true, false]) {
+    testWidgets(
+      'offline ${displayMode ? 'display hides notices' : 'controller keeps its connection message'}',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final h = _Harness();
+        await h.initialize(tester);
+        h.container.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: h.container,
+            child: MaterialApp(
+              home: WorkoutPlayerScreen(
+                workoutId: h.workout.id,
+                startModule: 0,
+                sessionId: 'class',
+                displayMode: displayMode,
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 1));
+        h.connection.add(false);
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(find.byType(WorkoutPlayerScreen), findsOneWidget);
+        expect(find.text('오프라인 · 로컬 재생'), findsNothing);
+        expect(
+          find.text('컨트롤러의 서버 연결이 끊겼습니다. 연결 복구 후 수업 상태를 확인해 주세요.'),
+          displayMode ? findsNothing : findsOneWidget,
+        );
+        if (displayMode) expect(find.byType(Chip), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await h.dispose();
+        await tester.pump();
+      },
+    );
+  }
+
   testWidgets(
     'checkpoint survives raw invalidation and transient errors in one owner scope',
     (tester) async {
@@ -465,10 +507,140 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'offline class crosses every slide and stays completed after remount and stale recovery',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final h = _Harness(
+        modules: [
+          for (var i = 0; i < 3; i++)
+            WorkoutModule.empty('slide-$i')
+                .copyWith(workSeconds: 10, restSeconds: 5, sets: 2, beep: true),
+        ],
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox());
+        await h.dispose();
+      });
+      Widget display() => UncontrolledProviderScope(
+        container: h.container,
+        child: const MaterialApp(home: DisplayModeScreen()),
+      );
+      await tester.pumpWidget(display());
+      await h.initialize(tester);
+      h.container.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+      await tester.pump(const Duration(milliseconds: 1));
+      h.acks.values.clear();
+      h.connection.add(false);
+      h.container.invalidate(activePlaybackSessionProvider);
+      h.recovery.update(const AsyncLoading());
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('오프라인 · 로컬 재생'), findsNothing);
+      final player = playerControllerProvider(
+        h.workout,
+        sessionId: 'class',
+        canControl: false,
+      );
+      final observedModules = <int>{};
+      final subscription = h.container.listen(player, (_, value) {
+        if (value.index < value.steps.length) {
+          observedModules.add(value.steps[value.index].moduleIndex);
+        }
+      }, fireImmediately: true);
+      for (var second = 0; second < 100; second++) {
+        await h.advance(tester, 1);
+      }
+      expect(observedModules, containsAll([0, 1, 2]));
+      expect(h.current!.status, PlaybackStatus.completed);
+      expect(
+        h.container
+            .read(displayPlaybackSessionProvider.notifier)
+            .completedLocally('class'),
+        isTrue,
+      );
+      expect(find.byType(WorkoutPlayerScreen), findsNothing);
+      expect(h.acks.values, isEmpty);
+      subscription.close();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await tester.pumpWidget(display());
+      // Even a clock correction and an old cached playing anchor cannot revive it.
+      h.now = h.initialNow;
+      h.sessions.add(h.running(revision: 1));
+      h.recovery.update(const AsyncData(null));
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(h.current!.status, PlaybackStatus.completed);
+      expect(find.byType(WorkoutPlayerScreen), findsNothing);
+      expect(h.acks.values, isEmpty);
+      h.sessions.add(h.running().copyWith(id: 'new-class'));
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(h.current!.id, 'new-class');
+      expect(h.current!.status, PlaybackStatus.playing);
+      expect(find.byType(WorkoutPlayerScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await h.dispose();
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  for (final mode in ['paused', 'forTime']) {
+    testWidgets(
+      'offline $mode remains at its manual boundary without a local completion',
+      (tester) async {
+        final h = _Harness(
+          modules: [
+            WorkoutModule.empty('manual').copyWith(
+              timingVersion: 3,
+              intervalBlocks: [],
+              workSeconds: 10,
+              restSeconds: 0,
+              sets: 1,
+              timerMode: mode == 'forTime'
+                  ? WorkoutTimerMode.forTime
+                  : WorkoutTimerMode.interval,
+            ),
+          ],
+        );
+        addTearDown(h.dispose);
+        await h.initialize(tester);
+        h.container.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+        if (mode == 'paused') {
+          h.sessions.add(h.running().copyWith(status: PlaybackStatus.paused));
+          await tester.pump();
+        }
+        final provider = playerControllerProvider(
+          h.workout,
+          sessionId: 'class',
+          canControl: false,
+        );
+        final listener = h.container.listen(provider, (_, _) {});
+        h.connection.add(false);
+        h.recovery.update(const AsyncLoading());
+        await tester.pump();
+        await h.advance(tester, 3600);
+        expect(h.container.read(provider).isPaused, isTrue);
+        expect(h.container.read(provider).index, 0);
+        expect(h.current!.status, isNot(PlaybackStatus.completed));
+        expect(
+          h.container
+              .read(displayPlaybackSessionProvider.notifier)
+              .completedLocally('class'),
+          isFalse,
+        );
+        listener.close();
+        await h.dispose();
+        await tester.pump(const Duration(milliseconds: 1));
+      },
+    );
+  }
 }
 
 class _Harness {
-  _Harness() {
+  _Harness({List<WorkoutModule>? modules}) {
     initialNow = now;
     workout =
         Workout.empty(
@@ -483,10 +655,16 @@ class _Harness {
           workStartSound: WorkoutSound.classicBeep,
           restStartSound: WorkoutSound.gentleBeep,
           countdownSound: WorkoutSound.videoBeep,
-          modules: [
-            WorkoutModule.empty('module')
-                .copyWith(workSeconds: 10, restSeconds: 5, sets: 2, beep: true),
-          ],
+          modules:
+              modules ??
+              [
+                WorkoutModule.empty('module').copyWith(
+                  workSeconds: 10,
+                  restSeconds: 5,
+                  sets: 2,
+                  beep: true,
+                ),
+              ],
         );
     container = ProviderContainer(
       retry: (_, _) => null,

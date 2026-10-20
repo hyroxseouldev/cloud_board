@@ -41,7 +41,8 @@ test('all supported production event types have titles; malformed/unsupported ev
   }
   for (const override of [{projectId: 'cloud-board-development'}, {projectId: 'other-project'},
     {ownerId: ''}, {ownerId: 'person@example.com'}, {eventId: 'wrong/path'},
-    {eventId: ''}, {event: null}, {event: []}, {event: {}}, {event: {type: 'briefing_opened'}}]) {
+    {eventId: ''}, {event: null}, {event: []}, {event: {}}, {event: {type: 'briefing_opened'}},
+    {event: {type: 'display_playback_completed', phase: 'local_completion', connected: false}}]) {
     assert.equal(buildWebhookPayload({...input, ...override}), null);
   }
   assert.equal(buildWebhookPayload(), null);

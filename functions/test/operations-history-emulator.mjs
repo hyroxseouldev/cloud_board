@@ -11,7 +11,8 @@ const env = await initializeTestEnvironment({projectId, database: {
 const registeredDisplay = {id: 'tv-a', mode: 'display', paired: true,
   displayUid: 'display-user', pairingCode: '123456', online: true, lastSeenAtMs: Date.now()};
 const lifecycleTypes = ['device_online', 'device_offline', 'device_shutdown',
-  'playback_interrupted', 'playback_restored', 'connection_failed', 'connection_recovered'];
+  'playback_interrupted', 'playback_restored', 'connection_failed', 'connection_recovered',
+  'display_playback_completed'];
 try {
   await env.withSecurityRulesDisabled(async context => {
     await set(ref(context.database()), {
@@ -52,7 +53,7 @@ try {
     }
     await assertSucceeds(get(ref(owner, events)));
   }
-  console.log('PASS operations history: full indexed range, registered TV lifecycle events, cross-center/other-device/anonymous denial, unpair/tombstone enforcement for all seven types');
+  console.log('PASS operations history: full indexed range, registered TV lifecycle events, cross-center/other-device/anonymous denial, unpair/tombstone enforcement for all eight types');
 } finally {
   await env.cleanup();
 }
