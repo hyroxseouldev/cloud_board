@@ -352,6 +352,7 @@ class _RasterField extends HookWidget {
     }, [value]);
     return TextField(
       controller: controller,
+      minLines: maxLines > 1 ? 3 : 1,
       maxLines: maxLines,
       maxLength: maxLength,
       decoration: InputDecoration(

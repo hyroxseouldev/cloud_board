@@ -259,5 +259,7 @@ void main() {
     expect(repository.renders, 0);
     latest.close();
     catalog.close();
+    await tester
+        .pump(); // Flush Riverpod's scheduled auto-disposal before teardown.
   });
 }
