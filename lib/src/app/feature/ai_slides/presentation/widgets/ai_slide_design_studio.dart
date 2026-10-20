@@ -1,6 +1,6 @@
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_preview.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_thumbnail.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/visible_slide_preview.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
@@ -225,8 +225,9 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                         design.theme,
                       );
                       return preview.centerRecipe != null
-                          ? CenterSlidePreview(draft: preview, compact: true)
+                          ? CenterSlideThumbnail(draft: preview)
                           : WorkoutSlidePreview(
+                              creationTypography: true,
                               module: previewAiSlide(preview),
                               isRest: false,
                               borderRadius: 8,

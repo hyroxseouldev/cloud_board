@@ -229,6 +229,19 @@ export const cloudboardAiSlideDesigns = onCall({
   return handleAiSlideDesigns({db, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
 });
 
+// Additive endpoint. Deployment and approved center brand configuration are
+// separate prerequisites; existing AI/text/theme endpoints remain unchanged.
+export const cloudboardAiSlideRaster = onCall({
+  region, timeoutSeconds: 240, memory: '512MiB', maxInstances: 3, concurrency: 3,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async request => {
+  if (!request.auth || request.auth.token.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
+  }
+  const {handleAiSlideRaster} = await import('./ai-slide-raster.js');
+  return handleAiSlideRaster({db, bucket, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+});
+
 export const syncSlideLibraryPlan = onDocumentWritten({
   region, document: 'subscriptionEntitlements/{uid}', retry: true,
   timeoutSeconds: 120, maxInstances: 5,

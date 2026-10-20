@@ -7,6 +7,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_sli
 abstract interface class CenterSlideTemplateRepository {
   Stream<CenterSlideCatalog> watchCatalog(String ownerId, String centerId);
   Future<Uint8List?> loadBackground(String ownerId, CenterSlideRecipe recipe);
+  Future<Uint8List?> loadThumbnail(String ownerId, CenterSlideRecipe recipe);
   Future<Uint8List> renderDraft(String ownerId, AiSlideDraft draft);
 
   /// Permanently invalidate this scope and discard its private memory caches.

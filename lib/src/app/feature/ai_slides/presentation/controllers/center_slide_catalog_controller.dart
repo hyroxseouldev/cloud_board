@@ -1,5 +1,10 @@
+import 'dart:ui' as ui;
 import 'dart:async';
-import 'dart:typed_data';
+
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/private_slide_image_cache.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/data/renderers/center_slide_renderer.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
@@ -69,9 +74,7 @@ CenterSlideTemplateActions centerSlideTemplateActions(Ref ref) {
 Stream<CenterSlideCatalog> centerSlideCatalog(Ref ref) =>
     ref.watch(centerSlideTemplateActionsProvider).watchCatalog();
 
-@riverpod
-Future<Uint8List> centerSlidePreview(Ref ref, AiSlideDraft draft) async {
-  final actions = ref.watch(centerSlideTemplateActionsProvider);
+void _requireCatalog(Ref ref) {
   final catalog = ref.watch(centerSlideCatalogProvider);
   if (catalog.isLoading ||
       catalog.hasError ||
@@ -81,24 +84,100 @@ Future<Uint8List> centerSlidePreview(Ref ref, AiSlideDraft draft) async {
       code: 'center_authority_unavailable',
     );
   }
-  // Cancel pending preview work while a user types or pastes. Confirmation
-  // still performs its own current-authority validation.
-  if (draft.centerRecipe?.body != null) {
-    var disposed = false;
-    final ready = Completer<void>();
-    final timer = Timer(
-      const Duration(milliseconds: 180),
-      () => ready.complete(),
-    );
-    ref.onDispose(() {
-      disposed = true;
-      timer.cancel();
-      if (!ready.isCompleted) ready.complete();
-    });
-    await ready.future;
-    if (disposed || !ref.mounted) {
-      throw const AiSlidesFailure('미리보기를 갱신하고 있어요.');
-    }
-  }
-  return actions.renderDraft(draft);
 }
+
+/// One decode per recipe/scope, independent of every text edit.
+@riverpod
+Future<ui.Image?> centerSlideBackground(
+  Ref ref,
+  CenterSlideRecipe recipe,
+) async {
+  final actions = ref.watch(centerSlideTemplateActionsProvider);
+  _requireCatalog(ref);
+  final bytes = await actions.loadBackground(recipe);
+  if (bytes == null || !ref.mounted) return null;
+  final image = await decodeCenterSlideBackground(
+    recipe,
+    bytes,
+    targetWidth: 1920,
+  );
+  if (!ref.mounted) {
+    image.dispose();
+    throw const AiSlidesFailure('센터 연결을 다시 확인해 주세요.');
+  }
+  ref.onDispose(image.dispose);
+  return image;
+}
+
+@riverpod
+Future<CenterSlideLayout> centerSlidePreview(
+  Ref ref,
+  AiSlideDraft draft,
+) async {
+  _requireCatalog(ref);
+  final recipe = draft.centerRecipe!;
+  await ref.watch(centerSlideBackgroundProvider(recipe).future);
+  if (!ref.mounted) throw const AiSlidesFailure('미리보기를 갱신하고 있어요.');
+  final layout = prepareCenterSlideLayout(recipe, draft);
+  ref.onDispose(layout.dispose);
+  return layout;
+}
+
+@riverpod
+PrivateSlideImageCache centerSlideImageCache(Ref ref) {
+  ref.watch(centerSlideTemplateActionsProvider);
+  final cache = PrivateSlideImageCache();
+  ref.listen(centerSlideCatalogProvider, (_, catalog) {
+    final templates = catalog.isLoading || catalog.hasError
+        ? null
+        : catalog.value?.templates;
+    cache.retainKeys({
+      for (final design in templates ?? <AiSlideDesign>[])
+        if (design.theme.centerRecipe?.thumbnail != null)
+          _thumbnailKey(design.theme.centerRecipe!),
+    });
+  }, fireImmediately: true);
+  final retention = ref.keepAlive();
+  Timer? release;
+  ref.onCancel(() {
+    release = Timer(const Duration(minutes: 2), retention.close);
+  });
+  ref.onResume(() {
+    release?.cancel();
+  });
+  ref.onDispose(() {
+    release?.cancel();
+    cache.dispose();
+  });
+  return cache;
+}
+
+@riverpod
+FutureOr<ui.Image?> centerSlideThumbnail(Ref ref, CenterSlideRecipe recipe) {
+  final actions = ref.watch(centerSlideTemplateActionsProvider);
+  _requireCatalog(ref);
+  final cache = ref.watch(centerSlideImageCacheProvider);
+  final key = _thumbnailKey(recipe);
+  final catalog = ref.read(centerSlideCatalogProvider).value;
+  if (!(catalog?.templates.any(
+        (design) => design.theme.centerRecipe == recipe,
+      ) ??
+      false)) {
+    throw const AiSlidesFailure('센터 템플릿이 변경되었습니다. 다시 선택해 주세요.');
+  }
+  ui.Image? retain(ui.Image? image) {
+    if (!ref.mounted) {
+      image?.dispose();
+      return null;
+    }
+    if (image != null) ref.onDispose(image.dispose);
+    return image;
+  }
+
+  final cached = cache.peek(key);
+  if (cached != null) return retain(cached);
+  return cache.load(key, () => actions.loadThumbnail(recipe)).then(retain);
+}
+
+String _thumbnailKey(CenterSlideRecipe recipe) =>
+    '${recipe.templateId}/${recipe.revision}/${recipe.thumbnail?.sha256}';

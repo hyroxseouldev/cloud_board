@@ -14,6 +14,8 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_sli
 const centerSlideAuthorityLifetime = Duration(hours: 6);
 const centerSlideBackgroundMaxBytes = 10 * 1024 * 1024;
 const _assetCacheBudget = 20 * 1024 * 1024;
+const centerSlideAssetRequestLimit = 3;
+const centerSlideThumbnailMaxBytes = 1024 * 1024;
 
 class CenterSlideDocument {
   const CenterSlideDocument({required this.data, required this.fromCache});
@@ -51,7 +53,8 @@ class CenterSlideCatalogDataSource {
   final _authorityInvalidationListeners = <void Function()>{};
   final _assets = <String, Uint8List>{};
   final _assetRequests = <String, Future<Uint8List>>{};
-  int _assetBytes = 0, _generation = 0;
+  int _assetBytes = 0, _generation = 0, _activeRequests = 0;
+  final _requestSlots = <Completer<void>>[];
   bool _disposed = false;
   CenterSlideCatalogModel? _catalog;
   String? _catalogFingerprint;
@@ -183,9 +186,22 @@ class CenterSlideCatalogDataSource {
         final fingerprint = jsonEncode(model.toJson());
         if (fingerprint != _catalogFingerprint) {
           _invalidateAuthorityGeneration();
-          _assets.clear();
+          final allowed = <String>{
+            for (final entry in model.entries.where(
+              (entry) => entry.published && entry.recipe != null,
+            ))
+              for (final path in [
+                entry.recipe!.backgroundPath,
+                entry.recipe!.thumbnail?.path,
+              ])
+                if (path != null) '$cacheScope/${entry.recipe!.revision}/$path',
+          };
+          _assets.removeWhere((key, _) => !allowed.contains(key));
+          _assetBytes = _assets.values.fold(
+            0,
+            (total, bytes) => total + bytes.length,
+          );
           _assetRequests.clear();
-          _assetBytes = 0;
           _catalogFingerprint = fingerprint;
         }
         _catalog = model;
@@ -227,11 +243,11 @@ class CenterSlideCatalogDataSource {
     _assetBytes = 0;
   }
 
-  Future<void> _requireAuthority() async {
+  Future<void> _requireAuthority({bool fresh = false}) async {
     ensureCurrent(ownerId);
-    if (_authorized) return;
+    if (_authorized && !fresh) return;
     if (_authorityRead != null) return _authorityRead!;
-    if (_catalog != null) _forget();
+    if (_catalog != null && !_authorized) _forget();
     final generation = _generation;
     final request = () async {
       try {
@@ -291,8 +307,9 @@ class CenterSlideCatalogDataSource {
 
   Future<int> authorizeRecipe(
     String requestedOwner,
-    CenterSlideRecipe recipe,
-  ) async {
+    CenterSlideRecipe recipe, {
+    bool fresh = false,
+  }) async {
     ensureCurrent(requestedOwner, requestedCenter: recipe.centerId);
     if (validateCenterSlideRecipe(recipe) != null) {
       throw const AiSlidesFailure(
@@ -300,7 +317,7 @@ class CenterSlideCatalogDataSource {
         code: 'center_recipe_invalid',
       );
     }
-    await _requireAuthority();
+    await _requireAuthority(fresh: fresh);
     ensureRecipeAuthorized(requestedOwner, recipe);
     return _generation;
   }
@@ -308,12 +325,23 @@ class CenterSlideCatalogDataSource {
   Future<Uint8List?> loadBackground(
     String requestedOwner,
     CenterSlideRecipe recipe,
-  ) async {
+  ) => _loadAsset(requestedOwner, recipe, thumbnail: false);
+
+  Future<Uint8List?> loadThumbnail(
+    String requestedOwner,
+    CenterSlideRecipe recipe,
+  ) => _loadAsset(requestedOwner, recipe, thumbnail: true);
+
+  Future<Uint8List?> _loadAsset(
+    String requestedOwner,
+    CenterSlideRecipe recipe, {
+    required bool thumbnail,
+  }) async {
     final generation = await authorizeRecipe(requestedOwner, recipe);
     ensureRecipeAuthorized(requestedOwner, recipe, generation: generation);
-    final path = recipe.backgroundPath;
+    final path = thumbnail ? recipe.thumbnail?.path : recipe.backgroundPath;
     if (path == null) return null;
-    final key = '$cacheScope/$path';
+    final key = '$cacheScope/${recipe.revision}/$path';
     final cached = _assets.remove(key);
     if (cached != null) {
       _assets[key] = cached;
@@ -328,6 +356,12 @@ class CenterSlideCatalogDataSource {
       path: path,
       key: key,
       generation: generation,
+      digest: thumbnail ? recipe.thumbnail!.sha256 : recipe.backgroundSha256!,
+      width: thumbnail ? recipe.thumbnail!.width : recipe.width,
+      height: thumbnail ? recipe.thumbnail!.height : recipe.height,
+      maximumBytes: thumbnail
+          ? centerSlideThumbnailMaxBytes
+          : centerSlideBackgroundMaxBytes,
     );
     try {
       final result = await pending;
@@ -346,6 +380,50 @@ class CenterSlideCatalogDataSource {
     required String path,
     required String key,
     required int generation,
+    required String digest,
+    required int width,
+    required int height,
+    required int maximumBytes,
+  }) async {
+    if (_activeRequests >= centerSlideAssetRequestLimit) {
+      final ready = Completer<void>();
+      _requestSlots.add(ready);
+      await ready.future;
+    } else {
+      _activeRequests++;
+    }
+    try {
+      ensureRecipeAuthorized(requestedOwner, recipe, generation: generation);
+      return await _download(
+        requestedOwner,
+        recipe,
+        path: path,
+        key: key,
+        generation: generation,
+        digest: digest,
+        width: width,
+        height: height,
+        maximumBytes: maximumBytes,
+      );
+    } finally {
+      if (_requestSlots.isNotEmpty) {
+        _requestSlots.removeAt(0).complete();
+      } else {
+        _activeRequests--;
+      }
+    }
+  }
+
+  Future<Uint8List> _download(
+    String requestedOwner,
+    CenterSlideRecipe recipe, {
+    required String path,
+    required String key,
+    required int generation,
+    required String digest,
+    required int width,
+    required int height,
+    required int maximumBytes,
   }) async {
     final token = await idToken();
     ensureCurrent(
@@ -396,7 +474,7 @@ class CenterSlideCatalogDataSource {
         code: 'center_asset_unavailable',
       );
     }
-    if ((response.contentLength ?? 0) > centerSlideBackgroundMaxBytes) {
+    if ((response.contentLength ?? 0) > maximumBytes) {
       await response.stream.listen((_) {}).cancel();
       throw const AiSlidesFailure(
         '센터 이미지 크기를 확인해 주세요.',
@@ -412,7 +490,7 @@ class CenterSlideCatalogDataSource {
         requestedCenter: recipe.centerId,
         generation: generation,
       );
-      if (bytes.length + chunk.length > centerSlideBackgroundMaxBytes) {
+      if (bytes.length + chunk.length > maximumBytes) {
         throw const AiSlidesFailure(
           '센터 이미지 크기를 확인해 주세요.',
           code: 'center_asset_too_large',
@@ -444,9 +522,9 @@ class CenterSlideCatalogDataSource {
         result[5] != 10 ||
         result[6] != 26 ||
         result[7] != 10 ||
-        sha256.convert(result).toString() != recipe.backgroundSha256 ||
-        ByteData.sublistView(result).getUint32(16) != recipe.width ||
-        ByteData.sublistView(result).getUint32(20) != recipe.height) {
+        sha256.convert(result).toString() != digest ||
+        ByteData.sublistView(result).getUint32(16) != width ||
+        ByteData.sublistView(result).getUint32(20) != height) {
       throw const AiSlidesFailure(
         '센터 이미지가 등록된 원본과 다릅니다.',
         code: 'center_asset_integrity',

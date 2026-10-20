@@ -12,6 +12,8 @@ part 'ai_slides_editor.freezed.dart';
 abstract class AiSlideTheme with _$AiSlideTheme {
   const factory AiSlideTheme({
     CenterSlideRecipe? centerRecipe,
+    int? centerColumns,
+    double? centerFontSize,
     SlideDesignStyle? designStyle,
     int? designBackgroundColor,
     int? designTextColor,
@@ -60,6 +62,8 @@ abstract class AiSlidesEditorState with _$AiSlidesEditorState {
 
 AiSlideTheme aiSlideThemeFromDraft(AiSlideDraft draft) => AiSlideTheme(
   centerRecipe: draft.centerRecipe,
+  centerColumns: draft.centerColumns,
+  centerFontSize: draft.centerFontSize,
   designStyle: draft.designStyle,
   designBackgroundColor: draft.designBackgroundColor,
   designTextColor: draft.designTextColor,
@@ -77,6 +81,8 @@ AiSlideTheme aiSlideThemeFromDraft(AiSlideDraft draft) => AiSlideTheme(
 AiSlideDraft applyAiSlideTheme(AiSlideDraft draft, AiSlideTheme theme) =>
     draft.copyWith(
       centerRecipe: theme.centerRecipe,
+      centerColumns: theme.centerColumns,
+      centerFontSize: theme.centerFontSize,
       layout: theme.designStyle == null
           ? draft.layout
           : theme.designStyle!.family == 'editorial'

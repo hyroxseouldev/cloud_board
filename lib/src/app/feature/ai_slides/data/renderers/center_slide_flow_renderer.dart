@@ -6,7 +6,8 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_sli
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_flow.dart';
 
 const centerSlideFlowMinimumOutputFontSize = 32.0;
-const _overflowMessage = '읽기 좋은 글자 크기로 한 장에 담기 어려워요. 내용을 여러 슬라이드로 나눠 주세요.';
+const _overflowMessage =
+    '선택한 글자 크기와 배치에 내용이 넘쳐요. 문구를 줄이거나 슬라이드를 나눠 주세요. 자동 맞춤은 직접 선택할 수 있어요.';
 
 /// Caller-owned measured layout. Every section has one placement and is never
 /// split between columns. [dispose] releases all native TextPainter handles.
@@ -25,7 +26,7 @@ class CenterSlideFlowLayout {
 
   void paint(Canvas canvas) {
     canvas.save();
-    canvas.clipRect(bounds, doAntiAlias: false);
+
     for (final placement in placements) {
       placement._painter.paint(canvas, placement.bounds.topLeft);
     }
@@ -55,13 +56,15 @@ class CenterSlideFlowPlacement {
   final TextPainter _painter;
 }
 
-/// Tries contiguous, balanced partitions at each allowed column count. The
-/// largest readable output font wins; stack is preferred on an auto-mode tie.
-/// A columns preference still allows a wider stacked fallback for long blocks.
+/// A selected template keeps its columns and font size even for shorter text.
+/// Only the explicit Auto fit action may reduce the body size.
 CenterSlideFlowLayout layoutCenterSlideFlow({
   required CenterSlideRecipe recipe,
   required List<String> lines,
   required double outputScale,
+  int? fixedColumns,
+  double? fontSize,
+  bool autoFit = false,
 }) {
   final error = validateCenterSlideRecipe(recipe);
   if (error != null) throw FormatException(error);
@@ -79,57 +82,26 @@ CenterSlideFlowLayout layoutCenterSlideFlow({
     body.width * recipe.width,
     body.height * recipe.height,
   );
-  final maximum = math
-      .min(body.fontSize * outputScale, bounds.height * outputScale / 1.2)
-      .floor();
-  final minimum = centerSlideFlowMinimumOutputFontSize.toInt();
-  if (maximum < minimum) throw const FormatException(_overflowMessage);
-  final columns = body.layout == 'stack'
-      ? 1
-      : math.min(body.maxColumns, sections.length);
-  CenterSlideFlowLayout? best;
-  CenterSlideFlowLayout? candidate;
-  try {
-    for (var count = 1; count <= columns; count++) {
-      var low = minimum;
-      var high = maximum;
-      candidate = null;
-      while (low <= high) {
-        final size = (low + high) ~/ 2;
-        final measured = _measure(
-          body,
-          sections,
-          bounds,
-          count,
-          size / outputScale,
-        );
-        if (measured == null) {
-          high = size - 1;
-        } else {
-          candidate?.dispose();
-          candidate = measured;
-          low = size + 1;
-        }
-      }
-      if (candidate == null) continue;
-      if (best == null ||
-          candidate.fontSize > best.fontSize ||
-          (candidate.fontSize == best.fontSize &&
-              body.layout == 'columns' &&
-              candidate.columns > best.columns)) {
-        best?.dispose();
-        best = candidate;
-      } else {
-        candidate.dispose();
-      }
-      candidate = null;
+  final columns =
+      fixedColumns ?? (body.layout == 'columns' ? body.maxColumns : 1);
+  final size = fontSize ?? body.fontSize;
+  if (columns < 1 ||
+      columns > body.maxColumns ||
+      !size.isFinite ||
+      size <= 0 ||
+      size > body.fontSize ||
+      size * outputScale < centerSlideFlowMinimumOutputFontSize) {
+    throw const FormatException(_overflowMessage);
+  }
+  var candidateSize = size;
+  while (true) {
+    final measured = _measure(body, sections, bounds, columns, candidateSize);
+    if (measured != null) return measured;
+    candidateSize -= 1 / outputScale;
+    if (!autoFit ||
+        candidateSize * outputScale < centerSlideFlowMinimumOutputFontSize) {
+      throw const FormatException(_overflowMessage);
     }
-    if (best == null) throw const FormatException(_overflowMessage);
-    return best;
-  } catch (_) {
-    candidate?.dispose();
-    best?.dispose();
-    rethrow;
   }
 }
 
@@ -193,13 +165,24 @@ CenterSlideFlowLayout? _measure(
         return null;
       }
     }
-    final ends = _balancedPartition(
-      painters.map((painter) => painter.height).toList(),
+    // Stable section-to-column assignment, never balanced again on keystrokes.
+    final ends = List.generate(
       columns,
-      sectionGap,
-      bounds.height,
+      (column) => column == columns - 1
+          ? sections.length
+          : math.min(column + 1, sections.length),
     );
-    if (ends == null) return null;
+    var begin = 0;
+    for (final end in ends) {
+      final height =
+          painters
+              .skip(begin)
+              .take(end - begin)
+              .fold<double>(0, (sum, painter) => sum + painter.height) +
+          math.max(0, end - begin - 1) * sectionGap;
+      if (height > bounds.height + .01) return null;
+      begin = end;
+    }
     final placements = <CenterSlideFlowPlacement>[];
     var start = 0;
     for (var column = 0; column < columns; column++) {
@@ -238,50 +221,4 @@ CenterSlideFlowLayout? _measure(
       }
     }
   }
-}
-
-/// Minimax partition of ordered section heights. DP keeps order and chooses
-/// deterministic early boundaries on ties, rather than splitting a section.
-List<int>? _balancedPartition(
-  List<double> heights,
-  int columns,
-  double gap,
-  double maxHeight,
-) {
-  final count = heights.length;
-  final prefix = <double>[0];
-  for (final height in heights) {
-    prefix.add(prefix.last + height);
-  }
-  double height(int start, int end) =>
-      prefix[end] - prefix[start] + gap * (end - start - 1);
-  final costs = List.generate(
-    columns + 1,
-    (_) => List<double>.filled(count + 1, double.infinity),
-  );
-  final previous = List.generate(
-    columns + 1,
-    (_) => List<int>.filled(count + 1, -1),
-  );
-  costs[0][0] = 0;
-  for (var column = 1; column <= columns; column++) {
-    for (var end = column; end <= count; end++) {
-      for (var start = column - 1; start < end; start++) {
-        final cost = math.max(costs[column - 1][start], height(start, end));
-        if (cost < costs[column][end]) {
-          costs[column][end] = cost;
-          previous[column][end] = start;
-        }
-      }
-    }
-  }
-  if (costs[columns][count] > maxHeight + .01) return null;
-  final ends = List<int>.filled(columns, count);
-  var end = count;
-  for (var column = columns; column > 0; column--) {
-    ends[column - 1] = end;
-    end = previous[column][end];
-    if (end < 0) return null;
-  }
-  return ends;
 }

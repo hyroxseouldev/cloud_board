@@ -18,6 +18,24 @@ const studioSlideDesigns = <String, String>{
   'studio-v1-interval': '인터벌',
 };
 
+// New creations persist their typography contract in the existing versioned ID.
+// Older clients preserve this string and display the final PNG instead.
+const creationSlideDesigns = <String, String>{
+  'stationd-v3-numbered': '웜업 · 번호 목록',
+  'stationd-v3-list': '운동 목록',
+  'stationd-v3-interval': '인터벌',
+};
+
+const creationStudioSlideDesigns = <String, String>{
+  'studio-v2-numbered': '번호 목록',
+  'studio-v2-list': '운동 목록',
+  'studio-v2-interval': '인터벌',
+};
+
+bool isCreationSlideDesign(WorkoutModule module) =>
+    creationSlideDesigns.containsKey(module.designTemplate) ||
+    creationStudioSlideDesigns.containsKey(module.designTemplate);
+
 // Opt-in for newly created examples only. Older clients keep the saved PNG;
 // existing starter IDs are deliberately not used to infer a new design.
 const starterIllustratedDesign = 'starter-v1-illustrated';
@@ -35,6 +53,7 @@ const slideDesignFontFamilies = <String, String>{'sans': '고딕', 'serif': '명
 
 bool isStudioSlideDesign(WorkoutModule module) =>
     studioSlideDesigns.containsKey(module.designTemplate) ||
+    creationStudioSlideDesigns.containsKey(module.designTemplate) ||
     isIllustratedStarterDesign(module);
 
 bool _supportsStudioStyle(WorkoutModule module) {
@@ -116,7 +135,8 @@ String? slideDesignKind(WorkoutModule module) {
   if (isIllustratedStarterDesign(module)) return 'numbered';
   if (!slideDesigns.containsKey(template) &&
       !legacySlideDesigns.containsKey(template) &&
-      !studioSlideDesigns.containsKey(template)) {
+      !studioSlideDesigns.containsKey(template) &&
+      !isCreationSlideDesign(module)) {
     return null;
   }
   return template!.split('-').last;
@@ -126,7 +146,11 @@ bool hasSlideDesign(WorkoutModule module) => slideDesignKind(module) != null;
 
 /// Keep an existing v1 selection valid without duplicate labels in the editor.
 Map<String, String> slideDesignOptions(WorkoutModule module) =>
-    isIllustratedStarterDesign(module)
+    creationStudioSlideDesigns.containsKey(module.designTemplate)
+    ? creationStudioSlideDesigns
+    : creationSlideDesigns.containsKey(module.designTemplate)
+    ? creationSlideDesigns
+    : isIllustratedStarterDesign(module)
     ? {starterIllustratedDesign: '운동 일러스트', ...studioSlideDesigns}
     : isStudioSlideDesign(module)
     ? studioSlideDesigns

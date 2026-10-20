@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_flow.dart';
+
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
@@ -176,7 +178,18 @@ class CenterSlideCatalogEntryModel {
   AiSlideDesign toEntity(String centerId) {
     final original = originalTemplateId;
     final theme = original == null
-        ? AiSlideTheme(centerRecipe: recipe, showTimer: false)
+        ? AiSlideTheme(
+            centerRecipe: recipe,
+            centerColumns: recipe?.body == null
+                ? null
+                : recipe!.body!.layout == 'columns'
+                ? recipe!.body!.maxColumns
+                : recipe!.body!.layout == 'stack'
+                ? 1
+                : parseCenterSlideSections(sample!.lines).length
+                      .clamp(1, recipe!.body!.maxColumns),
+            showTimer: false,
+          )
         : customerReferenceDesigns
               .firstWhere(
                 (design) =>
@@ -194,7 +207,10 @@ class CenterSlideCatalogEntryModel {
       description: description,
       storeId: centerId,
       theme: theme,
-      sample: content.copyWith(centerRecipe: recipe),
+      sample: content.copyWith(
+        centerRecipe: recipe,
+        centerColumns: theme.centerColumns,
+      ),
     );
   }
 
