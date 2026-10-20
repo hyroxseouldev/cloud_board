@@ -3,6 +3,7 @@ import 'package:cloud_board/src/app/feature/operations/data/operation_event_writ
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 
 import 'dart:async';
 
@@ -747,18 +748,32 @@ Future<void> updateDisplayHeartbeat(
   String ownerId,
   String deviceId, {
   bool ready = false,
+  DisplayHeartbeatPolicy? policy,
+  String? connectionId,
 }) async {
   final deviceRef = database.ref('users/$ownerId/devices/$deviceId');
   final result = await deviceRef.runTransaction((current) {
     if (current == null) return Transaction.success(null);
     if (current is! Map ||
         !isRegisteredDisplay(current) ||
-        current['id'] != deviceId) {
+        current['id'] != deviceId ||
+        (connectionId != null &&
+            current['currentConnectionId'] != connectionId)) {
+      return Transaction.abort();
+    }
+    final previousPolicy = current['heartbeatPolicy'];
+    if (policy != null &&
+        previousPolicy is Map &&
+        previousPolicy['connectionId'] == connectionId &&
+        previousPolicy['revision'] is int &&
+        (previousPolicy['revision'] as int) > policy.revision) {
       return Transaction.abort();
     }
     final update = <Object?, Object?>{
       ...current,
       'lastSeenAtMs': ServerValue.timestamp,
+      if (policy != null && connectionId != null)
+        'heartbeatPolicy': {...policy.toJson(), 'connectionId': connectionId},
     };
     if (current['presenceProtocol'] == 1) {
       final id = current['currentConnectionId'];
@@ -811,6 +826,10 @@ DisplayDevice decodeDisplayDevice(String deviceId, Map value) {
     verifiedAtMs: (verification['verifiedAtMs'] as num?)?.toInt() ?? 0,
     readyAtMs: (presence['readyAtMs'] as num?)?.toInt() ?? 0,
     recoveryProtocol: (item['recoveryProtocol'] as num?)?.toInt() ?? 0,
+    heartbeatPolicy: DisplayHeartbeatPolicy.fromDevice(
+      item['heartbeatPolicy'],
+      connectionId: usesScopedPresence ? connectionId : null,
+    ),
     preparationHealth: DisplayPreparationHealth(
       stage: (health['stage'] as String?) ?? '',
       code: (health['code'] as String?) ?? '',

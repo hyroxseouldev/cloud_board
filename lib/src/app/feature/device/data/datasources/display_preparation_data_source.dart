@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 import 'package:cloud_board/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:cloud_board/src/app/feature/device/data/models/display_preparation_model.dart';
@@ -59,8 +60,19 @@ class DisplayPreparationDataSource {
     'imageCount': imageCount,
     'audioReady': audioReady,
   });
-  Future<void> heartbeat(String deviceId, {bool ready = false}) =>
-      updateDisplayHeartbeat(database, ownerId, deviceId, ready: ready);
+  Future<void> heartbeat(
+    String deviceId, {
+    bool ready = false,
+    DisplayHeartbeatPolicy? policy,
+    String? connectionId,
+  }) => updateDisplayHeartbeat(
+    database,
+    ownerId,
+    deviceId,
+    ready: ready,
+    policy: policy,
+    connectionId: connectionId,
+  );
 
   Future<void> reportHealth(
     String deviceId, {
