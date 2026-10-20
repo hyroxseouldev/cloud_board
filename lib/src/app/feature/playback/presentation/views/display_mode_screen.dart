@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_recovery.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_image_retention.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
@@ -75,12 +76,21 @@ class DisplayModeScreen extends HookConsumerWidget {
 
     ref.listen(playbackConnectionProvider, (previous, next) {
       if (previous?.value == false && next.value == true) refreshDisplayData();
+      if (previous?.value == true && next.value == false) {
+        ref
+            .read(playbackRecoveryControllerProvider.notifier)
+            .recordDisplayConnection(
+              connected: false,
+              session: ref.read(displayPlaybackSessionProvider),
+            );
+      }
     });
     useOnAppLifecycleStateChange((previous, next) {
       if (next == AppLifecycleState.resumed) refreshDisplayData();
     });
     final deviceId = ref.watch(deviceIdProvider).value;
-    final devices = ref.watch(displayDevicesProvider).value ?? const [];
+    final deviceValues = ref.watch(displayDevicesProvider);
+    final devices = deviceValues.value ?? const [];
     final brand =
         ref.watch(effectiveBrandTemplateProvider).value ??
         BrandTemplate.initial();
@@ -153,6 +163,56 @@ class DisplayModeScreen extends HookConsumerWidget {
         ownerScope.value != null;
     final displaySession = ref.watch(displayPlaybackSessionProvider);
     final session = scopeReady ? displaySession : null;
+    final retainedImages = ref.watch(displayImageRetentionProvider);
+    useEffect(
+      () {
+        if (connected &&
+            !active.isLoading &&
+            !active.hasError &&
+            recovery.hasValue &&
+            !recovery.isLoading &&
+            !recovery.hasError) {
+          ref
+              .read(playbackRecoveryControllerProvider.notifier)
+              .recordDisplayConnection(connected: true, session: session);
+        }
+        return null;
+      },
+      [
+        connected,
+        active.isLoading,
+        active.hasError,
+        recovery.hasValue,
+        recovery.isLoading,
+        recovery.hasError,
+        deviceId,
+        currentDevice?.paired,
+        scopeReady,
+      ],
+    );
+    final completedLocally =
+        session != null &&
+        ref
+            .read(displayPlaybackSessionProvider.notifier)
+            .completedLocally(session.id);
+    useEffect(
+      () {
+        if (!scopeReady ||
+            (!deviceValues.isLoading &&
+                !deviceValues.hasError &&
+                currentDevice?.paired != true)) {
+          retainedImages.clear();
+        }
+        return null;
+      },
+      [
+        scopeReady,
+        deviceValues.isLoading,
+        deviceValues.hasError,
+        currentDevice?.paired,
+        retainedImages,
+      ],
+    );
     useDisplayRecovery(
       context,
       ref,
@@ -175,6 +235,7 @@ class DisplayModeScreen extends HookConsumerWidget {
         session != null &&
         session.status != PlaybackStatus.completed &&
         targetsThisDevice &&
+        !completedLocally &&
         finishedSessionId.value != session.id &&
         session.workout.modules.isNotEmpty;
     useDisplayPreparation(
@@ -204,6 +265,7 @@ class DisplayModeScreen extends HookConsumerWidget {
         session != null &&
         session.status == PlaybackStatus.completed &&
         targetsThisDevice &&
+        !completedLocally &&
         finishedSessionId.value != session.id &&
         now.value.millisecondsSinceEpoch +
                 serverOffset -
@@ -233,10 +295,12 @@ class DisplayModeScreen extends HookConsumerWidget {
                 context,
                 workoutImageWindow(
                   session.workout,
-                  count: 2,
+                  count: session.workout.modules.length,
                   includeCountdown: true,
                 ),
                 isCancelled: () => cancelled,
+                retention: retainedImages,
+                continueOnError: true,
               ).catchError((Object error) {
                 debugPrint('Display image preparation failed: $error');
                 return 0;

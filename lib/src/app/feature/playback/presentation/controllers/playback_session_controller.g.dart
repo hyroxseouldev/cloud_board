@@ -214,7 +214,7 @@ final class PlaybackRecoveryControllerProvider
 }
 
 String _$playbackRecoveryControllerHash() =>
-    r'121f4966dea6f421d0ceaf23d16bdf545165b8a1';
+    r'10694cc6addba72a4bb6695f7550c60eec7d3dac';
 
 /// Blocks controller commands until a foreground server handshake completes.
 /// Every caller joins the same read-only handshake. Cancellation invalidates its
