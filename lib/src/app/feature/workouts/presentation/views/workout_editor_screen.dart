@@ -4,6 +4,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_confli
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_recovery_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_recovery_repository.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_load_failure.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/saved_slide_chips.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:async';
@@ -319,7 +320,6 @@ class _EditorBody extends HookConsumerWidget {
       text: (initialDraft ?? initial).folder,
     );
     final slideScroll = useScrollController();
-    final templateScroll = useScrollController();
     final selectedSlide = useState<String?>(null);
     final rowExtent = WorkoutSlideListCard.extent(
       MediaQuery.textScalerOf(context),
@@ -327,9 +327,9 @@ class _EditorBody extends HookConsumerWidget {
     const slideListPadding = EdgeInsets.fromLTRB(24, 12, 24, 96);
     useListenable(name);
     useListenable(folder);
-    final templatesProvider = slideTemplatesControllerProvider(
-      ref.watch(authStateProvider).value?.id ?? initial.ownerId,
-    );
+    final templateScope =
+        ref.watch(authStateProvider).value?.id ?? initial.ownerId;
+    final templatesProvider = slideTemplatesControllerProvider(templateScope);
     final templates = ref.watch(templatesProvider);
     final favoriteTemplates = templates.value ?? <WorkoutModule>[];
     final launching = useState(false);
@@ -827,100 +827,41 @@ class _EditorBody extends HookConsumerWidget {
                                 ),
                               ),
                             ),
-                            SizedBox(
-                              height: 48,
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child:
-                                        templates.isLoading &&
-                                            !templates.hasError &&
-                                            !templates.hasValue
-                                        ? const Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            ),
-                                          )
-                                        : templates.hasError
-                                        ? TextButton(
-                                            onPressed: () => ref.invalidate(
-                                              templatesProvider,
-                                            ),
-                                            child: const Text('칩 불러오기 다시 시도'),
-                                          )
-                                        : favoriteTemplates.isEmpty
-                                        ? Text(
-                                            draft.value.modules.isEmpty
-                                                ? '첫 운동 화면을 추가해 수업을 시작해 보세요.'
-                                                : '저장한 슬라이드를 여기에서 빠르게 추가할 수 있어요',
-                                            style: const TextStyle(
-                                              color: XonColors.muted,
-                                              fontSize: 12,
-                                            ),
-                                          )
-                                        : Scrollbar(
-                                            controller: templateScroll,
-                                            thumbVisibility: true,
-                                            child: ListView.separated(
-                                              controller: templateScroll,
-                                              padding: const EdgeInsets.only(
-                                                bottom: 6,
-                                              ),
-                                              key: const ValueKey(
-                                                'workout-slide-templates',
-                                              ),
-                                              scrollDirection: Axis.horizontal,
-                                              itemCount:
-                                                  favoriteTemplates.length,
-                                              separatorBuilder: (_, _) =>
-                                                  const SizedBox(width: 8),
-                                              itemBuilder: (context, index) {
-                                                final template =
-                                                    favoriteTemplates[index];
-                                                return Center(
-                                                  child: Tooltip(
-                                                    message:
-                                                        '${template.name} · ${moduleDurationText(template)} 추가',
-                                                    child: InputChip(
-                                                      label: ConstrainedBox(
-                                                        constraints:
-                                                            const BoxConstraints(
-                                                              maxWidth: 180,
-                                                            ),
-                                                        child: Text(
-                                                          template.name,
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ),
-                                                      backgroundColor:
-                                                          AppColors.selected,
-                                                      deleteButtonTooltipMessage:
-                                                          '${template.name} 칩 삭제',
-                                                      onPressed:
-                                                          isBusy ||
-                                                              templates
-                                                                  .isLoading
-                                                          ? null
-                                                          : () => addSlide(
-                                                              template,
-                                                            ),
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ),
+                            if (templates.isLoading &&
+                                !templates.hasError &&
+                                !templates.hasValue)
+                              const SizedBox(
+                                height: 48,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
-                                ],
+                                ),
+                              )
+                            else if (templates.hasError)
+                              TextButton(
+                                onPressed: () =>
+                                    ref.invalidate(templatesProvider),
+                                child: const Text('칩 불러오기 다시 시도'),
+                              )
+                            else
+                              SavedSlideChips(
+                                key: ValueKey(
+                                  'saved-slide-chips-$templateScope',
+                                ),
+                                scope: templateScope,
+                                templates: favoriteTemplates,
+                                enabled: !isBusy && !templates.isLoading,
+                                onAdd: addSlide,
+                                emptyMessage: draft.value.modules.isEmpty
+                                    ? '첫 운동 화면을 추가해 수업을 시작해 보세요.'
+                                    : '저장한 슬라이드를 여기에서 빠르게 추가할 수 있어요',
                               ),
-                            ),
                             const Divider(height: 1, color: AppColors.line),
                           ],
                         ),

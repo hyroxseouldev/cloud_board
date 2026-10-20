@@ -46,6 +46,8 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_preferences_repository.dart';
 
+import 'support/workout_catalog_fixture.dart' show fixtureSavedSlideOrder;
+
 // Real generated controller/actions/preferences/preparation providers. Only
 // platform data repositories are replaced; autoDispose is never overridden.
 final _workout =
@@ -467,6 +469,7 @@ class _Harness {
     );
     h.container = ProviderContainer(
       overrides: [
+        fixtureSavedSlideOrder,
         memoryWorkoutRecovery,
         if (captureReceipts)
           accountOwnerIdProvider.overrideWith((_) => Stream.value('owner')),

@@ -94,6 +94,7 @@ void main() {
               ),
             ),
             fixtureWorkoutDetails,
+            fixtureSavedSlideOrder,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
             workoutPreferencesRepositoryProvider.overrideWithValue(
               FixtureWorkoutPreferences(ownerId: 'u'),
@@ -168,6 +169,7 @@ void main() {
               ),
             ),
             fixtureWorkoutDetails,
+            fixtureSavedSlideOrder,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
             workoutPreferencesRepositoryProvider.overrideWithValue(
               FixtureWorkoutPreferences(ownerId: 'u'),
@@ -685,6 +687,7 @@ void main() {
               ),
             ),
             fixtureWorkoutDetails,
+            fixtureSavedSlideOrder,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
             accountWorkoutPreferencesProvider('u')
                 .overrideWith((ref) async => const WorkoutPreferences()),
@@ -1168,6 +1171,7 @@ void main() {
                 ),
               ),
               fixtureWorkoutDetails,
+              fixtureSavedSlideOrder,
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
               accountWorkoutPreferencesProvider('u')
                   .overrideWith((ref) async => const WorkoutPreferences()),
@@ -1343,6 +1347,7 @@ void main() {
               ),
             ),
             fixtureWorkoutDetails,
+            fixtureSavedSlideOrder,
             workoutControllerProvider.overrideWith(_TestWorkouts.new),
             accountWorkoutPreferencesProvider('u')
                 .overrideWith((ref) async => const WorkoutPreferences()),
@@ -1480,6 +1485,7 @@ void main() {
                 ),
               ),
               fixtureWorkoutDetails,
+              fixtureSavedSlideOrder,
               workoutControllerProvider.overrideWith(_TestWorkouts.new),
               accountWorkoutPreferencesProvider('u')
                   .overrideWith((ref) async => const WorkoutPreferences()),

@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'support/workout_catalog_fixture.dart' show fixtureSavedSlideOrder;
+
 final original =
     Workout.empty(
       'w',
@@ -36,6 +38,7 @@ void main() {
         final container = ProviderContainer(
           retry: (_, _) => null,
           overrides: [
+            fixtureSavedSlideOrder,
             authStateProvider.overrideWith(
               (ref) => Stream.value(
                 const AuthUser(

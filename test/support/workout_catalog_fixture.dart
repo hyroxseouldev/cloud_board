@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/saved_slide_order_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_summary.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
@@ -34,4 +35,18 @@ class FixtureWorkoutDetail extends WorkoutDetail {
 
 final fixtureWorkoutDetails = workoutDetailProvider.overrideWith2(
   (_) => FixtureWorkoutDetail(),
+);
+
+// Existing editor tests isolate order persistence; its real controller and
+// repository are exercised separately in saved_slide_order/chips tests.
+class FixtureSavedSlideOrder extends SavedSlideOrderController {
+  @override
+  SavedSlideOrderState build(String scope) =>
+      const SavedSlideOrderState(ready: true);
+  @override
+  Future<void> synchronize(List<String> liveIds) async {}
+}
+
+final fixtureSavedSlideOrder = savedSlideOrderControllerProvider.overrideWith(
+  FixtureSavedSlideOrder.new,
 );
