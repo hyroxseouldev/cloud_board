@@ -36,6 +36,7 @@ import 'package:cloud_board/src/app/feature/playback/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 
@@ -180,6 +181,10 @@ class DisplayModeScreen extends HookConsumerWidget {
       context,
       ref,
       deviceId: deviceId,
+      ownerId: scopeReady ? ownerScope.value : null,
+      connectionId: currentDevice?.connectionId,
+      initialHeartbeatPolicy:
+          currentDevice?.heartbeatPolicy ?? DisplayHeartbeatPolicy.target,
       paired:
           scopeReady &&
           pairing.hasValue &&

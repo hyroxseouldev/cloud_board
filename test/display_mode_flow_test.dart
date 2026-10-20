@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -84,7 +86,12 @@ class _PreparationStreams implements DisplayPreparationRepository {
   }
 
   @override
-  Future<void> heartbeat(String deviceId, {bool ready = false}) async {
+  Future<void> heartbeat(
+    String deviceId, {
+    bool ready = false,
+    DisplayHeartbeatPolicy? policy,
+    String? connectionId,
+  }) async {
     heartbeats++;
   }
 
