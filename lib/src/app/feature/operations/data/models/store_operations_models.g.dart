@@ -141,6 +141,7 @@ OperationEventModel _$OperationEventModelFromJson(Map<String, dynamic> json) =>
       incidentId: json['incidentId'] as String?,
       recoveryOfEventId: json['recoveryOfEventId'] as String?,
       playbackImpact: json['playbackImpact'] as String?,
+      connected: json['connected'] as bool?,
       targetDeviceIds:
           (json['targetDeviceIds'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -182,6 +183,7 @@ Map<String, dynamic> _$OperationEventModelToJson(
   'incidentId': instance.incidentId,
   'recoveryOfEventId': instance.recoveryOfEventId,
   'playbackImpact': instance.playbackImpact,
+  'connected': instance.connected,
   'targetDeviceIds': instance.targetDeviceIds,
   'targetDeviceNames': instance.targetDeviceNames,
   'targetDeviceVersions': instance.targetDeviceVersions,

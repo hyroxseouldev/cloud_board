@@ -246,10 +246,20 @@ class PlayerController extends _$PlayerController {
       if (_restoringDisplayAudio) {
         _restoringDisplayAudio = false;
         _restoreAudioPosition();
+        if (!canControl && sessionId != null && index >= steps.length) {
+          ref
+              .read(displayPlaybackSessionProvider.notifier)
+              .finishLocally(sessionId);
+        }
         return;
       }
       if (index >= steps.length) {
         _announceCompletion();
+        if (!canControl && sessionId != null) {
+          ref
+              .read(displayPlaybackSessionProvider.notifier)
+              .finishLocally(sessionId);
+        }
       } else if (forTimeEnded) {
         _announceTimerEnd();
       } else if (initial.countdownMs > 0) {
@@ -398,6 +408,11 @@ class PlayerController extends _$PlayerController {
           isPaused: true,
         );
         _announceCompletion();
+        if (!canControl && sessionId != null) {
+          ref
+              .read(displayPlaybackSessionProvider.notifier)
+              .finishLocally(sessionId!);
+        }
         if (canControl && sessionId != null) {
           unawaited(
             ref.read(playbackActionControllerProvider.notifier).syncComplete(),

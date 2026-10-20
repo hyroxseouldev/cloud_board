@@ -15,13 +15,51 @@ bool playbackAuthorizationFailed(Object? error) {
 /// active-session stream, never this retained value. A scope change discards it.
 @Riverpod(keepAlive: true)
 class DisplayPlaybackSession extends _$DisplayPlaybackSession {
+  String? _ownerId;
+  final _finished = <String>{};
+
+  bool completedLocally(String sessionId) => _finished.contains(sessionId);
+
+  /// A display observes the end locally; it never completes the shared session.
+  bool finishLocally(String sessionId) {
+    final current = state;
+    if (current == null ||
+        current.id != sessionId ||
+        current.status != PlaybackStatus.playing ||
+        current.timerCompleted ||
+        current.workout.modules.isEmpty ||
+        current.briefing ||
+        !_finished.add(sessionId)) {
+      return false;
+    }
+    while (_finished.length > 16) {
+      _finished.remove(_finished.first);
+    }
+    state = current.copyWith(status: PlaybackStatus.completed);
+    ref
+        .read(playbackRecoveryControllerProvider.notifier)
+        .recordDisplayCompletion(current);
+    return true;
+  }
+
   @override
   PlaybackSession? build() {
     final owner = ref.watch(accountOwnerIdProvider);
-    if (owner.isLoading || owner.hasError || owner.value == null) return null;
+    if (owner.isLoading || owner.hasError || owner.value == null) {
+      _ownerId = null;
+      _finished.clear();
+      return null;
+    }
     final ownerId = owner.value!;
-    PlaybackSession? owned(PlaybackSession? session) =>
-        session?.ownerId == ownerId ? session : null;
+    if (_ownerId != ownerId) _finished.clear();
+    _ownerId = ownerId;
+    PlaybackSession? owned(PlaybackSession? session) {
+      if (session?.ownerId != ownerId) return null;
+      return session != null && _finished.contains(session.id)
+          ? session.copyWith(status: PlaybackStatus.completed)
+          : session;
+    }
+
     final recovery = ref.read(playbackRecoveryControllerProvider);
     final initial = ref.read(activePlaybackSessionProvider);
     var authorizationBlocked =

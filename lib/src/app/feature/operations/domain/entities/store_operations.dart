@@ -80,6 +80,7 @@ abstract class OperationEvent with _$OperationEvent {
     String? incidentId,
     String? recoveryOfEventId,
     String? playbackImpact,
+    bool? connected,
     @Default(<String>[]) List<String> targetDeviceIds,
     @Default(<String, String>{}) Map<String, String> targetDeviceNames,
     @Default(<String, String>{}) Map<String, String> targetDeviceVersions,
