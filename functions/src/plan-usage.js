@@ -34,3 +34,11 @@ export async function reconcilePlanUsage(db, uid) {
     return counts;
   });
 }
+
+// Workout content never changes cardinality. Keep recounting creates/deletes
+// (including old clients' direct deletes), and conservatively handle events
+// whose before/after snapshots are unavailable.
+export async function reconcileWorkoutPlanUsage(db, uid, change) {
+  if (change?.before?.exists === true && change?.after?.exists === true) return null;
+  return reconcilePlanUsage(db, uid);
+}

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_firestore_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/models/workout_model.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
@@ -8,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 class _Firestore extends Fake implements FirebaseFirestore {
   final values = <String, Map<String, dynamic>>{};
   Object? error;
+  Future<void> Function(String)? beforeRead;
   final sources = <Source>[];
   @override
   DocumentReference<Map<String, dynamic>> doc(String path) =>
@@ -44,6 +47,7 @@ class _Document extends Fake
     GetOptions? options,
   ]) async {
     store.sources.add(options!.source);
+    await store.beforeRead?.call(path);
     if (store.error != null) throw store.error!;
     return _Snapshot(store.values[path]);
   }
@@ -106,6 +110,50 @@ void main() {
       ),
     );
   });
+  test(
+    'settings and previous workout reads start together and both gate save',
+    () async {
+      final reads = <String>[];
+      final settingsGate = Completer<void>();
+      final workoutGate = Completer<void>();
+      firestore.beforeRead = (path) {
+        reads.add(path);
+        return path.endsWith('/settings/workout')
+            ? settingsGate.future
+            : workoutGate.future;
+      };
+      final saved = source.save('owner', draft);
+      expect(reads, [
+        'users/owner/settings/workout',
+        'users/owner/workouts/lesson',
+      ]);
+      expect(functions.calls, isEmpty);
+      workoutGate.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(functions.calls, isEmpty);
+      settingsGate.complete();
+      expect((await saved).name, draft.name);
+      expect(functions.calls, hasLength(1));
+    },
+  );
+  for (final failedPath in ['settings/workout', 'workouts/lesson']) {
+    test('failed parallel $failedPath read never invokes save', () async {
+      firestore.beforeRead = (path) async {
+        if (path.endsWith(failedPath)) {
+          throw FirebaseException(
+            plugin: 'cloud_firestore',
+            code: 'unavailable',
+          );
+        }
+      };
+      await expectLater(
+        source.save('owner', draft),
+        throwsA(isA<FirebaseException>()),
+      );
+      expect(firestore.sources, hasLength(2));
+      expect(functions.calls, isEmpty);
+    });
+  }
   for (final contentOnly in [false, true]) {
     test(
       'save uses atomic callable with prepared schema (content-only $contentOnly)',
