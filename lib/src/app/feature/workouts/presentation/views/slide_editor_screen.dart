@@ -390,9 +390,16 @@ class _SlideEditorBody extends HookConsumerWidget {
       );
     }
 
-    final selectedBlock =
-        blocks.where((v) => v.id == selectedBlockId.value).firstOrNull ??
-        blocks.first;
+    final selectedBlockIndex = math.max(
+      0,
+      blocks.indexWhere((block) => block.id == selectedBlockId.value),
+    );
+    final previewPhase = workoutModuleTimeline(module)
+        .where(
+          (phase) =>
+              phase.blockIndex == selectedBlockIndex && !phase.isRoundRest,
+        )
+        .firstOrNull;
     final horizontalInset = MediaQuery.sizeOf(context).width < 360
         ? 16.0
         : 20.0;
@@ -433,9 +440,8 @@ class _SlideEditorBody extends HookConsumerWidget {
                             )
                           : WorkoutSlidePreview(
                               borderRadius: 0,
-                              module: withIntervalBlocks(module, [
-                                selectedBlock,
-                              ]),
+                              module: module,
+                              previewPhase: previewPhase,
                               isRest: false,
                               brandL: renderedBrandL,
                               brandR: renderedBrandR,
