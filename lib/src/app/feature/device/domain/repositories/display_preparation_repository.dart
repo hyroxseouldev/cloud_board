@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 
 abstract interface class DisplayPreparationRepository {
@@ -14,7 +15,12 @@ abstract interface class DisplayPreparationRepository {
     required int imageCount,
     required bool audioReady,
   });
-  Future<void> heartbeat(String deviceId, {bool ready = false});
+  Future<void> heartbeat(
+    String deviceId, {
+    bool ready = false,
+    DisplayHeartbeatPolicy? policy,
+    String? connectionId,
+  });
   Future<void> reportHealth(
     String deviceId, {
     String? stage,

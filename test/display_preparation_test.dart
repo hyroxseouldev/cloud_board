@@ -66,6 +66,80 @@ DisplayPreparationProof proof(DisplayPreparation r) => DisplayPreparationProof(
 );
 
 void main() {
+  test(
+    'image and audio preparation overlap and both must finish before ready',
+    () async {
+      final images = Completer<int>(), audio = Completer<void>();
+      final started = <String>[];
+      var completed = false;
+      final result =
+          prepareDisplayMedia(
+            request(),
+            images: (_) {
+              started.add('images');
+              return images.future;
+            },
+            audio: (_) {
+              started.add('audio');
+              return audio.future;
+            },
+            cancelled: () => false,
+          ).then((result) {
+            completed = true;
+            return result;
+          });
+      expect(started, ['images', 'audio']);
+      audio.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, false);
+      images.complete(0);
+      expect((await result)!.ready, true);
+    },
+  );
+
+  testWidgets(
+    'timeout retains exact failure stage and late completion never becomes ready',
+    (tester) async {
+      final audio = Completer<void>();
+      final failures = <String>[];
+      DisplayMediaPreparationResult? result;
+      unawaited(
+        prepareDisplayMedia(
+          request(),
+          images: (_) async => 0,
+          audio: (_) => audio.future,
+          cancelled: () => false,
+          onError: (stage, _, _) => failures.add(stage),
+        ).then((value) => result = value),
+      );
+      await tester.pump(const Duration(seconds: 12));
+      expect(failures, ['audio']);
+      expect(result!.ready, false);
+      expect(result!.audioReady, false);
+      audio.complete();
+      await tester.pump();
+      expect(result!.ready, false);
+    },
+  );
+
+  test(
+    'replacement request cannot publish an old successful preparation',
+    () async {
+      final images = Completer<int>(), audio = Completer<void>();
+      var cancelled = false;
+      final result = prepareDisplayMedia(
+        request(),
+        images: (_) => images.future,
+        audio: (_) => audio.future,
+        cancelled: () => cancelled,
+      );
+      cancelled = true;
+      images.complete(0);
+      audio.complete();
+      expect(await result, isNull);
+    },
+  );
+
   test('failed heartbeat or response health cannot reuse a successful receipt as ready', () {
     final candidate = request();
     for (final stage in [
@@ -330,7 +404,7 @@ void main() {
       onError: (stage, error, stack) => failures.add((stage, error, stack)),
     );
     expect(imageFailure!.ready, isFalse);
-    expect(audioCalls, 0);
+    expect(audioCalls, 1);
     final audioFailure = await prepareDisplayMedia(
       r,
       images: (_) async => 0,
@@ -361,7 +435,7 @@ void main() {
       ),
       isNull,
     );
-    expect(audioCalls, 0);
+    expect(audioCalls, 2);
     expect(
       (await prepareDisplayMedia(
         r,

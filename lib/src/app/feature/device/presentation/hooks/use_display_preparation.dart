@@ -1,4 +1,6 @@
 import 'package:cloud_board/src/app/feature/device/domain/usecases/complete_display_preparation.dart';
+import 'package:cloud_board/src/app/core/runtime_policy/display_heartbeat_policy_service.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 
 import 'dart:async';
 
@@ -27,6 +29,9 @@ void useDisplayPreparation(
   required bool standby,
   required bool connected,
   required bool foreground,
+  String? ownerId,
+  String? connectionId,
+  DisplayHeartbeatPolicy initialHeartbeatPolicy = DisplayHeartbeatPolicy.target,
 }) {
   final enabled = paired && deviceId != null && foreground && connected;
   final offset = enabled ? ref.watch(serverTimeOffsetProvider).value ?? 0 : 0;
@@ -43,6 +48,27 @@ void useDisplayPreparation(
 
   final reporter = ref.watch(errorReporterProvider);
   final telemetry = ref.watch(operationTelemetryProvider);
+  final heartbeatSelection = useMemoized(
+    () => DisplayHeartbeatSelection(initialHeartbeatPolicy),
+    [ownerId, deviceId, connectionId],
+  );
+  heartbeatSelection.setStandby(standby);
+
+  useEffect(() {
+    if (!enabled || !standby || ownerId == null || connectionId == null) {
+      return null;
+    }
+    var cancelled = false;
+    unawaited(() async {
+      final policy = await ref
+          .read(displayHeartbeatPolicyServiceProvider)
+          .load();
+      if (!cancelled && context.mounted) {
+        heartbeatSelection.pending = policy;
+      }
+    }());
+    return () => cancelled = true;
+  }, [enabled, standby, ownerId, connectionId, heartbeatSelection]);
 
   void health(String stage, String? code, int attempt, {String? requestId}) {
     if (repository == null || deviceId == null) return;
@@ -64,15 +90,22 @@ void useDisplayPreparation(
     var cancelled = false;
     var busy = false;
     var permissionStopped = false;
+    Timer? timer;
+    var interval = heartbeatSelection.applied.interval;
     Future<void> beat() async {
       if (busy || cancelled || permissionStopped) return;
       busy = true;
+      final selectedPolicy = heartbeatSelection.begin();
       try {
         final result = await retryDisplayPreparation<bool>(
           operation: () async {
             try {
               await repository!
-                  .heartbeat(deviceId)
+                  .heartbeat(
+                    deviceId,
+                    policy: connectionId == null ? null : selectedPolicy,
+                    connectionId: connectionId,
+                  )
                   .timeout(const Duration(seconds: 8));
               return true;
             } catch (error, stack) {
@@ -94,22 +127,30 @@ void useDisplayPreparation(
             health('heartbeat', code, attempt);
           },
         );
-        if (result == true) health('heartbeat', null, 1);
+        if (result == true && !cancelled && context.mounted) {
+          heartbeatSelection.accepted(selectedPolicy);
+          health('heartbeat', null, 1);
+          if (interval != selectedPolicy.interval) {
+            // Advertise the complete policy successfully before slowing down.
+            interval = selectedPolicy.interval;
+            timer?.cancel();
+            timer = Timer.periodic(interval, (_) => unawaited(beat()));
+          }
+        } else if (!cancelled) {
+          heartbeatSelection.failed();
+        }
       } finally {
         busy = false;
       }
     }
 
     unawaited(beat());
-    final timer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => unawaited(beat()),
-    );
+    timer = Timer.periodic(interval, (_) => unawaited(beat()));
     return () {
       cancelled = true;
-      timer.cancel();
+      timer?.cancel();
     };
-  }, [enabled, deviceId, repository]);
+  }, [enabled, deviceId, repository, connectionId, heartbeatSelection]);
 
   useEffect(
     () {
@@ -171,34 +212,44 @@ void useDisplayPreparation(
             prepare: () async {
               await audioPlayer?.dispose();
               audioPlayer = null;
-              return prepareDisplayMedia(
-                request,
-                cancelled: stopped,
-                onError: capture,
-                images: (sources) => precacheWorkoutImages(
-                  context,
-                  sources,
-                  isCancelled: stopped,
-                ),
-                audio: (sounds) async {
-                  if (sounds.isEmpty || stopped()) return;
-                  final player = audioPlayer = AudioPlayer();
-                  await player.setVolume(0);
-                  await player.setReleaseMode(ReleaseMode.stop);
-                  for (final sound in sounds) {
-                    if (stopped()) return;
-                    final value = WorkoutSound.values
-                        .where((v) => v.name == sound)
-                        .first;
-                    await player.setSource(workoutSoundSource(value));
-                    if (value == WorkoutSound.videoBeep) {
-                      await player.setSource(
-                        workoutSoundSource(value, countdown: true),
-                      );
+              var attemptFinished = false;
+              bool attemptStopped() => attemptFinished || stopped();
+              try {
+                return await prepareDisplayMedia(
+                  request,
+                  cancelled: attemptStopped,
+                  onError: capture,
+                  images: (sources) => precacheWorkoutImages(
+                    context,
+                    sources,
+                    isCancelled: attemptStopped,
+                  ),
+                  audio: (sounds) async {
+                    if (sounds.isEmpty || attemptStopped()) return;
+                    final player = audioPlayer = AudioPlayer();
+                    await player.setVolume(0);
+                    if (attemptStopped()) return;
+                    await player.setReleaseMode(ReleaseMode.stop);
+                    for (final sound in sounds) {
+                      if (attemptStopped()) return;
+                      final value = WorkoutSound.values
+                          .where((v) => v.name == sound)
+                          .first;
+                      await player.setSource(workoutSoundSource(value));
+                      if (attemptStopped()) return;
+                      if (value == WorkoutSound.videoBeep) {
+                        await player.setSource(
+                          workoutSoundSource(value, countdown: true),
+                        );
+                      }
                     }
-                  }
-                },
-              );
+                  },
+                );
+              } finally {
+                // A native call may finish after timeout/disposal. It must not
+                // proceed to another source or touch the next retry's player.
+                attemptFinished = true;
+              }
             },
             respond: (media, ready) => observed(
               'response',
@@ -215,7 +266,7 @@ void useDisplayPreparation(
             heartbeat: () => observed(
               'heartbeat',
               () => repository!
-                  .heartbeat(deviceId, ready: true)
+                  .heartbeat(deviceId, ready: true, connectionId: connectionId)
                   .timeout(const Duration(seconds: 8)),
             ),
           );
@@ -244,6 +295,7 @@ void useDisplayPreparation(
     [
       enabled,
       deviceId,
+      connectionId,
       repository,
       standby,
       request?.sessionId,

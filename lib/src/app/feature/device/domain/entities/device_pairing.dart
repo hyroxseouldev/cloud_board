@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 
 import 'dart:math';
 
@@ -59,6 +60,7 @@ class DisplayDevice {
     this.verifiedAtMs = 0,
     this.readyAtMs = 0,
     this.preparationHealth = const DisplayPreparationHealth(),
+    this.heartbeatPolicy = DisplayHeartbeatPolicy.legacy,
   });
 
   final String id;
@@ -83,6 +85,7 @@ class DisplayDevice {
   final String? connectionId, verifiedConnectionId;
   final int verifiedAtMs, readyAtMs;
   final DisplayPreparationHealth preparationHealth;
+  final DisplayHeartbeatPolicy heartbeatPolicy;
   bool connectionAuthenticated(int nowMs) =>
       recentlySeen(nowMs) &&
       connectionId != null &&
@@ -97,7 +100,7 @@ class DisplayDevice {
   bool recentlySeen(int nowMs) =>
       online &&
       lastSeenAtMs > 0 &&
-      nowMs - lastSeenAtMs < 75000 &&
+      nowMs - lastSeenAtMs < heartbeatPolicy.timeoutMs &&
       lastSeenAtMs <= nowMs + 5000;
   String get installedVersion => appVersion.isEmpty || appBuild.isEmpty
       ? '설치 버전 확인 불가'
