@@ -1,6 +1,6 @@
 # STA-202 실제 AI 이미지 생성
 
-2026-10-21 구현 인계. 사용자 승인에 따라 기존 OpenAI secret binding을 재사용한다. 키를 앱·fixture·문서에 넣지 않는다. 새 endpoint/승인 brand 설정은 **미배포**이며 아래 명령·테스트 코드는 실행 증거가 아니다. 기존 0~4의 고정 템플릿과 JSON 디자인 제안은 그대로 유지한다.
+2026-10-21 구현 인계. 사용자 승인에 따라 기존 OpenAI secret binding을 재사용한다. 키를 앱·fixture·문서에 넣지 않는다. 새 endpoint/승인 brand 설정은 **미배포**이다. 아래는 재현 절차이며 실제 실행 SHA·결과·재사용 근거는 PR124 및 `output/nightly/sta-202-handoff-2026-10-21.md`에 기록한다. 기존 0~4의 고정 템플릿과 JSON 디자인 제안은 그대로 유지한다.
 
 ## 사용자 흐름
 
@@ -71,7 +71,7 @@ draft는 `{rawWod,title,brief,bodyFontSize,groups:[{heading,lines}]}`이다. job
 
 인코딩 캐시는 repository의 환경/계정/센터 수명 안에서 brand/version/hash별 2분·20MiB LRU, 최대 동시 3요청이다. cache hit도 현재 계정/센터를 확인한다. decoded 이미지는 기존 private cache(8개, 640px, 2분)를 재사용한다. 보이는 이미지도 TTL에 재인가하며 scope/brand 해제 시 pixels를 폐기한다. 권한 확인 실패 시 offline 캐시를 권한 우회로 쓰지 않는다. 파일/공용 디스크/Flutter 전역 image cache는 사용하지 않는다.
 
-## 검증 재개 후 실행 경로 (현재 미실행)
+## 관련 검증 및 로컬 준비 경로
 
 기존 0~4 테스트 목록은 별도 handoff에 있다. 새 관련 명령:
 

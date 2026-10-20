@@ -220,9 +220,7 @@ void main() {
     },
   );
 
-  testWidgets('pending background completes using the latest draft only', (
-    tester,
-  ) async {
+  test('pending background completes using the latest draft only', () async {
     final repository = Repository()..gate = Completer<Uint8List?>();
     final container = ProviderContainer(
       overrides: [
@@ -259,7 +257,6 @@ void main() {
     expect(repository.renders, 0);
     latest.close();
     catalog.close();
-    await tester
-        .pump(); // Flush Riverpod's scheduled auto-disposal before teardown.
+    await container.pump();
   });
 }
