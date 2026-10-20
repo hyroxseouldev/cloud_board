@@ -274,7 +274,10 @@ void main() {
       expect(content.calls, 1);
       expect(generated.lines, content.output.lines);
       expect(generated.designSubtitle, '8mins On / 1min Off');
-      expect(generated.designStyle!.originalTemplate, 'stationd-mon-v1');
+      expect(
+        generated.designStyle!.originalTemplate,
+        'stationd-unbroken-single-v1',
+      );
       expect(generated.designHeaderLabel, 'UNBROKEN');
       expect(generated.showTimer, false);
     },
