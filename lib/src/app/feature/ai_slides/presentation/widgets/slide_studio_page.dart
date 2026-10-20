@@ -9,6 +9,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_stud
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/slide_studio_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/slide_studio_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
@@ -232,8 +233,10 @@ class SlideStudioPage extends HookConsumerWidget {
             child: StudioActionBar(
               state: state,
               onRefresh: () => controller.refreshUsage(
-                requestId: state.result?.id,
-                raster: state.result?.job != null,
+                requestId: state.pendingId ?? state.result?.id,
+                raster: state.pendingId != null
+                    ? state.pendingRaster
+                    : state.result?.job != null,
               ),
               onGenerate: () {
                 FocusScope.of(context).unfocus();
@@ -424,6 +427,12 @@ class SlideStudioPage extends HookConsumerWidget {
                               ),
                           ],
                         ),
+                        if (input.mode == StudioMode.organize &&
+                            !studioSupportsGroups(input))
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text(studioGroupingUnavailable),
+                          ),
                         const SizedBox(height: 12),
                         StudioTextField(
                           key: const ValueKey('studio-title'),
@@ -438,6 +447,21 @@ class SlideStudioPage extends HookConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        if (input.mode != StudioMode.artwork) ...[
+                          StudioTextField(
+                            key: const ValueKey('studio-subtitle'),
+                            label: '운동 안내 문구 (선택)',
+                            value: input.subtitle,
+                            maxLength: 120,
+                            onChanged: (v) => controller.edit(
+                              ref
+                                  .read(slideStudioControllerProvider)
+                                  .input
+                                  .copyWith(subtitle: v),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         StudioTextField(
                           key: const ValueKey('studio-brief'),
                           label: '원하는 정리·디자인 (선택)',
@@ -515,7 +539,11 @@ class SlideStudioPage extends HookConsumerWidget {
                           OutlinedButton.icon(
                             onPressed: controller.retry,
                             icon: const Icon(Icons.refresh),
-                            label: const Text('같은 요청 상태 확인 · 추가 차감 없음'),
+                            label: Text(
+                              state.completedOperation == null
+                                  ? '같은 요청 상태 확인 · 추가 차감 없음'
+                                  : '현재 입력·디자인으로 다시 적용 · 추가 차감 없음',
+                            ),
                           ),
                           TextButton(
                             onPressed: () async {
@@ -523,8 +551,10 @@ class SlideStudioPage extends HookConsumerWidget {
                                 context: context,
                                 builder: (context) => AlertDialog(
                                   title: const Text('새 요청으로 생성할까요?'),
-                                  content: const Text(
-                                    '이전 요청의 결과나 차감 여부를 아직 확인 중이에요. 새 요청은 별도로 1회를 사용할 수 있어요.',
+                                  content: Text(
+                                    state.completedOperation == null
+                                        ? '이전 요청의 결과나 차감 여부를 아직 확인 중이에요. 새 요청은 별도로 1회를 사용할 수 있어요.'
+                                        : '완료된 정리·디자인 결과가 보관되어 있어요. 새 요청을 준비하면 이 보관 결과를 닫고, 다음 AI 생성은 별도로 1회를 사용할 수 있어요.',
                                   ),
                                   actions: [
                                     TextButton(
@@ -546,6 +576,21 @@ class SlideStudioPage extends HookConsumerWidget {
                             },
                             child: const Text('새 요청 준비'),
                           ),
+                        ],
+                      ),
+                    if (state.completedOperation != null)
+                      ExpansionTile(
+                        key: const ValueKey('studio-completed-operation'),
+                        title: const Text('완료된 AI 결과 보관 중'),
+                        subtitle: const Text(
+                          '미리보기 배치만 확인하지 못했어요. 입력이나 디자인을 바꾼 뒤 추가 호출 없이 다시 적용할 수 있어요.',
+                        ),
+                        children: [
+                          for (final group in state.completedOperation!.groups)
+                            ListTile(
+                              title: Text(group.heading),
+                              subtitle: Text(group.lines.join('\n')),
+                            ),
                         ],
                       ),
                     const SizedBox(height: 18),

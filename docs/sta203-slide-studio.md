@@ -21,6 +21,9 @@ links, but the new screen uses the same raster actions and renderer inline.
 - Raw content stays in a stable text controller through expand/collapse and
   Korean IME composition. Title and optional preferences remain editable.
   Reference image replacement/removal is local until explicit style generation.
+- Optional exercise guidance is entered separately and uses the existing
+  `designSubtitle` field through preview/library DTOs. It starts empty, never
+  copies a sample's time, and never changes work/rest/set timer values.
 - A result retains the exact input snapshot, reference identity, design and
   request ID. Dirty input disables save/add for that result until regenerated.
   Late work is retained in history without replacing newer input or the visible
@@ -36,6 +39,23 @@ links, but the new screen uses the same raster actions and renderer inline.
 | AI content grouping | Luna selects contiguous source-line boundaries; source strings are retained | One shared `aiSlides` request |
 | AI style suggestion | Existing editable style proposal from selected style description/colors and optional supplied image | One shared request; this is not raster artwork |
 | AI background image | STA-202 artwork endpoint for the selected approved center reference; exact logo/text composited by existing renderer | One shared request, existing separate image budget reservation |
+
+Content grouping uses the existing section representation on basic dynamic
+designs and flow recipes. Fixed center slots and bundled original layouts cannot
+represent groups: the UI explains this and blocks that paid operation before a
+request, while free template use and the separate approved artwork path remain.
+Supported designs validate the raw layout before requesting AI, then validate
+the returned groups at the same fixed typography. No silent font shrinking,
+truncation, number splitting or template redesign is introduced.
+
+If a completed operation does not fit, the specific layout message, receipt and
+groups remain available beside the previous preview. Retrying that receipt is
+local and makes no model or status call. Existing groups are reused only if raw
+text and instructions are unchanged. Edited raw/instructions instead produce an
+explicit free template result from the current input with a visible notice;
+old groups cannot overwrite the new words. The user can explicitly close the
+receipt before starting a new paid request. This recovery state is scoped to the
+open studio and protected by its exit/account guard, not a new persistence API.
 
 No action secretly chains content grouping with style/image generation. Counts
 therefore describe one operation, not the number of style alternatives. There is

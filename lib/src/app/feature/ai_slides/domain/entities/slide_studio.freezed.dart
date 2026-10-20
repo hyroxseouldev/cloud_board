@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$StudioInput {
 
- AiSlideDesign get design; String get raw; String get title; String get brief; StudioMode get mode; int get artworkGroups; double get artworkFontSize; String? get referenceHash;
+ AiSlideDesign get design; String get raw; String get title; String get subtitle; String get brief; StudioMode get mode; int get artworkGroups; double get artworkFontSize; String? get referenceHash;
 /// Create a copy of StudioInput
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $StudioInputCopyWith<StudioInput> get copyWith => _$StudioInputCopyWithImpl<Stud
 @override
 bool operator ==(Object other) {
   final _this = this as StudioInput;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is StudioInput&&(identical(other.design, _this.design) || other.design == _this.design)&&(identical(other.raw, _this.raw) || other.raw == _this.raw)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.brief, _this.brief) || other.brief == _this.brief)&&(identical(other.mode, _this.mode) || other.mode == _this.mode)&&(identical(other.artworkGroups, _this.artworkGroups) || other.artworkGroups == _this.artworkGroups)&&(identical(other.artworkFontSize, _this.artworkFontSize) || other.artworkFontSize == _this.artworkFontSize)&&(identical(other.referenceHash, _this.referenceHash) || other.referenceHash == _this.referenceHash));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is StudioInput&&(identical(other.design, _this.design) || other.design == _this.design)&&(identical(other.raw, _this.raw) || other.raw == _this.raw)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.subtitle, _this.subtitle) || other.subtitle == _this.subtitle)&&(identical(other.brief, _this.brief) || other.brief == _this.brief)&&(identical(other.mode, _this.mode) || other.mode == _this.mode)&&(identical(other.artworkGroups, _this.artworkGroups) || other.artworkGroups == _this.artworkGroups)&&(identical(other.artworkFontSize, _this.artworkFontSize) || other.artworkFontSize == _this.artworkFontSize)&&(identical(other.referenceHash, _this.referenceHash) || other.referenceHash == _this.referenceHash));
 }
 
 
 @override
 int get hashCode {
   final _this = this as StudioInput;
-  return Object.hash(runtimeType,_this.design,_this.raw,_this.title,_this.brief,_this.mode,_this.artworkGroups,_this.artworkFontSize,_this.referenceHash);
+  return Object.hash(runtimeType,_this.design,_this.raw,_this.title,_this.subtitle,_this.brief,_this.mode,_this.artworkGroups,_this.artworkFontSize,_this.referenceHash);
 }
 
 @override
 String toString() {
   final _this = this as StudioInput;
-  return 'StudioInput(design: ${_this.design}, raw: ${_this.raw}, title: ${_this.title}, brief: ${_this.brief}, mode: ${_this.mode}, artworkGroups: ${_this.artworkGroups}, artworkFontSize: ${_this.artworkFontSize}, referenceHash: ${_this.referenceHash})';
+  return 'StudioInput(design: ${_this.design}, raw: ${_this.raw}, title: ${_this.title}, subtitle: ${_this.subtitle}, brief: ${_this.brief}, mode: ${_this.mode}, artworkGroups: ${_this.artworkGroups}, artworkFontSize: ${_this.artworkFontSize}, referenceHash: ${_this.referenceHash})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $StudioInputCopyWith<$Res>  {
   factory $StudioInputCopyWith(StudioInput value, $Res Function(StudioInput) _then) = _$StudioInputCopyWithImpl;
 @useResult
 $Res call({
- AiSlideDesign design, String raw, String title, String brief, StudioMode mode, int artworkGroups, double artworkFontSize, String? referenceHash
+ AiSlideDesign design, String raw, String title, String subtitle, String brief, StudioMode mode, int artworkGroups, double artworkFontSize, String? referenceHash
 });
 
 
@@ -68,11 +68,12 @@ class _$StudioInputCopyWithImpl<$Res>
 
 /// Create a copy of StudioInput
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? design = null,Object? raw = null,Object? title = null,Object? brief = null,Object? mode = null,Object? artworkGroups = null,Object? artworkFontSize = null,Object? referenceHash = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? design = null,Object? raw = null,Object? title = null,Object? subtitle = null,Object? brief = null,Object? mode = null,Object? artworkGroups = null,Object? artworkFontSize = null,Object? referenceHash = freezed,}) {
   return _then(StudioInput(
 design: null == design ? _self.design : design // ignore: cast_nullable_to_non_nullable
 as AiSlideDesign,raw: null == raw ? _self.raw : raw // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String,subtitle: null == subtitle ? _self.subtitle : subtitle // ignore: cast_nullable_to_non_nullable
 as String,brief: null == brief ? _self.brief : brief // ignore: cast_nullable_to_non_nullable
 as String,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
 as StudioMode,artworkGroups: null == artworkGroups ? _self.artworkGroups : artworkGroups // ignore: cast_nullable_to_non_nullable
@@ -172,10 +173,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( AiSlideDesign design,  String raw,  String title,  String brief,  StudioMode mode,  int artworkGroups,  double artworkFontSize,  String? referenceHash)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( AiSlideDesign design,  String raw,  String title,  String subtitle,  String brief,  StudioMode mode,  int artworkGroups,  double artworkFontSize,  String? referenceHash)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _StudioInput() when $default != null:
-return $default(_that.design,_that.raw,_that.title,_that.brief,_that.mode,_that.artworkGroups,_that.artworkFontSize,_that.referenceHash);case _:
+return $default(_that.design,_that.raw,_that.title,_that.subtitle,_that.brief,_that.mode,_that.artworkGroups,_that.artworkFontSize,_that.referenceHash);case _:
   return orElse();
 
 }
@@ -193,10 +194,10 @@ return $default(_that.design,_that.raw,_that.title,_that.brief,_that.mode,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( AiSlideDesign design,  String raw,  String title,  String brief,  StudioMode mode,  int artworkGroups,  double artworkFontSize,  String? referenceHash)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( AiSlideDesign design,  String raw,  String title,  String subtitle,  String brief,  StudioMode mode,  int artworkGroups,  double artworkFontSize,  String? referenceHash)  $default,) {final _that = this;
 switch (_that) {
 case _StudioInput():
-return $default(_that.design,_that.raw,_that.title,_that.brief,_that.mode,_that.artworkGroups,_that.artworkFontSize,_that.referenceHash);case _:
+return $default(_that.design,_that.raw,_that.title,_that.subtitle,_that.brief,_that.mode,_that.artworkGroups,_that.artworkFontSize,_that.referenceHash);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -213,10 +214,10 @@ return $default(_that.design,_that.raw,_that.title,_that.brief,_that.mode,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( AiSlideDesign design,  String raw,  String title,  String brief,  StudioMode mode,  int artworkGroups,  double artworkFontSize,  String? referenceHash)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( AiSlideDesign design,  String raw,  String title,  String subtitle,  String brief,  StudioMode mode,  int artworkGroups,  double artworkFontSize,  String? referenceHash)?  $default,) {final _that = this;
 switch (_that) {
 case _StudioInput() when $default != null:
-return $default(_that.design,_that.raw,_that.title,_that.brief,_that.mode,_that.artworkGroups,_that.artworkFontSize,_that.referenceHash);case _:
+return $default(_that.design,_that.raw,_that.title,_that.subtitle,_that.brief,_that.mode,_that.artworkGroups,_that.artworkFontSize,_that.referenceHash);case _:
   return null;
 
 }
@@ -228,12 +229,13 @@ return $default(_that.design,_that.raw,_that.title,_that.brief,_that.mode,_that.
 
 
 class _StudioInput implements StudioInput {
-  const _StudioInput({required this.design, this.raw = '', this.title = '오늘의 수업', this.brief = '', this.mode = StudioMode.template, this.artworkGroups = 1, this.artworkFontSize = 42, this.referenceHash});
+  const _StudioInput({required this.design, this.raw = '', this.title = '오늘의 수업', this.subtitle = '', this.brief = '', this.mode = StudioMode.template, this.artworkGroups = 1, this.artworkFontSize = 42, this.referenceHash});
 
 
 @override final  AiSlideDesign design;
 @override@JsonKey() final  String raw;
 @override@JsonKey() final  String title;
+@override@JsonKey() final  String subtitle;
 @override@JsonKey() final  String brief;
 @override@JsonKey() final  StudioMode mode;
 @override@JsonKey() final  int artworkGroups;
@@ -250,18 +252,18 @@ _$StudioInputCopyWith<_StudioInput> get copyWith => __$StudioInputCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StudioInput&&(identical(other.design, design) || other.design == design)&&(identical(other.raw, raw) || other.raw == raw)&&(identical(other.title, title) || other.title == title)&&(identical(other.brief, brief) || other.brief == brief)&&(identical(other.mode, mode) || other.mode == mode)&&(identical(other.artworkGroups, artworkGroups) || other.artworkGroups == artworkGroups)&&(identical(other.artworkFontSize, artworkFontSize) || other.artworkFontSize == artworkFontSize)&&(identical(other.referenceHash, referenceHash) || other.referenceHash == referenceHash));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StudioInput&&(identical(other.design, design) || other.design == design)&&(identical(other.raw, raw) || other.raw == raw)&&(identical(other.title, title) || other.title == title)&&(identical(other.subtitle, subtitle) || other.subtitle == subtitle)&&(identical(other.brief, brief) || other.brief == brief)&&(identical(other.mode, mode) || other.mode == mode)&&(identical(other.artworkGroups, artworkGroups) || other.artworkGroups == artworkGroups)&&(identical(other.artworkFontSize, artworkFontSize) || other.artworkFontSize == artworkFontSize)&&(identical(other.referenceHash, referenceHash) || other.referenceHash == referenceHash));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,design,raw,title,brief,mode,artworkGroups,artworkFontSize,referenceHash);
+    return Object.hash(runtimeType,design,raw,title,subtitle,brief,mode,artworkGroups,artworkFontSize,referenceHash);
 }
 
 @override
 String toString() {
-    return 'StudioInput(design: $design, raw: $raw, title: $title, brief: $brief, mode: $mode, artworkGroups: $artworkGroups, artworkFontSize: $artworkFontSize, referenceHash: $referenceHash)';
+    return 'StudioInput(design: $design, raw: $raw, title: $title, subtitle: $subtitle, brief: $brief, mode: $mode, artworkGroups: $artworkGroups, artworkFontSize: $artworkFontSize, referenceHash: $referenceHash)';
 }
 
 
@@ -272,7 +274,7 @@ abstract mixin class _$StudioInputCopyWith<$Res> implements $StudioInputCopyWith
   factory _$StudioInputCopyWith(_StudioInput value, $Res Function(_StudioInput) _then) = __$StudioInputCopyWithImpl;
 @override @useResult
 $Res call({
- AiSlideDesign design, String raw, String title, String brief, StudioMode mode, int artworkGroups, double artworkFontSize, String? referenceHash
+ AiSlideDesign design, String raw, String title, String subtitle, String brief, StudioMode mode, int artworkGroups, double artworkFontSize, String? referenceHash
 });
 
 
@@ -289,11 +291,12 @@ class __$StudioInputCopyWithImpl<$Res>
 
 /// Create a copy of StudioInput
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? design = null,Object? raw = null,Object? title = null,Object? brief = null,Object? mode = null,Object? artworkGroups = null,Object? artworkFontSize = null,Object? referenceHash = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? design = null,Object? raw = null,Object? title = null,Object? subtitle = null,Object? brief = null,Object? mode = null,Object? artworkGroups = null,Object? artworkFontSize = null,Object? referenceHash = freezed,}) {
   return _then(_StudioInput(
 design: null == design ? _self.design : design // ignore: cast_nullable_to_non_nullable
 as AiSlideDesign,raw: null == raw ? _self.raw : raw // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String,subtitle: null == subtitle ? _self.subtitle : subtitle // ignore: cast_nullable_to_non_nullable
 as String,brief: null == brief ? _self.brief : brief // ignore: cast_nullable_to_non_nullable
 as String,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
 as StudioMode,artworkGroups: null == artworkGroups ? _self.artworkGroups : artworkGroups // ignore: cast_nullable_to_non_nullable
@@ -1317,7 +1320,7 @@ $WorkoutModuleCopyWith<$Res>? get savedModule {
 /// @nodoc
 mixin _$SlideStudioState {
 
- StudioInput get input; Uint8List? get reference; bool get busy; bool get saving; bool get usageLoading; StudioUsage? get usage; String? get usageError; AiRasterBrand? get brand; String? get brandError; StudioResult? get result; List<StudioResult> get history; List<AiSlideDesign> get proposals; String? get pendingId; StudioInput? get pendingInput; bool get pendingRaster; String? get error; bool get leaving;
+ StudioInput get input; Uint8List? get reference; bool get busy; bool get saving; bool get usageLoading; StudioUsage? get usage; String? get usageError; AiRasterBrand? get brand; String? get brandError; StudioResult? get result; List<StudioResult> get history; List<AiSlideDesign> get proposals; String? get pendingId; StudioInput? get pendingInput; StudioOperation? get completedOperation; bool get pendingRaster; String? get error; bool get leaving;
 /// Create a copy of SlideStudioState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1329,20 +1332,20 @@ $SlideStudioStateCopyWith<SlideStudioState> get copyWith => _$SlideStudioStateCo
 @override
 bool operator ==(Object other) {
   final _this = this as SlideStudioState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SlideStudioState&&(identical(other.input, _this.input) || other.input == _this.input)&&const DeepCollectionEquality().equals(other.reference, _this.reference)&&(identical(other.busy, _this.busy) || other.busy == _this.busy)&&(identical(other.saving, _this.saving) || other.saving == _this.saving)&&(identical(other.usageLoading, _this.usageLoading) || other.usageLoading == _this.usageLoading)&&(identical(other.usage, _this.usage) || other.usage == _this.usage)&&(identical(other.usageError, _this.usageError) || other.usageError == _this.usageError)&&(identical(other.brand, _this.brand) || other.brand == _this.brand)&&(identical(other.brandError, _this.brandError) || other.brandError == _this.brandError)&&(identical(other.result, _this.result) || other.result == _this.result)&&const DeepCollectionEquality().equals(other.history, _this.history)&&const DeepCollectionEquality().equals(other.proposals, _this.proposals)&&(identical(other.pendingId, _this.pendingId) || other.pendingId == _this.pendingId)&&(identical(other.pendingInput, _this.pendingInput) || other.pendingInput == _this.pendingInput)&&(identical(other.pendingRaster, _this.pendingRaster) || other.pendingRaster == _this.pendingRaster)&&(identical(other.error, _this.error) || other.error == _this.error)&&(identical(other.leaving, _this.leaving) || other.leaving == _this.leaving));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SlideStudioState&&(identical(other.input, _this.input) || other.input == _this.input)&&const DeepCollectionEquality().equals(other.reference, _this.reference)&&(identical(other.busy, _this.busy) || other.busy == _this.busy)&&(identical(other.saving, _this.saving) || other.saving == _this.saving)&&(identical(other.usageLoading, _this.usageLoading) || other.usageLoading == _this.usageLoading)&&(identical(other.usage, _this.usage) || other.usage == _this.usage)&&(identical(other.usageError, _this.usageError) || other.usageError == _this.usageError)&&(identical(other.brand, _this.brand) || other.brand == _this.brand)&&(identical(other.brandError, _this.brandError) || other.brandError == _this.brandError)&&(identical(other.result, _this.result) || other.result == _this.result)&&const DeepCollectionEquality().equals(other.history, _this.history)&&const DeepCollectionEquality().equals(other.proposals, _this.proposals)&&(identical(other.pendingId, _this.pendingId) || other.pendingId == _this.pendingId)&&(identical(other.pendingInput, _this.pendingInput) || other.pendingInput == _this.pendingInput)&&(identical(other.completedOperation, _this.completedOperation) || other.completedOperation == _this.completedOperation)&&(identical(other.pendingRaster, _this.pendingRaster) || other.pendingRaster == _this.pendingRaster)&&(identical(other.error, _this.error) || other.error == _this.error)&&(identical(other.leaving, _this.leaving) || other.leaving == _this.leaving));
 }
 
 
 @override
 int get hashCode {
   final _this = this as SlideStudioState;
-  return Object.hash(runtimeType,_this.input,const DeepCollectionEquality().hash(_this.reference),_this.busy,_this.saving,_this.usageLoading,_this.usage,_this.usageError,_this.brand,_this.brandError,_this.result,const DeepCollectionEquality().hash(_this.history),const DeepCollectionEquality().hash(_this.proposals),_this.pendingId,_this.pendingInput,_this.pendingRaster,_this.error,_this.leaving);
+  return Object.hash(runtimeType,_this.input,const DeepCollectionEquality().hash(_this.reference),_this.busy,_this.saving,_this.usageLoading,_this.usage,_this.usageError,_this.brand,_this.brandError,_this.result,const DeepCollectionEquality().hash(_this.history),const DeepCollectionEquality().hash(_this.proposals),_this.pendingId,_this.pendingInput,_this.completedOperation,_this.pendingRaster,_this.error,_this.leaving);
 }
 
 @override
 String toString() {
   final _this = this as SlideStudioState;
-  return 'SlideStudioState(input: ${_this.input}, reference: ${_this.reference}, busy: ${_this.busy}, saving: ${_this.saving}, usageLoading: ${_this.usageLoading}, usage: ${_this.usage}, usageError: ${_this.usageError}, brand: ${_this.brand}, brandError: ${_this.brandError}, result: ${_this.result}, history: ${_this.history}, proposals: ${_this.proposals}, pendingId: ${_this.pendingId}, pendingInput: ${_this.pendingInput}, pendingRaster: ${_this.pendingRaster}, error: ${_this.error}, leaving: ${_this.leaving})';
+  return 'SlideStudioState(input: ${_this.input}, reference: ${_this.reference}, busy: ${_this.busy}, saving: ${_this.saving}, usageLoading: ${_this.usageLoading}, usage: ${_this.usage}, usageError: ${_this.usageError}, brand: ${_this.brand}, brandError: ${_this.brandError}, result: ${_this.result}, history: ${_this.history}, proposals: ${_this.proposals}, pendingId: ${_this.pendingId}, pendingInput: ${_this.pendingInput}, completedOperation: ${_this.completedOperation}, pendingRaster: ${_this.pendingRaster}, error: ${_this.error}, leaving: ${_this.leaving})';
 }
 
 
@@ -1353,11 +1356,11 @@ abstract mixin class $SlideStudioStateCopyWith<$Res>  {
   factory $SlideStudioStateCopyWith(SlideStudioState value, $Res Function(SlideStudioState) _then) = _$SlideStudioStateCopyWithImpl;
 @useResult
 $Res call({
- StudioInput input, Uint8List? reference, bool busy, bool saving, bool usageLoading, StudioUsage? usage, String? usageError, AiRasterBrand? brand, String? brandError, StudioResult? result, List<StudioResult> history, List<AiSlideDesign> proposals, String? pendingId, StudioInput? pendingInput, bool pendingRaster, String? error, bool leaving
+ StudioInput input, Uint8List? reference, bool busy, bool saving, bool usageLoading, StudioUsage? usage, String? usageError, AiRasterBrand? brand, String? brandError, StudioResult? result, List<StudioResult> history, List<AiSlideDesign> proposals, String? pendingId, StudioInput? pendingInput, StudioOperation? completedOperation, bool pendingRaster, String? error, bool leaving
 });
 
 
-$StudioInputCopyWith<$Res> get input;$StudioUsageCopyWith<$Res>? get usage;$AiRasterBrandCopyWith<$Res>? get brand;$StudioResultCopyWith<$Res>? get result;$StudioInputCopyWith<$Res>? get pendingInput;
+$StudioInputCopyWith<$Res> get input;$StudioUsageCopyWith<$Res>? get usage;$AiRasterBrandCopyWith<$Res>? get brand;$StudioResultCopyWith<$Res>? get result;$StudioInputCopyWith<$Res>? get pendingInput;$StudioOperationCopyWith<$Res>? get completedOperation;
 
 }
 /// @nodoc
@@ -1370,7 +1373,7 @@ class _$SlideStudioStateCopyWithImpl<$Res>
 
 /// Create a copy of SlideStudioState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? input = null,Object? reference = freezed,Object? busy = null,Object? saving = null,Object? usageLoading = null,Object? usage = freezed,Object? usageError = freezed,Object? brand = freezed,Object? brandError = freezed,Object? result = freezed,Object? history = null,Object? proposals = null,Object? pendingId = freezed,Object? pendingInput = freezed,Object? pendingRaster = null,Object? error = freezed,Object? leaving = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? input = null,Object? reference = freezed,Object? busy = null,Object? saving = null,Object? usageLoading = null,Object? usage = freezed,Object? usageError = freezed,Object? brand = freezed,Object? brandError = freezed,Object? result = freezed,Object? history = null,Object? proposals = null,Object? pendingId = freezed,Object? pendingInput = freezed,Object? completedOperation = freezed,Object? pendingRaster = null,Object? error = freezed,Object? leaving = null,}) {
   return _then(SlideStudioState(
 input: null == input ? _self.input : input // ignore: cast_nullable_to_non_nullable
 as StudioInput,reference: freezed == reference ? _self.reference : reference // ignore: cast_nullable_to_non_nullable
@@ -1386,7 +1389,8 @@ as StudioResult?,history: null == history ? _self.history : history // ignore: c
 as List<StudioResult>,proposals: null == proposals ? _self.proposals : proposals // ignore: cast_nullable_to_non_nullable
 as List<AiSlideDesign>,pendingId: freezed == pendingId ? _self.pendingId : pendingId // ignore: cast_nullable_to_non_nullable
 as String?,pendingInput: freezed == pendingInput ? _self.pendingInput : pendingInput // ignore: cast_nullable_to_non_nullable
-as StudioInput?,pendingRaster: null == pendingRaster ? _self.pendingRaster : pendingRaster // ignore: cast_nullable_to_non_nullable
+as StudioInput?,completedOperation: freezed == completedOperation ? _self.completedOperation : completedOperation // ignore: cast_nullable_to_non_nullable
+as StudioOperation?,pendingRaster: null == pendingRaster ? _self.pendingRaster : pendingRaster // ignore: cast_nullable_to_non_nullable
 as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,leaving: null == leaving ? _self.leaving : leaving // ignore: cast_nullable_to_non_nullable
 as bool,
@@ -1448,6 +1452,18 @@ $StudioInputCopyWith<$Res>? get pendingInput {
 
   return $StudioInputCopyWith<$Res>(_self.pendingInput!, (value) {
     return _then(_self.copyWith(pendingInput: value));
+  });
+}/// Create a copy of SlideStudioState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$StudioOperationCopyWith<$Res>? get completedOperation {
+    if (_self.completedOperation == null) {
+    return null;
+  }
+
+  return $StudioOperationCopyWith<$Res>(_self.completedOperation!, (value) {
+    return _then(_self.copyWith(completedOperation: value));
   });
 }
 }
@@ -1531,10 +1547,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( StudioInput input,  Uint8List? reference,  bool busy,  bool saving,  bool usageLoading,  StudioUsage? usage,  String? usageError,  AiRasterBrand? brand,  String? brandError,  StudioResult? result,  List<StudioResult> history,  List<AiSlideDesign> proposals,  String? pendingId,  StudioInput? pendingInput,  bool pendingRaster,  String? error,  bool leaving)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( StudioInput input,  Uint8List? reference,  bool busy,  bool saving,  bool usageLoading,  StudioUsage? usage,  String? usageError,  AiRasterBrand? brand,  String? brandError,  StudioResult? result,  List<StudioResult> history,  List<AiSlideDesign> proposals,  String? pendingId,  StudioInput? pendingInput,  StudioOperation? completedOperation,  bool pendingRaster,  String? error,  bool leaving)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SlideStudioState() when $default != null:
-return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageLoading,_that.usage,_that.usageError,_that.brand,_that.brandError,_that.result,_that.history,_that.proposals,_that.pendingId,_that.pendingInput,_that.pendingRaster,_that.error,_that.leaving);case _:
+return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageLoading,_that.usage,_that.usageError,_that.brand,_that.brandError,_that.result,_that.history,_that.proposals,_that.pendingId,_that.pendingInput,_that.completedOperation,_that.pendingRaster,_that.error,_that.leaving);case _:
   return orElse();
 
 }
@@ -1552,10 +1568,10 @@ return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageL
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( StudioInput input,  Uint8List? reference,  bool busy,  bool saving,  bool usageLoading,  StudioUsage? usage,  String? usageError,  AiRasterBrand? brand,  String? brandError,  StudioResult? result,  List<StudioResult> history,  List<AiSlideDesign> proposals,  String? pendingId,  StudioInput? pendingInput,  bool pendingRaster,  String? error,  bool leaving)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( StudioInput input,  Uint8List? reference,  bool busy,  bool saving,  bool usageLoading,  StudioUsage? usage,  String? usageError,  AiRasterBrand? brand,  String? brandError,  StudioResult? result,  List<StudioResult> history,  List<AiSlideDesign> proposals,  String? pendingId,  StudioInput? pendingInput,  StudioOperation? completedOperation,  bool pendingRaster,  String? error,  bool leaving)  $default,) {final _that = this;
 switch (_that) {
 case _SlideStudioState():
-return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageLoading,_that.usage,_that.usageError,_that.brand,_that.brandError,_that.result,_that.history,_that.proposals,_that.pendingId,_that.pendingInput,_that.pendingRaster,_that.error,_that.leaving);case _:
+return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageLoading,_that.usage,_that.usageError,_that.brand,_that.brandError,_that.result,_that.history,_that.proposals,_that.pendingId,_that.pendingInput,_that.completedOperation,_that.pendingRaster,_that.error,_that.leaving);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1572,10 +1588,10 @@ return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageL
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( StudioInput input,  Uint8List? reference,  bool busy,  bool saving,  bool usageLoading,  StudioUsage? usage,  String? usageError,  AiRasterBrand? brand,  String? brandError,  StudioResult? result,  List<StudioResult> history,  List<AiSlideDesign> proposals,  String? pendingId,  StudioInput? pendingInput,  bool pendingRaster,  String? error,  bool leaving)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( StudioInput input,  Uint8List? reference,  bool busy,  bool saving,  bool usageLoading,  StudioUsage? usage,  String? usageError,  AiRasterBrand? brand,  String? brandError,  StudioResult? result,  List<StudioResult> history,  List<AiSlideDesign> proposals,  String? pendingId,  StudioInput? pendingInput,  StudioOperation? completedOperation,  bool pendingRaster,  String? error,  bool leaving)?  $default,) {final _that = this;
 switch (_that) {
 case _SlideStudioState() when $default != null:
-return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageLoading,_that.usage,_that.usageError,_that.brand,_that.brandError,_that.result,_that.history,_that.proposals,_that.pendingId,_that.pendingInput,_that.pendingRaster,_that.error,_that.leaving);case _:
+return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageLoading,_that.usage,_that.usageError,_that.brand,_that.brandError,_that.result,_that.history,_that.proposals,_that.pendingId,_that.pendingInput,_that.completedOperation,_that.pendingRaster,_that.error,_that.leaving);case _:
   return null;
 
 }
@@ -1587,7 +1603,7 @@ return $default(_that.input,_that.reference,_that.busy,_that.saving,_that.usageL
 
 
 class _SlideStudioState extends SlideStudioState {
-  const _SlideStudioState({required this.input, this.reference, this.busy = false, this.saving = false, this.usageLoading = true, this.usage, this.usageError, this.brand, this.brandError, this.result,  List<StudioResult> history = const [],  List<AiSlideDesign> proposals = const [], this.pendingId, this.pendingInput, this.pendingRaster = false, this.error, this.leaving = false}): _history = history,_proposals = proposals,super._();
+  const _SlideStudioState({required this.input, this.reference, this.busy = false, this.saving = false, this.usageLoading = true, this.usage, this.usageError, this.brand, this.brandError, this.result,  List<StudioResult> history = const [],  List<AiSlideDesign> proposals = const [], this.pendingId, this.pendingInput, this.completedOperation, this.pendingRaster = false, this.error, this.leaving = false}): _history = history,_proposals = proposals,super._();
 
 
 @override final  StudioInput input;
@@ -1616,6 +1632,7 @@ class _SlideStudioState extends SlideStudioState {
 
 @override final  String? pendingId;
 @override final  StudioInput? pendingInput;
+@override final  StudioOperation? completedOperation;
 @override@JsonKey() final  bool pendingRaster;
 @override final  String? error;
 @override@JsonKey() final  bool leaving;
@@ -1630,18 +1647,18 @@ _$SlideStudioStateCopyWith<_SlideStudioState> get copyWith => __$SlideStudioStat
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _SlideStudioState&&(identical(other.input, input) || other.input == input)&&const DeepCollectionEquality().equals(other.reference, reference)&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.saving, saving) || other.saving == saving)&&(identical(other.usageLoading, usageLoading) || other.usageLoading == usageLoading)&&(identical(other.usage, usage) || other.usage == usage)&&(identical(other.usageError, usageError) || other.usageError == usageError)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.brandError, brandError) || other.brandError == brandError)&&(identical(other.result, result) || other.result == result)&&const DeepCollectionEquality().equals(other.history, _history)&&const DeepCollectionEquality().equals(other.proposals, _proposals)&&(identical(other.pendingId, pendingId) || other.pendingId == pendingId)&&(identical(other.pendingInput, pendingInput) || other.pendingInput == pendingInput)&&(identical(other.pendingRaster, pendingRaster) || other.pendingRaster == pendingRaster)&&(identical(other.error, error) || other.error == error)&&(identical(other.leaving, leaving) || other.leaving == leaving));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _SlideStudioState&&(identical(other.input, input) || other.input == input)&&const DeepCollectionEquality().equals(other.reference, reference)&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.saving, saving) || other.saving == saving)&&(identical(other.usageLoading, usageLoading) || other.usageLoading == usageLoading)&&(identical(other.usage, usage) || other.usage == usage)&&(identical(other.usageError, usageError) || other.usageError == usageError)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.brandError, brandError) || other.brandError == brandError)&&(identical(other.result, result) || other.result == result)&&const DeepCollectionEquality().equals(other.history, _history)&&const DeepCollectionEquality().equals(other.proposals, _proposals)&&(identical(other.pendingId, pendingId) || other.pendingId == pendingId)&&(identical(other.pendingInput, pendingInput) || other.pendingInput == pendingInput)&&(identical(other.completedOperation, completedOperation) || other.completedOperation == completedOperation)&&(identical(other.pendingRaster, pendingRaster) || other.pendingRaster == pendingRaster)&&(identical(other.error, error) || other.error == error)&&(identical(other.leaving, leaving) || other.leaving == leaving));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,input,const DeepCollectionEquality().hash(reference),busy,saving,usageLoading,usage,usageError,brand,brandError,result,const DeepCollectionEquality().hash(_history),const DeepCollectionEquality().hash(_proposals),pendingId,pendingInput,pendingRaster,error,leaving);
+    return Object.hash(runtimeType,input,const DeepCollectionEquality().hash(reference),busy,saving,usageLoading,usage,usageError,brand,brandError,result,const DeepCollectionEquality().hash(_history),const DeepCollectionEquality().hash(_proposals),pendingId,pendingInput,completedOperation,pendingRaster,error,leaving);
 }
 
 @override
 String toString() {
-    return 'SlideStudioState(input: $input, reference: $reference, busy: $busy, saving: $saving, usageLoading: $usageLoading, usage: $usage, usageError: $usageError, brand: $brand, brandError: $brandError, result: $result, history: $history, proposals: $proposals, pendingId: $pendingId, pendingInput: $pendingInput, pendingRaster: $pendingRaster, error: $error, leaving: $leaving)';
+    return 'SlideStudioState(input: $input, reference: $reference, busy: $busy, saving: $saving, usageLoading: $usageLoading, usage: $usage, usageError: $usageError, brand: $brand, brandError: $brandError, result: $result, history: $history, proposals: $proposals, pendingId: $pendingId, pendingInput: $pendingInput, completedOperation: $completedOperation, pendingRaster: $pendingRaster, error: $error, leaving: $leaving)';
 }
 
 
@@ -1652,11 +1669,11 @@ abstract mixin class _$SlideStudioStateCopyWith<$Res> implements $SlideStudioSta
   factory _$SlideStudioStateCopyWith(_SlideStudioState value, $Res Function(_SlideStudioState) _then) = __$SlideStudioStateCopyWithImpl;
 @override @useResult
 $Res call({
- StudioInput input, Uint8List? reference, bool busy, bool saving, bool usageLoading, StudioUsage? usage, String? usageError, AiRasterBrand? brand, String? brandError, StudioResult? result, List<StudioResult> history, List<AiSlideDesign> proposals, String? pendingId, StudioInput? pendingInput, bool pendingRaster, String? error, bool leaving
+ StudioInput input, Uint8List? reference, bool busy, bool saving, bool usageLoading, StudioUsage? usage, String? usageError, AiRasterBrand? brand, String? brandError, StudioResult? result, List<StudioResult> history, List<AiSlideDesign> proposals, String? pendingId, StudioInput? pendingInput, StudioOperation? completedOperation, bool pendingRaster, String? error, bool leaving
 });
 
 
-@override $StudioInputCopyWith<$Res> get input;@override $StudioUsageCopyWith<$Res>? get usage;@override $AiRasterBrandCopyWith<$Res>? get brand;@override $StudioResultCopyWith<$Res>? get result;@override $StudioInputCopyWith<$Res>? get pendingInput;
+@override $StudioInputCopyWith<$Res> get input;@override $StudioUsageCopyWith<$Res>? get usage;@override $AiRasterBrandCopyWith<$Res>? get brand;@override $StudioResultCopyWith<$Res>? get result;@override $StudioInputCopyWith<$Res>? get pendingInput;@override $StudioOperationCopyWith<$Res>? get completedOperation;
 
 }
 /// @nodoc
@@ -1669,7 +1686,7 @@ class __$SlideStudioStateCopyWithImpl<$Res>
 
 /// Create a copy of SlideStudioState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? input = null,Object? reference = freezed,Object? busy = null,Object? saving = null,Object? usageLoading = null,Object? usage = freezed,Object? usageError = freezed,Object? brand = freezed,Object? brandError = freezed,Object? result = freezed,Object? history = null,Object? proposals = null,Object? pendingId = freezed,Object? pendingInput = freezed,Object? pendingRaster = null,Object? error = freezed,Object? leaving = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? input = null,Object? reference = freezed,Object? busy = null,Object? saving = null,Object? usageLoading = null,Object? usage = freezed,Object? usageError = freezed,Object? brand = freezed,Object? brandError = freezed,Object? result = freezed,Object? history = null,Object? proposals = null,Object? pendingId = freezed,Object? pendingInput = freezed,Object? completedOperation = freezed,Object? pendingRaster = null,Object? error = freezed,Object? leaving = null,}) {
   return _then(_SlideStudioState(
 input: null == input ? _self.input : input // ignore: cast_nullable_to_non_nullable
 as StudioInput,reference: freezed == reference ? _self.reference : reference // ignore: cast_nullable_to_non_nullable
@@ -1685,7 +1702,8 @@ as StudioResult?,history: null == history ? _self._history : history // ignore: 
 as List<StudioResult>,proposals: null == proposals ? _self._proposals : proposals // ignore: cast_nullable_to_non_nullable
 as List<AiSlideDesign>,pendingId: freezed == pendingId ? _self.pendingId : pendingId // ignore: cast_nullable_to_non_nullable
 as String?,pendingInput: freezed == pendingInput ? _self.pendingInput : pendingInput // ignore: cast_nullable_to_non_nullable
-as StudioInput?,pendingRaster: null == pendingRaster ? _self.pendingRaster : pendingRaster // ignore: cast_nullable_to_non_nullable
+as StudioInput?,completedOperation: freezed == completedOperation ? _self.completedOperation : completedOperation // ignore: cast_nullable_to_non_nullable
+as StudioOperation?,pendingRaster: null == pendingRaster ? _self.pendingRaster : pendingRaster // ignore: cast_nullable_to_non_nullable
 as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,leaving: null == leaving ? _self.leaving : leaving // ignore: cast_nullable_to_non_nullable
 as bool,
@@ -1748,6 +1766,18 @@ $StudioInputCopyWith<$Res>? get pendingInput {
 
   return $StudioInputCopyWith<$Res>(_self.pendingInput!, (value) {
     return _then(_self.copyWith(pendingInput: value));
+  });
+}/// Create a copy of SlideStudioState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$StudioOperationCopyWith<$Res>? get completedOperation {
+    if (_self.completedOperation == null) {
+    return null;
+  }
+
+  return $StudioOperationCopyWith<$Res>(_self.completedOperation!, (value) {
+    return _then(_self.copyWith(completedOperation: value));
   });
 }
 }

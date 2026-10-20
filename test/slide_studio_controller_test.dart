@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_raster_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/slide_studio_actions.dart';
@@ -41,6 +42,139 @@ void main() {
   }
 
   const source = 'Row 1,000 m\nDB Squat 22.5 kg × 12\n휴식 60초';
+  test(
+    'fixed originals reject unsupported grouping before any paid request',
+    () async {
+      final repository = FakeStudioRepository();
+      final c = await setup(repository);
+      final controller = c.read(slideStudioControllerProvider.notifier);
+      controller.edit(
+        StudioInput(
+          design: dolpaReferenceDesign,
+          raw: source,
+          mode: StudioMode.organize,
+        ),
+      );
+      await controller.generate();
+      expect(repository.generations, 0);
+      expect(repository.validations, 0);
+      expect(c.read(slideStudioControllerProvider).input.raw, source);
+      expect(
+        c.read(slideStudioControllerProvider).error,
+        studioGroupingUnavailable,
+      );
+    },
+  );
+  test(
+    'preflight overflow shows its reason before spending a request',
+    () async {
+      final repository = FakeStudioRepository()
+        ..validationFailure = const FormatException('선택한 글자 크기에 문구가 넘쳐요.');
+      final c = await setup(repository);
+      final controller = c.read(slideStudioControllerProvider.notifier);
+      controller.edit(
+        c
+            .read(slideStudioControllerProvider)
+            .input
+            .copyWith(raw: source, mode: StudioMode.organize),
+      );
+      await controller.generate();
+      expect(repository.generations, 0);
+      expect(c.read(slideStudioControllerProvider).pendingId, isNull);
+      expect(c.read(slideStudioControllerProvider).busy, isFalse);
+      expect(c.read(slideStudioControllerProvider).error, contains('문구가 넘쳐요'));
+    },
+  );
+  test('completed groups and old result survive layout failure and reapply without AI or status requests', () async {
+    final repository = _GroupOverflowRepository();
+    final c = await setup(repository);
+    final controller = c.read(slideStudioControllerProvider.notifier);
+    controller.edit(
+      c.read(slideStudioControllerProvider).input.copyWith(raw: source),
+    );
+    await controller.generate();
+    final prior = c.read(slideStudioControllerProvider).result;
+    controller.edit(
+      c
+          .read(slideStudioControllerProvider)
+          .input
+          .copyWith(mode: StudioMode.organize),
+    );
+    await controller.generate();
+    final failed = c.read(slideStudioControllerProvider);
+    expect(failed.completedOperation!.groups.single.lines, source.split('\n'));
+    expect(failed.pendingId, repository.lastId);
+    expect(failed.result, same(prior));
+    expect(failed.error, contains('문구가 넘쳐요'));
+    await controller.generate();
+    expect(repository.generations, 1);
+    repository.overflow = false;
+    controller.select(aiSlideDesignCatalog[3]);
+    await controller.retry();
+    final recovered = c.read(slideStudioControllerProvider);
+    expect(recovered.pendingId, isNull);
+    expect(recovered.completedOperation, isNull);
+    expect(recovered.result!.draft!.lines, ['## A', ...source.split('\n')]);
+    expect(recovered.result!.input.design, aiSlideDesignCatalog[3]);
+    expect(repository.generations, 1);
+    expect(repository.statuses, 0);
+  });
+  test('changed source recovery preserves new words without reusing stale group boundaries', () async {
+    final repository = _GroupOverflowRepository();
+    final c = await setup(repository);
+    final controller = c.read(slideStudioControllerProvider.notifier);
+    controller.edit(
+      c
+          .read(slideStudioControllerProvider)
+          .input
+          .copyWith(raw: source, mode: StudioMode.organize),
+    );
+    await controller.generate();
+    controller.edit(
+      c
+          .read(slideStudioControllerProvider)
+          .input
+          .copyWith(raw: 'Row 250 m', subtitle: '5mins On / 90s Off'),
+    );
+    await controller.retry();
+    final result = c.read(slideStudioControllerProvider).result!;
+    expect(result.draft!.lines, ['Row 250 m']);
+    expect(result.draft!.designSubtitle, '5mins On / 90s Off');
+    expect(result.input.mode, StudioMode.template);
+    expect(result.warnings.single, contains('자동 적용하지 않았고'));
+    expect(repository.generations, 1);
+    expect(repository.statuses, 0);
+    await controller.save();
+    expect(
+      c.read(slideStudioControllerProvider).result!.savedModule!.designSubtitle,
+      '5mins On / 90s Off',
+    );
+  });
+  test(
+    'changed grouping instructions cannot silently reuse the previous groups',
+    () async {
+      final repository = _GroupOverflowRepository();
+      final c = await setup(repository);
+      final controller = c.read(slideStudioControllerProvider.notifier);
+      controller.edit(
+        c
+            .read(slideStudioControllerProvider)
+            .input
+            .copyWith(raw: source, mode: StudioMode.organize, brief: '세 그룹'),
+      );
+      await controller.generate();
+      controller.edit(
+        c.read(slideStudioControllerProvider).input.copyWith(brief: '한 그룹'),
+      );
+      await controller.retry();
+      final result = c.read(slideStudioControllerProvider).result!;
+      expect(result.input.mode, StudioMode.template);
+      expect(result.draft!.lines, source.split('\n'));
+      expect(result.warnings.single, contains('무료 템플릿'));
+      expect(repository.generations, 1);
+      expect(repository.statuses, 0);
+    },
+  );
   test('opening, input, reference and design choices never generate or encode; local result uses selected theme', () async {
     final repository = FakeStudioRepository();
     final c = await setup(repository);
@@ -233,4 +367,15 @@ void main() {
     expect(c.read(slideStudioControllerProvider).result, isNull);
     expect(c.read(slideStudioControllerProvider).input.raw, isEmpty);
   });
+}
+
+class _GroupOverflowRepository extends FakeStudioRepository {
+  bool overflow = true;
+  @override
+  Future<void> validate(AiSlideDraft draft) async {
+    await super.validate(draft);
+    if (overflow && draft.lines.any((line) => line.startsWith('## '))) {
+      throw const FormatException('선택한 글자 크기에 문구가 넘쳐요. 슬라이드를 나눠 주세요.');
+    }
+  }
 }

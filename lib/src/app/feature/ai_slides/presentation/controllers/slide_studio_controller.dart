@@ -78,6 +78,8 @@ class SlideStudioController extends _$SlideStudioController {
       saving: false,
       error: error is AiSlidesFailure
           ? error.message
+          : error is FormatException
+          ? error.message
           : workoutErrorMessage(
               error,
               fallback: '처리하지 못했어요. 입력과 이전 결과는 유지됩니다.',
@@ -85,6 +87,9 @@ class SlideStudioController extends _$SlideStudioController {
       result: revoked ? null : state.result,
       history: revoked ? [] : state.history,
       brand: revoked ? null : state.brand,
+      pendingId: revoked ? null : state.pendingId,
+      pendingInput: revoked ? null : state.pendingInput,
+      completedOperation: revoked ? null : state.completedOperation,
     );
   }
 
@@ -125,6 +130,7 @@ class SlideStudioController extends _$SlideStudioController {
         busy: false,
         pendingId: null,
         pendingInput: null,
+        completedOperation: null,
         history: [result, ...state.history].take(3).toList(),
         error: '생성 중 입력이 바뀌어 기존 결과를 유지했어요. 이전 결과 보기에서 완성된 시안을 확인할 수 있어요.',
       );
@@ -134,6 +140,7 @@ class SlideStudioController extends _$SlideStudioController {
       busy: false,
       pendingId: null,
       pendingInput: null,
+      completedOperation: null,
       result: result,
       history: [
         if (state.result != null) state.result!,
@@ -151,11 +158,16 @@ class SlideStudioController extends _$SlideStudioController {
         input.raw.length > 6000 ||
         input.title.trim().isEmpty ||
         input.title.length > 60 ||
+        input.subtitle.length > 120 ||
         input.brief.length > 1000) {
-      reportError('제목(1~60자)과 수업 내용(1~6,000자)을 입력해 주세요.');
+      reportError('제목(1~60자), 운동 안내(120자 이내), 수업 내용(1~6,000자)을 확인해 주세요.');
       return;
     }
     final recipe = input.design.theme.centerRecipe;
+    if (input.mode == StudioMode.organize && !studioSupportsGroups(input)) {
+      reportError(studioGroupingUnavailable);
+      return;
+    }
     if (recipe != null) {
       final catalog = ref.read(centerSlideCatalogProvider);
       if (catalog.isLoading ||
@@ -186,6 +198,18 @@ class SlideStudioController extends _$SlideStudioController {
         StudioResult(id: id, input: input, reference: reference, draft: draft),
       );
       return;
+    }
+    if (input.mode == StudioMode.organize) {
+      // Reject input that already overflows before spending a request. Group
+      // headings are measured again after completion without discarding it.
+      final checked = await AsyncValue.guard(
+        () => _actions.validate(studioDraft(input)),
+      );
+      if (!_current(lifetime)) return;
+      if (checked.hasError) {
+        _error(checked.error!);
+        return;
+      }
     }
     final allowed = await AsyncValue.guard(_actions.requireGeneration);
     if (!_current(lifetime)) return;
@@ -300,8 +324,9 @@ class SlideStudioController extends _$SlideStudioController {
 
   Future<void> _acceptOperation(
     StudioOperation value,
-    StudioInput input,
-  ) async {
+    StudioInput input, {
+    bool reapplying = false,
+  }) async {
     if (value.status != 'completed') {
       state = state.copyWith(
         busy: false,
@@ -311,12 +336,27 @@ class SlideStudioController extends _$SlideStudioController {
       return;
     }
     final lifetime = _lifetime;
-    final applied = value.designs.isEmpty
+    final editedSource =
+        reapplying &&
+        (input.raw != state.pendingInput?.raw ||
+            input.brief != state.pendingInput?.brief);
+    final reference = reapplying ? state.reference : _pendingReference;
+    state = state.copyWith(completedOperation: value);
+    if (!editedSource &&
+        value.groups.isNotEmpty &&
+        !studioSupportsGroups(input)) {
+      reportError(studioGroupingUnavailable);
+      state = state.copyWith(busy: false);
+      return;
+    }
+    final applied = editedSource
+        ? input.copyWith(mode: StudioMode.template)
+        : value.designs.isEmpty || reapplying
         ? input
         : input.copyWith(design: value.designs.first);
     final draft = studioDraft(
       applied,
-      groups: value.groups.isEmpty ? null : value.groups,
+      groups: value.groups.isEmpty || editedSource ? null : value.groups,
     );
     final checked = await AsyncValue.guard(() => _actions.validate(draft));
     if (!_current(lifetime)) return;
@@ -324,17 +364,22 @@ class SlideStudioController extends _$SlideStudioController {
       proposals: value.designs.isEmpty ? state.proposals : value.designs,
     );
     if (checked.hasError) {
-      state = state.copyWith(pendingId: null, pendingInput: null);
       _error(checked.error!);
       return;
+    }
+    if (editedSource && state.input == input) {
+      state = state.copyWith(input: applied);
     }
     _accept(
       StudioResult(
         id: value.requestId,
-        input: input,
-        reference: _pendingReference,
+        input: editedSource ? applied : input,
+        reference: reference,
         draft: draft,
-        warnings: value.warnings,
+        warnings: [
+          ...value.warnings,
+          if (editedSource) '수정한 입력은 AI에 다시 보내지 않고 무료 템플릿으로 적용했어요. 이전 AI 그룹은 자동 적용하지 않았고 추가 차감은 없어요.',
+        ],
       ),
     );
   }
@@ -345,6 +390,21 @@ class SlideStudioController extends _$SlideStudioController {
         lifetime = _lifetime;
     if (id == null || input == null || state.busy) return;
     state = state.copyWith(busy: true, error: null);
+    final completed = state.completedOperation;
+    if (completed != null) {
+      if (state.input.mode != input.mode ||
+          input.mode == StudioMode.style &&
+              (state.input.brief != input.brief ||
+                  state.input.referenceHash != input.referenceHash)) {
+        state = state.copyWith(
+          busy: false,
+          error: '완료된 요청과 같은 생성 방식에서 다시 적용해 주세요. 새 AI 요구사항은 새 요청으로 생성해야 해요.',
+        );
+        return;
+      }
+      await _acceptOperation(completed, state.input, reapplying: true);
+      return; // Completed receipt reuse never calls generate or status again.
+    }
     if (state.pendingRaster) {
       final value = await AsyncValue.guard(() => _raster.status(id));
       if (!_current(lifetime)) return;
@@ -377,7 +437,12 @@ class SlideStudioController extends _$SlideStudioController {
 
   void newRequest() {
     if (state.busy) return;
-    state = state.copyWith(pendingId: null, pendingInput: null, error: null);
+    state = state.copyWith(
+      pendingId: null,
+      pendingInput: null,
+      completedOperation: null,
+      error: null,
+    );
   }
 
   void undo() {

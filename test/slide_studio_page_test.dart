@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/slide_studio_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_raster_actions.dart';
@@ -157,6 +158,62 @@ void main() {
       },
     );
   }
+  testWidgets(
+    'completed grouping stays visible and edited guidance recovers without another charge',
+    (tester) async {
+      tester.view.physicalSize = const Size(834, 1194);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = _GroupLayoutFailure();
+      await mount(tester, repository);
+      final c = container(tester);
+      c
+          .read(slideStudioControllerProvider.notifier)
+          .edit(
+            c
+                .read(slideStudioControllerProvider)
+                .input
+                .copyWith(mode: StudioMode.organize),
+          );
+      await enter(tester);
+      expect(repository.generations, 1);
+      await reveal(
+        tester,
+        find.byKey(const ValueKey('studio-completed-operation')),
+      );
+      expect(find.text('완료된 AI 결과 보관 중'), findsOneWidget);
+      expect(c.read(slideStudioControllerProvider).error, contains('문구가 넘쳐요'));
+      await tester.tap(find.text('완료된 AI 결과 보관 중'));
+      await tester.pumpAndSettle();
+      expect(find.text('Run 800m\nSquat 22.5kg × 12'), findsWidgets);
+      await reveal(tester, find.byKey(const ValueKey('studio-wod')));
+      await tester.enterText(
+        find.byKey(const ValueKey('studio-wod')),
+        'Row 250 m',
+      );
+      await reveal(tester, find.byKey(const ValueKey('studio-options')));
+      await tester.tap(find.text('생성 방식 · AI 내용 정리'));
+      await tester.pumpAndSettle();
+      final guidance = find.descendant(
+        of: find.byKey(const ValueKey('studio-subtitle')),
+        matching: find.byType(TextField),
+      );
+      await reveal(tester, guidance);
+      await tester.enterText(guidance, '5mins On / 90s Off');
+      FocusManager.instance.primaryFocus?.unfocus();
+      final retry = find.text('현재 입력·디자인으로 다시 적용 · 추가 차감 없음');
+      await reveal(tester, retry);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      final result = c.read(slideStudioControllerProvider).result!;
+      expect(result.draft!.lines, ['Row 250 m']);
+      expect(result.draft!.designSubtitle, '5mins On / 90s Off');
+      expect(c.read(slideStudioControllerProvider).completedOperation, isNull);
+      expect(repository.generations, 1);
+      expect(repository.statuses, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'local result visual evidence keeps the current text and 16:9 preview',
     (tester) async {
@@ -406,4 +463,14 @@ void main() {
       expect(repository.generations, 0);
     },
   );
+}
+
+class _GroupLayoutFailure extends FakeStudioRepository {
+  @override
+  Future<void> validate(AiSlideDraft draft) async {
+    await super.validate(draft);
+    if (draft.lines.any((line) => line.startsWith('## '))) {
+      throw const FormatException('선택한 글자 크기에 문구가 넘쳐요.');
+    }
+  }
 }

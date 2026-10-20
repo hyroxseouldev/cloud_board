@@ -66,6 +66,15 @@ class SlideStudioActions {
 
 /// Template samples supply visual identity only. Today's raw WOD replaces every
 /// sample exercise; no parser requires a special markdown/section syntax.
+bool studioSupportsGroups(StudioInput input) =>
+    input.design.theme.centerRecipe != null
+    ? input.design.theme.centerRecipe!.body != null
+    : input.design.theme.designStyle?.originalTemplate == null;
+
+const studioGroupingUnavailable =
+    '이 원본 디자인은 운동·수치 위치가 고정되어 AI 내용 정리를 지원하지 않아요. '
+    '무료 ‘템플릿 그대로’를 사용하거나 그룹을 지원하는 기본 디자인을 선택해 주세요.';
+
 AiSlideDraft studioDraft(StudioInput input, {List<AiRasterGroup>? groups}) {
   final theme = input.design.theme;
   final base = input.design.sample ?? initialAiSlideDesignDraft(theme);
@@ -73,7 +82,7 @@ AiSlideDraft studioDraft(StudioInput input, {List<AiRasterGroup>? groups}) {
       .replaceAll('\r\n', '\n')
       .replaceAll('\r', '\n')
       .split('\n');
-  if (theme.centerRecipe?.body != null && groups != null && groups.length > 1) {
+  if (studioSupportsGroups(input) && groups != null && groups.isNotEmpty) {
     lines = [
       for (final group in groups) ...[
         if (group.heading.isNotEmpty) '## ${group.heading}',
@@ -85,7 +94,7 @@ AiSlideDraft studioDraft(StudioInput input, {List<AiRasterGroup>? groups}) {
     base.copyWith(
       title: input.title,
       lines: lines,
-      designSubtitle: '',
+      designSubtitle: input.subtitle,
       // Blank timing is intentional: input text is never interpreted as a change
       // to a lesson's duration or drawn as a raster clock.
       workSeconds: null,
