@@ -36,6 +36,8 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/li
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_templates_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_preferences_controller.dart';
 
+import 'workout_catalog_fixture.dart' show fixtureSavedSlideOrder;
+
 const previewUser = AuthUser(
   id: 'navigation-preview',
   email: 'coach@example.invalid',
@@ -145,6 +147,7 @@ class NavigationPreviewData {
         libraryFoldersProvider.overrideWith(
           (ref) => Stream.value(['Stationd', '팀 수업']),
         ),
+        fixtureSavedSlideOrder,
         slideTemplatesControllerProvider.overrideWith2(
           (scope) => _PreviewSlides(repository.items),
         ),

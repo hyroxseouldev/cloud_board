@@ -391,6 +391,7 @@ Future<GoRouter> _pumpEditor(
       overrides: [
         authStateProvider.overrideWith((ref) => Stream.value(null)),
         fixtureWorkoutDetails,
+        fixtureSavedSlideOrder,
         workoutControllerProvider.overrideWith(_Workouts.new),
         workoutActionControllerProvider.overrideWith(() => _Save(saved ?? [])),
         slideEditorRepositoryProvider.overrideWithValue(
