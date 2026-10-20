@@ -25,7 +25,7 @@ class OrderFirestore extends Fake implements FirebaseFirestore {
     put('users/$uid', {
       'uid': uid,
       'displayName': 'Unchanged',
-      if (order != null) 'savedSlideOrder': order,
+      'savedSlideOrder': ?order,
     });
     for (final id in ids) {
       put('users/$uid/slideTemplates/$id', {
@@ -69,6 +69,8 @@ class OrderFirestore extends Fake implements FirebaseFirestore {
   }
 }
 
+// Firebase SDK fakes are intentionally scoped to this in-memory contract test.
+// ignore: subtype_of_sealed_class
 class _Document extends Fake
     implements DocumentReference<Map<String, dynamic>> {
   _Document(this.db, this.path);
@@ -89,6 +91,7 @@ class _Document extends Fake
   }
 }
 
+// ignore: subtype_of_sealed_class
 class _Snapshot extends Fake implements DocumentSnapshot<Map<String, dynamic>> {
   _Snapshot(this.value);
   final Map<String, dynamic>? value;

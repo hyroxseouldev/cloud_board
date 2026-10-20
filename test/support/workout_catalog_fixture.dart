@@ -47,6 +47,6 @@ class FixtureSavedSlideOrder extends SavedSlideOrderController {
   Future<void> synchronize(List<String> liveIds) async {}
 }
 
-final fixtureSavedSlideOrder = savedSlideOrderControllerProvider.overrideWith(
-  FixtureSavedSlideOrder.new,
+final fixtureSavedSlideOrder = savedSlideOrderControllerProvider.overrideWith2(
+  (_) => FixtureSavedSlideOrder(),
 );

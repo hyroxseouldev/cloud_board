@@ -154,6 +154,12 @@ class SavedSlideChips extends HookConsumerWidget {
                                         }
                                       : null,
                                   child: Tooltip(
+                                    // Touch long press belongs to reordering;
+                                    // a tooltip recognizer would win that gesture.
+                                    // Mouse hover tooltips remain available.
+                                    triggerMode: canReorder
+                                        ? TooltipTriggerMode.manual
+                                        : null,
                                     message:
                                         '${template.name} · ${moduleDurationText(template)} 추가',
                                     child: InputChip(

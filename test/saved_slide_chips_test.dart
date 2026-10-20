@@ -105,16 +105,20 @@ void main() {
       '${kind.name} reorders without adding on release; next tap still adds',
       (tester) async {
         final fixture = await mount(tester);
-        final gesture = await tester.startGesture(
-          tester.getCenter(chip(0)),
-          kind: kind,
-        );
+        final start = tester.getCenter(chip(0));
+        final target = tester.getCenter(chip(2)) + const Offset(30, 0);
+        final gesture = await tester.startGesture(start, kind: kind);
         if (kind == PointerDeviceKind.touch) {
           await tester.pump(
             kLongPressTimeout + const Duration(milliseconds: 100),
           );
         }
-        await gesture.moveTo(tester.getCenter(chip(2)) + const Offset(30, 0));
+        // Move through the animated insertion gaps as an actual pointer does;
+        // one teleport leaves the gap at the previous layout's position.
+        for (var step = 1; step <= 8; step++) {
+          await gesture.moveTo(Offset.lerp(start, target, step / 8)!);
+          await tester.pump(const Duration(milliseconds: 50));
+        }
         await tester.pump(const Duration(milliseconds: 400));
         await gesture.up();
         await tester.pumpAndSettle();

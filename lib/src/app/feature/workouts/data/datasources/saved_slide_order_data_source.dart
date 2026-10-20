@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:collection/collection.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/library_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/saved_slide_order.dart';
 
