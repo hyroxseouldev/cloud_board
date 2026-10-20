@@ -295,6 +295,7 @@ void useDisplayPreparation(
     [
       enabled,
       deviceId,
+      connectionId,
       repository,
       standby,
       request?.sessionId,
