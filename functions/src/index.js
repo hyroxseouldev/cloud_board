@@ -242,6 +242,18 @@ export const cloudboardAiSlideRaster = onCall({
   return handleAiSlideRaster({db, bucket, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
 });
 
+// STA-203 optional usage + durable request wrapper; existing endpoints unchanged.
+export const cloudboardSlideStudio = onCall({
+  region, timeoutSeconds: 90, memory: '512MiB', maxInstances: 3, concurrency: 3,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async request => {
+  if (!request.auth || request.auth.token.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
+  }
+  const {handleSlideStudio} = await import('./slide-studio.js');
+  return handleSlideStudio({db, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+});
+
 export const syncSlideLibraryPlan = onDocumentWritten({
   region, document: 'subscriptionEntitlements/{uid}', retry: true,
   timeoutSeconds: 120, maxInstances: 5,
