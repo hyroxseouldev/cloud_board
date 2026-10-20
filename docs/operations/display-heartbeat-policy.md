@@ -1,8 +1,9 @@
 # Display heartbeat policy (STA-197, 1.3.5 candidate)
 
 The 1.3.5 app selects a default 60-second heartbeat and 180-second no-response
-threshold. User decision on 2026-10-20: require the new app at rollout; do not add
-center allowlists or a staged mixed-version rollout. This code does not publish
+threshold. User decision on 2026-10-20: do not add center allowlists or a staged
+mixed-version rollout in this development task. A mandatory-update rollout is
+not decided or activated by this task. This code does not publish
 Remote Config, raise an app minimum build, deploy a server, or release an app.
 
 ## One policy
@@ -52,9 +53,10 @@ codebase does not compute a separate heartbeat-age threshold.
 
 ## Operate and roll back
 
-1. Release/install the supporting app (including displays and controllers) and
-   verify the public replacement before separately enabling its required-update
-   policy in `appReleases`. App release policy remains independent of Remote Config.
+1. Before release, decide the supported installed app versions and rollout plan.
+   This task does not promise mixed-version operation or activate a required update.
+   If an operator later chooses to require an update, verify the publicly installable
+   replacement first. `appReleases` remains independent of Remote Config.
 2. Publish the complete JSON with a new revision in the intended Firebase project.
 3. At a safe standby boundary, read a device's applied `heartbeatPolicy` and its
    matching `currentConnectionId`. A Remote Config publish alone is not evidence
