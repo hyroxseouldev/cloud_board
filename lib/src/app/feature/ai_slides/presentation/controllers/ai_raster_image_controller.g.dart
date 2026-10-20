@@ -111,7 +111,7 @@ final class AiRasterImageProvider
   }
 }
 
-String _$aiRasterImageHash() => r'82eba0734bd3f4fa390fa3c1a38ce031030dce9c';
+String _$aiRasterImageHash() => r'4aad0a1d1dcf8994465c08bb504133da4a174347';
 
 final class AiRasterImageFamily extends $Family
     with

@@ -42,7 +42,7 @@ final class AiRasterControllerProvider
 }
 
 String _$aiRasterControllerHash() =>
-    r'a33b656458905bbe83cc9b34bec1876190f98a63';
+    r'bfb61363e76e073a9aef5c647950b2d00290131e';
 
 abstract class _$AiRasterController extends $Notifier<AiRasterState> {
   AiRasterState build();
