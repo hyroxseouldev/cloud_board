@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../entities/ai_raster.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_raster.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 

@@ -125,11 +125,12 @@ class AiRasterController extends _$AiRasterController {
     final brief = state.draft.brief;
     final requested = RegExp(r'(?:([123])|([한두세]))\s*(?:개\s*)?(?:그룹|단|열)')
         .firstMatch(brief);
-    if (requested != null)
+    if (requested != null) {
       groupCount(
         int.tryParse(requested.group(1) ?? '') ??
             {'한': 1, '두': 2, '세': 3}[requested.group(2)]!,
       );
+    }
     if (RegExp(
       r'글[자씨].{0,8}(?:작|줄)|작은\s*글[자씨]|smaller',
       caseSensitive: false,
@@ -140,8 +141,11 @@ class AiRasterController extends _$AiRasterController {
 
   void split(int index, int after) {
     final groups = state.draft.groups;
-    if (groups.length >= 3 || after < 1 || after >= groups[index].lines.length)
+    if (groups.length >= 3 ||
+        after < 1 ||
+        after >= groups[index].lines.length) {
       return;
+    }
     edit(
       state.draft.copyWith(
         groups: [
@@ -225,8 +229,9 @@ class AiRasterController extends _$AiRasterController {
   }
 
   Future<void> generate() async {
-    if (state.busy || state.pendingRequestId != null || state.brand == null)
+    if (state.busy || state.pendingRequestId != null || state.brand == null) {
       return;
+    }
     final validation = rasterDraftError(state.draft);
     if (validation != null) {
       _error(AiSlidesFailure(validation, code: 'invalid-argument'));

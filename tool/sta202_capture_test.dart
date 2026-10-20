@@ -13,7 +13,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 import 'center_slide_export_fonts.dart';
 
 /// Explicit local artifacts using bundled real fonts. Not a browser/app E2E.
-/// STA202_CAPTURE_OUTPUT=<new directory> flutter test --no-pub tool/sta202_capture_test.dart
+/// STA202_CAPTURE_OUTPUT=`<new directory>` flutter test --no-pub tool/sta202_capture_test.dart
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final output = Platform.environment['STA202_CAPTURE_OUTPUT'];
@@ -21,8 +21,9 @@ void main() {
     'capture source / fixed creation / final PNG at identical 1920x1080',
     () async {
       final root = Directory(output!).absolute;
-      if (await root.exists())
+      if (await root.exists()) {
         throw StateError('Choose a new output directory.');
+      }
       await loadCenterSlideExportFonts();
       final modules = <String, WorkoutModule>{
         for (final design in aiSlideDesignCatalog)

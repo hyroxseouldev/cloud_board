@@ -324,8 +324,9 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                 if (value == null ||
                     !context.mounted ||
                     ref.read(aiSlidesOwnerIdProvider) != owner ||
-                    ref.read(centerSlideCatalogScopeProvider) != scope)
+                    ref.read(centerSlideCatalogScopeProvider) != scope) {
                   return;
+                }
                 adding.value = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (context.mounted) Navigator.pop(context, [value]);

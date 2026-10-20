@@ -8,7 +8,8 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_d
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart'
+    hide CenterSlideThumbnail;
 import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/center_slide_template_repository.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_template_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';

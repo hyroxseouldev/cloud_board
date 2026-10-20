@@ -135,8 +135,9 @@ SlideDesignLayoutMetrics measureSlideDesign(
   bool creationTypography = false,
 }) {
   creationTypography = creationTypography || isCreationSlideDesign(module);
-  if (!isOriginalSlideTemplate(module))
+  if (!isOriginalSlideTemplate(module)) {
     return _createPlan(module, creationTypography: creationTypography).metrics;
+  }
   final original = measureOriginalSlide(
     module,
     fixedTypography: creationTypography,
@@ -365,8 +366,9 @@ _Plan _createPlan(WorkoutModule module, {bool creationTypography = false}) {
 
 _Plan _measurePlan(WorkoutModule module, {bool creationTypography = false}) {
   if (isIllustratedStarterDesign(module)) return _measureStarterPlan(module);
-  if (isStudioSlideDesign(module))
+  if (isStudioSlideDesign(module)) {
     return _measureStudioPlan(module, creationTypography: creationTypography);
+  }
   final exclusion = slideTimerGeometry(
     module,
     SlideDesignPainter.size,
@@ -1095,8 +1097,9 @@ _Plan _measureStudioPlan(
         SlideDesignTypography.subtitleGap;
   }
 
-  if (creationTypography && subtitle.isEmpty)
+  if (creationTypography && subtitle.isEmpty) {
     bodyTop += 88 + SlideDesignTypography.subtitleGap;
+  }
   final sourceSections = parseSlideDesignSections(module.text);
   // A plain list becomes one card per exercise. Explicit sections remain
   // intact, in their original order, with the heading inside each card.

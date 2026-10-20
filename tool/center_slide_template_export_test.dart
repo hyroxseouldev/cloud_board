@@ -116,23 +116,28 @@ void main() {
         );
         for (final entry in thumbnails.entries) {
           final thumbnail = designs[entry.key]?.theme.centerRecipe?.thumbnail;
-          if (thumbnail == null)
+          if (thumbnail == null) {
             throw const FormatException('Unknown thumbnail.');
+          }
           final file = File(entry.value as String);
-          if (await file.length() > 1024 * 1024)
+          if (await file.length() > 1024 * 1024) {
             throw const FormatException('Thumbnail exceeds 1 MiB.');
+          }
           final bytes = await file.readAsBytes();
-          if (sha256.convert(bytes).toString() != thumbnail.sha256)
+          if (sha256.convert(bytes).toString() != thumbnail.sha256) {
             throw const FormatException('Thumbnail digest changed.');
+          }
           final codec = await ui.instantiateImageCodec(bytes);
           try {
-            if (codec.frameCount != 1)
+            if (codec.frameCount != 1) {
               throw const FormatException('Still PNG required.');
+            }
             final image = (await codec.getNextFrame()).image;
             try {
               if (image.width != thumbnail.width ||
-                  image.height != thumbnail.height)
+                  image.height != thumbnail.height) {
                 throw const FormatException('Thumbnail dimensions changed.');
+              }
             } finally {
               image.dispose();
             }

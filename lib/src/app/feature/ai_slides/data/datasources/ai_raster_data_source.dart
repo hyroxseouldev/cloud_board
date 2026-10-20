@@ -13,8 +13,9 @@ class AiRasterDataSource {
     String action, [
     Map<String, dynamic> data = const {},
   ]) async {
-    if (!isCurrent())
+    if (!isCurrent()) {
       throw const AiSlidesFailure('계정 또는 센터가 변경되었어요. 다시 열어 주세요.');
+    }
     try {
       final result = await functions
           .httpsCallable(
@@ -28,8 +29,9 @@ class AiRasterDataSource {
             'centerId': centerId,
             ...data,
           });
-      if (!isCurrent())
+      if (!isCurrent()) {
         throw const AiSlidesFailure('계정 또는 센터가 변경되었어요. 다시 열어 주세요.');
+      }
       return result.data;
     } on FirebaseFunctionsException catch (error) {
       throw AiSlidesFailure(

@@ -151,8 +151,9 @@ String? rasterLayoutError(AiRasterDraft draft, AiRasterBrand brand) {
 Future<ui.Image> decodeRasterImage(Uint8List bytes) async {
   final codec = await ui.instantiateImageCodec(bytes);
   try {
-    if (codec.frameCount != 1)
+    if (codec.frameCount != 1) {
       throw const FormatException('움직이는 이미지는 지원하지 않아요.');
+    }
     return (await codec.getNextFrame()).image;
   } finally {
     codec.dispose();

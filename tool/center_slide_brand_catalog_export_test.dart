@@ -14,10 +14,10 @@ import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_templ
 import 'center_slide_export_fonts.dart';
 
 /// Local-only: never initializes Firebase or publishes a catalog.
-/// CENTER_BRAND_EXPORT=1 CENTER_BRAND_INPUT=<existing SWEAT catalog.json>
-/// CENTER_BRAND_SWEAT_IMAGE=<approved 1672x941 PNG>
-/// CENTER_BRAND_LOGO_IMAGE=<latest 1672x941 waiting-screen PNG>
-/// CENTER_BRAND_OUTPUT=<new output directory> flutter test --no-pub <this file>
+/// CENTER_BRAND_EXPORT=1 CENTER_BRAND_INPUT=`<existing SWEAT catalog.json>`
+/// CENTER_BRAND_SWEAT_IMAGE=`<approved 1672x941 PNG>`
+/// CENTER_BRAND_LOGO_IMAGE=`<latest 1672x941 waiting-screen PNG>`
+/// CENTER_BRAND_OUTPUT=`<new output directory>` flutter test --no-pub `<this file>`
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final env = Platform.environment;
@@ -185,10 +185,11 @@ void main() {
       }
       final sample = Map<String, dynamic>.from(sweat['sample'] as Map);
       final lines = List<String>.from(sample['lines'] as List);
-      if (lines.length != 18)
+      if (lines.length != 18) {
         throw const FormatException(
           'Use the original eighteen-line SWEAT sample.',
         );
+      }
       Rect sweatBounds(double x, double y, double w, double h) => Rect.fromLTWH(
         x * 1920 / 1672,
         y * 1080 / 941,

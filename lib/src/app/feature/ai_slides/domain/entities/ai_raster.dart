@@ -1,3 +1,5 @@
+// ignore_for_file: invalid_annotation_target
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 part 'ai_raster.freezed.dart';
 part 'ai_raster.g.dart';
@@ -113,17 +115,20 @@ String? rasterDraftError(AiRasterDraft draft) {
   if (draft.title.trim().isEmpty ||
       draft.title.length > 60 ||
       draft.brief.length > 1000 ||
-      ![32, 38, 42].contains(draft.bodyFontSize))
+      ![32, 38, 42].contains(draft.bodyFontSize)) {
     return '제목은 1~60자, 요청은 1,000자 이내로 입력하고 글자 크기를 확인해 주세요.';
+  }
   if (draft.groups.isEmpty ||
       draft.groups.length > 3 ||
       draft.groups.any(
         (group) => group.lines.isEmpty || group.heading.length > 60,
-      ))
+      )) {
     return '1~3개 그룹으로 나눠 주세요.';
+  }
   final grouped = draft.groups.expand((group) => group.lines).toList();
   if (grouped.length != lines.length ||
-      lines.indexed.any((entry) => entry.$2 != grouped[entry.$1]))
+      lines.indexed.any((entry) => entry.$2 != grouped[entry.$1])) {
     return '원문 운동·숫자·단위와 순서를 유지해 주세요.';
+  }
   return null;
 }

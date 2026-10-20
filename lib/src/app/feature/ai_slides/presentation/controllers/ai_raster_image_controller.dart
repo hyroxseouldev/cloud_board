@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/data/repositories/ai_raster_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_raster.dart';
@@ -58,8 +60,9 @@ FutureOr<ui.Image?> aiRasterImage(
   final current = ref.watch(
     aiRasterControllerProvider.select((state) => state.brand?.key),
   );
-  if (repository == null || current != brand.key)
+  if (repository == null || current != brand.key) {
     throw const AiSlidesFailure('현재 센터 이미지를 다시 확인해 주세요.');
+  }
   final cache = ref.watch(aiRasterImageCacheProvider);
   // Visible decoded images must also re-authorize; retaining a widget is not
   // permission to retain private pixels forever after its encoded TTL expires.

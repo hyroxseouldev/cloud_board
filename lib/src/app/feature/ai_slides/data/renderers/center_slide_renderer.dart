@@ -17,9 +17,9 @@ const centerSlideMinimumOutputFontSize = 24.0;
 /// Measured once for a draft; preview and final PNG paint this exact layout.
 /// No image encoding/decoding or network work happens in this calculation.
 class CenterSlideLayout {
-  CenterSlideLayout._(this.recipe, this.fields, this.flow);
+  CenterSlideLayout._(this.recipe, this._fields, this.flow);
   final CenterSlideRecipe recipe;
-  final List<_PreparedField> fields;
+  final List<_PreparedField> _fields;
   final CenterSlideFlowLayout? flow;
 
   void paint(Canvas canvas, Size size, {ui.Image? background}) {
@@ -50,7 +50,7 @@ class CenterSlideLayout {
         Paint()..filterQuality = FilterQuality.medium,
       );
     }
-    for (final field in fields) {
+    for (final field in _fields) {
       if (field.clear) {
         canvas.drawRect(
           field.bounds,
@@ -67,7 +67,7 @@ class CenterSlideLayout {
   }
 
   void dispose() {
-    for (final field in fields) {
+    for (final field in _fields) {
       field.painter?.dispose();
     }
     flow?.dispose();
@@ -92,8 +92,9 @@ CenterSlideLayout prepareCenterSlideLayout(
       final value = _fieldValue(field, draft);
       if (recipe.backgroundPath != null &&
           field.originalText != null &&
-          value == field.originalText)
+          value == field.originalText) {
         continue;
+      }
       fields.add(_prepareField(field, recipe, value, scale));
     }
     if (recipe.body != null) {
@@ -127,8 +128,9 @@ Future<Uint8List> renderCenterSlide(
   final layout = prepareCenterSlideLayout(recipe, draft);
   ui.Image? background;
   try {
-    if (backgroundBytes != null)
+    if (backgroundBytes != null) {
       background = await decodeCenterSlideBackground(recipe, backgroundBytes);
+    }
     final recorder = ui.PictureRecorder();
     layout.paint(
       Canvas(recorder),

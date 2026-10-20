@@ -132,8 +132,9 @@ class AiRasterPage extends HookConsumerWidget {
                                       adding.value = true;
                                       WidgetsBinding.instance
                                           .addPostFrameCallback((_) {
-                                            if (context.mounted)
+                                            if (context.mounted) {
                                               Navigator.pop(context, module);
+                                            }
                                           });
                                     }
                                   },
