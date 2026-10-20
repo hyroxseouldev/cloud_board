@@ -13,6 +13,17 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/center
 
 part 'center_slide_template_repository_impl.g.dart';
 
+typedef CenterSlideDraftRenderer = Future<Uint8List> Function(
+  CenterSlideRecipe recipe,
+  AiSlideDraft draft, {
+  Uint8List? backgroundBytes,
+});
+
+// One full-resolution result at most; larger PNGs are returned without retention.
+const centerSlideRenderedCacheMaxBytes = 8 * 1024 * 1024;
+const _rendererVersion = 1;
+typedef _RenderKey = ({int version, int generation, AiSlideDraft draft});
+
 @riverpod
 CenterSlideTemplateRepository centerSlideTemplateRepository(
   Ref ref,
@@ -63,8 +74,25 @@ CenterSlideTemplateRepository centerSlideTemplateRepository(
 
 class CenterSlideTemplateRepositoryImpl
     implements CenterSlideTemplateRepository {
-  const CenterSlideTemplateRepositoryImpl(this.source);
+  CenterSlideTemplateRepositoryImpl(
+    this.source, {
+    CenterSlideDraftRenderer? renderer,
+  }) : _renderer = renderer ?? renderCenterSlide {
+    source.addAuthorityInvalidationListener(_clearRendered);
+  }
   final CenterSlideCatalogDataSource source;
+  final CenterSlideDraftRenderer _renderer;
+  _RenderKey? _cachedKey, _pendingKey;
+  Uint8List? _cachedPng;
+  Future<Uint8List>? _pending;
+
+  void _clearRendered() {
+    _cachedKey = null;
+    _cachedPng = null;
+    _pendingKey = null;
+    _pending = null;
+  }
+
   @override
   Stream<CenterSlideCatalog> watchCatalog(String ownerId, String centerId) =>
       source.watchCatalog(ownerId, centerId);
@@ -80,12 +108,64 @@ class CenterSlideTemplateRepositoryImpl
         code: 'center_recipe_missing',
       );
     }
-    source.ensureCurrent(ownerId, requestedCenter: recipe.centerId);
+    // Both preview and Add pass through this guard. A byte-cache hit never
+    // grants access: use the current account, catalog authority and exact recipe.
+    final int generation;
+    try {
+      generation = await source.authorizeRecipe(ownerId, recipe);
+    } catch (_) {
+      _clearRendered();
+      rethrow;
+    }
+    final key = (
+      version: _rendererVersion,
+      generation: generation,
+      draft: draft.copyWith(
+        lines: List.unmodifiable(draft.lines),
+        centerRecipe: recipe.copyWith(fields: List.unmodifiable(recipe.fields)),
+      ),
+    );
+    final cached = _cachedPng;
+    if (_cachedKey == key && cached != null) {
+      source.ensureRecipeAuthorized(ownerId, recipe, generation: generation);
+      return Uint8List.fromList(cached);
+    }
+    // Share a preview still rendering when Add is tapped. Only the newest
+    // request can retain a result; older completions cannot overwrite its cache.
+    _cachedKey = null;
+    _cachedPng = null;
+    final request = _pendingKey == key && _pending != null
+        ? _pending!
+        : _render(ownerId, key.draft, key.draft.centerRecipe!, generation);
+    _pendingKey = key;
+    _pending = request;
+    try {
+      final rendered = await request;
+      source.ensureRecipeAuthorized(ownerId, recipe, generation: generation);
+      if (identical(_pending, request) &&
+          rendered.length <= centerSlideRenderedCacheMaxBytes) {
+        _cachedKey = key;
+        _cachedPng = Uint8List.fromList(rendered);
+      }
+      return Uint8List.fromList(rendered);
+    } finally {
+      if (identical(_pending, request)) {
+        _pendingKey = null;
+        _pending = null;
+      }
+    }
+  }
+
+  Future<Uint8List> _render(
+    String ownerId,
+    AiSlideDraft draft,
+    CenterSlideRecipe recipe,
+    int generation,
+  ) async {
     final background = await source.loadBackground(ownerId, recipe);
-    final generation = source.authorityGeneration;
     source.ensureRecipeAuthorized(ownerId, recipe, generation: generation);
     try {
-      final rendered = await renderCenterSlide(
+      final rendered = await _renderer(
         recipe,
         draft,
         backgroundBytes: background,

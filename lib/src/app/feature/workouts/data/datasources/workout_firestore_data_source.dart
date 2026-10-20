@@ -167,15 +167,15 @@ class WorkoutFirestoreDataSource {
     // is stale or another device deleted it. Read the latest document only to
     // preserve unknown fields and legacy settings; the server still enforces
     // account access and quota in its atomic commit.
-    final settings =
-        (await _firestore
-                .doc('users/$userId/settings/workout')
-                .get(const GetOptions(source: Source.server)))
-            .data();
     final reference = _workouts(userId).doc(workout.id);
-    final previous = (await reference.get(
-      const GetOptions(source: Source.server),
-    )).data();
+    final snapshots = await Future.wait([
+      _firestore
+          .doc('users/$userId/settings/workout')
+          .get(const GetOptions(source: Source.server)),
+      reference.get(const GetOptions(source: Source.server)),
+    ]);
+    final settings = snapshots[0].data();
+    final previous = snapshots[1].data();
     if (ifAbsent && previous != null) {
       return WorkoutDocument.decode({...previous, 'id': workout.id});
     }

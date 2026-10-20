@@ -7,7 +7,7 @@ import {doc,setDoc,deleteDoc,updateDoc} from 'firebase/firestore';
 import {planAccess} from '../src/plan-policy.js';
 import {saveWorkout} from '../src/workout-save.js';
 import {mutateSlideLibrary} from '../src/slide-library.js';
-import {reconcilePlanUsage} from '../src/plan-usage.js';
+import {reconcilePlanUsage,reconcileWorkoutPlanUsage} from '../src/plan-usage.js';
 import {legacySettingKeys, normalizeSettings} from '../src/workout-settings-migration.js';
 assert.match(process.env.FIRESTORE_EMULATOR_HOST ?? '',/^(127\.0\.0\.1|localhost):\d+$/);
 const projectId='demo-cloudboard-plan-quotas',app=initializeApp({projectId}),db=getFirestore(app);
@@ -30,7 +30,11 @@ try {
   assert.equal((await db.doc('users/owner/workoutSummaries/first-save').get()).exists,true);
   assert.equal((await db.doc('users/owner/planUsage/current').get()).data().workoutCount,1);
   assert.equal((await save('first-save',first)).created,false); // Lost response, same payload.
+  const usageBeforeEdit=await db.doc('users/owner/planUsage/current').get();
   await save('first-save',{workout:{...workout('first-save',3000),name:'Edited'},expectedUpdatedAt:2000,requireExisting:true});
+  await reconcileWorkoutPlanUsage(db,'owner',{before:{exists:true},after:{exists:true}});
+  const usageAfterEdit=await db.doc('users/owner/planUsage/current').get();
+  assert(usageAfterEdit.updateTime.isEqual(usageBeforeEdit.updateTime)); // Neither save nor update trigger rewrites usage.
   assert.equal((await db.doc('users/owner/planUsage/current').get()).data().workoutCount,1);
   const latest={...workout('first-save',4000),name:'Latest save',createdAt:999};
   await save('first-save',{workout:latest,expectedUpdatedAt:2000,requireExisting:true});
