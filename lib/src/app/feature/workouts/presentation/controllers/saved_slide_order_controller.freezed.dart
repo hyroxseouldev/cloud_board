@@ -216,7 +216,7 @@ return $default(_that.ids,_that.ready,_that.saving,_that.error);case _:
 
 class _SavedSlideOrderState implements SavedSlideOrderState {
   const _SavedSlideOrderState({ List<String> ids = const [], this.ready = false, this.saving = false, this.error}): _ids = ids;
-  
+
 
  final  List<String> _ids;
 @override@JsonKey() List<String> get ids {
