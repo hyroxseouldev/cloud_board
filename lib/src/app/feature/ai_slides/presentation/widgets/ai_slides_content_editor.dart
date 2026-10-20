@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:cloud_board/src/app/feature/ai_slides/data/renderers/center_slide_flow_renderer.dart';
+
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_line_groups.dart';
@@ -188,6 +190,34 @@ class AiSlidesContentEditor extends StatelessWidget {
             ),
           ),
         ],
+        if (flow)
+          Builder(
+            builder: (context) => Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey('ai-center-auto-fit'),
+                icon: const Icon(Icons.format_size),
+                label: const Text('본문 자동 맞춤 · 되돌리기 가능'),
+                onPressed: () {
+                  try {
+                    final layout = layoutCenterSlideFlow(
+                      recipe: draft.centerRecipe!,
+                      lines: draft.lines,
+                      outputScale: 1920 / draft.centerRecipe!.width,
+                      fixedColumns: draft.centerColumns,
+                      autoFit: true,
+                    );
+                    final size = layout.fontSize;
+                    layout.dispose();
+                    onChanged(draft.copyWith(centerFontSize: size));
+                  } on FormatException catch (error) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(error.message)));
+                  }
+                },
+              ),
+            ),
+          ),
         if (!flow)
           for (final (position, indexes) in groups.indexed) ...[
             const SizedBox(height: 12),
@@ -219,7 +249,7 @@ class AiSlidesContentEditor extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           flow
-              ? '와드 전체를 붙여넣어 주세요. A. / B. 또는 ## 제목으로 구역을 나누면 내용에 맞게 배치돼요.'
+              ? '선택한 열과 글자 크기를 유지해요. A. / B. 또는 ## 제목으로 구역을 나눌 수 있어요. 넘치는 내용은 줄이거나 슬라이드를 나눠 주세요.'
               : '영역별로 내용을 붙여넣고 줄바꿈으로 나눠 주세요. 빈 줄은 해당 위치를 비워 둬요.',
           style: TextStyle(fontSize: 12),
         ),

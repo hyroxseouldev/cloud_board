@@ -175,6 +175,7 @@ class _SlideEditorBody extends HookConsumerWidget {
     final originalDesign = originalTemplate != null;
     final structuredDesign =
         slideDesigns.containsKey(module.designTemplate) ||
+        isCreationSlideDesign(module) ||
         isStudioSlideDesign(module);
     final busy = useState(false);
     final needsInitialSave = useState(request.needsInitialSave);

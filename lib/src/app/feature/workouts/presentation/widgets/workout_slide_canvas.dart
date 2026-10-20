@@ -21,7 +21,9 @@ class _SlideDesignArtwork extends HookWidget {
     required this.module,
     required this.targetWidth,
     required this.webHtmlElementStrategy,
+    required this.creationTypography,
   });
+  final bool creationTypography;
   final WorkoutModule module;
   final int targetWidth;
   final WebHtmlElementStrategy webHtmlElementStrategy;
@@ -29,6 +31,9 @@ class _SlideDesignArtwork extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final originalId = module.designStyle?.originalTemplate;
+    final layoutWarning = creationTypography || isCreationSlideDesign(module)
+        ? measureSlideDesign(module, creationTypography: true).warning
+        : null;
     final image = useState<ui.Image?>(null);
     final failure = useState<Object?>(null);
     final attempt = useState(0);
@@ -90,12 +95,31 @@ class _SlideDesignArtwork extends HookWidget {
         ),
       );
     }
+    if (layoutWarning != null) {
+      return ColoredBox(
+        color: const Color(0xfff6f3ea),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(80),
+            child: Text(
+              '선택한 글자 크기와 배치에 내용이 넘쳐요. 문구를 줄이거나 슬라이드를 나눠 주세요.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xff26382f), fontSize: 44),
+            ),
+          ),
+        ),
+      );
+    }
     return Semantics(
       label: isIllustratedStarterDesign(module)
           ? '${module.name}. ${module.text.replaceAll('\n', ', ')}. ${module.designSubtitle}'
           : null,
       child: CustomPaint(
-        painter: SlideDesignPainter(module, originalImage: image.value),
+        painter: SlideDesignPainter(
+          module,
+          originalImage: image.value,
+          creationTypography: creationTypography,
+        ),
       ),
     );
   }
@@ -129,6 +153,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
     required this.brandR,
     required this.scale,
     this.showLoadingIndicator = false,
+    this.creationTypography = false,
     this.timer,
     this.positionLabel,
     this.displayPreferences = const DisplayPreferences(),
@@ -154,6 +179,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
   final String brandR;
   final double scale;
   final bool showLoadingIndicator;
+  final bool creationTypography;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -183,6 +209,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                             height: 1080,
                             child: _SlideDesignArtwork(
                               module: module,
+                              creationTypography: creationTypography,
                               webHtmlElementStrategy: webHtmlElementStrategy,
                               targetWidth: _artworkPixelWidth(
                                 constraints,

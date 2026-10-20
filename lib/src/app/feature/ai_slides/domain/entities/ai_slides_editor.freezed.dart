@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AiSlideTheme {
 
- CenterSlideRecipe? get centerRecipe; SlideDesignStyle? get designStyle; int? get designBackgroundColor; int? get designTextColor; int? get designAccentColor; String get designLayout; int get designFontWeight; bool get designItalic; double get designSpacing; bool get showTimer; double get timerX; double get timerY; double get timerSize;
+ CenterSlideRecipe? get centerRecipe; int? get centerColumns; double? get centerFontSize; SlideDesignStyle? get designStyle; int? get designBackgroundColor; int? get designTextColor; int? get designAccentColor; String get designLayout; int get designFontWeight; bool get designItalic; double get designSpacing; bool get showTimer; double get timerX; double get timerY; double get timerSize;
 /// Create a copy of AiSlideTheme
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $AiSlideThemeCopyWith<AiSlideTheme> get copyWith => _$AiSlideThemeCopyWithImpl<A
 @override
 bool operator ==(Object other) {
   final _this = this as AiSlideTheme;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlideTheme&&(identical(other.centerRecipe, _this.centerRecipe) || other.centerRecipe == _this.centerRecipe)&&(identical(other.designStyle, _this.designStyle) || other.designStyle == _this.designStyle)&&(identical(other.designBackgroundColor, _this.designBackgroundColor) || other.designBackgroundColor == _this.designBackgroundColor)&&(identical(other.designTextColor, _this.designTextColor) || other.designTextColor == _this.designTextColor)&&(identical(other.designAccentColor, _this.designAccentColor) || other.designAccentColor == _this.designAccentColor)&&(identical(other.designLayout, _this.designLayout) || other.designLayout == _this.designLayout)&&(identical(other.designFontWeight, _this.designFontWeight) || other.designFontWeight == _this.designFontWeight)&&(identical(other.designItalic, _this.designItalic) || other.designItalic == _this.designItalic)&&(identical(other.designSpacing, _this.designSpacing) || other.designSpacing == _this.designSpacing)&&(identical(other.showTimer, _this.showTimer) || other.showTimer == _this.showTimer)&&(identical(other.timerX, _this.timerX) || other.timerX == _this.timerX)&&(identical(other.timerY, _this.timerY) || other.timerY == _this.timerY)&&(identical(other.timerSize, _this.timerSize) || other.timerSize == _this.timerSize));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlideTheme&&(identical(other.centerRecipe, _this.centerRecipe) || other.centerRecipe == _this.centerRecipe)&&(identical(other.centerColumns, _this.centerColumns) || other.centerColumns == _this.centerColumns)&&(identical(other.centerFontSize, _this.centerFontSize) || other.centerFontSize == _this.centerFontSize)&&(identical(other.designStyle, _this.designStyle) || other.designStyle == _this.designStyle)&&(identical(other.designBackgroundColor, _this.designBackgroundColor) || other.designBackgroundColor == _this.designBackgroundColor)&&(identical(other.designTextColor, _this.designTextColor) || other.designTextColor == _this.designTextColor)&&(identical(other.designAccentColor, _this.designAccentColor) || other.designAccentColor == _this.designAccentColor)&&(identical(other.designLayout, _this.designLayout) || other.designLayout == _this.designLayout)&&(identical(other.designFontWeight, _this.designFontWeight) || other.designFontWeight == _this.designFontWeight)&&(identical(other.designItalic, _this.designItalic) || other.designItalic == _this.designItalic)&&(identical(other.designSpacing, _this.designSpacing) || other.designSpacing == _this.designSpacing)&&(identical(other.showTimer, _this.showTimer) || other.showTimer == _this.showTimer)&&(identical(other.timerX, _this.timerX) || other.timerX == _this.timerX)&&(identical(other.timerY, _this.timerY) || other.timerY == _this.timerY)&&(identical(other.timerSize, _this.timerSize) || other.timerSize == _this.timerSize));
 }
 
 
 @override
 int get hashCode {
   final _this = this as AiSlideTheme;
-  return Object.hash(runtimeType,_this.centerRecipe,_this.designStyle,_this.designBackgroundColor,_this.designTextColor,_this.designAccentColor,_this.designLayout,_this.designFontWeight,_this.designItalic,_this.designSpacing,_this.showTimer,_this.timerX,_this.timerY,_this.timerSize);
+  return Object.hash(runtimeType,_this.centerRecipe,_this.centerColumns,_this.centerFontSize,_this.designStyle,_this.designBackgroundColor,_this.designTextColor,_this.designAccentColor,_this.designLayout,_this.designFontWeight,_this.designItalic,_this.designSpacing,_this.showTimer,_this.timerX,_this.timerY,_this.timerSize);
 }
 
 @override
 String toString() {
   final _this = this as AiSlideTheme;
-  return 'AiSlideTheme(centerRecipe: ${_this.centerRecipe}, designStyle: ${_this.designStyle}, designBackgroundColor: ${_this.designBackgroundColor}, designTextColor: ${_this.designTextColor}, designAccentColor: ${_this.designAccentColor}, designLayout: ${_this.designLayout}, designFontWeight: ${_this.designFontWeight}, designItalic: ${_this.designItalic}, designSpacing: ${_this.designSpacing}, showTimer: ${_this.showTimer}, timerX: ${_this.timerX}, timerY: ${_this.timerY}, timerSize: ${_this.timerSize})';
+  return 'AiSlideTheme(centerRecipe: ${_this.centerRecipe}, centerColumns: ${_this.centerColumns}, centerFontSize: ${_this.centerFontSize}, designStyle: ${_this.designStyle}, designBackgroundColor: ${_this.designBackgroundColor}, designTextColor: ${_this.designTextColor}, designAccentColor: ${_this.designAccentColor}, designLayout: ${_this.designLayout}, designFontWeight: ${_this.designFontWeight}, designItalic: ${_this.designItalic}, designSpacing: ${_this.designSpacing}, showTimer: ${_this.showTimer}, timerX: ${_this.timerX}, timerY: ${_this.timerY}, timerSize: ${_this.timerSize})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $AiSlideThemeCopyWith<$Res>  {
   factory $AiSlideThemeCopyWith(AiSlideTheme value, $Res Function(AiSlideTheme) _then) = _$AiSlideThemeCopyWithImpl;
 @useResult
 $Res call({
- CenterSlideRecipe? centerRecipe, SlideDesignStyle? designStyle, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize
+ CenterSlideRecipe? centerRecipe, int? centerColumns, double? centerFontSize, SlideDesignStyle? designStyle, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize
 });
 
 
@@ -68,10 +68,12 @@ class _$AiSlideThemeCopyWithImpl<$Res>
 
 /// Create a copy of AiSlideTheme
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? centerRecipe = freezed,Object? designStyle = freezed,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? centerRecipe = freezed,Object? centerColumns = freezed,Object? centerFontSize = freezed,Object? designStyle = freezed,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,}) {
   return _then(AiSlideTheme(
 centerRecipe: freezed == centerRecipe ? _self.centerRecipe : centerRecipe // ignore: cast_nullable_to_non_nullable
-as CenterSlideRecipe?,designStyle: freezed == designStyle ? _self.designStyle : designStyle // ignore: cast_nullable_to_non_nullable
+as CenterSlideRecipe?,centerColumns: freezed == centerColumns ? _self.centerColumns : centerColumns // ignore: cast_nullable_to_non_nullable
+as int?,centerFontSize: freezed == centerFontSize ? _self.centerFontSize : centerFontSize // ignore: cast_nullable_to_non_nullable
+as double?,designStyle: freezed == designStyle ? _self.designStyle : designStyle // ignore: cast_nullable_to_non_nullable
 as SlideDesignStyle?,designBackgroundColor: freezed == designBackgroundColor ? _self.designBackgroundColor : designBackgroundColor // ignore: cast_nullable_to_non_nullable
 as int?,designTextColor: freezed == designTextColor ? _self.designTextColor : designTextColor // ignore: cast_nullable_to_non_nullable
 as int?,designAccentColor: freezed == designAccentColor ? _self.designAccentColor : designAccentColor // ignore: cast_nullable_to_non_nullable
@@ -192,10 +194,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( CenterSlideRecipe? centerRecipe,  SlideDesignStyle? designStyle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( CenterSlideRecipe? centerRecipe,  int? centerColumns,  double? centerFontSize,  SlideDesignStyle? designStyle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AiSlideTheme() when $default != null:
-return $default(_that.centerRecipe,_that.designStyle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize);case _:
+return $default(_that.centerRecipe,_that.centerColumns,_that.centerFontSize,_that.designStyle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize);case _:
   return orElse();
 
 }
@@ -213,10 +215,10 @@ return $default(_that.centerRecipe,_that.designStyle,_that.designBackgroundColor
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( CenterSlideRecipe? centerRecipe,  SlideDesignStyle? designStyle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( CenterSlideRecipe? centerRecipe,  int? centerColumns,  double? centerFontSize,  SlideDesignStyle? designStyle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize)  $default,) {final _that = this;
 switch (_that) {
 case _AiSlideTheme():
-return $default(_that.centerRecipe,_that.designStyle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize);case _:
+return $default(_that.centerRecipe,_that.centerColumns,_that.centerFontSize,_that.designStyle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -233,10 +235,10 @@ return $default(_that.centerRecipe,_that.designStyle,_that.designBackgroundColor
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( CenterSlideRecipe? centerRecipe,  SlideDesignStyle? designStyle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( CenterSlideRecipe? centerRecipe,  int? centerColumns,  double? centerFontSize,  SlideDesignStyle? designStyle,  int? designBackgroundColor,  int? designTextColor,  int? designAccentColor,  String designLayout,  int designFontWeight,  bool designItalic,  double designSpacing,  bool showTimer,  double timerX,  double timerY,  double timerSize)?  $default,) {final _that = this;
 switch (_that) {
 case _AiSlideTheme() when $default != null:
-return $default(_that.centerRecipe,_that.designStyle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize);case _:
+return $default(_that.centerRecipe,_that.centerColumns,_that.centerFontSize,_that.designStyle,_that.designBackgroundColor,_that.designTextColor,_that.designAccentColor,_that.designLayout,_that.designFontWeight,_that.designItalic,_that.designSpacing,_that.showTimer,_that.timerX,_that.timerY,_that.timerSize);case _:
   return null;
 
 }
@@ -248,10 +250,12 @@ return $default(_that.centerRecipe,_that.designStyle,_that.designBackgroundColor
 
 
 class _AiSlideTheme implements AiSlideTheme {
-  const _AiSlideTheme({this.centerRecipe, this.designStyle, this.designBackgroundColor, this.designTextColor, this.designAccentColor, this.designLayout = 'auto', this.designFontWeight = 900, this.designItalic = true, this.designSpacing = 1.0, this.showTimer = true, this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1.0});
+  const _AiSlideTheme({this.centerRecipe, this.centerColumns, this.centerFontSize, this.designStyle, this.designBackgroundColor, this.designTextColor, this.designAccentColor, this.designLayout = 'auto', this.designFontWeight = 900, this.designItalic = true, this.designSpacing = 1.0, this.showTimer = true, this.timerX = 0.84, this.timerY = 0.5, this.timerSize = 1.0});
   
 
 @override final  CenterSlideRecipe? centerRecipe;
+@override final  int? centerColumns;
+@override final  double? centerFontSize;
 @override final  SlideDesignStyle? designStyle;
 @override final  int? designBackgroundColor;
 @override final  int? designTextColor;
@@ -275,18 +279,18 @@ _$AiSlideThemeCopyWith<_AiSlideTheme> get copyWith => __$AiSlideThemeCopyWithImp
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlideTheme&&(identical(other.centerRecipe, centerRecipe) || other.centerRecipe == centerRecipe)&&(identical(other.designStyle, designStyle) || other.designStyle == designStyle)&&(identical(other.designBackgroundColor, designBackgroundColor) || other.designBackgroundColor == designBackgroundColor)&&(identical(other.designTextColor, designTextColor) || other.designTextColor == designTextColor)&&(identical(other.designAccentColor, designAccentColor) || other.designAccentColor == designAccentColor)&&(identical(other.designLayout, designLayout) || other.designLayout == designLayout)&&(identical(other.designFontWeight, designFontWeight) || other.designFontWeight == designFontWeight)&&(identical(other.designItalic, designItalic) || other.designItalic == designItalic)&&(identical(other.designSpacing, designSpacing) || other.designSpacing == designSpacing)&&(identical(other.showTimer, showTimer) || other.showTimer == showTimer)&&(identical(other.timerX, timerX) || other.timerX == timerX)&&(identical(other.timerY, timerY) || other.timerY == timerY)&&(identical(other.timerSize, timerSize) || other.timerSize == timerSize));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlideTheme&&(identical(other.centerRecipe, centerRecipe) || other.centerRecipe == centerRecipe)&&(identical(other.centerColumns, centerColumns) || other.centerColumns == centerColumns)&&(identical(other.centerFontSize, centerFontSize) || other.centerFontSize == centerFontSize)&&(identical(other.designStyle, designStyle) || other.designStyle == designStyle)&&(identical(other.designBackgroundColor, designBackgroundColor) || other.designBackgroundColor == designBackgroundColor)&&(identical(other.designTextColor, designTextColor) || other.designTextColor == designTextColor)&&(identical(other.designAccentColor, designAccentColor) || other.designAccentColor == designAccentColor)&&(identical(other.designLayout, designLayout) || other.designLayout == designLayout)&&(identical(other.designFontWeight, designFontWeight) || other.designFontWeight == designFontWeight)&&(identical(other.designItalic, designItalic) || other.designItalic == designItalic)&&(identical(other.designSpacing, designSpacing) || other.designSpacing == designSpacing)&&(identical(other.showTimer, showTimer) || other.showTimer == showTimer)&&(identical(other.timerX, timerX) || other.timerX == timerX)&&(identical(other.timerY, timerY) || other.timerY == timerY)&&(identical(other.timerSize, timerSize) || other.timerSize == timerSize));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,centerRecipe,designStyle,designBackgroundColor,designTextColor,designAccentColor,designLayout,designFontWeight,designItalic,designSpacing,showTimer,timerX,timerY,timerSize);
+    return Object.hash(runtimeType,centerRecipe,centerColumns,centerFontSize,designStyle,designBackgroundColor,designTextColor,designAccentColor,designLayout,designFontWeight,designItalic,designSpacing,showTimer,timerX,timerY,timerSize);
 }
 
 @override
 String toString() {
-    return 'AiSlideTheme(centerRecipe: $centerRecipe, designStyle: $designStyle, designBackgroundColor: $designBackgroundColor, designTextColor: $designTextColor, designAccentColor: $designAccentColor, designLayout: $designLayout, designFontWeight: $designFontWeight, designItalic: $designItalic, designSpacing: $designSpacing, showTimer: $showTimer, timerX: $timerX, timerY: $timerY, timerSize: $timerSize)';
+    return 'AiSlideTheme(centerRecipe: $centerRecipe, centerColumns: $centerColumns, centerFontSize: $centerFontSize, designStyle: $designStyle, designBackgroundColor: $designBackgroundColor, designTextColor: $designTextColor, designAccentColor: $designAccentColor, designLayout: $designLayout, designFontWeight: $designFontWeight, designItalic: $designItalic, designSpacing: $designSpacing, showTimer: $showTimer, timerX: $timerX, timerY: $timerY, timerSize: $timerSize)';
 }
 
 
@@ -297,7 +301,7 @@ abstract mixin class _$AiSlideThemeCopyWith<$Res> implements $AiSlideThemeCopyWi
   factory _$AiSlideThemeCopyWith(_AiSlideTheme value, $Res Function(_AiSlideTheme) _then) = __$AiSlideThemeCopyWithImpl;
 @override @useResult
 $Res call({
- CenterSlideRecipe? centerRecipe, SlideDesignStyle? designStyle, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize
+ CenterSlideRecipe? centerRecipe, int? centerColumns, double? centerFontSize, SlideDesignStyle? designStyle, int? designBackgroundColor, int? designTextColor, int? designAccentColor, String designLayout, int designFontWeight, bool designItalic, double designSpacing, bool showTimer, double timerX, double timerY, double timerSize
 });
 
 
@@ -314,10 +318,12 @@ class __$AiSlideThemeCopyWithImpl<$Res>
 
 /// Create a copy of AiSlideTheme
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? centerRecipe = freezed,Object? designStyle = freezed,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? centerRecipe = freezed,Object? centerColumns = freezed,Object? centerFontSize = freezed,Object? designStyle = freezed,Object? designBackgroundColor = freezed,Object? designTextColor = freezed,Object? designAccentColor = freezed,Object? designLayout = null,Object? designFontWeight = null,Object? designItalic = null,Object? designSpacing = null,Object? showTimer = null,Object? timerX = null,Object? timerY = null,Object? timerSize = null,}) {
   return _then(_AiSlideTheme(
 centerRecipe: freezed == centerRecipe ? _self.centerRecipe : centerRecipe // ignore: cast_nullable_to_non_nullable
-as CenterSlideRecipe?,designStyle: freezed == designStyle ? _self.designStyle : designStyle // ignore: cast_nullable_to_non_nullable
+as CenterSlideRecipe?,centerColumns: freezed == centerColumns ? _self.centerColumns : centerColumns // ignore: cast_nullable_to_non_nullable
+as int?,centerFontSize: freezed == centerFontSize ? _self.centerFontSize : centerFontSize // ignore: cast_nullable_to_non_nullable
+as double?,designStyle: freezed == designStyle ? _self.designStyle : designStyle // ignore: cast_nullable_to_non_nullable
 as SlideDesignStyle?,designBackgroundColor: freezed == designBackgroundColor ? _self.designBackgroundColor : designBackgroundColor // ignore: cast_nullable_to_non_nullable
 as int?,designTextColor: freezed == designTextColor ? _self.designTextColor : designTextColor // ignore: cast_nullable_to_non_nullable
 as int?,designAccentColor: freezed == designAccentColor ? _self.designAccentColor : designAccentColor // ignore: cast_nullable_to_non_nullable

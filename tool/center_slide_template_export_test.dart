@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:crypto/crypto.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/data/models/center_slide_catalog_model.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/data/renderers/center_slide_renderer.dart';
@@ -105,6 +108,38 @@ void main() {
           design.sample ?? initialAiSlideDesignDraft(design.theme),
           backgroundBytes: await file.readAsBytes(),
         );
+      }
+      final thumbnailManifest = env['CENTER_CATALOG_THUMBNAILS'];
+      if (thumbnailManifest != null && thumbnailManifest.isNotEmpty) {
+        final thumbnails = Map<String, dynamic>.from(
+          jsonDecode(await File(thumbnailManifest).readAsString()) as Map,
+        );
+        for (final entry in thumbnails.entries) {
+          final thumbnail = designs[entry.key]?.theme.centerRecipe?.thumbnail;
+          if (thumbnail == null)
+            throw const FormatException('Unknown thumbnail.');
+          final file = File(entry.value as String);
+          if (await file.length() > 1024 * 1024)
+            throw const FormatException('Thumbnail exceeds 1 MiB.');
+          final bytes = await file.readAsBytes();
+          if (sha256.convert(bytes).toString() != thumbnail.sha256)
+            throw const FormatException('Thumbnail digest changed.');
+          final codec = await ui.instantiateImageCodec(bytes);
+          try {
+            if (codec.frameCount != 1)
+              throw const FormatException('Still PNG required.');
+            final image = (await codec.getNextFrame()).image;
+            try {
+              if (image.width != thumbnail.width ||
+                  image.height != thumbnail.height)
+                throw const FormatException('Thumbnail dimensions changed.');
+            } finally {
+              image.dispose();
+            }
+          } finally {
+            codec.dispose();
+          }
+        }
       }
       await File(output).writeAsString(
         '${const JsonEncoder.withIndent('  ').convert(model.toJson())}\n',

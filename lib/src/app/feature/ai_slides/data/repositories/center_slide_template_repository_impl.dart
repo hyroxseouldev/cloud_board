@@ -21,7 +21,7 @@ typedef CenterSlideDraftRenderer = Future<Uint8List> Function(
 
 // One full-resolution result at most; larger PNGs are returned without retention.
 const centerSlideRenderedCacheMaxBytes = 8 * 1024 * 1024;
-const _rendererVersion = 1;
+const _rendererVersion = 2;
 typedef _RenderKey = ({int version, int generation, AiSlideDraft draft});
 
 @riverpod
@@ -100,6 +100,9 @@ class CenterSlideTemplateRepositoryImpl
   Future<Uint8List?> loadBackground(String ownerId, CenterSlideRecipe recipe) =>
       source.loadBackground(ownerId, recipe);
   @override
+  Future<Uint8List?> loadThumbnail(String ownerId, CenterSlideRecipe recipe) =>
+      source.loadThumbnail(ownerId, recipe);
+  @override
   Future<Uint8List> renderDraft(String ownerId, AiSlideDraft draft) async {
     final recipe = draft.centerRecipe;
     if (recipe == null) {
@@ -108,11 +111,11 @@ class CenterSlideTemplateRepositoryImpl
         code: 'center_recipe_missing',
       );
     }
-    // Both preview and Add pass through this guard. A byte-cache hit never
-    // grants access: use the current account, catalog authority and exact recipe.
+    // Final Add always refreshes authority, even for an already rendered PNG.
+    // A byte-cache hit grants no access without the current exact recipe.
     final int generation;
     try {
-      generation = await source.authorizeRecipe(ownerId, recipe);
+      generation = await source.authorizeRecipe(ownerId, recipe, fresh: true);
     } catch (_) {
       _clearRendered();
       rethrow;
@@ -130,8 +133,8 @@ class CenterSlideTemplateRepositoryImpl
       source.ensureRecipeAuthorized(ownerId, recipe, generation: generation);
       return Uint8List.fromList(cached);
     }
-    // Share a preview still rendering when Add is tapped. Only the newest
-    // request can retain a result; older completions cannot overwrite its cache.
+    // Repeated identical Add requests share one render. Only the newest request
+    // can retain a result; older completions cannot overwrite its cache.
     _cachedKey = null;
     _cachedPng = null;
     final request = _pendingKey == key && _pending != null

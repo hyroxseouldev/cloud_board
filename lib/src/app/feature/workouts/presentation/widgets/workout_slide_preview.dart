@@ -12,9 +12,11 @@ class WorkoutSlidePreview extends StatelessWidget {
     this.brandL = '',
     this.brandR = '',
     this.borderRadius = 12,
+    this.creationTypography = false,
   });
 
   final double borderRadius;
+  final bool creationTypography;
   final WorkoutModule module;
   final bool isRest;
   final String brandL;
@@ -48,6 +50,7 @@ class WorkoutSlidePreview extends StatelessWidget {
                 removeBottom: true,
                 child: WorkoutSlideCanvas(
                   module: module,
+                  creationTypography: creationTypography,
                   // HTML platform views composite fractional edges separately
                   // from the black canvas backing. Prefer one canvas for editor
                   // previews, retaining HTML compatibility when CORS denies it.

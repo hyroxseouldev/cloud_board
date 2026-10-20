@@ -127,7 +127,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
         : ref.watch(centerSlidePreviewProvider(draft!));
     final metrics = module == null || centerTemplate
         ? null
-        : measureSlideDesign(module);
+        : measureSlideDesign(module, creationTypography: true);
     final validation = draft == null
         ? null
         : centerTemplate
@@ -184,7 +184,7 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
                     .read(centerSlideTemplateActionsProvider)
                     .renderDraft(draft),
               )
-            : confirmAiSlide(draft, id);
+            : await prepareCreatedSlideDesign(confirmAiSlide(draft, id));
         if (!context.mounted ||
             ref.read(aiSlidesOwnerIdProvider) != ownerId ||
             ref.read(centerSlideCatalogScopeProvider) != scope) {

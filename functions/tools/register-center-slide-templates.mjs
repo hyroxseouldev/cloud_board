@@ -15,7 +15,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export class OperatorError extends Error {}
 const requireValue = (condition, message) => {if (!condition) throw new OperatorError(message);};
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
-const usage = 'Usage: register-center-slide-templates.mjs --project cloud-board-development --email <existing account> (--file <catalog.json> | --seed-stationd --center-id <verified center> --revision <n> [--center-name <name>]) [--image <PNG> | --images <ID-to-PNG JSON>] [--replace] [--auth adc|firebase-cli] [--flutter <path>] [--output <new JSON file>] [--apply]';
+const usage = 'Usage: register-center-slide-templates.mjs --project cloud-board-development --email <existing account> (--file <catalog.json> | --seed-stationd --center-id <verified center> --revision <n> [--center-name <name>]) [--image <PNG> | --images <ID-to-PNG JSON>] [--thumbnails <ID-to-PNG JSON>] [--local-only --center-id <id>] [--replace] [--auth adc|firebase-cli] [--flutter <path>] [--output <new JSON file>] [--apply]';
 
 export function parseArgs(args) {
   const value = {apply: false, replace: false, seed: false, auth: 'adc'};
@@ -24,21 +24,22 @@ export function parseArgs(args) {
     const flag = args[i];
     requireValue(!seen.has(flag), `Repeated option: ${flag}`);
     seen.add(flag);
-    if (['--apply', '--replace', '--seed-stationd'].includes(flag)) {
+    if (['--apply', '--replace', '--seed-stationd', '--local-only'].includes(flag)) {
       value[flag === '--seed-stationd' ? 'seed' : flag.slice(2)] = true;
     } else {
-      requireValue(['--project', '--email', '--file', '--image', '--images', '--center-id', '--center-name', '--revision', '--auth', '--flutter', '--output'].includes(flag), usage);
+      requireValue(['--project', '--email', '--file', '--image', '--images', '--thumbnails', '--center-id', '--center-name', '--revision', '--auth', '--flutter', '--output'].includes(flag), usage);
       const next = args[++i];
       requireValue(next !== undefined && !next.startsWith('--'), `Missing value for ${flag}`);
       value[flag.slice(2)] = next;
     }
   }
-  requireValue(value.project === developmentProject, 'This tool is restricted to the explicitly selected development project.');
-  requireValue(typeof value.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email), 'An explicit existing account email is required.');
+  requireValue(value['local-only'] || value.project === developmentProject, 'This tool is restricted to the explicitly selected development project.');
+  requireValue(value['local-only'] || typeof value.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email), 'An explicit existing account email is required.');
   requireValue(Number(value.seed) + Number(Boolean(value.file)) === 1, usage);
   requireValue(['adc', 'firebase-cli'].includes(value.auth), 'Unsupported authentication method.');
   requireValue(!value.image || !value.images, '--image and --images are mutually exclusive.');
   if (value['center-id'] !== undefined) requireValue(idPattern.test(value['center-id']), 'Invalid expected center ID.');
+  if (value['local-only']) requireValue(!value.apply && !value.seed && value['center-id'] && value.output, 'Local-only requires --file, --center-id and --output; --apply is forbidden.');
   if (value.seed) {
     requireValue(value['center-id'], '--seed-stationd requires an explicitly verified target center ID.');
     requireValue(!value.image && !value.images, '--image/--images are only supported with a recipe catalog file.');
@@ -165,9 +166,36 @@ export function prepareImages(catalog, images, centerId) {
   return {catalog: prepared, assets};
 }
 
+// Optional thumbnail metadata lives inside recipe so released catalog readers
+// ignore it. It shares the existing private hashed-object rules, never tokens.
+export function prepareThumbnails(catalog, images, centerId) {
+  const recipes = catalog.templates.filter(item => item.published && item.recipe?.thumbnail);
+  requireValue(Object.keys(images).length === recipes.length && recipes.length > 0 &&
+    Object.keys(images).every(id => recipes.some(item => item.id === id)),
+  'Thumbnail manifest must match every declared published thumbnail.');
+  const assets = [];
+  for (const item of recipes) {
+    const thumbnail = item.recipe.thumbnail;
+    const path = images[item.id];
+    requireValue(statSync(path).isFile() && statSync(path).size <= 1024 * 1024, 'Thumbnail exceeds 1 MiB.');
+    const bytes = readFileSync(path), digest = sha256(bytes);
+    requireValue(bytes.length >= 33 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) &&
+      bytes.readUInt32BE(8) === 13 && bytes.toString('ascii',12,16) === 'IHDR', 'Thumbnail must be a PNG.');
+    requireValue(item.recipe.centerId === centerId && thumbnail.revision === item.recipe.revision &&
+      Number.isInteger(thumbnail.width) && thumbnail.width >= 16 && thumbnail.width <= 640 &&
+      Number.isInteger(thumbnail.height) && thumbnail.height >= 9 && thumbnail.height <= 360 &&
+      thumbnail.width * 9 === thumbnail.height * 16 && bytes.readUInt32BE(16) === thumbnail.width &&
+      bytes.readUInt32BE(20) === thumbnail.height && thumbnail.sha256 === digest &&
+      thumbnail.path === `center-templates/${centerId}/${item.id}/${digest}.png`,
+    'Thumbnail geometry/hash/revision/center must match its recipe.');
+    assets.push({path: thumbnail.path, sha256: digest, bytes});
+  }
+  return assets;
+}
+
 // Catalog and recipe validation belongs to the same Dart models as the app.
 // The renderer also decodes/validates an input PNG before any upload is allowed.
-export function validateWithApp(catalog, {centerId, flutter: executable, image, images, seed, revision, centerName = ''} = {}) {
+export function validateWithApp(catalog, {centerId, flutter: executable, image, images, thumbnails, seed, revision, centerName = ''} = {}) {
   const temporary = mkdtempSync(resolve(tmpdir(), 'center-slide-template-'));
   try {
     const input = resolve(temporary, 'input.json'), output = resolve(temporary, 'canonical.json');
@@ -175,6 +203,8 @@ export function validateWithApp(catalog, {centerId, flutter: executable, image, 
     requireValue(!image || !images, 'Cannot validate single and batch images together.');
     const imageManifest = images ? resolve(temporary, 'images.json') : '';
     if (images) writeFileSync(imageManifest, JSON.stringify(images));
+    const thumbnailManifest = thumbnails ? resolve(temporary, 'thumbnails.json') : '';
+    if (thumbnails) writeFileSync(thumbnailManifest, JSON.stringify(thumbnails));
     let flutter = executable || process.env.CLOUDBOARD_FLUTTER || 'flutter';
     if (flutter.includes('/') && !isAbsolute(flutter)) flutter = resolve(flutter);
     const result = spawnSync(flutter, ['test', 'tool/center_slide_template_export_test.dart', '--no-pub', '--reporter', 'compact'], {
@@ -182,7 +212,7 @@ export function validateWithApp(catalog, {centerId, flutter: executable, image, 
       env: {...process.env, CENTER_CATALOG_INPUT: seed ? '' : input, CENTER_CATALOG_OUTPUT: output,
         CENTER_CATALOG_CENTER_ID: centerId, CENTER_CATALOG_SEED: seed ? 'stationd' : '',
         CENTER_CATALOG_REVISION: String(revision || ''), CENTER_CATALOG_CENTER_NAME: centerName,
-        CENTER_CATALOG_IMAGE: image ? resolve(image) : '', CENTER_CATALOG_IMAGES: imageManifest},
+        CENTER_CATALOG_IMAGE: image ? resolve(image) : '', CENTER_CATALOG_IMAGES: imageManifest, CENTER_CATALOG_THUMBNAILS: thumbnailManifest},
     });
     requireValue(!result.error && result.status === 0, `App catalog/PNG validation failed; nothing was uploaded.\n${result.error?.message || `${result.stdout || ''}\n${result.stderr || ''}`.slice(-4000)}`);
     return JSON.parse(readFileSync(output, 'utf8'));
@@ -306,6 +336,19 @@ export async function run(args, {open = openServices, validate = validateWithApp
   let incoming = options.file ? readCatalogFile(options.file) : null;
   if (incoming) header(incoming);
   const images = options.images ? readImageManifest(options.images) : null;
+  const thumbnails = options.thumbnails ? readImageManifest(options.thumbnails) : null;
+  if (options['local-only']) {
+    const centerId = options['center-id'];
+    let assets = [];
+    if (images) ({catalog: incoming, assets} = prepareImages(incoming, images, centerId));
+    if (options.image) { const prepared = preparePng(incoming, readFileSync(options.image), centerId); incoming = prepared.catalog; assets.push(prepared.asset); }
+    if (thumbnails) assets.push(...prepareThumbnails(incoming, thumbnails, centerId));
+    const candidate = validate(incoming, {centerId, flutter: options.flutter, image: options.image, images, thumbnails});
+    writeFileSync(resolve(options.output), `${JSON.stringify(candidate, null, 2)}\n`, {flag: 'wx'});
+    const result = {status: 'local-only', templates: candidate.templates.length, imageCount: assets.length, writes: 0, network: false};
+    log(JSON.stringify(result));
+    return result;
+  }
   const services = await open(options);
   try {
     const {auth, db, bucket} = services;
@@ -321,7 +364,8 @@ export async function run(args, {open = openServices, validate = validateWithApp
       incoming = prepared.catalog;
       assets = [prepared.asset];
     }
-    incoming = validate(incoming, {...validation, image: options.image, images});
+    if (thumbnails) assets.push(...prepareThumbnails(incoming, thumbnails, target.centerId));
+    incoming = validate(incoming, {...validation, image: options.image, images, thumbnails});
     const ref = db.doc(`centers/${target.centerId}/slideTemplateCatalog/current`);
     const snapshot = await ref.get(), current = snapshot.exists ? snapshot.data() : null;
     if (current) header(current);
@@ -332,8 +376,11 @@ export async function run(args, {open = openServices, validate = validateWithApp
     const preparedPaths = new Set(assets.map(asset => asset.path));
     for (const entry of incoming.templates.filter(item => item.published)) {
       const recipe = entry.recipe;
-      if (recipe?.backgroundPath && !preparedPaths.has(recipe.backgroundPath)) {
-        await verifyExistingAsset(bucket, {path: recipe.backgroundPath, sha256: recipe.backgroundSha256});
+      for (const asset of [
+        recipe?.backgroundPath ? {path: recipe.backgroundPath, sha256: recipe.backgroundSha256} : null,
+        recipe?.thumbnail ? {path: recipe.thumbnail.path, sha256: recipe.thumbnail.sha256} : null,
+      ].filter(Boolean)) {
+        if (!preparedPaths.has(asset.path)) await verifyExistingAsset(bucket, asset);
       }
     }
     if (options.output) writeFileSync(resolve(options.output), `${JSON.stringify(candidate, null, 2)}\n`, {flag: 'wx'});

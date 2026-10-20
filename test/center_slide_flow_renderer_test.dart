@@ -45,44 +45,38 @@ void main() {
         .load();
   });
 
-  test(
-    'auto selects larger readable three columns without splitting sections',
-    () {
-      final layout = layoutCenterSlideFlow(
-        recipe: _recipe,
-        lines: _threeSections,
-        outputScale: 1,
+  test('selected three columns keep their size and section positions', () {
+    final layout = layoutCenterSlideFlow(
+      recipe: _recipe,
+      lines: _threeSections,
+      fixedColumns: 3,
+      outputScale: 1,
+    );
+    try {
+      expect(layout.columns, 3);
+      expect(layout.fontSize, 80);
+      expect(layout.placements.map((entry) => entry.sectionIndex), [0, 1, 2]);
+      expect(layout.placements.map((entry) => entry.columnIndex), [0, 1, 2]);
+      expect(
+        layout.placements.map((entry) => entry.text),
+        parseCenterSlideSections(_threeSections).map((section) => section.text),
       );
-      try {
-        expect(layout.columns, 3);
-        expect(layout.fontSize, 80);
-        expect(layout.placements.map((entry) => entry.sectionIndex), [0, 1, 2]);
-        expect(layout.placements.map((entry) => entry.columnIndex), [0, 1, 2]);
+      for (final placement in layout.placements) {
+        expect(placement.bounds.left, greaterThanOrEqualTo(layout.bounds.left));
+        expect(placement.bounds.top, greaterThanOrEqualTo(layout.bounds.top));
         expect(
-          layout.placements.map((entry) => entry.text),
-          parseCenterSlideSections(_threeSections)
-              .map((section) => section.text),
+          placement.bounds.right,
+          lessThanOrEqualTo(layout.bounds.right + .01),
         );
-        for (final placement in layout.placements) {
-          expect(
-            placement.bounds.left,
-            greaterThanOrEqualTo(layout.bounds.left),
-          );
-          expect(placement.bounds.top, greaterThanOrEqualTo(layout.bounds.top));
-          expect(
-            placement.bounds.right,
-            lessThanOrEqualTo(layout.bounds.right + .01),
-          );
-          expect(
-            placement.bounds.bottom,
-            lessThanOrEqualTo(layout.bounds.bottom + .01),
-          );
-        }
-      } finally {
-        layout.dispose();
+        expect(
+          placement.bounds.bottom,
+          lessThanOrEqualTo(layout.bounds.bottom + .01),
+        );
       }
-    },
-  );
+    } finally {
+      layout.dispose();
+    }
+  });
 
   test('stack policy preserves order and uses readable smaller type', () {
     final layout = layoutCenterSlideFlow(
@@ -105,19 +99,51 @@ void main() {
     }
   });
 
-  test('columns policy falls back to a full-width unsplit long block', () {
+  test('long text never changes selected columns or shrinks implicitly', () {
     final lines = ['A. Main', '1. Bench Press 8 reps; rest 30 seconds. ' * 4];
-    final layout = layoutCenterSlideFlow(
-      recipe: _recipe.copyWith(body: _body.copyWith(layout: 'columns')),
+    final recipe = _recipe.copyWith(body: _body.copyWith(layout: 'columns'));
+    expect(
+      () => layoutCenterSlideFlow(recipe: recipe, lines: lines, outputScale: 1),
+      throwsFormatException,
+    );
+    final fitted = layoutCenterSlideFlow(
+      recipe: recipe,
       lines: lines,
       outputScale: 1,
+      autoFit: true,
     );
     try {
-      expect(layout.columns, 1);
-      expect(layout.placements.single.text, lines.join('\n'));
-      expect(layout.fontSize, greaterThanOrEqualTo(32));
+      expect(fitted.columns, 3);
+      expect(fitted.fontSize, lessThan(80));
+      expect(fitted.placements.single.text, lines.join('\n'));
     } finally {
-      layout.dispose();
+      fitted.dispose();
+    }
+  });
+
+  test('deleting content never expands its font or changes columns', () {
+    final long = layoutCenterSlideFlow(
+      recipe: _recipe,
+      lines: _threeSections,
+      outputScale: 1,
+      fixedColumns: 3,
+    );
+    final short = layoutCenterSlideFlow(
+      recipe: _recipe,
+      lines: ['A. Ski', '8 reps'],
+      outputScale: 1,
+      fixedColumns: 3,
+    );
+    try {
+      expect(short.fontSize, long.fontSize);
+      expect(short.columns, long.columns);
+      expect(
+        short.placements.first.bounds.left,
+        long.placements.first.bounds.left,
+      );
+    } finally {
+      long.dispose();
+      short.dispose();
     }
   });
 
@@ -136,7 +162,7 @@ void main() {
           isA<FormatException>().having(
             (error) => error.message,
             'message',
-            contains('여러 슬라이드'),
+            contains('슬라이드를 나눠'),
           ),
         ),
       );
@@ -147,7 +173,12 @@ void main() {
   test('v2 exports a PNG through the same creation-only renderer', () async {
     final bytes = await renderCenterSlide(
       _recipe,
-      AiSlideDraft(title: 'WOD', layout: 'list', lines: _threeSections),
+      AiSlideDraft(
+        title: 'WOD',
+        layout: 'list',
+        lines: _threeSections,
+        centerColumns: 3,
+      ),
     );
     final codec = await ui.instantiateImageCodec(bytes);
     try {

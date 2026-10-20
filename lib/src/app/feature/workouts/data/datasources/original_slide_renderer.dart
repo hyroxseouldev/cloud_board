@@ -226,24 +226,28 @@ List<_Field> _fields(WorkoutModule module) {
   ];
 }
 
-TextPainter _text(_Field field, double size) => TextPainter(
-  text: TextSpan(
-    text: field.value,
-    style: TextStyle(
-      fontFamily: field.fontFamily,
-      fontSize: size,
-      fontWeight: FontWeight.values[field.weight ~/ 100 - 1],
-      color: Color(field.color),
-      height: 1.15,
-    ),
-  ),
-  textDirection: TextDirection.ltr,
-  maxLines: 1,
-)..layout();
+TextPainter _text(_Field field, double size, {bool fixed = false}) =>
+    TextPainter(
+      text: TextSpan(
+        text: field.value,
+        style: TextStyle(
+          fontFamily: field.fontFamily,
+          fontSize: size,
+          fontWeight: FontWeight.values[field.weight ~/ 100 - 1],
+          color: Color(field.color),
+          height: 1.15,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: fixed ? null : 1,
+    )..layout(maxWidth: fixed ? field.bounds.width : double.infinity);
 
-({TextPainter painter, double fontSize}) _fit(_Field field) {
+({TextPainter painter, double fontSize}) _fit(
+  _Field field, {
+  bool fixed = false,
+}) {
   var size = field.fontSize;
-  var painter = _text(field, size);
+  var painter = _text(field, size, fixed: fixed);
   final factor = math.min(
     1.0,
     math.min(
@@ -251,7 +255,7 @@ TextPainter _text(_Field field, double size) => TextPainter(
       field.bounds.height / math.max(1, painter.height),
     ),
   );
-  if (factor < 1) {
+  if (!fixed && factor < 1) {
     size *= factor;
     painter.dispose();
     painter = _text(field, size);
@@ -260,7 +264,10 @@ TextPainter _text(_Field field, double size) => TextPainter(
 }
 
 /// Synchronous geometry, in the standard 1920×1080 output coordinate space.
-OriginalSlideMetrics measureOriginalSlide(WorkoutModule module) {
+OriginalSlideMetrics measureOriginalSlide(
+  WorkoutModule module, {
+  bool fixedTypography = false,
+}) {
   final template = originalSlideTemplate(module.designStyle?.originalTemplate)!;
   final target = originalSlideImageRect(
     originalSlideOutputSize,
@@ -271,7 +278,7 @@ OriginalSlideMetrics measureOriginalSlide(WorkoutModule module) {
   var warning = originalSlideValidationError(module);
   for (final field in _fields(module)) {
     if (field.value.isEmpty) continue;
-    final fitted = _fit(field);
+    final fitted = _fit(field, fixed: fixedTypography);
     final rect = Rect.fromLTWH(
       target.left + field.bounds.left * scale,
       target.top + (field.bounds.center.dy - fitted.painter.height / 2) * scale,
@@ -279,7 +286,11 @@ OriginalSlideMetrics measureOriginalSlide(WorkoutModule module) {
       fitted.painter.height * scale,
     );
     final fontSize = (field.changed ? fitted.fontSize : field.fontSize) * scale;
-    if (field.changed && fontSize < 36) {
+    if (field.changed &&
+        (fontSize < 36 ||
+            (fixedTypography &&
+                (fitted.painter.height > field.bounds.height ||
+                    fitted.painter.width > field.bounds.width)))) {
       warning ??= '원본의 글자 영역에 맞게 제목이나 운동 문구를 줄여 주세요.';
     }
     runs.add(
@@ -314,8 +325,9 @@ void paintOriginalSlide(
   Canvas canvas,
   Size size,
   WorkoutModule module,
-  ui.Image image,
-) {
+  ui.Image image, {
+  bool fixedTypography = false,
+}) {
   // Incomplete editor drafts may still preview. The validation/metrics warning
   // blocks applying or exporting overflow, while the source module keeps all
   // entered content. Only this fixed recipe's four slots are drawn here.
@@ -356,9 +368,9 @@ void paintOriginalSlide(
       ..isAntiAlias = false;
     canvas.drawRect(field.bounds, clear);
     if (field.value.isEmpty) continue;
-    final fitted = _fit(field);
+    final fitted = _fit(field, fixed: fixedTypography);
     canvas.save();
-    canvas.clipRect(field.bounds);
+    if (!fixedTypography) canvas.clipRect(field.bounds);
     fitted.painter.paint(
       canvas,
       Offset(

@@ -14,66 +14,27 @@ const centerSlideOutputWidth = 1920;
 const centerSlideOutputHeight = 1080;
 const centerSlideMinimumOutputFontSize = 24.0;
 
-/// Creation-only raster export. The caller owns authenticated asset loading;
-/// this function never fetches data or changes a workout/display renderer.
-Future<Uint8List> renderCenterSlide(
-  CenterSlideRecipe recipe,
-  AiSlideDraft draft, {
-  Uint8List? backgroundBytes,
-}) async {
-  final recipeError = validateCenterSlideRecipe(recipe);
-  if (recipeError != null) throw FormatException(recipeError);
-  _validateContent(recipe, draft);
-  final hasBackground = recipe.backgroundPath != null;
-  if (hasBackground != (backgroundBytes != null)) {
-    throw const FormatException('센터 템플릿의 원본 이미지를 다시 불러와 주세요.');
-  }
+/// Measured once for a draft; preview and final PNG paint this exact layout.
+/// No image encoding/decoding or network work happens in this calculation.
+class CenterSlideLayout {
+  CenterSlideLayout._(this.recipe, this.fields, this.flow);
+  final CenterSlideRecipe recipe;
+  final List<_PreparedField> fields;
+  final CenterSlideFlowLayout? flow;
 
-  ui.Image? background;
-  CenterSlideFlowLayout? flow;
-  final fields = <_PreparedField>[];
-  final scale = math.min(
-    centerSlideOutputWidth / recipe.width,
-    centerSlideOutputHeight / recipe.height,
-  );
-  try {
-    if (backgroundBytes != null) {
-      background = await _decodeBackground(recipe, backgroundBytes);
-    }
-    for (final field in recipe.fields) {
-      final value = _fieldValue(field, draft);
-      // Preserve source pixels, including the original typeface/texture, until
-      // this exact field changes. Empty original slots are meaningful too.
-      if (hasBackground &&
-          field.originalText != null &&
-          value == field.originalText) {
-        continue;
-      }
-      fields.add(_prepareField(field, recipe, value, scale));
-    }
-
-    if (recipe.body != null) {
-      flow = layoutCenterSlideFlow(
-        recipe: recipe,
-        lines: draft.lines,
-        outputScale: scale,
-      );
-    }
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
+  void paint(Canvas canvas, Size size, {ui.Image? background}) {
+    final scale = math.min(
+      size.width / recipe.width,
+      size.height / recipe.height,
+    );
     canvas.drawRect(
-      const Rect.fromLTWH(
-        0,
-        0,
-        centerSlideOutputWidth * 1.0,
-        centerSlideOutputHeight * 1.0,
-      ),
+      Offset.zero & size,
       Paint()..color = Color(recipe.backgroundColor),
     );
     canvas.save();
     canvas.translate(
-      (centerSlideOutputWidth - recipe.width * scale) / 2,
-      (centerSlideOutputHeight - recipe.height * scale) / 2,
+      (size.width - recipe.width * scale) / 2,
+      (size.height - recipe.height * scale) / 2,
     );
     canvas.scale(scale);
     if (background != null) {
@@ -99,17 +60,81 @@ Future<Uint8List> renderCenterSlide(
             ..isAntiAlias = false,
         );
       }
-      if (field.painter != null) {
-        // Fitting is validated before drawing; the clip also contains italic
-        // glyph overhang and antialiasing inside the declared editable region.
-        canvas.save();
-        canvas.clipRect(field.bounds, doAntiAlias: false);
-        field.painter!.paint(canvas, field.offset);
-        canvas.restore();
-      }
+      field.painter?.paint(canvas, field.offset);
     }
     flow?.paint(canvas);
     canvas.restore();
+  }
+
+  void dispose() {
+    for (final field in fields) {
+      field.painter?.dispose();
+    }
+    flow?.dispose();
+  }
+}
+
+CenterSlideLayout prepareCenterSlideLayout(
+  CenterSlideRecipe recipe,
+  AiSlideDraft draft,
+) {
+  final error = validateCenterSlideRecipe(recipe);
+  if (error != null) throw FormatException(error);
+  _validateContent(recipe, draft);
+  final fields = <_PreparedField>[];
+  CenterSlideFlowLayout? flow;
+  final scale = math.min(
+    centerSlideOutputWidth / recipe.width,
+    centerSlideOutputHeight / recipe.height,
+  );
+  try {
+    for (final field in recipe.fields) {
+      final value = _fieldValue(field, draft);
+      if (recipe.backgroundPath != null &&
+          field.originalText != null &&
+          value == field.originalText)
+        continue;
+      fields.add(_prepareField(field, recipe, value, scale));
+    }
+    if (recipe.body != null) {
+      flow = layoutCenterSlideFlow(
+        recipe: recipe,
+        lines: draft.lines,
+        outputScale: scale,
+        fixedColumns: draft.centerColumns,
+        fontSize: draft.centerFontSize,
+      );
+    }
+    return CenterSlideLayout._(recipe, fields, flow);
+  } catch (_) {
+    for (final field in fields) {
+      field.painter?.dispose();
+    }
+    flow?.dispose();
+    rethrow;
+  }
+}
+
+/// Explicit final export only. Preview never calls this PNG path.
+Future<Uint8List> renderCenterSlide(
+  CenterSlideRecipe recipe,
+  AiSlideDraft draft, {
+  Uint8List? backgroundBytes,
+}) async {
+  if ((recipe.backgroundPath != null) != (backgroundBytes != null)) {
+    throw const FormatException('센터 템플릿의 원본 이미지를 다시 불러와 주세요.');
+  }
+  final layout = prepareCenterSlideLayout(recipe, draft);
+  ui.Image? background;
+  try {
+    if (backgroundBytes != null)
+      background = await decodeCenterSlideBackground(recipe, backgroundBytes);
+    final recorder = ui.PictureRecorder();
+    layout.paint(
+      Canvas(recorder),
+      const Size(1920, 1080),
+      background: background,
+    );
     final picture = recorder.endRecording();
     try {
       final output = await picture.toImage(
@@ -118,9 +143,7 @@ Future<Uint8List> renderCenterSlide(
       );
       try {
         final png = await output.toByteData(format: ui.ImageByteFormat.png);
-        if (png == null) {
-          throw const FormatException('센터 슬라이드 이미지를 만들지 못했어요.');
-        }
+        if (png == null) throw const FormatException('센터 슬라이드 이미지를 만들지 못했어요.');
         return Uint8List.fromList(
           png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes),
         );
@@ -131,18 +154,16 @@ Future<Uint8List> renderCenterSlide(
       picture.dispose();
     }
   } finally {
-    for (final field in fields) {
-      field.painter?.dispose();
-    }
-    flow?.dispose();
+    layout.dispose();
     background?.dispose();
   }
 }
 
-Future<ui.Image> _decodeBackground(
+Future<ui.Image> decodeCenterSlideBackground(
   CenterSlideRecipe recipe,
-  Uint8List bytes,
-) async {
+  Uint8List bytes, {
+  int? targetWidth,
+}) async {
   const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
   if (bytes.length < 24 ||
       bytes.length > centerSlideMaximumBackgroundBytes ||
@@ -164,13 +185,18 @@ Future<ui.Image> _decodeBackground(
   if (sha256.convert(bytes).toString() != recipe.backgroundSha256) {
     throw const FormatException('센터 템플릿 원본 이미지가 변경되었어요. 다시 불러와 주세요.');
   }
-  final codec = await ui.instantiateImageCodec(bytes);
+  final codec = await ui.instantiateImageCodec(
+    bytes,
+    targetWidth: targetWidth,
+    allowUpscaling: false,
+  );
   try {
     if (codec.frameCount != 1) {
       throw const FormatException('움직이는 PNG는 센터 템플릿으로 사용할 수 없어요.');
     }
     final image = (await codec.getNextFrame()).image;
-    if (image.width != recipe.width || image.height != recipe.height) {
+    if (targetWidth == null &&
+        (image.width != recipe.width || image.height != recipe.height)) {
       image.dispose();
       throw const FormatException('센터 템플릿 원본 이미지 크기가 변경되었어요.');
     }
@@ -260,39 +286,27 @@ _PreparedField _prepareField(
     return _PreparedField(bounds: bounds, clear: clear, clearColor: clearColor);
   }
 
-  TextPainter text(double size) => TextPainter(
-    text: TextSpan(
-      text: value,
-      style: TextStyle(
-        fontFamily: field.fontFamily,
-        fontSize: size,
-        fontWeight: FontWeight.values[field.fontWeight ~/ 100 - 1],
-        fontStyle: field.italic ? FontStyle.italic : FontStyle.normal,
-        color: Color(field.color),
-        height: 1.15,
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-    maxLines: 1,
-  )..layout();
+  TextPainter text(double size) =>
+      TextPainter(
+        text: TextSpan(
+          text: value,
+          style: TextStyle(
+            fontFamily: field.fontFamily,
+            fontSize: size,
+            fontWeight: FontWeight.values[field.fontWeight ~/ 100 - 1],
+            fontStyle: field.italic ? FontStyle.italic : FontStyle.normal,
+            color: Color(field.color),
+            height: 1.15,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(
+        maxWidth: math.max(1, bounds.width - size * (field.italic ? .32 : .08)),
+      );
 
-  var size = field.fontSize;
-  var painter = text(size);
-  // Reserve a small inset for glyph overhang; this is inside the slot, not an
-  // expansion that could erase adjacent original artwork.
+  final size = field.fontSize;
+  final painter = text(size);
   double inset(double fontSize) => fontSize * (field.italic ? .16 : .04);
-  final fit = math.min(
-    1.0,
-    math.min(
-      bounds.width / math.max(1, painter.width + inset(size) * 2),
-      bounds.height / math.max(1, painter.height),
-    ),
-  );
-  if (fit < 1) {
-    size *= fit;
-    painter.dispose();
-    painter = text(size);
-  }
   final padding = inset(size);
   final minimum = recipe.schemaVersion == 2
       ? centerSlideFlowMinimumOutputFontSize
@@ -302,7 +316,9 @@ _PreparedField _prepareField(
       painter.height > bounds.height + .01 ||
       painter.didExceedMaxLines) {
     painter.dispose();
-    throw const FormatException('글씨가 너무 작아져요. 제목이나 운동 문구를 줄여 주세요.');
+    throw const FormatException(
+      '선택한 글자 크기에 문구가 넘쳐요. 제목이나 운동 문구를 줄이거나 슬라이드를 나눠 주세요.',
+    );
   }
   final left = switch (field.align) {
     'center' => bounds.center.dx - painter.width / 2,

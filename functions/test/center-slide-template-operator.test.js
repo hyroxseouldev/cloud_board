@@ -365,3 +365,42 @@ test('legacy single-image and explicit seed invocations keep their validation pa
     assert.equal(seedValidated, true); assert.equal(seed.state.uploads, 0); assert.equal(seed.state.writes, 0);
   } finally {f.close();}
 });
+
+test('local-only catalog preparation never opens credentials or services', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'center-local-only-'));
+  try {
+    const input = join(directory, 'input.json'), output = join(directory, 'output.json');
+    writeFileSync(input, JSON.stringify(catalog()));
+    const result = await run(['--local-only', '--file', input, '--center-id', 'center-one', '--output', output], {
+      open: () => { throw new Error('Local-only must not open external services'); },
+      validate: value => value, log: () => {},
+    });
+    assert.equal(result.status, 'local-only');
+    assert.equal(result.network, false);
+    assert.equal(result.writes, 0);
+    assert.throws(() => parseArgs(['--local-only', '--apply', '--file', input, '--center-id', 'center-one', '--output', output]));
+  } finally { rmSync(directory, {recursive: true, force: true}); }
+});
+
+test('thumbnail preparation binds dimensions, revision and exact content hash', async () => {
+  const {prepareThumbnails} = await import('../tools/register-center-slide-templates.mjs');
+  const directory = mkdtempSync(join(tmpdir(), 'center-thumbnail-'));
+  try {
+    // Header contract is checked here; the app validator additionally decodes PNG.
+    const bytes = Buffer.alloc(33);
+    Buffer.from([137,80,78,71,13,10,26,10]).copy(bytes);
+    bytes.writeUInt32BE(13, 8); bytes.write('IHDR', 12);
+    bytes.writeUInt32BE(640, 16); bytes.writeUInt32BE(360, 20);
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    const path = join(directory, 'thumbnail.png'); writeFileSync(path, bytes);
+    const thumbnail = {path: `center-templates/center-one/custom/${digest}.png`, sha256: digest, revision: 2, width: 640, height: 360};
+    const input = catalog(2, [entry('custom', {originalTemplateId: undefined,
+      recipe: {centerId: 'center-one', templateId: 'custom', revision: 2, thumbnail}})]);
+    const assets = prepareThumbnails(input, {custom: path}, 'center-one');
+    assert.equal(assets.length, 1);
+    assert.equal(assets[0].path, thumbnail.path);
+    assert.throws(() => prepareThumbnails(input, {custom: path}, 'other-center'));
+    input.templates[0].recipe.thumbnail.revision = 1;
+    assert.throws(() => prepareThumbnails(input, {custom: path}, 'center-one'));
+  } finally { rmSync(directory, {recursive: true, force: true}); }
+});

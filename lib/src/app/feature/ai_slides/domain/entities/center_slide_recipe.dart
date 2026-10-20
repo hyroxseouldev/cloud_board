@@ -22,6 +22,9 @@ abstract class CenterSlideRecipe with _$CenterSlideRecipe {
     String? backgroundSha256,
     required List<CenterSlideField> fields,
     CenterSlideBody? body,
+
+    /// Nested here so deployed catalog readers ignore this optional metadata.
+    @JsonKey(includeIfNull: false) CenterSlideThumbnail? thumbnail,
   }) = _CenterSlideRecipe;
 
   factory CenterSlideRecipe.fromJson(Map<String, dynamic> json) =>
@@ -121,6 +124,19 @@ String? validateCenterSlideRecipe(CenterSlideRecipe recipe) {
   }
   if (!_isArgb(recipe.backgroundColor)) {
     return '센터 템플릿의 배경 색상 정보가 올바르지 않아요.';
+  }
+  final thumbnail = recipe.thumbnail;
+  if (thumbnail != null &&
+      (thumbnail.width < 16 ||
+          thumbnail.width > 640 ||
+          thumbnail.height < 9 ||
+          thumbnail.height > 360 ||
+          thumbnail.width * 9 != thumbnail.height * 16 ||
+          thumbnail.revision != recipe.revision ||
+          !_sha256.hasMatch(thumbnail.sha256) ||
+          thumbnail.path !=
+              'center-templates/${recipe.centerId}/${recipe.templateId}/${thumbnail.sha256}.png')) {
+    return '센터 템플릿 미리보기 정보를 확인해 주세요.';
   }
   final path = recipe.backgroundPath;
   final digest = recipe.backgroundSha256;
@@ -321,4 +337,30 @@ void _validateBodyJson(Map<String, dynamic> json) {
   if (json.containsKey('layout') && json['layout'] is! String) {
     _invalidJson('body.layout');
   }
+}
+
+/// A pre-rendered sample, published atomically with its matching recipe.
+/// Private hashed PNGs use the existing authenticated Storage namespace.
+@freezed
+abstract class CenterSlideThumbnail with _$CenterSlideThumbnail {
+  const factory CenterSlideThumbnail({
+    required String path,
+    required String sha256,
+    required int revision,
+    required int width,
+    required int height,
+  }) = _CenterSlideThumbnail;
+
+  factory CenterSlideThumbnail.fromJson(Map<String, dynamic> json) =>
+      _thumbnailFromJson(json);
+}
+
+CenterSlideThumbnail _thumbnailFromJson(Map<String, dynamic> json) {
+  for (final key in ['path', 'sha256']) {
+    if (json[key] is! String) _invalidJson('thumbnail.$key');
+  }
+  for (final key in ['revision', 'width', 'height']) {
+    if (json[key] is! int) _invalidJson('thumbnail.$key');
+  }
+  return _$CenterSlideThumbnailFromJson(json);
 }
