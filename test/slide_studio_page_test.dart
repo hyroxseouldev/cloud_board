@@ -44,12 +44,15 @@ void main() {
               path: 'images/create',
               builder: (_, _) => AiSlidesPage(guard: guard),
               onExit: (_, _) => guard.confirm(),
+              routes: [
+                GoRoute(
+                  path: 'library',
+                  builder: (_, _) =>
+                      const Scaffold(body: Text('saved library route')),
+                ),
+              ],
             ),
           ],
-        ),
-        GoRoute(
-          path: '/slides',
-          builder: (_, _) => const Scaffold(body: Text('saved library route')),
         ),
       ],
     );

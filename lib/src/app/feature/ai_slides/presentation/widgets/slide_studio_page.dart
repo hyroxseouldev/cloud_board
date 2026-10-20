@@ -135,6 +135,13 @@ class SlideStudioPage extends HookConsumerWidget {
       });
     }
 
+    void openLibrary() {
+      FocusScope.of(context).unfocus();
+      final studioPath = GoRouterState.of(context).uri.path
+          .replaceFirst(RegExp(r'/$'), '');
+      context.push<void>('$studioPath/library');
+    }
+
     Widget preview(StudioResult result) =>
         result.job != null && result.brand != null
         ? AiRasterPreview(brand: result.brand!, job: result.job!)
@@ -207,16 +214,12 @@ class SlideStudioPage extends HookConsumerWidget {
               if (narrow)
                 IconButton(
                   tooltip: '저장된 슬라이드',
-                  onPressed: locked || state.busy
-                      ? null
-                      : () => context.push('/slides'),
+                  onPressed: locked || state.busy ? null : openLibrary,
                   icon: const Icon(Icons.bookmarks_outlined),
                 )
               else
                 TextButton(
-                  onPressed: locked || state.busy
-                      ? null
-                      : () => context.push('/slides'),
+                  onPressed: locked || state.busy ? null : openLibrary,
                   child: const Text('저장된 슬라이드'),
                 ),
               const SizedBox(width: 8),

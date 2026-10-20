@@ -366,6 +366,12 @@ GoRouter appRouter(Ref ref) {
                 onExit: (_, _) => imageCreationGuard.confirm(),
                 routes: [
                   GoRoute(
+                    path: 'library',
+                    // Keep the studio on the same navigator stack. /slides is
+                    // a main tab and must not be pushed as another shell.
+                    builder: (_, _) => const SlideLibraryScreen(),
+                  ),
+                  GoRoute(
                     path: 'raster',
                     builder: (_, _) => AiRasterPage(guard: rasterCreationGuard),
                     onExit: (_, _) => rasterCreationGuard.confirm(),

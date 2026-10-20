@@ -107,7 +107,9 @@ The library stores the normal `WorkoutModule` (title, source text, image and
 supported design fields). A private recipe is not serialized into legacy
 documents. Center and raster results use the existing final image contract;
 opening, adding, saving a class, re-reading and TV playback require no AI call.
-The library route is independently accessible from the header. Adding to the
+The header pushes the studio's `library` child route, retaining the editor and
+input/result state on the same navigator. The existing `/slides` main tab remains
+unchanged and is not pushed as another stateful shell. Adding to the
 current class does not require library saving and does not claim class save
 success.
 
