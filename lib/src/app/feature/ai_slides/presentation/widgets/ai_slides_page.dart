@@ -306,7 +306,37 @@ class _AiSlidesEditorPage extends HookConsumerWidget {
           ],
         ],
       ),
-      _EditorTab.create => studio(AiSlideDesignStudioSection.create),
+      _EditorTab.create => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: const Text('센터 참고 디자인으로 AI 이미지 만들기'),
+              subtitle: const Text('정확한 공식 로고 · 원문 그룹 편집 · 실제 배경 이미지 생성'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final owner = ref.read(aiSlidesOwnerIdProvider),
+                    scope = ref.read(centerSlideCatalogScopeProvider);
+                final value = await context.push<WorkoutModule>(
+                  '${GoRouterState.of(context).uri.path}/raster',
+                );
+                if (value == null ||
+                    !context.mounted ||
+                    ref.read(aiSlidesOwnerIdProvider) != owner ||
+                    ref.read(centerSlideCatalogScopeProvider) != scope)
+                  return;
+                adding.value = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) Navigator.pop(context, [value]);
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          studio(AiSlideDesignStudioSection.create),
+        ],
+      ),
     };
     Widget controls() => IndexedStack(
       index: tab.value.index,

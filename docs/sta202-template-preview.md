@@ -49,4 +49,4 @@ Brick의 제목은 원본 서예와 겹치는 평면 이미지여서 원본 픽�
 
 ## 남은 경계
 
-실제 private catalog 게시, 저장·재조회 callable E2E, 실제 TV/iPad/Android 가독성, 웹 스크롤·CPU·프레임·최대 메모리 측정은 별도이다. 실제 결과 없이 성능 개선율을 적지 않는다. Section 5의 AI raster 모델/샘플/키 재사용/사용량 정책은 별도 결정 중이며 기존 JSON 디자인 제안 경로를 연결한 것으로 완료 처리하지 않는다.
+실제 private catalog 게시, 저장·재조회 callable E2E, 실제 TV/iPad/Android 가독성, 웹 스크롤·CPU·프레임·최대 메모리 측정은 별도이다. 실제 결과 없이 성능 개선율을 적지 않는다. Section 5는 실제 이미지 생성 endpoint와 별도 편집 경로를 구현했으며 [API·비용·로컬 검증 계약](sta202-ai-raster.md)을 따른다. 키 재사용은 승인되었지만 실제 API 호출·품질 샘플·배포 결과는 구현 상태와 구분한다.
