@@ -1,6 +1,6 @@
 import {HttpsError} from 'firebase-functions/v2/https';
 import {handleMeteredAi} from './ai-timer.js';
-import {handleAiSlideDesigns, readSlideDesignPrompt, requestAiSlideDesigns} from './ai-slide-designs.js';
+import {readSlideDesignPrompt, requestAiSlideDesigns, validateSlideDesigns} from './ai-slide-designs.js';
 import {rasterHash, sourceLines, requestRasterGroups, validateRasterDraft} from './ai-slide-raster-provider.js';
 
 const validId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(value);
@@ -67,7 +67,10 @@ export async function handleSlideStudio({db, uid, input, apiKey, clock = Date.no
   if (input.action === 'status') {
     const job = (await jobRef.get()).data();
     if (!job) throw fail('not-found', '접수 상태를 확인하지 못했어요. 입력과 이전 결과는 유지됩니다.');
-    return {...await status(), job: publicOperation(job, input.requestId, now)};
+    const access = await status();
+    if (!access.allowed) throw fail('permission-denied', 'AI 슬라이드 이용 권한을 확인해 주세요.');
+    await requireCenter(db, uid, centerId);
+    return {...access, job: publicOperation(job, input.requestId, now)};
   }
   if (input.action !== 'generate' || !['organize', 'style'].includes(input.operation)) {
     throw fail('invalid-argument', '올바른 생성 방식이 아닙니다.');
@@ -77,9 +80,11 @@ export async function handleSlideStudio({db, uid, input, apiKey, clock = Date.no
     const lines = sourceLines(input.rawWod);
     if (typeof input.brief !== 'string' || input.brief.length > 1000) throw fail('invalid-argument', '요청은 1,000자 이내로 입력해 주세요.');
     source = {rawWod: input.rawWod, brief: input.brief, lines,
-      key: rasterHash(`studio-groups-v1/${centerId}/${input.rawWod}/${input.brief}`)};
+      key: rasterHash(JSON.stringify({version: 'studio-groups-v1', centerId,
+        rawWod: input.rawWod, brief: input.brief}))};
   } else {
     source = readSlideDesignPrompt(input);
+    source.key = rasterHash(JSON.stringify({version: 'studio-style-v1', centerId, key: source.key}));
   }
   const hash = rasterHash(`${input.operation}/${source.key}`);
   const claim = await db.runTransaction(async tx => {
@@ -93,7 +98,11 @@ export async function handleSlideStudio({db, uid, input, apiKey, clock = Date.no
     tx.set(jobRef, job);
     return {created: job};
   });
-  if (claim.existing) return {...await status(), job: publicOperation(claim.existing, input.requestId, now)};
+  if (claim.existing) {
+    const access = await status();
+    if (!access.allowed) throw fail('permission-denied', 'AI 슬라이드 이용 권한을 확인해 주세요.');
+    return {...access, job: publicOperation(claim.existing, input.requestId, now)};
+  }
   // The durable outer claim is never reclaimed, even after a crash/timeout.
   // Repeated taps and lost-response retries can only read this request.
   let response, usage = null, failure;
@@ -103,14 +112,17 @@ export async function handleSlideStudio({db, uid, input, apiKey, clock = Date.no
       usage = studioTokenUsage(answer.usage);
       return answer;
     };
-    response = input.operation === 'style'
-      ? await handleAiSlideDesigns({db, uid, apiKey, now, input: {...input, action: 'generate'}, recognize: capture})
-      : await handleMeteredAi({db, uid, apiKey, now, input: {...input, action: 'generate'},
-        feature: 'aiSlides', operation: 'content', action: 'generate', parse: () => source,
-        recognize: capture, validate: result => {
+    const validate = input.operation === 'style'
+      ? result => validateSlideDesigns(result, source)
+      : result => {
           validateRasterDraft({rawWod: source.rawWod, title: '오늘의 수업', brief: source.brief, groups: result.groups});
           return result;
-        }});
+        };
+    response = await handleMeteredAi({db, uid, apiKey, now, input: {...input, action: 'generate'},
+      feature: 'aiSlides', operation: input.operation === 'style' ? 'design' : 'content',
+      action: 'generate', parse: () => source, recognize: capture, validate});
+    // Cache hits bypass the shared meter's validator; recheck exact source.
+    response.result = validate(response.result);
   } catch (error) {
     failure = error;
   }

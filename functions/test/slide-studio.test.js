@@ -92,6 +92,41 @@ test('concurrent clicks and stale processing requests do not reclaim a provider 
   resolve(); await pending;
 });
 
+test('slash boundaries are unambiguous: changed same ID rejects and different IDs retain their own source', async () => {
+  const {options, db, calls} = setup();
+  const first = {...input, rawWod: 'Row 100m/Run 200m', brief: 'small'};
+  const second = {...input, rawWod: 'Row 100m', brief: 'Run 200m/small'};
+  const a = await handleSlideStudio({...options, input: first});
+  await assert.rejects(handleSlideStudio({...options, input: second}), {code: 'already-exists'});
+  const b = await handleSlideStudio({...options, clock: () => now + 6000,
+    input: {...second, requestId: 'test-operation-2'}});
+  assert.deepEqual(a.job.result.groups[0].lines, ['Row 100m/Run 200m']);
+  assert.deepEqual(b.job.result.groups[0].lines, ['Row 100m']);
+  assert.equal(calls(), 2); assert.equal(db.rows.get(usagePath).used, 2);
+  const jobs = [...db.rows.entries()].filter(([path]) => path.includes('/slideStudioCenters/') && path.includes('/operations/'));
+  assert.notEqual(jobs[0][1].hash, jobs[1][1].hash);
+});
+
+test('style metered cache is center isolated while preserving the real selected design brief', async () => {
+  const {options, db} = setup();
+  let calls = 0;
+  const prompt = '선택 디자인 UNBROKEN · orange header, italic title';
+  const design = async source => {
+    calls++; assert.equal(source.prompt, prompt);
+    return {costMicros: 1, usage: {input: 3, output: 1}, result: {warnings: [], designs:
+      ['banner', 'focus', 'cards'].map(family => ({name: family, description: '선택 배치',
+        family, backgroundColor: 0xffffffff, textColor: 0xff000000, accentColor: 0xffeeeeee,
+        titleColor: 0xff000000, fontFamily: 'sans', titleWeight: 700, bodyWeight: 600,
+        italic: false, spacing: 1, motif: ''}))}};
+  };
+  await handleSlideStudio({...options, design, input: {action: 'generate', operation: 'style', requestId: 'style-1', centerId, prompt}});
+  db.rows.set(`users/${uid}/onboarding/progress`, {storeId: 'center-b'});
+  db.rows.set('centers/center-b', {ownerUid: uid});
+  await handleSlideStudio({...options, design, clock: () => now + 6000,
+    input: {action: 'generate', operation: 'style', requestId: 'style-2', centerId: 'center-b', prompt}});
+  assert.equal(calls, 2); assert.equal(db.rows.get(usagePath).used, 2);
+});
+
 test('provider failure keeps request identity, unknown tokens, old quota refund semantics and no auto-retry', async () => {
   const {options, db} = setup();
   let calls = 0;
