@@ -85,15 +85,15 @@ void main() {
     retried.dispose();
     cache.clear();
   });
-  test('all seven template IDs decode at thumbnail size (bundled native, fixture web)', () async {
+  test('all nine active and legacy template IDs decode at thumbnail size (bundled native, fixture web)', () async {
     originalSlidePreviewCache.clear();
     originalSlideExportCache.clear();
-    expect(originalSlideTemplates.length, 7);
+    expect(originalSlideTemplates.length, 9);
     if (kIsWeb) {
       // Flutter's browser test engine intentionally ignores platform messages,
-      // including flutter/assets. Supply encoded fixtures at the actual two
+      // including flutter/assets. Supply encoded fixtures at the actual
       // source dimensions; production cache + image codec still run on Chrome.
-      // Native tests load all seven real assets, with separate pixel-fidelity
+      // Native tests load all nine real assets, with separate pixel-fidelity
       // comparisons in original_slide_renderer/stationd_original_templates.
       final encoded = <Size, ByteData>{};
       final assets = <String, ByteData>{};

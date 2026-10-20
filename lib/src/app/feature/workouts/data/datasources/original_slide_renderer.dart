@@ -174,12 +174,14 @@ class _Field {
     this.weight,
     this.color,
     this.fontFamily,
-    this.clearColor,
-  );
+    this.clearColor, [
+    this.italic = false,
+  ]);
   final String role, value, original, fontFamily;
   final Rect bounds;
   final double fontSize;
   final int weight, color, clearColor;
+  final bool italic;
   bool get changed => value.trim() != original;
 }
 
@@ -195,10 +197,11 @@ List<_Field> _fields(WorkoutModule module) {
       template.title,
       template.titleBounds,
       template.titleFontSize,
-      template.fixedTitle ? 700 : 400,
+      template.fixedTitle ? 700 : template.titleWeight,
       template.fixedTitle ? template.accentColor : 0xFFFFFFFF,
-      template.fixedTitle ? template.fontFamily : 'RacingSansOne',
+      template.fixedTitle ? template.fontFamily : template.titleFontFamily,
       template.fixedTitle ? template.backgroundColor : template.accentColor,
+      template.titleItalic,
     ),
     _Field(
       'subtitle',
@@ -232,6 +235,7 @@ TextPainter _text(_Field field, double size, {bool fixed = false}) =>
         text: field.value,
         style: TextStyle(
           fontFamily: field.fontFamily,
+          fontStyle: field.italic ? FontStyle.italic : FontStyle.normal,
           fontSize: size,
           fontWeight: FontWeight.values[field.weight ~/ 100 - 1],
           color: Color(field.color),
@@ -272,6 +276,7 @@ OriginalSlideMetrics measureOriginalSlide(
   final target = originalSlideImageRect(
     originalSlideOutputSize,
     sourceSize: template.sourceSize,
+    verticalAlignment: template.imageVerticalAlignment,
   );
   final scale = target.width / template.sourceSize.width;
   final runs = <OriginalSlideTextBounds>[];
@@ -330,12 +335,16 @@ void paintOriginalSlide(
 }) {
   // Incomplete editor drafts may still preview. The validation/metrics warning
   // blocks applying or exporting overflow, while the source module keeps all
-  // entered content. Only this fixed recipe's four slots are drawn here.
+  // entered content. Only this fixed recipe's declared slots are drawn here.
   if (!isOriginalSlideTemplate(module)) {
     throw ArgumentError('Unknown original slide template');
   }
   final template = originalSlideTemplate(module.designStyle?.originalTemplate)!;
-  final target = originalSlideImageRect(size, sourceSize: template.sourceSize);
+  final target = originalSlideImageRect(
+    size,
+    sourceSize: template.sourceSize,
+    verticalAlignment: template.imageVerticalAlignment,
+  );
   canvas.drawRect(
     Offset.zero & size,
     Paint()..color = Color(template.backgroundColor),

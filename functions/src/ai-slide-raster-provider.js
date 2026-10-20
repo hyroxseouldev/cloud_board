@@ -57,7 +57,10 @@ export async function requestRasterGroups(source, apiKey, fetchImpl = fetch) {
   const usage = body.usage;
   const costMicros = Number.isSafeInteger(usage?.input_tokens) && Number.isSafeInteger(usage?.output_tokens)
     ? Math.ceil(usage.input_tokens * .125 + usage.output_tokens * .5) : AI_TIMER_RESERVE;
-  return {result: {groups}, costMicros};
+  return {result: {groups}, costMicros,
+    usage: Number.isSafeInteger(usage?.input_tokens) && usage.input_tokens >= 0 &&
+      Number.isSafeInteger(usage?.output_tokens) && usage.output_tokens >= 0
+      ? {input: usage.input_tokens, output: usage.output_tokens} : null};
 }
 
 export function rasterPng(bytes, expected) {

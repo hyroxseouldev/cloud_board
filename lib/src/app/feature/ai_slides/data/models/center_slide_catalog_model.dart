@@ -190,12 +190,7 @@ class CenterSlideCatalogEntryModel {
                       .clamp(1, recipe!.body!.maxColumns),
             showTimer: false,
           )
-        : customerReferenceDesigns
-              .firstWhere(
-                (design) =>
-                    design.theme.designStyle?.originalTemplate == original,
-              )
-              .theme;
+        : originalReferenceTheme(original)!;
     final content =
         sample ??
         (original == null
