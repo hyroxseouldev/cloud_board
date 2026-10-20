@@ -6,6 +6,7 @@ Future<void> loadCenterSlideExportFonts() async {
   final fonts = <String, List<String>>{
     'Pretendard': [
       'assets/fonts/pretendard/Pretendard-Regular.otf',
+      'assets/fonts/pretendard/Pretendard-Medium.otf',
       'assets/fonts/pretendard/Pretendard-SemiBold.otf',
       'assets/fonts/pretendard/Pretendard-Bold.otf',
       'assets/fonts/pretendard/Pretendard-ExtraBold.otf',

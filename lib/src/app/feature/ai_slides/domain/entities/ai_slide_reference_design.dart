@@ -25,34 +25,50 @@ const dolpaReferenceDesign = AiSlideDesign(
   ),
 );
 
-final stationDReferenceDesigns = stationDOriginalTemplates
-    .map(
-      (template) => AiSlideDesign(
-        id: 'reference-${template.id}',
-        name:
-            '${template.programLabel}${template.id == 'stationd-fri-v1'
-                ? ' · 싱글'
-                : template.id == 'stationd-sat-v1'
-                ? ' · 팀'
-                : ''}',
-        description: '원본 그대로 · ${template.title}',
-        theme: AiSlideTheme(
-          designStyle: SlideDesignStyle(
-            family: 'banner',
-            fontFamily: 'sans',
-            originalTemplate: template.id,
-            titleColor: 0xFFFFFFFF,
-          ),
-          designBackgroundColor: template.backgroundColor,
-          designTextColor: template.textColor,
-          designAccentColor: template.accentColor,
-          designFontWeight: template.bodyWeight,
-          designItalic: false,
-          showTimer: false,
+AiSlideDesign _stationDReference(OriginalSlideTemplate template) =>
+    AiSlideDesign(
+      id: 'reference-${template.id}',
+      name:
+          '${template.programLabel}${template.id == 'stationd-fri-v1'
+              ? ' · 싱글'
+              : template.id == 'stationd-sat-v1'
+              ? ' · 팀'
+              : template.id == 'stationd-unbroken-single-v1'
+              ? ' · SINGLE'
+              : template.id == 'stationd-unbroken-team-change-v1'
+              ? ' · TEAM OF 2'
+              : ''}',
+      description: '원본 그대로 · ${template.title}',
+      theme: AiSlideTheme(
+        designStyle: SlideDesignStyle(
+          family: 'banner',
+          fontFamily: 'sans',
+          originalTemplate: template.id,
+          titleColor: 0xFFFFFFFF,
         ),
+        designBackgroundColor: template.backgroundColor,
+        designTextColor: template.textColor,
+        designAccentColor: template.accentColor,
+        designFontWeight: template.bodyWeight,
+        designItalic: false,
+        showTimer: false,
       ),
-    )
+    );
+
+final stationDReferenceDesigns = stationDOriginalTemplates
+    .map(_stationDReference)
     .toList(growable: false);
+
+/// Legacy IDs remain readable without offering their superseded art as a new choice.
+AiSlideTheme? originalReferenceTheme(String id) {
+  if (id == legacyStationDMonTemplate.id) {
+    return _stationDReference(legacyStationDMonTemplate).theme;
+  }
+  return customerReferenceDesigns
+      .where((design) => design.theme.designStyle?.originalTemplate == id)
+      .firstOrNull
+      ?.theme;
+}
 
 List<AiSlideDesign> get customerReferenceDesigns => [
   ...stationDReferenceDesigns,

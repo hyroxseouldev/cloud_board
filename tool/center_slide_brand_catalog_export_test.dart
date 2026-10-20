@@ -70,6 +70,7 @@ void main() {
         final target = originalSlideImageRect(
           const Size(1920, 1080),
           sourceSize: original.sourceSize,
+          verticalAlignment: original.imageVerticalAlignment,
         );
         final scale = target.width / original.sourceSize.width;
         Rect scaled(Rect rect) => Rect.fromLTWH(
@@ -85,7 +86,7 @@ void main() {
               image,
               Offset.zero & original.sourceSize,
               target,
-              Paint(),
+              Paint()..filterQuality = FilterQuality.medium,
             );
           });
         } finally {
@@ -101,8 +102,9 @@ void main() {
               original.titleFontSize * scale,
               original.title,
               color: 0xffffffff,
-              font: 'RacingSansOne',
-              weight: 400,
+              font: original.titleFontFamily,
+              weight: original.titleWeight,
+              italic: original.titleItalic,
               clear: original.accentColor,
             ),
           _field(

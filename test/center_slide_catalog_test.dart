@@ -11,6 +11,7 @@ import 'package:image/image.dart' as img;
 import 'package:cloud_board/src/app/feature/ai_slides/data/datasources/center_slide_catalog_data_source.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/data/models/center_slide_catalog_model.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
 
@@ -67,6 +68,21 @@ Matcher _failure(String code) =>
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  test('legacy original ID stays readable after removal from new choices', () {
+    final catalog = _parse(_catalog([_entry()]), strict: true).toEntity();
+    final legacy = catalog.templates.single;
+    expect(legacy.theme.designStyle!.originalTemplate, 'stationd-mon-v1');
+    expect(legacy.sample!.layout, 'numbered');
+    expect(legacy.sample!.lines, hasLength(6));
+    expect(
+      customerReferenceDesigns.any(
+        (design) =>
+            design.theme.designStyle?.originalTemplate == 'stationd-mon-v1',
+      ),
+      isFalse,
+    );
+  });
+
   test('optional thumbnail stays inside recipe and legacy catalogs retain defaults', () {
     final old = _parse(_catalog([_entry(recipe: _recipe())]), strict: true);
     expect(old.entries.single.recipe!.thumbnail, isNull);
