@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slide_design_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
 
@@ -20,7 +21,6 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_sli
 import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_slides_repository.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slides_controller.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_content_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_design_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
@@ -592,14 +592,13 @@ void main() {
   });
 
   testWidgets(
-    'free user can choose a catalog design and add editable content',
+    'free catalog selection preserves original template identity without requesting AI',
     (tester) async {
       tester.view.physicalSize = const Size(834, 1194);
       tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final content = _ContentRepository();
-      final designs = _DesignRepository();
+      addTearDown(tester.view.reset);
+      final content = _ContentRepository(), designs = _DesignRepository();
+      AiSlideDesign? selected;
       await tester.runAsync(
         () => Future.wait(
           originalSlideTemplates.map(
@@ -633,154 +632,33 @@ void main() {
             aiSlideDesignStoreIdProvider.overrideWithValue('center-a'),
             aiSlideDesignRepositoryProvider.overrideWithValue(designs),
           ],
-          child: const MaterialApp(home: Scaffold(body: AiSlidesPage())),
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: AiSlideDesignStudio(
+                  section: AiSlideDesignStudioSection.templates,
+                  onSelected: (design) => selected = design,
+                ),
+              ),
+            ),
+          ),
         ),
       );
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('ai-creation-tabs')), findsOneWidget);
-      expect(find.text('템플릿'), findsOneWidget);
-      expect(find.text('스타일 제안'), findsNothing);
-      expect(find.text('이미지로 시작'), findsNothing);
-      expect(find.textContaining('AI 토큰·생성 횟수를 사용하지 않아요'), findsOneWidget);
-      expect(find.text('스테이션디 센터 템플릿'), findsOneWidget);
-      expect(find.text('7개'), findsOneWidget);
-      expect(find.text('기본 템플릿'), findsOneWidget);
-      expect(find.text('12개'), findsOneWidget);
       for (final design in customerReferenceDesigns) {
-        final premiumCard = find.byKey(ValueKey('ai-design-${design.id}'));
-        await tester.ensureVisible(premiumCard);
+        final card = find.byKey(ValueKey('ai-design-${design.id}'));
+        await tester.ensureVisible(card);
         await tester.pumpAndSettle();
-        await tester.tap(premiumCard);
-        await tester.pump();
-        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.tap(card);
         await tester.pumpAndSettle();
-        final pageScope = ProviderScope.containerOf(
-          tester.element(find.byType(AiSlidesContentEditor)),
-        );
         expect(
-          pageScope
-              .read(aiSlideDesignControllerProvider)
-              .selected
-              ?.theme
-              .designStyle
-              ?.originalTemplate,
-          design.theme.designStyle?.originalTemplate,
+          selected!.theme.designStyle!.originalTemplate,
+          design.theme.designStyle!.originalTemplate,
         );
-        expect(designs.selected['alice/center-a'], isNull);
-        expect(
-          tester
-              .widget<EditableText>(
-                find.descendant(
-                  of: find.byKey(const ValueKey('ai-slide-title')),
-                  matching: find.byType(EditableText),
-                ),
-              )
-              .controller
-              .text,
-          initialAiSlideDesignDraft(design.theme).title,
-        );
-        await tester.tap(find.byKey(const ValueKey('ai-nav-templates')));
-        await tester.pump();
-        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-        await tester.pumpAndSettle();
       }
-      final card = find.byKey(
-        ValueKey('ai-design-${aiSlideDesignCatalog.last.id}'),
-      );
-      await tester.ensureVisible(card);
-      await tester.pumpAndSettle();
-      await tester.tap(card);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('ai-slide-header')), findsOneWidget);
-      expect(find.byKey(const ValueKey('ai-slide-subtitle')), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('ai-slides-add')))
-            .onPressed,
-        isNotNull,
-      );
       expect(content.calls, 0);
       expect(designs.calls, 0);
-      final title = find.byKey(const ValueKey('ai-slide-title'));
-      await tester.enterText(title, '오늘의 수업');
-      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
-      await tester.pumpAndSettle();
-      expect(find.text('스타일 제안'), findsOneWidget);
-      expect(find.text('이미지로 시작'), findsOneWidget);
-      expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
-      for (final tab in ['content', 'templates', 'create']) {
-        expect(find.byKey(ValueKey('ai-nav-$tab')), findsOneWidget);
-      }
-      expect(find.byKey(const ValueKey('ai-nav-source')), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byType(AiBetaBadge),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('ai-creation-tabs')),
-          matching: find.byType(AiBetaBadge),
-        ),
-        findsWidgets,
-      );
-      expect(content.accessCalls, 1);
-      expect(designs.accessCalls, 0);
-      expect(
-        find.byKey(const ValueKey('ai-design-catalog-banner')),
-        findsNothing,
-      );
-      final brief = find.byKey(const ValueKey('ai-design-brief'));
-      final notes = find.byKey(const ValueKey('ai-slides-prompt'));
-      await tester.enterText(notes, 'WARM UP 스쿼트 10회');
-      await tester.tap(find.text('스타일 제안'));
-      await tester.pumpAndSettle();
-      await tester.enterText(brief, '짙은 배경에 라임색 포인트');
-      await tester.tap(find.byKey(const ValueKey('ai-nav-templates')));
-      await tester.pumpAndSettle();
-      expect(find.text('스타일 제안'), findsNothing);
-      expect(designs.calls, 0);
-      await tester.tap(find.byKey(const ValueKey('ai-nav-create')));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<TextField>(brief).controller!.text,
-        '짙은 배경에 라임색 포인트',
-      );
-      await tester.tap(find.text('이미지로 시작'));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('ai-reference-pick')), findsOneWidget);
-      expect(find.byKey(const ValueKey('ai-generation-usage')), findsOneWidget);
-      expect(
-        content.accessCalls,
-        1,
-        reason: 'All three generation modes share one access check',
-      );
-      expect(designs.accessCalls, 0);
-      await tester.tap(find.text('수업 메모'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<TextField>(notes).controller!.text,
-        'WARM UP 스쿼트 10회',
-      );
-      await tester.tap(find.byKey(const ValueKey('ai-nav-content')));
-      await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(title).controller!.text, '오늘의 수업');
-      expect(find.text('크게 보기'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('ai-slides-preview-expand')));
-      await tester.pumpAndSettle();
-      expect(find.text('슬라이드 미리보기'), findsOneWidget);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(content.calls, 0);
-      expect(
-        designs.calls,
-        0,
-        reason:
-            'Opening design tools and changing tabs must not generate anything',
-      );
       expect(tester.takeException(), isNull);
     },
   );

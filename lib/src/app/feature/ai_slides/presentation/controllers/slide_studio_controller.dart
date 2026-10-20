@@ -1,0 +1,448 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_raster.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/slide_studio_actions.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_raster_actions.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/repositories/ai_raster_repository.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slides_controller.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
+
+part 'slide_studio_controller.g.dart';
+
+@riverpod
+class SlideStudioController extends _$SlideStudioController {
+  Object _lifetime = Object();
+  Timer? _reset;
+  int _usageRevision = 0;
+  Uint8List? _pendingReference;
+  @override
+  SlideStudioState build() {
+    ref.watch(aiSlidesOwnerIdProvider);
+    ref.watch(centerSlideCatalogScopeProvider);
+    ref.watch(slideStudioActionsProvider);
+    final lifetime = _lifetime = Object();
+    ref.onDispose(() {
+      _lifetime = Object();
+      _reset?.cancel();
+      _pendingReference = null;
+    });
+    Future.microtask(() {
+      if (_current(lifetime)) {
+        refreshUsage();
+        loadBrand();
+      }
+    });
+    return SlideStudioState(
+      input: StudioInput(design: aiSlideDesignCatalog.first),
+    );
+  }
+
+  bool _current(Object lifetime) =>
+      ref.mounted && identical(lifetime, _lifetime);
+  SlideStudioActions get _actions => ref.read(slideStudioActionsProvider);
+  AiRasterActions get _raster => ref.read(aiRasterActionsProvider);
+
+  void edit(StudioInput input) =>
+      state = state.copyWith(input: input, error: null);
+  void select(AiSlideDesign design) =>
+      edit(state.input.copyWith(design: design));
+  void reference(Uint8List? bytes) {
+    final copy = bytes == null ? null : Uint8List.fromList(bytes);
+    state = state.copyWith(
+      reference: copy,
+      input: state.input.copyWith(
+        referenceHash: copy == null ? null : sha256.convert(copy).toString(),
+      ),
+      error: null,
+    );
+  }
+
+  void reportError(String message) => state = state.copyWith(error: message);
+  void _error(Object error) {
+    final revoked =
+        error is AiSlidesFailure &&
+        ['permission-denied', 'unauthenticated'].contains(error.code);
+    state = state.copyWith(
+      busy: false,
+      saving: false,
+      error: error is AiSlidesFailure
+          ? error.message
+          : workoutErrorMessage(
+              error,
+              fallback: '처리하지 못했어요. 입력과 이전 결과는 유지됩니다.',
+            ),
+      result: revoked ? null : state.result,
+      history: revoked ? [] : state.history,
+      brand: revoked ? null : state.brand,
+    );
+  }
+
+  Future<void> loadBrand() async {
+    final lifetime = _lifetime;
+    final value = await AsyncValue.guard(_raster.context);
+    if (!_current(lifetime)) return;
+    state = state.copyWith(
+      brand: value.value?.brand,
+      brandError: value.hasError
+          ? '센터 AI 배경을 준비 중이에요. 원본 템플릿은 계속 사용할 수 있어요.'
+          : null,
+    );
+  }
+
+  Future<void> refreshUsage({String? requestId, bool raster = false}) async {
+    final lifetime = _lifetime, revision = ++_usageRevision;
+    state = state.copyWith(usageLoading: true);
+    final value = await AsyncValue.guard(
+      () => _actions.usage(requestId: requestId, raster: raster),
+    );
+    if (!_current(lifetime) || revision != _usageRevision) return;
+    state = state.copyWith(
+      usageLoading: false,
+      usage: value.value ?? state.usage,
+      usageError: value.hasError ? '사용량을 갱신하지 못했어요. 마지막 확인 값입니다.' : null,
+    );
+    _reset?.cancel();
+    final duration = state.usage?.resetsAt?.difference(DateTime.now());
+    if (!value.hasError && duration != null && duration > Duration.zero) {
+      _reset = Timer(duration, refreshUsage);
+    }
+  }
+
+  void _accept(StudioResult result) {
+    if (state.input != result.input) {
+      state = state.copyWith(
+        busy: false,
+        pendingId: null,
+        pendingInput: null,
+        history: [result, ...state.history].take(3).toList(),
+        error: '생성 중 입력이 바뀌어 기존 결과를 유지했어요. 이전 결과 보기에서 완성된 시안을 확인할 수 있어요.',
+      );
+      return;
+    }
+    state = state.copyWith(
+      busy: false,
+      pendingId: null,
+      pendingInput: null,
+      result: result,
+      history: [
+        if (state.result != null) state.result!,
+        ...state.history,
+      ].take(3).toList(),
+      error: null,
+    );
+  }
+
+  Future<void> generate() async {
+    if (state.busy || state.saving || state.pendingId != null) return;
+    final lifetime = _lifetime, input = state.input;
+    final reference = state.reference, brand = state.brand;
+    if (input.raw.trim().isEmpty ||
+        input.raw.length > 6000 ||
+        input.title.trim().isEmpty ||
+        input.title.length > 60 ||
+        input.brief.length > 1000) {
+      reportError('제목(1~60자)과 수업 내용(1~6,000자)을 입력해 주세요.');
+      return;
+    }
+    final recipe = input.design.theme.centerRecipe;
+    if (recipe != null) {
+      final catalog = ref.read(centerSlideCatalogProvider);
+      if (catalog.isLoading ||
+          catalog.hasError ||
+          !(catalog.value?.templates.any((d) => d == input.design) ?? false)) {
+        reportError('센터 디자인이 갱신되었거나 권한을 확인하지 못했어요. 다시 선택해 주세요.');
+        return;
+      }
+    }
+    if (input.mode == StudioMode.artwork &&
+        (state.brand == null ||
+            recipe?.templateId != state.brand!.templateId ||
+            recipe?.revision != state.brand!.recipeRevision)) {
+      reportError('AI 배경 생성은 승인된 센터 참고 디자인을 선택해 주세요. 다른 디자인은 템플릿으로 사용할 수 있어요.');
+      return;
+    }
+    state = state.copyWith(busy: true, error: null);
+    final id = 'studio-${newId()}';
+    if (input.mode == StudioMode.template) {
+      final draft = studioDraft(input);
+      final checked = await AsyncValue.guard(() => _actions.validate(draft));
+      if (!_current(lifetime)) return;
+      if (checked.hasError) {
+        _error(checked.error!);
+        return;
+      }
+      _accept(
+        StudioResult(id: id, input: input, reference: reference, draft: draft),
+      );
+      return;
+    }
+    final allowed = await AsyncValue.guard(_actions.requireGeneration);
+    if (!_current(lifetime)) return;
+    if (allowed.hasError) {
+      _error(allowed.error!);
+      return;
+    }
+    _pendingReference = reference;
+    state = state.copyWith(
+      pendingId: id,
+      pendingInput: input,
+      pendingRaster: input.mode == StudioMode.artwork,
+    );
+    if (input.mode == StudioMode.artwork) {
+      final lines = rasterSourceLines(input.raw);
+      final count = input.artworkGroups.clamp(1, lines.length.clamp(1, 3));
+      final draft = AiRasterDraft(
+        rawWod: input.raw,
+        title: input.title,
+        brief: input.brief,
+        bodyFontSize: input.artworkFontSize,
+        groups: [
+          for (var i = 0; i < count; i++)
+            AiRasterGroup(
+              heading: count == 1 ? '' : String.fromCharCode(65 + i),
+              lines: lines.sublist(
+                (i * lines.length / count).floor(),
+                ((i + 1) * lines.length / count).floor(),
+              ),
+            ),
+        ],
+      );
+      final value = await AsyncValue.guard(() {
+        _actions.validateArtwork(draft, brand!);
+        return _raster.generate(
+          draft,
+          brand,
+          id,
+          state.result?.brand == brand ? state.result?.job?.requestId : null,
+        );
+      });
+      if (!_current(lifetime)) return;
+      if (value.hasError) {
+        _requestError(value.error!);
+      } else {
+        _acceptRaster(value.requireValue, input);
+      }
+    } else {
+      final value = await AsyncValue.guard(
+        () => _actions.generate(
+          input,
+          id,
+          input.mode == StudioMode.style ? reference : null,
+        ),
+      );
+      if (!_current(lifetime)) return;
+      if (value.hasError) {
+        _requestError(value.error!);
+      } else {
+        await _acceptOperation(value.requireValue, input);
+      }
+    }
+    if (_current(lifetime)) {
+      unawaited(
+        refreshUsage(requestId: id, raster: input.mode == StudioMode.artwork),
+      );
+    }
+  }
+
+  void _requestError(Object error) {
+    _error(error);
+    if (error is AiSlidesFailure &&
+        [
+          'invalid-argument',
+          'failed-precondition',
+          'resource-exhausted',
+          'permission-denied',
+          'not-found',
+        ].contains(error.code)) {
+      state = state.copyWith(pendingId: null, pendingInput: null);
+    } // Unknown transport outcome keeps its ID; retry below is read-only.
+  }
+
+  void _acceptRaster(AiRasterReply value, StudioInput input) {
+    if (value.job.brandKey != state.brand?.key) {
+      _error(
+        const AiSlidesFailure(
+          '센터 참고 디자인이 변경되었어요. 다시 선택해 주세요.',
+          code: 'permission-denied',
+        ),
+      );
+      return;
+    }
+    if (value.job.status != 'completed') {
+      state = state.copyWith(
+        busy: false,
+        error: value.job.message ?? '생성 결과를 확인 중이에요.',
+        pendingId: value.job.status == 'failed' ? null : value.job.requestId,
+      );
+      return;
+    }
+    _accept(
+      StudioResult(
+        id: value.job.requestId,
+        input: input,
+        reference: _pendingReference,
+        job: value.job,
+        brand: state.brand,
+      ),
+    );
+  }
+
+  Future<void> _acceptOperation(
+    StudioOperation value,
+    StudioInput input,
+  ) async {
+    if (value.status != 'completed') {
+      state = state.copyWith(
+        busy: false,
+        error: value.message ?? '생성 결과를 확인 중이에요.',
+        pendingId: value.status == 'rejected' ? null : value.requestId,
+      );
+      return;
+    }
+    final lifetime = _lifetime;
+    final applied = value.designs.isEmpty
+        ? input
+        : input.copyWith(design: value.designs.first);
+    final draft = studioDraft(
+      applied,
+      groups: value.groups.isEmpty ? null : value.groups,
+    );
+    final checked = await AsyncValue.guard(() => _actions.validate(draft));
+    if (!_current(lifetime)) return;
+    state = state.copyWith(
+      proposals: value.designs.isEmpty ? state.proposals : value.designs,
+    );
+    if (checked.hasError) {
+      state = state.copyWith(pendingId: null, pendingInput: null);
+      _error(checked.error!);
+      return;
+    }
+    _accept(
+      StudioResult(
+        id: value.requestId,
+        input: input,
+        reference: _pendingReference,
+        draft: draft,
+        warnings: value.warnings,
+      ),
+    );
+  }
+
+  Future<void> retry() async {
+    final id = state.pendingId,
+        input = state.pendingInput,
+        lifetime = _lifetime;
+    if (id == null || input == null || state.busy) return;
+    state = state.copyWith(busy: true, error: null);
+    if (state.pendingRaster) {
+      final value = await AsyncValue.guard(() => _raster.status(id));
+      if (!_current(lifetime)) return;
+      if (value.hasError) {
+        _error(value.error!);
+      } else {
+        _acceptRaster(value.requireValue, input);
+      }
+    } else {
+      final value = await AsyncValue.guard(
+        () => _actions.status(
+          id,
+          reference:
+              input.mode == StudioMode.style && input.referenceHash != null,
+        ),
+      );
+      if (!_current(lifetime)) return;
+      if (value.hasError) {
+        _error(value.error!);
+      } else {
+        await _acceptOperation(value.requireValue, input);
+      }
+    }
+    if (_current(lifetime)) {
+      unawaited(
+        refreshUsage(requestId: id, raster: input.mode == StudioMode.artwork),
+      );
+    }
+  }
+
+  void newRequest() {
+    if (state.busy) return;
+    state = state.copyWith(pendingId: null, pendingInput: null, error: null);
+  }
+
+  void undo() {
+    if (state.busy || state.saving || state.history.isEmpty) return;
+    final previous = state.history.first;
+    state = state.copyWith(
+      input: previous.input,
+      reference: previous.reference,
+      result: previous,
+      history: state.history.skip(1).toList(),
+      error: null,
+    );
+  }
+
+  Future<WorkoutModule?> add() async {
+    if (state.busy ||
+        state.saving ||
+        state.pendingId != null ||
+        state.dirty ||
+        state.result == null) {
+      return null;
+    }
+    final lifetime = _lifetime, snapshot = state.result!;
+    state = state.copyWith(saving: true, error: null);
+    final value = await AsyncValue.guard(() => _actions.prepare(snapshot));
+    if (!_current(lifetime)) return null;
+    state = state.copyWith(saving: false);
+    if (value.hasError) {
+      _error(value.error!);
+      return null;
+    }
+    if (state.result != snapshot || state.dirty) return null;
+    state = state.copyWith(leaving: true);
+    return value.requireValue;
+  }
+
+  Future<void> save() async {
+    if (state.busy ||
+        state.saving ||
+        state.pendingId != null ||
+        state.dirty ||
+        state.result == null ||
+        state.result!.savedModule != null) {
+      return;
+    }
+    final lifetime = _lifetime, snapshot = state.result!;
+    state = state.copyWith(saving: true, error: null);
+    final value = await AsyncValue.guard(
+      () async => _actions.save(await _actions.prepare(snapshot)),
+    );
+    if (!_current(lifetime)) return;
+    state = state.copyWith(saving: false);
+    if (value.hasError) {
+      _error(value.error!);
+      return;
+    }
+    if (state.result == snapshot) {
+      state = state.copyWith(
+        result: snapshot.copyWith(savedModule: value.requireValue),
+      );
+    }
+  }
+
+  void openSaved(WorkoutModule module) {
+    if (state.busy || state.saving) return;
+    state = state.copyWith(leaving: true);
+  }
+}
