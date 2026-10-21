@@ -23,6 +23,8 @@ function usageValue(ent, config, used, apiKey, now) {
   check(Number.isSafeInteger(used) && used >= 0, '사용량을 확인하지 못했어요.', 'usage-unavailable');
   return {allowed: limit > 0, enabled: Boolean(apiKey) && config?.enabled !== false,
     used, remaining: Math.max(0, limit - used), limit, unlimited: false,
+    tokenAllowance: {kind: 'not-metered', remaining: null, limit: null},
+    availabilityReason: config?.enabled === false ? 'feature-disabled' : !apiKey ? 'not-configured' : null,
     plan: access.plan, policyVersion: access.policyVersion, resetsAtMs: aiTimerMonth(now).resetsAtMs};
 }
 async function usage(db, uid, apiKey, now) {
@@ -215,15 +217,17 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
     if (saved.data()?.token !== token || saved.data()?.status !== 'processing') return;
     try { await requireCenter(db, uid, centerId, tx); }
     catch (error) { failure ??= error; }
-    const uncertain = failure && !provider && j.stage === 'provider' && failure.details?.reason !== 'provider-rejected';
+    const uncertain = failure && !provider && j.stage === 'provider' &&
+      (!failure.details?.reason || failure.details.reason === 'provider-uncertain');
     const refund = Boolean(failure && !uncertain);
-    const cost = provider?.costMicros ?? (uncertain ? AI_TIMER_RESERVE : 0);
+    const cost = provider?.costMicros ?? failure?.details?.providerBilling?.costMicros ?? (uncertain ? AI_TIMER_RESERVE : 0);
     completed = !failure;
     tx.set(ref, {status: completed ? 'complete' : 'failed', stage: 'settled', updatedAtMs: clock(),
       message: completed ? null : uncertain ? 'AI 응답을 확인하지 못했어요. 중복 차감 없이 원문과 접수 상태를 보관했어요.'
         : failure?.details?.reason ? `${failure.message} 사용량 1회는 돌려드렸어요.` : '이미지를 저장하지 못했어요. 원문은 보관했으며 사용량 1회를 돌려드렸어요.',
       retryable: Boolean(failure && ['provider-rejected', 'not-configured'].includes(failure.details?.reason)),
       quotaCharged: !refund, artifact: completed ? artifact : null, provider: provider ?? null,
+      failedProviderBilling: failure?.details?.providerBilling ?? null,
       evidence: completed ? j.evidence ?? null : null, costMicros: cost, leaseUntilMs: 0}, {merge: true});
     if (refund) tx.set(usageRef, {used: Math.max(0, (used.data()?.used ?? 1) - 1)}, {merge: true});
     tx.set(budgetRef, {spentMicros: Math.max(0, (budget.data()?.spentMicros ?? AI_TIMER_RESERVE) - AI_TIMER_RESERVE + cost)}, {merge: true});

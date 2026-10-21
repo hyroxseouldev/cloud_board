@@ -86,17 +86,25 @@ export async function requestTemplateLayout({rawWod, title, subtitle, recipe}, a
     });
   } catch { throw fail('unavailable', 'AI 응답을 확인하지 못했어요. 같은 요청은 다시 차감하거나 호출하지 않아요.', 'provider-uncertain'); }
   if (!response.ok) throw fail('unavailable', 'AI 생성 요청을 완료하지 못했어요.', response.status >= 500 || response.status === 408 ? 'provider-uncertain' : 'provider-rejected');
-  let body, layout;
+  let body;
   try {
     body = await response.json();
-    if (body.status !== 'completed') throw Error('incomplete');
-    layout = JSON.parse(body.output.filter(o => o.type === 'message').flatMap(o => o.content)
-      .filter(c => c.type === 'output_text').map(c => c.text).join(''));
   } catch { throw fail('data-loss', 'AI 응답을 확인하지 못했어요. 입력은 보관됩니다.', 'provider-uncertain'); }
-  const result = validateLayout(layout, lines), u = body.usage;
+  const u = body.usage;
   const usage = [u?.input_tokens, u?.output_tokens].every(n => Number.isSafeInteger(n) && n >= 0)
     ? {input: u.input_tokens, output: u.output_tokens} : null;
-  return {layout: result, usage, costMicros: usage ? Math.ceil(usage.input * .125 + usage.output * .5) : AI_TIMER_RESERVE};
+  const billing = {usage, costMicros: usage ? Math.ceil(usage.input * .125 + usage.output * .5) : AI_TIMER_RESERVE};
+  let layout;
+  try {
+    if (body.status !== 'completed') throw Error('incomplete');
+    layout = validateLayout(JSON.parse(body.output.filter(o => o.type === 'message').flatMap(o => o.content)
+      .filter(c => c.type === 'output_text').map(c => c.text).join('')), lines);
+  } catch {
+    const error = fail('data-loss', 'AI가 원문 전체를 배치하지 못했어요. 입력은 그대로 보관됩니다.', 'provider-invalid-layout');
+    error.details.providerBilling = billing;
+    throw error;
+  }
+  return {layout, ...billing};
 }
 
 function wrap(ctx, text, width) {

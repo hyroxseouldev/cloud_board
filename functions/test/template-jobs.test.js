@@ -143,3 +143,23 @@ test('Luna receives source IDs and frozen style, never accepts generated replace
   assert.deepEqual(JSON.parse(payload.input).lines.map(x=>x.text),s.input.rawWod.split('\n'));
   assert.deepEqual(result.layout.ends,[2]);
 });
+test('known invalid completed layout refunds user quota but accounts provider usage', async () => {
+  const s=setup();await handleTemplateJobs({...s.options,input:s.input});
+  const generate=(source,key)=>requestTemplateLayout(source,key,async()=>({ok:true,json:async()=>({status:'completed',
+    output:[{type:'message',content:[{type:'output_text',text:'{"columns":1,"ends":[1],"headings":[]}'}]}],
+    usage:{input_tokens:40,output_tokens:20}})}));
+  await processTemplateJob({...s.options,...s.input,generate});
+  const job=s.db.rows.get(path(s.input.requestId));
+  assert.equal(job.status,'failed');assert.equal(job.quotaCharged,false);assert.equal(s.db.rows.get(usagePath).used,0);
+  assert.equal(job.costMicros,15);assert.deepEqual(job.failedProviderBilling.usage,{input:40,output:20});
+});
+test('pre-provider geometry failure refunds without counting unknown external work', async () => {
+  const s=setup();await handleTemplateJobs({...s.options,input:s.input});
+  let calls=0;
+  const generate=source=>requestTemplateLayout({...source,recipe:{...source.recipe,fields:source.recipe.fields.map(f=>f.binding==='line'?{...f,x:.90}:f)}},'test',async()=>{calls++;throw Error('unexpected');});
+  // A malformed body forces a local geometry error before fetch.
+  const generateInvalid=source=>generate({...source,recipe:{...source.recipe,body:{x:.90,y:.98,width:.05,height:.01,fontFamily:'Pretendard',fontSize:44}}});
+  await processTemplateJob({...s.options,...s.input,generate:generateInvalid});
+  const job=s.db.rows.get(path(s.input.requestId));
+  assert.equal(calls,0);assert.equal(job.quotaCharged,false);assert.equal(job.costMicros,0);
+});
