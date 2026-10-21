@@ -17,13 +17,18 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/cente
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_preview.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_raster_page.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/template_jobs_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_jobs_panel.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_job_image.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/template_job.dart';
+
 const _oat = Color(0xffF7F5EF),
     _surface = Color(0xffFFFDF8),
     _sage = Color(0xff526B60),
     _ink = Color(0xff2B332E),
     _secondary = Color(0xff616B63);
 
-/// Free template creation with immutable result snapshots.
+/// Free basic templates and durable center generation, with immutable results.
 class SlideStudioPage extends HookConsumerWidget {
   const SlideStudioPage({super.key, required this.guard});
   final ExitGuard guard;
@@ -31,6 +36,16 @@ class SlideStudioPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(slideStudioControllerProvider);
     final controller = ref.read(slideStudioControllerProvider.notifier);
+    final jobs = ref.watch(templateJobsControllerProvider);
+    final jobController = ref.read(templateJobsControllerProvider.notifier);
+    ref.listen(templateJobsControllerProvider, (previous, next) {
+      if (next.usage != null && previous?.usage != next.usage) {
+        controller.acceptTemplateUsage(next.usage!);
+      }
+      if (next.authorityDenied && previous?.authorityDenied != true) {
+        controller.clearTemplateResults();
+      }
+    });
     final catalog = ref.watch(centerSlideCatalogProvider);
     final saved = ref.watch(aiSlideDesignControllerProvider);
     final scope = ref.watch(centerSlideCatalogScopeProvider);
@@ -133,15 +148,19 @@ class SlideStudioPage extends HookConsumerWidget {
       });
     }
 
-    void openLibrary() {
+    Future<void> openLibrary() async {
       FocusScope.of(context).unfocus();
       final studioPath = GoRouterState.of(context).uri.path
           .replaceFirst(RegExp(r'/$'), '');
-      context.push<void>('$studioPath/library');
+      final job = await context.push<TemplateJob>('$studioPath/library');
+      if (job == null || !sameScope()) return;
+      final png = await jobController.open(job);
+      if (png != null && sameScope()) controller.openTemplateResult(job, png);
     }
 
-    Widget preview(StudioResult result) =>
-        result.job != null && result.brand != null
+    Widget preview(StudioResult result) => result.serverPng != null
+        ? TemplateJobImage(bytes: result.serverPng!)
+        : result.job != null && result.brand != null
         ? AiRasterPreview(brand: result.brand!, job: result.job!)
         : result.draft?.centerRecipe != null
         ? CenterSlidePreview(draft: result.draft!)
@@ -165,7 +184,7 @@ class SlideStudioPage extends HookConsumerWidget {
       );
     }
 
-    final narrow = MediaQuery.sizeOf(context).width < 560;
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     final locked = state.saving;
     final theme = Theme.of(context);
     return Theme(
@@ -191,9 +210,10 @@ class SlideStudioPage extends HookConsumerWidget {
       ),
       child: UnsavedChangesGuard(
         guard: guard,
-        dirty: state.unsaved,
-        blocked: state.busy || state.saving,
-        confirmMessage: '저장하지 않은 입력과 생성 결과가 사라집니다. 라이브러리에 저장한 결과는 남아 있어요.',
+        dirty: state.unsaved && jobs.acceptedInput != state.input,
+        blocked: state.busy || state.saving || jobs.submitting,
+        confirmMessage:
+            '접수하지 않은 입력과 저장하지 않은 기본 템플릿 결과가 사라집니다. 접수된 생성 작업과 저장된 이미지는 남아 있어요.',
         child: Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -209,14 +229,14 @@ class SlideStudioPage extends HookConsumerWidget {
             actions: [
               if (narrow)
                 IconButton(
-                  tooltip: '저장된 이미지',
+                  tooltip: 'AI 생성 슬라이드 관리',
                   onPressed: locked || state.busy ? null : openLibrary,
                   icon: const Icon(Icons.photo_library_outlined),
                 )
               else
                 TextButton(
                   onPressed: locked || state.busy ? null : openLibrary,
-                  child: const Text('저장된 이미지'),
+                  child: const Text('AI 생성 슬라이드 관리'),
                 ),
               const SizedBox(width: 8),
             ],
@@ -227,11 +247,23 @@ class SlideStudioPage extends HookConsumerWidget {
             ),
             child: StudioActionBar(
               state: state,
+              submitting: jobs.submitting,
+              unresolved: jobs.unresolved,
               designAvailable: selectedAvailable,
-              onRefreshUsage: controller.refreshUsage,
+              onRefreshUsage: () {
+                controller.refreshUsage();
+                jobController.refresh();
+              },
               onGenerate: () {
                 FocusScope.of(context).unfocus();
-                controller.generateTemplate();
+                final currentInput = ref
+                    .read(slideStudioControllerProvider)
+                    .input;
+                if (currentInput.design.theme.centerRecipe != null) {
+                  jobController.enqueue(currentInput);
+                } else {
+                  controller.generateTemplate();
+                }
               },
             ),
           ),
@@ -252,6 +284,21 @@ class SlideStudioPage extends HookConsumerWidget {
                     28,
                   ),
                   children: [
+                    if (jobs.jobs.isNotEmpty ||
+                        jobs.unresolved ||
+                        input.design.theme.centerRecipe != null)
+                      TemplateJobsPanel(
+                        state: jobs,
+                        onRefresh: jobController.refresh,
+                        onRecover: jobController.recover,
+                        onRetry: jobController.retry,
+                        onOpen: (job) async {
+                          final png = await jobController.open(job);
+                          if (png != null && sameScope()) {
+                            controller.openTemplateResult(job, png);
+                          }
+                        },
+                      ),
                     StudioDesignSelector(
                       designs: designs,
                       category: category.value,
@@ -456,12 +503,14 @@ class SlideStudioPage extends HookConsumerWidget {
                           : preview(state.result!),
                     ),
                     if (state.dirty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
                         child: Text(
-                          '변경사항이 아직 반영되지 않았어요. 새 결과를 생성한 뒤 저장하거나 추가해 주세요.',
-                          key: ValueKey('studio-dirty'),
-                          style: TextStyle(color: _secondary),
+                          state.result!.templateJob != null
+                              ? '열어 본 이미지는 이전 수업 내용으로 만들어졌어요. 현재 입력은 그대로 유지됩니다.'
+                              : '변경사항이 아직 반영되지 않았어요. 새 결과를 생성한 뒤 저장하거나 추가해 주세요.',
+                          key: const ValueKey('studio-dirty'),
+                          style: const TextStyle(color: _secondary),
                         ),
                       ),
                     if (state.result != null) ...[
@@ -497,7 +546,9 @@ class SlideStudioPage extends HookConsumerWidget {
                                     locked ||
                                         state.busy ||
                                         state.pendingId != null ||
-                                        state.dirty ||
+                                        (state.dirty &&
+                                            state.result!.templateJob ==
+                                                null) ||
                                         state.result!.savedModule != null
                                     ? null
                                     : controller.save,
@@ -514,7 +565,8 @@ class SlideStudioPage extends HookConsumerWidget {
                                     locked ||
                                         state.busy ||
                                         state.pendingId != null ||
-                                        state.dirty
+                                        (state.dirty &&
+                                            state.result!.templateJob == null)
                                     ? null
                                     : add,
                                 icon: const Icon(Icons.add),
@@ -550,13 +602,16 @@ class StudioActionBar extends StatelessWidget {
     required this.designAvailable,
     required this.onGenerate,
     required this.onRefreshUsage,
+    this.submitting = false,
+    this.unresolved = false,
   });
   final SlideStudioState state;
-  final bool designAvailable;
+  final bool designAvailable, submitting, unresolved;
   final VoidCallback onGenerate, onRefreshUsage;
   @override
   Widget build(BuildContext context) {
     final usage = state.usage;
+    final center = state.input.design.theme.centerRecipe != null;
     final count = usage == null
         ? state.usageLoading
               ? 'AI 남은 횟수 조회 중…'
@@ -614,29 +669,47 @@ class StudioActionBar extends StatelessWidget {
                   '현재 AI 생성은 이용할 수 없어요.',
                   style: TextStyle(fontSize: 12),
                 ),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  '템플릿 생성은 AI 횟수를 차감하지 않아요.',
+                  center
+                      ? '센터 전용 생성은 AI 1회를 사용해요. 접수 후 화면을 나가도 계속 만들어요.'
+                      : '기본 템플릿은 AI 없이 무료로 생성해요.',
                   style: TextStyle(fontSize: 12, color: _secondary),
                 ),
               ),
               FilledButton.icon(
                 key: const ValueKey('studio-generate'),
-                onPressed: state.busy || state.saving || !designAvailable
+                onPressed:
+                    state.busy ||
+                        state.saving ||
+                        submitting ||
+                        !designAvailable ||
+                        (center &&
+                            (unresolved ||
+                                usage == null ||
+                                !usage.allowed ||
+                                !usage.enabled ||
+                                (!usage.unlimited && usage.remaining == 0)))
                     ? null
                     : onGenerate,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
                 ),
-                icon: state.busy
+                icon: state.busy || submitting
                     ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.arrow_forward),
-                label: Text(state.busy ? '슬라이드 생성 중…' : '슬라이드 생성'),
+                label: Text(
+                  submitting
+                      ? '생성 접수 중…'
+                      : state.busy
+                      ? '슬라이드 생성 중…'
+                      : '슬라이드 생성',
+                ),
               ),
             ],
           ),

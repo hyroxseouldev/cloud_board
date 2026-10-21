@@ -915,7 +915,7 @@ as String?,
 /// @nodoc
 mixin _$StudioResult {
 
- String get id; StudioInput get input; Uint8List? get reference; AiSlideDraft? get draft; AiRasterBrand? get brand; AiRasterJob? get job; WorkoutModule? get savedModule; List<String> get warnings;
+ String get id; StudioInput get input; Uint8List? get reference; AiSlideDraft? get draft; AiRasterBrand? get brand; AiRasterJob? get job; TemplateJob? get templateJob; Uint8List? get serverPng; WorkoutModule? get savedModule; List<String> get warnings;
 /// Create a copy of StudioResult
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -927,20 +927,20 @@ $StudioResultCopyWith<StudioResult> get copyWith => _$StudioResultCopyWithImpl<S
 @override
 bool operator ==(Object other) {
   final _this = this as StudioResult;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is StudioResult&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.input, _this.input) || other.input == _this.input)&&const DeepCollectionEquality().equals(other.reference, _this.reference)&&(identical(other.draft, _this.draft) || other.draft == _this.draft)&&(identical(other.brand, _this.brand) || other.brand == _this.brand)&&(identical(other.job, _this.job) || other.job == _this.job)&&(identical(other.savedModule, _this.savedModule) || other.savedModule == _this.savedModule)&&const DeepCollectionEquality().equals(other.warnings, _this.warnings));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is StudioResult&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.input, _this.input) || other.input == _this.input)&&const DeepCollectionEquality().equals(other.reference, _this.reference)&&(identical(other.draft, _this.draft) || other.draft == _this.draft)&&(identical(other.brand, _this.brand) || other.brand == _this.brand)&&(identical(other.job, _this.job) || other.job == _this.job)&&(identical(other.templateJob, _this.templateJob) || other.templateJob == _this.templateJob)&&const DeepCollectionEquality().equals(other.serverPng, _this.serverPng)&&(identical(other.savedModule, _this.savedModule) || other.savedModule == _this.savedModule)&&const DeepCollectionEquality().equals(other.warnings, _this.warnings));
 }
 
 
 @override
 int get hashCode {
   final _this = this as StudioResult;
-  return Object.hash(runtimeType,_this.id,_this.input,const DeepCollectionEquality().hash(_this.reference),_this.draft,_this.brand,_this.job,_this.savedModule,const DeepCollectionEquality().hash(_this.warnings));
+  return Object.hash(runtimeType,_this.id,_this.input,const DeepCollectionEquality().hash(_this.reference),_this.draft,_this.brand,_this.job,_this.templateJob,const DeepCollectionEquality().hash(_this.serverPng),_this.savedModule,const DeepCollectionEquality().hash(_this.warnings));
 }
 
 @override
 String toString() {
   final _this = this as StudioResult;
-  return 'StudioResult(id: ${_this.id}, input: ${_this.input}, reference: ${_this.reference}, draft: ${_this.draft}, brand: ${_this.brand}, job: ${_this.job}, savedModule: ${_this.savedModule}, warnings: ${_this.warnings})';
+  return 'StudioResult(id: ${_this.id}, input: ${_this.input}, reference: ${_this.reference}, draft: ${_this.draft}, brand: ${_this.brand}, job: ${_this.job}, templateJob: ${_this.templateJob}, serverPng: ${_this.serverPng}, savedModule: ${_this.savedModule}, warnings: ${_this.warnings})';
 }
 
 
@@ -951,11 +951,11 @@ abstract mixin class $StudioResultCopyWith<$Res>  {
   factory $StudioResultCopyWith(StudioResult value, $Res Function(StudioResult) _then) = _$StudioResultCopyWithImpl;
 @useResult
 $Res call({
- String id, StudioInput input, Uint8List? reference, AiSlideDraft? draft, AiRasterBrand? brand, AiRasterJob? job, WorkoutModule? savedModule, List<String> warnings
+ String id, StudioInput input, Uint8List? reference, AiSlideDraft? draft, AiRasterBrand? brand, AiRasterJob? job, TemplateJob? templateJob, Uint8List? serverPng, WorkoutModule? savedModule, List<String> warnings
 });
 
 
-$StudioInputCopyWith<$Res> get input;$AiSlideDraftCopyWith<$Res>? get draft;$AiRasterBrandCopyWith<$Res>? get brand;$AiRasterJobCopyWith<$Res>? get job;$WorkoutModuleCopyWith<$Res>? get savedModule;
+$StudioInputCopyWith<$Res> get input;$AiSlideDraftCopyWith<$Res>? get draft;$AiRasterBrandCopyWith<$Res>? get brand;$AiRasterJobCopyWith<$Res>? get job;$TemplateJobCopyWith<$Res>? get templateJob;$WorkoutModuleCopyWith<$Res>? get savedModule;
 
 }
 /// @nodoc
@@ -968,7 +968,7 @@ class _$StudioResultCopyWithImpl<$Res>
 
 /// Create a copy of StudioResult
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? input = null,Object? reference = freezed,Object? draft = freezed,Object? brand = freezed,Object? job = freezed,Object? savedModule = freezed,Object? warnings = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? input = null,Object? reference = freezed,Object? draft = freezed,Object? brand = freezed,Object? job = freezed,Object? templateJob = freezed,Object? serverPng = freezed,Object? savedModule = freezed,Object? warnings = null,}) {
   return _then(StudioResult(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,input: null == input ? _self.input : input // ignore: cast_nullable_to_non_nullable
@@ -976,7 +976,9 @@ as StudioInput,reference: freezed == reference ? _self.reference : reference // 
 as Uint8List?,draft: freezed == draft ? _self.draft : draft // ignore: cast_nullable_to_non_nullable
 as AiSlideDraft?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
 as AiRasterBrand?,job: freezed == job ? _self.job : job // ignore: cast_nullable_to_non_nullable
-as AiRasterJob?,savedModule: freezed == savedModule ? _self.savedModule : savedModule // ignore: cast_nullable_to_non_nullable
+as AiRasterJob?,templateJob: freezed == templateJob ? _self.templateJob : templateJob // ignore: cast_nullable_to_non_nullable
+as TemplateJob?,serverPng: freezed == serverPng ? _self.serverPng : serverPng // ignore: cast_nullable_to_non_nullable
+as Uint8List?,savedModule: freezed == savedModule ? _self.savedModule : savedModule // ignore: cast_nullable_to_non_nullable
 as WorkoutModule?,warnings: null == warnings ? _self.warnings : warnings // ignore: cast_nullable_to_non_nullable
 as List<String>,
   ));
@@ -1025,6 +1027,18 @@ $AiRasterJobCopyWith<$Res>? get job {
 
   return $AiRasterJobCopyWith<$Res>(_self.job!, (value) {
     return _then(_self.copyWith(job: value));
+  });
+}/// Create a copy of StudioResult
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TemplateJobCopyWith<$Res>? get templateJob {
+    if (_self.templateJob == null) {
+    return null;
+  }
+
+  return $TemplateJobCopyWith<$Res>(_self.templateJob!, (value) {
+    return _then(_self.copyWith(templateJob: value));
   });
 }/// Create a copy of StudioResult
 /// with the given fields replaced by the non-null parameter values.
@@ -1120,10 +1134,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  StudioInput input,  Uint8List? reference,  AiSlideDraft? draft,  AiRasterBrand? brand,  AiRasterJob? job,  WorkoutModule? savedModule,  List<String> warnings)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  StudioInput input,  Uint8List? reference,  AiSlideDraft? draft,  AiRasterBrand? brand,  AiRasterJob? job,  TemplateJob? templateJob,  Uint8List? serverPng,  WorkoutModule? savedModule,  List<String> warnings)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _StudioResult() when $default != null:
-return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_that.job,_that.savedModule,_that.warnings);case _:
+return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_that.job,_that.templateJob,_that.serverPng,_that.savedModule,_that.warnings);case _:
   return orElse();
 
 }
@@ -1141,10 +1155,10 @@ return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  StudioInput input,  Uint8List? reference,  AiSlideDraft? draft,  AiRasterBrand? brand,  AiRasterJob? job,  WorkoutModule? savedModule,  List<String> warnings)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  StudioInput input,  Uint8List? reference,  AiSlideDraft? draft,  AiRasterBrand? brand,  AiRasterJob? job,  TemplateJob? templateJob,  Uint8List? serverPng,  WorkoutModule? savedModule,  List<String> warnings)  $default,) {final _that = this;
 switch (_that) {
 case _StudioResult():
-return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_that.job,_that.savedModule,_that.warnings);case _:
+return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_that.job,_that.templateJob,_that.serverPng,_that.savedModule,_that.warnings);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1161,10 +1175,10 @@ return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  StudioInput input,  Uint8List? reference,  AiSlideDraft? draft,  AiRasterBrand? brand,  AiRasterJob? job,  WorkoutModule? savedModule,  List<String> warnings)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  StudioInput input,  Uint8List? reference,  AiSlideDraft? draft,  AiRasterBrand? brand,  AiRasterJob? job,  TemplateJob? templateJob,  Uint8List? serverPng,  WorkoutModule? savedModule,  List<String> warnings)?  $default,) {final _that = this;
 switch (_that) {
 case _StudioResult() when $default != null:
-return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_that.job,_that.savedModule,_that.warnings);case _:
+return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_that.job,_that.templateJob,_that.serverPng,_that.savedModule,_that.warnings);case _:
   return null;
 
 }
@@ -1176,7 +1190,7 @@ return $default(_that.id,_that.input,_that.reference,_that.draft,_that.brand,_th
 
 
 class _StudioResult implements StudioResult {
-  const _StudioResult({required this.id, required this.input, this.reference, this.draft, this.brand, this.job, this.savedModule,  List<String> warnings = const []}): _warnings = warnings;
+  const _StudioResult({required this.id, required this.input, this.reference, this.draft, this.brand, this.job, this.templateJob, this.serverPng, this.savedModule,  List<String> warnings = const []}): _warnings = warnings;
 
 
 @override final  String id;
@@ -1185,6 +1199,8 @@ class _StudioResult implements StudioResult {
 @override final  AiSlideDraft? draft;
 @override final  AiRasterBrand? brand;
 @override final  AiRasterJob? job;
+@override final  TemplateJob? templateJob;
+@override final  Uint8List? serverPng;
 @override final  WorkoutModule? savedModule;
  final  List<String> _warnings;
 @override@JsonKey() List<String> get warnings {
@@ -1204,18 +1220,18 @@ _$StudioResultCopyWith<_StudioResult> get copyWith => __$StudioResultCopyWithImp
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StudioResult&&(identical(other.id, id) || other.id == id)&&(identical(other.input, input) || other.input == input)&&const DeepCollectionEquality().equals(other.reference, reference)&&(identical(other.draft, draft) || other.draft == draft)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.job, job) || other.job == job)&&(identical(other.savedModule, savedModule) || other.savedModule == savedModule)&&const DeepCollectionEquality().equals(other.warnings, _warnings));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StudioResult&&(identical(other.id, id) || other.id == id)&&(identical(other.input, input) || other.input == input)&&const DeepCollectionEquality().equals(other.reference, reference)&&(identical(other.draft, draft) || other.draft == draft)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.job, job) || other.job == job)&&(identical(other.templateJob, templateJob) || other.templateJob == templateJob)&&const DeepCollectionEquality().equals(other.serverPng, serverPng)&&(identical(other.savedModule, savedModule) || other.savedModule == savedModule)&&const DeepCollectionEquality().equals(other.warnings, _warnings));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,input,const DeepCollectionEquality().hash(reference),draft,brand,job,savedModule,const DeepCollectionEquality().hash(_warnings));
+    return Object.hash(runtimeType,id,input,const DeepCollectionEquality().hash(reference),draft,brand,job,templateJob,const DeepCollectionEquality().hash(serverPng),savedModule,const DeepCollectionEquality().hash(_warnings));
 }
 
 @override
 String toString() {
-    return 'StudioResult(id: $id, input: $input, reference: $reference, draft: $draft, brand: $brand, job: $job, savedModule: $savedModule, warnings: $warnings)';
+    return 'StudioResult(id: $id, input: $input, reference: $reference, draft: $draft, brand: $brand, job: $job, templateJob: $templateJob, serverPng: $serverPng, savedModule: $savedModule, warnings: $warnings)';
 }
 
 
@@ -1226,11 +1242,11 @@ abstract mixin class _$StudioResultCopyWith<$Res> implements $StudioResultCopyWi
   factory _$StudioResultCopyWith(_StudioResult value, $Res Function(_StudioResult) _then) = __$StudioResultCopyWithImpl;
 @override @useResult
 $Res call({
- String id, StudioInput input, Uint8List? reference, AiSlideDraft? draft, AiRasterBrand? brand, AiRasterJob? job, WorkoutModule? savedModule, List<String> warnings
+ String id, StudioInput input, Uint8List? reference, AiSlideDraft? draft, AiRasterBrand? brand, AiRasterJob? job, TemplateJob? templateJob, Uint8List? serverPng, WorkoutModule? savedModule, List<String> warnings
 });
 
 
-@override $StudioInputCopyWith<$Res> get input;@override $AiSlideDraftCopyWith<$Res>? get draft;@override $AiRasterBrandCopyWith<$Res>? get brand;@override $AiRasterJobCopyWith<$Res>? get job;@override $WorkoutModuleCopyWith<$Res>? get savedModule;
+@override $StudioInputCopyWith<$Res> get input;@override $AiSlideDraftCopyWith<$Res>? get draft;@override $AiRasterBrandCopyWith<$Res>? get brand;@override $AiRasterJobCopyWith<$Res>? get job;@override $TemplateJobCopyWith<$Res>? get templateJob;@override $WorkoutModuleCopyWith<$Res>? get savedModule;
 
 }
 /// @nodoc
@@ -1243,7 +1259,7 @@ class __$StudioResultCopyWithImpl<$Res>
 
 /// Create a copy of StudioResult
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? input = null,Object? reference = freezed,Object? draft = freezed,Object? brand = freezed,Object? job = freezed,Object? savedModule = freezed,Object? warnings = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? input = null,Object? reference = freezed,Object? draft = freezed,Object? brand = freezed,Object? job = freezed,Object? templateJob = freezed,Object? serverPng = freezed,Object? savedModule = freezed,Object? warnings = null,}) {
   return _then(_StudioResult(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,input: null == input ? _self.input : input // ignore: cast_nullable_to_non_nullable
@@ -1251,7 +1267,9 @@ as StudioInput,reference: freezed == reference ? _self.reference : reference // 
 as Uint8List?,draft: freezed == draft ? _self.draft : draft // ignore: cast_nullable_to_non_nullable
 as AiSlideDraft?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
 as AiRasterBrand?,job: freezed == job ? _self.job : job // ignore: cast_nullable_to_non_nullable
-as AiRasterJob?,savedModule: freezed == savedModule ? _self.savedModule : savedModule // ignore: cast_nullable_to_non_nullable
+as AiRasterJob?,templateJob: freezed == templateJob ? _self.templateJob : templateJob // ignore: cast_nullable_to_non_nullable
+as TemplateJob?,serverPng: freezed == serverPng ? _self.serverPng : serverPng // ignore: cast_nullable_to_non_nullable
+as Uint8List?,savedModule: freezed == savedModule ? _self.savedModule : savedModule // ignore: cast_nullable_to_non_nullable
 as WorkoutModule?,warnings: null == warnings ? _self._warnings : warnings // ignore: cast_nullable_to_non_nullable
 as List<String>,
   ));
@@ -1301,6 +1319,18 @@ $AiRasterJobCopyWith<$Res>? get job {
 
   return $AiRasterJobCopyWith<$Res>(_self.job!, (value) {
     return _then(_self.copyWith(job: value));
+  });
+}/// Create a copy of StudioResult
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TemplateJobCopyWith<$Res>? get templateJob {
+    if (_self.templateJob == null) {
+    return null;
+  }
+
+  return $TemplateJobCopyWith<$Res>(_self.templateJob!, (value) {
+    return _then(_self.copyWith(templateJob: value));
   });
 }/// Create a copy of StudioResult
 /// with the given fields replaced by the non-null parameter values.
