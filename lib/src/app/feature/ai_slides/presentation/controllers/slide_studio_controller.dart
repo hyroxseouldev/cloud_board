@@ -18,6 +18,9 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/template_job.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/template_jobs_actions.dart';
+
 part 'slide_studio_controller.g.dart';
 
 @riverpod
@@ -41,7 +44,11 @@ class SlideStudioController extends _$SlideStudioController {
       if (_current(lifetime)) unawaited(refreshUsage());
     });
     return SlideStudioState(
-      input: StudioInput(design: aiSlideDesignCatalog.first),
+      input: StudioInput(
+        design: aiSlideDesignCatalog.first,
+        title: '',
+        subtitle: '',
+      ),
     );
   }
 
@@ -151,6 +158,10 @@ class SlideStudioController extends _$SlideStudioController {
   /// The legacy operations remain available to their existing callers.
   Future<void> generateTemplate() async {
     if (state.busy || state.saving) return;
+    if (state.input.design.theme.centerRecipe != null) {
+      reportError('센터 전용 디자인은 AI 생성 접수로 만들어 주세요.');
+      return;
+    }
     _pendingReference = null;
     state = state.copyWith(
       input: state.input.copyWith(
@@ -467,7 +478,7 @@ class SlideStudioController extends _$SlideStudioController {
     if (state.busy || state.saving || state.history.isEmpty) return;
     final previous = state.history.first;
     state = state.copyWith(
-      input: previous.input,
+      input: previous.templateJob == null ? previous.input : state.input,
       reference: previous.reference,
       result: previous,
       history: state.history.skip(1).toList(),
@@ -479,20 +490,23 @@ class SlideStudioController extends _$SlideStudioController {
     if (state.busy ||
         state.saving ||
         state.pendingId != null ||
-        state.dirty ||
+        (state.dirty && state.result?.templateJob == null) ||
         state.result == null) {
       return null;
     }
     final lifetime = _lifetime, snapshot = state.result!;
     state = state.copyWith(saving: true, error: null);
-    final value = await AsyncValue.guard(() => _actions.prepare(snapshot));
+    final value = await AsyncValue.guard(() => _prepare(snapshot));
     if (!_current(lifetime)) return null;
     state = state.copyWith(saving: false);
     if (value.hasError) {
       _error(value.error!);
       return null;
     }
-    if (state.result != snapshot || state.dirty) return null;
+    if (state.result != snapshot ||
+        (state.dirty && snapshot.templateJob == null)) {
+      return null;
+    }
     state = state.copyWith(leaving: true);
     return value.requireValue;
   }
@@ -501,7 +515,7 @@ class SlideStudioController extends _$SlideStudioController {
     if (state.busy ||
         state.saving ||
         state.pendingId != null ||
-        state.dirty ||
+        (state.dirty && state.result?.templateJob == null) ||
         state.result == null ||
         state.result!.savedModule != null) {
       return;
@@ -509,7 +523,7 @@ class SlideStudioController extends _$SlideStudioController {
     final lifetime = _lifetime, snapshot = state.result!;
     state = state.copyWith(saving: true, error: null);
     final value = await AsyncValue.guard(
-      () async => _actions.save(await _actions.prepare(snapshot)),
+      () async => _actions.save(await _prepare(snapshot)),
     );
     if (!_current(lifetime)) return;
     state = state.copyWith(saving: false);
@@ -522,6 +536,57 @@ class SlideStudioController extends _$SlideStudioController {
         result: snapshot.copyWith(savedModule: value.requireValue),
       );
     }
+  }
+
+  Future<WorkoutModule> _prepare(StudioResult result) =>
+      result.templateJob == null
+      ? _actions.prepare(result)
+      : ref.read(templateJobsActionsProvider).prepare(result.templateJob!);
+
+  /// Opening a server result never changes today's draft or locally renders PNG.
+  void clearTemplateResults() {
+    state = state.copyWith(
+      result: state.result?.templateJob != null ? null : state.result,
+      history: state.history
+          .where((value) => value.templateJob == null)
+          .toList(),
+    );
+  }
+
+  void acceptTemplateUsage(StudioUsage usage) {
+    _usageRevision++;
+    state = state.copyWith(usage: usage, usageLoading: false, usageError: null);
+    _reset?.cancel();
+    final duration = usage.resetsAt?.difference(DateTime.now());
+    if (duration != null && duration > Duration.zero) {
+      _reset = Timer(duration, refreshUsage);
+    }
+  }
+
+  void openTemplateResult(TemplateJob job, Uint8List png) {
+    if (state.busy || state.saving) return;
+    final input = state.input.copyWith(
+      title: job.title,
+      subtitle: job.subtitle,
+      raw: job.rawWod,
+      design: state.input.design.copyWith(
+        id: job.designId,
+        name: job.designName,
+      ),
+    );
+    state = state.copyWith(
+      result: StudioResult(
+        id: 'template-${job.requestId}',
+        input: input,
+        templateJob: job,
+        serverPng: Uint8List.fromList(png),
+      ),
+      history: [
+        if (state.result != null) state.result!,
+        ...state.history,
+      ].take(3).toList(),
+      error: null,
+    );
   }
 
   void openSaved(WorkoutModule module) {
