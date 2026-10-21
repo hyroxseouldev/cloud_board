@@ -1,0 +1,1793 @@
+{
+  "format": 1,
+  "scenarios": [
+    {
+      "name": "legacy-fixed",
+      "contentOnly": false,
+      "durationKind": "fixed",
+      "writes": [
+        {
+          "operation": "create",
+          "workout": {
+            "id": "legacy-fixed",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "custom",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 2000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-fixed",
+            "name": "Workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 60,
+            "durationKind": "fixed",
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          }
+        },
+        {
+          "operation": "update",
+          "workout": {
+            "id": "legacy-fixed",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Edited workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "custom",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 3000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-fixed",
+            "name": "Edited workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 60,
+            "durationKind": "fixed",
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          }
+        },
+        {
+          "operation": "duplicate",
+          "workout": {
+            "id": "legacy-fixed-copy",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout 복사",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slidec",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "custom",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 4000
+            },
+            "updatedAt": {
+              "__timestampMillis": 4000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-fixed-copy",
+            "name": "Workout 복사",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 60,
+            "durationKind": "fixed",
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "legacy-maximum",
+      "contentOnly": false,
+      "durationKind": "maximum",
+      "writes": [
+        {
+          "operation": "create",
+          "workout": {
+            "id": "legacy-maximum",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 2000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-maximum",
+            "name": "Workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "maximum",
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          }
+        },
+        {
+          "operation": "update",
+          "workout": {
+            "id": "legacy-maximum",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Edited workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 3000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-maximum",
+            "name": "Edited workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "maximum",
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          }
+        },
+        {
+          "operation": "duplicate",
+          "workout": {
+            "id": "legacy-maximum-copy",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout 복사",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slidec",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 4000
+            },
+            "updatedAt": {
+              "__timestampMillis": 4000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-maximum-copy",
+            "name": "Workout 복사",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "maximum",
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "legacy-open",
+      "contentOnly": false,
+      "durationKind": "open",
+      "writes": [
+        {
+          "operation": "create",
+          "workout": {
+            "id": "legacy-open",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 0,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 2000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-open",
+            "name": "Workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "open",
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          }
+        },
+        {
+          "operation": "update",
+          "workout": {
+            "id": "legacy-open",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Edited workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 0,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 3000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-open",
+            "name": "Edited workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "open",
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          }
+        },
+        {
+          "operation": "duplicate",
+          "workout": {
+            "id": "legacy-open-copy",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout 복사",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slidec",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 0,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 4000
+            },
+            "updatedAt": {
+              "__timestampMillis": 4000
+            },
+            "brandL": "Saved brand",
+            "brandR": "",
+            "soundTheme": "videoBeep",
+            "countdownSound": "videoBeep",
+            "workStartSound": "videoBeep",
+            "restStartSound": "videoBeep",
+            "workoutEndSound": "videoBeep",
+            "soundVolume": 1,
+            "countdownSeconds": 3,
+            "countdownBackgroundColor": 4278190080,
+            "countdownImageSource": "",
+            "countdownAppearance": {
+              "showReady": true,
+              "showTitle": true,
+              "numberScale": 1,
+              "numberFormat": "seconds",
+              "numberColor": null,
+              "numberShadow": false,
+              "overlayEnabled": true,
+              "overlayOpacity": null,
+              "overlayColor": null
+            }
+          },
+          "summary": {
+            "id": "legacy-open-copy",
+            "name": "Workout 복사",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "open",
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "content-fixed",
+      "contentOnly": true,
+      "durationKind": "fixed",
+      "writes": [
+        {
+          "operation": "create",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-fixed",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "custom",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          },
+          "summary": {
+            "id": "content-fixed",
+            "name": "Workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 60,
+            "durationKind": "fixed",
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          }
+        },
+        {
+          "operation": "update",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-fixed",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Edited workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "custom",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          },
+          "summary": {
+            "id": "content-fixed",
+            "name": "Edited workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 60,
+            "durationKind": "fixed",
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          }
+        },
+        {
+          "operation": "duplicate",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-fixed-copy",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout 복사",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slidec",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "custom",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 4000
+            },
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          },
+          "summary": {
+            "id": "content-fixed-copy",
+            "name": "Workout 복사",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 60,
+            "durationKind": "fixed",
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "content-maximum",
+      "contentOnly": true,
+      "durationKind": "maximum",
+      "writes": [
+        {
+          "operation": "create",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-maximum",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          },
+          "summary": {
+            "id": "content-maximum",
+            "name": "Workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "maximum",
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          }
+        },
+        {
+          "operation": "update",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-maximum",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Edited workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          },
+          "summary": {
+            "id": "content-maximum",
+            "name": "Edited workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "maximum",
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          }
+        },
+        {
+          "operation": "duplicate",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-maximum-copy",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout 복사",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slidec",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 60,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 4000
+            },
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          },
+          "summary": {
+            "id": "content-maximum-copy",
+            "name": "Workout 복사",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "maximum",
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "content-open",
+      "contentOnly": true,
+      "durationKind": "open",
+      "writes": [
+        {
+          "operation": "create",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-open",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 0,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          },
+          "summary": {
+            "id": "content-open",
+            "name": "Workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "open",
+            "updatedAt": {
+              "__timestampMillis": 2000
+            }
+          }
+        },
+        {
+          "operation": "update",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-open",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Edited workout",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slide",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 0,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 1000
+            },
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          },
+          "summary": {
+            "id": "content-open",
+            "name": "Edited workout",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "open",
+            "updatedAt": {
+              "__timestampMillis": 3000
+            }
+          }
+        },
+        {
+          "operation": "duplicate",
+          "workout": {
+            "schemaVersion": 2,
+            "id": "content-open-copy",
+            "ownerId": "owner",
+            "author": {
+              "id": "owner",
+              "displayName": "Coach",
+              "photoUrl": null
+            },
+            "name": "Workout 복사",
+            "folder": "",
+            "modules": [
+              {
+                "id": "slidec",
+                "name": "",
+                "text": "",
+                "imageUrl": "",
+                "designFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "designHeaderLabel": "",
+                "designSubtitle": "",
+                "designLayout": "auto",
+                "designFontWeight": 700,
+                "designItalic": false,
+                "designSpacing": 1,
+                "workSeconds": 0,
+                "sets": 1,
+                "restSeconds": 0,
+                "includeFinalRest": true,
+                "timingVersion": 2,
+                "rounds": 1,
+                "roundRestSeconds": 0,
+                "timerMode": "forTime",
+                "timerDirection": "down",
+                "includeFinalRoundRest": true,
+                "showTimer": true,
+                "appearance": {
+                  "timerX": 0.84,
+                  "timerY": 0.5,
+                  "timerSize": 1,
+                  "ringWidth": 30,
+                  "setsSize": 1,
+                  "setsOffsetY": 0.07,
+                  "showTitle": true,
+                  "showBody": true,
+                  "showBrand": true,
+                  "titleColor": 4294967295,
+                  "bodyColor": 4294967295,
+                  "setsColor": 4278190080,
+                  "brandColor": 4294967295
+                },
+                "showTimerGauge": true,
+                "showSets": true,
+                "beep": true,
+                "coverImage": false,
+                "favorite": false,
+                "category": "",
+                "timerColorValue": null,
+                "workGaugeColor": "#000000",
+                "restGaugeColor": "#526B60",
+                "workTextColor": "#000000",
+                "restTextColor": "#526B60",
+                "intervalBlocks": []
+              }
+            ],
+            "createdAt": {
+              "__timestampMillis": 4000
+            },
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          },
+          "summary": {
+            "id": "content-open-copy",
+            "name": "Workout 복사",
+            "folder": "",
+            "imageSource": "",
+            "moduleCount": 1,
+            "durationSeconds": 0,
+            "durationKind": "open",
+            "updatedAt": {
+              "__timestampMillis": 4000
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "client": "2.0.1-release-d4d8cfa6a981",
+  "sourceCommit": "d4d8cfa6a981fe949f28f470730929bd78b83342",
+  "provenance": {
+    "kind": "exported-from-released-source",
+    "sourceTree": "1485b018ee6135cab0c194b3bdee61190ec2b4c7",
+    "exporter": "tool/export_workout_save_fixtures_test.dart",
+    "exporterBlob": "90d71feea180509156e9ce7bc78a13cf060a17fc",
+    "originalExportSha256": "4e5b41c3e2302b40e9ea066b813bdb9d47b5e001e83aeb0d0e6aabc35c9f59f9"
+  }
+}
