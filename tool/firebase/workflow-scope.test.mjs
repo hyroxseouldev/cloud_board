@@ -70,6 +70,26 @@ test('Hosting and Functions are deployed only by their selected scopes', () => {
   }
 });
 
+test('mobile-first compatibility runs only for selected mobile without a server deployment and cannot skip its checks', () => {
+  const file = 'firebase-hosting-merge.yml';
+  const condition = jobCondition(file, 'mobile_backend_compatibility');
+  for (const scope of ['full', 'web', 'backend', 'rules', 'none', 'verify']) {
+    for (const mobile_requested of ['true', 'false']) for (const validation_mode of ['required', 'skipped']) {
+      assert.equal(evaluate(condition, {needs: {deployment_plan: {outputs: {scope, mobile_requested, validation_mode}}},
+        contains: (values, value) => values.includes(value), fromJSON: JSON.parse}),
+      mobile_requested === 'true' && ['verify', 'web'].includes(scope));
+    }
+  }
+  const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
+  const job = workflow.slice(workflow.indexOf('  mobile_backend_compatibility:'), workflow.indexOf('  web_build:'));
+  assert(job.indexOf('verify_mobile_backend.mjs prepare') < job.indexOf('uses: subosito/flutter-action'));
+  assert(job.includes('verify_mobile_backend.mjs test'));
+  assert(job.includes("if: steps.compatibility.outputs.needs_tests == 'true'"));
+  assert(job.includes('mobile-backend-compatibility-${{ github.run_id }}-${{ github.run_attempt }}'));
+  assert(!job.includes('secrets.'));
+  assert(!job.includes('firebase deploy'));
+});
+
 test('validation has no workflow-wide queue while production writes remain serialized', () => {
   const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
   assert(!/^concurrency:/m.test(workflow));

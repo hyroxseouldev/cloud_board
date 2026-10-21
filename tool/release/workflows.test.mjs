@@ -9,6 +9,23 @@ const evaluate = (expression, {upload = true, mode = 'qa'} = {}) =>
   runInNewContext(`(${expression})`, {env: {RELEASE_MODE: mode, UPLOAD_REQUESTED: String(upload)}}, {timeout: 100});
 
 for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobile and TV bundle'], ['testflight', 'testflight', 'Upload to TestFlight']]) {
+  test(`${workflow}: an unselected mobile target cannot resolve app source or authorize the upload job`, () => {
+    const source = load(workflow);
+    const selection = step(source, 'Check selected mobile release target');
+    assert(selection.includes('id: followup'));
+    assert(selection.includes('node tool/release/mobile_followup.mjs'));
+    assert(source.indexOf(selection) < source.indexOf('      - name: Resolve and pin trusted app source'));
+    for (const name of ['Resolve and pin trusted app source', 'Report blocked development store setup']) {
+      const expression = step(source, name).match(/        if: ([^\n]+)/)?.[1];
+      assert(expression, `Missing selection condition on ${name}`);
+      for (const requested of ['true', 'false', undefined]) {
+        assert.equal(runInNewContext(`(${expression})`, {steps: {followup: {outputs: {requested}}}}, {timeout: 100}),
+          requested === 'true');
+      }
+    }
+    assert(source.includes('ready: ${{ steps.readiness.outputs.ready }}'));
+    assert(source.includes("if: needs.preflight.outputs.ready == 'true'"));
+  });
   test(`${workflow}: development-tag QA and completed release-tag runs are separate from build-only`, () => {
     const source = load(workflow);
     assert(!source.includes('backend_ready:'));
@@ -45,7 +62,7 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert.equal(evaluate(condition(earlyBackend), {upload: false}), false);
     assert.equal(evaluate(condition(earlyBackend), {mode: 'qa'}), false);
     assert.equal(evaluate(condition(earlyBackend), {mode: 'release'}), true);
-    assert(earlyBackend.includes('--mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only'));
+    assert(earlyBackend.includes('--mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only --mobile'));
     const earlyPosition = source.indexOf('      - name: Check backend compatibility before native build');
     assert(source.indexOf('      - name: Checkout selected app commit') < earlyPosition);
     assert(earlyPosition < source.indexOf('      - name: Set up Flutter'));
@@ -56,7 +73,14 @@ for (const [workflow, option, uploader] of [['google-play', 'play', 'Upload mobi
     assert.equal(evaluate(condition(backendStep), {upload: false}), false);
     assert.equal(evaluate(condition(backendStep)), true);
     assert(backendStep.includes('if [[ "$RELEASE_MODE" == release ]]'));
-    assert(backendStep.includes('--mode release --source-sha "$SOURCE_SHA" --check-only'));
+    assert(backendStep.includes('--mode release --source-sha "$SOURCE_SHA" --check-only --mobile'));
+    const backendAudit = step(source, 'Retain checked production backend');
+    assert.equal(evaluate(condition(backendAudit), {mode: 'release'}), true);
+    assert.equal(evaluate(condition(backendAudit), {mode: 'qa'}), false);
+    assert.equal(evaluate(condition(backendAudit), {mode: 'release', upload: false}), false);
+    assert(backendAudit.includes('mobile-backend-reference.json'));
+    assert(source.indexOf(backendStep) < source.indexOf(backendAudit));
+    assert(source.indexOf(backendAudit) < source.indexOf(`      - name: ${uploader}`));
     const upload = condition(step(source, uploader));
     assert.equal(evaluate(upload, {upload: false}), false);
     assert.equal(evaluate(upload), true);

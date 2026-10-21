@@ -13,6 +13,11 @@ export function validateReleaseValidation(value, expected = {}) {
     assert.match(value[field], /^[1-9]\d*$/, `Invalid validation ${field}`);
   }
   assert(['required', 'skipped'].includes(value.validationMode), 'Unknown release validation mode');
+  // Historical receipts remain valid CI evidence, but cannot opt into a new upload.
+  if (value.mobileUploadRequested !== undefined) {
+    assert.equal(typeof value.mobileUploadRequested, 'boolean', 'Invalid mobile upload selection');
+    assert(!value.mobileUploadRequested || value.releaseTag, 'Mobile follow-up requires a release tag');
+  }
   assert.equal(typeof value.reason, 'string');
   assert.equal(typeof value.actor, 'string');
   assert(value.actor.trim() && !/[\r\n]/.test(value.actor), 'Validation actor is required');

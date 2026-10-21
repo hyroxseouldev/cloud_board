@@ -20,6 +20,33 @@ function options(extras = {}) {
 test('app-only upload reuses compatible deployed backend from a different source SHA', async () => {
   assert.equal((await requireBackend(options())).id, 12);
 });
+test('mobile-first upload accepts actual current-server contract evidence without deploying candidate server code', async () => {
+  const actual = backendFingerprint();
+  let checks = 0;
+  const result = await requireBackend(options({fingerprint: '0'.repeat(64), mobile: true, releaseTag: 'v1.2.3',
+    checkMobileCompatibility: async input => {
+      checks++;
+      assert.equal(input.sha, sha);
+      assert.equal(input.backendFingerprint, actual);
+      assert.equal(input.releaseTag, 'v1.2.3');
+      return {method: 'deployed-backend-contracts', validationRunId: '88', validationRunAttempt: '1'};
+    }}));
+  assert.equal(checks, 1);
+  assert.equal(result.backendReference.fingerprint, actual, 'Receipt records the actual server, never the undeployed candidate');
+  assert.equal(result.backendReference.compatibility.validationRunId, '88');
+});
+test('failed mobile proof stays blocked and web/rules cannot use the mobile-first exception', async () => {
+  await assert.rejects(requireBackend(options({fingerprint: '0'.repeat(64), mobile: true, releaseTag: 'v1.2.3',
+    checkMobileCompatibility: async () => {throw new Error('stale proof');}})), /stale proof/);
+  await assert.rejects(requireBackend(options({fingerprint: '0'.repeat(64),
+    checkMobileCompatibility: async () => assert.fail('Web must not look up mobile evidence')})), /different backend/);
+  await assert.rejects(requireBackend(options({mobile: true, functionsOnly: true})), /only for production mobile/);
+  await assert.rejects(requireBackend(options({mobile: true, mode: 'qa'})), /only for production mobile/);
+});
+test('matching backend retains the fast mobile path with no duplicate compatibility tests', async () => {
+  await requireBackend(options({mobile: true, releaseTag: 'v1.2.3',
+    checkMobileCompatibility: async () => assert.fail('Unchanged server needs no new compatibility run')}));
+});
 test('backend-only receipt authorizes an app without requiring Hosting', async () => {
   const base = options();
   assert.equal((await requireBackend({...base, readArtifact: async () => {
