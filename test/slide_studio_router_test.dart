@@ -24,6 +24,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'support/ai_raster_fakes.dart';
 import 'support/main_navigation_fixture.dart';
 import 'support/slide_studio_fakes.dart';
+import 'support/template_jobs_fakes.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/template_jobs_actions.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_jobs_page.dart';
 
 // Exercise the shipped ShellRoute + StatefulShellRoute + editor hierarchy,
 // rather than a standalone GoRoute that cannot reproduce shared navigator reuse.
@@ -41,15 +45,25 @@ void main() {
         );
         final data = NavigationPreviewData(active: false);
         final repository = FakeStudioRepository();
+        final jobs = FakeTemplateJobsRepository()
+          ..jobs = [templateTestJob('pending-ai')];
         final container = ProviderContainer(
           parent: data.container,
           overrides: [
             aiSlidesOwnerIdProvider.overrideWithValue(previewUser.id),
             aiSlideDesignOwnerIdProvider.overrideWithValue(null),
             aiSlideDesignStoreIdProvider.overrideWithValue(null),
-            centerSlideCatalogScopeProvider.overrideWithValue(null),
+            centerSlideCatalogScopeProvider.overrideWithValue(
+              const CenterSlideCatalogScope(
+                ownerId: 'owner',
+                centerId: 'local-center',
+              ),
+            ),
             centerSlideCatalogProvider.overrideWith(
               (_) => Stream.value(emptyCenterSlideCatalog()),
+            ),
+            templateJobsActionsProvider.overrideWithValue(
+              TemplateJobsActions(jobs),
             ),
             slideStudioActionsProvider.overrideWithValue(
               SlideStudioActions(repository),
@@ -111,53 +125,29 @@ void main() {
 
           for (var visit = 0; visit < 2; visit++) {
             if (width < 560) {
-              await tester.tap(find.byTooltip('저장된 이미지'));
+              await tester.tap(find.byTooltip('AI 생성 슬라이드 관리'));
             } else {
-              await tester.tap(find.text('저장된 이미지'));
+              await tester.tap(find.text('AI 생성 슬라이드 관리'));
             }
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
-            expect(find.byType(SlideLibraryScreen), findsOneWidget);
+            expect(find.byType(TemplateJobsPage), findsOneWidget);
+            expect(find.byType(SlideLibraryScreen), findsNothing);
             expect(
-              tester
-                  .widget<SlideLibraryScreen>(find.byType(SlideLibraryScreen))
-                  .asMainTab,
-              isFalse,
+              find.byKey(const ValueKey('template-job-pending-ai')),
+              findsOneWidget,
             );
-            expect(
-              tester
-                  .widget<SlideLibraryScreen>(find.byType(SlideLibraryScreen))
-                  .imagesOnly,
-              isTrue,
-            );
-            expect(
-              find.byKey(const ValueKey('library-category-tabs')),
-              findsNothing,
-            );
+            expect(find.byKey(ValueKey(saved.id)), findsNothing);
             expect(find.byKey(const ValueKey('text-only')), findsNothing);
             expect(find.byType(MainNavigationDock), findsNothing);
-            expect(find.text('오늘의 수업'), findsWidgets);
             expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
             expect(
-              GoRouterState.of(tester.element(find.byType(SlideLibraryScreen)))
+              GoRouterState.of(tester.element(find.byType(TemplateJobsPage)))
                   .uri
                   .path,
               '/editor/preview-0/images/create/library',
             );
             if (visit == 0) {
-              await tester.tap(
-                find
-                    .descendant(
-                      of: find.byKey(ValueKey(saved.id)),
-                      matching: find.text('오늘의 수업'),
-                    )
-                    .first,
-              );
-              await tester.pumpAndSettle();
-              expect(find.byType(SavedSlideEditorScreen), findsOneWidget);
-              await tester.pageBack();
-              await tester.pumpAndSettle();
-              expect(find.byType(SlideLibraryScreen), findsOneWidget);
               await tester.pageBack();
             } else {
               await tester.binding.handlePopRoute();
@@ -184,6 +174,34 @@ void main() {
               '$source\nRow 500m',
             );
           }
+          jobs.jobs = [templateTestJob('completed-ai', status: 'complete')];
+          if (width < 700) {
+            await tester.tap(find.byTooltip('AI 생성 슬라이드 관리'));
+          } else {
+            await tester.tap(find.text('AI 생성 슬라이드 관리'));
+          }
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('template-open-completed-ai')),
+          );
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(find.text('이 이미지를 열어 저장 / 수업에 사용'));
+          await tester.tap(find.text('이 이미지를 열어 저장 / 수업에 사용'));
+          await tester.pumpAndSettle();
+          expect(find.byType(TemplateJobsPage), findsNothing);
+          expect(
+            studioScope.read(slideStudioControllerProvider).input.raw,
+            '$source\nRow 500m',
+          );
+          expect(
+            studioScope
+                .read(slideStudioControllerProvider)
+                .result!
+                .templateJob!
+                .requestId,
+            'completed-ai',
+          );
+          expect(tester.takeException(), isNull);
           expect(repository.generations, 0);
           expect(repository.saves, 1);
         } finally {

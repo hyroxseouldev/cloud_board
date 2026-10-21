@@ -13,6 +13,8 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/visible_slide_preview.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_thumbnail.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_preview.dart';
+
 enum StudioDesignCategory {
   center('센터 전용'),
   basic('기본 템플릿');
@@ -44,9 +46,9 @@ class StudioDesignSelector extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final scroll = useScrollController();
-    final width = MediaQuery.sizeOf(context).width < 500 ? 208.0 : 244.0;
+    final width = MediaQuery.sizeOf(context).width < 500 ? 164.0 : 220.0;
     final height =
-        width * 9 / 16 + MediaQuery.textScalerOf(context).scale(14) * 2.8 + 22;
+        width * 9 / 16 + MediaQuery.textScalerOf(context).scale(14) * 3 + 12;
     void reveal(AiSlideDesign design) {
       final index = designs.indexWhere((value) => value.id == design.id);
       if (index < 0 || !scroll.hasClients) return;
@@ -112,24 +114,12 @@ class StudioDesignSelector extends HookWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final value in StudioDesignCategory.values)
-              ChoiceChip(
-                key: ValueKey('studio-category-${value.name}'),
-                label: Text(value.label),
-                selected: category == value,
-                onSelected: enabled ? (_) => onCategoryChanged(value) : null,
-              ),
-          ],
-        ),
         Row(
           children: [
             const Expanded(
               child: Text(
-                '디자인 선택',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                '디자인',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
             ),
             IconButton(
@@ -161,6 +151,30 @@ class StudioDesignSelector extends HookWidget {
             ),
           ],
         ),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final value in StudioDesignCategory.values)
+              ChoiceChip(
+                key: ValueKey('studio-category-${value.name}'),
+                label: Text(value.label),
+                selected: category == value,
+                selectedColor: const Color(0xffE3EBE5),
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                  color: category == value
+                      ? const Color(0xff526B60)
+                      : const Color(0xffDEDED7),
+                ),
+                labelStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xff526B60),
+                ),
+                onSelected: enabled ? (_) => onCategoryChanged(value) : null,
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
         if (designs.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
@@ -304,13 +318,60 @@ class StudioDesignCard extends ConsumerWidget {
   final String source;
   final bool selected;
   final VoidCallback? onTap;
+  Future<void> enlarge(BuildContext context) => showDialog<void>(
+    context: context,
+    builder: (_) => UncontrolledProviderScope(
+      container: ProviderScope.containerOf(context),
+      child: Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(design.name),
+            leading: Builder(
+              builder: (context) => IconButton(
+                tooltip: '확대 보기 닫기',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ),
+          ),
+          body: LayoutBuilder(
+            builder: (context, size) {
+              final draft = applyAiSlideTheme(
+                design.sample ?? initialAiSlideDesignDraft(design.theme),
+                design.theme,
+              );
+              return InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Center(
+                  child: SizedBox(
+                    width: size.maxWidth,
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: draft.centerRecipe != null
+                          ? CenterSlidePreview(draft: draft)
+                          : WorkoutSlidePreview(
+                              module: previewAiSlide(draft),
+                              isRest: false,
+                              creationTypography: true,
+                            ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    ),
+  );
   @override
   Widget build(BuildContext context, WidgetRef ref) => Semantics(
     selected: selected,
     button: true,
     label: '${design.name} · $source · 디자인 견본',
     child: Material(
-      color: const Color(0xffFFFDF8),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         key: ValueKey('studio-design-${design.id}'),
@@ -319,18 +380,10 @@ class StudioDesignCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: selected
-                      ? const Color(0xff526B60)
-                      : const Color(0xffDEDED7),
-                  width: selected ? 2 : 1,
-                ),
-              ),
+            AspectRatio(
+              aspectRatio: 16 / 9,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
                   VisibleSlidePreview(
                     builder: (_) {
@@ -349,6 +402,38 @@ class StudioDesignCard extends ConsumerWidget {
                             );
                     },
                   ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selected
+                                ? const Color(0xff526B60)
+                                : const Color(0xffDEDED7),
+                            width: selected ? 2 : 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: IconButton.filledTonal(
+                      key: ValueKey('studio-enlarge-${design.id}'),
+                      tooltip: '${design.name} 크게 보기',
+                      onPressed: () => enlarge(context),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size.square(32),
+                        fixedSize: const Size.square(32),
+                        padding: const EdgeInsets.all(8),
+                        tapTargetSize: MaterialTapTargetSize.padded,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                      icon: const Icon(Icons.open_in_full, size: 16),
+                    ),
+                  ),
                   if (selected)
                     const Positioned(
                       top: 4,
@@ -361,12 +446,13 @@ class StudioDesignCard extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
               child: Text(
-                '$source · ${design.name}',
+                design.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xff2B332E),
                 ),
               ),
             ),
