@@ -137,7 +137,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> details(WidgetTester tester) async {
+    final toggle = find.byKey(const ValueKey('studio-expand-details'));
+    await reveal(tester, toggle);
+    if (find.byKey(const ValueKey('studio-subtitle')).evaluate().isEmpty) {
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+    }
+  }
+
   Future<void> guidance(WidgetTester tester, [String value = '운동 안내']) async {
+    await details(tester);
     final field = find.descendant(
       of: find.byKey(const ValueKey('studio-subtitle')),
       matching: find.byType(TextField),
@@ -201,6 +211,13 @@ void main() {
           await tester.pumpAndSettle();
         }
         await guidance(tester, '   ');
+        await reveal(
+          tester,
+          find.byKey(const ValueKey('studio-expand-details')),
+        );
+        await tester.tap(find.byKey(const ValueKey('studio-expand-details')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('studio-subtitle')), findsNothing);
         await tester.tap(find.byKey(const ValueKey('studio-generate')));
         await tester.pumpAndSettle();
         expect(find.text('운동 안내 문구 (필수)'), findsOneWidget);
@@ -281,6 +298,7 @@ void main() {
         expect(find.text(label), findsNothing);
       }
       Future<void> edit(String key, String value) async {
+        await details(tester);
         final field = find.descendant(
           of: find.byKey(ValueKey(key)),
           matching: find.byType(TextField),
@@ -390,7 +408,7 @@ void main() {
           matching: find.byType(Scrollable),
         ),
       );
-      expect(find.text('저장한 디자인 · 내 저장 디자인'), findsOneWidget);
+      expect(find.text('내 저장 디자인'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('studio-design-stale-private')),
         findsNothing,
@@ -407,7 +425,7 @@ void main() {
         find.byKey(const ValueKey('studio-design-catalog-banner')),
         findsNothing,
       );
-      expect(find.text('센터 전용 · 센터 원본'), findsOneWidget);
+      expect(find.text('센터 원본'), findsOneWidget);
       await enter(tester);
       expect(
         container(tester)
@@ -553,6 +571,7 @@ void main() {
       await mount(tester, repository);
       final field = find.byKey(const ValueKey('studio-wod'));
       await reveal(tester, field);
+      expect(tester.widget<TextField>(field).maxLines, 3);
       await tester.tap(field);
       await tester.showKeyboard(field);
       const editing = TextEditingValue(
@@ -619,10 +638,10 @@ void main() {
       await mount(tester, repository, onResult: (value) => added = value);
       await enter(tester);
       await reveal(tester, find.byKey(const ValueKey('studio-save')));
-      expect(find.text('아직 저장되지 않았어요'), findsOneWidget);
+      expect(find.text('미저장'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.text('이미지 보관함에 저장됨'), findsOneWidget);
+      expect(find.text('저장됨'), findsOneWidget);
       expect(repository.saves, 1);
       expect(repository.generations, 0);
       await reveal(tester, find.byKey(const ValueKey('studio-wod')));
