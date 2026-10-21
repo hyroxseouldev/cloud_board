@@ -19,6 +19,9 @@ class HexColorField extends HookWidget {
     this.recentColorStore,
     this.compact = false,
     this.compactWidth = 86,
+    this.onSampleImage,
+    this.pairedColorLabel,
+    this.onPickerApplied,
   });
   final bool compact;
 
@@ -27,6 +30,11 @@ class HexColorField extends HookWidget {
   final String label, initialValue;
   final ValueChanged<String> onChanged;
   final RecentColorStore? recentColorStore;
+
+  /// Returns a staged color only. The outer picker still owns final apply.
+  final Future<Color?> Function(BuildContext context)? onSampleImage;
+  final String? pairedColorLabel;
+  final void Function(String color, bool applyToPair)? onPickerApplied;
   @override
   Widget build(BuildContext context) {
     final controller = useTextEditingController(text: initialValue);
@@ -55,7 +63,7 @@ class HexColorField extends HookWidget {
     }
 
     Future<void> pick() async {
-      final selected = await showModalBottomSheet<Color>(
+      final selected = await showModalBottomSheet<({Color color, bool pair})>(
         context: context,
         sheetAnimationStyle: AppMotion.sheet(context),
         isScrollControlled: true,
@@ -67,13 +75,22 @@ class HexColorField extends HookWidget {
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
           ),
-          child: _ColorPicker(initial: color.value, recentColors: store),
+          child: _ColorPicker(
+            initial: color.value,
+            recentColors: store,
+            onSampleImage: onSampleImage,
+            pairedColorLabel: pairedColorLabel,
+          ),
         ),
       );
       if (selected == null || !context.mounted) return;
-      color.value = selected;
-      controller.text = colorHex(selected.toARGB32());
-      onChanged(controller.text);
+      color.value = selected.color;
+      controller.text = colorHex(selected.color.toARGB32());
+      if (onPickerApplied != null) {
+        onPickerApplied!(controller.text, selected.pair);
+      } else {
+        onChanged(controller.text);
+      }
       unawaited(remember(controller.text));
     }
 
@@ -157,9 +174,16 @@ class HexColorField extends HookWidget {
 }
 
 class _ColorPicker extends HookWidget {
-  const _ColorPicker({required this.initial, required this.recentColors});
+  const _ColorPicker({
+    required this.initial,
+    required this.recentColors,
+    this.onSampleImage,
+    this.pairedColorLabel,
+  });
   final Color initial;
   final RecentColorStore recentColors;
+  final Future<Color?> Function(BuildContext context)? onSampleImage;
+  final String? pairedColorLabel;
   @override
   Widget build(BuildContext context) {
     final hsv = useState(HSVColor.fromColor(initial));
@@ -170,6 +194,9 @@ class _ColorPicker extends HookWidget {
     final paletteError = useState<String?>(null);
     final hex = useTextEditingController(text: colorHex(initial.toARGB32()));
     final hexValid = useState(true);
+    final pair = useState(false);
+    final sampling = useState(false);
+    final sampleError = useState<String?>(null);
     void setHsv(HSVColor value) {
       hsv.value = value;
       hex.text = colorHex(value.toColor().toARGB32());
@@ -262,6 +289,34 @@ class _ColorPicker extends HookWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    if (onSampleImage != null) ...[
+                      OutlinedButton.icon(
+                        key: const ValueKey('color-sample-image'),
+                        onPressed: sampling.value
+                            ? null
+                            : () async {
+                                sampling.value = true;
+                                sampleError.value = null;
+                                try {
+                                  final value = await onSampleImage!(context);
+                                  if (context.mounted && value != null) {
+                                    setHsv(HSVColor.fromColor(value));
+                                  }
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    sampleError.value =
+                                        '이미지 색상을 읽지 못했어요. 수동으로 선택해 주세요.';
+                                  }
+                                } finally {
+                                  if (context.mounted) sampling.value = false;
+                                }
+                              },
+                        icon: const Icon(Icons.colorize),
+                        label: const Text('이미지에서 색상 뽑기'),
+                      ),
+                      if (sampleError.value != null) Text(sampleError.value!),
+                      const SizedBox(height: 12),
+                    ],
                     _RectangularColorPicker(
                       value: hsv.value,
                       onChanged: setHsv,
@@ -423,6 +478,15 @@ class _ColorPicker extends HookWidget {
                         ),
                       ],
                     ),
+                    if (pairedColorLabel != null)
+                      CheckboxListTile(
+                        key: const ValueKey('color-apply-pair'),
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(pairedColorLabel!),
+                        value: pair.value,
+                        onChanged: (value) => pair.value = value ?? false,
+                      ),
                   ],
                 ),
               ),
@@ -441,7 +505,10 @@ class _ColorPicker extends HookWidget {
                     ),
                   ),
                   onPressed: hexValid.value
-                      ? () => Navigator.pop(context, hsv.value.toColor())
+                      ? () => Navigator.pop(context, (
+                          color: hsv.value.toColor(),
+                          pair: pair.value,
+                        ))
                       : null,
                   child: const Text(
                     '선택',
