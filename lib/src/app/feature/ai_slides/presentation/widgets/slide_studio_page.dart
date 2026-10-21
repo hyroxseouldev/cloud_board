@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/slide_studio_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/slide_studio_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/ai_slide_design_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
@@ -25,7 +23,7 @@ const _oat = Color(0xffF7F5EF),
     _ink = Color(0xff2B332E),
     _secondary = Color(0xff616B63);
 
-/// One creation route, with explicit request modes and immutable result snapshots.
+/// Free template creation with immutable result snapshots.
 class SlideStudioPage extends HookConsumerWidget {
   const SlideStudioPage({super.key, required this.guard});
   final ExitGuard guard;
@@ -37,19 +35,57 @@ class SlideStudioPage extends HookConsumerWidget {
     final saved = ref.watch(aiSlideDesignControllerProvider);
     final scope = ref.watch(centerSlideCatalogScopeProvider);
     final owner = ref.watch(aiSlidesOwnerIdProvider);
-    final designs = <AiSlideDesign>[
-      if (!catalog.isLoading && !catalog.hasError) ...?catalog.value?.templates,
-      ...saved.templates,
-      ...state.proposals,
-      ...aiSlideDesignCatalog,
+    final centerDesigns = <AiSlideDesign>[
+      if (scope != null &&
+          !catalog.isLoading &&
+          !catalog.hasError &&
+          catalog.value?.centerId == scope.centerId)
+        ...?catalog.value?.templates,
     ];
+    // Saved styles are not an authority source for private center recipes.
+    final savedDesigns = saved.templates
+        .where(
+          (design) =>
+              design.theme.centerRecipe == null &&
+              !aiSlideDesignCatalog.any((basic) => basic.id == design.id),
+        )
+        .toList();
+    final category = useState(StudioDesignCategory.basic);
+    final designs = category.value == StudioDesignCategory.center
+        ? centerDesigns
+        : [...aiSlideDesignCatalog, ...savedDesigns];
+    String sourceLabel(AiSlideDesign design) =>
+        category.value == StudioDesignCategory.center
+        ? '센터 전용'
+        : savedDesigns.contains(design)
+        ? '저장한 디자인'
+        : '기본 템플릿';
+    final selections = useRef(<StudioDesignCategory, AiSlideDesign>{});
+    final selectedAvailable = designs.contains(state.input.design);
+    void selectDesign(AiSlideDesign design) {
+      selections.value[category.value] = design;
+      controller.select(design);
+    }
+
+    void selectCategory(StudioDesignCategory value) {
+      selections.value[category.value] = state.input.design;
+      category.value = value;
+      final choices = value == StudioDesignCategory.center
+          ? centerDesigns
+          : [...aiSlideDesignCatalog, ...savedDesigns];
+      final previous = selections.value[value];
+      if (choices.isNotEmpty) {
+        controller.select(
+          choices.contains(previous) ? previous! : choices.first,
+        );
+      }
+    }
+
     final input = state.input;
     final expanded = useState(true);
     final raw = useTextEditingController(text: input.raw);
     final focus = useFocusNode();
-    final picking = useState(false);
     final bodyScroll = useScrollController();
-    final userSelected = useRef(false);
     useEffect(() {
       if (raw.text != input.raw && !raw.value.composing.isValid) {
         raw.value = TextEditingValue(
@@ -69,22 +105,6 @@ class SlideStudioPage extends HookConsumerWidget {
       focus.addListener(expand);
       return () => focus.removeListener(expand);
     }, [focus]);
-    useEffect(() {
-      if (!userSelected.value &&
-          input.raw.isEmpty &&
-          state.result == null &&
-          !catalog.isLoading &&
-          !catalog.hasError &&
-          (catalog.value?.templates.isNotEmpty ?? false)) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted && !userSelected.value) {
-            userSelected.value = true;
-            controller.select(catalog.value!.templates.first);
-          }
-        });
-      }
-      return null;
-    }, [catalog]);
     ref.listen(slideStudioControllerProvider, (previous, next) {
       if (next.result != null &&
           next.result != previous?.result &&
@@ -97,29 +117,6 @@ class SlideStudioPage extends HookConsumerWidget {
         context.mounted &&
         ref.read(centerSlideCatalogScopeProvider) == scope &&
         ref.read(aiSlidesOwnerIdProvider) == owner;
-    Future<void> pickReference() async {
-      if (picking.value) return;
-      picking.value = true;
-      try {
-        final picked = await ImagePicker().pickImage(
-          source: ImageSource.gallery,
-        );
-        if (picked == null || !sameScope()) return;
-        if (await picked.length() > 10 * 1024 * 1024) {
-          if (sameScope()) controller.reportError('10MB 이하 이미지를 선택해 주세요.');
-          return;
-        }
-        final bytes = await picked.readAsBytes();
-        if (sameScope()) controller.reference(bytes);
-      } catch (_) {
-        if (sameScope()) {
-          controller.reportError('사진을 불러오지 못했어요. 사진 접근 권한을 확인해 주세요.');
-        }
-      } finally {
-        if (context.mounted) picking.value = false;
-      }
-    }
-
     Future<void> close() async {
       if (await guard.confirm() && context.mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -169,7 +166,7 @@ class SlideStudioPage extends HookConsumerWidget {
     }
 
     final narrow = MediaQuery.sizeOf(context).width < 560;
-    final locked = state.saving || picking.value;
+    final locked = state.saving;
     final theme = Theme.of(context);
     return Theme(
       data: theme.copyWith(
@@ -196,9 +193,7 @@ class SlideStudioPage extends HookConsumerWidget {
         guard: guard,
         dirty: state.unsaved,
         blocked: state.busy || state.saving,
-        confirmMessage: state.pendingId != null
-            ? '아직 결과를 확인 중인 생성 요청이 있어요. 나가도 접수된 요청의 사용량은 취소되지 않습니다.'
-            : '저장하지 않은 입력과 생성 결과가 사라집니다. 라이브러리에 저장한 결과는 남아 있어요.',
+        confirmMessage: '저장하지 않은 입력과 생성 결과가 사라집니다. 라이브러리에 저장한 결과는 남아 있어요.',
         child: Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -232,15 +227,10 @@ class SlideStudioPage extends HookConsumerWidget {
             ),
             child: StudioActionBar(
               state: state,
-              onRefresh: () => controller.refreshUsage(
-                requestId: state.pendingId ?? state.result?.id,
-                raster: state.pendingId != null
-                    ? state.pendingRaster
-                    : state.result?.job != null,
-              ),
+              designAvailable: selectedAvailable,
               onGenerate: () {
                 FocusScope.of(context).unfocus();
-                controller.generate();
+                controller.generateTemplate();
               },
             ),
           ),
@@ -263,14 +253,20 @@ class SlideStudioPage extends HookConsumerWidget {
                   children: [
                     StudioDesignSelector(
                       designs: designs,
+                      category: category.value,
+                      onCategoryChanged: selectCategory,
+                      emptyMessage: catalog.isLoading
+                          ? '센터 전용 템플릿을 불러오는 중이에요.'
+                          : catalog.hasError
+                          ? '센터 전용 템플릿을 불러오지 못했어요. 다시 불러오거나 기본 템플릿을 선택해 주세요.'
+                          : '현재 사용할 수 있는 센터 전용 템플릿이 없어요. 기본 템플릿을 선택해 주세요.',
+                      sourceLabel: sourceLabel,
                       selected: input.design,
                       enabled: !locked,
-                      onSelected: (design) {
-                        userSelected.value = true;
-                        controller.select(design);
-                      },
+                      onSelected: selectDesign,
                     ),
-                    if (catalog.isLoading)
+                    if (category.value == StudioDesignCategory.center &&
+                        catalog.isLoading)
                       const LinearProgressIndicator(minHeight: 2),
                     if (catalog.hasError || saved.templateError != null)
                       Wrap(
@@ -316,19 +312,6 @@ class SlideStudioPage extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: OutlinedButton.icon(
-                              key: const ValueKey('studio-reference'),
-                              onPressed: locked ? null : pickReference,
-                              icon: const Icon(Icons.image_outlined, size: 18),
-                              label: Text(
-                                state.reference == null
-                                    ? '참고 이미지'
-                                    : '참고 이미지 교체',
-                              ),
-                            ),
-                          ),
                           TextField(
                             key: const ValueKey('studio-wod'),
                             controller: raw,
@@ -349,36 +332,6 @@ class SlideStudioPage extends HookConsumerWidget {
                                   .copyWith(raw: value),
                             ),
                           ),
-                          if (state.reference != null)
-                            Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Image.memory(
-                                    state.reference!,
-                                    width: 64,
-                                    height: 48,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) =>
-                                        const Icon(Icons.broken_image_outlined),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Text(
-                                    '스타일 제안 실행 시에만 AI에 전송해요.',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: '참고 이미지 제거',
-                                  onPressed: locked
-                                      ? null
-                                      : () => controller.reference(null),
-                                  icon: const Icon(Icons.close, size: 18),
-                                ),
-                              ],
-                            ),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
@@ -399,128 +352,30 @@ class SlideStudioPage extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ExpansionTile(
-                      key: const ValueKey('studio-options'),
-                      tilePadding: EdgeInsets.zero,
-                      title: Text(
-                        '생성 방식 · ${_modeLabel(input.mode)}',
-                        style: const TextStyle(fontSize: 14),
+                    StudioTextField(
+                      key: const ValueKey('studio-title'),
+                      label: '슬라이드 제목',
+                      value: input.title,
+                      maxLength: 60,
+                      onChanged: (v) => controller.edit(
+                        ref
+                            .read(slideStudioControllerProvider)
+                            .input
+                            .copyWith(title: v),
                       ),
-                      subtitle: Text(
-                        _estimate(input.mode),
-                        style: const TextStyle(fontSize: 12, color: _secondary),
+                    ),
+                    const SizedBox(height: 12),
+                    StudioTextField(
+                      key: const ValueKey('studio-subtitle'),
+                      label: '운동 안내 문구 (선택)',
+                      value: input.subtitle,
+                      maxLength: 120,
+                      onChanged: (v) => controller.edit(
+                        ref
+                            .read(slideStudioControllerProvider)
+                            .input
+                            .copyWith(subtitle: v),
                       ),
-                      children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            for (final mode in StudioMode.values)
-                              ChoiceChip(
-                                label: Text(_modeLabel(mode)),
-                                selected: input.mode == mode,
-                                onSelected: locked || state.busy
-                                    ? null
-                                    : (_) => controller.edit(
-                                        input.copyWith(mode: mode),
-                                      ),
-                              ),
-                          ],
-                        ),
-                        if (input.mode == StudioMode.organize &&
-                            !studioSupportsGroups(input))
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(studioGroupingUnavailable),
-                          ),
-                        const SizedBox(height: 12),
-                        StudioTextField(
-                          key: const ValueKey('studio-title'),
-                          label: '슬라이드 제목',
-                          value: input.title,
-                          maxLength: 60,
-                          onChanged: (v) => controller.edit(
-                            ref
-                                .read(slideStudioControllerProvider)
-                                .input
-                                .copyWith(title: v),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (input.mode != StudioMode.artwork) ...[
-                          StudioTextField(
-                            key: const ValueKey('studio-subtitle'),
-                            label: '운동 안내 문구 (선택)',
-                            value: input.subtitle,
-                            maxLength: 120,
-                            onChanged: (v) => controller.edit(
-                              ref
-                                  .read(slideStudioControllerProvider)
-                                  .input
-                                  .copyWith(subtitle: v),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        StudioTextField(
-                          key: const ValueKey('studio-brief'),
-                          label: '원하는 정리·디자인 (선택)',
-                          value: input.brief,
-                          maxLength: 1000,
-                          maxLines: 4,
-                          onChanged: (v) => controller.edit(
-                            ref
-                                .read(slideStudioControllerProvider)
-                                .input
-                                .copyWith(brief: v),
-                          ),
-                        ),
-                        if (input.mode == StudioMode.artwork) ...[
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              for (final count in [1, 2, 3])
-                                ChoiceChip(
-                                  label: Text('$count개 그룹'),
-                                  selected: input.artworkGroups == count,
-                                  onSelected: locked || state.busy
-                                      ? null
-                                      : (_) => controller.edit(
-                                          input.copyWith(artworkGroups: count),
-                                        ),
-                                ),
-                              for (final size in [32.0, 38.0, 42.0])
-                                ChoiceChip(
-                                  label: Text('글자 ${size.toInt()}'),
-                                  selected: input.artworkFontSize == size,
-                                  onSelected: locked || state.busy
-                                      ? null
-                                      : (_) => controller.edit(
-                                          input.copyWith(artworkFontSize: size),
-                                        ),
-                                ),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              state.brand == null
-                                  ? state.brandError ??
-                                        '승인된 센터 AI 참고 디자인을 확인 중이에요.'
-                                  : '승인 디자인: ${state.brand!.name} · 공식 로고는 원본 그대로 합성해요.',
-                            ),
-                          ),
-                        ],
-                        if (input.mode == StudioMode.style)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              '선택 디자인의 색상·서체 특징과 참고 이미지로 편집 가능한 스타일을 제안해요. 실제 AI 배경 이미지 생성과는 별도 기능이에요.',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        const SizedBox(height: 12),
-                      ],
                     ),
                     if (state.busy) const LinearProgressIndicator(minHeight: 2),
                     if (state.error != null)
@@ -531,67 +386,6 @@ class SlideStudioPage extends HookConsumerWidget {
                           key: const ValueKey('studio-error'),
                           style: TextStyle(color: theme.colorScheme.error),
                         ),
-                      ),
-                    if (state.pendingId != null && !state.busy)
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: controller.retry,
-                            icon: const Icon(Icons.refresh),
-                            label: Text(
-                              state.completedOperation == null
-                                  ? '같은 요청 상태 확인 · 추가 차감 없음'
-                                  : '현재 입력·디자인으로 다시 적용 · 추가 차감 없음',
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              final accepted = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('새 요청으로 생성할까요?'),
-                                  content: Text(
-                                    state.completedOperation == null
-                                        ? '이전 요청의 결과나 차감 여부를 아직 확인 중이에요. 새 요청은 별도로 1회를 사용할 수 있어요.'
-                                        : '완료된 정리·디자인 결과가 보관되어 있어요. 새 요청을 준비하면 이 보관 결과를 닫고, 다음 AI 생성은 별도로 1회를 사용할 수 있어요.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: const Text('돌아가기'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      child: const Text('새 요청 준비'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (accepted == true && sameScope()) {
-                                controller.newRequest();
-                              }
-                            },
-                            child: const Text('새 요청 준비'),
-                          ),
-                        ],
-                      ),
-                    if (state.completedOperation != null)
-                      ExpansionTile(
-                        key: const ValueKey('studio-completed-operation'),
-                        title: const Text('완료된 AI 결과 보관 중'),
-                        subtitle: const Text(
-                          '미리보기 배치만 확인하지 못했어요. 입력이나 디자인을 바꾼 뒤 추가 호출 없이 다시 적용할 수 있어요.',
-                        ),
-                        children: [
-                          for (final group in state.completedOperation!.groups)
-                            ListTile(
-                              title: Text(group.heading),
-                              subtitle: Text(group.lines.join('\n')),
-                            ),
-                        ],
                       ),
                     const SizedBox(height: 18),
                     Row(
@@ -750,198 +544,46 @@ class SlideStudioPage extends HookConsumerWidget {
   }
 }
 
-String _modeLabel(StudioMode mode) => switch (mode) {
-  StudioMode.template => '템플릿 그대로',
-  StudioMode.organize => 'AI 내용 정리',
-  StudioMode.style => 'AI 스타일 제안',
-  StudioMode.artwork => 'AI 배경 이미지',
-};
-String _estimate(StudioMode mode) => switch (mode) {
-  StudioMode.template => '템플릿 적용 · AI 호출·차감 없음',
-  StudioMode.organize => '내용 정리 1회 · 선택 디자인 유지 · 토큰은 실행 후 확인',
-  StudioMode.style => '스타일 제안 1회 · 원문 유지 · 토큰은 실행 후 확인',
-  StudioMode.artwork => '배경 이미지 1장 · 1회 사용 · 토큰은 실행 후 확인',
-};
-
 class StudioActionBar extends StatelessWidget {
   const StudioActionBar({
     super.key,
     required this.state,
-    required this.onRefresh,
+    required this.designAvailable,
     required this.onGenerate,
   });
   final SlideStudioState state;
-  final VoidCallback onRefresh, onGenerate;
+  final bool designAvailable;
+  final VoidCallback onGenerate;
   @override
-  Widget build(BuildContext context) {
-    final compact =
-        MediaQuery.viewInsetsOf(context).bottom > 0 ||
-        MediaQuery.sizeOf(context).height < 500;
-    final usage = state.usage;
-    final unknown = usage == null;
-    final count = unknown
-        ? (state.usageLoading ? '사용량 확인 중…' : '사용량 미확인')
-        : usage.unlimited
-        ? '생성 횟수 무제한'
-        : '${usage.remaining}회 남음 · ${usage.used}/${usage.limit}회 사용';
-    final token = usage?.tokenContractAvailable != true
-        ? '토큰 정보 미확인'
-        : usage!.lastInputTokens != null && usage.lastOutputTokens != null
-        ? '최근 요청 확인분 ${usage.lastInputTokens! + usage.lastOutputTokens!}토큰 · 토큰 잔액은 제공하지 않아요'
-        : '횟수 기준으로 이용해요 · 토큰 잔액은 제공하지 않아요';
-    final local = state.input.mode == StudioMode.template;
-    final canGenerate =
-        !state.busy &&
-        !state.saving &&
-        state.pendingId == null &&
-        (local ||
-            usage?.allowed == true &&
-                usage?.enabled == true &&
-                (usage?.unlimited == true || (usage?.remaining ?? 0) > 0));
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: _surface,
-        border: Border(top: BorderSide(color: Color(0xffDEDED7))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: LayoutBuilder(
-            builder: (context, size) {
-              final stacked =
-                  size.maxWidth < 650 ||
-                  MediaQuery.textScalerOf(context).scale(14) > 22;
-              final details = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          count,
-                          key: const ValueKey('studio-usage-count'),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        tooltip: '사용량 새로고침',
-                        onPressed: state.usageLoading ? null : onRefresh,
-                        icon: const Icon(Icons.refresh, size: 18),
-                      ),
-                    ],
-                  ),
-                  if (!compact)
-                    Text(
-                      token,
-                      key: const ValueKey('studio-usage-tokens'),
-                      style: const TextStyle(fontSize: 12, color: _secondary),
-                    ),
-                  if (!compact && state.usageError != null)
-                    Text(
-                      unknown ? '사용량 조회 실패 · 다시 확인해 주세요.' : state.usageError!,
-                      style: const TextStyle(fontSize: 12, color: _secondary),
-                    )
-                  else if (!compact && state.usageLoading && !unknown)
-                    const Text(
-                      '사용량 갱신 중 · 마지막 확인 값',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  if (!compact)
-                    Text(
-                      _estimate(state.input.mode),
-                      style: const TextStyle(fontSize: 12, color: _secondary),
-                    ),
-                ],
-              );
-              final button = FilledButton.icon(
-                key: const ValueKey('studio-generate'),
-                onPressed: canGenerate ? onGenerate : null,
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
-                icon: state.busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.arrow_forward),
-                label: Text(state.busy ? '슬라이드 생성 중…' : '슬라이드 생성'),
-              );
-              final compactDetails = compact
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            local ? '템플릿 · 차감 없음' : count,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: '사용량과 차감 안내',
-                          icon: const Icon(Icons.info_outline, size: 20),
-                          onPressed: () => showDialog<void>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('사용량과 차감 안내'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(count),
-                                    Text(token),
-                                    Text(_estimate(state.input.mode)),
-                                    if (state.usageError != null)
-                                      Text(state.usageError!),
-                                    TextButton(
-                                      onPressed: onRefresh,
-                                      child: const Text('사용량 새로고침'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('닫기'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : details;
-              return stacked
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        compactDetails,
-                        const SizedBox(height: 8),
-                        button,
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(child: compactDetails),
-                        const SizedBox(width: 24),
-                        SizedBox(width: 360, child: button),
-                      ],
-                    );
-            },
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      color: _surface,
+      border: Border(top: BorderSide(color: Color(0xffDEDED7))),
+    ),
+    child: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: FilledButton.icon(
+          key: const ValueKey('studio-generate'),
+          onPressed: state.busy || state.saving || !designAvailable
+              ? null
+              : onGenerate,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(double.infinity, 52),
           ),
+          icon: state.busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.arrow_forward),
+          label: Text(state.busy ? '슬라이드 생성 중…' : '슬라이드 생성'),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class StudioTextField extends HookWidget {

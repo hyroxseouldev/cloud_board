@@ -13,18 +13,34 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/visible_slide_preview.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_thumbnail.dart';
 
+enum StudioDesignCategory {
+  center('센터 전용'),
+  basic('기본 템플릿');
+
+  const StudioDesignCategory(this.label);
+  final String label;
+}
+
 class StudioDesignSelector extends HookWidget {
   const StudioDesignSelector({
     super.key,
     required this.designs,
+    required this.category,
+    required this.onCategoryChanged,
+    required this.sourceLabel,
+    required this.emptyMessage,
     required this.selected,
     required this.onSelected,
     this.enabled = true,
   });
   final List<AiSlideDesign> designs;
+  final StudioDesignCategory category;
+  final ValueChanged<StudioDesignCategory> onCategoryChanged;
+  final String Function(AiSlideDesign) sourceLabel;
   final AiSlideDesign selected;
   final ValueChanged<AiSlideDesign> onSelected;
   final bool enabled;
+  final String emptyMessage;
   @override
   Widget build(BuildContext context) {
     final scroll = useScrollController();
@@ -54,7 +70,7 @@ class StudioDesignSelector extends HookWidget {
         if (context.mounted) reveal(selected);
       });
       return null;
-    }, [selected.id, designs.length]);
+    }, [selected.id, designs.length, category]);
     Future<void> more() async {
       final wide = MediaQuery.sizeOf(context).width >= 700;
       final value = wide
@@ -64,7 +80,12 @@ class StudioDesignSelector extends HookWidget {
                 child: SizedBox(
                   width: 880,
                   height: MediaQuery.sizeOf(context).height * .8,
-                  child: _AllDesigns(designs: designs, selected: selected),
+                  child: _AllDesigns(
+                    designs: designs,
+                    selected: selected,
+                    category: category,
+                    sourceLabel: sourceLabel,
+                  ),
                 ),
               ),
             )
@@ -74,7 +95,12 @@ class StudioDesignSelector extends HookWidget {
               useSafeArea: true,
               builder: (context) => SizedBox(
                 height: MediaQuery.sizeOf(context).height * .9,
-                child: _AllDesigns(designs: designs, selected: selected),
+                child: _AllDesigns(
+                  designs: designs,
+                  selected: selected,
+                  category: category,
+                  sourceLabel: sourceLabel,
+                ),
               ),
             );
       if (value != null && context.mounted) {
@@ -86,6 +112,18 @@ class StudioDesignSelector extends HookWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final value in StudioDesignCategory.values)
+              ChoiceChip(
+                key: ValueKey('studio-category-${value.name}'),
+                label: Text(value.label),
+                selected: category == value,
+                onSelected: enabled ? (_) => onCategoryChanged(value) : null,
+              ),
+          ],
+        ),
         Row(
           children: [
             const Expanded(
@@ -118,68 +156,82 @@ class StudioDesignSelector extends HookWidget {
             ),
             TextButton(
               key: const ValueKey('studio-more'),
-              onPressed: enabled ? more : null,
+              onPressed: enabled && designs.isNotEmpty ? more : null,
               child: const Text('더보기'),
             ),
           ],
         ),
-        SizedBox(
-          height: height,
-          child: Focus(
-            onKeyEvent: (_, event) {
-              if (!enabled ||
-                  event is! KeyDownEvent ||
-                  ![
-                    LogicalKeyboardKey.arrowLeft,
-                    LogicalKeyboardKey.arrowRight,
-                  ].contains(event.logicalKey)) {
-                return KeyEventResult.ignored;
-              }
-              final index = designs.indexWhere((d) => d.id == selected.id);
-              final delta = event.logicalKey == LogicalKeyboardKey.arrowRight
-                  ? 1
-                  : -1;
-              if (designs.isNotEmpty) {
-                onSelected(
-                  designs[(index + delta).clamp(0, designs.length - 1)],
-                );
-              }
-              return KeyEventResult.handled;
-            },
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(
-                scrollbars: false,
-                dragDevices: {
-                  PointerDeviceKind.touch,
-                  PointerDeviceKind.mouse,
-                  PointerDeviceKind.trackpad,
-                  PointerDeviceKind.stylus,
-                },
-              ),
-              child: ListView.separated(
-                controller: scroll,
-                scrollDirection: Axis.horizontal,
-                itemCount: designs.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (_, index) => SizedBox(
-                  width: width,
-                  child: StudioDesignCard(
-                    design: designs[index],
-                    selected: selected.id == designs[index].id,
-                    onTap: enabled ? () => onSelected(designs[index]) : null,
+        if (designs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Text(emptyMessage),
+          )
+        else
+          SizedBox(
+            height: height,
+            child: Focus(
+              onKeyEvent: (_, event) {
+                if (!enabled ||
+                    event is! KeyDownEvent ||
+                    ![
+                      LogicalKeyboardKey.arrowLeft,
+                      LogicalKeyboardKey.arrowRight,
+                    ].contains(event.logicalKey)) {
+                  return KeyEventResult.ignored;
+                }
+                final index = designs.indexWhere((d) => d.id == selected.id);
+                final delta = event.logicalKey == LogicalKeyboardKey.arrowRight
+                    ? 1
+                    : -1;
+                if (designs.isNotEmpty) {
+                  onSelected(
+                    designs[(index + delta).clamp(0, designs.length - 1)],
+                  );
+                }
+                return KeyEventResult.handled;
+              },
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  scrollbars: false,
+                  dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                    PointerDeviceKind.stylus,
+                  },
+                ),
+                child: ListView.separated(
+                  controller: scroll,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: designs.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (_, index) => SizedBox(
+                    width: width,
+                    child: StudioDesignCard(
+                      design: designs[index],
+                      source: sourceLabel(designs[index]),
+                      selected: selected.id == designs[index].id,
+                      onTap: enabled ? () => onSelected(designs[index]) : null,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
 }
 
 class _AllDesigns extends StatelessWidget {
-  const _AllDesigns({required this.designs, required this.selected});
+  const _AllDesigns({
+    required this.designs,
+    required this.selected,
+    required this.category,
+    required this.sourceLabel,
+  });
+  final StudioDesignCategory category;
+  final String Function(AiSlideDesign) sourceLabel;
   final List<AiSlideDesign> designs;
   final AiSlideDesign selected;
   @override
@@ -189,9 +241,9 @@ class _AllDesigns extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
         child: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                '모든 디자인',
+                '${category.label} 더보기',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
               ),
             ),
@@ -203,10 +255,7 @@ class _AllDesigns extends StatelessWidget {
           ],
         ),
       ),
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: Text('디자인 선택만으로는 AI를 호출하거나 사용량을 차감하지 않아요.'),
-      ),
+
       Expanded(
         child: LayoutBuilder(
           builder: (context, size) {
@@ -231,6 +280,7 @@ class _AllDesigns extends StatelessWidget {
               ),
               itemBuilder: (context, index) => StudioDesignCard(
                 design: designs[index],
+                source: sourceLabel(designs[index]),
                 selected: designs[index].id == selected.id,
                 onTap: () => Navigator.pop(context, designs[index]),
               ),
@@ -246,17 +296,19 @@ class StudioDesignCard extends ConsumerWidget {
   const StudioDesignCard({
     super.key,
     required this.design,
+    required this.source,
     required this.selected,
     required this.onTap,
   });
   final AiSlideDesign design;
+  final String source;
   final bool selected;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context, WidgetRef ref) => Semantics(
     selected: selected,
     button: true,
-    label: '${design.name} · 디자인 견본',
+    label: '${design.name} · $source · 디자인 견본',
     child: Material(
       color: const Color(0xffFFFDF8),
       borderRadius: BorderRadius.circular(10),
@@ -309,7 +361,7 @@ class StudioDesignCard extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
               child: Text(
-                design.name,
+                '$source · ${design.name}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

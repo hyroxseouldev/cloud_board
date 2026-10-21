@@ -31,20 +31,15 @@ class SlideStudioController extends _$SlideStudioController {
     ref.watch(aiSlidesOwnerIdProvider);
     ref.watch(centerSlideCatalogScopeProvider);
     ref.watch(slideStudioActionsProvider);
-    final lifetime = _lifetime = Object();
+    _lifetime = Object();
     ref.onDispose(() {
       _lifetime = Object();
       _reset?.cancel();
       _pendingReference = null;
     });
-    Future.microtask(() {
-      if (_current(lifetime)) {
-        refreshUsage();
-        loadBrand();
-      }
-    });
     return SlideStudioState(
       input: StudioInput(design: aiSlideDesignCatalog.first),
+      usageLoading: false,
     );
   }
 
@@ -148,6 +143,27 @@ class SlideStudioController extends _$SlideStudioController {
       ].take(3).toList(),
       error: null,
     );
+  }
+
+  /// This screen never resumes a paid operation, including restored old modes.
+  /// The legacy operations remain available to their existing callers.
+  Future<void> generateTemplate() async {
+    if (state.busy || state.saving) return;
+    _pendingReference = null;
+    state = state.copyWith(
+      input: state.input.copyWith(
+        mode: StudioMode.template,
+        brief: '',
+        referenceHash: null,
+      ),
+      reference: null,
+      pendingId: null,
+      pendingInput: null,
+      pendingRaster: false,
+      completedOperation: null,
+      error: null,
+    );
+    await generate();
   }
 
   Future<void> generate() async {

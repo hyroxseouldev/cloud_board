@@ -5,6 +5,27 @@ The selected visual reference is Linear STA-203 attachment
 `03-preview-first-focus-canvas` (2026-10-21); its text and example quota are not
 data fixtures. Oat Sage colors and the existing Pretendard assets are used.
 
+## 2026-10-21 morning decision: template-only creation
+
+The creation page now offers only local template generation. Center templates
+come exclusively from the current authorized center catalog; basic templates
+and saved non-private styles have explicit source labels in the basic category.
+The expanded picker retains the current category. Loading a center catalog does
+not change the user's selected basic design or category.
+
+Reference image picking, mode/preferences controls, AI retry/receipt controls and
+usage displays are removed from this page. Title, optional exercise guidance,
+raw lesson text, immutable preview/history, library save and class add remain.
+The controller no longer loads AI usage or raster brand context on construction;
+the page calls `generateTemplate`, which normalizes legacy modes and ignores old
+AI-only input/pending state without issuing or retrying a paid operation. A
+previous remote operation is not cancelled or refunded by this local transition.
+
+Existing paid controller methods, API/data fields, backend endpoints, recovery
+logic, templates and original artwork remain compatible. The sections below
+record the earlier implementation and retained contracts, not current controls
+on the template-only page. No save/add backend or pricing policy changes.
+
 ## Route and behavior
 
 `/editor/:id/images/create` remains the creation route. It now mounts one
