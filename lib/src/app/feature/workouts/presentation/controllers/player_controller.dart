@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_audio_cues.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/android_workout_cues.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/timer_modes.dart';
 import 'package:cloud_board/src/app/core/services/tv_playback_lifecycle.dart';
 
@@ -121,6 +124,11 @@ class DisplayAudioAttachment {
 @riverpod
 class PlayerController extends _$PlayerController {
   Timer? _ticker;
+  AndroidWorkoutCues? _scheduledAudio;
+  bool _usesScheduledAudio = false;
+  (String, String, int)? _lastScheduledRevision;
+  PlaybackSession? _lastAudioSession;
+  PlaybackAudioCue? _explicitScheduledCue;
   Workout? _stepsWorkout;
   List<PlayerStep> _cachedSteps = const [];
   int _timelineVersion = 0;
@@ -144,6 +152,9 @@ class PlayerController extends _$PlayerController {
     bool canControl = true,
   }) {
     _ticker?.cancel();
+    final priorAudio = _scheduledAudio;
+    _scheduledAudio = null;
+    _usesScheduledAudio = false;
     final preparationIdentity = '${workout.id}:$sessionId';
     if (_preparationIdentity != preparationIdentity) {
       _preparationIdentity = preparationIdentity;
@@ -161,6 +172,11 @@ class PlayerController extends _$PlayerController {
         : ref.watch(displayPlaybackSessionProvider);
     final offset = ref.watch(serverTimeOffsetProvider).value ?? 0;
     final matchesSession = remote != null && remote.id == sessionId;
+    priorAudio?.cancel(
+      preserveEnd:
+          matchesSession &&
+          (remote.status == PlaybackStatus.completed || remote.timerCompleted),
+    );
     if (!canControl && matchesSession && !_attachedDisplayAudio) {
       _attachedDisplayAudio = true;
       _restoringDisplayAudio = ref
@@ -225,10 +241,71 @@ class PlayerController extends _$PlayerController {
         (_) => _tick(),
       );
     }
+    // Remote Android displays schedule from the immutable session timeline,
+    // independently of _tick's visual updates. Controllers and local previews
+    // (and every iOS/web client) keep the existing immediate playback path.
+    if (!canControl && sessionId != null) {
+      final audio = ref.read(androidCueAudioProvider);
+      _usesScheduledAudio = audio != null;
+      if (audio != null &&
+          matchesSession &&
+          ref.read(tvPlaybackVisibleProvider)) {
+        final revision = (remote.ownerId, remote.id, remote.revision);
+        final plan = PlaybackAudioPlan(remote);
+        if (_restoringDisplayAudio) {
+          _explicitScheduledCue = null;
+        } else if (revision != _lastScheduledRevision) {
+          _explicitScheduledCue = plan.recentCommand(
+            _now().millisecondsSinceEpoch + offset,
+            previous: _lastAudioSession,
+          );
+        }
+        final candidateCue = _explicitScheduledCue;
+        final commandAge = candidateCue == null
+            ? -1
+            : _now().millisecondsSinceEpoch +
+                  offset -
+                  candidateCue.serverTimeMs;
+        final explicitCue = commandAge >= 0 && commandAge <= 500
+            ? candidateCue
+            : null;
+        _lastScheduledRevision = revision;
+        _lastAudioSession = remote;
+        if (remote.workout.soundVolume > 0 &&
+            !remote.briefing &&
+            ((remote.status == PlaybackStatus.playing &&
+                    !remote.timerCompleted) ||
+                explicitCue != null)) {
+          final reporter = ref.read(errorReporterProvider);
+          final clock = ref.read(playerClockProvider);
+          late final AndroidWorkoutCues scheduled;
+          scheduled = AndroidWorkoutCues(
+            audio: audio,
+            plan: plan,
+            offsetMs: offset,
+            nowMs: () => clock().millisecondsSinceEpoch,
+            onFailure: (error, stack) {
+              if (!ref.mounted || !identical(_scheduledAudio, scheduled)) {
+                return;
+              }
+              // Preserve future legacy cues on native failure, never replay past ones.
+              _usesScheduledAudio = false;
+              reporter.capture(error, stack, action: 'tv.audio.schedule');
+            },
+          );
+          _scheduledAudio = scheduled;
+          unawaited(scheduled.start(explicitCue: explicitCue));
+          // Rebuild/normal completion may keep only an already-started final
+          // sound tail. Pause/seek/background below upgrade to a hard cancel.
+          ref.onDispose(() => scheduled.cancel(preserveEnd: true));
+        }
+      }
+    }
     if (!canControl) {
       ref.listen(tvPlaybackVisibleProvider, (_, visible) {
         if (!visible) {
           _ticker?.cancel();
+          _scheduledAudio?.cancel();
         } else {
           // Foreground handshake has completed; rebuild from the current session.
           _restoringDisplayAudio = sessionId != null;
@@ -768,6 +845,7 @@ class PlayerController extends _$PlayerController {
   void _play(WorkoutSound sound, {bool countdown = false}) {
     // A remote controller must not request audio focus, even at volume zero.
     if (sessionId != null && canControl) return;
+    if (_usesScheduledAudio) return;
     final player = ref.read(beepPlayerProvider);
     unawaited(
       (countdown
