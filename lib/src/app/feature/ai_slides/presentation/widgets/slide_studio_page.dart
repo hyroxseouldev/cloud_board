@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
@@ -17,13 +18,17 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/cente
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_preview.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_raster_page.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/template_jobs_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_job_image.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/template_job.dart';
+
 const _oat = Color(0xffF7F5EF),
     _surface = Color(0xffFFFDF8),
     _sage = Color(0xff526B60),
     _ink = Color(0xff2B332E),
     _secondary = Color(0xff616B63);
 
-/// Free template creation with immutable result snapshots.
+/// Free basic templates and durable center generation, with immutable results.
 class SlideStudioPage extends HookConsumerWidget {
   const SlideStudioPage({super.key, required this.guard});
   final ExitGuard guard;
@@ -31,6 +36,16 @@ class SlideStudioPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(slideStudioControllerProvider);
     final controller = ref.read(slideStudioControllerProvider.notifier);
+    final jobs = ref.watch(templateJobsControllerProvider);
+    final jobController = ref.read(templateJobsControllerProvider.notifier);
+    ref.listen(templateJobsControllerProvider, (previous, next) {
+      if (next.usage != null && previous?.usage != next.usage) {
+        controller.acceptTemplateUsage(next.usage!);
+      }
+      if (next.authorityDenied && previous?.authorityDenied != true) {
+        controller.clearTemplateResults();
+      }
+    });
     final catalog = ref.watch(centerSlideCatalogProvider);
     final saved = ref.watch(aiSlideDesignControllerProvider);
     final scope = ref.watch(centerSlideCatalogScopeProvider);
@@ -86,6 +101,94 @@ class SlideStudioPage extends HookConsumerWidget {
     final raw = useTextEditingController(text: input.raw);
     final focus = useFocusNode();
     final bodyScroll = useScrollController();
+    final subtitleFocus = useFocusNode();
+    final subtitleAnchor = useMemoized(GlobalKey.new);
+    final subtitleError = useState<String?>(null);
+    final initialInput = useRef(input);
+    final restoredJob = useRef(false);
+    final currentJob = jobs.currentJob;
+    final currentShown =
+        currentJob != null &&
+        state.result?.templateJob?.requestId == currentJob.requestId &&
+        jobs.currentPng != null;
+    final showingJobStatus =
+        jobs.currentRequestId != null ||
+        (jobs.unresolved && state.result == null) ||
+        (input.design.theme.centerRecipe != null && jobs.error != null);
+    final showingResult =
+        state.result != null && (!showingJobStatus || currentShown);
+    useEffect(() {
+      // Restore only on a pristine entry. Never replace a new local result or
+      // adopt an unrelated completion while the user is editing another draft.
+      if (!restoredJob.value && jobs.recoveryChecked == true && !jobs.loading) {
+        restoredJob.value = true;
+        if (!jobs.unresolved &&
+            jobs.error == null &&
+            jobs.jobs.isNotEmpty &&
+            state.result == null &&
+            input == initialInput.value &&
+            jobs.currentRequestId == null) {
+          final id = jobs.jobs.first.requestId;
+          Future.microtask(() {
+            if (context.mounted &&
+                ref.read(slideStudioControllerProvider).input ==
+                    initialInput.value &&
+                ref.read(slideStudioControllerProvider).result == null) {
+              jobController.selectCurrent(id);
+            }
+          });
+        }
+      }
+      return null;
+    }, [jobs.recoveryChecked, jobs.loading]);
+    useEffect(() {
+      final png = jobs.currentPng, job = currentJob;
+      if (png != null &&
+          job != null &&
+          !currentShown &&
+          !state.busy &&
+          !state.saving) {
+        Future.microtask(() {
+          if (!context.mounted) return;
+          final latest = ref.read(templateJobsControllerProvider);
+          if (latest.currentRequestId == job.requestId &&
+              identical(latest.currentPng, png)) {
+            controller.openTemplateResult(job, png);
+          }
+        });
+      }
+      return null;
+    }, [jobs.currentPng, currentJob, state.busy, state.saving]);
+
+    Future<void> showSubtitleError() async {
+      subtitleError.value = '운동 안내 문구를 입력해 주세요. 공백만 입력할 수 없어요.';
+      // Materialize the field even when the lazy list is far from the input.
+      if (subtitleAnchor.currentContext == null && bodyScroll.hasClients) {
+        bodyScroll.jumpTo(0);
+        await WidgetsBinding.instance.endOfFrame;
+        while (context.mounted &&
+            subtitleAnchor.currentContext == null &&
+            bodyScroll.hasClients &&
+            bodyScroll.offset < bodyScroll.position.maxScrollExtent) {
+          bodyScroll.jumpTo(
+            (bodyScroll.offset + bodyScroll.position.viewportDimension * .7)
+                .clamp(0, bodyScroll.position.maxScrollExtent),
+          );
+          await WidgetsBinding.instance.endOfFrame;
+        }
+      }
+      if (!context.mounted) return;
+      final field = subtitleAnchor.currentContext;
+      if (field != null) {
+        await Scrollable.ensureVisible(
+          field,
+          alignment: .35,
+          duration: const Duration(milliseconds: 180),
+        );
+      }
+      if (context.mounted) subtitleFocus.requestFocus();
+    }
+
     useEffect(() {
       if (raw.text != input.raw && !raw.value.composing.isValid) {
         raw.value = TextEditingValue(
@@ -133,15 +236,18 @@ class SlideStudioPage extends HookConsumerWidget {
       });
     }
 
-    void openLibrary() {
+    Future<void> openLibrary() async {
       FocusScope.of(context).unfocus();
       final studioPath = GoRouterState.of(context).uri.path
           .replaceFirst(RegExp(r'/$'), '');
-      context.push<void>('$studioPath/library');
+      final job = await context.push<TemplateJob>('$studioPath/library');
+      if (job == null || !sameScope()) return;
+      jobController.selectResult(job);
     }
 
-    Widget preview(StudioResult result) =>
-        result.job != null && result.brand != null
+    Widget preview(StudioResult result) => result.serverPng != null
+        ? TemplateJobImage(bytes: result.serverPng!)
+        : result.job != null && result.brand != null
         ? AiRasterPreview(brand: result.brand!, job: result.job!)
         : result.draft?.centerRecipe != null
         ? CenterSlidePreview(draft: result.draft!)
@@ -165,7 +271,7 @@ class SlideStudioPage extends HookConsumerWidget {
       );
     }
 
-    final narrow = MediaQuery.sizeOf(context).width < 560;
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     final locked = state.saving;
     final theme = Theme.of(context);
     return Theme(
@@ -191,9 +297,10 @@ class SlideStudioPage extends HookConsumerWidget {
       ),
       child: UnsavedChangesGuard(
         guard: guard,
-        dirty: state.unsaved,
-        blocked: state.busy || state.saving,
-        confirmMessage: '저장하지 않은 입력과 생성 결과가 사라집니다. 라이브러리에 저장한 결과는 남아 있어요.',
+        dirty: state.unsaved && jobs.acceptedInput != state.input,
+        blocked: state.busy || state.saving || jobs.submitting,
+        confirmMessage:
+            '접수하지 않은 입력과 저장하지 않은 기본 템플릿 결과가 사라집니다. 접수된 생성 작업과 저장된 이미지는 남아 있어요.',
         child: Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -209,14 +316,14 @@ class SlideStudioPage extends HookConsumerWidget {
             actions: [
               if (narrow)
                 IconButton(
-                  tooltip: '저장된 이미지',
+                  tooltip: 'AI 생성 슬라이드 관리',
                   onPressed: locked || state.busy ? null : openLibrary,
                   icon: const Icon(Icons.photo_library_outlined),
                 )
               else
                 TextButton(
                   onPressed: locked || state.busy ? null : openLibrary,
-                  child: const Text('저장된 이미지'),
+                  child: const Text('AI 생성 슬라이드 관리'),
                 ),
               const SizedBox(width: 8),
             ],
@@ -227,11 +334,31 @@ class SlideStudioPage extends HookConsumerWidget {
             ),
             child: StudioActionBar(
               state: state,
+              submitting: jobs.submitting,
+              unresolved: jobs.unresolved,
+              generating: currentJob?.inProgress == true,
               designAvailable: selectedAvailable,
-              onRefreshUsage: controller.refreshUsage,
-              onGenerate: () {
+              onRefreshUsage: () {
+                controller.refreshUsage();
+                jobController.refresh();
+              },
+              onGenerate: () async {
                 FocusScope.of(context).unfocus();
-                controller.generateTemplate();
+                final currentInput = ref
+                    .read(slideStudioControllerProvider)
+                    .input;
+                if (currentInput.subtitle.trim().isEmpty) {
+                  await showSubtitleError();
+                  return;
+                }
+                subtitleError.value = null;
+                restoredJob.value = true;
+                if (currentInput.design.theme.centerRecipe != null) {
+                  jobController.enqueue(currentInput);
+                } else {
+                  jobController.selectCurrent(null);
+                  controller.generateTemplate();
+                }
               },
             ),
           ),
@@ -366,16 +493,25 @@ class SlideStudioPage extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    StudioTextField(
-                      key: const ValueKey('studio-subtitle'),
-                      label: '운동 안내 문구 (선택)',
-                      value: input.subtitle,
-                      maxLength: 120,
-                      onChanged: (v) => controller.edit(
-                        ref
-                            .read(slideStudioControllerProvider)
-                            .input
-                            .copyWith(subtitle: v),
+                    Padding(
+                      key: subtitleAnchor,
+                      padding: EdgeInsets.zero,
+                      child: StudioTextField(
+                        key: const ValueKey('studio-subtitle'),
+                        label: '운동 안내 문구 (필수)',
+                        value: input.subtitle,
+                        maxLength: 120,
+                        focusNode: subtitleFocus,
+                        errorText: subtitleError.value,
+                        onChanged: (v) {
+                          if (v.trim().isNotEmpty) subtitleError.value = null;
+                          controller.edit(
+                            ref
+                                .read(slideStudioControllerProvider)
+                                .input
+                                .copyWith(subtitle: v),
+                          );
+                        },
                       ),
                     ),
                     if (state.busy) const LinearProgressIndicator(minHeight: 2),
@@ -406,12 +542,13 @@ class SlideStudioPage extends HookConsumerWidget {
                                 ? null
                                 : () {
                                     FocusScope.of(context).unfocus();
+                                    jobController.selectCurrent(null);
                                     controller.undo();
                                   },
                             icon: const Icon(Icons.undo, size: 18),
                             label: const Text('이전 결과 보기'),
                           ),
-                        if (state.result != null)
+                        if (showingResult)
                           IconButton(
                             tooltip: '미리보기 확대',
                             onPressed: enlarge,
@@ -427,7 +564,17 @@ class SlideStudioPage extends HookConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xffDEDED7)),
                       ),
-                      child: state.result == null
+                      child: showingJobStatus && !currentShown
+                          ? StudioCurrentJob(
+                              state: jobs,
+                              onRefresh: jobController.refresh,
+                              onRecover: jobController.recover,
+                              onRetryAsset: jobController.retryCurrentAsset,
+                              onRetry: currentJob == null
+                                  ? null
+                                  : () => jobController.retry(currentJob),
+                            )
+                          : state.result == null
                           ? const Padding(
                               padding: EdgeInsets.symmetric(vertical: 40),
                               child: Column(
@@ -455,16 +602,18 @@ class SlideStudioPage extends HookConsumerWidget {
                             )
                           : preview(state.result!),
                     ),
-                    if (state.dirty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 10),
+                    if (showingResult && state.dirty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
                         child: Text(
-                          '변경사항이 아직 반영되지 않았어요. 새 결과를 생성한 뒤 저장하거나 추가해 주세요.',
-                          key: ValueKey('studio-dirty'),
-                          style: TextStyle(color: _secondary),
+                          state.result!.templateJob != null
+                              ? '열어 본 이미지는 이전 수업 내용으로 만들어졌어요. 현재 입력은 그대로 유지됩니다.'
+                              : '변경사항이 아직 반영되지 않았어요. 새 결과를 생성한 뒤 저장하거나 추가해 주세요.',
+                          key: const ValueKey('studio-dirty'),
+                          style: const TextStyle(color: _secondary),
                         ),
                       ),
-                    if (state.result != null) ...[
+                    if (showingResult) ...[
                       for (final warning in state.result!.warnings)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -497,7 +646,9 @@ class SlideStudioPage extends HookConsumerWidget {
                                     locked ||
                                         state.busy ||
                                         state.pendingId != null ||
-                                        state.dirty ||
+                                        (state.dirty &&
+                                            state.result!.templateJob ==
+                                                null) ||
                                         state.result!.savedModule != null
                                     ? null
                                     : controller.save,
@@ -514,7 +665,8 @@ class SlideStudioPage extends HookConsumerWidget {
                                     locked ||
                                         state.busy ||
                                         state.pendingId != null ||
-                                        state.dirty
+                                        (state.dirty &&
+                                            state.result!.templateJob == null)
                                     ? null
                                     : add,
                                 icon: const Icon(Icons.add),
@@ -550,13 +702,17 @@ class StudioActionBar extends StatelessWidget {
     required this.designAvailable,
     required this.onGenerate,
     required this.onRefreshUsage,
+    this.submitting = false,
+    this.unresolved = false,
+    this.generating = false,
   });
   final SlideStudioState state;
-  final bool designAvailable;
+  final bool designAvailable, submitting, unresolved, generating;
   final VoidCallback onGenerate, onRefreshUsage;
   @override
   Widget build(BuildContext context) {
     final usage = state.usage;
+    final center = state.input.design.theme.centerRecipe != null;
     final count = usage == null
         ? state.usageLoading
               ? 'AI 남은 횟수 조회 중…'
@@ -614,29 +770,48 @@ class StudioActionBar extends StatelessWidget {
                   '현재 AI 생성은 이용할 수 없어요.',
                   style: TextStyle(fontSize: 12),
                 ),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  '템플릿 생성은 AI 횟수를 차감하지 않아요.',
+                  center
+                      ? '센터 전용 생성은 AI 1회를 사용해요. 접수 후 화면을 나가도 계속 만들어요.'
+                      : '기본 템플릿은 AI 없이 무료로 생성해요.',
                   style: TextStyle(fontSize: 12, color: _secondary),
                 ),
               ),
               FilledButton.icon(
                 key: const ValueKey('studio-generate'),
-                onPressed: state.busy || state.saving || !designAvailable
+                onPressed:
+                    state.busy ||
+                        state.saving ||
+                        submitting ||
+                        !designAvailable ||
+                        (center &&
+                            (unresolved ||
+                                generating ||
+                                usage == null ||
+                                !usage.allowed ||
+                                !usage.enabled ||
+                                (!usage.unlimited && usage.remaining == 0)))
                     ? null
                     : onGenerate,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
                 ),
-                icon: state.busy
+                icon: state.busy || submitting
                     ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.arrow_forward),
-                label: Text(state.busy ? '슬라이드 생성 중…' : '슬라이드 생성'),
+                label: Text(
+                  submitting
+                      ? '생성 접수 중…'
+                      : state.busy
+                      ? '슬라이드 생성 중…'
+                      : '슬라이드 생성',
+                ),
               ),
             ],
           ),
@@ -654,8 +829,12 @@ class StudioTextField extends HookWidget {
     required this.onChanged,
     required this.maxLength,
     this.maxLines = 1,
+    this.focusNode,
+    this.errorText,
   });
   final String value, label;
+  final FocusNode? focusNode;
+  final String? errorText;
   final int maxLength, maxLines;
   final ValueChanged<String> onChanged;
   @override
@@ -674,13 +853,178 @@ class StudioTextField extends HookWidget {
     }, [value]);
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       maxLength: maxLength,
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
+        errorText: errorText,
+        errorMaxLines: 2,
         border: const OutlineInputBorder(),
       ),
       onChanged: onChanged,
+    );
+  }
+}
+
+/// Only the selected request belongs in the result area, never the history list.
+class StudioCurrentJob extends StatelessWidget {
+  const StudioCurrentJob({
+    super.key,
+    required this.state,
+    required this.onRefresh,
+    required this.onRecover,
+    required this.onRetryAsset,
+    this.onRetry,
+  });
+  final TemplateJobsState state;
+  final VoidCallback onRefresh, onRecover, onRetryAsset;
+  final VoidCallback? onRetry;
+  @override
+  Widget build(BuildContext context) {
+    final job = state.currentJob;
+    final error = state.currentAssetError ?? state.error;
+    final waiting =
+        !state.unresolved &&
+        error == null &&
+        (state.submitting ||
+            job?.inProgress == true ||
+            state.currentAssetLoading == true);
+    final text = state.unresolved
+        ? '생성 접수를 확인하지 못했어요. 접수 확인으로 같은 요청을 확인해 주세요.'
+        : error ??
+              (job?.status == 'failed'
+                  ? job?.message ?? '이미지를 만들지 못했어요.'
+                  : state.currentAssetLoading == true
+                  ? '완료된 이미지를 불러오고 있어요.'
+                  : state.submitting
+                  ? '생성을 접수하고 있어요.'
+                  : job?.inProgress == true
+                  ? '슬라이드를 만들고 있어요.'
+                  : '작업 상태를 다시 확인해 주세요.');
+    return Padding(
+      key: const ValueKey('studio-current-job'),
+      padding: waiting
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 16, vertical: 36),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (waiting) ...[
+            const _StudioSlideSkeleton(),
+            const SizedBox(height: 16),
+          ],
+          Text(text, textAlign: TextAlign.center),
+          if (job?.inProgress == true) ...[
+            const SizedBox(height: 8),
+            const Text(
+              '화면을 나가도 계속 생성돼요. AI 생성 슬라이드 관리에서 다시 확인할 수 있어요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: _secondary),
+            ),
+          ],
+          if (state.unresolved)
+            TextButton(
+              onPressed: state.submitting ? null : onRecover,
+              child: const Text('접수 확인'),
+            )
+          else if (state.currentAssetError != null && !state.authorityDenied)
+            TextButton(
+              onPressed: state.currentAssetLoading == true
+                  ? null
+                  : onRetryAsset,
+              child: const Text('이미지 다시 불러오기'),
+            )
+          else if (job?.status == 'failed' && job?.retryable == true)
+            TextButton(
+              onPressed: state.submitting ? null : onRetry,
+              child: const Text('다시 생성 (AI 1회)'),
+            )
+          else if (!state.submitting && state.currentAssetLoading != true)
+            TextButton(
+              onPressed: state.loading ? null : onRefresh,
+              child: const Text('상태 확인'),
+            ),
+          if (job?.status == 'failed' && job?.retryable != true)
+            const Text(
+              '중복 생성을 막기 위해 이 작업은 다시 생성할 수 없어요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Keeps the exact final PNG footprint while only the placeholder breathes.
+class _StudioSlideSkeleton extends HookWidget {
+  const _StudioSlideSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final lifecycle = useAppLifecycleState();
+    final animate =
+        !AppMotion.reduced(context) &&
+        TickerMode.valuesOf(context).enabled &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+    final pulse = useAnimationController(
+      duration: AppMotion.shimmer,
+      initialValue: 1,
+    );
+    useEffect(() {
+      if (animate) {
+        pulse.repeat(reverse: true);
+      } else {
+        pulse.stop();
+        pulse.value = 1;
+      }
+      return null;
+    }, [animate, pulse]);
+    return ExcludeSemantics(
+      child: RepaintBoundary(
+        child: AspectRatio(
+          key: const ValueKey('studio-result-skeleton'),
+          aspectRatio: 16 / 9,
+          child: FadeTransition(
+            opacity: Tween<double>(
+              begin: .55,
+              end: 1,
+            ).animate(pulse.drive(CurveTween(curve: Curves.easeInOut))),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xffEBEEE8),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: LayoutBuilder(
+                builder: (_, bounds) {
+                  Widget bar(double top, double width, double height) =>
+                      Positioned(
+                        left: bounds.maxWidth * .07,
+                        top: bounds.maxHeight * top,
+                        width: bounds.maxWidth * width,
+                        height: bounds.maxHeight * height,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: const Color(0xffD4DBD2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      );
+                  return Stack(
+                    children: [
+                      bar(.14, .45, .08),
+                      bar(.37, .53, .05),
+                      bar(.51, .43, .05),
+                      bar(.65, .48, .05),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

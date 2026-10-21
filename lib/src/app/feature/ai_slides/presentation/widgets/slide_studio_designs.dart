@@ -13,6 +13,8 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/visible_slide_preview.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_thumbnail.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_preview.dart';
+
 enum StudioDesignCategory {
   center('센터 전용'),
   basic('기본 템플릿');
@@ -304,6 +306,53 @@ class StudioDesignCard extends ConsumerWidget {
   final String source;
   final bool selected;
   final VoidCallback? onTap;
+  Future<void> enlarge(BuildContext context) => showDialog<void>(
+    context: context,
+    builder: (_) => UncontrolledProviderScope(
+      container: ProviderScope.containerOf(context),
+      child: Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(design.name),
+            leading: Builder(
+              builder: (context) => IconButton(
+                tooltip: '확대 보기 닫기',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ),
+          ),
+          body: LayoutBuilder(
+            builder: (context, size) {
+              final draft = applyAiSlideTheme(
+                design.sample ?? initialAiSlideDesignDraft(design.theme),
+                design.theme,
+              );
+              return InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Center(
+                  child: SizedBox(
+                    width: size.maxWidth,
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: draft.centerRecipe != null
+                          ? CenterSlidePreview(draft: draft)
+                          : WorkoutSlidePreview(
+                              module: previewAiSlide(draft),
+                              isRest: false,
+                              creationTypography: true,
+                            ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    ),
+  );
   @override
   Widget build(BuildContext context, WidgetRef ref) => Semantics(
     selected: selected,
@@ -348,6 +397,23 @@ class StudioDesignCard extends ConsumerWidget {
                               borderRadius: 6,
                             );
                     },
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: IconButton.filledTonal(
+                      key: ValueKey('studio-enlarge-${design.id}'),
+                      tooltip: '${design.name} 크게 보기',
+                      onPressed: () => enlarge(context),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size.square(32),
+                        fixedSize: const Size.square(32),
+                        padding: const EdgeInsets.all(8),
+                        tapTargetSize: MaterialTapTargetSize.padded,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                      icon: const Icon(Icons.open_in_full, size: 16),
+                    ),
                   ),
                   if (selected)
                     const Positioned(
