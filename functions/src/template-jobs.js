@@ -139,7 +139,8 @@ export async function handleTemplateJobs({db, bucket, uid, input, apiKey, clock 
     check((used.data()?.attempts ?? 0) < status.limit * 2, '반복 요청 한도에 도달했어요.', 'attempt-limit', 'resource-exhausted');
     check((budget.data()?.spentMicros ?? 0) + AI_TIMER_RESERVE <= AI_TIMER_BUDGET &&
       (budget.data()?.calls ?? 0) < AI_TIMER_GLOBAL_LIMIT, '서비스의 AI 생성 한도에 도달했어요.', 'service-limit', 'resource-exhausted');
-    const value = {schemaVersion: 1, requestId: input.requestId, uid, centerId, ...values, design, requestHash, retryOf,
+    const value = {schemaVersion: 1, requestId: input.requestId, uid, centerId, ...values, design,
+      designId: design.id, designName: design.name, requestHash, retryOf,
       status: 'pending', stage: 'pending', createdAtMs: now, updatedAtMs: now, month, quotaCharged: true, attempts: 0};
     tx.set(ref, value);
     tx.set(queue, {path, uid, centerId, requestId: input.requestId, dueAtMs: now});
