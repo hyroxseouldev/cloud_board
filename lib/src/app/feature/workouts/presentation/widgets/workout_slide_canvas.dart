@@ -22,8 +22,10 @@ class _SlideDesignArtwork extends HookWidget {
     required this.targetWidth,
     required this.webHtmlElementStrategy,
     required this.creationTypography,
+    required this.preview,
   });
   final bool creationTypography;
+  final bool preview;
   final WorkoutModule module;
   final int targetWidth;
   final WebHtmlElementStrategy webHtmlElementStrategy;
@@ -73,8 +75,14 @@ class _SlideDesignArtwork extends HookWidget {
         return WorkoutImage(
           source: module.imageSource,
           fit: BoxFit.contain,
+          preview: preview,
           webHtmlElementStrategy: webHtmlElementStrategy,
         );
+      }
+      if (preview) {
+        return failure.value == null
+            ? const WorkoutImageSkeleton()
+            : WorkoutImageFailure(onRetry: () => attempt.value++);
       }
       return ColoredBox(
         color: Colors.black,
@@ -153,6 +161,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
     required this.brandR,
     required this.scale,
     this.showLoadingIndicator = false,
+    this.preview = false,
     this.creationTypography = false,
     this.timer,
     this.positionLabel,
@@ -179,6 +188,9 @@ class WorkoutSlideCanvas extends StatelessWidget {
   final String brandR;
   final double scale;
   final bool showLoadingIndicator;
+
+  /// Loading/error presentation for editor/settings thumbnails only.
+  final bool preview;
   final bool creationTypography;
 
   @override
@@ -210,6 +222,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                             child: _SlideDesignArtwork(
                               module: module,
                               creationTypography: creationTypography,
+                              preview: preview,
                               webHtmlElementStrategy: webHtmlElementStrategy,
                               targetWidth: _artworkPixelWidth(
                                 constraints,
@@ -224,6 +237,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
                         )
                       : WorkoutImage(
                           source: module.imageSource,
+                          preview: preview,
                           webHtmlElementStrategy: webHtmlElementStrategy,
                           fit:
                               (preferences.enabled
