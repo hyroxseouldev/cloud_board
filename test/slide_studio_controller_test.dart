@@ -48,12 +48,12 @@ void main() {
     StudioMode.artwork,
   ]) {
     test(
-      'free entry ignores legacy $mode and unused inputs without AI or usage calls',
+      'free entry ignores legacy $mode and unused inputs without paid calls beyond initial usage read',
       () async {
         final repository = FakeStudioRepository();
         final c = await setup(repository);
         final controller = c.read(slideStudioControllerProvider.notifier);
-        expect(repository.usageReads, 0);
+        expect(repository.usageReads, 1);
         expect(c.read(slideStudioControllerProvider).brand, isNull);
         controller.reference(Uint8List.fromList([1, 2, 3]));
         controller.edit(
@@ -76,7 +76,7 @@ void main() {
         expect(state.input.referenceHash, isNull);
         expect(repository.generations, 0);
         expect(repository.statuses, 0);
-        expect(repository.usageReads, 0);
+        expect(repository.usageReads, 1);
       },
     );
   }

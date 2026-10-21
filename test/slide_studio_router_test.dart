@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/usecases/slide_editor_actions.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/slide_editor_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/repositories/slide_editor_repository_impl.dart';
 import 'package:cloud_board/src/app/core/router/app_router.dart';
 import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
@@ -53,6 +57,14 @@ void main() {
             aiRasterActionsProvider.overrideWithValue(
               AiRasterActions(FakeRasterRepository()),
             ),
+            slideEditorActionsProvider.overrideWithValue(
+              SlideEditorActions(
+                LocalSlideEditorRepository(_MemoryEditorSource()),
+              ),
+            ),
+            slideEditorControllerProvider.overrideWith2(
+              (_) => SlideEditorController(),
+            ),
             slideTemplatesControllerProvider.overrideWith2(
               (_) => _SavedStudioSlides(repository),
             ),
@@ -83,7 +95,7 @@ void main() {
                 .input
                 .copyWith(raw: source),
           );
-          await controller.generate();
+          await controller.generateTemplate();
           await controller.save();
           // This fixture uses a one-shot library stream; refresh it after the
           // mock acknowledgment as the real repository's watch would update.
@@ -99,9 +111,9 @@ void main() {
 
           for (var visit = 0; visit < 2; visit++) {
             if (width < 560) {
-              await tester.tap(find.byTooltip('저장된 슬라이드'));
+              await tester.tap(find.byTooltip('저장된 이미지'));
             } else {
-              await tester.tap(find.text('저장된 슬라이드'));
+              await tester.tap(find.text('저장된 이미지'));
             }
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
@@ -112,6 +124,17 @@ void main() {
                   .asMainTab,
               isFalse,
             );
+            expect(
+              tester
+                  .widget<SlideLibraryScreen>(find.byType(SlideLibraryScreen))
+                  .imagesOnly,
+              isTrue,
+            );
+            expect(
+              find.byKey(const ValueKey('library-category-tabs')),
+              findsNothing,
+            );
+            expect(find.byKey(const ValueKey('text-only')), findsNothing);
             expect(find.byType(MainNavigationDock), findsNothing);
             expect(find.text('오늘의 수업'), findsWidgets);
             expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
@@ -122,6 +145,19 @@ void main() {
               '/editor/preview-0/images/create/library',
             );
             if (visit == 0) {
+              await tester.tap(
+                find
+                    .descendant(
+                      of: find.byKey(ValueKey(saved.id)),
+                      matching: find.text('오늘의 수업'),
+                    )
+                    .first,
+              );
+              await tester.pumpAndSettle();
+              expect(find.byType(SavedSlideEditorScreen), findsOneWidget);
+              await tester.pageBack();
+              await tester.pumpAndSettle();
+              expect(find.byType(SlideLibraryScreen), findsOneWidget);
               await tester.pageBack();
             } else {
               await tester.binding.handlePopRoute();
@@ -167,6 +203,17 @@ class _SavedStudioSlides extends SlideTemplatesController {
   @override
   Stream<List<WorkoutModule>> build(String scope) => Stream.value([
     for (final module in repository.saved.values)
-      module.copyWith(imageSource: ''),
+      module.copyWith(
+        imageSource:
+            'assets/slide_templates/stationd_unbroken_single_original.png',
+      ),
+    WorkoutModule.empty('text-only').copyWith(name: '텍스트 전용', favorite: true),
   ]);
+}
+
+class _MemoryEditorSource extends SlideEditorLocalDataSource {
+  @override
+  Future<String?> read(String key) async => null;
+  @override
+  Future<void> write(String key, String? value) async {}
 }

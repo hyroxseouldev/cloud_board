@@ -175,7 +175,7 @@ void main() {
     );
   }
   testWidgets(
-    'template-only controls keep title guidance and raw text with no AI queries',
+    'template-only controls keep title guidance and raw text with no paid or raster requests',
     (tester) async {
       tester.view.physicalSize = const Size(834, 1194);
       tester.view.devicePixelRatio = 1;
@@ -186,13 +186,12 @@ void main() {
         'studio-reference',
         'studio-options',
         'studio-brief',
-        'studio-usage-count',
         'studio-usage-tokens',
         'studio-completed-operation',
       ]) {
         expect(find.byKey(ValueKey(key)), findsNothing);
       }
-      for (final label in ['AI 내용 정리', 'AI 스타일 제안', 'AI 배경 이미지', '사용량 새로고침']) {
+      for (final label in ['AI 내용 정리', 'AI 스타일 제안', 'AI 배경 이미지']) {
         expect(find.text(label), findsNothing);
       }
       Future<void> edit(String key, String value) async {
@@ -216,7 +215,7 @@ void main() {
       expect(result.input.mode, StudioMode.template);
       expect(repository.generations, 0);
       expect(repository.statuses, 0);
-      expect(repository.usageReads, 0);
+      expect(repository.usageReads, 1);
       expect(tester.takeException(), isNull);
     },
   );
@@ -379,7 +378,7 @@ void main() {
         'catalog-focus',
       );
       expect(repository.generations, 0);
-      expect(repository.usageReads, 0);
+      expect(repository.usageReads, 1);
       expect(tester.takeException(), isNull);
     },
   );
@@ -537,7 +536,7 @@ void main() {
       expect(find.text('아직 저장되지 않았어요'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.text('라이브러리에 저장됨'), findsOneWidget);
+      expect(find.text('이미지 보관함에 저장됨'), findsOneWidget);
       expect(repository.saves, 1);
       expect(repository.generations, 0);
       await reveal(tester, find.byKey(const ValueKey('studio-wod')));
@@ -561,6 +560,53 @@ void main() {
     },
   );
   testWidgets(
+    'server usage shows loading failure remaining exhausted and unlimited without charging template',
+    (tester) async {
+      final repository = _DelayedUsage();
+      await mount(tester, repository);
+      expect(find.text('AI 남은 횟수 조회 중…'), findsOneWidget);
+      expect(find.textContaining('0회 남음'), findsNothing);
+      repository.usageFailure = Exception('offline');
+      repository.ready.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('AI 남은 횟수 미확인'), findsOneWidget);
+      expect(find.textContaining('사용량을 불러오지 못했어요'), findsOneWidget);
+      repository.usageFailure = null;
+      await tester.tap(find.byTooltip('사용량 새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI 8회 남음 · 2/10회 사용'), findsOneWidget);
+      repository.currentUsage = repository.currentUsage.copyWith(
+        remaining: 0,
+        used: 10,
+      );
+      await tester.tap(find.byTooltip('사용량 새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI 0회 남음 · 10/10회 사용'), findsOneWidget);
+      expect(find.text('템플릿 생성은 AI 횟수를 차감하지 않아요.'), findsOneWidget);
+      await enter(tester);
+      expect(repository.generations, 0);
+      expect(
+        container(tester).read(slideStudioControllerProvider).result,
+        isNotNull,
+      );
+      repository.usageFailure = Exception('offline');
+      await tester.tap(find.byTooltip('사용량 새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI 0회 남음 · 10/10회 사용'), findsOneWidget);
+      expect(find.text('사용량 갱신 실패 · 마지막 확인 값'), findsOneWidget);
+      repository.usageFailure = null;
+      repository.currentUsage = repository.currentUsage.copyWith(
+        unlimited: true,
+        remaining: null,
+        limit: null,
+      );
+      await tester.tap(find.byTooltip('사용량 새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI 생성 횟수 무제한'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'old paid mode and exhausted quota still generate only a free template',
     (tester) async {
       final repository = FakeStudioRepository()
@@ -581,7 +627,7 @@ void main() {
         StudioMode.template,
       );
       expect(repository.generations, 0);
-      expect(repository.usageReads, 0);
+      expect(repository.usageReads, 1);
       expect(repository.validations, 1);
     },
   );
@@ -606,7 +652,7 @@ void main() {
       tester.view.resetViewInsets();
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('저장된 슬라이드'));
+      await tester.tap(find.byTooltip('저장된 이미지'));
       await tester.pumpAndSettle();
       expect(find.text('saved library route'), findsOneWidget);
       GoRouter.of(tester.element(find.text('saved library route'))).pop();
@@ -657,4 +703,13 @@ class _SavedDesigns extends AiSlideDesignController {
   @override
   AiSlideDesignStudioState build() =>
       AiSlideDesignStudioState(templates: designs);
+}
+
+class _DelayedUsage extends FakeStudioRepository {
+  final ready = Completer<void>();
+  @override
+  Future<StudioUsage> usage({String? requestId, bool raster = false}) async {
+    await ready.future;
+    return super.usage(requestId: requestId, raster: raster);
+  }
 }

@@ -209,14 +209,14 @@ class SlideStudioPage extends HookConsumerWidget {
             actions: [
               if (narrow)
                 IconButton(
-                  tooltip: '저장된 슬라이드',
+                  tooltip: '저장된 이미지',
                   onPressed: locked || state.busy ? null : openLibrary,
-                  icon: const Icon(Icons.bookmarks_outlined),
+                  icon: const Icon(Icons.photo_library_outlined),
                 )
               else
                 TextButton(
                   onPressed: locked || state.busy ? null : openLibrary,
-                  child: const Text('저장된 슬라이드'),
+                  child: const Text('저장된 이미지'),
                 ),
               const SizedBox(width: 8),
             ],
@@ -228,6 +228,7 @@ class SlideStudioPage extends HookConsumerWidget {
             child: StudioActionBar(
               state: state,
               designAvailable: selectedAvailable,
+              onRefreshUsage: controller.refreshUsage,
               onGenerate: () {
                 FocusScope.of(context).unfocus();
                 controller.generateTemplate();
@@ -478,7 +479,7 @@ class SlideStudioPage extends HookConsumerWidget {
                         children: [
                           Text(
                             state.result!.savedModule != null
-                                ? '라이브러리에 저장됨'
+                                ? '이미지 보관함에 저장됨'
                                 : '아직 저장되지 않았어요',
                             key: const ValueKey('studio-save-status'),
                             style: const TextStyle(
@@ -502,12 +503,10 @@ class SlideStudioPage extends HookConsumerWidget {
                                     : controller.save,
                                 icon: Icon(
                                   state.result!.savedModule != null
-                                      ? Icons.bookmark_added
-                                      : Icons.bookmark_add_outlined,
+                                      ? Icons.photo_library
+                                      : Icons.save_outlined,
                                 ),
-                                label: Text(
-                                  state.saving ? '처리 중…' : '라이브러리에 저장',
-                                ),
+                                label: Text(state.saving ? '처리 중…' : '이미지 저장'),
                               ),
                               OutlinedButton.icon(
                                 key: const ValueKey('studio-add'),
@@ -550,40 +549,101 @@ class StudioActionBar extends StatelessWidget {
     required this.state,
     required this.designAvailable,
     required this.onGenerate,
+    required this.onRefreshUsage,
   });
   final SlideStudioState state;
   final bool designAvailable;
-  final VoidCallback onGenerate;
+  final VoidCallback onGenerate, onRefreshUsage;
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
-      color: _surface,
-      border: Border(top: BorderSide(color: Color(0xffDEDED7))),
-    ),
-    child: SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: FilledButton.icon(
-          key: const ValueKey('studio-generate'),
-          onPressed: state.busy || state.saving || !designAvailable
-              ? null
-              : onGenerate,
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(double.infinity, 52),
+  Widget build(BuildContext context) {
+    final usage = state.usage;
+    final count = usage == null
+        ? state.usageLoading
+              ? 'AI 남은 횟수 조회 중…'
+              : 'AI 남은 횟수 미확인'
+        : usage.unlimited
+        ? 'AI 생성 횟수 무제한'
+        : 'AI ${usage.remaining}회 남음 · ${usage.used}/${usage.limit}회 사용';
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(top: BorderSide(color: Color(0xffDEDED7))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      count,
+                      key: const ValueKey('studio-usage-count'),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '사용량 새로고침',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: state.usageLoading ? null : onRefreshUsage,
+                    icon: const Icon(Icons.refresh, size: 18),
+                  ),
+                ],
+              ),
+              if (state.usageError != null)
+                Text(
+                  usage == null
+                      ? '사용량을 불러오지 못했어요. 다시 확인해 주세요.'
+                      : '사용량 갱신 실패 · 마지막 확인 값',
+                  style: const TextStyle(fontSize: 12, color: _secondary),
+                ),
+              if (state.usageLoading && usage != null)
+                const Text(
+                  '사용량 갱신 중 · 마지막 확인 값',
+                  style: TextStyle(fontSize: 12),
+                ),
+              if (usage != null && (!usage.allowed || !usage.enabled))
+                const Text(
+                  '현재 AI 생성은 이용할 수 없어요.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '템플릿 생성은 AI 횟수를 차감하지 않아요.',
+                  style: TextStyle(fontSize: 12, color: _secondary),
+                ),
+              ),
+              FilledButton.icon(
+                key: const ValueKey('studio-generate'),
+                onPressed: state.busy || state.saving || !designAvailable
+                    ? null
+                    : onGenerate,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 52),
+                ),
+                icon: state.busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.arrow_forward),
+                label: Text(state.busy ? '슬라이드 생성 중…' : '슬라이드 생성'),
+              ),
+            ],
           ),
-          icon: state.busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.arrow_forward),
-          label: Text(state.busy ? '슬라이드 생성 중…' : '슬라이드 생성'),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class StudioTextField extends HookWidget {

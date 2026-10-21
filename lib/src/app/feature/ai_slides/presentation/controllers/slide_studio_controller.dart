@@ -31,15 +31,17 @@ class SlideStudioController extends _$SlideStudioController {
     ref.watch(aiSlidesOwnerIdProvider);
     ref.watch(centerSlideCatalogScopeProvider);
     ref.watch(slideStudioActionsProvider);
-    _lifetime = Object();
+    final lifetime = _lifetime = Object();
     ref.onDispose(() {
       _lifetime = Object();
       _reset?.cancel();
       _pendingReference = null;
     });
+    Future.microtask(() {
+      if (_current(lifetime)) unawaited(refreshUsage());
+    });
     return SlideStudioState(
       input: StudioInput(design: aiSlideDesignCatalog.first),
-      usageLoading: false,
     );
   }
 

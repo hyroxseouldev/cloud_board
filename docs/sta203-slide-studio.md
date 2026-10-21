@@ -26,6 +26,22 @@ logic, templates and original artwork remain compatible. The sections below
 record the earlier implementation and retained contracts, not current controls
 on the template-only page. No save/add backend or pricing policy changes.
 
+### Morning follow-up: usage and saved images
+
+The template-only page again reads the server's actual AI remaining count on
+entry and explicit refresh, without loading a raster brand or starting a paid
+operation. Loading, missing data, failed refresh with the last known value,
+zero remaining and unlimited are distinct. Template generation is clearly
+labelled as not consuming an AI request and remains usable when quota is zero
+or the usage read fails. Paid generation controls remain absent.
+
+The header opens **저장된 이미지** on the existing child library route with
+`SlideLibraryScreen(imagesOnly: true)`. The optional presentation filter uses a
+nonempty `WorkoutModule.imageSource` (the existing DTO `imageUrl`), never an ID
+prefix or favorite flag. Saved image rows retain reopening, search and workout
+reuse through the existing handlers. Main library/quick insert defaults still
+show all saved slides; no source data, save API, asset or metadata is changed.
+
 ## Route and behavior
 
 `/editor/:id/images/create` remains the creation route. It now mounts one

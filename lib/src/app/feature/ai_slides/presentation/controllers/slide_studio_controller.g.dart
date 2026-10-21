@@ -42,7 +42,7 @@ final class SlideStudioControllerProvider
 }
 
 String _$slideStudioControllerHash() =>
-    r'7c08bd4823e8d2b1021d6adace7e6bfd261f1042';
+    r'ea01ae7be05e71408d06800dd335899ae49f9d20';
 
 abstract class _$SlideStudioController extends $Notifier<SlideStudioState> {
   SlideStudioState build();
