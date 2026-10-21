@@ -21,10 +21,25 @@ test('main never promotes production and a semver tag explicitly requests releas
   const push = {eventName: 'push', ref: 'refs/heads/main', sha, event: {}};
   assert.equal(deploymentPlan(push).scope, 'none');
   assert.equal(deploymentPlan(push).production, false);
-  assert.deepEqual(deploymentPlan({...push, ref: 'refs/tags/v1.2.3'}), {scope: 'auto', production: true, sha, releaseTag: 'v1.2.3', validationMode: 'required', reason: ''});
+  assert.deepEqual(deploymentPlan({...push, ref: 'refs/tags/v1.2.3'}), {scope: 'auto', production: true, sha, releaseTag: 'v1.2.3', validationMode: 'required', reason: '', mobileUploadRequested: true});
   for (const tag of ['test', 'v1.2', 'v01.2.3', 'v1.2.3-qa']) assert.throws(() => deploymentPlan({...push, ref: `refs/tags/${tag}`}));
   assert.throws(() => deploymentPlan({...manual, ref: 'refs/heads/main'}), /release tag/);
   assert.equal(deploymentPlan({...manual, ref: 'refs/heads/main', event: {inputs: {scope: 'verify', confirm_sha: sha}}}).production, false);
+});
+test('manual Firebase releases opt into mobile independently; verify never deploys server or web', () => {
+  for (const scope of ['rules', 'backend', 'full', 'web', 'verify']) {
+    for (const deploy_mobile of [undefined, false, 'false', true, 'true']) {
+      const plan = deploymentPlan({...manual, event: {inputs: {scope, confirm_sha: sha, deploy_mobile}}});
+      assert.equal(plan.scope, scope);
+      assert.equal(plan.mobileUploadRequested, deploy_mobile === true || deploy_mobile === 'true');
+      assert.equal(plan.production, scope !== 'verify');
+    }
+  }
+  for (const deploy_mobile of ['', null, 'yes', 1]) {
+    assert.throws(() => deploymentPlan({...manual, event: {inputs: {...manual.event.inputs, deploy_mobile}}}), /must be a boolean/);
+  }
+  assert.throws(() => deploymentPlan({...manual, ref: 'refs/heads/main',
+    event: {inputs: {scope: 'verify', confirm_sha: sha, deploy_mobile: true}}}), /requires a release tag/);
 });
 test('release tag scope uses deployed baselines even when its last commit only changed docs', () => {
   assert.equal(taggedScope(['functions/src/new.js'], ['functions/src/new.js', 'lib/app.dart']), 'full');
@@ -117,7 +132,7 @@ test('CI skip requires an explicit manual release tag deployment and a reason', 
 test('validation audit binds the policy to the exact source, tag, attempt and actor without claiming test success', () => {
   const plan = deploymentPlan({...manual, event: {inputs: {...manual.event.inputs, skip_ci: true, skip_ci_reason: 'Incident recovery'}}});
   const audit = releaseValidation(plan, {GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '2', GITHUB_ACTOR: 'release-owner'});
-  assert.deepEqual(audit, {schemaVersion: 1, kind: 'release-validation', sourceSha: sha, releaseTag: 'v1.2.3', runId: '123', runAttempt: '2', validationMode: 'skipped', reason: 'Incident recovery', actor: 'release-owner'});
+  assert.deepEqual(audit, {schemaVersion: 1, kind: 'release-validation', sourceSha: sha, releaseTag: 'v1.2.3', runId: '123', runAttempt: '2', validationMode: 'skipped', reason: 'Incident recovery', actor: 'release-owner', mobileUploadRequested: false});
   assert.equal(audit.status, undefined);
   for (const patch of [{sourceSha: ''}, {releaseTag: ''}, {runId: 123}, {runAttempt: '0'}, {actor: ''}, {reason: ''}, {reason: 'x'.repeat(2001)}, {reason: `${'x'.repeat(2000)} `}, {validationMode: 'success'}]) {
     assert.throws(() => validateReleaseValidation({...audit, ...patch}));
@@ -133,6 +148,19 @@ test('validation audit binds the policy to the exact source, tag, attempt and ac
   validateReceipt(receipt, receipt);
   const forged = structuredClone(receipt); forged.manifest.validation.runAttempt = '99'; forged.manifestHash = manifestHash(forged.manifest);
   assert.throws(() => validateReceipt(forged, forged), /runAttempt mismatch/);
+});
+
+test('mobile selection is recorded in the exact-run audit while historical CI evidence stays valid', () => {
+  const plan = deploymentPlan({...manual, event: {inputs: {...manual.event.inputs, deploy_mobile: true}}});
+  const audit = releaseValidation(plan, {GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '2', GITHUB_ACTOR: 'release-owner'});
+  assert.equal(audit.mobileUploadRequested, true);
+  const legacy = {...audit};
+  delete legacy.mobileUploadRequested;
+  assert.equal(validateReleaseValidation(legacy).mobileUploadRequested, undefined);
+  for (const mobileUploadRequested of ['true', 'false', 1, null]) {
+    assert.throws(() => validateReleaseValidation({...audit, mobileUploadRequested}), /Invalid mobile upload selection/);
+  }
+  assert.throws(() => validateReleaseValidation({...audit, releaseTag: ''}), /requires a release tag/);
 });
 
 test('skipped CI keeps build prerequisites and rejects failed or fabricated heavy job results', () => {

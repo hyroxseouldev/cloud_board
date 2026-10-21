@@ -7,6 +7,7 @@ import {readReleaseArtifact} from './github-artifact.mjs';
 import {github, requireCurrentMain, isReleaseTag, resolveReleaseTag} from './release.mjs';
 import {writeJson} from './common.mjs';
 import {releaseValidationFile, validateReleaseValidation} from './release-validation.mjs';
+import {booleanInput} from '../release/deployment_targets.mjs';
 
 export function changedScope(paths) {
   const backend = paths.some(p => /^(functions\/(src|certificates)\/|functions\/package(?:-lock)?\.json$|firebase\.json$)/.test(p));
@@ -49,6 +50,9 @@ export function pendingScope(currentPaths, backendPaths, webPaths) {
 export function deploymentPlan({eventName, ref, sha, event}) {
   assert.match(sha || '', /^[a-f0-9]{40}$/);
   const releaseTag = ref?.startsWith('refs/tags/') ? ref.slice('refs/tags/'.length) : '';
+  const mobileUploadRequested = booleanInput(event.inputs?.deploy_mobile, 'deploy_mobile',
+    eventName === 'push' && isReleaseTag(releaseTag));
+  assert(!mobileUploadRequested || isReleaseTag(releaseTag), 'Mobile follow-up requires a release tag');
   const skipInput = event.inputs?.skip_ci;
   assert([undefined, false, true, 'false', 'true'].includes(skipInput), 'skip_ci must be a boolean');
   const skip = skipInput === true || skipInput === 'true';
@@ -62,7 +66,7 @@ export function deploymentPlan({eventName, ref, sha, event}) {
     assert(reason, 'CI skip reason is required');
     assert(rawReason.length <= 2000, 'CI skip reason must be at most 2000 characters');
   }
-  const policy = {validationMode, reason};
+  const policy = {validationMode, reason, mobileUploadRequested};
   if (eventName === 'workflow_dispatch') {
     const scope = event.inputs?.scope;
     assert(['full', 'backend', 'rules', 'web', 'verify'].includes(scope), 'Explicit deployment scope is required');
@@ -83,7 +87,8 @@ export function deploymentPlan({eventName, ref, sha, event}) {
 export function releaseValidation(plan, env = process.env) {
   return validateReleaseValidation({schemaVersion: 1, kind: 'release-validation', sourceSha: plan.sha,
     releaseTag: plan.releaseTag, runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT,
-    validationMode: plan.validationMode, reason: plan.reason, actor: env.GITHUB_ACTOR});
+    validationMode: plan.validationMode, reason: plan.reason, actor: env.GITHUB_ACTOR,
+    mobileUploadRequested: plan.mobileUploadRequested});
 }
 export function taggedScope(backendPaths, webPaths) {
   const scope = pendingScope(['lib/__release_intent__'], backendPaths, webPaths);
@@ -121,8 +126,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
   assert(process.env.GITHUB_OUTPUT, 'Workflow output path is required');
   writeJson(releaseValidationFile, releaseValidation(plan));
-  appendFileSync(process.env.GITHUB_OUTPUT, `scope=${plan.scope}\nsource_sha=${sha}\nrelease_tag=${releaseTag}\ncontract_base_sha=${plan.contractBaseSha || ''}\nvalidation_mode=${plan.validationMode}\n`);
+  appendFileSync(process.env.GITHUB_OUTPUT, `scope=${plan.scope}\nsource_sha=${sha}\nrelease_tag=${releaseTag}\ncontract_base_sha=${plan.contractBaseSha || ''}\nvalidation_mode=${plan.validationMode}\nmobile_requested=${plan.mobileUploadRequested}\n`);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-    `Release validation policy: **${plan.validationMode === 'skipped' ? 'CI SKIPPED — tests were not run' : 'CI required — results are checked by the release gate'}**.\n\nSource: \`${sha}\`; tag: \`${releaseTag || 'none'}\`; actor: \`${process.env.GITHUB_ACTOR}\`.\n${plan.reason ? `\nReason (JSON): ${JSON.stringify(plan.reason)}\n` : ''}`);
+    `Release validation policy: **${plan.validationMode === 'skipped' ? 'CI SKIPPED — tests were not run' : 'CI required — results are checked by the release gate'}**.\n\nSource: \`${sha}\`; tag: \`${releaseTag || 'none'}\`; actor: \`${process.env.GITHUB_ACTOR}\`.\n\nMobile follow-up requested: ${plan.mobileUploadRequested}.\n${plan.reason ? `\nReason (JSON): ${JSON.stringify(plan.reason)}\n` : ''}`);
   console.log(`Verified release plan: ${plan.scope} for ${sha}; tag=${releaseTag || 'none'}; production=${plan.production}`);
 }

@@ -7,14 +7,20 @@ on:
         description: 'New vX.Y.Z tag matching the app version on this main commit'
         required: true
         type: string
-      scope:
-        description: 'Production deployment scope'
-        required: true
-        type: choice
-        default: full
-        options: [full, web, backend, rules]
+      deploy_server:
+        description: 'Deploy production server and data rules'
+        type: boolean
+        default: false
+      deploy_web:
+        description: 'Deploy production web'
+        type: boolean
+        default: false
+      deploy_mobile:
+        description: 'Upload iOS and Android/TV after selected server/web deployment or validation'
+        type: boolean
+        default: false
       skip_ci:
-        description: 'Explicitly skip heavy CI; build and deployment checks remain'
+        description: 'Skip heavy CI for server/web deployment; mobile-only validation requires CI'
         required: false
         type: boolean
         default: false

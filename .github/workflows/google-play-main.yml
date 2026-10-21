@@ -74,14 +74,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Check selected mobile release target
+        id: followup
+        working-directory: control
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release/mobile_followup.mjs
       - name: Resolve and pin trusted app source
         id: source
+        if: steps.followup.outputs.requested == 'true'
         working-directory: control
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node tool/release/source.mjs resolve
       - name: Report blocked development store setup
         id: readiness
+        if: steps.followup.outputs.requested == 'true'
         env:
           RELEASE_MODE: ${{ github.event_name == 'workflow_run' && 'release' || github.event_name == 'push' && 'qa' || inputs.release_mode }}
           SKIP_CI: ${{ inputs.skip_ci || false }}
@@ -155,7 +163,7 @@ jobs:
         if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only
+        run: node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode "$RELEASE_MODE" --source-sha "$SOURCE_SHA" --check-only --mobile
 
       - name: QA build does not publish app update news
         if: env.RELEASE_MODE == 'qa'
@@ -309,9 +317,18 @@ jobs:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
           if [[ "$RELEASE_MODE" == release ]]; then
-            node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode release --source-sha "$SOURCE_SHA" --check-only
+            node "$GITHUB_WORKSPACE/control/tool/release_backend_gate.mjs" --mode release --source-sha "$SOURCE_SHA" --check-only --mobile
           fi
           node "$GITHUB_WORKSPACE/control/tool/release/play_version_code.mjs" --recheck "$RUNNER_TEMP/play-build-reservation.json"
+
+      - name: Retain checked production backend
+        if: env.RELEASE_MODE == 'release' && env.UPLOAD_REQUESTED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-backend-reference-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/mobile-backend-reference.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Recheck deployment tag before upload
         if: env.UPLOAD_REQUESTED == 'true'
