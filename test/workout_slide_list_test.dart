@@ -243,7 +243,7 @@ void main() {
         final list = find.byKey(const ValueKey('workout-slide-list'));
         await _openCreationSheet(tester);
         expect(find.text('빈 슬라이드 추가'), findsOneWidget);
-        expect(find.text('템플릿·AI로 만들기'), findsOneWidget);
+        expect(find.text('템플릿으로 만들기'), findsOneWidget);
         expect(tester.widget<ReorderableListView>(list).itemCount, 3);
         final design = find.byKey(const ValueKey('create-slide-design'));
         await tester.ensureVisible(design);
