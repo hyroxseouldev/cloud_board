@@ -12,6 +12,8 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/c
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/slide_studio_controller.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/slide_studio_page.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/template_jobs_controller.dart';
+
 class AiBetaBadge extends StatelessWidget {
   const AiBetaBadge({super.key, this.compact = false});
   final bool compact;
@@ -56,6 +58,7 @@ class AiSlidesPage extends HookConsumerWidget {
       key: ValueKey((owner, scope)),
       overrides: [
         slideStudioControllerProvider.overrideWith(SlideStudioController.new),
+        templateJobsControllerProvider.overrideWith(TemplateJobsController.new),
         aiSlideDesignControllerProvider.overrideWith(
           AiSlideDesignController.fresh,
         ),

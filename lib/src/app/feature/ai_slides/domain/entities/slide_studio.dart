@@ -8,6 +8,8 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/template_job.dart';
+
 part 'slide_studio.freezed.dart';
 
 enum StudioMode { template, organize, style, artwork }
@@ -66,6 +68,8 @@ abstract class StudioResult with _$StudioResult {
     AiSlideDraft? draft,
     AiRasterBrand? brand,
     AiRasterJob? job,
+    TemplateJob? templateJob,
+    Uint8List? serverPng,
     WorkoutModule? savedModule,
     @Default([]) List<String> warnings,
   }) = _StudioResult;
@@ -105,5 +109,6 @@ abstract class SlideStudioState with _$SlideStudioState {
               (input.raw.isNotEmpty ||
                   input.brief.isNotEmpty ||
                   reference != null ||
-                  result != null));
+                  result != null)) &&
+      !(result?.templateJob != null && !dirty);
 }
