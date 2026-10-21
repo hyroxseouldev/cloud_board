@@ -48,7 +48,7 @@ class StudioDesignSelector extends HookWidget {
     final scroll = useScrollController();
     final width = MediaQuery.sizeOf(context).width < 500 ? 164.0 : 220.0;
     final height =
-        width * 9 / 16 + MediaQuery.textScalerOf(context).scale(14) * 2.8 + 22;
+        width * 9 / 16 + MediaQuery.textScalerOf(context).scale(14) * 2.8 + 8;
     void reveal(AiSlideDesign design) {
       final index = designs.indexWhere((value) => value.id == design.id);
       if (index < 0 || !scroll.hasClients) return;

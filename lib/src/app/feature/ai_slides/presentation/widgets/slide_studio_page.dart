@@ -486,6 +486,9 @@ class SlideStudioPage extends HookConsumerWidget {
                             style: const TextStyle(fontSize: 16, height: 1.45),
                             decoration: const InputDecoration(
                               hintText: '오늘의 수업 내용을 붙여 넣으세요.\n예: Run 800m\nSki 500m · DB Press 12회',
+                              filled: false,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 8),
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
@@ -798,7 +801,7 @@ class _StudioDetailsCard extends HookWidget {
                             summary.isEmpty
                                 ? '제목과 필수 운동 안내 문구를 입력해 주세요.'
                                 : summary,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 13,
