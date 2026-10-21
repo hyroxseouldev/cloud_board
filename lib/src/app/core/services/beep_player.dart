@@ -1,4 +1,7 @@
 import 'dart:math';
+import 'dart:io' show Platform;
+
+import 'package:cloud_board/src/app/core/services/android_cue_audio.dart';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
@@ -105,6 +108,36 @@ BeepPlayer beepPlayer(Ref ref) {
   final player = BeepPlayer();
   ref.onDispose(() => player.dispose());
   return player;
+}
+
+@Riverpod(keepAlive: true)
+AndroidCueAudio? androidCueAudio(Ref ref) {
+  if (kIsWeb || !Platform.isAndroid) return null;
+  final audio = AndroidCueAudio();
+  ref.onDispose(() {
+    audio.dispose().catchError((Object _) {});
+  });
+  return audio;
+}
+
+Future<void> prepareAndroidCue(
+  AndroidCueAudio audio,
+  WorkoutSound sound, {
+  bool countdown = false,
+}) {
+  if (sound == WorkoutSound.silent) return Future.value();
+  return audio.prepare(
+    '${sound.name}:${countdown ? 'tick' : 'start'}',
+    () async {
+      if (sound != WorkoutSound.videoBeep) return _createWave(sound);
+      final data = await rootBundle.load(
+        countdown
+            ? 'assets/sounds/video_beep_tick.wav'
+            : 'assets/sounds/video_beep.wav',
+      );
+      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    },
+  );
 }
 
 final _workoutSoundSources = WorkoutSoundSourceCache();

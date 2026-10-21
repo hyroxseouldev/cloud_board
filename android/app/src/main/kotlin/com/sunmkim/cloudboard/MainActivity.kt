@@ -12,6 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private var startupViewportConfigured = false
+    private var cueAudio: AndroidCueAudio? = null
 
     override fun onPostResume() {
         super.onPostResume()
@@ -26,6 +27,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        cueAudio = AndroidCueAudio(this, flutterEngine.dartExecutor.binaryMessenger)
         ClassNotifications.install(this, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -43,6 +45,22 @@ class MainActivity : FlutterActivity() {
         if (requestCode == 4601 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             ClassNotifications.permissionGranted(this)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        cueAudio?.setForeground(true)
+    }
+
+    override fun onPause() {
+        cueAudio?.setForeground(false)
+        super.onPause()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        cueAudio?.close()
+        cueAudio = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     private fun isAndroidTv(): Boolean {
