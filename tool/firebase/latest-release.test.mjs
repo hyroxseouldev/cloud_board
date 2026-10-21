@@ -167,3 +167,55 @@ test('the active run is ignored across attempts without hiding another run parti
   assert.equal(selected.run.id, 13);
   assert(!value.visited.some(path => path.includes('/runs/14/')));
 });
+
+const unstartedCancelled = () => ({name: 'firebase-production', status: 'completed', conclusion: 'cancelled',
+  steps: [], runner_id: null, runner_name: null, runner_group_id: null, runner_group_name: null,
+  started_at: '2026-10-21T13:50:58Z', completed_at: '2026-10-21T13:50:58Z'});
+
+test('a cancelled job never assigned a runner does not replace a verified backend', async () => {
+  const cancelled = {...successful, id: 13, run_attempt: 1, conclusion: 'cancelled'};
+  const value = attemptHistory([cancelled, successful], {
+    '13/1': [unstartedCancelled()], '12/2': [deployment('2026-10-21T12:41:00Z')],
+  });
+  assert.equal((await latestRelease(value)).run.id, 12);
+  assert.equal((await latestRelease({...value, attemptOnly: true})).run.id, 12);
+});
+
+test('missing cancellation evidence, allocated runners and executed steps still fail closed', async () => {
+  const cancelled = {...successful, id: 13, run_attempt: 1, conclusion: 'cancelled'};
+  const variants = ['steps', 'runner_id', 'runner_name', 'runner_group_id', 'runner_group_name',
+    'started_at', 'completed_at', 'status'].map(key => {
+    const job = unstartedCancelled(); delete job[key]; return job;
+  });
+  variants.push(
+    {...unstartedCancelled(), runner_id: 123},
+    {...unstartedCancelled(), runner_name: 'runner'},
+    {...unstartedCancelled(), runner_group_id: 1},
+    {...unstartedCancelled(), runner_group_name: 'Default'},
+    {...unstartedCancelled(), started_at: '', completed_at: ''},
+    {...unstartedCancelled(), completed_at: '2026-10-21T13:50:59Z'},
+    {...unstartedCancelled(), status: 'in_progress'},
+    {...unstartedCancelled(), steps: [{name: 'Set up job', conclusion: 'cancelled'}]},
+    {...unstartedCancelled(), steps: [{name: 'Deploy account deletion functions and data rules', conclusion: 'cancelled'}]},
+  );
+  for (const job of variants) {
+    const value = attemptHistory([cancelled, successful], {
+      '13/1': [job], '12/2': [deployment('2026-10-21T12:41:00Z')],
+    });
+    await assert.rejects(latestRelease(value), /refusing an older receipt/);
+  }
+});
+
+test('an unstarted cancelled retry retains previous partial writes and requires attempt history', async () => {
+  const cancelled = {...successful, id: 13, conclusion: 'cancelled'};
+  const value = attemptHistory([cancelled, successful], {
+    '13/2': [unstartedCancelled()], '13/1': [deployment('2026-10-21T13:40:00Z', 'failure')],
+    '12/2': [deployment('2026-10-21T12:41:00Z')],
+  });
+  await assert.rejects(latestRelease(value), /refusing an older receipt/);
+  const attempt = await latestRelease({...value, attemptOnly: true});
+  assert.equal(attempt.run.id, 13);
+  assert.equal(attempt.run.run_attempt, 1);
+  const missing = attemptHistory([cancelled, successful], {'13/2': [unstartedCancelled()]});
+  await assert.rejects(latestRelease(missing), /Unavailable attempt history/);
+});
