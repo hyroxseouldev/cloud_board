@@ -43,6 +43,14 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // Only server-produced generation records; clients cannot forge complete
+    // jobs, mutate reservations or access another account/center's source.
+    match /users/{userId}/templateGenerationCenters/{centerId}/jobs/{jobId} {
+      allow read: if isOwner(userId) && ownsTemplateCenter(centerId)
+        && get(/databases/$(database)/documents/users/$(userId)/onboarding/progress).data.storeId == centerId;
+      allow write: if false;
+    }
+
     function validSound(v) {
       return v in ['silent', 'gentleBeep', 'classicBeep', 'sharpBeep', 'lowPulse',
         'boxingBell', 'softBell', 'doubleBeep', 'longFinish', 'videoBeep'];
