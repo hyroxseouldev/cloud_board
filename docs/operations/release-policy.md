@@ -61,12 +61,71 @@ A manual retry or recovery still requires the release's exact source and either
 valid CI evidence or the explicit audited skip.
 
 For a new production release, the **Start production release** menu creates its
-tag and dispatches once with the selected CI policy. For a server/web retry,
+tag and dispatches once with the selected targets and CI policy. For a server/web retry,
 select the existing production tag in Actions manual dispatch; that tag must
 contain a workflow version supporting these inputs. Older tagged workflows may
 not offer them. An external production-tag push still starts normal CI
 automatically, and a separate manual run does not change an existing automatic
 run into a skipped run.
+
+### Select server, web and mobile independently
+
+In **Start production release**, choose at least one of `deploy_server`,
+`deploy_web` and `deploy_mobile`. All three default to unchecked. The menu still
+requires a new version-matching tag on the fixed main commit.
+
+| Selected targets | Firebase scope | Result after validation |
+| --- | --- | --- |
+| Server | `backend` | Deploy Functions and data rules/indexes; no Hosting or mobile upload |
+| Web | `web` | Deploy Hosting; no server deployment or mobile upload |
+| Mobile | `verify` | Validate without Firebase deployment, then upload iOS and Android/TV |
+| Server + web | `full` | Deploy server, pass backend smoke, then deploy web |
+| Server + mobile | `backend` | Deploy server successfully, then upload both mobile platforms |
+| Web + mobile | `web` | Deploy web successfully, then upload both mobile platforms |
+| Server + web + mobile | `full` | Deploy server and web successfully, then upload both mobile platforms |
+
+Mobile means TestFlight and Play internal-track uploads, not review submission
+or public rollout. Existing platform-specific manual workflows remain available
+for an iOS-only or Android/TV-only run. Unselected automatic mobile workflows may
+start a short preflight, but skip source preparation, SDK installation, build
+and upload.
+
+The parent release records `mobileUploadRequested` in its validation artifact.
+Automatic mobile preflight checks that artifact's digest and exact source, tag,
+run and attempt before proceeding. A historical receipt without the field does
+not authorize an automatic upload; use an explicit manual mobile run if needed.
+Missing, expired or mismatched evidence blocks the follow-up.
+
+For manual Firebase retries, `deploy_mobile` defaults to `false`, including
+server-only repairs. Select it explicitly to request subsequent mobile uploads.
+Direct production-tag pushes retain the automatic path: required CI, server/web
+scope determined from deployed baselines, and mobile follow-up. Use the menu
+when choosing components individually.
+
+Mobile-only uses `verify`: it retains integration checks, including a web build,
+but makes no server or Hosting deployment. This path cannot skip CI. An explicit
+manual platform `release` retains its existing audited CI skip option. Server
+and web selections can use the existing `skip_ci` plus reason; source, artifact,
+environment, compatibility and applicable deployment smoke checks remain.
+
+To install mobile first and deploy its server later, the mobile gate accepts
+either identical backend inputs or successful contracts against the actual
+deployed backend copy. A reviewed `release-notes/mobile-compatibility.json`
+binds the app inputs and deployed backend to executable tests, including
+waiting/disabled behavior for features requiring the later server. CI uses
+candidate tests and DTOs with deployed server code/rules in local emulators.
+Both pre-build and pre-upload gates verify the exact app/tag/run/attempt and
+current backend fingerprint. A failed, missing or stale proof blocks upload,
+including a manual CI skip. Web and rules deployments retain their exact-match
+gates. See [mobile-first release](mobile-first-release.md) for the procedure and
+the limits of source/emulator evidence.
+
+To deploy the same candidate's server later, manually run Firebase from the
+existing tag with `scope=backend` and `deploy_mobile=false`; the app is not rebuilt.
+A different source requires a new candidate and matching tag. Never move the
+mobile release's tag. Existing installed apps, TV and open web sessions must
+remain compatible. TestFlight/internal upload success alone does not establish
+availability for installation or successful device QA.
 
 The release tag ruleset covers updates and deletion of `refs/tags/v*` and
 `refs/tags/dev/v*` without restricting tag creation. Its versioned definition is

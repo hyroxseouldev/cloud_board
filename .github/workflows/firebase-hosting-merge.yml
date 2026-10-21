@@ -11,6 +11,10 @@ on:
         type: choice
         default: verify
         options: [verify, web, rules, backend, full]
+      deploy_mobile:
+        description: 'Also upload iOS and Android/TV after this release succeeds (release tag only)'
+        type: boolean
+        default: false
       confirm_sha:
         description: 'Paste the exact selected tag commit SHA (main SHA for verification only)'
         required: true
@@ -47,6 +51,7 @@ jobs:
       release_tag: ${{ steps.plan.outputs.release_tag }}
       contract_base_sha: ${{ steps.plan.outputs.contract_base_sha }}
       validation_mode: ${{ steps.plan.outputs.validation_mode }}
+      mobile_requested: ${{ steps.plan.outputs.mobile_requested }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -188,6 +193,53 @@ jobs:
           npm ci --prefix functions
           npm test --prefix functions
           node --test tool/web_symbols.test.mjs tool/release_backend_gate.test.mjs tool/firebase/*.test.mjs
+
+  mobile_backend_compatibility:
+    name: mobile-backend-compatibility
+    needs: deployment_plan
+    # Server-first releases keep the exact-match fast path. Mobile-first verifies
+    # the deployed backend, including when a web-only release explicitly skips CI.
+    if: needs.deployment_plan.outputs.mobile_requested == 'true' && contains(fromJSON('["verify","web"]'), needs.deployment_plan.outputs.scope)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin deployed backend and reviewed mobile test plan
+        id: compatibility
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tool/release/verify_mobile_backend.mjs prepare
+      - uses: subosito/flutter-action@v2
+        if: steps.compatibility.outputs.needs_tests == 'true'
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        if: steps.compatibility.outputs.needs_tests == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install mobile contract dependencies
+        if: steps.compatibility.outputs.needs_tests == 'true'
+        run: flutter pub get
+      - name: Test mobile against deployed backend
+        if: steps.compatibility.outputs.needs_tests == 'true'
+        run: node tool/release/verify_mobile_backend.mjs test
+      - name: Retain mobile backend compatibility
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-backend-compatibility-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/mobile-backend-compatibility/
+          if-no-files-found: error
+          retention-days: 90
 
   web_build:
     name: web-build

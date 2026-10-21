@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
-import {appendFileSync} from 'node:fs';
+import {appendFileSync, writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {backendFingerprint, functionsFingerprint, github} from './firebase/release.mjs';
 import {latestRelease} from './firebase/latest-release.mjs';
 import {hash, writeJson} from './firebase/common.mjs';
 import {readReleaseArtifact} from './firebase/github-artifact.mjs';
+import {requireMobileCompatibility} from './release/mobile_backend_compatibility.mjs';
 
-export async function requireBackend({repository, sha, request, readArtifact, mode = 'release', fingerprint, ignoreRunId, functionsOnly = false, candidateFunctionsFingerprint}) {
+export async function requireBackend({repository, sha, request, readArtifact, mode = 'release', fingerprint, ignoreRunId,
+  functionsOnly = false, candidateFunctionsFingerprint, mobile = false, releaseTag, checkMobileCompatibility = requireMobileCompatibility}) {
   assert.match(sha || '', /^[a-f0-9]{40}$/, 'An exact source SHA is required');
   fingerprint ??= backendFingerprint(sha);
   assert(['release', 'qa'].includes(mode), 'Unknown release mode');
@@ -24,11 +26,18 @@ export async function requireBackend({repository, sha, request, readArtifact, mo
   assert.equal(result.status, 'success', 'Backend deployment is in progress; retry upload after it completes');
   const {receipt, run} = result;
   assert(receipt.scope !== 'rules' || receipt.manifest.functionsFingerprint, 'Legacy rules-only receipt lacks verified Functions provenance; deploy backend once');
+  assert(!mobile || (mode === 'release' && !functionsOnly), 'Mobile compatibility is only for production mobile uploads');
+  let compatibility, deployedFingerprint = receipt.manifest.backendFingerprint;
+  if (mobile && deployedFingerprint && deployedFingerprint !== fingerprint) {
+    compatibility = await checkMobileCompatibility({repository, sha, releaseTag,
+      backendFingerprint: deployedFingerprint, request, readArtifact});
+  }
   if (functionsOnly) {
     assert.equal(receipt.manifest.functionsFingerprint || functionsFingerprint(receipt.sha), candidateFunctionsFingerprint || functionsFingerprint(sha),
       'Rules-only deployment cannot publish an undeployed Functions fingerprint; deploy backend first');
   } else if (receipt.manifest.backendFingerprint) {
-    assert.equal(receipt.manifest.backendFingerprint, fingerprint, 'Candidate requires a different backend. Deploy the server changes before uploading this app.');
+    if (!compatibility) assert.equal(receipt.manifest.backendFingerprint, fingerprint,
+      'Candidate requires a different backend. Deploy the server changes or verify mobile contracts against the current backend.');
   } else {
     // Backward-compatible transition from old full receipts: compare every
     // deployed server input recorded in the original manifest, not just rules.
@@ -37,8 +46,10 @@ export async function requireBackend({repository, sha, request, readArtifact, mo
     for (const path of paths) assert.equal(hash(execFileSync('git', ['show', `${sha}:${path}`])), receipt.manifest.files[path], `Candidate backend differs: ${path}`);
     // Also reject newly added functions/files absent from an old receipt.
     assert.equal(backendFingerprint(receipt.sha), fingerprint, 'Candidate backend differs from the deployed backend');
+    deployedFingerprint = fingerprint;
   }
-  return {...run, backendReference: {runId: String(run.id), sha: receipt.sha, fingerprint}};
+  return {...run, backendReference: {runId: String(run.id), sha: receipt.sha,
+    fingerprint: deployedFingerprint || fingerprint, ...(compatibility ? {compatibility} : {})}};
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
@@ -47,11 +58,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(), sha, 'Checkout must match the selected source SHA');
   const repository = process.env.GITHUB_REPOSITORY;
   assert(repository && process.env.GITHUB_TOKEN, 'Missing GitHub release gate credentials');
+  assert(!args.includes('--mobile') || !args.includes('--web'), 'Web deployments retain the exact backend gate');
   const run = await requireBackend({repository, sha, mode: value('--mode') || (args.includes('--qa') ? 'qa' : 'release'), request: github,
     functionsOnly: args.includes('--rules'),
+    mobile: args.includes('--mobile'), releaseTag: process.env.RELEASE_TAG,
     ignoreRunId: args.includes('--web') || args.includes('--rules') ? process.env.GITHUB_RUN_ID : undefined,
     readArtifact: artifact => readReleaseArtifact(artifact, repository, process.env.GITHUB_TOKEN)});
   if (args.includes('--web')) writeJson('build/release/backend-reference.json', run.backendReference);
+  if (args.includes('--mobile')) {
+    assert(process.env.RUNNER_TEMP, 'Mobile backend audit requires RUNNER_TEMP');
+    writeFileSync(`${process.env.RUNNER_TEMP}/mobile-backend-reference.json`, JSON.stringify(run.backendReference, null, 2) + '\n');
+  }
   const message = `Compatible deployed backend: ${run.html_url || run.id}; candidate ${sha}`;
   console.log(message);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);

@@ -2,20 +2,23 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {appendFileSync, readFileSync, writeFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
+import {booleanInput, deploymentTargets} from './deployment_targets.mjs';
 
 const shaPattern = /^[a-f0-9]{40}$/;
 const workflow = 'firebase-hosting-merge.yml';
 const git = (...args) => execFileSync('git', args, {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim();
 
-export function releaseStartPlan({tag, scope = 'full', skipCi = false, reason = '', sourceSha,
+export function releaseStartPlan({tag, server = false, web = false, mobile = false, skipCi = false, reason = '', sourceSha,
   ref, eventName, repository, actor, runId, runAttempt, runGit = git}) {
   assert.equal(eventName, 'workflow_dispatch', 'Start releases with a manual workflow dispatch');
   assert.equal(ref, 'refs/heads/main', 'Run Start production release from main');
   assert.match(repository || '', /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/, 'Invalid repository');
   assert.match(sourceSha || '', shaPattern, 'Missing fixed source SHA');
   assert(typeof tag === 'string' && tag.length <= 60 && /^v\d+\.\d+\.\d+$/.test(tag), 'Use a vX.Y.Z release tag');
-  assert(['full', 'web', 'backend', 'rules'].includes(scope), 'Choose full, web, backend or rules');
+  const targets = deploymentTargets({server, web, mobile});
+  const {scope} = targets;
   assert.equal(typeof skipCi, 'boolean', 'skip_ci must be a boolean');
+  assert(!(skipCi && scope === 'verify'), 'Mobile-only validation requires CI; use the separate manual mobile release for an audited CI skip');
   assert(typeof reason === 'string' && reason.length <= 2000, 'CI skip reason must be at most 2000 characters');
   assert(!skipCi || reason.trim(), 'skip_ci_reason is required when skipping CI');
   assert(typeof actor === 'string' && actor.trim() && !/[\r\n]/.test(actor), 'Missing release actor');
@@ -25,7 +28,7 @@ export function releaseStartPlan({tag, scope = 'full', skipCi = false, reason = 
   const version = runGit('show', `${sourceSha}:pubspec.yaml`).match(/^version:\s*(\d+\.\d+\.\d+)\+\d+\s*$/m)?.[1];
   assert.equal(tag, `v${version}`, 'Release tag must match the selected pubspec version');
   return {schemaVersion: 1, kind: 'release-start', repository, sourceSha, releaseTag: tag, scope,
-    skipCi, reason: skipCi ? reason.trim() : '', actor, runId, runAttempt};
+    targets, skipCi, reason: skipCi ? reason.trim() : '', actor, runId, runAttempt};
 }
 
 export async function startRelease(plan, {request, record = () => {}}) {
@@ -58,7 +61,8 @@ export async function startRelease(plan, {request, record = () => {}}) {
     // Do not retry this request automatically: a timeout can occur after GitHub accepted it.
     const dispatched = await request(`${base}/actions/workflows/${workflow}/dispatches`, {method: 'POST', body: {
       ref: plan.releaseTag,
-      inputs: {confirm_sha: plan.sourceSha, scope: plan.scope, skip_ci: String(plan.skipCi), skip_ci_reason: plan.reason},
+      inputs: {confirm_sha: plan.sourceSha, scope: plan.scope, deploy_mobile: String(plan.targets.mobile),
+        skip_ci: String(plan.skipCi), skip_ci_reason: plan.reason},
     }});
     assert.equal(dispatched.status, 204, `Workflow dispatch was not confirmed (HTTP ${dispatched.status})`);
     receipt.dispatchStatus = 'accepted';
@@ -69,7 +73,7 @@ export async function startRelease(plan, {request, record = () => {}}) {
     record(receipt);
     throw new Error(`Tag ${plan.releaseTag} remains at ${plan.sourceSha}. Dispatch failed or was not confirmed. ` +
       `Check Actions for an existing run before retrying ${workflow} manually from this tag with ` +
-      `confirm_sha=${plan.sourceSha}, scope=${plan.scope} and the same CI choice. Do not delete or move the tag.`, {cause: error});
+      `confirm_sha=${plan.sourceSha}, scope=${plan.scope}, deploy_mobile=${plan.targets.mobile} and the same CI choice. Do not delete or move the tag.`, {cause: error});
   }
 }
 
@@ -86,15 +90,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const env = process.env;
     assert(env.GITHUB_TOKEN, 'The workflow GITHUB_TOKEN is required');
     const inputs = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')).inputs ?? {};
-    assert([true, false, 'true', 'false', undefined].includes(inputs.skip_ci), 'skip_ci must be a boolean');
-    const plan = releaseStartPlan({tag: inputs.tag, scope: inputs.scope, skipCi: inputs.skip_ci === true || inputs.skip_ci === 'true',
+    assert(inputs.scope === undefined, 'Use deploy_server, deploy_web and deploy_mobile instead of scope');
+    const plan = releaseStartPlan({tag: inputs.tag,
+      server: booleanInput(inputs.deploy_server, 'deploy_server'),
+      web: booleanInput(inputs.deploy_web, 'deploy_web'),
+      mobile: booleanInput(inputs.deploy_mobile, 'deploy_mobile'),
+      skipCi: booleanInput(inputs.skip_ci, 'skip_ci'),
       reason: inputs.skip_ci_reason || '', sourceSha: env.GITHUB_SHA, ref: env.GITHUB_REF,
       eventName: env.GITHUB_EVENT_NAME, repository: env.GITHUB_REPOSITORY, actor: env.GITHUB_ACTOR,
       runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT});
     const receipt = await startRelease(plan, {request: githubRequest,
       record: value => writeFileSync('release-start.json', `${JSON.stringify(value, null, 2)}\n`)});
     const summary = `## Production release requested\n\nTag: \`${receipt.releaseTag}\`\n\nSource: \`${receipt.sourceSha}\`\n\n` +
-      `Scope: ${receipt.scope}; CI: ${receipt.skipCi ? 'SKIPPED (not passed)' : 'required (not yet verified)'}.\n\n` +
+      `Targets: server=${receipt.targets.server}, web=${receipt.targets.web}, mobile=${receipt.targets.mobile}.\n\n` +
+      `Firebase scope: ${receipt.scope}; CI: ${receipt.skipCi ? 'SKIPPED (not passed)' : 'required (not yet verified)'}.\n\n` +
       `Requested by: ${receipt.actor}. ${receipt.reason ? `Reason (JSON): ${JSON.stringify(receipt.reason)}` : ''}\n\n` +
       'One Firebase release dispatch was accepted. Deployment and native upload results must be checked in their own runs.\n';
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, summary);

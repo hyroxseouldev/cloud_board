@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {releaseStartPlan, startRelease} from './start_release.mjs';
 
 const sha = 'a'.repeat(40), mainSha = 'b'.repeat(40), repository = 'owner/repo';
-const options = {tag: 'v1.2.3', scope: 'full', skipCi: false, reason: '', sourceSha: sha,
+const options = {tag: 'v1.2.3', server: true, web: true, mobile: true, skipCi: false, reason: '', sourceSha: sha,
   ref: 'refs/heads/main', eventName: 'workflow_dispatch', repository, actor: 'operator', runId: '123', runAttempt: '1',
   runGit: (...args) => args[0] === 'rev-parse' ? sha : 'name: cloud_board\nversion: 1.2.3+7\n'};
 
@@ -32,13 +32,27 @@ test('starts one fixed-SHA release with required CI or an explicitly reasoned sk
     assert.deepEqual(mutations, [
       {path: `/repos/${repository}/git/refs`, method: 'POST', body: {ref: 'refs/tags/v1.2.3', sha}},
       {path: `/repos/${repository}/actions/workflows/firebase-hosting-merge.yml/dispatches`, method: 'POST',
-        body: {ref: 'v1.2.3', inputs: {confirm_sha: sha, scope: 'full', skip_ci: String(skipCi), skip_ci_reason: skipCi ? 'Restore service' : ''}}},
+        body: {ref: 'v1.2.3', inputs: {confirm_sha: sha, scope: 'full', deploy_mobile: 'true', skip_ci: String(skipCi), skip_ci_reason: skipCi ? 'Restore service' : ''}}},
     ]);
     assert.equal(receipt.sourceSha, sha); // Current main advanced; never silently switch to it.
     assert.equal(receipt.dispatchStatus, 'accepted');
     assert.equal(receipt.actor, 'operator');
     assert.equal(receipt.runId, '123');
     assert.deepEqual(f.records.map(record => record.dispatchStatus), ['not_requested', 'requested', 'accepted']);
+  }
+});
+
+test('each target combination dispatches only its Firebase scope and explicit mobile choice', async () => {
+  for (const [server, web, mobile, scope] of [
+    [true, false, false, 'backend'], [false, true, false, 'web'], [false, false, true, 'verify'],
+    [true, true, false, 'full'], [true, false, true, 'backend'], [false, true, true, 'web'],
+    [true, true, true, 'full'],
+  ]) {
+    const f = fixture();
+    const receipt = await startRelease(releaseStartPlan({...options, server, web, mobile}), f);
+    assert.deepEqual(receipt.targets, {server, web, mobile, scope});
+    assert.deepEqual(f.calls.find(call => call.path.endsWith('/dispatches')).body,
+      {ref: 'v1.2.3', inputs: {confirm_sha: sha, scope, deploy_mobile: String(mobile), skip_ci: 'false', skip_ci_reason: ''}});
   }
 });
 
@@ -75,9 +89,11 @@ test('a concurrent tag creation failure cannot dispatch a second release', async
   assert(!f.calls.some(call => call.path.endsWith('/dispatches')));
 });
 
-test('invalid source, scope, version and reason fail before any network mutation', () => {
+test('invalid source, selection, version and reason fail before any network mutation', () => {
   for (const patch of [
-    {scope: 'verify'}, {scope: 'qa'}, {scope: 'auto'}, {tag: 'v1.2.4'}, {tag: 'v1.2.3/unsafe'},
+    {server: false, web: false, mobile: false}, {server: 'true'}, {web: 'false'}, {mobile: 1},
+    {server: false, web: false, mobile: true, skipCi: true, reason: 'Not allowed on verify'},
+    {tag: 'v1.2.4'}, {tag: 'v1.2.3/unsafe'},
     {ref: 'refs/heads/develop'}, {ref: 'refs/tags/v1.2.3'}, {eventName: 'push'},
     {skipCi: 'true'}, {skipCi: true, reason: '   '}, {reason: 'x'.repeat(2001)},
     {sourceSha: 'wrong'}, {actor: ''}, {runGit: () => mainSha},
@@ -107,4 +123,8 @@ test('workflow pins source and uses GITHUB_TOKEN so tag creation does not start 
   assert.match(yaml, /actions: write/);
   assert.match(yaml, /cancel-in-progress: false/);
   assert.doesNotMatch(yaml, /secrets\./);
+  assert.doesNotMatch(yaml, /^      scope:/m);
+  for (const target of ['server', 'web', 'mobile']) {
+    assert.match(yaml, new RegExp(`deploy_${target}:\\n        description: [^\\n]+\\n        type: boolean\\n        default: false`));
+  }
 });

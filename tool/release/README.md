@@ -55,8 +55,9 @@ compatibility and artifact checks.
 ### Start a new production release
 
 Use **Actions → Start production release → Run workflow** from `main`. Enter a
-new `tag` matching that commit's `pubspec.yaml` version, choose `scope` (`full` by
-default, or `web` / `backend` / `rules`), and leave `skip_ci=false` for normal CI.
+new `tag` matching that commit's `pubspec.yaml` version, choose one or more of
+`deploy_server`, `deploy_web`, `deploy_mobile` (all default false), and leave
+`skip_ci=false` for normal CI. Mobile-only validates without deploying Firebase.
 To explicitly omit heavy CI, select `skip_ci=true` and provide `skip_ci_reason`.
 The source is the main SHA captured when this run starts; a later main update does
 not silently change the release candidate.
@@ -78,8 +79,9 @@ the Firebase release workflow's manual retry from that exact tag, with the
 recorded `confirm_sha`, scope and CI choice. Do not rerun the starter to reuse a
 tag, and do not delete or move the tag.
 
-After Firebase finishes, verify the actual deployment steps and successful backend
-receipt; the overall workflow conclusion alone does not prove deployment. Then
+After Firebase finishes, verify the selected deployment steps and successful backend
+receipt; a mobile-only validation does not deploy Firebase. The overall workflow
+conclusion alone does not prove deployment. When mobile was selected,
 check for native runs for that release tag. If none starts, dispatch each missing
 native workflow from `main`, using the same `source_ref=vX.Y.Z`,
 `release_mode=release` and `upload_to_play=true` or `upload_to_testflight=true`.
@@ -143,9 +145,12 @@ development app's complete store history. Do not reuse production's baseline.
 QA uses the development flavor and `.dev` app ID; release uses production and the
 base app ID with exact-tag CI evidence or an explicit audited manual skip.
 
-QA does not require a production backend receipt. Release checks the actual
-production receipt against candidate backend/rules fingerprints before native
-build and again before upload. Development deployment is not release evidence.
+QA does not require a production backend receipt. Before native build and again
+before upload, release checks the actual production receipt. Identical backend
+inputs retain the fast path; differing inputs require successful exact-source
+mobile contracts against that deployed backend. The proof cannot be skipped
+with `skip_ci`. See [mobile-first release](../../docs/operations/mobile-first-release.md).
+Development deployment is not release evidence.
 
 Development QA does not publish public news, modify version policy or replace
 production installed-client contracts. Historical QA uploads that actually used

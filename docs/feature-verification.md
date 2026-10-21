@@ -43,7 +43,7 @@ Production tag: v1.2.2
 CI policy: 개발 전체 CI 없음; 운영 skip_ci=false(기본), 생략 시 skip_ci=true와 사유 기록
 ```
 
-현재 **Start production release** 메뉴는 운영 태그 생성과 실행만 담당하며 `pubspec.yaml`을 자동 변경하지 않는다. 개발 배포는 버전 확정 커밋이 main에 반영된 후 해당 SHA로 태그를 push한다.
+**Start production release** 메뉴는 서버·웹·모바일 대상 선택과 운영 태그 생성·실행을 담당하며 `pubspec.yaml`을 자동 변경하지 않는다. 개발 배포는 버전 확정 커밋이 main에 반영된 후 해당 SHA로 태그를 push한다.
 
 ```sh
 git tag dev/v1.2.2-1 <버전-확정-main-SHA>
@@ -126,9 +126,17 @@ PR 양식의 세 섹션은 유지하고, 각 섹션 안의 표·목록 등 표�
 
 수동 Firebase 태그 릴리즈 또는 수동 모바일 `release`는 `skip_ci=true`와 비어 있지 않은 `skip_ci_reason`을 지정해 무거운 CI를 생략할 수 있다. Firebase는 실제 배포 범위 `full`·`backend`·`rules`·`web`에서만 허용하며 main의 확인용 실행이나 `verify`, 모바일 QA에서는 거절한다. 생략된 앱 검사·수업 시작 회귀·Firebase emulator 계약 검사를 `통과`로 기록하지 않는다. 사유, 실행자, run/attempt, 소스 SHA와 태그를 감사 artifact/receipt에 남긴다. `validationMode: required`도 검증 요청을 뜻하며 자체로 테스트 성공 증거는 아니다.
 
-새 운영 릴리즈는 main의 **Start production release**에서 `skip_ci`와 필요한 사유를 선택할 수 있다. 이 메뉴는 고정 SHA의 새 운영 태그를 만들고 선택한 정책으로 한 번 실행하며 버전은 변경하지 않는다. 기존 운영 태그 재시도는 해당 태그의 Firebase workflow에서 지정한다. 예전 태그의 workflow에는 새 입력이 없을 수 있다. 운영 태그를 외부에서 직접 push하면 기본 CI가 자동으로 시작하며, 별도로 수동 실행했다고 이미 시작한 자동 실행이 생략 모드로 바뀌지는 않는다.
+새 운영 릴리즈는 main의 **Start production release**에서 `deploy_server`·`deploy_web`·`deploy_mobile`을 독립 선택한다. 기본값은 모두 해제이며 하나 이상 선택해야 한다. 서버는 Functions와 데이터 규칙·인덱스(`backend`), 웹은 Hosting(`web`), 둘을 함께 선택하면 `full`이다. 모바일만 선택하면 `verify`로 CI를 수행하고 서버·웹을 배포하지 않은 채 iOS와 Android/TV 업로드로 이어진다. 함께 선택한 경우 서버·웹 배포가 모두 성공한 뒤 모바일이 실행된다. 선택 조합은 [운영 릴리즈 정책](operations/release-policy.md#select-server-web-and-mobile-independently)을 따른다.
 
-생략해도 태그 고정·SHA·main 이력·버전·운영 배포 대상, 빌드·서명·환경·번호·실제 산출물·manifest 해시·배포 후 smoke는 확인한다. 웹 빌드는 필요한 범위에서 계속 실행하며 서버·웹 배포 범위를 넓히지 않는다. 모바일의 현재 운영 backend receipt 및 서버·규칙 지문 확인도 유지한다.
+서버·웹을 선택한 새 릴리즈는 `skip_ci`와 필요한 사유를 선택할 수 있다. 모바일만 선택한 `verify` 경로는 CI를 생략할 수 없으며, 별도 수동 모바일 `release`의 감사 기록을 남기는 생략 옵션은 유지한다. 이 메뉴는 고정 SHA의 새 운영 태그를 만들고 선택한 정책으로 한 번 실행하며 버전은 변경하지 않는다. 기존 운영 태그 재시도는 해당 태그의 Firebase workflow에서 지정하며 `deploy_mobile` 기본값은 `false`다. 예전 태그의 workflow에는 새 입력이 없을 수 있다. 운영 태그를 외부에서 직접 push하면 기본 CI·배포 이력에 따른 서버/웹 범위·모바일 후속 업로드가 자동으로 시작하며, 별도로 수동 실행했다고 이미 시작한 자동 실행이 생략 모드로 바뀌지는 않는다.
+
+모바일 자동 후속 실행은 해당 Firebase 실행의 감사 artifact에서 `mobileUploadRequested=true`를 확인한다. 해시와 소스 SHA·태그·run/attempt를 검증하고, 과거 기록에 선택 필드가 없으면 모바일 빌드·업로드를 건너뛴다. artifact가 없거나 만료·불일치하면 차단한다. 서버·웹만 선택해도 모바일의 짧은 preflight 실행은 표시될 수 있지만 SDK 설치·빌드·업로드는 하지 않는다.
+
+모바일을 먼저 설치하고 서버만 나중에 배포할 수 있다. 현재 운영 backend receipt와 후보의 서버·규칙 지문이 같으면 기존 확인을 재사용한다. 다르면 `mobile-backend-compatibility` CI에서 현재 운영 서버 사본에 후보 앱의 직렬화 데이터와 관련 callable/규칙 계약을 재생하고, 현재 서버에서의 앱 동작 및 새 기능의 대기·비활성 테스트를 통과해야 한다. 후보와 운영 서버에 맞는 검증 명세를 `release-notes/mobile-compatibility.json`에 관리한다. 단순 승인 체크박스나 `skip_ci`는 이 증거를 대신하지 않는다. SDK 설치 전과 업로드 직전에 실제 운영 receipt·지문과 증거의 앱 SHA·태그·run/attempt를 확인한다. 실제 운영 데이터를 변경하는 검사는 아니다. 상세 절차와 검증 범위는 [모바일 먼저 배포](operations/mobile-first-release.md)를 따른다.
+
+모바일에 사용한 동일 소스의 서버를 나중에 올릴 때는 기존 태그의 Firebase workflow에서 `scope=backend`, `deploy_mobile=false`를 선택한다. 소스가 달라지면 새 후보·일치하는 새 태그가 필요하다. 기존 앱·TV·열린 웹과의 호환성을 유지하며 태그를 옮겨 재사용하지 않는다.
+
+생략해도 태그 고정·SHA·main 이력·버전·운영 배포 대상, 빌드·서명·환경·번호·실제 산출물·manifest 해시·배포 후 smoke는 확인한다. 웹 빌드는 필요한 범위에서 계속 실행하며 서버·웹 배포 범위를 넓히지 않는다. 모바일의 현재 운영 backend receipt와 지문 일치 또는 실제 호환성 테스트 증거 확인도 유지한다.
 
 - 명시적 수동 CI 생략이 없으면 통합 검증 실패·취소·미실행 시 운영 배포를 시작하지 않는다. 태그·대상 커밋 불일치는 생략 여부와 관계없이 차단한다.
 - 실패를 수정한 새 후보는 영향을 받는 기능 검증을 갱신하고 해당 후보의 CI 결과 또는 명시적 생략 기록을 남긴다. 생략 선택이 기존 실패를 통과로 바꾸지는 않는다.
@@ -150,7 +158,7 @@ QA는 기존 개발 앱 `com.sunmkim.cloudboard.dev`·`development` flavor·`clo
 
 개발 Firebase 앱 설정과 iOS 개발 앱의 기기 설치용 서명은 이미 준비됐다. `.dev` 스토어 등록·배포용 서명·업로드 준비는 별도 미확인이며 개발 Play 번호 기준 파일도 없다. 실제 개발 앱의 스토어 상태와 번호 이력을 확인하고 각 Environment에 `MOBILE_DEVELOPMENT_READY=true`를 설정한 뒤 QA 스토어 경로의 빌드를 허용한다. 준비 전에는 차단 상태를 보고하고 SDK 설치·빌드·업로드를 시작하지 않는다. 운영 Play 기준 파일을 개발 앱에 재사용하지 않는다.
 
-개발 웹·서버와 모바일 QA는 같은 Firebase를 사용한다. QA 업로드는 운영 backend receipt를 요구하지 않고 운영 설치 클라이언트 계약 추적에서 제외한다. 과거 실제 운영 Firebase 연결 QA 기록은 보존한다. release는 태그 CI 성공 또는 명시적 생략 기록과 현재 운영 서버 지문 일치를 확인하며 개발 배포 성공으로 대체하지 않는다.
+개발 웹·서버와 모바일 QA는 같은 Firebase를 사용한다. QA 업로드는 운영 backend receipt를 요구하지 않고 운영 설치 클라이언트 계약 추적에서 제외한다. 과거 실제 운영 Firebase 연결 QA 기록은 보존한다. release는 태그 CI 성공 또는 명시적 생략 기록과 현재 운영 서버 호환성 증거를 확인하며 개발 배포 성공으로 대체하지 않는다.
 
 모바일 수동 release의 CI 생략은 Firebase CI 생략 실행을 먼저 요구하지 않는다. 자동으로 이어지는 모바일 release가 Firebase의 생략 기록을 사용한다면 그 실행의 run/attempt·SHA·태그를 확인하고 감사 정보를 이어 기록한다. 두 경로 모두 백엔드 호환성 검사는 유지한다.
 
@@ -184,7 +192,7 @@ PR 양식의 세 섹션과 `검증한 커밋:`에 현재 PR head SHA(7자리 이
 | `firebase-development.yml` | `dev/vX.Y.Z-N` 태그 또는 해당 태그 재시도에서 개발 웹·서버 배포 |
 | `firebase-hosting-merge.yml` | `vX.Y.Z` 운영 CI·범위별 배포, 또는 main의 수동 `scope=verify` 진단 |
 | `testflight-main.yml`, `google-play-main.yml` | 개발 태그 QA 및 운영 릴리즈의 플랫폼별 빌드·서명·업로드 |
-| `start-production-release.yml` | main에서 새 운영 태그와 CI 선택을 받아 릴리즈를 한 번 시작 |
+| `start-production-release.yml` | main에서 새 운영 태그, 서버·웹·모바일 대상과 CI 선택을 받아 릴리즈를 한 번 시작 |
 | `class-start-regressions.yml` | 운영 검증에서 재사용 호출. PR·develop 자동 실행 없음 |
 | `app-update-news.yml` | 운영 완료 이벤트와 수동 복구에서 실제 배포 증거를 확인해 소식 게시. 별도 PR·develop 검사와 게시마다의 자체 테스트 제거 |
 | `firebase-release-monitor.yml` | 시간별 운영 규칙·저장 진단·보호 설정 관찰. 배포하지 않음 |
