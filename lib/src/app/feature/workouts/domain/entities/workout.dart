@@ -130,6 +130,13 @@ abstract class WorkoutModule with _$WorkoutModule {
     beep: true,
     coverImage: false,
     timerColorValue: null,
+    // Write explicit colors only for new slides. Older saved slides still use
+    // their original nullable fields and legacy phase-color fallbacks.
+    workGaugeColor: '#000000',
+    workTextColor: '#000000',
+    restGaugeColor: '#526B60',
+    restTextColor: '#526B60',
+    appearance: const SlideAppearance(setsColor: 0xFF000000),
   );
 }
 

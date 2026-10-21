@@ -15,6 +15,8 @@ import 'package:cloud_board/src/app/feature/playback/presentation/widgets/active
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/slide_library_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_slides_page.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_jobs_page.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_raster_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
@@ -62,6 +64,7 @@ GoRouter appRouter(Ref ref) {
   final workoutGuard = ExitGuard();
   final slideGuard = ExitGuard();
   final imageCreationGuard = ExitGuard();
+  final rasterCreationGuard = ExitGuard();
   final standbyGuard = ExitGuard();
   final operationsGuard = ExitGuard();
   final profileGuard = ExitGuard();
@@ -362,6 +365,19 @@ GoRouter appRouter(Ref ref) {
                 path: 'images/create',
                 builder: (_, _) => AiSlidesPage(guard: imageCreationGuard),
                 onExit: (_, _) => imageCreationGuard.confirm(),
+                routes: [
+                  GoRoute(
+                    path: 'library',
+                    // Keep the studio on the same navigator stack. /slides is
+                    // a main tab and must not be pushed as another shell.
+                    builder: (_, _) => const TemplateJobsPage(),
+                  ),
+                  GoRoute(
+                    path: 'raster',
+                    builder: (_, _) => AiRasterPage(guard: rasterCreationGuard),
+                    onExit: (_, _) => rasterCreationGuard.confirm(),
+                  ),
+                ],
               ),
               GoRoute(
                 path: 'slides/:moduleId',

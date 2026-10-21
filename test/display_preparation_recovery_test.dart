@@ -1,4 +1,8 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
+
 import 'dart:async';
+
+import 'package:cloud_board/src/app/core/runtime_policy/display_heartbeat_policy_service.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
@@ -52,6 +56,8 @@ class _Repository implements DisplayPreparationRepository {
   Stream<DisplayPreparation?> Function()? requestStream;
   int subscriptions = 0;
   final responses = <String>[];
+  final heartbeats = <DisplayHeartbeatPolicy?>[];
+  Completer<void>? heartbeatGate;
   @override
   Stream<DisplayPreparation?> watchRequest(String deviceId) {
     subscriptions++;
@@ -87,7 +93,16 @@ class _Repository implements DisplayPreparationRepository {
   }
 
   @override
-  Future<void> heartbeat(String deviceId, {bool ready = false}) async {}
+  Future<void> heartbeat(
+    String deviceId, {
+    bool ready = false,
+    DisplayHeartbeatPolicy? policy,
+    String? connectionId,
+  }) async {
+    heartbeats.add(policy);
+    await heartbeatGate?.future;
+  }
+
   @override
   Future<void> reportHealth(
     String deviceId, {
@@ -110,16 +125,21 @@ class _Harness extends HookConsumerWidget {
     required this.connected,
     this.paired = true,
     this.foreground = true,
+    this.standby = true,
+    this.withPolicy = false,
   });
-  final bool connected, paired, foreground;
+  final bool connected, paired, foreground, standby, withPolicy;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useDisplayPreparation(
       context,
       ref,
       deviceId: 'tv',
+      ownerId: withPolicy ? 'owner' : null,
+      connectionId: withPolicy ? 'connection' : null,
+      initialHeartbeatPolicy: DisplayHeartbeatPolicy.legacy,
       paired: paired,
-      standby: true,
+      standby: standby,
       connected: connected,
       foreground: foreground,
     );
@@ -129,6 +149,19 @@ class _Harness extends HookConsumerWidget {
 
 class _Fixture {
   final repository = _Repository();
+  int policyFetches = 0;
+  Map<String, dynamic>? policy = {
+    ...DisplayHeartbeatPolicy.target.toJson(),
+    'revision': 1,
+  };
+  late final policyService = DisplayHeartbeatPolicyService(
+    fetch: () async {
+      policyFetches++;
+      return policy;
+    },
+    readCache: () async => null,
+    writeCache: (_) async {},
+  );
   final diagnostics = _Diagnostics();
   final events = <Map<String, dynamic>>[];
   late final telemetry = OperationTelemetry(
@@ -138,6 +171,7 @@ class _Fixture {
   late final container = ProviderContainer(
     overrides: [
       displayPreparationRepositoryProvider.overrideWithValue(repository),
+      displayHeartbeatPolicyServiceProvider.overrideWithValue(policyService),
       serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
       errorReporterProvider.overrideWithValue(ErrorReporter(diagnostics)),
       operationTelemetryProvider.overrideWithValue(telemetry),
@@ -148,6 +182,8 @@ class _Fixture {
     bool connected = true,
     bool paired = true,
     bool foreground = true,
+    bool standby = true,
+    bool withPolicy = false,
   }) async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -157,6 +193,8 @@ class _Fixture {
             connected: connected,
             paired: paired,
             foreground: foreground,
+            standby: standby,
+            withPolicy: withPolicy,
           ),
         ),
       ),
@@ -172,6 +210,79 @@ class _Fixture {
 }
 
 void main() {
+  testWidgets(
+    'heartbeat changes to 60 seconds after server acceptance with one timer and one standby fetch',
+    (tester) async {
+      final f = _Fixture();
+      f.repository.candidate = null;
+      await f.mount(tester, withPolicy: true);
+      expect(f.repository.heartbeats.map((p) => p?.interval.inSeconds), [20]);
+      expect(f.policyFetches, 1);
+      f.repository.heartbeatGate = Completer<void>();
+      await tester.pump(const Duration(seconds: 20));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats.map((p) => p?.interval.inSeconds), [
+        20,
+        60,
+      ]);
+      f.repository.heartbeatGate!.complete();
+      f.repository.heartbeatGate = null;
+      await _settlePreparation(tester);
+      await tester.pump(const Duration(seconds: 59));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats, hasLength(2));
+      await tester.pump(const Duration(seconds: 1));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats, hasLength(3));
+      expect(f.policyFetches, 1);
+      await f.mount(tester, withPolicy: true, connected: false);
+      await tester.pump(const Duration(seconds: 60));
+      expect(f.repository.heartbeats, hasLength(3));
+      await f.close(tester);
+    },
+  );
+
+  testWidgets(
+    'a class and pause freeze pending policy; returning to standby applies a newer rollback',
+    (tester) async {
+      final f = _Fixture();
+      f.repository.candidate = null;
+      await f.mount(tester, withPolicy: true);
+      await f.mount(tester, withPolicy: true, standby: false);
+      await tester.pump(const Duration(seconds: 20));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats.map((p) => p?.interval.inSeconds), [
+        20,
+        20,
+      ]);
+      await f.mount(tester, withPolicy: true, standby: false);
+      await tester.pump(const Duration(seconds: 20));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats.last!.interval.inSeconds, 20);
+      expect(f.policyFetches, 1);
+      await f.mount(tester, withPolicy: true);
+      await tester.pump(const Duration(seconds: 20));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats.last!.interval.inSeconds, 60);
+      await f.mount(tester, withPolicy: true, standby: false);
+      f.policy = {
+        ...f.policy!,
+        'revision': 2,
+        'heartbeatIntervalSeconds': 20,
+        'noResponseTimeoutSeconds': 75,
+      };
+      await tester.pump(const Duration(seconds: 60));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats.last!.interval.inSeconds, 60);
+      await f.mount(tester, withPolicy: true);
+      await tester.pump(const Duration(seconds: 60));
+      await _settlePreparation(tester);
+      expect(f.repository.heartbeats.last!.interval.inSeconds, 20);
+      expect(f.repository.heartbeats.last!.revision, 2);
+      await f.close(tester);
+    },
+  );
+
   testWidgets(
     'stream error cancels cached candidate work; fresh subscription can prepare the same candidate',
     (tester) async {

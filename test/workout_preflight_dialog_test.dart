@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
@@ -629,7 +631,12 @@ class _PreparationRepository implements DisplayPreparationRepository {
     required bool audioReady,
   }) async {}
   @override
-  Future<void> heartbeat(String deviceId, {bool ready = false}) async {}
+  Future<void> heartbeat(
+    String deviceId, {
+    bool ready = false,
+    DisplayHeartbeatPolicy? policy,
+    String? connectionId,
+  }) async {}
   @override
   Future<void> reportHealth(
     String deviceId, {

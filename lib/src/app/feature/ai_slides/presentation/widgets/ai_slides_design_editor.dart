@@ -78,6 +78,7 @@ class AiSlidesDesignEditor extends StatelessWidget {
                           children: [
                             ExcludeSemantics(
                               child: WorkoutSlidePreview(
+                                creationTypography: true,
                                 module: module.copyWith(
                                   designLayout: choice.key,
                                 ),

@@ -31,8 +31,12 @@ class SlideLibraryScreen extends HookConsumerWidget {
     this.onSelect,
     this.initialFavoritesOnly = false,
     this.asMainTab = false,
+    this.imagesOnly = false,
   });
   final bool asMainTab;
+
+  /// Studio-specific view of saved image results; never changes library data.
+  final bool imagesOnly;
   final bool initialFavoritesOnly; // Retained for old deep links; all saved items remain visible.
   final ValueChanged<WorkoutModule>? onSelect;
   @override
@@ -50,14 +54,17 @@ class SlideLibraryScreen extends HookConsumerWidget {
     final templates = ref.watch(provider);
     final actions = ref.read(provider.notifier);
     final writingIds = ref.watch(slideTemplateWritesProvider(scope));
-    final all = templates.value ?? const <WorkoutModule>[];
-    final workouts = onSelect == null
+    final all = (templates.value ?? const <WorkoutModule>[])
+        .where((item) => !imagesOnly || item.imageSource.trim().isNotEmpty)
+        .toList();
+    final fullLibrary = onSelect == null && !imagesOnly;
+    final workouts = fullLibrary
         ? ref.watch(workoutControllerProvider)
         : const AsyncData(<WorkoutSummary>[]);
-    final folders = onSelect == null
+    final folders = fullLibrary
         ? ref.watch(libraryFoldersProvider)
         : const AsyncData(<String>[]);
-    final folderAction = onSelect == null
+    final folderAction = fullLibrary
         ? ref.watch(libraryFolderControllerProvider)
         : const AsyncData<void>(null);
     final workoutAction = onSelect == null
@@ -120,7 +127,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
       }
       return counts;
     }, [workouts.value, all]);
-    final catalog = onSelect == null
+    final catalog = fullLibrary
         ? ref.watch(workoutCatalogStatusProvider)
         : const CatalogLoadState();
     final catalogPending = useState(false);
@@ -159,20 +166,20 @@ class SlideLibraryScreen extends HookConsumerWidget {
         if (!active || !context.mounted) return;
         filter.value = null;
         refreshFailure.value = null;
-        if (onSelect == null) unawaited(loadCatalog());
+        if (fullLibrary) unawaited(loadCatalog());
       });
       return () {
         active = false;
         requestVersion.value++;
       };
-    }, [scope, onSelect == null]);
+    }, [scope, fullLibrary]);
 
     Future<void> refreshLibrary() async {
       refreshFailure.value = null;
       try {
         await Future.wait([
           ref.refresh(provider.future),
-          if (onSelect == null) ...[
+          if (fullLibrary) ...[
             loadCatalog(refresh: true),
             ref.refresh(libraryFoldersProvider.future),
           ],
@@ -215,7 +222,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
         readLoading || folderAction.isLoading || workoutAction.isLoading;
     final sectionName = switch (tab.index) {
       0 => '워크아웃',
-      1 => '슬라이드',
+      1 => imagesOnly ? '이미지' : '슬라이드',
       _ => '폴더',
     };
     Widget emptyState(
@@ -250,7 +257,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
       return _Empty(
         emptyMessage,
         actionLabel: actionLabel,
-        onAction: onSelect == null ? onAction : null,
+        onAction: fullLibrary ? onAction : null,
       );
     }
 
@@ -458,10 +465,16 @@ class SlideLibraryScreen extends HookConsumerWidget {
         : const AsyncData(null);
     return Scaffold(
       appBar: AppBar(
-        title: Text(onSelect == null ? '라이브러리' : '슬라이드 빠른 삽입'),
+        title: Text(
+          imagesOnly
+              ? '저장된 이미지'
+              : onSelect == null
+              ? '라이브러리'
+              : '슬라이드 빠른 삽입',
+        ),
         automaticallyImplyLeading: !asMainTab,
         actions: [
-          if (onSelect == null)
+          if (fullLibrary)
             IconButton(
               tooltip: tab.index == 0
                   ? '워크아웃 만들기'
@@ -499,7 +512,7 @@ class SlideLibraryScreen extends HookConsumerWidget {
                   SliverToBoxAdapter(
                     child: Column(
                       children: [
-                        if (onSelect == null)
+                        if (fullLibrary)
                           TabBar(
                             key: const ValueKey('library-category-tabs'),
                             controller: tab,
@@ -527,7 +540,9 @@ class SlideLibraryScreen extends HookConsumerWidget {
                                   labelText: tab.index == 0
                                       ? '워크아웃 검색'
                                       : tab.index == 1
-                                      ? '슬라이드 검색'
+                                      ? imagesOnly
+                                            ? '이미지 검색'
+                                            : '슬라이드 검색'
                                       : '폴더 검색',
                                   prefixIcon: const Icon(Icons.search),
                                 ),
@@ -567,10 +582,12 @@ class SlideLibraryScreen extends HookConsumerWidget {
                                 const PlanUsageNotice(resource: 'savedSlides'),
                               if (tab.index == 0) const PlanUsageNotice(),
                               if (tab.index == 1)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
                                   child: Text(
-                                    '저장한 슬라이드를 모아둔 곳이에요. 워크아웃에 추가하면 복사본으로 사용됩니다.',
+                                    imagesOnly
+                                        ? '저장한 이미지 결과를 모아둔 곳이에요. 열어서 확인하거나 워크아웃에 복사해 사용할 수 있어요.'
+                                        : '저장한 슬라이드를 모아둔 곳이에요. 워크아웃에 추가하면 복사본으로 사용됩니다.',
                                     style: TextStyle(fontSize: 12),
                                   ),
                                 ),
@@ -708,9 +725,11 @@ class SlideLibraryScreen extends HookConsumerWidget {
                         if (tab.index == 1) {
                           if (slides.isEmpty) {
                             return emptyState(
-                              '저장한 슬라이드가 없습니다.',
-                              actionLabel: '슬라이드 만들기',
-                              onAction: createSlide,
+                              imagesOnly
+                                  ? '저장한 이미지가 없습니다. 슬라이드 만들기에서 생성한 이미지를 저장해 주세요.'
+                                  : '저장한 슬라이드가 없습니다.',
+                              actionLabel: imagesOnly ? null : '슬라이드 만들기',
+                              onAction: imagesOnly ? null : createSlide,
                             );
                           }
                           final item = slides[index];

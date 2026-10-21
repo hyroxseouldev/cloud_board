@@ -10,6 +10,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/original_slide_templ
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design_typography.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/original_slide_renderer.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/starter_exercise_artwork.dart';
 
 const slideDesignMinimumFontSize = SlideDesignTypography.minimumReadable;
 
@@ -129,9 +130,18 @@ class SlideDesignTextBounds {
 /// Uses exactly the same measured text and bounds as preview and PNG export.
 /// A warning prevents new drafts from being added at unreadably small sizes;
 /// old saved artwork can still render in full without dropping any content.
-SlideDesignLayoutMetrics measureSlideDesign(WorkoutModule module) {
-  if (!isOriginalSlideTemplate(module)) return _createPlan(module).metrics;
-  final original = measureOriginalSlide(module);
+SlideDesignLayoutMetrics measureSlideDesign(
+  WorkoutModule module, {
+  bool creationTypography = false,
+}) {
+  creationTypography = creationTypography || isCreationSlideDesign(module);
+  if (!isOriginalSlideTemplate(module)) {
+    return _createPlan(module, creationTypography: creationTypography).metrics;
+  }
+  final original = measureOriginalSlide(
+    module,
+    fixedTypography: creationTypography,
+  );
   return SlideDesignLayoutMetrics(
     minFontSize: original.minFontSize,
     columns: 1,
@@ -186,12 +196,14 @@ class _Plan {
     this.cards, {
     this.shapes = const [],
     this.motifs = const [],
+    this.exercises = const [],
   });
   final SlideDesignLayoutMetrics metrics;
   final List<_DrawText> text;
   final List<Rect> cards;
   final List<_DrawShape> shapes;
   final List<_DrawText> motifs;
+  final List<({Rect rect, StarterExercise exercise})> exercises;
 }
 
 class _DrawShape {
@@ -315,18 +327,36 @@ List<List<int>> _partition(List<double> heights, int columns, double gap) {
   return [...result, for (var c = count; c < columns; c++) <int>[]];
 }
 
+// New creation uses source order/count only, never text measurements. Editing
+// one section's wording cannot rebalance other sections into different columns.
+List<List<int>> _fixedPartition(int count, int columns) {
+  final perColumn = math.max(1, (count / columns).ceil());
+  return List.generate(
+    columns,
+    (column) => [
+      for (
+        var i = column * perColumn;
+        i < math.min(count, (column + 1) * perColumn);
+        i++
+      )
+        i,
+    ],
+  );
+}
+
 // Preview thumbnails, export, and the live canvas share the same immutable
 // layout plan. Timer ticks do not repeat hundreds of text measurements.
 final _layoutCache = <String, _Plan>{};
 
-_Plan _createPlan(WorkoutModule module) {
-  final key = _renderKey(module);
+_Plan _createPlan(WorkoutModule module, {bool creationTypography = false}) {
+  creationTypography = creationTypography || isCreationSlideDesign(module);
+  final key = '$creationTypography:${_renderKey(module)}';
   final existing = _layoutCache.remove(key);
   if (existing != null) {
     _layoutCache[key] = existing;
     return existing;
   }
-  final plan = _measurePlan(module);
+  final plan = _measurePlan(module, creationTypography: creationTypography);
   _layoutCache[key] = plan;
   while (_layoutCache.length > 32) {
     _layoutCache.remove(_layoutCache.keys.first);
@@ -334,8 +364,11 @@ _Plan _createPlan(WorkoutModule module) {
   return plan;
 }
 
-_Plan _measurePlan(WorkoutModule module) {
-  if (isStudioSlideDesign(module)) return _measureStudioPlan(module);
+_Plan _measurePlan(WorkoutModule module, {bool creationTypography = false}) {
+  if (isIllustratedStarterDesign(module)) return _measureStarterPlan(module);
+  if (isStudioSlideDesign(module)) {
+    return _measureStudioPlan(module, creationTypography: creationTypography);
+  }
   final exclusion = slideTimerGeometry(
     module,
     SlideDesignPainter.size,
@@ -343,7 +376,9 @@ _Plan _measurePlan(WorkoutModule module) {
   final region = _textRegion(exclusion);
   final sections = parseSlideDesignSections(module.text);
   final isCards = module.designLayout == 'cards';
-  final candidateColumns = module.designLayout == 'columns'
+  final candidateColumns = creationTypography
+      ? [module.designLayout == 'auto' ? 1 : 2]
+      : module.designLayout == 'columns'
       ? [2]
       : isCards
       ? [1, if (sections.length > 1) 2, if (sections.length > 2) 3]
@@ -357,6 +392,7 @@ _Plan _measurePlan(WorkoutModule module) {
       exclusion,
       columns,
       isCards,
+      creationTypography: creationTypography,
     );
     // The large-text option keeps a simple reading path while comfortably
     // readable. Cards favor one short section per column when sizes are close.
@@ -377,14 +413,185 @@ _Plan _measurePlan(WorkoutModule module) {
   return best!;
 }
 
+_Plan _measureStarterPlan(WorkoutModule module) {
+  final lines = slideDesignLines(module.text);
+  final exclusion = slideTimerGeometry(
+    module,
+    SlideDesignPainter.size,
+  ).exclusion;
+  final region = _textRegion(exclusion);
+  // A coach can freely expand the content or move the timer. Keep every edited
+  // line visible using the existing measured layout if the illustrated rows no
+  // longer fit. Do not crop text or attach the old exercise to a new movement.
+  if (lines.isEmpty ||
+      lines.length > 3 ||
+      lines.any((line) => line == '##' || line.startsWith('## ')) ||
+      region.width < 930 ||
+      region.height < 800) {
+    return _measureStudioPlan(
+      module.copyWith(designTemplate: 'studio-v1-numbered'),
+    );
+  }
+  final foreground = _foreground(module);
+  final accent = Color(module.designAccentColor ?? 0xFF526B60);
+  final text = <_DrawText>[];
+  final shapes = <_DrawShape>[];
+  final exercises = <({Rect rect, StarterExercise exercise})>[];
+  final title = _fitStudioText(
+    module,
+    module.name,
+    Rect.fromLTWH(region.left + 28, region.top + 12, region.width - 36, 124),
+    94,
+    foreground,
+    role: 'title',
+    title: true,
+  );
+  text.add(title);
+  shapes.add(
+    _DrawShape(
+      Rect.fromLTWH(region.left, region.top + 12, 10, 104),
+      accent,
+      radius: 5,
+    ),
+  );
+  final hasInstruction = module.designSubtitle.trim().isNotEmpty;
+  final top = region.top + 190;
+  final bottom = region.bottom - (hasInstruction ? 82 : 0);
+  final rowHeight = (bottom - top) / lines.length;
+  for (var index = 0; index < lines.length; index++) {
+    final centerY = top + (index + .5) * rowHeight;
+    final exercise = starterExerciseForLine(lines[index]);
+    if (exercise != null) {
+      exercises.add((
+        rect: Rect.fromLTWH(region.left, centerY - 100, 270, 200),
+        exercise: exercise,
+      ));
+    }
+    final number = _fitStudioText(
+      module,
+      '${index + 1}'.padLeft(2, '0'),
+      Rect.fromLTWH(region.left + 306, centerY - 36, 78, 84),
+      54,
+      accent,
+      role: 'number',
+      label: true,
+    );
+    text.add(number);
+    final body = _fitStudioText(
+      module,
+      lines[index],
+      Rect.fromLTWH(region.left + 410, centerY - 70, region.width - 420, 140),
+      80,
+      foreground,
+      role: 'body',
+    );
+    text.add(
+      _DrawText(
+        body.value,
+        Rect.fromLTWH(
+          body.rect.left,
+          centerY - body.rect.height / 2,
+          body.rect.width,
+          body.rect.height,
+        ),
+        body.fontSize,
+        style: body.style,
+        role: body.role,
+      ),
+    );
+    if (index < lines.length - 1) {
+      shapes.add(
+        _DrawShape(
+          Rect.fromLTWH(
+            region.left + 306,
+            top + (index + 1) * rowHeight,
+            region.width - 306,
+            2,
+          ),
+          accent.withValues(alpha: .14),
+        ),
+      );
+    }
+  }
+  if (hasInstruction) {
+    text.add(
+      _fitStudioText(
+        module,
+        module.designSubtitle,
+        Rect.fromLTWH(region.left, region.bottom - 64, region.width, 64),
+        48,
+        accent,
+        role: 'subtitle',
+      ),
+    );
+  }
+  final headerArea = Rect.fromLTWH(
+    region.right + 60,
+    84,
+    math.max(1, 1824 - region.right - 60),
+    104,
+  );
+  if (module.designHeaderLabel.isNotEmpty &&
+      headerArea.width >= 300 &&
+      (exclusion == null || !headerArea.overlaps(exclusion))) {
+    text.add(
+      _fitStudioText(
+        module,
+        module.designHeaderLabel,
+        headerArea,
+        44,
+        accent,
+        role: 'header',
+        label: true,
+        align: TextAlign.right,
+      ),
+    );
+  }
+  final runs = [
+    for (final item in text)
+      SlideDesignTextBounds(
+        role: item.role,
+        value: item.value,
+        rect: item.rect,
+        fontSize: item.fontSize,
+        fontFamily: item.style!.fontFamily!,
+        fontWeight: item.style!.fontWeight!.value,
+        color: item.style!.color!.toARGB32(),
+        italic: item.style!.fontStyle == FontStyle.italic,
+      ),
+  ];
+  final minFont = runs.map((run) => run.fontSize).reduce(math.min);
+  final readable =
+      minFont >= slideDesignMinimumFontSize &&
+      runs.every((run) => exclusion == null || !run.rect.overlaps(exclusion));
+  return _Plan(
+    SlideDesignLayoutMetrics(
+      minFontSize: minFont,
+      columns: 1,
+      timerExclusion: exclusion,
+      textBounds: region,
+      sections: [
+        SlideDesignSectionBounds(heading: '', lines: lines, rect: region),
+      ],
+      textRuns: runs,
+      warning: readable ? null : '글씨가 너무 작아져요. 문장을 간결하게 다듬어 주세요.',
+    ),
+    text,
+    const [],
+    shapes: shapes,
+    exercises: exercises,
+  );
+}
+
 _Plan _planColumns(
   WorkoutModule module,
   List<SlideDesignSection> sourceSections,
   Rect region,
   Rect? exclusion,
   int columns,
-  bool cards,
-) {
+  bool cards, {
+  bool creationTypography = false,
+}) {
   final sections = _splitLargeSection(sourceSections, columns);
   final gap = 30.0 * module.designSpacing;
   final padding = cards ? 22.0 : 0.0;
@@ -394,18 +601,23 @@ _Plan _planColumns(
   );
   final lineWidth = math.max(1.0, columnWidth - padding * 2);
   final titleHeightLimit = math.max(1.0, math.min(128.0, region.height * 0.22));
-  var titleSize = SlideDesignTypography.legacyTitleMax;
-  while (titleSize > 12 &&
+  var titleSize = creationTypography
+      ? 64.0
+      : SlideDesignTypography.legacyTitleMax;
+  while (!creationTypography &&
+      titleSize > 12 &&
       _textHeight(module, module.name, titleSize, region.width) >
           titleHeightLimit) {
     titleSize -= 2;
   }
   final titleHeight = _textHeight(module, module.name, titleSize, region.width);
-  final bodyTop = region.top + titleHeight + 24;
+  final bodyTop = region.top + (creationTypography ? 112 : titleHeight) + 24;
   final availableHeight = math.max(1.0, region.bottom - bodyTop);
   final numbered = slideDesignKind(module) == 'numbered';
   final sectionSizes = <double>[];
-  var fontSize = SlideDesignTypography.legacyBodyMax(columns);
+  var fontSize = creationTypography
+      ? 48.0
+      : SlideDesignTypography.legacyBodyMax(columns);
   var partition = <List<int>>[];
   var fits = false;
   // New drafts use the readable floor exposed by metrics. The lower fallback is
@@ -430,7 +642,9 @@ _Plan _planColumns(
       }
       sectionSizes.add(height);
     }
-    partition = _partition(sectionSizes, columns, fontSize * 0.55);
+    partition = creationTypography
+        ? _fixedPartition(sectionSizes.length, columns)
+        : _partition(sectionSizes, columns, fontSize * 0.55);
     final maxHeight = partition.fold<double>(
       0,
       (max, indices) => math.max(
@@ -440,7 +654,7 @@ _Plan _planColumns(
       ),
     );
     fits = maxHeight <= availableHeight;
-    if (fits || fontSize == 8) break;
+    if (creationTypography || fits || fontSize == 8) break;
   }
   final text = <_DrawText>[
     _DrawText(
@@ -518,6 +732,7 @@ _Plan _planColumns(
       fits &&
       fontSize >= slideDesignMinimumFontSize &&
       titleSize >= 48 &&
+      (!creationTypography || titleHeight <= titleHeightLimit) &&
       region.width >= 480 &&
       !empty;
   return _Plan(
@@ -672,11 +887,12 @@ _DrawText _fitStudioText(
   bool title = false,
   bool label = false,
   TextAlign align = TextAlign.left,
+  bool fixedTypography = false,
 }) {
   var size = maxSize;
   var style = _studioStyle(module, size, color, title: title, label: label);
   var height = _studioHeight(value, style, area.width);
-  while (size > 8 && height > area.height) {
+  while (!fixedTypography && size > 8 && height > area.height) {
     size -= 2;
     style = _studioStyle(module, size, color, title: title, label: label);
     height = _studioHeight(value, style, area.width);
@@ -736,7 +952,10 @@ _DrawText _fitStudioMotif(
 /// Studio layouts share measurements with the export painter but deliberately
 /// retain their own layout geometry. Content, headings and decoration remain
 /// separate: no exercise is inferred from a motif or removed to make it fit.
-_Plan _measureStudioPlan(WorkoutModule module) {
+_Plan _measureStudioPlan(
+  WorkoutModule module, {
+  bool creationTypography = false,
+}) {
   final family = _studioFamily(module);
   final banner = family == 'banner';
   final editorial = family == 'editorial';
@@ -762,7 +981,7 @@ _Plan _measureStudioPlan(WorkoutModule module) {
   final contentLeft = region.left + titleInset;
   final contentWidth = math.max(1.0, region.width - titleInset);
   final label = module.designHeaderLabel.trim();
-  final labelWidth = label.isEmpty
+  final labelWidth = !creationTypography && label.isEmpty
       ? 0.0
       : contentWidth * (banner ? 0.29 : 0.25);
   final titleTop = region.top + (editorial ? 26 : 0);
@@ -780,17 +999,24 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         1,
         contentWidth -
             labelWidth -
-            (label.isEmpty ? 0 : SlideDesignTypography.titleLabelGap),
+            (!creationTypography && label.isEmpty
+                ? 0
+                : SlideDesignTypography.titleLabelGap),
       ),
       headerMaxHeight,
     ),
-    SlideDesignTypography.titleMax(family),
+    creationTypography
+        ? (editorial ? 76 : 64)
+        : SlideDesignTypography.titleMax(family),
     titleColor,
     role: 'title',
     title: true,
+    fixedTypography: creationTypography,
   );
   text.add(title);
-  var headerBottom = title.rect.bottom;
+  var headerBottom = creationTypography
+      ? titleTop + headerMaxHeight
+      : title.rect.bottom;
   if (label.isNotEmpty) {
     final labelRun = _fitStudioText(
       module,
@@ -801,11 +1027,12 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         labelWidth,
         headerMaxHeight - 10,
       ),
-      SlideDesignTypography.headerLabelMax(family),
+      creationTypography ? 32 : SlideDesignTypography.headerLabelMax(family),
       banner ? titleColor : foreground,
       role: 'headerLabel',
       label: true,
       align: TextAlign.right,
+      fixedTypography: creationTypography,
     );
     text.add(labelRun);
     headerBottom = math.max(headerBottom, labelRun.rect.bottom);
@@ -858,15 +1085,21 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         contentWidth,
         math.min(112.0, region.height * .2),
       ),
-      SlideDesignTypography.subtitleMax(family),
+      creationTypography ? 38 : SlideDesignTypography.subtitleMax(family),
       editorial ? foreground : accentText,
       role: 'subtitle',
       label: !editorial,
+      fixedTypography: creationTypography,
     );
     text.add(subtitleRun);
-    bodyTop = subtitleRun.rect.bottom + SlideDesignTypography.subtitleGap;
+    bodyTop =
+        (creationTypography ? bodyTop + 88 : subtitleRun.rect.bottom) +
+        SlideDesignTypography.subtitleGap;
   }
 
+  if (creationTypography && subtitle.isEmpty) {
+    bodyTop += 88 + SlideDesignTypography.subtitleGap;
+  }
   final sourceSections = parseSlideDesignSections(module.text);
   // A plain list becomes one card per exercise. Explicit sections remain
   // intact, in their original order, with the heading inside each card.
@@ -879,7 +1112,9 @@ _Plan _measureStudioPlan(WorkoutModule module) {
             (heading: '', lines: [line]),
         ]
       : sourceSections;
-  final columns = module.designLayout == 'columns'
+  final columns = creationTypography
+      ? (module.designLayout == 'columns' || cards ? 2 : 1)
+      : module.designLayout == 'columns'
       ? 2
       : cards && sections.length > 1
       ? (sections.length > 4 && region.width >= 1500 ? 3 : 2)
@@ -903,7 +1138,9 @@ _Plan _measureStudioPlan(WorkoutModule module) {
   final availableHeight = math.max(1.0, region.bottom - bodyTop);
   // Start from role-specific caps; dense content is measured independently,
   // never scaled down again after fitting.
-  var fontSize = cards
+  var fontSize = creationTypography
+      ? (cards ? 42.0 : 48.0)
+      : cards
       ? SlideDesignTypography.cardBodyMax
       : SlideDesignTypography.bodyMax;
   var heights = <double>[];
@@ -960,13 +1197,21 @@ _Plan _measureStudioPlan(WorkoutModule module) {
             ) +
             math.max(0, section.lines.length - 1) * rowGap,
     ];
-    partition = _partition(heights, columns, sectionGap);
+    partition = creationTypography
+        ? _fixedPartition(heights.length, columns)
+        : _partition(heights, columns, sectionGap);
     if (cards) {
-      gridCellHeight = math.max(
-        1,
-        (availableHeight - (gridRows - 1) * sectionGap) / gridRows,
-      );
-      fits = heights.every((height) => height <= gridCellHeight);
+      gridCellHeight = creationTypography
+          ? 220
+          : math.max(
+              1,
+              (availableHeight - (gridRows - 1) * sectionGap) / gridRows,
+            );
+      fits =
+          heights.every((height) => height <= gridCellHeight) &&
+          (!creationTypography ||
+              gridRows * gridCellHeight + (gridRows - 1) * sectionGap <=
+                  availableHeight);
     } else {
       final requiredHeight = partition.fold<double>(
         0,
@@ -978,13 +1223,14 @@ _Plan _measureStudioPlan(WorkoutModule module) {
       );
       fits = requiredHeight <= availableHeight;
     }
-    if (fits || fontSize == 8) break;
+    if (creationTypography || fits || fontSize == 8) break;
   }
 
   // A short list stays aligned at the top. Only a bounded part of the spare
   // space may increase its row gaps; smaller text must not spread rows apart.
   // Dense notes retain every row and warn instead of dropping content.
-  if (!cards &&
+  if (!creationTypography &&
+      !cards &&
       columns == 1 &&
       arranged.length == 1 &&
       arranged.single.lines.length >= 3 &&
@@ -1185,10 +1431,27 @@ _Plan _measureStudioPlan(WorkoutModule module) {
         run.rect.bottom <= region.bottom + .01 &&
         (exclusion == null || !run.rect.overlaps(exclusion)),
   );
+  final fixedHeaderFits =
+      !creationTypography ||
+      (title.rect.height <= headerMaxHeight &&
+          text.every(
+            (run) =>
+                run.rect.bottom <= region.bottom &&
+                (run.role != 'subtitle' || run.rect.height <= 88) &&
+                (run.role != 'headerLabel' ||
+                    run.rect.height <= headerMaxHeight - 10),
+          ));
   final readable =
+      fixedHeaderFits &&
       fits &&
       contentFits &&
-      minFont >= slideDesignMinimumFontSize &&
+      (creationTypography
+          ? text.every(
+              (run) =>
+                  run.fontSize >=
+                  (run.role == 'headerLabel' || run.role == 'number' ? 28 : 36),
+            )
+          : minFont >= slideDesignMinimumFontSize) &&
       title.fontSize >= 48 &&
       region.width >= 480 &&
       !empty;
@@ -1228,20 +1491,32 @@ _Plan _measureStudioPlan(WorkoutModule module) {
 
 /// Shared preview/export painter. Editing and playback never call AI.
 class SlideDesignPainter extends CustomPainter {
-  const SlideDesignPainter(this.module, {this.originalImage});
+  const SlideDesignPainter(
+    this.module, {
+    this.originalImage,
+    this.creationTypography = false,
+  });
+  final bool creationTypography;
   final WorkoutModule module;
   final ui.Image? originalImage;
   static const size = Size(1920, 1080);
 
   @override
   void paint(Canvas canvas, Size viewport) {
+    final fixedTypography = creationTypography || isCreationSlideDesign(module);
     if (isOriginalSlideTemplate(module)) {
       if (originalImage != null) {
-        paintOriginalSlide(canvas, viewport, module, originalImage!);
+        paintOriginalSlide(
+          canvas,
+          viewport,
+          module,
+          originalImage!,
+          fixedTypography: fixedTypography,
+        );
       }
       return;
     }
-    final plan = _createPlan(module);
+    final plan = _createPlan(module, creationTypography: fixedTypography);
     final background = _background(module);
     final foreground = _foreground(module);
     final accent = Color(module.designAccentColor ?? 0xFFFF343A);
@@ -1266,6 +1541,9 @@ class SlideDesignPainter extends CustomPainter {
         RRect.fromRectAndRadius(shape.rect, Radius.circular(shape.radius)),
         Paint()..color = shape.color,
       );
+    }
+    for (final item in plan.exercises) {
+      paintStarterExercise(canvas, item.rect, item.exercise);
     }
     for (final rect in plan.cards) {
       canvas.drawRRect(
@@ -1304,7 +1582,8 @@ class SlideDesignPainter extends CustomPainter {
   @override
   bool shouldRepaint(SlideDesignPainter oldDelegate) =>
       module != oldDelegate.module ||
-      originalImage != oldDelegate.originalImage;
+      originalImage != oldDelegate.originalImage ||
+      creationTypography != oldDelegate.creationTypography;
 }
 
 // Only visual inputs participate: timer progression and module IDs never trigger
@@ -1343,17 +1622,31 @@ String _renderKey(WorkoutModule module) => jsonEncode([
   module.appearance.setsSize,
 ]);
 
-Future<String> renderSlideDesign(WorkoutModule module) async {
+Future<String> renderSlideDesign(
+  WorkoutModule module, {
+  bool creationTypography = false,
+}) async {
+  creationTypography = creationTypography || isCreationSlideDesign(module);
   if (!hasSlideDesign(module)) return module.imageSource;
   final error = slideDesignError(module);
   if (error != null) throw FormatException(error);
-  final key = _renderKey(module);
+  if (creationTypography) {
+    final warning = measureSlideDesign(
+      module,
+      creationTypography: true,
+    ).warning;
+    if (warning != null) throw FormatException(warning);
+  }
+  final key = '$creationTypography:${_renderKey(module)}';
   final existing = _renderCache.remove(key);
   if (existing != null) {
     _renderCache[key] = existing;
     return existing;
   }
-  final pending = _renderSlideDesign(module);
+  final pending = _renderSlideDesign(
+    module,
+    creationTypography: creationTypography,
+  );
   _renderCache[key] = pending;
   while (_renderCache.length > 8) {
     _renderCache.remove(_renderCache.keys.first);
@@ -1366,7 +1659,10 @@ Future<String> renderSlideDesign(WorkoutModule module) async {
   }
 }
 
-Future<String> _renderSlideDesign(WorkoutModule module) async {
+Future<String> _renderSlideDesign(
+  WorkoutModule module, {
+  bool creationTypography = false,
+}) async {
   final originalImage = isOriginalSlideTemplate(module)
       ? await loadOriginalSlideImage(module.designStyle!.originalTemplate!)
       : null;
@@ -1374,6 +1670,7 @@ Future<String> _renderSlideDesign(WorkoutModule module) async {
   SlideDesignPainter(
     module,
     originalImage: originalImage,
+    creationTypography: creationTypography,
   ).paint(Canvas(recorder), SlideDesignPainter.size);
   final picture = recorder.endRecording();
   try {
@@ -1397,5 +1694,17 @@ Future<WorkoutModule> prepareSlideDesign(WorkoutModule module) async {
     imageSource: await renderSlideDesign(module),
     designFingerprint: slideDesignFingerprint(module),
     appearance: module.appearance.copyWith(showTitle: false, showBody: false),
+  );
+}
+
+/// Keep editable source/style and opt into fixed typography with a versioned ID.
+/// Old clients render the PNG; existing IDs and saved fingerprints stay intact.
+Future<WorkoutModule> prepareCreatedSlideDesign(WorkoutModule module) async {
+  if (!hasSlideDesign(module) || isIllustratedStarterDesign(module)) {
+    return prepareSlideDesign(module);
+  }
+  final family = isStudioSlideDesign(module) ? 'studio-v2' : 'stationd-v3';
+  return prepareSlideDesign(
+    module.copyWith(designTemplate: '$family-${slideDesignKind(module)}'),
   );
 }

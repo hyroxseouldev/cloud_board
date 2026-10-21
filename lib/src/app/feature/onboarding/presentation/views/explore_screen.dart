@@ -92,11 +92,16 @@ class ExploreScreen extends HookConsumerWidget {
                   );
                 },
                 icon: const Icon(Icons.play_circle_outline),
-                label: const Text('이 기기에서 예시 재생'),
+                label: const Text('예시 재생'),
               ),
               TextButton(
                 onPressed: createFromExample,
-                child: const Text('체험 건너뛰고 내 수업 만들기'),
+                child: const Text('내 수업으로 만들기'),
+              ),
+              Text(
+                '체험은 짧게 재생돼요. 저장하면 ${workoutDurationText(workout)} 수업이 됩니다.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppColors.muted),
               ),
             ],
           ),
@@ -109,11 +114,11 @@ class ExploreScreen extends HookConsumerWidget {
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             children: [
               Text(
-                '내 수업, 예시 하나로 시작해요',
+                '예시로 시작해 보세요',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 10),
-              const Text('재생해 보고, 마음에 들면 내 수업으로 바꿔 보세요. 계정이나 TV는 아직 필요 없어요.'),
+              const Text('계정이나 TV 없이 이 기기에서 재생할 수 있어요.'),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -146,23 +151,23 @@ class ExploreScreen extends HookConsumerWidget {
               const SizedBox(height: 16),
               WorkoutSlidePreview(module: workout.modules.first, isRest: false),
               const SizedBox(height: 8),
-              const Text(
-                '예시 · 자유롭게 수정하세요',
-                style: TextStyle(fontSize: 13, color: AppColors.muted),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '${workout.modules.length}개 슬라이드 · 저장하면 ${workoutDurationText(workout)} 수업',
-                style: const TextStyle(fontSize: 13, color: AppColors.muted),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '예시는 운동 8초·휴식 4초로 짧게 압축했어요. 재생과 다음 슬라이드를 직접 눌러 보세요.',
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: AppColors.muted,
-                ),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 16,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    '${workout.modules.length}개 슬라이드 · ${workoutDurationText(workout)}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const Text(
+                    '저장 후 수정할 수 있어요',
+                    style: TextStyle(fontSize: 13, color: AppColors.muted),
+                  ),
+                ],
               ),
               if (progress.value?.completedTemplates.contains(template.key) ==
                   true)

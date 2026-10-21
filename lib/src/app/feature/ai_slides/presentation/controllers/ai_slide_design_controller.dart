@@ -163,6 +163,9 @@ class AiSlideDesignController extends _$AiSlideDesignController {
 
   Future<bool> saveClass(String name, AiSlideTheme theme) async {
     if (state.saving) return false;
+    // Center-owned recipes are registered by the operator and must not leak
+    // into legacy personal style documents read by older apps.
+    if (theme.centerRecipe != null) return false;
     final session = _session;
     if (session.ownerId == null) {
       state = state.copyWith(error: '로그인 후 클래스 디자인을 저장해 주세요.');

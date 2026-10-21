@@ -50,6 +50,7 @@ class AiSlidesController extends _$AiSlidesController {
       unawaited(session.themeSubscription?.cancel());
       // Use only the captured account/snapshot, never a new account's state.
       if (persistDraft &&
+          session.snapshot?.draft?.centerRecipe == null &&
           session.ready &&
           session.changed &&
           session.ownerId != null) {
@@ -160,14 +161,15 @@ class AiSlidesController extends _$AiSlidesController {
   }
 
   void _remember() {
-    _session.history.add(_snapshot());
+    _session.history.add((_snapshot(), _session.templateSample));
     if (_session.history.length > 20) _session.history.removeAt(0);
   }
 
   /// The chosen visual style also applies to the next daily generation.
   void setPreferredTheme(AiSlideTheme? theme, {String? classLabel}) {
     final current = state.draft;
-    _session.preferredTheme = current?.designStyle == null
+    _session.preferredTheme =
+        current?.designStyle == null && current?.centerRecipe == null
         ? theme
         : aiSlideThemeFromDraft(current!);
     _session.preferredClassLabel =
@@ -176,24 +178,43 @@ class AiSlidesController extends _$AiSlidesController {
         : current?.designHeaderLabel ?? classLabel;
   }
 
-  void applyDesign(AiSlideTheme theme, {String? classLabel}) {
+  void applyDesign(
+    AiSlideTheme theme, {
+    String? classLabel,
+    AiSlideDraft? sample,
+  }) {
     final template = originalSlideTemplate(theme.designStyle?.originalTemplate);
     final original = template != null;
     final fixedTheme = theme;
     _session.preferredTheme = fixedTheme;
+    final current = state.draft;
+    final previousSample = _session.templateSample;
+    final replaceContent =
+        current == null ||
+        (previousSample != null &&
+            _sameTemplateContent(current, previousSample)) ||
+        (previousSample == null &&
+            (original || sample != null) &&
+            _sameTemplateContent(
+              current,
+              applyAiSlideTheme(
+                initialAiSlideDesignDraft(aiSlideThemeFromDraft(current)),
+                aiSlideThemeFromDraft(current),
+              ),
+            ));
     final draft = applyAiSlideTheme(
-      state.draft == null || (original && isUneditedAiSlideSample(state.draft!))
-          ? initialAiSlideDesignDraft(fixedTheme)
-          : state.draft!,
+      replaceContent
+          ? sample ?? initialAiSlideDesignDraft(fixedTheme)
+          : current,
       fixedTheme,
     );
-    updateDraft(
-      original
-          ? draft.copyWith(designHeaderLabel: template.programLabel)
-          : classLabel == null
-          ? draft
-          : draft.copyWith(designHeaderLabel: classLabel),
-    );
+    final selected = original
+        ? draft.copyWith(designHeaderLabel: template.programLabel)
+        : classLabel == null
+        ? draft
+        : draft.copyWith(designHeaderLabel: classLabel);
+    updateDraft(selected);
+    _session.templateSample = replaceContent ? selected : previousSample;
   }
 
   void updateDraft(AiSlideDraft draft) {
@@ -217,7 +238,9 @@ class AiSlidesController extends _$AiSlidesController {
 
   void undo() {
     if (_session.history.isEmpty) return;
-    final previous = _session.history.removeLast();
+    final entry = _session.history.removeLast();
+    final previous = entry.$1;
+    _session.templateSample = entry.$2;
     _session.preferredClassLabel = previous.draft?.designHeaderLabel;
     _session.preferredTheme = previous.draft == null
         ? null
@@ -236,6 +259,7 @@ class AiSlidesController extends _$AiSlidesController {
   }
 
   void dismissError() => state = state.copyWith(error: null);
+  void reportError(String message) => state = state.copyWith(error: message);
 
   Future<void> generate(String prompt) async {
     if (state.generating || state.loading) return;
@@ -285,6 +309,7 @@ class AiSlidesController extends _$AiSlidesController {
       return;
     }
     _remember();
+    session.templateSample = null;
     final theme = session.preferredTheme ?? (persistDraft ? state.theme : null);
     final template = originalSlideTemplate(
       theme?.designStyle?.originalTemplate,
@@ -336,6 +361,9 @@ class AiSlidesController extends _$AiSlidesController {
     session.debounce?.cancel();
     if (!session.ready || session.ownerId == null || !session.changed) return;
     final snapshot = session.snapshot;
+    // Private recipes never enter the legacy draft/settings namespace. This
+    // route normally has persistDraft=false; keep the boundary explicit too.
+    if (snapshot?.draft?.centerRecipe != null) return;
     try {
       await session.actions!.saveDraft(session.ownerId!, snapshot);
       if (_current(session) && session.snapshot == snapshot) {
@@ -358,6 +386,7 @@ class AiSlidesController extends _$AiSlidesController {
     session.history.clear();
     session.preferredTheme = null;
     session.preferredClassLabel = null;
+    session.templateSample = null;
     state = state.copyWith(
       prompt: '',
       generatedPrompt: null,
@@ -376,6 +405,7 @@ class AiSlidesController extends _$AiSlidesController {
     final session = _session;
     final draft = state.draft;
     if (draft == null || session.ownerId == null || state.themeSaving) return;
+    if (draft.centerRecipe != null) return;
     final theme = aiSlideThemeFromDraft(draft);
     state = state.copyWith(
       themeSaving: true,
@@ -415,16 +445,28 @@ class _EditorSession {
   AiSlideTheme? preferredTheme;
   String? preferredClassLabel;
   AiSlidesSavedDraft? snapshot;
+  AiSlideDraft? templateSample;
   bool ready = false, changed = false, disposed = false;
   int draftRevision = 0;
   Timer? debounce;
   Timer? themeTimeout;
   final initialTheme = Completer<void>();
   StreamSubscription<AiSlideTheme?>? themeSubscription;
-  final List<AiSlidesSavedDraft> history = [];
+  final List<(AiSlidesSavedDraft, AiSlideDraft?)> history = [];
 
   void finishThemeLoading() {
     themeTimeout?.cancel();
     if (!initialTheme.isCompleted) initialTheme.complete();
   }
 }
+
+bool _sameTemplateContent(AiSlideDraft a, AiSlideDraft b) =>
+    a.title == b.title &&
+    a.layout == b.layout &&
+    a.designHeaderLabel == b.designHeaderLabel &&
+    a.designSubtitle == b.designSubtitle &&
+    a.workSeconds == b.workSeconds &&
+    a.restSeconds == b.restSeconds &&
+    a.sets == b.sets &&
+    a.lines.length == b.lines.length &&
+    a.lines.indexed.every((entry) => entry.$2 == b.lines[entry.$1]);

@@ -16,6 +16,7 @@ void main() {
     final recovery = _Recovery();
     final container = ProviderContainer(
       overrides: [
+        activePlaybackSessionProvider.overrideWith((_) => Stream.value(null)),
         beepPlayerProvider.overrideWith((ref) => audio),
         accountOwnerIdProvider.overrideWith((ref) => Stream.value('owner')),
         playbackConnectionProvider.overrideWith((ref) => const Stream.empty()),
@@ -59,6 +60,7 @@ void main() {
       final owner = StreamController<String?>.broadcast();
       final container = ProviderContainer(
         overrides: [
+          activePlaybackSessionProvider.overrideWith((_) => Stream.value(null)),
           beepPlayerProvider.overrideWith((_) => audio),
           playbackRecoveryControllerProvider.overrideWith(() => recovery),
           accountOwnerIdProvider.overrideWith((_) => owner.stream),
@@ -121,6 +123,7 @@ void main() {
       final audio = _Audio(), recovery = _Recovery();
       final container = ProviderContainer(
         overrides: [
+          activePlaybackSessionProvider.overrideWith((_) => Stream.value(null)),
           beepPlayerProvider.overrideWith((_) => audio),
           playbackRecoveryControllerProvider.overrideWith(() => recovery),
           accountOwnerIdProvider.overrideWith((_) => Stream.value('owner')),
@@ -176,6 +179,7 @@ void main() {
     final audio = _Audio(), recovery = _Recovery();
     final container = ProviderContainer(
       overrides: [
+        activePlaybackSessionProvider.overrideWith((_) => Stream.value(null)),
         tvPlaybackVisibleProvider.overrideWith(
           () => TvPlaybackVisible(initiallyVisible: false),
         ),
@@ -208,6 +212,7 @@ void main() {
       final recovery = _Recovery();
       final container = ProviderContainer(
         overrides: [
+          activePlaybackSessionProvider.overrideWith((_) => Stream.value(null)),
           beepPlayerProvider.overrideWith((ref) => audio),
           accountOwnerIdProvider.overrideWith((ref) => Stream.value('owner')),
           playbackConnectionProvider.overrideWith(

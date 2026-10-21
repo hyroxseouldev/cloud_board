@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/slide_design_style.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
@@ -15,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tool/center_slide_export_fonts.dart';
+
 Future<Uint8List> _rgba(ui.Image image) async {
   final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
   return bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
@@ -24,11 +27,22 @@ Future<ui.Image> _paint(
   ui.Image source,
   Size size, [
   WorkoutModule? module,
+  OriginalSlideTemplate? template,
 ]) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   if (module == null) {
-    canvas.scale(size.width / source.width);
+    canvas.drawColor(Colors.white, BlendMode.src);
+    final scale = (size.width / source.width).clamp(
+      0.0,
+      size.height / source.height,
+    );
+    canvas.translate(
+      (size.width - source.width * scale) / 2,
+      (size.height - source.height * scale) *
+          (template?.imageVerticalAlignment ?? 0.5),
+    );
+    canvas.scale(scale);
     canvas.drawImage(
       source,
       Offset.zero,
@@ -47,6 +61,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const sourceHashes = [
     '79e7b055b2399d7dd0a6e9447b75cd93d7531962b3c140c9acad68fb97041ae0',
+    'd418c6d1bae2f0b1be1e83f6155c4b9d2293dc990fbb205680b6c3d0eb416051',
+    'cc0be5175a6b897b131b8b24eb124d769b9613f0e6d91693fff4e56de5862fca',
     '46ebcd3dcbb215d0cc71a8ee1154e2592ddd4325f8970be7de7c92c001d418f0',
     'af35dee799a02a6a9bb7f0735a53e455cf138a9741e7b9b90fb6b3728a403f61',
     'c5fc8f7bf3a1d34e67014a40f6425069e138bda5d11e2d39cd7e1ede74d8e8e6',
@@ -55,22 +71,17 @@ void main() {
   ];
 
   setUpAll(() async {
-    await (FontLoader('RacingSansOne')..addFont(
-          rootBundle.load(
-            'assets/fonts/racing_sans_one/RacingSansOne-Regular.ttf',
-          ),
-        ))
-        .load();
-    await (FontLoader('Pretendard')..addFont(
-          rootBundle.load('assets/fonts/pretendard/Pretendard-Bold.otf'),
-        ))
-        .load();
+    await loadCenterSlideExportFonts();
   });
 
   test(
     'edited title keeps a sports display face in preview and exported artwork',
     () async {
-      final theme = stationDReferenceDesigns.first.theme;
+      final theme = stationDReferenceDesigns
+          .firstWhere(
+            (d) => d.id == 'reference-stationd-unbroken-team-change-v1',
+          )
+          .theme;
       final module = previewAiSlide(
         applyAiSlideTheme(initialAiSlideDesignDraft(theme), theme),
       ).copyWith(name: 'Brick Session');
@@ -85,11 +96,65 @@ void main() {
     },
   );
 
-  for (var index = 0; index < stationDOriginalTemplates.length; index++) {
-    final template = stationDOriginalTemplates[index];
-    final theme = stationDReferenceDesigns[index].theme;
+  const templates = [legacyStationDMonTemplate, ...stationDOriginalTemplates];
+  test(
+    'distinct UNBROKEN references keep legacy lookup but not legacy selection',
+    () {
+      expect(
+        originalSlideTemplate('stationd-mon-v1'),
+        same(legacyStationDMonTemplate),
+      );
+      expect(
+        customerReferenceDesigns.map((d) => d.id),
+        isNot(contains('reference-stationd-mon-v1')),
+      );
+      final single = originalSlideTemplate('stationd-unbroken-single-v1')!;
+      final team = originalSlideTemplate('stationd-unbroken-team-change-v1')!;
+      expect(single.numberBounds, isEmpty);
+      expect(single.lines, hasLength(6));
+      expect(team.numberBounds, hasLength(4));
+      expect(team.lines, hasLength(4));
+      expect(single.titleFontFamily, 'Pretendard');
+      expect(single.titleItalic, isTrue);
+      expect(single.imageVerticalAlignment, 0);
+      expect(
+        single.exerciseBounds.every((r) => r.right < 848),
+        isTrue,
+        reason: 'SINGLE edits must not erase its source vertical divider',
+      );
+    },
+  );
+  for (var index = 0; index < templates.length; index++) {
+    final template = templates[index];
+    final theme = AiSlideTheme(
+      designStyle: SlideDesignStyle(originalTemplate: template.id),
+    );
     final draft = applyAiSlideTheme(initialAiSlideDesignDraft(theme), theme);
     final module = previewAiSlide(draft);
+
+    if (template.id.startsWith('stationd-unbroken-')) {
+      test(
+        '${template.id}: edited title and timing use bundled substitute fonts',
+        () async {
+          final edited = module.copyWith(
+            name: 'PARTNER : AMRAP',
+            designSubtitle: '5mins On / 60s Off',
+          );
+          final metrics = measureOriginalSlide(edited);
+          expect(metrics.readable, isTrue);
+          final title = metrics.textRuns.firstWhere(
+            (run) => run.role == 'title',
+          );
+          expect(title.fontFamily, template.titleFontFamily);
+          expect(title.fontWeight, template.titleWeight);
+          final png = base64Decode(
+            (await renderSlideDesign(edited)).split(',').last,
+          );
+          File('/tmp/cloudboard-${template.id}-edited-title.png')
+              .writeAsBytesSync(png);
+        },
+      );
+    }
 
     test(
       '${template.id}: original asset and exported PNG preserve the source',
@@ -103,7 +168,7 @@ void main() {
         addTearDown(source.dispose);
         expect(
           Size(source.width.toDouble(), source.height.toDouble()),
-          const Size(3840, 2160),
+          template.sourceSize,
         );
         expect(originalSlideValidationError(module), isNull);
         final png = base64Decode(
@@ -111,7 +176,12 @@ void main() {
         );
         final codec = await ui.instantiateImageCodec(png);
         final actual = (await codec.getNextFrame()).image;
-        final expected = await _paint(source, const Size(1920, 1080));
+        final expected = await _paint(
+          source,
+          const Size(1920, 1080),
+          null,
+          template,
+        );
         expect(
           sha256.convert(await _rgba(actual)),
           sha256.convert(await _rgba(expected)),
@@ -141,7 +211,7 @@ void main() {
         final allowed = [
           template.exerciseBounds.first,
           template.exerciseBounds.last,
-          template.numberBounds.last,
+          if (template.numberBounds.isNotEmpty) template.numberBounds.last,
         ];
         var changes = 0, outsideChanges = 0;
         for (var y = 0; y < source.height; y++) {
@@ -167,11 +237,12 @@ void main() {
           0,
           reason: 'Header, class mark, time, other rows and numbers must remain original pixels',
         );
-        final badge = template.numberBounds.last;
-        for (var y = badge.top.toInt(); y < badge.bottom; y++) {
-          for (var x = badge.left.toInt(); x < badge.right; x++) {
-            final offset = (y * source.width + x) * 4;
-            expect(pixels.sublist(offset, offset + 4), [255, 255, 255, 255]);
+        for (final badge in template.numberBounds.reversed.take(1)) {
+          for (var y = badge.top.toInt(); y < badge.bottom; y++) {
+            for (var x = badge.left.toInt(); x < badge.right; x++) {
+              final offset = (y * source.width + x) * 4;
+              expect(pixels.sublist(offset, offset + 4), [255, 255, 255, 255]);
+            }
           }
         }
         expect(measureOriginalSlide(edited).readable, true);

@@ -260,6 +260,7 @@ class PlaybackActionController extends _$PlaybackActionController {
           '재생을 종료했습니다.',
           'playback.complete',
           (actions, deviceId) => actions.complete(deviceId: deviceId),
+          awaitDisplayReceipt: false,
         ).whenComplete(() {
           if (identical(_completion, flight)) _completion = null;
         });
@@ -280,6 +281,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     String actionName,
     Future<void> Function(PlaybackActions actions, String deviceId) action, {
     bool throttle = false,
+    bool awaitDisplayReceipt = true,
   }) async {
     if (state.isLoading ||
         (throttle && !canSendTransportCommand) ||
@@ -355,14 +357,18 @@ class PlaybackActionController extends _$PlaybackActionController {
       // The server result remains authoritative after submission. A cancelled
       // account scope only suppresses stale UI, follow-up reads and event writes.
       if (!scope.isCurrent || epoch != _transportEpoch) return !result.hasError;
-      if (!result.hasError &&
-          expectedSession != null &&
-          commandDeviceId != null) {
-        _watchDisplayAcknowledgement(
-          expectedSession,
-          revision: expectedSession.revision + 1,
-          deviceId: commandDeviceId!,
-        );
+      if (!result.hasError) {
+        if (!awaitDisplayReceipt) {
+          // Existing displays stop acknowledging when the class completes.
+          // Server approval is sufficient here; do not invent a TV receipt.
+          _cancelAck?.call();
+        } else if (expectedSession != null && commandDeviceId != null) {
+          _watchDisplayAcknowledgement(
+            expectedSession,
+            revision: expectedSession.revision + 1,
+            deviceId: commandDeviceId!,
+          );
+        }
       }
       state = result;
       _reportResult(
@@ -479,6 +485,11 @@ class PlaybackActionController extends _$PlaybackActionController {
       }
       if (active.isLoading || deviceState.isLoading) return;
       final session = active.value;
+      if (session?.id == expected.id &&
+          session?.status == PlaybackStatus.completed) {
+        finish(PlaybackAckVerdict.cancelled);
+        return;
+      }
       // A new start can resolve before its stream replaces the previous class.
       // Wait through that initial baseline, but cancel for any later session.
       if (session?.id == expected.id) observedExpectedSession = true;
@@ -583,6 +594,8 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
   String? _displayIncidentId;
   String? _displayInterruptedSessionId;
   String? _telemetryOwnerId;
+  String? _displayConnectionIncidentId;
+  PlaybackSession? _disconnectedDisplaySession;
 
   void _syncTelemetryOwner() {
     try {
@@ -592,6 +605,98 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
       _incidentId = null;
       _displayIncidentId = null;
       _displayInterruptedSessionId = null;
+      _displayConnectionIncidentId = null;
+      _disconnectedDisplaySession = null;
+    } catch (_) {}
+  }
+
+  void recordDisplayConnection({
+    required bool connected,
+    PlaybackSession? session,
+  }) {
+    try {
+      _syncTelemetryOwner();
+      final deviceId = ref.read(deviceIdProvider).value;
+      final display = (ref.read(displayDevicesProvider).value ?? const [])
+          .where((device) => device.id == deviceId)
+          .firstOrNull;
+      if (display?.paired != true) {
+        _displayConnectionIncidentId = null;
+        _disconnectedDisplaySession = null;
+        return;
+      }
+      // Restores an existing outbox even when this mount has no new incident.
+      ref.read(operationEventWriterProvider);
+      if (!connected &&
+          _displayConnectionIncidentId == null &&
+          session != null &&
+          session.status != PlaybackStatus.completed &&
+          !session.briefing &&
+          (session.targetDeviceIds.isEmpty
+              ? session.zoneId == display!.zoneId
+              : session.targetDeviceIds.contains(deviceId))) {
+        final incident = _displayConnectionIncidentId = createEventId();
+        _disconnectedDisplaySession = session;
+        recordOperationEvent(
+          ref,
+          type: 'connection_failed',
+          phase: 'display_connection',
+          eventId: incident,
+          incidentId: incident,
+          sessionId: session.id,
+          workoutId: session.workout.id,
+          workoutName: session.workout.name,
+          deviceId: deviceId,
+          deviceRole: 'display',
+          display: display,
+          playbackImpact: 'none',
+          connected: false,
+        );
+      } else if (connected && _displayConnectionIncidentId != null) {
+        final previous = _disconnectedDisplaySession;
+        recordOperationEvent(
+          ref,
+          type: 'connection_recovered',
+          phase: 'display_connection',
+          incidentId: _displayConnectionIncidentId,
+          recoveryOfEventId: _displayConnectionIncidentId,
+          sessionId: previous?.id,
+          workoutId: previous?.workout.id,
+          workoutName: previous?.workout.name,
+          deviceId: deviceId,
+          deviceRole: 'display',
+          display: display,
+          playbackImpact: 'none',
+          connected: true,
+        );
+        _displayConnectionIncidentId = null;
+        _disconnectedDisplaySession = null;
+      }
+    } catch (_) {
+      // Local timing must not depend on telemetry/storage availability.
+    }
+  }
+
+  void recordDisplayCompletion(PlaybackSession session) {
+    try {
+      final deviceId = ref.read(deviceIdProvider).value;
+      final display = (ref.read(displayDevicesProvider).value ?? const [])
+          .where((device) => device.id == deviceId)
+          .firstOrNull;
+      if (display?.paired != true) return;
+      recordOperationEvent(
+        ref,
+        type: 'display_playback_completed',
+        phase: 'local_completion',
+        sessionId: session.id,
+        workoutId: session.workout.id,
+        workoutName: session.workout.name,
+        deviceId: deviceId,
+        deviceRole: 'display',
+        display: display,
+        connected: ref.read(playbackConnectionProvider).value == true,
+        playbackImpact: 'none',
+      );
     } catch (_) {}
   }
 
@@ -765,8 +870,11 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
               action: 'playback.recover',
               context: {'elapsedMs': elapsed.elapsedMilliseconds},
             );
-        final firstFailure = _incidentId == null;
-        _incidentId ??= createEventId();
+        final firstFailure =
+            _incidentId == null && _displayConnectionIncidentId == null;
+        if (_displayConnectionIncidentId == null) {
+          _incidentId ??= createEventId();
+        }
         if (firstFailure) {
           recordOperationEvent(
             ref,

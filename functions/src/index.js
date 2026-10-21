@@ -229,6 +229,61 @@ export const cloudboardAiSlideDesigns = onCall({
   return handleAiSlideDesigns({db, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
 });
 
+// Additive endpoint. Deployment and approved center brand configuration are
+// separate prerequisites; existing AI/text/theme endpoints remain unchanged.
+export const cloudboardAiSlideRaster = onCall({
+  region, timeoutSeconds: 240, memory: '512MiB', maxInstances: 3, concurrency: 3,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async request => {
+  if (!request.auth || request.auth.token.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
+  }
+  const {handleAiSlideRaster} = await import('./ai-slide-raster.js');
+  return handleAiSlideRaster({db, bucket, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+});
+
+// STA-203 optional usage + durable request wrapper; existing endpoints unchanged.
+export const cloudboardSlideStudio = onCall({
+  region, timeoutSeconds: 90, memory: '512MiB', maxInstances: 3, concurrency: 3,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async request => {
+  if (!request.auth || request.auth.token.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
+  }
+  const {handleSlideStudio} = await import('./slide-studio.js');
+  return handleSlideStudio({db, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+});
+
+// Center-only Luna text replacement. Acceptance is separate from provider work;
+// basic templates remain local, free and never enter this queue.
+export const cloudboardTemplateJobs = onCall({
+  region, timeoutSeconds: 60, memory: '512MiB', maxInstances: 3, concurrency: 10,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async request => {
+  if (!request.auth || request.auth.token.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
+  }
+  const {handleTemplateJobs} = await import('./template-jobs.js');
+  return handleTemplateJobs({db, bucket, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+});
+
+export const generateTemplateJob = onDocumentCreated({
+  region, document: 'users/{uid}/templateGenerationCenters/{centerId}/jobs/{requestId}',
+  timeoutSeconds: 120, memory: '1GiB', maxInstances: 3, concurrency: 2, retry: true,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async event => {
+  const {processTemplateJob} = await import('./template-jobs.js');
+  await processTemplateJob({db, bucket, ...event.params, apiKey: process.env.OPENAI_API_KEY});
+});
+
+export const recoverTemplateJobs = onSchedule({
+  region, schedule: 'every 5 minutes', timeoutSeconds: 180, memory: '1GiB', maxInstances: 1,
+  secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
+}, async () => {
+  const {recoverTemplateJobs: recover} = await import('./template-jobs.js');
+  await recover({db, bucket, apiKey: process.env.OPENAI_API_KEY});
+});
+
 export const syncSlideLibraryPlan = onDocumentWritten({
   region, document: 'subscriptionEntitlements/{uid}', retry: true,
   timeoutSeconds: 120, maxInstances: 5,
@@ -422,14 +477,14 @@ export const recordOperationTelemetry = onCall({region, timeoutSeconds: 30, maxI
   return recordOperation({db, realtime, auth: request.auth, payload: request.data, emit: entry => logger.write(entry)});
 });
 
-// Quota-checked saves atomically commit content, summary and account usage.
+// Saves atomically commit content/summary; creates also check and update usage.
 export const saveWorkout = onCall({region, timeoutSeconds: 60, maxInstances: 10}, async request => {
   const {saveWorkout: save} = await import('./workout-save.js');
   return save(db, request.auth?.uid, request.data);
 });
 export const syncWorkoutPlanUsage = onDocumentWritten({region, document: 'users/{uid}/workouts/{id}', retry: true, maxInstances: 3}, async event => {
-  const {reconcilePlanUsage} = await import('./plan-usage.js');
-  await reconcilePlanUsage(db, event.params.uid);
+  const {reconcileWorkoutPlanUsage} = await import('./plan-usage.js');
+  await reconcileWorkoutPlanUsage(db, event.params.uid, event.data);
 });
 export const syncSlidePlanUsage = onDocumentWritten({region, document: 'users/{uid}/slideTemplates/{id}', retry: true, maxInstances: 3}, async event => {
   const {reconcilePlanUsage} = await import('./plan-usage.js');

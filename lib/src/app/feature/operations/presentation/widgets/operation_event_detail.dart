@@ -10,6 +10,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 String operationTypeLabel(String type) => switch (type) {
   'playback_started' => '수업 시작 기록',
   'playback_completed' => '수업 종료 기록',
+  'display_playback_completed' => '디스플레이 로컬 완료',
   'device_online' => 'TV 서버 연결',
   'device_offline' => 'TV 서버 접속 끊김',
   'device_shutdown' => '앱 종료 신호',
@@ -38,6 +39,8 @@ String operationPhaseLabel(String? phase) => switch (phase) {
   'tv_received' || 'tv_receipt' => 'TV 명령 수신',
   'connection' || 'presence' || 'server_connection' => '서버 연결',
   'controller_connection' => '휴대폰·웹 서버 연결',
+  'display_connection' => '디스플레이 서버 연결',
+  'local_completion' => '디스플레이 로컬 완료',
   'app_lifecycle' => '앱 실행 상태',
   'playback' => '수업 재생',
   _ => '단계 기록 없음',
@@ -135,6 +138,7 @@ class OperationEventDetail extends ConsumerWidget {
       '수업: ${event.workoutName ?? '기록 없음'}',
       '기록 ID: ${event.eventId ?? event.id}',
       if (session != null) '수업 실행 ID: $session',
+      if (event.connected != null) '서버 연결: ${event.connected! ? '연결됨' : '단절됨'}',
       if (event.errorId != null) '오류 ID: ${event.errorId}',
       if (event.errorCode != null) '오류 코드: ${event.errorCode}',
       if (incident != null)
@@ -233,6 +237,8 @@ class OperationEventDetail extends ConsumerWidget {
         field('수업', event.workoutName),
         field('당시 앱·TV 버전', event.appVersion),
         field('처리 단계', operationPhaseLabel(event.phase)),
+        if (event.connected != null)
+          field('기록 당시 서버 연결', event.connected! ? '연결됨' : '단절됨'),
         if (event.type == 'device_shutdown')
           const Text(
             '앱 실행이 종료·분리되는 신호를 기록했습니다. 사용자가 종료했는지, 전원이 꺼졌는지는 확인할 수 없습니다. 서버 접속 끊김과 별도로 표시합니다.',

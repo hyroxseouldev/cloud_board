@@ -208,38 +208,10 @@ void main() {
         expect(brandBounds.height, lessThanOrEqualTo(kToolbarHeight));
         expect(tester.binding.hasScheduledFrame, isFalse);
         expect(tester.takeException(), isNull);
-        if (size.width == 320) {
-          // The fixture has no Firebase grant: it has finished loading with
-          // unavailable policy, rather than remaining in a loading state.
-          const explanation = '현재 보관한 수업 수입니다.';
-          expect(find.text(explanation), findsNothing);
-          final usageHelp = find.byTooltip('저장 수업 — / 정책 확인 불가 · 사용량 안내');
-          expect(usageHelp.hitTestable(), findsOneWidget);
-          await tester.tap(usageHelp);
-          await tester.pumpAndSettle();
-          expect(find.text(explanation), findsOneWidget);
-          expect(find.text('현재 이용 권한의 저장 한도를 확인할 수 없어요.'), findsOneWidget);
-          expect(find.textContaining('삭제하면 새 수업'), findsNothing);
-          await tester.scrollUntilVisible(
-            find.text('사용량 다시 확인'),
-            100,
-            scrollable: find
-                .descendant(
-                  of: find.byType(AlertDialog),
-                  matching: find.byType(Scrollable),
-                )
-                .first,
-          );
-          expect(find.text('사용량 다시 확인').hitTestable(), findsOneWidget);
-          await tester.tap(find.text('사용량 다시 확인'));
-          await tester.pumpAndSettle();
-          expect(find.text('닫기').hitTestable(), findsOneWidget);
-          await tester.tap(find.text('닫기'));
-          await tester.pumpAndSettle();
-          expect(find.text(explanation), findsNothing);
-          expect(usageHelp.hitTestable(), findsOneWidget);
-          expect(tester.takeException(), isNull);
-        }
+        // STA-190 removes the usage entry in every responsive home/search layout.
+        // Shared usage policy/retry behavior remains covered by plan_usage_notice_test.
+        expect(find.byTooltip('저장 수업 — / 정책 확인 불가 · 사용량 안내'), findsNothing);
+        expect(find.textContaining('사용량'), findsNothing);
         repository.respond(0, homeCatalog());
         await tester.pumpAndSettle();
         expect(find.byType(WorkoutListSkeleton), findsNothing);

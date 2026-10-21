@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
+
+import 'support/ui_layout_evidence.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -32,6 +36,115 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
   });
+
+  testWidgets('STA-190 evidence slide editor', (tester) async {
+    await loadLayoutFonts(tester);
+    await _mount(tester);
+    await captureLayout(
+      tester,
+      find.byKey(const ValueKey('layout-evidence')),
+      'editor-390',
+    );
+    expect(tester.takeException(), isNull);
+  }, skip: layoutEvidenceDirectory.isEmpty);
+
+  testWidgets('landscape editor respects side safe areas', (tester) async {
+    tester.view.padding = const FakeViewPadding(left: 44, right: 44);
+    tester.view.viewPadding = const FakeViewPadding(left: 44, right: 44);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await _mount(tester, size: const Size(844, 390));
+    expect(
+      tester.getRect(find.byKey(const ValueKey('slide-preview-card'))).left,
+      64,
+    );
+    expect(tester.getRect(_settings).right, 800);
+    for (final label in ['타이머', '배경', '소리', '라이브러리']) {
+      final rect = tester.getRect(
+        find.descendant(of: _tabs, matching: find.text(label)),
+      );
+      expect(rect.left, greaterThanOrEqualTo(44));
+      expect(rect.right, lessThanOrEqualTo(800));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final scene in uiLayoutScenes) {
+    testWidgets(
+      'editor preview alignment, ratio and final controls ${scene.size} x${scene.scale}',
+      (tester) async {
+        await loadLayoutFonts(tester);
+        final container = await _mount(
+          tester,
+          size: scene.size,
+          scale: scene.scale,
+        );
+        final card = find.byKey(const ValueKey('slide-preview-card'));
+        if (card.evaluate().isNotEmpty) {
+          final preview = find.descendant(
+            of: card,
+            matching: find.byType(WorkoutSlidePreview),
+          );
+          final image = tester.getRect(preview);
+          final outer = tester.getRect(card);
+          expect(image.width / image.height, closeTo(16 / 9, .001));
+          expect(image.left - outer.left, greaterThanOrEqualTo(12));
+          expect(outer.right - image.right, greaterThanOrEqualTo(12));
+          expect(image.top - outer.top, greaterThanOrEqualTo(12));
+          expect(outer.bottom - image.bottom, greaterThanOrEqualTo(12));
+          if (scene.size.height > 540) {
+            final inset = scene.size.width < 360 ? 16.0 : 20.0;
+            expect(outer.left, inset);
+            expect(
+              tester
+                  .getRect(find.byKey(const ValueKey('slide-title-text')))
+                  .left,
+              inset,
+            );
+            expect(
+              tester
+                  .getRect(find.byKey(const ValueKey('slide-save-status')))
+                  .left,
+              inset,
+            );
+            expect(
+              tester
+                  .getRect(find.byKey(const ValueKey('slide-timer-summary')))
+                  .left,
+              inset,
+            );
+          }
+        }
+        final settingsScroll = find
+            .descendant(of: _settings, matching: find.byType(Scrollable))
+            .first;
+        final last = find.byKey(const ValueKey('세트 세로 위치'));
+        await tester.scrollUntilVisible(last, 120, scrollable: settingsScroll);
+        await tester.pumpAndSettle();
+        expect(last.hitTestable(), findsOneWidget);
+        expect(
+          tester.getRect(last).bottom,
+          lessThanOrEqualTo(tester.getRect(_tabs).top),
+        );
+        final slider = tester.widget<Slider>(last);
+        slider.onChanged!(.2);
+        await tester.pumpAndSettle();
+        expect(container.read(_provider).module.appearance.setsOffsetY, .2);
+        final reset = find.byTooltip('배치 초기화');
+        await tester.ensureVisible(reset);
+        await tester.pumpAndSettle();
+        expect(tester.getSize(reset).height, greaterThanOrEqualTo(48));
+        await tester.tap(reset);
+        await tester.pumpAndSettle();
+        expect(container.read(_provider).module.appearance, _module.appearance);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
+  }
 
   for (final scene in [
     (size: const Size(320, 568), scale: 1.0),
@@ -355,12 +468,15 @@ Future<ProviderContainer> _mount(
           return MediaQuery(
             data: media.copyWith(
               textScaler: TextScaler.linear(scale),
-              padding: EdgeInsets.only(
+              padding: media.padding.copyWith(
                 bottom: media.viewInsets.bottom > 0 ? 0 : 34,
               ),
-              viewPadding: const EdgeInsets.only(bottom: 34),
+              viewPadding: media.viewPadding.copyWith(bottom: 34),
             ),
-            child: child!,
+            child: RepaintBoundary(
+              key: const ValueKey('layout-evidence'),
+              child: child!,
+            ),
           );
         },
         home: Builder(

@@ -1,4 +1,5 @@
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_recovery.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_image_retention.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/audience_branding.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/widgets/audience_logo_frame.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/hooks/use_display_preparation.dart';
@@ -33,8 +34,10 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operations_metrics.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 
@@ -73,12 +76,21 @@ class DisplayModeScreen extends HookConsumerWidget {
 
     ref.listen(playbackConnectionProvider, (previous, next) {
       if (previous?.value == false && next.value == true) refreshDisplayData();
+      if (previous?.value == true && next.value == false) {
+        ref
+            .read(playbackRecoveryControllerProvider.notifier)
+            .recordDisplayConnection(
+              connected: false,
+              session: ref.read(displayPlaybackSessionProvider),
+            );
+      }
     });
     useOnAppLifecycleStateChange((previous, next) {
       if (next == AppLifecycleState.resumed) refreshDisplayData();
     });
     final deviceId = ref.watch(deviceIdProvider).value;
-    final devices = ref.watch(displayDevicesProvider).value ?? const [];
+    final deviceValues = ref.watch(displayDevicesProvider);
+    final devices = deviceValues.value ?? const [];
     final brand =
         ref.watch(effectiveBrandTemplateProvider).value ??
         BrandTemplate.initial();
@@ -149,9 +161,58 @@ class DisplayModeScreen extends HookConsumerWidget {
         !ownerScope.isLoading &&
         !ownerScope.hasError &&
         ownerScope.value != null;
-    final session = scopeReady && !active.isLoading && !active.hasError
-        ? active.value
-        : null;
+    final displaySession = ref.watch(displayPlaybackSessionProvider);
+    final session = scopeReady ? displaySession : null;
+    final retainedImages = ref.watch(displayImageRetentionProvider);
+    useEffect(
+      () {
+        if (connected &&
+            !active.isLoading &&
+            !active.hasError &&
+            recovery.hasValue &&
+            !recovery.isLoading &&
+            !recovery.hasError) {
+          ref
+              .read(playbackRecoveryControllerProvider.notifier)
+              .recordDisplayConnection(connected: true, session: session);
+        }
+        return null;
+      },
+      [
+        connected,
+        active.isLoading,
+        active.hasError,
+        recovery.hasValue,
+        recovery.isLoading,
+        recovery.hasError,
+        deviceId,
+        currentDevice?.paired,
+        scopeReady,
+      ],
+    );
+    final completedLocally =
+        session != null &&
+        ref
+            .read(displayPlaybackSessionProvider.notifier)
+            .completedLocally(session.id);
+    useEffect(
+      () {
+        if (!scopeReady ||
+            (!deviceValues.isLoading &&
+                !deviceValues.hasError &&
+                currentDevice?.paired != true)) {
+          retainedImages.clear();
+        }
+        return null;
+      },
+      [
+        scopeReady,
+        deviceValues.isLoading,
+        deviceValues.hasError,
+        currentDevice?.paired,
+        retainedImages,
+      ],
+    );
     useDisplayRecovery(
       context,
       ref,
@@ -174,12 +235,17 @@ class DisplayModeScreen extends HookConsumerWidget {
         session != null &&
         session.status != PlaybackStatus.completed &&
         targetsThisDevice &&
+        !completedLocally &&
         finishedSessionId.value != session.id &&
         session.workout.modules.isNotEmpty;
     useDisplayPreparation(
       context,
       ref,
       deviceId: deviceId,
+      ownerId: scopeReady ? ownerScope.value : null,
+      connectionId: currentDevice?.connectionId,
+      initialHeartbeatPolicy:
+          currentDevice?.heartbeatPolicy ?? DisplayHeartbeatPolicy.target,
       paired:
           scopeReady &&
           pairing.hasValue &&
@@ -199,6 +265,7 @@ class DisplayModeScreen extends HookConsumerWidget {
         session != null &&
         session.status == PlaybackStatus.completed &&
         targetsThisDevice &&
+        !completedLocally &&
         finishedSessionId.value != session.id &&
         now.value.millisecondsSinceEpoch +
                 serverOffset -
@@ -213,9 +280,8 @@ class DisplayModeScreen extends HookConsumerWidget {
     final allowPlayback =
         foreground &&
         scopeReady &&
-        recovery.hasValue &&
-        !recovery.isLoading &&
-        !recovery.hasError &&
+        (session != null ||
+            (recovery.hasValue && !recovery.isLoading && !recovery.hasError)) &&
         currentDevice?.paired == true &&
         remoteState == RemoteDisplayState.auto.name;
     useEffect(
@@ -229,10 +295,12 @@ class DisplayModeScreen extends HookConsumerWidget {
                 context,
                 workoutImageWindow(
                   session.workout,
-                  count: 2,
+                  count: session.workout.modules.length,
                   includeCountdown: true,
                 ),
                 isCancelled: () => cancelled,
+                retention: retainedImages,
+                continueOnError: true,
               ).catchError((Object error) {
                 debugPrint('Display image preparation failed: $error');
                 return 0;
@@ -259,6 +327,12 @@ class DisplayModeScreen extends HookConsumerWidget {
           if (cancelled ||
               !context.mounted ||
               !connected ||
+              active.isLoading ||
+              active.hasError ||
+              active.value?.id != session.id ||
+              active.value?.revision != session.revision ||
+              recovery.isLoading ||
+              recovery.hasError ||
               !recovery.hasValue) {
             return;
           }
@@ -283,6 +357,10 @@ class DisplayModeScreen extends HookConsumerWidget {
         allowPlayback,
         connected,
         recovery.hasValue,
+        recovery.isLoading,
+        recovery.hasError,
+        active.isLoading,
+        active.hasError,
       ],
     );
 
@@ -327,8 +405,8 @@ class DisplayModeScreen extends HookConsumerWidget {
               if (!foreground)
                 PlaybackRecoveryView(
                   displayMode: true,
-                  error: recovery.error,
-                  stackTrace: recovery.stackTrace,
+                  error: recovery.error ?? active.error,
+                  stackTrace: recovery.stackTrace ?? active.stackTrace,
                   onRetry: () => unawaited(
                     ref
                         .read(playbackRecoveryControllerProvider.notifier)

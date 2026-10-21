@@ -36,6 +36,8 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/sl
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/slide_editor_actions.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_appearance_controls.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_rehearsal_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_image_color_picker.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/slide_timer_color_edit.dart';
 
 class SlideEditRequest {
   SlideEditRequest({
@@ -45,6 +47,7 @@ class SlideEditRequest {
     this.brandR = '',
     this.workout,
     this.needsInitialSave = false,
+    this.saveFailureHandledByParent = false,
   });
   final WorkoutModule module;
   final Future<bool> Function(WorkoutModule) onSave;
@@ -52,6 +55,10 @@ class SlideEditRequest {
   final String brandR;
   final Workout? workout;
   final bool needsInitialSave;
+
+  /// The workout editor reports a false save result through the app Snackbar
+  /// or its plan-limit dialog. Other entry points retain their inline notice.
+  final bool saveFailureHandledByParent;
 }
 
 class SlideEditorScreen extends ConsumerWidget {
@@ -170,12 +177,15 @@ class _SlideEditorBody extends HookConsumerWidget {
     final originalDesign = originalTemplate != null;
     final structuredDesign =
         slideDesigns.containsKey(module.designTemplate) ||
+        isCreationSlideDesign(module) ||
         isStudioSlideDesign(module);
     final busy = useState(false);
     final needsInitialSave = useState(request.needsInitialSave);
     final timerConfigured = useState(false);
     final uploadProgress = ref.watch(workoutUploadProgressProvider);
     final error = useState<String?>(null);
+    final saveFailed = useState(false);
+    final retrySave = saveFailed.value || error.value != null;
     final form = useMemoized(() => GlobalKey<FormState>());
     final description = useTextEditingController(text: module.text);
     final designHeader = useTextEditingController(
@@ -224,6 +234,27 @@ class _SlideEditorBody extends HookConsumerWidget {
     });
 
     void update(WorkoutModule value) => actions.update(value);
+    void applyTimerColor(
+      SlideTimerColorTarget target,
+      String value, {
+      bool pair = false,
+    }) {
+      if (!context.mounted) return;
+      update(
+        editSlideTimerColor(
+          ref.read(provider).module,
+          target,
+          value,
+          pair: pair,
+        ),
+      );
+    }
+
+    Future<Color?> sampleImageColor(BuildContext pickerContext) =>
+        showSlideImageColorPicker(
+          pickerContext,
+          ref.read(provider).module.imageSource,
+        );
     void resetFields(VoidCallback change) {
       FocusScope.of(context).unfocus();
       change();
@@ -257,12 +288,16 @@ class _SlideEditorBody extends HookConsumerWidget {
       }
       busy.value = true;
       error.value = null;
+      saveFailed.value = false;
       final candidate = module.copyWith(name: module.name.trim());
       try {
         final saved = await request.onSave(candidate);
         if (!context.mounted) return;
         if (!saved) {
-          error.value = '저장하지 못했습니다. 편집 내용은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.';
+          saveFailed.value = true;
+          if (!request.saveFailureHandledByParent) {
+            error.value = '저장하지 못했습니다. 편집 내용은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.';
+          }
           return;
         }
         await actions.markSaved(candidate);
@@ -379,51 +414,69 @@ class _SlideEditorBody extends HookConsumerWidget {
       );
     }
 
-    final selectedBlock =
-        blocks.where((v) => v.id == selectedBlockId.value).firstOrNull ??
-        blocks.first;
+    final selectedBlockIndex = math.max(
+      0,
+      blocks.indexWhere((block) => block.id == selectedBlockId.value),
+    );
+    final previewPhase = workoutModuleTimeline(module)
+        .where(
+          (phase) =>
+              phase.blockIndex == selectedBlockIndex && !phase.isRoundRest,
+        )
+        .firstOrNull;
+    final horizontalInset = MediaQuery.sizeOf(context).width < 360
+        ? 16.0
+        : 20.0;
     final preview = Material(
       key: const ValueKey('slide-preview-card'),
       color: Theme.of(context).colorScheme.surface,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final imageHeight = math.min(
-            constraints.maxWidth * 9 / 16,
-            math.max(0.0, constraints.maxHeight),
-          );
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: imageHeight,
-                width: double.infinity,
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: previewSettings?.isLoading == true
-                        ? const Center(child: CircularProgressIndicator())
-                        : previewSettings?.hasError == true
-                        ? Center(
-                            child: TextButton(
-                              onPressed: () => ref.invalidate(
-                                workoutPreviewProvider(request.workout!),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final imageHeight = math.min(
+              constraints.maxWidth * 9 / 16,
+              math.max(0.0, constraints.maxHeight),
+            );
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: imageHeight,
+                  width: double.infinity,
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: previewSettings?.isLoading == true
+                          ? const Center(child: CircularProgressIndicator())
+                          : previewSettings?.hasError == true
+                          ? Center(
+                              child: TextButton(
+                                onPressed: () => ref.invalidate(
+                                  workoutPreviewProvider(request.workout!),
+                                ),
+                                child: const Text('공통 설정을 불러오지 못했습니다 · 다시 시도'),
                               ),
-                              child: const Text('공통 설정을 불러오지 못했습니다 · 다시 시도'),
+                            )
+                          : WorkoutSlidePreview(
+                              borderRadius: 0,
+                              module: module,
+                              previewPhase: previewPhase,
+                              isRest: false,
+                              brandL: renderedBrandL,
+                              brandR: renderedBrandR,
                             ),
-                          )
-                        : WorkoutSlidePreview(
-                            borderRadius: 0,
-                            module: withIntervalBlocks(module, [selectedBlock]),
-                            isRest: false,
-                            brandL: renderedBrandL,
-                            brandR: renderedBrandR,
-                          ),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
 
@@ -443,7 +496,7 @@ class _SlideEditorBody extends HookConsumerWidget {
       key: const ValueKey('slide-title-button'),
       style: TextButton.styleFrom(
         foregroundColor: SlideEditorStyle.accent,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         minimumSize: const Size(48, 48),
         alignment: Alignment.centerLeft,
       ),
@@ -556,7 +609,12 @@ class _SlideEditorBody extends HookConsumerWidget {
           : ListView(
               controller: settingsScroll,
               key: const ValueKey('slide-editor-settings'),
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              padding: EdgeInsets.fromLTRB(
+                horizontalInset,
+                24,
+                horizontalInset,
+                24,
+              ),
               children: [
                 if (largeText && error.value != null)
                   Padding(
@@ -570,6 +628,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                   ),
                 if (section.value == 1) ...[
                   summary,
+                  const SizedBox(height: 24),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const label = Column(
@@ -586,7 +645,7 @@ class _SlideEditorBody extends HookConsumerWidget {
                           Text(
                             '숨겨도 운동 진행은 유지됩니다.',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 14,
                               color: SlideEditorStyle.muted,
                             ),
                           ),
@@ -740,18 +799,11 @@ class _SlideEditorBody extends HookConsumerWidget {
                               .scale(80),
                           label: '세트 숫자',
                           initialValue: colorHex(module.appearance.setsColor),
-                          onChanged: (input) {
-                            final color = parseHexColor(input);
-                            if (color != null) {
-                              update(
-                                module.copyWith(
-                                  appearance: module.appearance.copyWith(
-                                    setsColor: color,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
+                          onSampleImage: sampleImageColor,
+                          onChanged: (value) => applyTimerColor(
+                            SlideTimerColorTarget.sets,
+                            value,
+                          ),
                         ),
                         for (var i = 0; i < 4; i++)
                           HexColorField(
@@ -759,6 +811,15 @@ class _SlideEditorBody extends HookConsumerWidget {
                             compactWidth: MediaQuery.textScalerOf(context)
                                 .scale(i >= 2 ? 112 : 80),
                             key: ValueKey('phase-color-$i-${revision.value}'),
+                            onSampleImage: sampleImageColor,
+                            pairedColorLabel: i < 2
+                                ? '같은 구간의 시간 텍스트에도 함께 적용'
+                                : null,
+                            onPickerApplied: (value, pair) => applyTimerColor(
+                              SlideTimerColorTarget.values[i + 1],
+                              value,
+                              pair: pair,
+                            ),
                             label: const [
                               '운동 게이지',
                               '휴식 게이지',
@@ -779,12 +840,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                                     text: i >= 2,
                                   ),
                                 ),
-                            onChanged: (v) => update(switch (i) {
-                              0 => module.copyWith(workGaugeColor: v),
-                              1 => module.copyWith(restGaugeColor: v),
-                              2 => module.copyWith(workTextColor: v),
-                              _ => module.copyWith(restTextColor: v),
-                            }),
+                            onChanged: (value) => applyTimerColor(
+                              SlideTimerColorTarget.values[i + 1],
+                              value,
+                            ),
                           ),
                       ],
                     ),
@@ -1054,7 +1113,7 @@ class _SlideEditorBody extends HookConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Tooltip(
-                message: error.value == null ? '저장' : '다시 저장',
+                message: retrySave ? '다시 저장' : '저장',
                 child: TextButton(
                   key: const ValueKey('slide-save-button'),
                   style: TextButton.styleFrom(
@@ -1073,141 +1132,169 @@ class _SlideEditorBody extends HookConsumerWidget {
                             semanticsLabel: '저장 중',
                           ),
                         )
-                      : Text(error.value == null ? '저장' : '다시 저장'),
+                      : Text(retrySave ? '다시 저장' : '저장'),
                 ),
               ),
             ),
           ],
         ),
-        body: AbsorbPointer(
-          absorbing: busy.value,
-          child: LayoutBuilder(
-            builder: (context, bodyConstraints) => Column(
-              children: [
-                // Long recovery/error notices must not push the section tabs
-                // behind the keyboard on short or enlarged-text viewports.
-                if (state.recovery != null ||
-                    error.value != null ||
-                    state.storageError != null)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: bodyConstraints.maxHeight * .3,
-                    ),
-                    child: SingleChildScrollView(
-                      key: const ValueKey('slide-editor-notices'),
-                      child: Column(
-                        children: [
-                          if (state.recovery != null)
-                            MaterialBanner(
-                              content: const Text('이 기기에 저장하지 않은 편집 내용이 있습니다.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: actions.dismissRecovery,
-                                  child: const Text('버리기'),
-                                ),
-                                TextButton(
-                                  onPressed: () => resetFields(actions.restore),
-                                  child: const Text('복원'),
-                                ),
-                              ],
-                            ),
-                          if ((error.value != null && !largeText) ||
-                              state.storageError != null)
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                (largeText ? null : error.value) ??
-                                    state.storageError!,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                            ),
-                        ],
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: AbsorbPointer(
+            absorbing: busy.value,
+            child: LayoutBuilder(
+              builder: (context, bodyConstraints) => Column(
+                children: [
+                  // Long recovery/error notices must not push the section tabs
+                  // behind the keyboard on short or enlarged-text viewports.
+                  if (state.recovery != null ||
+                      error.value != null ||
+                      state.storageError != null)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: bodyConstraints.maxHeight * .3,
                       ),
-                    ),
-                  ),
-                const Divider(height: 1),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxHeight < 180) {
-                        return settings;
-                      }
-                      if (constraints.maxWidth >= 700 &&
-                          constraints.maxHeight < 400) {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      child: SingleChildScrollView(
+                        key: const ValueKey('slide-editor-notices'),
+                        child: Column(
                           children: [
-                            Expanded(child: preview),
-                            Expanded(child: settings),
-                          ],
-                        );
-                      }
-                      return Column(
-                        children: [
-                          if (constraints.maxHeight >= 280 &&
-                              MediaQuery.sizeOf(context).height >= 540 &&
-                              !keyboardVisible)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  titleButton,
-                                  Semantics(
-                                    liveRegion: true,
-                                    child: Text(
-                                      busy.value
-                                          ? workoutSaveProgressLabel(
-                                              uploadProgress,
-                                            )
-                                          : error.value != null
-                                          ? '저장 실패 · 편집 내용 유지됨'
-                                          : state.dirty ||
-                                                needsInitialSave.value
-                                          ? '변경사항 있음'
-                                          : '저장됨',
-                                      key: const ValueKey('slide-save-status'),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: SlideEditorStyle.muted,
-                                      ),
-                                    ),
+                            if (state.recovery != null)
+                              MaterialBanner(
+                                content: const Text(
+                                  '이 기기에 저장하지 않은 편집 내용이 있습니다.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: actions.dismissRecovery,
+                                    child: const Text('버리기'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        resetFields(actions.restore),
+                                    child: const Text('복원'),
                                   ),
                                 ],
                               ),
-                            ),
-                          if (!keyboardVisible &&
-                              constraints.maxHeight >= 400) ...[
-                            ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxHeight: largeText
-                                    ? (constraints.maxHeight * .24).clamp(
-                                        0,
-                                        110,
-                                      )
-                                    : constraints.maxHeight * .32,
+                            if ((error.value != null && !largeText) ||
+                                state.storageError != null)
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(
+                                  (largeText ? null : error.value) ??
+                                      state.storageError!,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
                               ),
-                              child: preview,
+                          ],
+                        ),
+                      ),
+                    ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxHeight < 180) {
+                          return settings;
+                        }
+                        if (constraints.maxWidth >= 700 &&
+                            constraints.maxHeight < 400) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    left: horizontalInset,
+                                    top: 16,
+                                  ),
+                                  child: preview,
+                                ),
+                              ),
+                              Expanded(child: settings),
+                            ],
+                          );
+                        }
+                        return Column(
+                          children: [
+                            if (constraints.maxHeight >= 280 &&
+                                MediaQuery.sizeOf(context).height >= 540 &&
+                                !keyboardVisible)
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  horizontalInset,
+                                  4,
+                                  horizontalInset,
+                                  16,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    titleButton,
+                                    Semantics(
+                                      liveRegion: true,
+                                      child: Text(
+                                        busy.value
+                                            ? workoutSaveProgressLabel(
+                                                uploadProgress,
+                                              )
+                                            : retrySave
+                                            ? '저장 실패 · 편집 내용 유지됨'
+                                            : state.dirty ||
+                                                  needsInitialSave.value
+                                            ? '변경사항 있음'
+                                            : '저장됨',
+                                        key: const ValueKey(
+                                          'slide-save-status',
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: SlideEditorStyle.muted,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (!keyboardVisible &&
+                                constraints.maxHeight >= 400) ...[
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxHeight: largeText
+                                      ? (constraints.maxHeight * .24).clamp(
+                                          0,
+                                          110,
+                                        )
+                                      : constraints.maxHeight * .32,
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: horizontalInset,
+                                  ),
+                                  child: preview,
+                                ),
+                              ),
+                            ],
+                            Expanded(
+                              child: FadeTransition(
+                                opacity: sectionOpacity,
+                                child: settings,
+                              ),
                             ),
                           ],
-                          Expanded(
-                            child: FadeTransition(
-                              opacity: sectionOpacity,
-                              child: settings,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-                // This is the only tab bar in every responsive layout. Keeping
-                // it inside the resized body also keeps it above the keyboard;
-                // AppBottomTabBar owns the bottom SafeArea exactly once.
-                editorTabs,
-              ],
+                  // This is the only tab bar in every responsive layout. Keeping
+                  // it inside the resized body also keeps it above the keyboard;
+                  // AppBottomTabBar owns the bottom SafeArea exactly once.
+                  editorTabs,
+                ],
+              ),
             ),
           ),
         ),

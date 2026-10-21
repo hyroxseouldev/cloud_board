@@ -44,6 +44,7 @@ void main() {
             ),
 
             fixtureWorkoutDetails,
+            fixtureSavedSlideOrder,
             workoutControllerProvider.overrideWith(_LongWorkouts.new),
             authStateProvider.overrideWith((ref) => Stream.value(null)),
             slideTemplatesControllerProvider('coach')
@@ -98,6 +99,7 @@ void main() {
             ),
           ),
           fixtureWorkoutDetails,
+          fixtureSavedSlideOrder,
           workoutControllerProvider.overrideWith(_TestWorkouts.new),
         ],
         child: const MaterialApp(
@@ -143,6 +145,7 @@ void main() {
           ),
 
           fixtureWorkoutDetails,
+          fixtureSavedSlideOrder,
           workoutControllerProvider.overrideWith(_LongWorkouts.new),
           authStateProvider.overrideWith((ref) => Stream.value(null)),
         ],

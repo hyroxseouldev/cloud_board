@@ -30,6 +30,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/store_welcome_board.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/store_operations_controller.dart';
@@ -61,7 +62,9 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     final remote = sessionId == null
         ? null
         : ref.watch(activePlaybackSessionProvider);
-    final remoteSession = remote?.value;
+    final remoteSession = displayMode && sessionId != null
+        ? ref.watch(displayPlaybackSessionProvider)
+        : remote?.value;
     final seenSession = useRef(false);
     final localSnapshot = useRef<Workout?>(null);
     if (localSnapshot.value?.id != workoutId) localSnapshot.value = null;
@@ -744,14 +747,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                                       backgroundColor: Colors.black87,
                                     ),
                                   ),
-                                Positioned(
-                                  top: 42 * scale,
-                                  left: 34 * scale,
-                                  child: _ConnectionChip(
-                                    connected: isConnected,
-                                    scale: scale,
-                                  ),
-                                ),
                               ],
                             );
                           },
@@ -809,31 +804,4 @@ class _PlayerTimer extends ConsumerWidget {
       scale: scale,
     );
   }
-}
-
-class _ConnectionChip extends StatelessWidget {
-  const _ConnectionChip({required this.connected, required this.scale});
-
-  final bool connected;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) => connected
-      ? const SizedBox.shrink()
-      : Chip(
-          avatar: Icon(
-            Icons.circle,
-            size: 10 * scale,
-            color: connected ? Colors.greenAccent : Colors.orangeAccent,
-          ),
-          label: Text(
-            '오프라인 · 로컬 재생',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13 * scale,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          backgroundColor: Colors.black87,
-        );
 }

@@ -33,6 +33,15 @@ class EmailLoginScreen extends HookConsumerWidget {
     final formKey = useMemoized(() => GlobalKey<FormState>(), [mode.value]);
     final action = ref.watch(emailAuthControllerProvider);
     final controller = ref.read(emailAuthControllerProvider.notifier);
+    final notice =
+        useRef<ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?>(
+          null,
+        );
+    void clearNotice() {
+      notice.value?.close();
+      notice.value = null;
+    }
+
     final busy = action.isLoading;
     final signup = mode.value == _EmailMode.signup;
     final reset = mode.value == _EmailMode.reset;
@@ -43,6 +52,26 @@ class EmailLoginScreen extends HookConsumerWidget {
         : '이메일로 로그인';
 
     ref.listen(emailAuthControllerProvider, (previous, next) {
+      if (next.isLoading || !next.hasError) clearNotice();
+      if (previous?.isLoading == true && !next.isLoading && next.hasError) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger
+          ..clearSnackBars()
+          ..removeCurrentSnackBar();
+        final shown = messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              next.error is EmailAuthFailure
+                  ? (next.error! as EmailAuthFailure).message
+                  : emailAuthErrorMessage(next.error!),
+            ),
+          ),
+        );
+        notice.value = shown;
+        shown.closed.then((_) {
+          if (notice.value == shown) notice.value = null;
+        });
+      }
       if (previous?.isLoading == true &&
           next.hasValue &&
           !next.isLoading &&
@@ -222,18 +251,14 @@ class EmailLoginScreen extends HookConsumerWidget {
                           onFieldSubmitted: (_) => submit(),
                         ),
                       ],
-                      if (action.hasError || action.value != null) ...[
+                      if (action.value != null) ...[
                         const SizedBox(height: 20),
                         Semantics(
                           liveRegion: true,
                           child: Text(
-                            action.hasError
-                                ? action.error.toString()
-                                : action.value!,
-                            style: TextStyle(
-                              color: action.hasError
-                                  ? Theme.of(context).colorScheme.error
-                                  : AppColors.accent,
+                            action.value!,
+                            style: const TextStyle(
+                              color: AppColors.accent,
                               height: 1.5,
                             ),
                           ),

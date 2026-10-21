@@ -98,7 +98,7 @@ void main() {
             demo.modules[index],
             owned.modules[index],
           ]) {
-            expect(module.designSubtitle, isEmpty);
+            expect(module.designSubtitle, sample.modules[index].designSubtitle);
             expect(module.text, isNot(contains('자유롭게 수정하세요')));
             expect(module.designFontWeight, inInclusiveRange(600, 700));
             expect(module.designItalic, isFalse);
