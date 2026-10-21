@@ -350,6 +350,8 @@ jobs:
         run: |
           flutter pub get
           npm ci --prefix functions
+          npm ci --prefix functions-legacy
+          npm run build --prefix functions-legacy
       - name: Test server and release tooling
         run: |
           npm test --prefix functions

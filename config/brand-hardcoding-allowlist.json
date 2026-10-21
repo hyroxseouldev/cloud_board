@@ -46,5 +46,11 @@
     "text": "vividxxxxx@gmail.com",
     "occurrences": 1,
     "reason": "STA-171 user-confirmed private notification recipient safety allowlist, not display copy. Brand/link changes must not silently redirect stored support emails."
+  },
+  {
+    "file": "android/app/src/main/kotlin/com/sunmkim/cloudboard/AndroidCueAudio.kt",
+    "text": "CloudBoardCue",
+    "occurrences": 2,
+    "reason": "Internal audio HandlerThread name and Log.w diagnostic tag, not user-visible product copy. Keep exact occurrence checks."
   }
 ]

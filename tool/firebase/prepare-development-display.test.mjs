@@ -15,8 +15,9 @@ test('development display package preserves the handler with no provider paramet
     assert.equal(readFileSync(`${developmentDisplaySource}/${name}`, 'utf8'),
       readFileSync(`functions-legacy/${name}`, 'utf8'));
   }
-  const script = `const m=await import('./${developmentDisplaySource}/lib/index.js');
-    const {declaredParams}=await import('./functions-legacy/node_modules/firebase-functions/lib/params/index.js');
+  const script = `import {createRequire} from 'node:module';
+    const m=await import('./${developmentDisplaySource}/lib/index.js');
+    const {declaredParams}=createRequire(import.meta.url)('./functions-legacy/node_modules/firebase-functions/lib/params/index.js');
     process.stdout.write(JSON.stringify({names:Object.keys(m), endpoint:m.cloudboardSetDisplayState.__endpoint,params:declaredParams}));`;
   const metadata = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', script], {
     encoding: 'utf8', env: {PATH: process.env.PATH, GCLOUD_PROJECT: 'cloud-board-development'},
