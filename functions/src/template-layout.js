@@ -14,6 +14,16 @@ const color = n => `#${(n >>> 0).toString(16).padStart(8, '0').slice(2)}`;
 const rect = f => ({x: f.x * W, y: f.y * H, width: f.width * W, height: f.height * H});
 const font = (f, size) => `${f.italic ? 'italic ' : ''}${f.fontWeight ?? 600} ${size}px "${f.fontFamily}", "Pretendard"`;
 
+function renderRecipe(recipe) {
+  // The approved v4 SWEAT logo ends immediately above the title. Give its
+  // EST.2026 line 24px more breathing room in the 1080p output. Pin this visual
+  // correction to that exact catalog asset; newer layouts own their spacing.
+  if (recipe.templateId !== 'sweatmonday-team-of-3-v1' || recipe.revision !== 4 ||
+      recipe.backgroundSha256 !== '02a43b019d29aeff54f7dc4a04abea89e1fb8e76a8b323726969acc29d2d67be') return recipe;
+  return {...recipe, fields: recipe.fields.map(field =>
+    ['title', 'subtitle'].includes(field.binding) ? {...field, y: field.y + 24 / H} : field)};
+}
+
 export function validateTemplateRecipe(r, centerId) {
   const valid = r && [1, 2].includes(r.schemaVersion) && r.centerId === centerId &&
     /^[A-Za-z0-9_-]{1,120}$/.test(r.templateId) && Number.isSafeInteger(r.revision) && r.revision > 0 &&
@@ -65,7 +75,7 @@ export function validateLayout(value, lines) {
 }
 
 export async function requestTemplateLayout({rawWod, title, subtitle, recipe}, apiKey, fetchImpl = fetch) {
-  const lines = sourceLines(rawWod), geometry = templateGeometry(recipe);
+  const lines = sourceLines(rawWod), geometry = templateGeometry(renderRecipe(recipe));
   let response;
   try {
     response = await fetchImpl('https://api.openai.com/v1/responses', {
@@ -130,7 +140,8 @@ function wrap(ctx, text, width) {
 /** Deterministic compositor: model output never becomes drawing commands/text. */
 export async function renderTemplate({recipe, background, title, subtitle, rawWod, layout}) {
   const lines = sourceLines(rawWod); validateLayout(layout, lines);
-  const {body, primary, secondary, timer} = templateGeometry(recipe);
+  const layoutRecipe = renderRecipe(recipe);
+  const {body, primary, secondary, timer} = templateGeometry(layoutRecipe);
   const canvas = createCanvas(W, H), ctx = canvas.getContext('2d'), original = await loadImage(background);
   if (original.width !== recipe.width || original.height !== recipe.height) throw fail('data-loss', '템플릿 이미지 크기가 변경됐어요.', 'invalid-template');
   ctx.drawImage(original, 0, 0, W, H);
@@ -144,11 +155,14 @@ export async function renderTemplate({recipe, background, title, subtitle, rawWo
     } else { ctx.fillStyle = color(clearColor); ctx.fillRect(r.x, r.y, r.width, r.height); }
   };
   for (const f of recipe.fields.filter(f => f.binding !== 'header')) clear(rect(f), f.clearColor);
-  clear({x: body.x, y: body.y, width: W - body.x, height: H - body.y});
+  // Clear from the original body top too, so shifted content cannot leave the
+  // original badges/text behind in the newly opened gap.
+  const clearY = Math.min(body.y, templateGeometry(recipe).body.y);
+  clear({x: body.x, y: clearY, width: W - body.x, height: H - clearY});
   // Header/title/subtitle may wrap and scale down, without entering the timer.
   const drawn = [];
   for (const binding of ['title', 'subtitle']) {
-    const field = recipe.fields.find(f => f.binding === binding);
+    const field = layoutRecipe.fields.find(f => f.binding === binding);
     if (!field) continue;
     const text = binding === 'title' ? title : subtitle;
     if (!text) continue;
