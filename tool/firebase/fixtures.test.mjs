@@ -38,7 +38,8 @@ test('released settings and TV fixtures cannot be replaced by regenerating their
     file => file === client.appContract.file ? bytes : read(file), baseline, registry), /overwritten/);
 });
 
-const released = registry.clients[1];
+// A historical payload cannot stand in for the latest released wire shape.
+const released = registry.clients.find(client => client.sourceCommit === 'ca86c80c95da701299f91fd3a7cb82a003faf0ce');
 const currentWorkout = readJson(released.file), currentApp = readJson(released.appContract.file);
 function readCandidate(workout = currentWorkout, app = currentApp) {
   return file => file === 'build/contracts/workout-save-current.json' ? JSON.stringify(workout)
@@ -64,6 +65,12 @@ test('an optional additive wire field does not erase any supported reader contra
   const workout = structuredClone(currentWorkout);
   workout.scenarios[0].writes[0].workout.modules[0].futureOptionalMetadata = {color: 'sage'};
   validateCurrentContracts(registry, readCandidate(workout));
+});
+
+test('an older payload cannot replace the latest released client contract', () => {
+  const older = registry.clients.find(client => client.sourceCommit === 'a8653077314c5e5bf2f14e1a8495e4c9ab1f1b6b');
+  assert.throws(() => validateCurrentContracts(registry, readCandidate(readJson(older.file), readJson(older.appContract.file))),
+    /Released wire type changed: 2\.0\.0-release-ca86c80c95da\/.*\/workGaugeColor/);
 });
 
 test('pre-EMOM public/review fixtures describe only timer features those apps wrote', () => {
