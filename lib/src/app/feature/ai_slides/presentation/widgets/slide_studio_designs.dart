@@ -405,7 +405,14 @@ class StudioDesignCard extends ConsumerWidget {
                       key: ValueKey('studio-enlarge-${design.id}'),
                       tooltip: '${design.name} 크게 보기',
                       onPressed: () => enlarge(context),
-                      icon: const Icon(Icons.open_in_full, size: 18),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size.square(32),
+                        fixedSize: const Size.square(32),
+                        padding: const EdgeInsets.all(8),
+                        tapTargetSize: MaterialTapTargetSize.padded,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                      icon: const Icon(Icons.open_in_full, size: 16),
                     ),
                   ),
                   if (selected)
