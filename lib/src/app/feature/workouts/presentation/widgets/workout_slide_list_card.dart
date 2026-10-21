@@ -95,18 +95,18 @@ class WorkoutSlideListCard extends StatelessWidget {
                 SizedBox(
                   width: (bounds.maxWidth * .21).clamp(56.0, 112.0),
                   child: RepaintBoundary(
-                    child: ExcludeSemantics(
-                      child: IgnorePointer(
-                        child: MediaQuery.withClampedTextScaling(
-                          minScaleFactor: 1,
-                          maxScaleFactor: 1,
-                          child: WorkoutSlidePreview(
-                            module: module,
-                            isRest: false,
-                            brandL: brandL,
-                            brandR: brandR,
-                            borderRadius: 8,
-                          ),
+                    child: IgnorePointer(
+                      // The image error action retries only that thumbnail.
+                      ignoring: !enabled,
+                      child: MediaQuery.withClampedTextScaling(
+                        minScaleFactor: 1,
+                        maxScaleFactor: 1,
+                        child: WorkoutSlidePreview(
+                          module: module,
+                          isRest: false,
+                          brandL: brandL,
+                          brandR: brandR,
+                          borderRadius: 8,
                         ),
                       ),
                     ),

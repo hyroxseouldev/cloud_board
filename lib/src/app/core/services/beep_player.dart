@@ -1,7 +1,8 @@
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
@@ -9,9 +10,12 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sou
 part 'beep_player.g.dart';
 
 class BeepPlayer {
-  BeepPlayer({AudioPlayer? player}) : _player = player ?? AudioPlayer();
+  BeepPlayer({AudioPlayer? player, WorkoutSoundSourceCache? soundSources})
+    : _player = player ?? AudioPlayer(),
+      _soundSources = soundSources ?? _workoutSoundSources;
 
   final AudioPlayer _player;
+  final WorkoutSoundSourceCache _soundSources;
   final Map<(WorkoutSound, bool), Source> _sources = {};
   bool _configured = false;
   bool _disposed = false;
@@ -37,10 +41,9 @@ class BeepPlayer {
       if (_disposed || !_enabled || request != _request) return;
       await _configure();
       if (_disposed || !_enabled || request != _request) return;
-      final source = _sources.putIfAbsent((
-        sound,
-        countdown,
-      ), () => workoutSoundSource(sound, countdown: countdown));
+      final source = _sources[(sound, countdown)] ??= await _soundSources
+          .source(sound, countdown: countdown);
+      if (_disposed || !_enabled || request != _request) return;
       await _player.stop();
       if (_disposed || !_enabled || request != _request) return;
       await _player.play(
@@ -104,13 +107,62 @@ BeepPlayer beepPlayer(Ref ref) {
   return player;
 }
 
-/// The preparation check uses the same sources as playback without playing a cue.
-Source workoutSoundSource(WorkoutSound sound, {bool countdown = false}) =>
-    sound == WorkoutSound.videoBeep
-    ? AssetSource(
-        countdown ? 'sounds/video_beep_tick.wav' : 'sounds/video_beep.wav',
-      )
-    : BytesSource(_createWave(sound), mimeType: 'audio/wav');
+final _workoutSoundSources = WorkoutSoundSourceCache();
+
+/// Preparation and playback share retained WAV bytes on web. AudioCache only
+/// retains asset URLs there, so HTTP cache alone cannot guarantee offline cues.
+Future<Source> workoutSoundSource(
+  WorkoutSound sound, {
+  bool countdown = false,
+}) => _workoutSoundSources.source(sound, countdown: countdown);
+
+class WorkoutSoundSourceCache {
+  WorkoutSoundSourceCache({AssetBundle? bundle, this.web = kIsWeb})
+    : _bundle = bundle ?? rootBundle;
+
+  final AssetBundle _bundle;
+  final bool web;
+  // Only these two public bundled recordings live for the process lifetime.
+  // They currently total ~128 KiB; reject unexpectedly large/replaced assets.
+  static const maxAssetBytes = 1024 * 1024;
+  final Map<bool, Future<BytesSource>> _webSources = {};
+
+  Future<Source> source(WorkoutSound sound, {bool countdown = false}) async {
+    if (sound != WorkoutSound.videoBeep) {
+      return BytesSource(_createWave(sound), mimeType: 'audio/wav');
+    }
+    final path = countdown
+        ? 'sounds/video_beep_tick.wav'
+        : 'sounds/video_beep.wav';
+    if (!web) return AssetSource(path);
+    final pending = _webSources.putIfAbsent(countdown, () => _load(path));
+    try {
+      return await pending;
+    } catch (_) {
+      // A failed preparation must remain failed, but the next attempt may retry.
+      if (identical(_webSources[countdown], pending)) {
+        _webSources.remove(countdown);
+      }
+      rethrow;
+    }
+  }
+
+  Future<BytesSource> _load(String path) async {
+    final data = await _bundle
+        .load('assets/$path')
+        .timeout(const Duration(seconds: 10));
+    if (data.lengthInBytes < 44 ||
+        data.lengthInBytes > maxAssetBytes ||
+        data.getUint32(0) != 0x52494646 ||
+        data.getUint32(8) != 0x57415645) {
+      throw FormatException('Invalid bundled WAV: $path');
+    }
+    return BytesSource(
+      data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      mimeType: 'audio/wav',
+    );
+  }
+}
 
 Uint8List _createWave(WorkoutSound sound) {
   const sampleRate = 44100;

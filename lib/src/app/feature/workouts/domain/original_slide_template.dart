@@ -49,12 +49,23 @@ class OriginalSlideTemplate {
     this.textColor = 0xFF000000,
     this.fontFamily = 'Pretendard',
     this.fixedTitle = false,
+    this.titleFontFamily = 'RacingSansOne',
+    this.titleWeight = 400,
+    this.titleItalic = false,
+    this.imageVerticalAlignment = 0.5,
     this.titleFontSize = 184,
     this.subtitleFontSize = 146,
     this.bodyFontSize = 106,
     this.bodyWeight = 700,
   });
   final String id, asset, title, subtitle, programLabel, fontFamily;
+  final String titleFontFamily;
+  final int titleWeight;
+  final bool titleItalic;
+
+  /// The SINGLE reference is a wide screenshot, not a full 16:9 slide.
+  /// Keep its source pixels at the top and fill only the missing canvas white.
+  final double imageVerticalAlignment;
   final Size sourceSize;
   final List<String> lines;
   final Rect titleBounds, subtitleBounds;
@@ -126,6 +137,7 @@ String? originalSlideValidationError(WorkoutModule module) {
 Rect originalSlideImageRect(
   Size size, {
   Size sourceSize = originalSlideSourceSize,
+  double verticalAlignment = 0.5,
 }) {
   final scale = (size.width / sourceSize.width).clamp(
     0.0,
@@ -135,46 +147,116 @@ Rect originalSlideImageRect(
   final height = sourceSize.height * scale;
   return Rect.fromLTWH(
     (size.width - width) / 2,
-    (size.height - height) / 2,
+    (size.height - height) * verticalAlignment,
     width,
     height,
   );
 }
 
+/// Retained unchanged for saved workouts that still reference the old mixed art.
+const legacyStationDMonTemplate = OriginalSlideTemplate(
+  id: 'stationd-mon-v1',
+  asset: 'assets/slide_templates/stationd_mon_original.png',
+  sourceSize: Size(3840, 2160),
+  title: "SINGLE : AMRAP",
+  programLabel: "UNBROKEN",
+  subtitle: "5mins On / 90s Off",
+  accentColor: 0xFFFF6200,
+  titleBounds: Rect.fromLTRB(270, 70, 2510, 292),
+  subtitleBounds: Rect.fromLTRB(269, 514, 3630, 657),
+  lines: [
+    "Run B 1000 / S 1150 / C 1350+",
+    "Ski B 1000 / S 1100 / C 1300+",
+    "Sled Pull B 5 / S 6 / C 7",
+    "Row B 1000 / S 1150 / C 1300+",
+    "FMCTP 20 + BTP 10 B 4 / S 5 / C 6",
+    "Wall Ball B 90 / S 105 / C 120",
+  ],
+  exerciseBounds: [
+    Rect.fromLTRB(564, 778, 3680, 890),
+    Rect.fromLTRB(564, 988, 3680, 1100),
+    Rect.fromLTRB(564, 1197, 3680, 1310),
+    Rect.fromLTRB(564, 1407, 3680, 1519),
+    Rect.fromLTRB(564, 1617, 3680, 1729),
+    Rect.fromLTRB(564, 1826, 3680, 1938),
+  ],
+  numberBounds: [
+    Rect.fromLTRB(269, 757, 423, 900),
+    Rect.fromLTRB(269, 967, 423, 1110),
+    Rect.fromLTRB(269, 1177, 423, 1320),
+    Rect.fromLTRB(269, 1386, 423, 1529),
+    Rect.fromLTRB(269, 1596, 423, 1739),
+    Rect.fromLTRB(269, 1805, 423, 1948),
+  ],
+);
+
 const stationDOriginalTemplates = <OriginalSlideTemplate>[
   OriginalSlideTemplate(
-    id: 'stationd-mon-v1',
-    asset: 'assets/slide_templates/stationd_mon_original.png',
-    sourceSize: Size(3840, 2160),
-    title: "SINGLE : AMRAP",
-    programLabel: "UNBROKEN",
-    subtitle: "5mins On / 90s Off",
+    id: 'stationd-unbroken-single-v1',
+    asset: 'assets/slide_templates/stationd_unbroken_single_original.png',
+    sourceSize: Size(1452, 586),
+    title: 'SINGLE : AMRAP',
+    programLabel: 'UNBROKEN',
+    subtitle: '5mins On / 90s Off',
     accentColor: 0xFFFF6200,
-    titleBounds: Rect.fromLTRB(270, 70, 2510, 292),
-    subtitleBounds: Rect.fromLTRB(269, 514, 3630, 657),
+    imageVerticalAlignment: 0,
+    titleFontFamily: 'Pretendard',
+    titleWeight: 800,
+    titleItalic: true,
+    titleFontSize: 60,
+    subtitleFontSize: 48,
+    bodyFontSize: 40,
+    bodyWeight: 500,
+    titleBounds: Rect.fromLTRB(20, 22, 1000, 84),
+    subtitleBounds: Rect.fromLTRB(23, 145, 810, 194),
     lines: [
-      "Run B 1000 / S 1150 / C 1350+",
-      "Ski B 1000 / S 1100 / C 1300+",
-      "Sled Pull B 5 / S 6 / C 7",
-      "Row B 1000 / S 1150 / C 1300+",
-      "FMCTP 20 + BTP 10 B 4 / S 5 / C 6",
-      "Wall Ball B 90 / S 105 / C 120",
+      'Run B 1000 / S 1150 / C 1350+',
+      'Ski B 1000 / S 1100 / C 1300+',
+      'Sled Pull B 5 / S 6 / C 7',
+      'Row B 1000 / S 1150 / C 1300+',
+      'FMCTP 20 + BTP 10 B 4 / S 5 / C 6',
+      'Wall Ball B 90 / S 105 / C 120',
     ],
     exerciseBounds: [
-      Rect.fromLTRB(564, 778, 3680, 890),
-      Rect.fromLTRB(564, 988, 3680, 1100),
-      Rect.fromLTRB(564, 1197, 3680, 1310),
-      Rect.fromLTRB(564, 1407, 3680, 1519),
-      Rect.fromLTRB(564, 1617, 3680, 1729),
-      Rect.fromLTRB(564, 1826, 3680, 1938),
+      Rect.fromLTRB(23, 233, 815, 275),
+      Rect.fromLTRB(23, 285, 815, 327),
+      Rect.fromLTRB(23, 337, 815, 379),
+      Rect.fromLTRB(23, 389, 815, 431),
+      Rect.fromLTRB(23, 441, 815, 483),
+      Rect.fromLTRB(23, 493, 815, 535),
+    ],
+  ),
+  OriginalSlideTemplate(
+    id: 'stationd-unbroken-team-change-v1',
+    asset: 'assets/slide_templates/stationd_unbroken_team_change_original.png',
+    sourceSize: Size(870, 491),
+    title: 'TEAM OF 2 : CHANGE',
+    programLabel: 'UNBROKEN',
+    subtitle: '6mins 30s On / 90s Off',
+    accentColor: 0xFFFF6200,
+    titleFontSize: 44,
+    subtitleFontSize: 32,
+    bodyFontSize: 23,
+    bodyWeight: 600,
+    titleBounds: Rect.fromLTRB(36, 20, 610, 64),
+    subtitleBounds: Rect.fromLTRB(55, 165, 680, 200),
+    lines: [
+      'Run + DV press 8 / Sync Knee Up 15 Each',
+      'BTP + Sled Pull 1 Way / Sync Push Up 20',
+      'Ski + Row 250m / Sync Lunge Knee Up 10 Each',
+      'Wallsit + Wall Ball 30 / Sync Squat Jump 20',
+    ],
+    exerciseBounds: [
+      Rect.fromLTRB(125, 226, 835, 253),
+      Rect.fromLTRB(125, 274, 835, 301),
+      Rect.fromLTRB(125, 322, 835, 349),
+      Rect.fromLTRB(125, 370, 835, 397),
     ],
     numberBounds: [
-      Rect.fromLTRB(269, 757, 423, 900),
-      Rect.fromLTRB(269, 967, 423, 1110),
-      Rect.fromLTRB(269, 1177, 423, 1320),
-      Rect.fromLTRB(269, 1386, 423, 1529),
-      Rect.fromLTRB(269, 1596, 423, 1739),
-      Rect.fromLTRB(269, 1805, 423, 1948),
+      Rect.fromLTRB(54, 219, 96, 259),
+      Rect.fromLTRB(54, 267, 96, 307),
+      Rect.fromLTRB(54, 315, 96, 355),
+      Rect.fromLTRB(54, 363, 96, 403),
     ],
   ),
   OriginalSlideTemplate(
@@ -343,6 +425,7 @@ const stationDOriginalTemplates = <OriginalSlideTemplate>[
 ];
 
 const originalSlideTemplates = <OriginalSlideTemplate>[
+  legacyStationDMonTemplate,
   ...stationDOriginalTemplates,
   dolpaOriginalTemplate,
 ];

@@ -12,6 +12,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_sound.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
@@ -100,6 +101,23 @@ int synchronizedRemainingMs({
 @riverpod
 DateTime Function() playerClock(Ref ref) => DateTime.now;
 
+/// Remember only the last displayed class across player/widget disposal. This
+/// is an audio marker, not a playback checkpoint or permission to keep playing.
+@Riverpod(keepAlive: true)
+DisplayAudioAttachment displayAudioAttachment(Ref ref) =>
+    DisplayAudioAttachment();
+
+class DisplayAudioAttachment {
+  (String, String)? _lastSession;
+
+  bool isReattachment(PlaybackSession session) {
+    final identity = (session.ownerId, session.id);
+    final seen = _lastSession == identity;
+    _lastSession = identity;
+    return seen;
+  }
+}
+
 @riverpod
 class PlayerController extends _$PlayerController {
   Timer? _ticker;
@@ -115,6 +133,8 @@ class PlayerController extends _$PlayerController {
   bool _announcedCompletion = false;
   String? _preparationIdentity;
   int _lastPreparationSecond = 4;
+  bool _attachedDisplayAudio = false;
+  bool _restoringDisplayAudio = false;
 
   @override
   PlayerState build(
@@ -136,9 +156,17 @@ class PlayerController extends _$PlayerController {
     final steps = _cachedSteps;
     final remote = sessionId == null
         ? null
-        : ref.watch(activePlaybackSessionProvider).value;
+        : canControl
+        ? ref.watch(activePlaybackSessionProvider).value
+        : ref.watch(displayPlaybackSessionProvider);
     final offset = ref.watch(serverTimeOffsetProvider).value ?? 0;
     final matchesSession = remote != null && remote.id == sessionId;
+    if (!canControl && matchesSession && !_attachedDisplayAudio) {
+      _attachedDisplayAudio = true;
+      _restoringDisplayAudio = ref
+          .read(displayAudioAttachmentProvider)
+          .isReattachment(remote);
+    }
 
     late final int index;
     late final int remainingMs;
@@ -171,8 +199,11 @@ class PlayerController extends _$PlayerController {
           .indexWhere((step) => step.moduleIndex == startModule)
           .clamp(0, max(0, steps.length - 1));
       remainingMs = steps.isEmpty ? 0 : steps[index].duration * 1000;
-      isPaused = false;
-      countdownMs = workout.countdownSeconds.clamp(0, 60) * 1000;
+      // Losing a remote class must never fall back to local preview playback.
+      isPaused = sessionId != null;
+      countdownMs = sessionId == null
+          ? workout.countdownSeconds.clamp(0, 60) * 1000
+          : 0;
     }
 
     final initial = PlayerState(
@@ -186,7 +217,9 @@ class PlayerController extends _$PlayerController {
       timelineVersion: ++_timelineVersion,
     );
     _setDeadline(initial);
-    if (canControl || ref.read(tvPlaybackVisibleProvider)) {
+    final hasPlaybackSource = sessionId == null || matchesSession;
+    if (hasPlaybackSource &&
+        (canControl || ref.read(tvPlaybackVisibleProvider))) {
       _ticker = Timer.periodic(
         const Duration(milliseconds: 100),
         (_) => _tick(),
@@ -198,18 +231,35 @@ class PlayerController extends _$PlayerController {
           _ticker?.cancel();
         } else {
           // Foreground handshake has completed; rebuild from the current session.
+          _restoringDisplayAudio = sessionId != null;
           ref.invalidateSelf();
         }
       });
     }
     Future.microtask(() {
       if (!ref.mounted ||
+          !hasPlaybackSource ||
           (!canControl && !ref.read(tvPlaybackVisibleProvider)) ||
           state.timelineVersion != initial.timelineVersion) {
         return;
       }
+      if (_restoringDisplayAudio) {
+        _restoringDisplayAudio = false;
+        _restoreAudioPosition();
+        if (!canControl && sessionId != null && index >= steps.length) {
+          ref
+              .read(displayPlaybackSessionProvider.notifier)
+              .finishLocally(sessionId);
+        }
+        return;
+      }
       if (index >= steps.length) {
         _announceCompletion();
+        if (!canControl && sessionId != null) {
+          ref
+              .read(displayPlaybackSessionProvider.notifier)
+              .finishLocally(sessionId);
+        }
       } else if (forTimeEnded) {
         _announceTimerEnd();
       } else if (initial.countdownMs > 0) {
@@ -227,6 +277,20 @@ class PlayerController extends _$PlayerController {
   }
 
   DateTime _now() => ref.read(playerClockProvider)();
+
+  void _restoreAudioPosition() {
+    // Resync restores where the class is now. It is not a new interval,
+    // countdown second or completion event, even if boundaries passed offline.
+    _announcedSessionId = sessionId;
+    _announcedStepIndex = state.countdownMs > 0 ? null : state.index;
+    _announcedCompletion = state.index >= state.steps.length || forTimeEnded;
+    if (state.countdownMs > 0) {
+      _lastPreparationSecond = min(
+        _lastPreparationSecond,
+        (state.countdownMs / 1000).ceil(),
+      );
+    }
+  }
 
   PlayerStep? get currentStep =>
       state.steps.isEmpty ||
@@ -344,6 +408,11 @@ class PlayerController extends _$PlayerController {
           isPaused: true,
         );
         _announceCompletion();
+        if (!canControl && sessionId != null) {
+          ref
+              .read(displayPlaybackSessionProvider.notifier)
+              .finishLocally(sessionId!);
+        }
         if (canControl && sessionId != null) {
           unawaited(
             ref.read(playbackActionControllerProvider.notifier).syncComplete(),

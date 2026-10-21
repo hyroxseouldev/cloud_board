@@ -29,6 +29,28 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // Center templates are operator-published. Display identities and client
+    // claims do not grant access to another center's authoring materials.
+    function ownsTemplateCenter(centerId) {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && isOwner(request.auth.uid)
+        && exists(/databases/$(database)/documents/centers/$(centerId))
+        && get(/databases/$(database)/documents/centers/$(centerId)).data.ownerUid == request.auth.uid;
+    }
+    match /centers/{centerId}/slideTemplateCatalog/current {
+      allow get: if ownsTemplateCenter(centerId);
+      allow list, write: if false;
+    }
+
+    // Only server-produced generation records; clients cannot forge complete
+    // jobs, mutate reservations or access another account/center's source.
+    match /users/{userId}/templateGenerationCenters/{centerId}/jobs/{jobId} {
+      allow read: if isOwner(userId) && ownsTemplateCenter(centerId)
+        && get(/databases/$(database)/documents/users/$(userId)/onboarding/progress).data.storeId == centerId;
+      allow write: if false;
+    }
+
     function validSound(v) {
       return v in ['silent', 'gentleBeep', 'classicBeep', 'sharpBeep', 'lowPulse',
         'boxingBell', 'softBell', 'doubleBeep', 'longFinish', 'videoBeep'];

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -90,6 +92,7 @@ void main() {
         );
         final container = ProviderContainer(
           overrides: [
+            accountOwnerIdProvider.overrideWith((_) => Stream.value('coach')),
             activePlaybackSessionProvider.overrideWith((ref) => source.stream),
             serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
             playbackConnectionProvider.overrideWith(
@@ -255,6 +258,7 @@ void main() {
       final source = StreamController<PlaybackSession?>();
       final container = ProviderContainer(
         overrides: [
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('coach')),
           activePlaybackSessionProvider.overrideWith((ref) => source.stream),
           serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
           playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),

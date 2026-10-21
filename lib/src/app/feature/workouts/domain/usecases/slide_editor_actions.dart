@@ -45,7 +45,7 @@ WorkoutModule applySlideStyle(
   designStyle: style.designStyle ?? target.designStyle,
   designTemplate: style.designStyle == null
       ? target.designTemplate
-      : 'studio-v1-${style.designStyle!.family == 'editorial' ? 'list' : slideDesignKind(target) ?? 'numbered'}',
+      : '${isCreationSlideDesign(target) ? 'studio-v2' : 'studio-v1'}-${style.designStyle!.family == 'editorial' ? 'list' : slideDesignKind(target) ?? 'numbered'}',
   designBackgroundColor: style.designBackgroundColor,
   designTextColor: style.designTextColor,
   designAccentColor: style.designAccentColor,

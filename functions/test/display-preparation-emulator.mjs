@@ -110,6 +110,14 @@ try {
   await assertSucceeds(update(ref(tv, devicePath), {online: true, lastSeenAtMs: Date.now()}));
   await assertSucceeds(get(ref(tv, `${path}/request`)));
   await assertSucceeds(set(ref(tv, `${path}/responses/tv`), {...ready, checkedAtMs: Date.now()}));
+  // Applied timing is part of the device record, so every observer sees one
+  // atomic policy. Existing identity/presence rules still reject other writers.
+  const heartbeatPolicy = {schemaVersion: 1, revision: 1,
+    heartbeatIntervalSeconds: 60, noResponseTimeoutSeconds: 180,
+    connectionId: 'prepare-repair'};
+  await assertSucceeds(update(ref(tv, devicePath), {heartbeatPolicy, lastSeenAtMs: Date.now()}));
+  assert.deepEqual((await get(ref(owner, `${devicePath}/heartbeatPolicy`))).val(), heartbeatPolicy);
+  await assertFails(update(ref(foreign, devicePath), {heartbeatPolicy: {...heartbeatPolicy, revision: 2}}));
   // Another valid TV is excluded using the existing target selection. Its old
   // ready response cannot satisfy or write the new candidate.
   const excluded = env.authenticatedContext('excluded-auth', {firebase: {sign_in_provider: 'anonymous'}}).database();

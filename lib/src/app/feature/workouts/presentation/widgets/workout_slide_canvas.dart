@@ -17,13 +17,25 @@ import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 
 class _SlideDesignArtwork extends HookWidget {
-  const _SlideDesignArtwork({required this.module, required this.targetWidth});
+  const _SlideDesignArtwork({
+    required this.module,
+    required this.targetWidth,
+    required this.webHtmlElementStrategy,
+    required this.creationTypography,
+    required this.preview,
+  });
+  final bool creationTypography;
+  final bool preview;
   final WorkoutModule module;
   final int targetWidth;
+  final WebHtmlElementStrategy webHtmlElementStrategy;
 
   @override
   Widget build(BuildContext context) {
     final originalId = module.designStyle?.originalTemplate;
+    final layoutWarning = creationTypography || isCreationSlideDesign(module)
+        ? measureSlideDesign(module, creationTypography: true).warning
+        : null;
     final image = useState<ui.Image?>(null);
     final failure = useState<Object?>(null);
     final attempt = useState(0);
@@ -60,7 +72,17 @@ class _SlideDesignArtwork extends HookWidget {
     }, [originalId, targetWidth, attempt.value]);
     if (originalId != null && image.value == null) {
       if (module.imageSource.isNotEmpty) {
-        return WorkoutImage(source: module.imageSource, fit: BoxFit.contain);
+        return WorkoutImage(
+          source: module.imageSource,
+          fit: BoxFit.contain,
+          preview: preview,
+          webHtmlElementStrategy: webHtmlElementStrategy,
+        );
+      }
+      if (preview) {
+        return failure.value == null
+            ? const WorkoutImageSkeleton()
+            : WorkoutImageFailure(onRetry: () => attempt.value++);
       }
       return ColoredBox(
         color: Colors.black,
@@ -81,8 +103,32 @@ class _SlideDesignArtwork extends HookWidget {
         ),
       );
     }
-    return CustomPaint(
-      painter: SlideDesignPainter(module, originalImage: image.value),
+    if (layoutWarning != null) {
+      return ColoredBox(
+        color: const Color(0xfff6f3ea),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(80),
+            child: Text(
+              '선택한 글자 크기와 배치에 내용이 넘쳐요. 문구를 줄이거나 슬라이드를 나눠 주세요.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xff26382f), fontSize: 44),
+            ),
+          ),
+        ),
+      );
+    }
+    return Semantics(
+      label: isIllustratedStarterDesign(module)
+          ? '${module.name}. ${module.text.replaceAll('\n', ', ')}. ${module.designSubtitle}'
+          : null,
+      child: CustomPaint(
+        painter: SlideDesignPainter(
+          module,
+          originalImage: image.value,
+          creationTypography: creationTypography,
+        ),
+      ),
     );
   }
 }
@@ -115,14 +161,18 @@ class WorkoutSlideCanvas extends StatelessWidget {
     required this.brandR,
     required this.scale,
     this.showLoadingIndicator = false,
+    this.preview = false,
+    this.creationTypography = false,
     this.timer,
     this.positionLabel,
     this.displayPreferences = const DisplayPreferences(),
+    this.webHtmlElementStrategy = WebHtmlElementStrategy.prefer,
   });
 
   final Widget? timer;
   final String? positionLabel;
   final DisplayPreferences displayPreferences;
+  final WebHtmlElementStrategy webHtmlElementStrategy;
   DisplayPreferences get preferences => displayPreferences.enabled
       ? displayPreferences
       : const DisplayPreferences();
@@ -138,6 +188,10 @@ class WorkoutSlideCanvas extends StatelessWidget {
   final String brandR;
   final double scale;
   final bool showLoadingIndicator;
+
+  /// Loading/error presentation for editor/settings thumbnails only.
+  final bool preview;
+  final bool creationTypography;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -167,6 +221,9 @@ class WorkoutSlideCanvas extends StatelessWidget {
                             height: 1080,
                             child: _SlideDesignArtwork(
                               module: module,
+                              creationTypography: creationTypography,
+                              preview: preview,
+                              webHtmlElementStrategy: webHtmlElementStrategy,
                               targetWidth: _artworkPixelWidth(
                                 constraints,
                                 MediaQuery.devicePixelRatioOf(context),
@@ -180,6 +237,8 @@ class WorkoutSlideCanvas extends StatelessWidget {
                         )
                       : WorkoutImage(
                           source: module.imageSource,
+                          preview: preview,
+                          webHtmlElementStrategy: webHtmlElementStrategy,
                           fit:
                               (preferences.enabled
                                   ? preferences.cover
@@ -318,7 +377,7 @@ class WorkoutSlideCanvas extends StatelessWidget {
             sets: module.showSets
                 ? Text(
                     positionLabel ??
-                        '${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
+                        '${isIllustratedStarterDesign(module) && isRest ? '휴식 · ' : ''}${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
                     key: const ValueKey('slide-sets'),
                     textAlign: TextAlign.center,
                     style: TextStyle(

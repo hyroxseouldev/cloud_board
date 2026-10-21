@@ -249,8 +249,8 @@ void main() {
               .width,
           closeTo(
             size.width >= 700 && size.height < 540
-                ? size.width / 2
-                : size.width,
+                ? size.width / 2 - 20
+                : size.width - (size.width < 360 ? 32 : 40),
             1,
           ),
         );

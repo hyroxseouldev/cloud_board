@@ -1,7 +1,6 @@
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
-import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 
@@ -41,20 +40,17 @@ class ActiveClassShell extends HookConsumerWidget {
     ref.listen(playbackActionControllerProvider, (previous, next) {
       if (next.hasError && next.error != previous?.error) {
         final error = next.error!;
+        ref
+            .read(errorReporterProvider)
+            .capture(
+              error,
+              next.stackTrace ?? StackTrace.current,
+              action: 'playback.action',
+            );
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(playbackErrorMessage(error)),
             duration: const Duration(seconds: 8),
-            action: SnackBarAction(
-              label: '문제 문의하기',
-              onPressed: () => openSupportForError(
-                context,
-                ref.read(errorReporterProvider),
-                error,
-                next.stackTrace,
-                'playback.action',
-              ),
-            ),
           ),
         );
       }

@@ -155,7 +155,9 @@ export async function requestAiSlideDesigns(source, apiKey, fetchImpl = fetch) {
   const input = body.usage?.input_tokens, out = body.usage?.output_tokens;
   const costMicros = Number.isSafeInteger(input) && input >= 0 && Number.isSafeInteger(out) && out >= 0
     ? Math.ceil(input * .125 + out * .50) : AI_TIMER_RESERVE;
-  return {result, costMicros};
+  return {result, costMicros,
+    usage: Number.isSafeInteger(input) && input >= 0 && Number.isSafeInteger(out) && out >= 0
+      ? {input, output: out} : null};
 }
 
 export async function handleAiSlideDesigns(options) {

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_retention.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -59,18 +62,26 @@ WorkoutImageSize playbackImageSize(BuildContext context) {
   );
 }
 
-ImageProvider workoutImageProvider(String source, WorkoutImageSize size) {
+ImageProvider workoutImageProvider(
+  String source,
+  WorkoutImageSize size, {
+  WebHtmlElementStrategy webHtmlElementStrategy = WebHtmlElementStrategy.prefer,
+}) {
   final remote = source.startsWith('https://') || source.startsWith('http://');
-  final ImageProvider provider = remote
+  final retained = remote ? retainedWorkoutImage(source) : null;
+  final ImageProvider provider = retained != null
+      ? MemoryImage(retained)
+      : remote
       ? kIsWeb
             ? NetworkImage(
                 source,
-                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                webHtmlElementStrategy: webHtmlElementStrategy,
               )
             : CachedNetworkImageProvider(source)
       : MemoryImage(_bytesCache.decode(source));
-  // HTML network images use the browser's decoding/rendering path.
-  if ((kIsWeb && remote) || (size.width == null && size.height == null)) {
+  // Keep web network providers unresized so their HTML fallback stays available.
+  if ((kIsWeb && remote && retained == null) ||
+      (size.width == null && size.height == null)) {
     return provider;
   }
   return ResizeImage(
@@ -106,6 +117,7 @@ Future<int> warmWorkoutImages(
   required Future<void> Function(String source) load,
   bool Function()? isCancelled,
   int concurrency = 3,
+  bool continueOnError = false,
 }) async {
   assert(concurrency > 0);
   final queue = sources.where((source) => source.isNotEmpty).toSet().toList();
@@ -114,8 +126,12 @@ Future<int> warmWorkoutImages(
   Future<void> worker() async {
     while (next < queue.length && !(isCancelled?.call() ?? false)) {
       final source = queue[next++];
-      await load(source);
-      loaded++;
+      try {
+        await load(source);
+        loaded++;
+      } catch (_) {
+        if (!continueOnError) rethrow;
+      }
     }
   }
 
@@ -127,12 +143,40 @@ Future<int> precacheWorkoutImages(
   BuildContext context,
   Iterable<String> sources, {
   bool Function()? isCancelled,
+  WorkoutImageRetention? retention,
+  bool continueOnError = false,
 }) {
   final size = playbackImageSize(context);
+  final retainedSession = retention?.sessionId;
   return warmWorkoutImages(
     sources,
+    continueOnError: continueOnError,
     isCancelled: () => !context.mounted || (isCancelled?.call() ?? false),
     load: (source) async {
+      if (retention != null) {
+        try {
+          await retention.load(source);
+        } catch (_) {
+          // CORS/HTML-only URLs keep their existing provider and render path.
+        }
+        if (!context.mounted ||
+            (isCancelled?.call() ?? false) ||
+            retention.sessionId != retainedSession) {
+          return;
+        }
+        if (source.startsWith('http') && retention.bytesFor(source) == null) {
+          await _retainFallbackImage(
+            context,
+            source,
+            size,
+            retention,
+            isCancelled: () =>
+                (isCancelled?.call() ?? false) ||
+                retention.sessionId != retainedSession,
+          );
+          return;
+        }
+      }
       Object? failure;
       final loading = precacheImage(
         workoutImageProvider(source, size),
@@ -147,4 +191,47 @@ Future<int> precacheWorkoutImages(
       if (failure != null) throw failure!;
     },
   );
+}
+
+Future<void> _retainFallbackImage(
+  BuildContext context,
+  String source,
+  WorkoutImageSize size,
+  WorkoutImageRetention retention, {
+  required bool Function() isCancelled,
+}) async {
+  final stream = workoutImageProvider(
+    source,
+    size,
+  ).resolve(createLocalImageConfiguration(context));
+  final ready = Completer<void>();
+  var retained = false;
+  late ImageStreamListener listener;
+  void release() => stream.removeListener(listener);
+  listener = ImageStreamListener(
+    (image, _) {
+      if (!ready.isCompleted) {
+        retained =
+            !isCancelled() &&
+            retention.retainFallback(
+              source,
+              image.image.width * image.image.height * 4,
+              release,
+            );
+        ready.complete();
+      }
+      image.dispose();
+      if (!retained) release();
+    },
+    onError: (Object error, StackTrace? stack) {
+      if (!ready.isCompleted) ready.completeError(error, stack);
+      release();
+    },
+  );
+  stream.addListener(listener);
+  try {
+    await ready.future.timeout(const Duration(seconds: 20));
+  } finally {
+    if (!retained) release();
+  }
 }

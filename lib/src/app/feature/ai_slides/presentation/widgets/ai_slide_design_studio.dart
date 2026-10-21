@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/center_slide_catalog_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/center_slide_thumbnail.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/visible_slide_preview.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
@@ -9,7 +13,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_reference_design.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides_editor.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_slides_actions.dart';
@@ -49,6 +52,13 @@ class AiSlideDesignStudio extends HookConsumerWidget {
     final state = ref.watch(aiSlideDesignControllerProvider);
     final controller = ref.read(aiSlideDesignControllerProvider.notifier);
     final catalog = section == AiSlideDesignStudioSection.templates;
+    final centerCatalog = catalog
+        ? ref.watch(centerSlideCatalogProvider)
+        : null;
+    final centerData =
+        centerCatalog?.isLoading == false && !centerCatalog!.hasError
+        ? centerCatalog.value
+        : null;
     final mode = creationPath;
     final brief = useTextEditingController();
     final reference = useState<Uint8List?>(null);
@@ -115,7 +125,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
       final theme = draft == null
           ? state.selected?.theme
           : aiSlideThemeFromDraft(draft!);
-      if (theme == null) return;
+      if (theme == null || theme.centerRecipe != null) return;
       final name = await showDialog<String>(
         context: context,
         builder: (context) => HookBuilder(
@@ -186,7 +196,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
           borderRadius: BorderRadius.circular(14),
           child: AnimatedContainer(
             duration: AppMotion.duration(context, AppMotion.stateChange),
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: selected
@@ -205,19 +215,24 @@ class AiSlideDesignStudio extends HookConsumerWidget {
               children: [
                 ExcludeSemantics(
                   child: VisibleSlidePreview(
-                    builder: (context) => WorkoutSlidePreview(
-                      module: previewAiSlide(
-                        applyAiSlideTheme(
-                          design.theme.designStyle?.originalTemplate != null
-                              ? initialAiSlideDesignDraft(design.theme)
-                              : draft ??
-                                    initialAiSlideDesignDraft(design.theme),
-                          design.theme,
-                        ),
-                      ),
-                      isRest: false,
-                      borderRadius: 8,
-                    ),
+                    builder: (context) {
+                      final preview = applyAiSlideTheme(
+                        design.sample ??
+                            (design.theme.designStyle?.originalTemplate != null
+                                ? initialAiSlideDesignDraft(design.theme)
+                                : draft ??
+                                      initialAiSlideDesignDraft(design.theme)),
+                        design.theme,
+                      );
+                      return preview.centerRecipe != null
+                          ? CenterSlideThumbnail(draft: preview)
+                          : WorkoutSlidePreview(
+                              creationTypography: true,
+                              module: previewAiSlide(preview),
+                              isRest: false,
+                              borderRadius: 8,
+                            );
+                    },
                   ),
                 ),
                 const SizedBox(height: 9),
@@ -229,8 +244,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 13,
-                          letterSpacing: -0.13,
+                          fontSize: 14,
+                          letterSpacing: -0.14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -249,7 +264,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -262,11 +277,12 @@ class AiSlideDesignStudio extends HookConsumerWidget {
 
     Widget designGrid(List<AiSlideDesign> designs) => LayoutBuilder(
       builder: (context, bounds) {
-        final columns = bounds.maxWidth >= 560 ? 3 : 2;
-        final width = (bounds.maxWidth - (columns - 1) * 10) / columns;
+        final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+        final columns = bounds.maxWidth < 300 || largeText ? 1 : 2;
+        final width = (bounds.maxWidth - (columns - 1) * 12) / columns;
         return Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 12,
+          runSpacing: 12,
           children: [
             for (final design in designs)
               SizedBox(width: width, child: designCard(design)),
@@ -275,36 +291,27 @@ class AiSlideDesignStudio extends HookConsumerWidget {
       },
     );
 
-    Widget templateHeading(String title, int count, {bool premium = false}) =>
-        Row(
-          children: [
-            if (premium) ...[
-              const Icon(
-                Icons.workspace_premium_rounded,
-                size: 18,
-                color: Color(0xFFB47A21),
-              ),
-              const SizedBox(width: 6),
-            ],
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  letterSpacing: -0.15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+    Widget templateHeading(String title, int count) => Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              letterSpacing: -0.15,
+              fontWeight: FontWeight.w600,
             ),
-            Text(
-              '$count개',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        );
+          ),
+        ),
+        Text(
+          '$count개',
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -325,8 +332,8 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                             AiSlideCreationPath.reference => '이미지의 느낌을 가져와요',
                           },
                     style: const TextStyle(
-                      fontSize: 26,
-                      letterSpacing: -0.26,
+                      fontSize: 24,
+                      letterSpacing: -0.24,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -335,12 +342,20 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                     catalog
                         ? '마음에 드는 틀을 고르고 운동 내용만 바꿔 보세요.'
                         : '적어 둔 운동을 수업 화면으로 정리해요.',
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
             ),
-            if (catalog && (draft != null || state.selected != null))
+            if (catalog &&
+                (draft != null || state.selected != null) &&
+                (draft != null
+                        ? draft!.centerRecipe
+                        : state.selected?.theme.centerRecipe) ==
+                    null)
               IconButton(
                 key: const ValueKey('ai-save-class'),
                 onPressed: state.saving ? null : saveClass,
@@ -392,7 +407,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
         ],
         if (catalog && state.templateError != null)
           AiSlidesNotice(state.templateError!),
-        const SizedBox(height: 16),
+        if (!catalog) const SizedBox(height: 24),
         if (!catalog)
           Wrap(
             spacing: 8,
@@ -412,28 +427,42 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                 ),
             ],
           ),
-        const SizedBox(height: 14),
+        SizedBox(height: catalog ? 20 : 14),
         if (catalog) ...[
           const AiSlidesNotice('템플릿 선택과 직접 수정은 AI 토큰·생성 횟수를 사용하지 않아요.'),
-          const SizedBox(height: 12),
-          templateHeading(
-            '프리미엄 템플릿',
-            customerReferenceDesigns.length,
-            premium: true,
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            '원본 그대로 선택하고, 수업 메모로 운동 내용만 채워 보세요.',
-            style: TextStyle(fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          designGrid(customerReferenceDesigns),
-          const Divider(height: 32),
-          templateHeading('일반 템플릿', aiSlideDesignCatalog.length),
+          const SizedBox(height: 20),
+          if (centerData != null && centerData.templates.isNotEmpty) ...[
+            templateHeading(
+              centerData.centerName.trim().isEmpty
+                  ? '우리 센터 템플릿'
+                  : '${centerData.centerName} 센터 템플릿',
+              centerData.templates.length,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '우리 센터의 디자인을 고르고 운동 내용을 바꿔 보세요.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            designGrid(centerData.templates),
+            const Divider(height: 48),
+          ] else if (centerCatalog?.isLoading == true) ...[
+            const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 12),
+          ] else if (centerCatalog?.hasError == true) ...[
+            const Text('센터 템플릿을 불러오지 못했어요. 기본 템플릿은 사용할 수 있어요.'),
+            TextButton.icon(
+              onPressed: () => ref.invalidate(centerSlideCatalogProvider),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('다시 불러오기'),
+            ),
+            const SizedBox(height: 12),
+          ],
+          templateHeading('기본 템플릿', aiSlideDesignCatalog.length),
           const SizedBox(height: 6),
           const Text(
             '예시 내용을 오늘의 운동으로 바꿔 시작해요.',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 12),
           designGrid(aiSlideDesignCatalog),

@@ -14,6 +14,9 @@ abstract class AiSlideDesign with _$AiSlideDesign {
     required String name,
     @Default('') String description,
     required AiSlideTheme theme,
+
+    /// Initial editable content supplied by an authorized center catalog.
+    AiSlideDraft? sample,
     String? storeId,
   }) = _AiSlideDesign;
 }
@@ -61,14 +64,14 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
       designTextColor: 0xff18251f,
       designAccentColor: 0xffbfe56b,
       designItalic: false,
-      designFontWeight: 700,
+      designFontWeight: 600,
       showTimer: false,
     ),
   ),
   AiSlideDesign(
     id: 'catalog-focus',
     name: '어두운 집중 보드',
-    description: '짙은 배경과 큰 운동행으로 집중도를 높여요',
+    description: '짙은 배경과 명확한 운동행으로 집중도를 높여요',
     theme: AiSlideTheme(
       designStyle: SlideDesignStyle(
         family: 'focus',
@@ -79,14 +82,14 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
       designTextColor: 0xfff6f7f2,
       designAccentColor: 0xffc3f06b,
       designItalic: false,
-      designFontWeight: 700,
+      designFontWeight: 600,
       showTimer: false,
     ),
   ),
   AiSlideDesign(
     id: 'catalog-editorial',
     name: '클래스 포스터',
-    description: '큰 제목과 세리프 글씨로 클래스의 분위기를',
+    description: '차분한 제목과 세리프 글씨로 클래스의 분위기를',
     theme: AiSlideTheme(
       designStyle: SlideDesignStyle(
         family: 'editorial',
@@ -118,7 +121,7 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
       designTextColor: 0xff172741,
       designAccentColor: 0xff4969dd,
       designItalic: false,
-      designFontWeight: 700,
+      designFontWeight: 600,
       designSpacing: 1.0,
       showTimer: false,
     ),
@@ -156,7 +159,7 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
       designAccentColor: 0xfff5963f,
       designLayout: 'columns',
       designItalic: false,
-      designFontWeight: 700,
+      designFontWeight: 600,
       designSpacing: 0.98,
       showTimer: false,
     ),
@@ -176,7 +179,7 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
       designAccentColor: 0xff79d6f2,
       designLayout: 'columns',
       designItalic: false,
-      designFontWeight: 700,
+      designFontWeight: 600,
       designSpacing: 1.05,
       showTimer: false,
     ),
@@ -215,7 +218,7 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
       designAccentColor: 0xffd6f657,
       designLayout: 'cards',
       designItalic: false,
-      designFontWeight: 700,
+      designFontWeight: 600,
       designSpacing: 0.96,
       showTimer: false,
     ),
@@ -276,7 +279,7 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
       designTextColor: 0xfffff4e3,
       designAccentColor: 0xffffc7a8,
       designItalic: false,
-      designFontWeight: 700,
+      designFontWeight: 600,
       showTimer: false,
     ),
   ),
@@ -286,7 +289,7 @@ const aiSlideDesignCatalog = <AiSlideDesign>[
 const aiSlideDesignSample = AiSlideDraft(
   title: '오늘의 클래스',
   layout: 'numbered',
-  designFontWeight: 700,
+  designFontWeight: 600,
   designItalic: false,
   designHeaderLabel: 'DAILY TRAINING',
   designSubtitle: '6 min ON / 90 sec OFF',

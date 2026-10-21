@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 
 import 'package:cloud_board/src/app/feature/auth/domain/usecases/auth_use_cases.dart';
 
@@ -48,13 +49,23 @@ class EmailAuthController extends _$EmailAuthController {
     String? message,
   }) async {
     if (state.isLoading) return;
+    final reporter = ref.read(errorReporterProvider);
     state = const AsyncLoading();
     final result = await AsyncValue.guard(() async {
       try {
         await operation();
         return message;
-      } catch (error) {
-        throw EmailAuthFailure(emailAuthErrorMessage(error));
+      } catch (error, stack) {
+        final failure = EmailAuthFailure(emailAuthErrorMessage(error));
+        reporter.capture(
+          failure,
+          stack,
+          action: 'auth.email',
+          context: {
+            if (error is FirebaseAuthException) 'firebaseCode': error.code,
+          },
+        );
+        throw failure;
       }
     });
     if (ref.mounted) state = result;

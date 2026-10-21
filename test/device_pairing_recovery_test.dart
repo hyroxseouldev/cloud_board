@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -39,6 +41,96 @@ const _callable = BasicMessageChannel<Object?>(
 );
 
 void main() {
+  test('heartbeat publishes atomic timing only for its live connection and never resurrects a device', () async {
+    final db = _Database();
+    const path = 'users/owner/devices/tv';
+    const policy = DisplayHeartbeatPolicy(
+      revision: 5,
+      heartbeatIntervalSeconds: 60,
+      noResponseTimeoutSeconds: 180,
+    );
+    db.device['presenceProtocol'] = 1;
+    db.device['currentConnectionId'] = 'current';
+    db.device['presence'] = {
+      'current': {'online': true, 'lastSeenAtMs': 1},
+    };
+    await updateDisplayHeartbeat(
+      db,
+      'owner',
+      'tv',
+      policy: policy,
+      connectionId: 'current',
+    );
+    expect(db.device['heartbeatPolicy'], {
+      ...policy.toJson(),
+      'connectionId': 'current',
+    });
+    expect(
+      (db.device['presence'] as Map)['current']['lastSeenAtMs'],
+      _Database.serverNow,
+    );
+    expect(db.device['name'], 'Keep TV name');
+    expect(db.device['preferences'], {'volume': .5});
+    await expectLater(
+      updateDisplayHeartbeat(
+        db,
+        'owner',
+        'tv',
+        policy: DisplayHeartbeatPolicy.legacy,
+        connectionId: 'current',
+      ),
+      throwsStateError,
+    );
+    await expectLater(
+      updateDisplayHeartbeat(
+        db,
+        'owner',
+        'tv',
+        policy: policy,
+        connectionId: 'old',
+      ),
+      throwsStateError,
+    );
+    expect(db.device['heartbeatPolicy']['revision'], 5);
+    db.device['presence']['current']['online'] = false;
+    await expectLater(
+      updateDisplayHeartbeat(
+        db,
+        'owner',
+        'tv',
+        policy: policy,
+        connectionId: 'current',
+      ),
+      throwsStateError,
+    );
+    expect(db.device['presence']['current']['online'], false);
+    db.device['paired'] = false;
+    await expectLater(
+      updateDisplayHeartbeat(
+        db,
+        'owner',
+        'tv',
+        policy: policy,
+        connectionId: 'current',
+      ),
+      throwsStateError,
+    );
+    expect(db.device['paired'], false);
+    db.write(path, null);
+    await expectLater(
+      updateDisplayHeartbeat(
+        db,
+        'owner',
+        'tv',
+        policy: policy,
+        connectionId: 'current',
+      ),
+      throwsStateError,
+    );
+    expect(db.read(path), isNull);
+    await db.connection.close();
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Database db;
   late Future<Object?> Function(Map parameters) verify;
@@ -1049,7 +1141,12 @@ class _PreparationProbe extends Fake implements DisplayPreparationRepository {
   }
 
   @override
-  Future<void> heartbeat(String deviceId, {bool ready = false}) async {
+  Future<void> heartbeat(
+    String deviceId, {
+    bool ready = false,
+    DisplayHeartbeatPolicy? policy,
+    String? connectionId,
+  }) async {
     heartbeats++;
   }
 

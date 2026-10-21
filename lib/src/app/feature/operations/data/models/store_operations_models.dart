@@ -194,6 +194,7 @@ class OperationEventModel {
     this.incidentId,
     this.recoveryOfEventId,
     this.playbackImpact,
+    this.connected,
     this.targetDeviceIds = const [],
     this.targetDeviceNames = const {},
     this.targetDeviceVersions = const {},
@@ -213,6 +214,7 @@ class OperationEventModel {
       appVersion;
   final String? phase, errorId, errorCode, incidentId, recoveryOfEventId;
   final String? playbackImpact;
+  final bool? connected;
   final List<String> targetDeviceIds;
   final Map<String, String> targetDeviceNames, targetDeviceVersions;
   final int schemaVersion;
@@ -244,6 +246,7 @@ class OperationEventModel {
         incidentId: event.incidentId,
         recoveryOfEventId: event.recoveryOfEventId,
         playbackImpact: event.playbackImpact,
+        connected: event.connected,
         targetDeviceIds: event.targetDeviceIds,
         targetDeviceNames: event.targetDeviceNames,
         targetDeviceVersions: event.targetDeviceVersions,
@@ -271,6 +274,7 @@ class OperationEventModel {
     incidentId: incidentId,
     recoveryOfEventId: recoveryOfEventId,
     playbackImpact: playbackImpact,
+    connected: connected,
     targetDeviceIds: targetDeviceIds,
     targetDeviceNames: targetDeviceNames,
     targetDeviceVersions: targetDeviceVersions,

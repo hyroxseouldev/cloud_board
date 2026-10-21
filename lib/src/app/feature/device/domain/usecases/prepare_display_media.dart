@@ -17,32 +17,36 @@ Future<DisplayMediaPreparationResult?> prepareDisplayMedia(
   required bool Function() cancelled,
   void Function(String stage, Object error, StackTrace stack)? onError,
 }) async {
+  if (cancelled()) return null;
   var count = 0;
   var audioReady = false;
-  var stage = 'images';
-  try {
-    if (cancelled()) return null;
-    count = await images(request.images).timeout(const Duration(seconds: 30));
-    if (cancelled()) return null;
-    if (count != request.images.length) throw StateError('Incomplete images');
-    stage = 'audio';
-    await audio(request.sounds).timeout(const Duration(seconds: 12));
-    if (cancelled()) return null;
-    audioReady = true;
-    return (
-      ready: true,
-      imageCount: count,
-      audioReady: true,
-      failureCode: null,
-    );
-  } catch (error, stack) {
-    if (cancelled()) return null;
-    onError?.call(stage, error, stack);
-    return (
-      ready: false,
-      imageCount: count,
-      audioReady: audioReady,
-      failureCode: operationFailureCode(error),
-    );
+  String? failureCode;
+  Future<void> prepare(String stage, Future<void> Function() operation) async {
+    try {
+      await operation();
+    } catch (error, stack) {
+      failureCode ??= operationFailureCode(error);
+      if (!cancelled()) onError?.call(stage, error, stack);
+    }
   }
+
+  // Both independent branches start now. Wait for both bounded operations before
+  // returning so a failed image branch cannot race audio disposal or a retry.
+  await Future.wait([
+    prepare('images', () async {
+      count = await images(request.images).timeout(const Duration(seconds: 30));
+      if (count != request.images.length) throw StateError('Incomplete images');
+    }),
+    prepare('audio', () async {
+      await audio(request.sounds).timeout(const Duration(seconds: 12));
+      audioReady = true;
+    }),
+  ]);
+  if (cancelled()) return null;
+  return (
+    ready: failureCode == null,
+    imageCount: count,
+    audioReady: audioReady,
+    failureCode: failureCode,
+  );
 }

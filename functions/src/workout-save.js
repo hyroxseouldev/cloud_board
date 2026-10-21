@@ -43,7 +43,7 @@ export async function saveWorkout(db, uid, input) {
     const ref = db.doc(`users/${uid}/workouts/${source.id}`);
     const [lock, entitlement, previous, settings] = await tx.getAll(
       db.doc(`accountDeletions/${uid}`), db.doc(`subscriptionEntitlements/${uid}`),
-      ref, db.doc(`users/${uid}/settings/workout`), planUsageRef(db, uid));
+      ref, db.doc(`users/${uid}/settings/workout`));
     if (lock.exists) throw new HttpsError('permission-denied', '탈퇴 처리 중인 계정입니다.');
     const current = previous.data();
     if (ifAbsent && previous.exists) {
@@ -74,12 +74,22 @@ export async function saveWorkout(db, uid, input) {
     if (current && isDeepStrictEqual(current, value)) {
       return {workout: workoutWire(current), created: false};
     }
-    const counts = await readPlanUsage(tx, db, uid);
-    if (!previous.exists) assertPlanCapacity(entitlement.data(), 'workouts', counts.workoutCount);
+    let counts;
+    if (!previous.exists) {
+      // Creates/restores still serialize on usage and recount actual documents,
+      // including legacy direct deletes whose trigger has not run yet. An edit
+      // reads its workout in this transaction; a concurrent delete retries here
+      // as a create, so skipping usage for edits cannot bypass the final slot.
+      const [, currentCounts] = await Promise.all([
+        tx.get(planUsageRef(db, uid)), readPlanUsage(tx, db, uid),
+      ]);
+      counts = currentCounts;
+      assertPlanCapacity(entitlement.data(), 'workouts', counts.workoutCount);
+    }
     const summary = summarizeWorkout(value, value.id);
     tx.set(ref, value);
     tx.set(db.doc(`users/${uid}/workoutSummaries/${source.id}`), summary);
-    writePlanUsage(tx, db, uid, {...counts, workoutCount: counts.workoutCount + Number(!previous.exists)});
+    if (counts) writePlanUsage(tx, db, uid, {...counts, workoutCount: counts.workoutCount + 1});
     return {workout: workoutWire(value), created: !previous.exists};
   });
 }

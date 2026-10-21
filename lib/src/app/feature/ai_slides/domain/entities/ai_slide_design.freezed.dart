@@ -15,7 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AiSlideDesign {
 
- String get id; String get name; String get description; AiSlideTheme get theme; String? get storeId;
+ String get id; String get name; String get description; AiSlideTheme get theme;/// Initial editable content supplied by an authorized center catalog.
+ AiSlideDraft? get sample; String? get storeId;
 /// Create a copy of AiSlideDesign
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +28,20 @@ $AiSlideDesignCopyWith<AiSlideDesign> get copyWith => _$AiSlideDesignCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as AiSlideDesign;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlideDesign&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.description, _this.description) || other.description == _this.description)&&(identical(other.theme, _this.theme) || other.theme == _this.theme)&&(identical(other.storeId, _this.storeId) || other.storeId == _this.storeId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiSlideDesign&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.description, _this.description) || other.description == _this.description)&&(identical(other.theme, _this.theme) || other.theme == _this.theme)&&(identical(other.sample, _this.sample) || other.sample == _this.sample)&&(identical(other.storeId, _this.storeId) || other.storeId == _this.storeId));
 }
 
 
 @override
 int get hashCode {
   final _this = this as AiSlideDesign;
-  return Object.hash(runtimeType,_this.id,_this.name,_this.description,_this.theme,_this.storeId);
+  return Object.hash(runtimeType,_this.id,_this.name,_this.description,_this.theme,_this.sample,_this.storeId);
 }
 
 @override
 String toString() {
   final _this = this as AiSlideDesign;
-  return 'AiSlideDesign(id: ${_this.id}, name: ${_this.name}, description: ${_this.description}, theme: ${_this.theme}, storeId: ${_this.storeId})';
+  return 'AiSlideDesign(id: ${_this.id}, name: ${_this.name}, description: ${_this.description}, theme: ${_this.theme}, sample: ${_this.sample}, storeId: ${_this.storeId})';
 }
 
 
@@ -51,11 +52,11 @@ abstract mixin class $AiSlideDesignCopyWith<$Res>  {
   factory $AiSlideDesignCopyWith(AiSlideDesign value, $Res Function(AiSlideDesign) _then) = _$AiSlideDesignCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String description, AiSlideTheme theme, String? storeId
+ String id, String name, String description, AiSlideTheme theme, AiSlideDraft? sample, String? storeId
 });
 
 
-$AiSlideThemeCopyWith<$Res> get theme;
+$AiSlideThemeCopyWith<$Res> get theme;$AiSlideDraftCopyWith<$Res>? get sample;
 
 }
 /// @nodoc
@@ -68,13 +69,14 @@ class _$AiSlideDesignCopyWithImpl<$Res>
 
 /// Create a copy of AiSlideDesign
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = null,Object? theme = null,Object? storeId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = null,Object? theme = null,Object? sample = freezed,Object? storeId = freezed,}) {
   return _then(AiSlideDesign(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String,theme: null == theme ? _self.theme : theme // ignore: cast_nullable_to_non_nullable
-as AiSlideTheme,storeId: freezed == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
+as AiSlideTheme,sample: freezed == sample ? _self.sample : sample // ignore: cast_nullable_to_non_nullable
+as AiSlideDraft?,storeId: freezed == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -86,6 +88,18 @@ $AiSlideThemeCopyWith<$Res> get theme {
   
   return $AiSlideThemeCopyWith<$Res>(_self.theme, (value) {
     return _then(_self.copyWith(theme: value));
+  });
+}/// Create a copy of AiSlideDesign
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AiSlideDraftCopyWith<$Res>? get sample {
+    if (_self.sample == null) {
+    return null;
+  }
+
+  return $AiSlideDraftCopyWith<$Res>(_self.sample!, (value) {
+    return _then(_self.copyWith(sample: value));
   });
 }
 }
@@ -169,10 +183,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String description,  AiSlideTheme theme,  String? storeId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String description,  AiSlideTheme theme,  AiSlideDraft? sample,  String? storeId)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AiSlideDesign() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.theme,_that.storeId);case _:
+return $default(_that.id,_that.name,_that.description,_that.theme,_that.sample,_that.storeId);case _:
   return orElse();
 
 }
@@ -190,10 +204,10 @@ return $default(_that.id,_that.name,_that.description,_that.theme,_that.storeId)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String description,  AiSlideTheme theme,  String? storeId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String description,  AiSlideTheme theme,  AiSlideDraft? sample,  String? storeId)  $default,) {final _that = this;
 switch (_that) {
 case _AiSlideDesign():
-return $default(_that.id,_that.name,_that.description,_that.theme,_that.storeId);case _:
+return $default(_that.id,_that.name,_that.description,_that.theme,_that.sample,_that.storeId);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -210,10 +224,10 @@ return $default(_that.id,_that.name,_that.description,_that.theme,_that.storeId)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String description,  AiSlideTheme theme,  String? storeId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String description,  AiSlideTheme theme,  AiSlideDraft? sample,  String? storeId)?  $default,) {final _that = this;
 switch (_that) {
 case _AiSlideDesign() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.theme,_that.storeId);case _:
+return $default(_that.id,_that.name,_that.description,_that.theme,_that.sample,_that.storeId);case _:
   return null;
 
 }
@@ -225,13 +239,15 @@ return $default(_that.id,_that.name,_that.description,_that.theme,_that.storeId)
 
 
 class _AiSlideDesign implements AiSlideDesign {
-  const _AiSlideDesign({required this.id, required this.name, this.description = '', required this.theme, this.storeId});
+  const _AiSlideDesign({required this.id, required this.name, this.description = '', required this.theme, this.sample, this.storeId});
   
 
 @override final  String id;
 @override final  String name;
 @override@JsonKey() final  String description;
 @override final  AiSlideTheme theme;
+/// Initial editable content supplied by an authorized center catalog.
+@override final  AiSlideDraft? sample;
 @override final  String? storeId;
 
 /// Create a copy of AiSlideDesign
@@ -244,18 +260,18 @@ _$AiSlideDesignCopyWith<_AiSlideDesign> get copyWith => __$AiSlideDesignCopyWith
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlideDesign&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.theme, theme) || other.theme == theme)&&(identical(other.storeId, storeId) || other.storeId == storeId));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiSlideDesign&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.theme, theme) || other.theme == theme)&&(identical(other.sample, sample) || other.sample == sample)&&(identical(other.storeId, storeId) || other.storeId == storeId));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,name,description,theme,storeId);
+    return Object.hash(runtimeType,id,name,description,theme,sample,storeId);
 }
 
 @override
 String toString() {
-    return 'AiSlideDesign(id: $id, name: $name, description: $description, theme: $theme, storeId: $storeId)';
+    return 'AiSlideDesign(id: $id, name: $name, description: $description, theme: $theme, sample: $sample, storeId: $storeId)';
 }
 
 
@@ -266,11 +282,11 @@ abstract mixin class _$AiSlideDesignCopyWith<$Res> implements $AiSlideDesignCopy
   factory _$AiSlideDesignCopyWith(_AiSlideDesign value, $Res Function(_AiSlideDesign) _then) = __$AiSlideDesignCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String description, AiSlideTheme theme, String? storeId
+ String id, String name, String description, AiSlideTheme theme, AiSlideDraft? sample, String? storeId
 });
 
 
-@override $AiSlideThemeCopyWith<$Res> get theme;
+@override $AiSlideThemeCopyWith<$Res> get theme;@override $AiSlideDraftCopyWith<$Res>? get sample;
 
 }
 /// @nodoc
@@ -283,13 +299,14 @@ class __$AiSlideDesignCopyWithImpl<$Res>
 
 /// Create a copy of AiSlideDesign
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = null,Object? theme = null,Object? storeId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = null,Object? theme = null,Object? sample = freezed,Object? storeId = freezed,}) {
   return _then(_AiSlideDesign(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String,theme: null == theme ? _self.theme : theme // ignore: cast_nullable_to_non_nullable
-as AiSlideTheme,storeId: freezed == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
+as AiSlideTheme,sample: freezed == sample ? _self.sample : sample // ignore: cast_nullable_to_non_nullable
+as AiSlideDraft?,storeId: freezed == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -302,6 +319,18 @@ $AiSlideThemeCopyWith<$Res> get theme {
   
   return $AiSlideThemeCopyWith<$Res>(_self.theme, (value) {
     return _then(_self.copyWith(theme: value));
+  });
+}/// Create a copy of AiSlideDesign
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AiSlideDraftCopyWith<$Res>? get sample {
+    if (_self.sample == null) {
+    return null;
+  }
+
+  return $AiSlideDraftCopyWith<$Res>(_self.sample!, (value) {
+    return _then(_self.copyWith(sample: value));
   });
 }
 }

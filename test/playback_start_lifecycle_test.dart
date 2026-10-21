@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
+import 'package:cloud_board/src/app/feature/operations/data/operation_event_writer.dart';
+import 'package:cloud_board/src/app/feature/operations/domain/entities/store_operations.dart';
+import 'package:cloud_board/src/app/feature/operations/presentation/controllers/operation_event_recorder.dart';
 
 import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:go_router/go_router.dart';
@@ -43,6 +46,8 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_preferences_repository.dart';
 
+import 'support/workout_catalog_fixture.dart' show fixtureSavedSlideOrder;
+
 // Real generated controller/actions/preferences/preparation providers. Only
 // platform data repositories are replaced; autoDispose is never overridden.
 final _workout =
@@ -61,6 +66,86 @@ const _targets = ['tv-a', 'tv-b', 'tv-c'];
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'start receipt survives a completed baseline until the new session stream arrives',
+    (tester) async {
+      final h = await _Harness.create(captureReceipts: true);
+      addTearDown(h.dispose);
+      final previous = PlaybackSessionModel.fromWorkout(
+        id: 'previous-completed-session',
+        ownerId: _workout.ownerId,
+        zoneId: 'main',
+        targetDeviceIds: _targets,
+        workout: _workout,
+        stepIndex: 0,
+        durationMs: 1000,
+        deviceId: 'controller',
+      ).toEntity().copyWith(status: PlaybackStatus.completed, remainingMs: 0);
+      h.repository.session = previous;
+      h.repository.publishStartToStream = false;
+      h.devices.sessionId = previous.id;
+      h.container.listen(activePlaybackSessionProvider, (_, _) {});
+      h.container.listen(displayDevicesProvider, (_, _) {});
+      await h.container.read(activePlaybackSessionProvider.future);
+      await h.container.read(displayDevicesProvider.future);
+      await tester.pump();
+
+      // The server confirms the new start while the subscription still holds
+      // the previous completed class and its old display receipts.
+      expect(await h.start(), 'session-1');
+      await tester.pump();
+      expect(h.repository.starts, 1);
+      expect(h.repository.session?.status, PlaybackStatus.playing);
+      expect(
+        h.container.read(activePlaybackSessionProvider).value?.id,
+        previous.id,
+      );
+      expect(
+        h.container.read(activePlaybackSessionProvider).value?.status,
+        PlaybackStatus.completed,
+      );
+      expect(h.receiptEvents, isEmpty);
+
+      // Publish the new session first. The old display receipts must neither
+      // satisfy nor cancel the new start's receipt observer.
+      h.repository.changes.add(h.repository.session);
+      await tester.pump();
+      expect(
+        h.container.read(activePlaybackSessionProvider).value?.id,
+        'session-1',
+      );
+      expect(h.receiptEvents, isEmpty);
+
+      // The fixture now emits the exact new session/revision for all targets.
+      // Invalidation only resubscribes this fake device transport.
+      h.container.invalidate(displayDevicesProvider);
+      await h.container.read(displayDevicesProvider.future);
+      await tester.pump();
+      await tester.pump();
+      expect(h.receiptEvents, hasLength(_targets.length));
+      expect(
+        h.receiptEvents.every(
+          (event) =>
+              event.type == 'command_received' &&
+              event.phase == 'tv_receipt' &&
+              event.sessionId == 'session-1',
+        ),
+        isTrue,
+      );
+      expect(
+        h.receiptEvents.map((event) => event.deviceId),
+        unorderedEquals(_targets),
+      );
+      await tester.pump(const Duration(seconds: 15));
+      expect(h.receiptEvents, hasLength(_targets.length));
+      expect(
+        h.receiptEvents.where(
+          (event) => event.type == 'command_receipt_failed',
+        ),
+        isEmpty,
+      );
+    },
+  );
   for (final entry in ['list', 'editor']) {
     testWidgets(
       '$entry starts one playing session after all three TV receipts',
@@ -367,12 +452,13 @@ class _Harness {
   final users = StreamController<User?>.broadcast(sync: true);
   final preferences = _Preferences();
   final devices = _Devices();
+  final receiptEvents = <OperationEvent>[];
   late final _Preparation preparation;
   late final _Playback repository;
   late final ProviderContainer container;
   late DisplayPreparationProof proof;
   Completer<void>? deviceGate;
-  static Future<_Harness> create() async {
+  static Future<_Harness> create({bool captureReceipts = false}) async {
     final h = _Harness();
     h.preparation = _Preparation();
     h.repository = _Playback(h.devices);
@@ -383,7 +469,18 @@ class _Harness {
     );
     h.container = ProviderContainer(
       overrides: [
+        fixtureSavedSlideOrder,
         memoryWorkoutRecovery,
+        if (captureReceipts)
+          accountOwnerIdProvider.overrideWith((_) => Stream.value('owner')),
+        if (captureReceipts)
+          operationEventWriterProvider.overrideWith((ref) {
+            final writer = OperationEventWriter(
+              (event) async => h.receiptEvents.add(event),
+            );
+            ref.onDispose(writer.dispose);
+            return writer;
+          }),
         authStateProvider.overrideWith(
           (_) => Stream.value(
             const AuthUser(
@@ -430,6 +527,10 @@ class _Harness {
     h.container.listen(storeEntitlementProvider, (_, _) {});
     await h.container.read(firebaseAccountUserProvider.future);
     await h.container.read(storeEntitlementProvider.future);
+    if (captureReceipts) {
+      h.container.listen(accountOwnerIdProvider, (_, _) {});
+      await h.container.read(accountOwnerIdProvider.future);
+    }
     return h;
   }
 
@@ -552,6 +653,7 @@ class _Playback extends Fake implements PlaybackRepository {
   _Playback(this.devices);
   final _Devices devices;
   int starts = 0;
+  bool publishStartToStream = true;
   Completer<void>? startGate;
   final startEntered = Completer<void>();
   Object? fail;
@@ -595,7 +697,7 @@ class _Playback extends Fake implements PlaybackRepository {
       durationMs: durationMs,
       deviceId: deviceId,
     ).toEntity();
-    changes.add(session);
+    if (publishStartToStream) changes.add(session);
     return session!;
   }
 }

@@ -188,6 +188,9 @@ void main() {
       (deviceId: 'display-1', displayState: 'standby'),
     ]);
     expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('디스플레이 상태 변경 실패'), findsOneWidget);
+    expect(tester.widget<SnackBar>(find.byType(SnackBar)).action, isNull);
+    expect(find.text('문제 문의하기'), findsNothing);
     expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
     expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNotNull);
     expect(tester.takeException(), isNull);

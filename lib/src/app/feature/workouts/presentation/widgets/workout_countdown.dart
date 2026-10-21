@@ -16,6 +16,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_p
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/countdown_defaults_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preview_frame.dart';
 
 class WorkoutCountdown extends StatelessWidget {
   const WorkoutCountdown({
@@ -28,6 +29,7 @@ class WorkoutCountdown extends StatelessWidget {
     this.onStartNow,
     this.isPaused = false,
     this.actionsEnabled = true,
+    this.preview = false,
   });
   final Workout workout;
   final int seconds;
@@ -36,6 +38,9 @@ class WorkoutCountdown extends StatelessWidget {
   final VoidCallback? onPause, onStartNow;
   final bool isPaused;
   final bool actionsEnabled;
+
+  /// Only settings previews opt out of the playback letterbox.
+  final bool preview;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +69,7 @@ class WorkoutCountdown extends StatelessWidget {
         ? '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}'
         : '$seconds';
     return ColoredBox(
-      color: Colors.black,
+      color: preview ? Colors.transparent : Colors.black,
       child: LayoutBuilder(
         builder: (context, box) => Stack(
           fit: StackFit.expand,
@@ -72,6 +77,10 @@ class WorkoutCountdown extends StatelessWidget {
             if (image.isNotEmpty)
               WorkoutImage(
                 source: image,
+                preview: preview,
+                webHtmlElementStrategy: preview
+                    ? WorkoutPreviewFrame.webImageStrategy
+                    : WebHtmlElementStrategy.prefer,
                 fit: customImage.isNotEmpty || module?.coverImage == true
                     ? BoxFit.cover
                     : BoxFit.contain,
@@ -276,20 +285,17 @@ class CountdownSettings extends HookConsumerWidget {
       children: [
         Text('수업 시작 카운트다운', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: workout.countdownSeconds == 0
-                ? const ColoredBox(
-                    color: Color(0xFFF3F2F7),
-                    child: Center(child: Text('바로 시작 (카운트다운 없음)')),
-                  )
-                : WorkoutCountdown(
-                    workout: workout,
-                    seconds: previewSeconds.value ?? workout.countdownSeconds,
-                  ),
-          ),
+        WorkoutPreviewFrame(
+          child: workout.countdownSeconds == 0
+              ? const ColoredBox(
+                  color: Color(0xFFF3F2F7),
+                  child: Center(child: Text('바로 시작 (카운트다운 없음)')),
+                )
+              : WorkoutCountdown(
+                  preview: true,
+                  workout: workout,
+                  seconds: previewSeconds.value ?? workout.countdownSeconds,
+                ),
         ),
         Align(
           alignment: Alignment.centerRight,
