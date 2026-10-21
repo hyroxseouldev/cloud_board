@@ -36,7 +36,7 @@ function setup() {
   const recipe = {schemaVersion: 1, centerId, templateId: 'test-template', revision: 1,
     width: 1920, height: 1080, backgroundColor: 0xfffaf6ed,
     backgroundPath: `center-templates/${centerId}/test-template/${sha}.png`, backgroundSha256: sha,
-    fields: [field('title',.04,.05,.56,.1), field('subtitle',.04,.20,.56,.08),
+    fields: [field('header',.72,.02,.12,.10), field('title',.04,.05,.56,.1), field('subtitle',.04,.20,.56,.08),
       field('line',.04,.4,.56,.08,{lineIndex:0})]};
   const files = new Map([[recipe.backgroundPath, bytes]]); let uploads = 0;
   const bucket = {file: p => ({getMetadata: async () => [{size: files.get(p)?.length, contentType:'image/png'}],

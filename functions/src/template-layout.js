@@ -135,7 +135,7 @@ export async function renderTemplate({recipe, background, title, subtitle, rawWo
         r.height * original.height / H, r.x, r.y, r.width, r.height);
     } else { ctx.fillStyle = color(clearColor); ctx.fillRect(r.x, r.y, r.width, r.height); }
   };
-  for (const f of recipe.fields) clear(rect(f), f.clearColor);
+  for (const f of recipe.fields.filter(f => f.binding !== 'header')) clear(rect(f), f.clearColor);
   clear({x: body.x, y: body.y, width: W - body.x, height: H - body.y});
   // Header/title/subtitle may wrap and scale down, without entering the timer.
   const drawn = [];
