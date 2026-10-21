@@ -6,6 +6,17 @@ import {readReleaseArtifact} from './github-artifact.mjs';
 import {writeJson} from './common.mjs';
 import {productionRuns} from './release-runs.mjs';
 
+function cancelledBeforeRunnerAssignment(job) {
+  // A cancelled dependency can emit a completed job row without ever assigning
+  // a runner. Require positive API evidence; missing metadata is not a no-op.
+  return job.status === 'completed' && job.conclusion === 'cancelled' &&
+    Array.isArray(job.steps) && job.steps.length === 0 &&
+    ['runner_id', 'runner_name', 'runner_group_id', 'runner_group_name']
+      .every(key => Object.hasOwn(job, key) && job[key] === null) &&
+    typeof job.started_at === 'string' && Number.isFinite(Date.parse(job.started_at)) &&
+    job.completed_at === job.started_at;
+}
+
 export async function latestRelease({repository, request, readArtifact, ignoreRunId, component = 'backend', allowFailed = false, attemptOnly = false}) {
   // Search both release tags and historical main deployments; older backend
   // releases can sit behind many web/docs runs. Bound API work explicitly instead of silently stopping at 100.
@@ -27,6 +38,9 @@ export async function latestRelease({repository, request, readArtifact, ignoreRu
         const production = jobs.jobs.find(job => job.name === 'firebase-production');
         // Validation-only / documentation runs never replace a deployed receipt.
         if (!production || production.conclusion === 'skipped') continue;
+        // Continue through earlier attempts: an unstarted retry must not hide
+        // a previous partial write by this same workflow run.
+        if (cancelledBeforeRunnerAssignment(production)) continue;
         const steps = (production.steps || []).filter(step => names.includes(step.name));
         assert(attempt === candidate.run_attempt || steps.length, 'Previous production deployment steps are unavailable');
         if (steps.length && steps.every(step => step.conclusion === 'skipped')) continue;
