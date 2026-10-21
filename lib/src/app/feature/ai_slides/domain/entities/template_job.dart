@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
@@ -39,7 +41,21 @@ abstract class TemplateJobsState with _$TemplateJobsState {
     @Default(false) bool loadingMore,
     StudioInput? acceptedInput,
     String? error,
+    String? currentRequestId,
+    Uint8List? currentPng,
+    bool? currentAssetLoading,
+    String? currentAssetError,
+    bool? recoveryChecked,
   }) = _TemplateJobsState;
+}
+
+extension TemplateJobsSelection on TemplateJobsState {
+  TemplateJob? get currentJob {
+    for (final job in jobs) {
+      if (job.requestId == currentRequestId) return job;
+    }
+    return null;
+  }
 }
 
 class TemplateJobsReply {

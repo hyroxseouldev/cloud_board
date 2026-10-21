@@ -42,7 +42,7 @@ final class TemplateJobsControllerProvider
 }
 
 String _$templateJobsControllerHash() =>
-    r'7ddace2d006df39baec60e0e25e032a5a94ace3a';
+    r'7e4d23437089d84f9bec2703abb3c5ca4bf76562';
 
 abstract class _$TemplateJobsController extends $Notifier<TemplateJobsState> {
   TemplateJobsState build();

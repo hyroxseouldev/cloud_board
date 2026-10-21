@@ -18,7 +18,6 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_sl
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/ai_raster_page.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/template_jobs_controller.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_jobs_panel.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_job_image.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/template_job.dart';
 
@@ -101,6 +100,94 @@ class SlideStudioPage extends HookConsumerWidget {
     final raw = useTextEditingController(text: input.raw);
     final focus = useFocusNode();
     final bodyScroll = useScrollController();
+    final subtitleFocus = useFocusNode();
+    final subtitleAnchor = useMemoized(GlobalKey.new);
+    final subtitleError = useState<String?>(null);
+    final initialInput = useRef(input);
+    final restoredJob = useRef(false);
+    final currentJob = jobs.currentJob;
+    final currentShown =
+        currentJob != null &&
+        state.result?.templateJob?.requestId == currentJob.requestId &&
+        jobs.currentPng != null;
+    final showingJobStatus =
+        jobs.currentRequestId != null ||
+        (jobs.unresolved && state.result == null) ||
+        (input.design.theme.centerRecipe != null && jobs.error != null);
+    final showingResult =
+        state.result != null && (!showingJobStatus || currentShown);
+    useEffect(() {
+      // Restore only on a pristine entry. Never replace a new local result or
+      // adopt an unrelated completion while the user is editing another draft.
+      if (!restoredJob.value && jobs.recoveryChecked == true && !jobs.loading) {
+        restoredJob.value = true;
+        if (!jobs.unresolved &&
+            jobs.error == null &&
+            jobs.jobs.isNotEmpty &&
+            state.result == null &&
+            input == initialInput.value &&
+            jobs.currentRequestId == null) {
+          final id = jobs.jobs.first.requestId;
+          Future.microtask(() {
+            if (context.mounted &&
+                ref.read(slideStudioControllerProvider).input ==
+                    initialInput.value &&
+                ref.read(slideStudioControllerProvider).result == null) {
+              jobController.selectCurrent(id);
+            }
+          });
+        }
+      }
+      return null;
+    }, [jobs.recoveryChecked, jobs.loading]);
+    useEffect(() {
+      final png = jobs.currentPng, job = currentJob;
+      if (png != null &&
+          job != null &&
+          !currentShown &&
+          !state.busy &&
+          !state.saving) {
+        Future.microtask(() {
+          if (!context.mounted) return;
+          final latest = ref.read(templateJobsControllerProvider);
+          if (latest.currentRequestId == job.requestId &&
+              identical(latest.currentPng, png)) {
+            controller.openTemplateResult(job, png);
+          }
+        });
+      }
+      return null;
+    }, [jobs.currentPng, currentJob, state.busy, state.saving]);
+
+    Future<void> showSubtitleError() async {
+      subtitleError.value = '운동 안내 문구를 입력해 주세요. 공백만 입력할 수 없어요.';
+      // Materialize the field even when the lazy list is far from the input.
+      if (subtitleAnchor.currentContext == null && bodyScroll.hasClients) {
+        bodyScroll.jumpTo(0);
+        await WidgetsBinding.instance.endOfFrame;
+        while (context.mounted &&
+            subtitleAnchor.currentContext == null &&
+            bodyScroll.hasClients &&
+            bodyScroll.offset < bodyScroll.position.maxScrollExtent) {
+          bodyScroll.jumpTo(
+            (bodyScroll.offset + bodyScroll.position.viewportDimension * .7)
+                .clamp(0, bodyScroll.position.maxScrollExtent),
+          );
+          await WidgetsBinding.instance.endOfFrame;
+        }
+      }
+      if (!context.mounted) return;
+      final field = subtitleAnchor.currentContext;
+      if (field != null) {
+        await Scrollable.ensureVisible(
+          field,
+          alignment: .35,
+          duration: const Duration(milliseconds: 180),
+        );
+      }
+      if (context.mounted) subtitleFocus.requestFocus();
+    }
+
     useEffect(() {
       if (raw.text != input.raw && !raw.value.composing.isValid) {
         raw.value = TextEditingValue(
@@ -154,8 +241,7 @@ class SlideStudioPage extends HookConsumerWidget {
           .replaceFirst(RegExp(r'/$'), '');
       final job = await context.push<TemplateJob>('$studioPath/library');
       if (job == null || !sameScope()) return;
-      final png = await jobController.open(job);
-      if (png != null && sameScope()) controller.openTemplateResult(job, png);
+      jobController.selectResult(job);
     }
 
     Widget preview(StudioResult result) => result.serverPng != null
@@ -249,19 +335,27 @@ class SlideStudioPage extends HookConsumerWidget {
               state: state,
               submitting: jobs.submitting,
               unresolved: jobs.unresolved,
+              generating: currentJob?.inProgress == true,
               designAvailable: selectedAvailable,
               onRefreshUsage: () {
                 controller.refreshUsage();
                 jobController.refresh();
               },
-              onGenerate: () {
+              onGenerate: () async {
                 FocusScope.of(context).unfocus();
                 final currentInput = ref
                     .read(slideStudioControllerProvider)
                     .input;
+                if (currentInput.subtitle.trim().isEmpty) {
+                  await showSubtitleError();
+                  return;
+                }
+                subtitleError.value = null;
+                restoredJob.value = true;
                 if (currentInput.design.theme.centerRecipe != null) {
                   jobController.enqueue(currentInput);
                 } else {
+                  jobController.selectCurrent(null);
                   controller.generateTemplate();
                 }
               },
@@ -284,21 +378,6 @@ class SlideStudioPage extends HookConsumerWidget {
                     28,
                   ),
                   children: [
-                    if (jobs.jobs.isNotEmpty ||
-                        jobs.unresolved ||
-                        input.design.theme.centerRecipe != null)
-                      TemplateJobsPanel(
-                        state: jobs,
-                        onRefresh: jobController.refresh,
-                        onRecover: jobController.recover,
-                        onRetry: jobController.retry,
-                        onOpen: (job) async {
-                          final png = await jobController.open(job);
-                          if (png != null && sameScope()) {
-                            controller.openTemplateResult(job, png);
-                          }
-                        },
-                      ),
                     StudioDesignSelector(
                       designs: designs,
                       category: category.value,
@@ -413,16 +492,25 @@ class SlideStudioPage extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    StudioTextField(
-                      key: const ValueKey('studio-subtitle'),
-                      label: '운동 안내 문구 (선택)',
-                      value: input.subtitle,
-                      maxLength: 120,
-                      onChanged: (v) => controller.edit(
-                        ref
-                            .read(slideStudioControllerProvider)
-                            .input
-                            .copyWith(subtitle: v),
+                    Padding(
+                      key: subtitleAnchor,
+                      padding: EdgeInsets.zero,
+                      child: StudioTextField(
+                        key: const ValueKey('studio-subtitle'),
+                        label: '운동 안내 문구 (필수)',
+                        value: input.subtitle,
+                        maxLength: 120,
+                        focusNode: subtitleFocus,
+                        errorText: subtitleError.value,
+                        onChanged: (v) {
+                          if (v.trim().isNotEmpty) subtitleError.value = null;
+                          controller.edit(
+                            ref
+                                .read(slideStudioControllerProvider)
+                                .input
+                                .copyWith(subtitle: v),
+                          );
+                        },
                       ),
                     ),
                     if (state.busy) const LinearProgressIndicator(minHeight: 2),
@@ -453,12 +541,13 @@ class SlideStudioPage extends HookConsumerWidget {
                                 ? null
                                 : () {
                                     FocusScope.of(context).unfocus();
+                                    jobController.selectCurrent(null);
                                     controller.undo();
                                   },
                             icon: const Icon(Icons.undo, size: 18),
                             label: const Text('이전 결과 보기'),
                           ),
-                        if (state.result != null)
+                        if (showingResult)
                           IconButton(
                             tooltip: '미리보기 확대',
                             onPressed: enlarge,
@@ -474,7 +563,17 @@ class SlideStudioPage extends HookConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xffDEDED7)),
                       ),
-                      child: state.result == null
+                      child: showingJobStatus && !currentShown
+                          ? StudioCurrentJob(
+                              state: jobs,
+                              onRefresh: jobController.refresh,
+                              onRecover: jobController.recover,
+                              onRetryAsset: jobController.retryCurrentAsset,
+                              onRetry: currentJob == null
+                                  ? null
+                                  : () => jobController.retry(currentJob),
+                            )
+                          : state.result == null
                           ? const Padding(
                               padding: EdgeInsets.symmetric(vertical: 40),
                               child: Column(
@@ -502,7 +601,7 @@ class SlideStudioPage extends HookConsumerWidget {
                             )
                           : preview(state.result!),
                     ),
-                    if (state.dirty)
+                    if (showingResult && state.dirty)
                       Padding(
                         padding: const EdgeInsets.only(top: 10),
                         child: Text(
@@ -513,7 +612,7 @@ class SlideStudioPage extends HookConsumerWidget {
                           style: const TextStyle(color: _secondary),
                         ),
                       ),
-                    if (state.result != null) ...[
+                    if (showingResult) ...[
                       for (final warning in state.result!.warnings)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -604,9 +703,10 @@ class StudioActionBar extends StatelessWidget {
     required this.onRefreshUsage,
     this.submitting = false,
     this.unresolved = false,
+    this.generating = false,
   });
   final SlideStudioState state;
-  final bool designAvailable, submitting, unresolved;
+  final bool designAvailable, submitting, unresolved, generating;
   final VoidCallback onGenerate, onRefreshUsage;
   @override
   Widget build(BuildContext context) {
@@ -687,6 +787,7 @@ class StudioActionBar extends StatelessWidget {
                         !designAvailable ||
                         (center &&
                             (unresolved ||
+                                generating ||
                                 usage == null ||
                                 !usage.allowed ||
                                 !usage.enabled ||
@@ -727,8 +828,12 @@ class StudioTextField extends HookWidget {
     required this.onChanged,
     required this.maxLength,
     this.maxLines = 1,
+    this.focusNode,
+    this.errorText,
   });
   final String value, label;
+  final FocusNode? focusNode;
+  final String? errorText;
   final int maxLength, maxLines;
   final ValueChanged<String> onChanged;
   @override
@@ -747,13 +852,110 @@ class StudioTextField extends HookWidget {
     }, [value]);
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       maxLength: maxLength,
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
+        errorText: errorText,
+        errorMaxLines: 2,
         border: const OutlineInputBorder(),
       ),
       onChanged: onChanged,
+    );
+  }
+}
+
+/// Only the selected request belongs in the result area, never the history list.
+class StudioCurrentJob extends StatelessWidget {
+  const StudioCurrentJob({
+    super.key,
+    required this.state,
+    required this.onRefresh,
+    required this.onRecover,
+    required this.onRetryAsset,
+    this.onRetry,
+  });
+  final TemplateJobsState state;
+  final VoidCallback onRefresh, onRecover, onRetryAsset;
+  final VoidCallback? onRetry;
+  @override
+  Widget build(BuildContext context) {
+    final job = state.currentJob;
+    final error = state.currentAssetError ?? state.error;
+    final waiting =
+        !state.unresolved &&
+        error == null &&
+        (state.submitting ||
+            job?.inProgress == true ||
+            state.currentAssetLoading == true);
+    final text = state.unresolved
+        ? '생성 접수를 확인하지 못했어요. 접수 확인으로 같은 요청을 확인해 주세요.'
+        : error ??
+              (job?.status == 'failed'
+                  ? job?.message ?? '이미지를 만들지 못했어요.'
+                  : state.currentAssetLoading == true
+                  ? '완료된 이미지를 불러오고 있어요.'
+                  : state.submitting
+                  ? '생성을 접수하고 있어요.'
+                  : job?.inProgress == true
+                  ? '슬라이드를 만들고 있어요.'
+                  : '작업 상태를 다시 확인해 주세요.');
+    return Padding(
+      key: const ValueKey('studio-current-job'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 36),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (waiting) ...[
+            if (MediaQuery.disableAnimationsOf(context))
+              const Icon(Icons.hourglass_top, color: _sage)
+            else
+              const SizedBox(
+                width: 120,
+                child: LinearProgressIndicator(minHeight: 3),
+              ),
+            const SizedBox(height: 16),
+          ],
+          Text(text, textAlign: TextAlign.center),
+          if (job?.inProgress == true) ...[
+            const SizedBox(height: 8),
+            const Text(
+              '화면을 나가도 계속 생성돼요. AI 생성 슬라이드 관리에서 다시 확인할 수 있어요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: _secondary),
+            ),
+          ],
+          if (state.unresolved)
+            TextButton(
+              onPressed: state.submitting ? null : onRecover,
+              child: const Text('접수 확인'),
+            )
+          else if (state.currentAssetError != null && !state.authorityDenied)
+            TextButton(
+              onPressed: state.currentAssetLoading == true
+                  ? null
+                  : onRetryAsset,
+              child: const Text('이미지 다시 불러오기'),
+            )
+          else if (job?.status == 'failed' && job?.retryable == true)
+            TextButton(
+              onPressed: state.submitting ? null : onRetry,
+              child: const Text('다시 생성 (AI 1회)'),
+            )
+          else if (!state.submitting && state.currentAssetLoading != true)
+            TextButton(
+              onPressed: state.loading ? null : onRefresh,
+              child: const Text('상태 확인'),
+            ),
+          if (job?.status == 'failed' && job?.retryable != true)
+            const Text(
+              '중복 생성을 막기 위해 이 작업은 다시 생성할 수 없어요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12),
+            ),
+        ],
+      ),
     );
   }
 }

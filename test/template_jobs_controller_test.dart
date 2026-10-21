@@ -59,9 +59,10 @@ void main() {
 
   final input = StudioInput(
     design: templateTestDesign,
+    subtitle: '운동 안내',
     raw: 'Row 1,000 m\nSquat 22.5kg × 12',
   );
-  test('enqueue releases UI on receipt, double tap once, no local layout/render or automatic result replacement', () async {
+  test('enqueue releases UI on receipt, double tap once, selected completion reads once without local layout/render', () async {
     final jobs = FakeTemplateJobsRepository()
       ..enqueueWait = Completer<TemplateJobsReply>();
     final studio = FakeStudioRepository();
@@ -72,18 +73,94 @@ void main() {
     await controller.enqueue(input);
     expect(jobs.enqueues, 1);
     expect(c.read(templateJobsControllerProvider).submitting, true);
+    final id = jobs.lastId!;
     jobs.enqueueWait!.complete(
-      TemplateJobsReply([templateTestJob('accepted')], templateTestUsage),
+      TemplateJobsReply([templateTestJob(id)], templateTestUsage),
     );
     await pending;
     expect(c.read(templateJobsControllerProvider).submitting, false);
     expect(c.read(templateJobsControllerProvider).jobs.single.inProgress, true);
     expect(studio.validations, 0);
     expect(studio.prepares, 0);
-    jobs.events.add([templateTestJob('accepted', status: 'complete', time: 2)]);
+    await controller.enqueue(input);
+    expect(
+      jobs.enqueues,
+      1,
+    ); // An accepted pending job cannot be double submitted.
+    jobs.events.add([
+      templateTestJob('unrelated', status: 'complete', time: 3),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(jobs.assets, 0);
+    jobs.events.add([templateTestJob(id, status: 'complete', time: 2)]);
     await Future<void>.delayed(Duration.zero);
     expect(c.read(slideStudioControllerProvider).result, isNull);
-    expect(jobs.assets, 0);
+    expect(jobs.assets, 1);
+    expect(c.read(templateJobsControllerProvider).currentPng, templateTestPng);
+    await controller.refresh();
+    expect(jobs.assets, 1);
+  });
+  test('new creation rejects blank guidance without changing optional completed-job contracts', () async {
+    final jobs = FakeTemplateJobsRepository(), studio = FakeStudioRepository();
+    final c = await setup(jobs, studio);
+    await c
+        .read(templateJobsControllerProvider.notifier)
+        .enqueue(input.copyWith(subtitle: '  '));
+    expect(jobs.enqueues, 0);
+    expect(c.read(templateJobsControllerProvider).error, contains('운동 안내'));
+    final editor = c.read(slideStudioControllerProvider.notifier);
+    final legacy = templateTestJob(
+      'legacy',
+      status: 'complete',
+    ).copyWith(subtitle: '');
+    final png = await c
+        .read(templateJobsControllerProvider.notifier)
+        .open(legacy);
+    editor.openTemplateResult(legacy, png!);
+    expect(
+      c.read(slideStudioControllerProvider).result!.input.subtitle,
+      isEmpty,
+    );
+  });
+  test('asset failure is latched, explicit retry reads once and cleared selection drops a late result', () async {
+    final jobs = FakeTemplateJobsRepository()
+      ..jobs = [templateTestJob('current', status: 'complete')]
+      ..assetFailure = const AiSlidesFailure('offline');
+    final c = await setup(jobs, FakeStudioRepository());
+    final controller = c.read(templateJobsControllerProvider.notifier);
+    controller.selectCurrent('current');
+    await Future<void>.delayed(Duration.zero);
+    expect(c.read(templateJobsControllerProvider).currentAssetError, 'offline');
+    await controller.refresh();
+    expect(jobs.assets, 1);
+    jobs.assetFailure = null;
+    jobs.assetWait = Completer();
+    final retry = controller.retryCurrentAsset();
+    await Future<void>.delayed(Duration.zero);
+    controller.selectCurrent(
+      null,
+    ); // A new basic result/undo supersedes the job.
+    jobs.assetWait!.complete(templateTestPng);
+    await retry;
+    expect(c.read(templateJobsControllerProvider).currentPng, isNull);
+    expect(c.read(templateJobsControllerProvider).currentRequestId, isNull);
+    expect(jobs.assets, 2);
+  });
+  test('revoked account discards private image completions', () async {
+    final jobs = FakeTemplateJobsRepository()
+      ..jobs = [templateTestJob('current', status: 'complete')]
+      ..assetWait = Completer();
+    final c = await setup(jobs, FakeStudioRepository());
+    c.read(templateJobsControllerProvider.notifier).selectCurrent('current');
+    await Future<void>.delayed(Duration.zero);
+    jobs.events.addError(
+      const AiSlidesFailure('revoked', code: 'permission-denied'),
+    );
+    await Future<void>.delayed(Duration.zero);
+    jobs.assetWait!.complete(templateTestPng);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.read(templateJobsControllerProvider).currentPng, isNull);
+    expect(c.read(templateJobsControllerProvider).authorityDenied, true);
   });
   test('complete server PNG opens without overwriting draft and uses existing image save/add without local render', () async {
     final jobs = FakeTemplateJobsRepository(), studio = FakeStudioRepository();

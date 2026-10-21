@@ -21,6 +21,8 @@ class TemplateJobsController extends _$TemplateJobsController {
   Object _lifetime = Object();
   int _listRevision = 0;
   StreamSubscription<List<TemplateJob>>? _subscription;
+  String? _assetAttempt;
+  Object? _assetRead;
   TemplateJobsActions get _actions => ref.read(templateJobsActionsProvider);
   bool _current(Object value) => ref.mounted && identical(_lifetime, value);
   @override
@@ -29,6 +31,8 @@ class TemplateJobsController extends _$TemplateJobsController {
     final scope = ref.watch(centerSlideCatalogScopeProvider);
     ref.watch(templateJobsActionsProvider);
     final lifetime = _lifetime = Object();
+    _assetAttempt = null;
+    _assetRead = null;
     ref.onDispose(() {
       _lifetime = Object();
       _subscription?.cancel();
@@ -63,7 +67,10 @@ class TemplateJobsController extends _$TemplateJobsController {
       // silently submit work just because a screen was opened.
       final pending = await AsyncValue.guard(_actions.hasUnresolved);
       if (_current(lifetime)) {
-        state = state.copyWith(unresolved: pending.value ?? pending.hasError);
+        state = state.copyWith(
+          unresolved: pending.value ?? pending.hasError,
+          recoveryChecked: true,
+        );
       }
     });
     return const TemplateJobsState();
@@ -80,6 +87,67 @@ class TemplateJobsController extends _$TemplateJobsController {
     final sorted = byId.values.toList()
       ..sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
     state = state.copyWith(jobs: sorted);
+    unawaited(_loadCurrentAsset());
+  }
+
+  /// Selection is explicit on this screen; history refreshes never select a job.
+  void selectResult(TemplateJob job) {
+    // A management-page selection may be older than the first list page.
+    _merge([job]);
+    selectCurrent(job.requestId);
+  }
+
+  void selectCurrent(String? requestId) {
+    if (state.currentRequestId == requestId) return;
+    _assetRead = null;
+    _assetAttempt = null;
+    state = state.copyWith(
+      currentRequestId: requestId,
+      currentPng: null,
+      currentAssetLoading: false,
+      currentAssetError: null,
+    );
+    unawaited(_loadCurrentAsset());
+  }
+
+  Future<void> retryCurrentAsset() async {
+    if (state.currentAssetLoading == true) return;
+    _assetAttempt = null;
+    await _loadCurrentAsset();
+  }
+
+  Future<void> _loadCurrentAsset() async {
+    final job = state.currentJob;
+    if (job == null || !job.complete || state.authorityDenied) return;
+    final key = '${job.requestId}:${job.sha256}';
+    if (_assetAttempt == key) return;
+    _assetAttempt = key; // Failure stays latched until an explicit retry.
+    final read = _assetRead = Object(), lifetime = _lifetime;
+    state = state.copyWith(
+      currentPng: null,
+      currentAssetLoading: true,
+      currentAssetError: null,
+      error: null,
+    );
+    final value = await AsyncValue.guard(() => _actions.asset(job));
+    if (!_current(lifetime) ||
+        !identical(read, _assetRead) ||
+        state.currentRequestId != job.requestId) {
+      return;
+    }
+    if (value.hasError) {
+      _error(value.error!);
+      state = state.copyWith(
+        currentAssetLoading: false,
+        currentAssetError: state.error,
+      );
+      return;
+    }
+    state = state.copyWith(
+      currentPng: value.requireValue,
+      currentAssetLoading: false,
+      currentAssetError: null,
+    );
   }
 
   void _error(Object error) {
@@ -89,6 +157,10 @@ class TemplateJobsController extends _$TemplateJobsController {
         ? error.code
         : null;
     final revoked = ['permission-denied', 'unauthenticated'].contains(code);
+    if (revoked) {
+      _assetRead = null;
+      _assetAttempt = null;
+    }
     state = state.copyWith(
       loading: false,
       submitting: revoked ? false : state.submitting,
@@ -96,6 +168,8 @@ class TemplateJobsController extends _$TemplateJobsController {
       authorityDenied: revoked || state.authorityDenied,
       jobs: revoked ? [] : state.jobs,
       usage: revoked ? null : state.usage,
+      currentPng: revoked ? null : state.currentPng,
+      currentAssetLoading: revoked ? false : state.currentAssetLoading,
       error: error is AiSlidesFailure
           ? error.message
           : '생성 작업을 불러오지 못했어요. 입력과 이전 결과는 유지됩니다.',
@@ -142,7 +216,15 @@ class TemplateJobsController extends _$TemplateJobsController {
   }
 
   Future<void> enqueue(StudioInput input) async {
-    if (state.submitting || state.unresolved) return;
+    if (state.submitting ||
+        state.unresolved ||
+        state.currentJob?.inProgress == true) {
+      return;
+    }
+    if (input.subtitle.trim().isEmpty) {
+      state = state.copyWith(error: '운동 안내 문구를 입력해 주세요.');
+      return;
+    }
     final catalog = ref.read(centerSlideCatalogProvider);
     if (input.design.theme.centerRecipe == null ||
         catalog.isLoading ||
@@ -153,33 +235,39 @@ class TemplateJobsController extends _$TemplateJobsController {
       );
       return;
     }
+    final requestId = 'template-${newId()}';
+    selectCurrent(requestId);
     await _send(() async {
       await ref.read(slideStudioActionsProvider).requireGeneration();
-      return _actions.enqueue(input, 'template-${newId()}');
+      return _actions.enqueue(input, requestId);
     }, accepted: input);
   }
 
   Future<void> retry(TemplateJob job) async {
     if (state.submitting ||
         state.unresolved ||
+        state.currentJob?.inProgress == true ||
         job.status != 'failed' ||
         !job.retryable) {
       return;
     }
+    final requestId = 'template-${newId()}';
+    selectCurrent(requestId);
     await _send(() async {
       await ref.read(slideStudioActionsProvider).requireGeneration();
-      return _actions.retry(job, 'template-${newId()}');
+      return _actions.retry(job, requestId);
     });
   }
 
   Future<void> recover() async {
     if (state.submitting) return;
-    await _send(_actions.recover);
+    await _send(_actions.recover, recovering: true);
   }
 
   Future<void> _send(
     Future<TemplateJobsReply?> Function() action, {
     StudioInput? accepted,
+    bool recovering = false,
   }) async {
     final lifetime = _lifetime;
     state = state.copyWith(submitting: true, error: null);
@@ -196,7 +284,12 @@ class TemplateJobsController extends _$TemplateJobsController {
     }
     final reply = value.value;
     _listRevision++; // A receipt is newer than any list read started before it.
-    if (reply != null) _merge(reply.jobs);
+    if (reply != null) {
+      if (recovering && reply.jobs.isNotEmpty) {
+        selectCurrent(reply.jobs.first.requestId);
+      }
+      _merge(reply.jobs);
+    }
     state = state.copyWith(
       submitting: false,
       loading: false,

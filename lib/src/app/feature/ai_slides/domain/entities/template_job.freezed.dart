@@ -312,7 +312,7 @@ as bool,
 /// @nodoc
 mixin _$TemplateJobsState {
 
- List<TemplateJob> get jobs; bool get loading; bool get submitting; bool get unresolved; bool get opening; bool get authorityDenied; StudioUsage? get usage; String? get nextCursor; bool get loadingMore; StudioInput? get acceptedInput; String? get error;
+ List<TemplateJob> get jobs; bool get loading; bool get submitting; bool get unresolved; bool get opening; bool get authorityDenied; StudioUsage? get usage; String? get nextCursor; bool get loadingMore; StudioInput? get acceptedInput; String? get error; String? get currentRequestId; Uint8List? get currentPng; bool? get currentAssetLoading; String? get currentAssetError; bool? get recoveryChecked;
 /// Create a copy of TemplateJobsState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -324,20 +324,20 @@ $TemplateJobsStateCopyWith<TemplateJobsState> get copyWith => _$TemplateJobsStat
 @override
 bool operator ==(Object other) {
   final _this = this as TemplateJobsState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is TemplateJobsState&&const DeepCollectionEquality().equals(other.jobs, _this.jobs)&&(identical(other.loading, _this.loading) || other.loading == _this.loading)&&(identical(other.submitting, _this.submitting) || other.submitting == _this.submitting)&&(identical(other.unresolved, _this.unresolved) || other.unresolved == _this.unresolved)&&(identical(other.opening, _this.opening) || other.opening == _this.opening)&&(identical(other.authorityDenied, _this.authorityDenied) || other.authorityDenied == _this.authorityDenied)&&(identical(other.usage, _this.usage) || other.usage == _this.usage)&&(identical(other.nextCursor, _this.nextCursor) || other.nextCursor == _this.nextCursor)&&(identical(other.loadingMore, _this.loadingMore) || other.loadingMore == _this.loadingMore)&&(identical(other.acceptedInput, _this.acceptedInput) || other.acceptedInput == _this.acceptedInput)&&(identical(other.error, _this.error) || other.error == _this.error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is TemplateJobsState&&const DeepCollectionEquality().equals(other.jobs, _this.jobs)&&(identical(other.loading, _this.loading) || other.loading == _this.loading)&&(identical(other.submitting, _this.submitting) || other.submitting == _this.submitting)&&(identical(other.unresolved, _this.unresolved) || other.unresolved == _this.unresolved)&&(identical(other.opening, _this.opening) || other.opening == _this.opening)&&(identical(other.authorityDenied, _this.authorityDenied) || other.authorityDenied == _this.authorityDenied)&&(identical(other.usage, _this.usage) || other.usage == _this.usage)&&(identical(other.nextCursor, _this.nextCursor) || other.nextCursor == _this.nextCursor)&&(identical(other.loadingMore, _this.loadingMore) || other.loadingMore == _this.loadingMore)&&(identical(other.acceptedInput, _this.acceptedInput) || other.acceptedInput == _this.acceptedInput)&&(identical(other.error, _this.error) || other.error == _this.error)&&(identical(other.currentRequestId, _this.currentRequestId) || other.currentRequestId == _this.currentRequestId)&&const DeepCollectionEquality().equals(other.currentPng, _this.currentPng)&&(identical(other.currentAssetLoading, _this.currentAssetLoading) || other.currentAssetLoading == _this.currentAssetLoading)&&(identical(other.currentAssetError, _this.currentAssetError) || other.currentAssetError == _this.currentAssetError)&&(identical(other.recoveryChecked, _this.recoveryChecked) || other.recoveryChecked == _this.recoveryChecked));
 }
 
 
 @override
 int get hashCode {
   final _this = this as TemplateJobsState;
-  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.jobs),_this.loading,_this.submitting,_this.unresolved,_this.opening,_this.authorityDenied,_this.usage,_this.nextCursor,_this.loadingMore,_this.acceptedInput,_this.error);
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.jobs),_this.loading,_this.submitting,_this.unresolved,_this.opening,_this.authorityDenied,_this.usage,_this.nextCursor,_this.loadingMore,_this.acceptedInput,_this.error,_this.currentRequestId,const DeepCollectionEquality().hash(_this.currentPng),_this.currentAssetLoading,_this.currentAssetError,_this.recoveryChecked);
 }
 
 @override
 String toString() {
   final _this = this as TemplateJobsState;
-  return 'TemplateJobsState(jobs: ${_this.jobs}, loading: ${_this.loading}, submitting: ${_this.submitting}, unresolved: ${_this.unresolved}, opening: ${_this.opening}, authorityDenied: ${_this.authorityDenied}, usage: ${_this.usage}, nextCursor: ${_this.nextCursor}, loadingMore: ${_this.loadingMore}, acceptedInput: ${_this.acceptedInput}, error: ${_this.error})';
+  return 'TemplateJobsState(jobs: ${_this.jobs}, loading: ${_this.loading}, submitting: ${_this.submitting}, unresolved: ${_this.unresolved}, opening: ${_this.opening}, authorityDenied: ${_this.authorityDenied}, usage: ${_this.usage}, nextCursor: ${_this.nextCursor}, loadingMore: ${_this.loadingMore}, acceptedInput: ${_this.acceptedInput}, error: ${_this.error}, currentRequestId: ${_this.currentRequestId}, currentPng: ${_this.currentPng}, currentAssetLoading: ${_this.currentAssetLoading}, currentAssetError: ${_this.currentAssetError}, recoveryChecked: ${_this.recoveryChecked})';
 }
 
 
@@ -348,7 +348,7 @@ abstract mixin class $TemplateJobsStateCopyWith<$Res>  {
   factory $TemplateJobsStateCopyWith(TemplateJobsState value, $Res Function(TemplateJobsState) _then) = _$TemplateJobsStateCopyWithImpl;
 @useResult
 $Res call({
- List<TemplateJob> jobs, bool loading, bool submitting, bool unresolved, bool opening, bool authorityDenied, StudioUsage? usage, String? nextCursor, bool loadingMore, StudioInput? acceptedInput, String? error
+ List<TemplateJob> jobs, bool loading, bool submitting, bool unresolved, bool opening, bool authorityDenied, StudioUsage? usage, String? nextCursor, bool loadingMore, StudioInput? acceptedInput, String? error, String? currentRequestId, Uint8List? currentPng, bool? currentAssetLoading, String? currentAssetError, bool? recoveryChecked
 });
 
 
@@ -365,7 +365,7 @@ class _$TemplateJobsStateCopyWithImpl<$Res>
 
 /// Create a copy of TemplateJobsState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? jobs = null,Object? loading = null,Object? submitting = null,Object? unresolved = null,Object? opening = null,Object? authorityDenied = null,Object? usage = freezed,Object? nextCursor = freezed,Object? loadingMore = null,Object? acceptedInput = freezed,Object? error = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? jobs = null,Object? loading = null,Object? submitting = null,Object? unresolved = null,Object? opening = null,Object? authorityDenied = null,Object? usage = freezed,Object? nextCursor = freezed,Object? loadingMore = null,Object? acceptedInput = freezed,Object? error = freezed,Object? currentRequestId = freezed,Object? currentPng = freezed,Object? currentAssetLoading = freezed,Object? currentAssetError = freezed,Object? recoveryChecked = freezed,}) {
   return _then(TemplateJobsState(
 jobs: null == jobs ? _self.jobs : jobs // ignore: cast_nullable_to_non_nullable
 as List<TemplateJob>,loading: null == loading ? _self.loading : loading // ignore: cast_nullable_to_non_nullable
@@ -378,7 +378,12 @@ as StudioUsage?,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCurso
 as String?,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
 as bool,acceptedInput: freezed == acceptedInput ? _self.acceptedInput : acceptedInput // ignore: cast_nullable_to_non_nullable
 as StudioInput?,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,currentRequestId: freezed == currentRequestId ? _self.currentRequestId : currentRequestId // ignore: cast_nullable_to_non_nullable
+as String?,currentPng: freezed == currentPng ? _self.currentPng : currentPng // ignore: cast_nullable_to_non_nullable
+as Uint8List?,currentAssetLoading: freezed == currentAssetLoading ? _self.currentAssetLoading : currentAssetLoading // ignore: cast_nullable_to_non_nullable
+as bool?,currentAssetError: freezed == currentAssetError ? _self.currentAssetError : currentAssetError // ignore: cast_nullable_to_non_nullable
+as String?,recoveryChecked: freezed == recoveryChecked ? _self.recoveryChecked : recoveryChecked // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 /// Create a copy of TemplateJobsState
@@ -487,10 +492,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<TemplateJob> jobs,  bool loading,  bool submitting,  bool unresolved,  bool opening,  bool authorityDenied,  StudioUsage? usage,  String? nextCursor,  bool loadingMore,  StudioInput? acceptedInput,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<TemplateJob> jobs,  bool loading,  bool submitting,  bool unresolved,  bool opening,  bool authorityDenied,  StudioUsage? usage,  String? nextCursor,  bool loadingMore,  StudioInput? acceptedInput,  String? error,  String? currentRequestId,  Uint8List? currentPng,  bool? currentAssetLoading,  String? currentAssetError,  bool? recoveryChecked)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _TemplateJobsState() when $default != null:
-return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that.opening,_that.authorityDenied,_that.usage,_that.nextCursor,_that.loadingMore,_that.acceptedInput,_that.error);case _:
+return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that.opening,_that.authorityDenied,_that.usage,_that.nextCursor,_that.loadingMore,_that.acceptedInput,_that.error,_that.currentRequestId,_that.currentPng,_that.currentAssetLoading,_that.currentAssetError,_that.recoveryChecked);case _:
   return orElse();
 
 }
@@ -508,10 +513,10 @@ return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<TemplateJob> jobs,  bool loading,  bool submitting,  bool unresolved,  bool opening,  bool authorityDenied,  StudioUsage? usage,  String? nextCursor,  bool loadingMore,  StudioInput? acceptedInput,  String? error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<TemplateJob> jobs,  bool loading,  bool submitting,  bool unresolved,  bool opening,  bool authorityDenied,  StudioUsage? usage,  String? nextCursor,  bool loadingMore,  StudioInput? acceptedInput,  String? error,  String? currentRequestId,  Uint8List? currentPng,  bool? currentAssetLoading,  String? currentAssetError,  bool? recoveryChecked)  $default,) {final _that = this;
 switch (_that) {
 case _TemplateJobsState():
-return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that.opening,_that.authorityDenied,_that.usage,_that.nextCursor,_that.loadingMore,_that.acceptedInput,_that.error);case _:
+return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that.opening,_that.authorityDenied,_that.usage,_that.nextCursor,_that.loadingMore,_that.acceptedInput,_that.error,_that.currentRequestId,_that.currentPng,_that.currentAssetLoading,_that.currentAssetError,_that.recoveryChecked);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -528,10 +533,10 @@ return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<TemplateJob> jobs,  bool loading,  bool submitting,  bool unresolved,  bool opening,  bool authorityDenied,  StudioUsage? usage,  String? nextCursor,  bool loadingMore,  StudioInput? acceptedInput,  String? error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<TemplateJob> jobs,  bool loading,  bool submitting,  bool unresolved,  bool opening,  bool authorityDenied,  StudioUsage? usage,  String? nextCursor,  bool loadingMore,  StudioInput? acceptedInput,  String? error,  String? currentRequestId,  Uint8List? currentPng,  bool? currentAssetLoading,  String? currentAssetError,  bool? recoveryChecked)?  $default,) {final _that = this;
 switch (_that) {
 case _TemplateJobsState() when $default != null:
-return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that.opening,_that.authorityDenied,_that.usage,_that.nextCursor,_that.loadingMore,_that.acceptedInput,_that.error);case _:
+return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that.opening,_that.authorityDenied,_that.usage,_that.nextCursor,_that.loadingMore,_that.acceptedInput,_that.error,_that.currentRequestId,_that.currentPng,_that.currentAssetLoading,_that.currentAssetError,_that.recoveryChecked);case _:
   return null;
 
 }
@@ -543,7 +548,7 @@ return $default(_that.jobs,_that.loading,_that.submitting,_that.unresolved,_that
 
 
 class _TemplateJobsState implements TemplateJobsState {
-  const _TemplateJobsState({ List<TemplateJob> jobs = const [], this.loading = true, this.submitting = false, this.unresolved = false, this.opening = false, this.authorityDenied = false, this.usage, this.nextCursor, this.loadingMore = false, this.acceptedInput, this.error}): _jobs = jobs;
+  const _TemplateJobsState({ List<TemplateJob> jobs = const [], this.loading = true, this.submitting = false, this.unresolved = false, this.opening = false, this.authorityDenied = false, this.usage, this.nextCursor, this.loadingMore = false, this.acceptedInput, this.error, this.currentRequestId, this.currentPng, this.currentAssetLoading, this.currentAssetError, this.recoveryChecked}): _jobs = jobs;
 
 
  final  List<TemplateJob> _jobs;
@@ -563,6 +568,11 @@ class _TemplateJobsState implements TemplateJobsState {
 @override@JsonKey() final  bool loadingMore;
 @override final  StudioInput? acceptedInput;
 @override final  String? error;
+@override final  String? currentRequestId;
+@override final  Uint8List? currentPng;
+@override final  bool? currentAssetLoading;
+@override final  String? currentAssetError;
+@override final  bool? recoveryChecked;
 
 /// Create a copy of TemplateJobsState
 /// with the given fields replaced by the non-null parameter values.
@@ -574,18 +584,18 @@ _$TemplateJobsStateCopyWith<_TemplateJobsState> get copyWith => __$TemplateJobsS
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _TemplateJobsState&&const DeepCollectionEquality().equals(other.jobs, _jobs)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.submitting, submitting) || other.submitting == submitting)&&(identical(other.unresolved, unresolved) || other.unresolved == unresolved)&&(identical(other.opening, opening) || other.opening == opening)&&(identical(other.authorityDenied, authorityDenied) || other.authorityDenied == authorityDenied)&&(identical(other.usage, usage) || other.usage == usage)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.acceptedInput, acceptedInput) || other.acceptedInput == acceptedInput)&&(identical(other.error, error) || other.error == error));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _TemplateJobsState&&const DeepCollectionEquality().equals(other.jobs, _jobs)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.submitting, submitting) || other.submitting == submitting)&&(identical(other.unresolved, unresolved) || other.unresolved == unresolved)&&(identical(other.opening, opening) || other.opening == opening)&&(identical(other.authorityDenied, authorityDenied) || other.authorityDenied == authorityDenied)&&(identical(other.usage, usage) || other.usage == usage)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.acceptedInput, acceptedInput) || other.acceptedInput == acceptedInput)&&(identical(other.error, error) || other.error == error)&&(identical(other.currentRequestId, currentRequestId) || other.currentRequestId == currentRequestId)&&const DeepCollectionEquality().equals(other.currentPng, currentPng)&&(identical(other.currentAssetLoading, currentAssetLoading) || other.currentAssetLoading == currentAssetLoading)&&(identical(other.currentAssetError, currentAssetError) || other.currentAssetError == currentAssetError)&&(identical(other.recoveryChecked, recoveryChecked) || other.recoveryChecked == recoveryChecked));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_jobs),loading,submitting,unresolved,opening,authorityDenied,usage,nextCursor,loadingMore,acceptedInput,error);
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_jobs),loading,submitting,unresolved,opening,authorityDenied,usage,nextCursor,loadingMore,acceptedInput,error,currentRequestId,const DeepCollectionEquality().hash(currentPng),currentAssetLoading,currentAssetError,recoveryChecked);
 }
 
 @override
 String toString() {
-    return 'TemplateJobsState(jobs: $jobs, loading: $loading, submitting: $submitting, unresolved: $unresolved, opening: $opening, authorityDenied: $authorityDenied, usage: $usage, nextCursor: $nextCursor, loadingMore: $loadingMore, acceptedInput: $acceptedInput, error: $error)';
+    return 'TemplateJobsState(jobs: $jobs, loading: $loading, submitting: $submitting, unresolved: $unresolved, opening: $opening, authorityDenied: $authorityDenied, usage: $usage, nextCursor: $nextCursor, loadingMore: $loadingMore, acceptedInput: $acceptedInput, error: $error, currentRequestId: $currentRequestId, currentPng: $currentPng, currentAssetLoading: $currentAssetLoading, currentAssetError: $currentAssetError, recoveryChecked: $recoveryChecked)';
 }
 
 
@@ -596,7 +606,7 @@ abstract mixin class _$TemplateJobsStateCopyWith<$Res> implements $TemplateJobsS
   factory _$TemplateJobsStateCopyWith(_TemplateJobsState value, $Res Function(_TemplateJobsState) _then) = __$TemplateJobsStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<TemplateJob> jobs, bool loading, bool submitting, bool unresolved, bool opening, bool authorityDenied, StudioUsage? usage, String? nextCursor, bool loadingMore, StudioInput? acceptedInput, String? error
+ List<TemplateJob> jobs, bool loading, bool submitting, bool unresolved, bool opening, bool authorityDenied, StudioUsage? usage, String? nextCursor, bool loadingMore, StudioInput? acceptedInput, String? error, String? currentRequestId, Uint8List? currentPng, bool? currentAssetLoading, String? currentAssetError, bool? recoveryChecked
 });
 
 
@@ -613,7 +623,7 @@ class __$TemplateJobsStateCopyWithImpl<$Res>
 
 /// Create a copy of TemplateJobsState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? jobs = null,Object? loading = null,Object? submitting = null,Object? unresolved = null,Object? opening = null,Object? authorityDenied = null,Object? usage = freezed,Object? nextCursor = freezed,Object? loadingMore = null,Object? acceptedInput = freezed,Object? error = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? jobs = null,Object? loading = null,Object? submitting = null,Object? unresolved = null,Object? opening = null,Object? authorityDenied = null,Object? usage = freezed,Object? nextCursor = freezed,Object? loadingMore = null,Object? acceptedInput = freezed,Object? error = freezed,Object? currentRequestId = freezed,Object? currentPng = freezed,Object? currentAssetLoading = freezed,Object? currentAssetError = freezed,Object? recoveryChecked = freezed,}) {
   return _then(_TemplateJobsState(
 jobs: null == jobs ? _self._jobs : jobs // ignore: cast_nullable_to_non_nullable
 as List<TemplateJob>,loading: null == loading ? _self.loading : loading // ignore: cast_nullable_to_non_nullable
@@ -626,7 +636,12 @@ as StudioUsage?,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCurso
 as String?,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
 as bool,acceptedInput: freezed == acceptedInput ? _self.acceptedInput : acceptedInput // ignore: cast_nullable_to_non_nullable
 as StudioInput?,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,currentRequestId: freezed == currentRequestId ? _self.currentRequestId : currentRequestId // ignore: cast_nullable_to_non_nullable
+as String?,currentPng: freezed == currentPng ? _self.currentPng : currentPng // ignore: cast_nullable_to_non_nullable
+as Uint8List?,currentAssetLoading: freezed == currentAssetLoading ? _self.currentAssetLoading : currentAssetLoading // ignore: cast_nullable_to_non_nullable
+as bool?,currentAssetError: freezed == currentAssetError ? _self.currentAssetError : currentAssetError // ignore: cast_nullable_to_non_nullable
+as String?,recoveryChecked: freezed == recoveryChecked ? _self.recoveryChecked : recoveryChecked // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 
