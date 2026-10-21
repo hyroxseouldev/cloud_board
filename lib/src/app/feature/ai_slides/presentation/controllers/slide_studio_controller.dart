@@ -44,7 +44,11 @@ class SlideStudioController extends _$SlideStudioController {
       if (_current(lifetime)) unawaited(refreshUsage());
     });
     return SlideStudioState(
-      input: StudioInput(design: aiSlideDesignCatalog.first),
+      input: StudioInput(
+        design: aiSlideDesignCatalog.first,
+        title: '',
+        subtitle: '',
+      ),
     );
   }
 

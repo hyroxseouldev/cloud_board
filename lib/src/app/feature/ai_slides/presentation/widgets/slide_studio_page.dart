@@ -529,6 +529,7 @@ class SlideStudioPage extends HookConsumerWidget {
                       titleField: StudioTextField(
                         key: const ValueKey('studio-title'),
                         label: '슬라이드 제목',
+                        hintText: '예: 오늘의 수업',
                         value: input.title,
                         maxLength: 60,
                         onChanged: (v) => controller.edit(
@@ -544,6 +545,7 @@ class SlideStudioPage extends HookConsumerWidget {
                         child: StudioTextField(
                           key: const ValueKey('studio-subtitle'),
                           label: '운동 안내 문구 (필수)',
+                          hintText: '예: 10분 운동 · 1분 휴식',
                           value: input.subtitle,
                           maxLength: 120,
                           focusNode: subtitleFocus,
@@ -1045,10 +1047,11 @@ class StudioTextField extends HookWidget {
     this.maxLines = 1,
     this.focusNode,
     this.errorText,
+    this.hintText,
   });
   final String value, label;
   final FocusNode? focusNode;
-  final String? errorText;
+  final String? errorText, hintText;
   final int maxLength, maxLines;
   final ValueChanged<String> onChanged;
   @override
@@ -1072,6 +1075,7 @@ class StudioTextField extends HookWidget {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
+        hintText: hintText,
         errorText: errorText,
         errorMaxLines: 2,
         border: const OutlineInputBorder(),
