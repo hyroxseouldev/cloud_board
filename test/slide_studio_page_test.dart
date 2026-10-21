@@ -20,6 +20,15 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/slide
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
 import 'support/slide_studio_fakes.dart';
+import 'support/template_jobs_fakes.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/template_job.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/controllers/template_jobs_controller.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/template_job_image.dart';
+
+import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/template_jobs_actions.dart';
+
 import 'support/ui_layout_evidence.dart';
 
 void main() {
@@ -30,6 +39,7 @@ void main() {
     Stream<CenterSlideCatalog>? catalog,
     CenterSlideCatalogScope? scope,
     List<AiSlideDesign> savedDesigns = const [],
+    FakeTemplateJobsRepository? jobs,
   }) async {
     final guard = ExitGuard();
     final router = GoRouter(
@@ -82,6 +92,11 @@ void main() {
           centerSlideCatalogProvider.overrideWith(
             (_) => catalog ?? Stream.value(emptyCenterSlideCatalog()),
           ),
+          centerSlideBackgroundProvider(templateTestDesign.theme.centerRecipe!)
+              .overrideWith((_) async => null),
+          templateJobsActionsProvider.overrideWithValue(
+            TemplateJobsActions(jobs ?? FakeTemplateJobsRepository()),
+          ),
           slideStudioActionsProvider.overrideWithValue(
             SlideStudioActions(repository),
           ),
@@ -122,7 +137,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> details(WidgetTester tester) async {
+    final toggle = find.byKey(const ValueKey('studio-expand-details'));
+    await reveal(tester, toggle);
+    if (find.byKey(const ValueKey('studio-subtitle')).evaluate().isEmpty) {
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+    }
+  }
+
+  Future<void> guidance(WidgetTester tester, [String value = '운동 안내']) async {
+    await details(tester);
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('studio-subtitle')),
+      matching: find.byType(TextField),
+    );
+    await reveal(tester, field);
+    await tester.enterText(field, value);
+  }
+
   Future<void> enter(WidgetTester tester) async {
+    if (container(tester)
+        .read(slideStudioControllerProvider)
+        .input
+        .subtitle
+        .trim()
+        .isEmpty) {
+      await guidance(tester);
+    }
     await reveal(tester, find.byKey(const ValueKey('studio-wod')));
     await tester.enterText(
       find.byKey(const ValueKey('studio-wod')),
@@ -130,6 +172,67 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('studio-generate')));
     await tester.pumpAndSettle();
+  }
+
+  for (final center in [false, true]) {
+    testWidgets(
+      'blank guidance focuses inline error before ${center ? "center" : "basic"} generation',
+      (tester) async {
+        tester.view.physicalSize = const Size(834, 1194);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final repository = FakeStudioRepository(),
+            jobs = FakeTemplateJobsRepository();
+        await mount(
+          tester,
+          repository,
+          jobs: jobs,
+          scope: center
+              ? const CenterSlideCatalogScope(
+                  ownerId: 'local-owner',
+                  centerId: 'local-center',
+                )
+              : null,
+          catalog: center
+              ? Stream.value(
+                  CenterSlideCatalog(
+                    revision: 1,
+                    centerId: 'local-center',
+                    centerName: 'local',
+                    templates: [templateTestDesign],
+                  ),
+                )
+              : null,
+        );
+        if (center) {
+          await tester.tap(
+            find.byKey(const ValueKey('studio-category-center')),
+          );
+          await tester.pumpAndSettle();
+        }
+        await guidance(tester, '   ');
+        await reveal(
+          tester,
+          find.byKey(const ValueKey('studio-expand-details')),
+        );
+        await tester.tap(find.byKey(const ValueKey('studio-expand-details')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('studio-subtitle')), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('studio-generate')));
+        await tester.pumpAndSettle();
+        expect(find.text('운동 안내 문구 (필수)'), findsOneWidget);
+        expect(find.text('운동 안내 문구를 입력해 주세요. 공백만 입력할 수 없어요.'), findsOneWidget);
+        final field = tester.widget<TextField>(
+          find.descendant(
+            of: find.byKey(const ValueKey('studio-subtitle')),
+            matching: find.byType(TextField),
+          ),
+        );
+        expect(field.focusNode!.hasFocus, true);
+        expect(repository.validations, 0);
+        expect(jobs.enqueues, 0);
+      },
+    );
   }
 
   for (final scene in [
@@ -195,6 +298,7 @@ void main() {
         expect(find.text(label), findsNothing);
       }
       Future<void> edit(String key, String value) async {
+        await details(tester);
         final field = find.descendant(
           of: find.byKey(ValueKey(key)),
           matching: find.byType(TextField),
@@ -304,7 +408,7 @@ void main() {
           matching: find.byType(Scrollable),
         ),
       );
-      expect(find.text('저장한 디자인 · 내 저장 디자인'), findsOneWidget);
+      expect(find.text('내 저장 디자인'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('studio-design-stale-private')),
         findsNothing,
@@ -321,7 +425,7 @@ void main() {
         find.byKey(const ValueKey('studio-design-catalog-banner')),
         findsNothing,
       );
-      expect(find.text('센터 전용 · 센터 원본'), findsOneWidget);
+      expect(find.text('센터 원본'), findsOneWidget);
       await enter(tester);
       expect(
         container(tester)
@@ -467,6 +571,7 @@ void main() {
       await mount(tester, repository);
       final field = find.byKey(const ValueKey('studio-wod'));
       await reveal(tester, field);
+      expect(tester.widget<TextField>(field).maxLines, 3);
       await tester.tap(field);
       await tester.showKeyboard(field);
       const editing = TextEditingValue(
@@ -533,10 +638,10 @@ void main() {
       await mount(tester, repository, onResult: (value) => added = value);
       await enter(tester);
       await reveal(tester, find.byKey(const ValueKey('studio-save')));
-      expect(find.text('아직 저장되지 않았어요'), findsOneWidget);
+      expect(find.text('미저장'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.text('이미지 보관함에 저장됨'), findsOneWidget);
+      expect(find.text('저장됨'), findsOneWidget);
       expect(repository.saves, 1);
       expect(repository.generations, 0);
       await reveal(tester, find.byKey(const ValueKey('studio-wod')));
@@ -582,7 +687,7 @@ void main() {
       await tester.tap(find.byTooltip('사용량 새로고침'));
       await tester.pumpAndSettle();
       expect(find.text('AI 0회 남음 · 10/10회 사용'), findsOneWidget);
-      expect(find.text('템플릿 생성은 AI 횟수를 차감하지 않아요.'), findsOneWidget);
+      expect(find.text('기본 템플릿은 AI 없이 무료로 생성해요.'), findsOneWidget);
       await enter(tester);
       expect(repository.generations, 0);
       expect(
@@ -652,7 +757,7 @@ void main() {
       tester.view.resetViewInsets();
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('저장된 이미지'));
+      await tester.tap(find.byTooltip('AI 생성 슬라이드 관리'));
       await tester.pumpAndSettle();
       expect(find.text('saved library route'), findsOneWidget);
       GoRouter.of(tester.element(find.text('saved library route'))).pop();
@@ -664,6 +769,304 @@ void main() {
       expect(repository.generations, 0);
     },
   );
+  testWidgets(
+    'center enqueue releases input and navigation, completion opens exact server PNG without replacing draft',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final jobs = FakeTemplateJobsRepository()
+        ..enqueueWait = Completer<TemplateJobsReply>();
+      final repository = FakeStudioRepository();
+      await mount(
+        tester,
+        repository,
+        jobs: jobs,
+        scope: const CenterSlideCatalogScope(
+          ownerId: 'local-owner',
+          centerId: 'local-center',
+        ),
+        catalog: Stream.value(
+          CenterSlideCatalog(
+            revision: 1,
+            centerId: 'local-center',
+            centerName: 'local',
+            templates: [templateTestDesign],
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('studio-category-center')));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.byKey(const ValueKey('studio-wod')));
+      await tester.enterText(
+        find.byKey(const ValueKey('studio-wod')),
+        'Run 800m',
+      );
+      await guidance(tester);
+      await tester.tap(find.byKey(const ValueKey('studio-generate')));
+      await tester.pump();
+      expect(jobs.enqueues, 1);
+      expect(find.text('생성 접수 중…'), findsOneWidget);
+      final job = templateTestJob(jobs.lastId!).copyWith(rawWod: 'Run 800m');
+      jobs.enqueueWait!.complete(TemplateJobsReply([job], templateTestUsage));
+      await tester.pumpAndSettle();
+      expect(
+        container(tester).read(templateJobsControllerProvider).submitting,
+        false,
+      );
+      await reveal(tester, find.byKey(const ValueKey('studio-current-job')));
+      expect(find.text('슬라이드를 만들고 있어요.'), findsOneWidget);
+      expect(find.textContaining('화면을 나가도 계속 생성돼요'), findsOneWidget);
+      expect(find.text('입력 내용 보기'), findsNothing);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const ValueKey('studio-generate')))
+            .onPressed,
+        isNull,
+      );
+      expect(repository.validations, 0);
+      expect(repository.generations, 0);
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
+      jobs.jobs = [
+        templateTestJob('newer-history', status: 'complete', time: 10),
+        job.copyWith(status: 'processing'),
+      ];
+      jobs.enqueueWait = null;
+      jobs.assetFailure = const AiSlidesFailure('이미지 읽기 실패');
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(
+        container(tester).read(templateJobsControllerProvider).currentRequestId,
+        job.requestId,
+      );
+      expect(jobs.assets, 0); // Skip newer finished history on re-entry.
+      await reveal(tester, find.byKey(const ValueKey('studio-wod')));
+      await tester.enterText(
+        find.byKey(const ValueKey('studio-wod')),
+        '새 수업 5km',
+      );
+      FocusManager.instance.primaryFocus?.unfocus();
+      jobs.jobs = [
+        jobs.jobs.first,
+        job.copyWith(
+          status: 'complete',
+          sha256: templateTestJob('one', status: 'complete').sha256,
+        ),
+      ];
+      jobs.events.add(jobs.jobs);
+      await tester.pumpAndSettle();
+      expect(
+        jobs.assets,
+        1,
+      ); // Only the resumed current job is opened when it completes.
+      await reveal(tester, find.text('이미지 다시 불러오기'));
+      expect(find.text('이미지 읽기 실패'), findsOneWidget);
+      await container(tester)
+          .read(templateJobsControllerProvider.notifier)
+          .refresh();
+      await tester.pumpAndSettle();
+      expect(jobs.assets, 1); // No automatic retry after an asset failure.
+      jobs.assetFailure = null;
+      await tester.tap(find.text('이미지 다시 불러오기'));
+      await tester.pumpAndSettle();
+      expect(jobs.assets, 2);
+      expect(
+        container(tester)
+            .read(slideStudioControllerProvider)
+            .result!
+            .templateJob!
+            .requestId,
+        job.requestId,
+      );
+      expect(
+        container(tester).read(slideStudioControllerProvider).input.raw,
+        '새 수업 5km',
+      );
+      await reveal(tester, find.byKey(const ValueKey('studio-save')));
+      expect(find.byType(TemplateJobImage), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
+      await tester.pumpAndSettle();
+      expect(repository.saves, 1);
+      expect(repository.prepares, 0);
+      expect(repository.saved.values.single.text, 'Run 800m');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'basic card enlargement preserves selection, source and never generates',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = FakeStudioRepository();
+      await mount(tester, repository);
+      final before = container(tester)
+          .read(slideStudioControllerProvider)
+          .input;
+      await tester.tap(
+        find.byKey(ValueKey('studio-enlarge-${before.design.id}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(find.byTooltip('확대 보기 닫기'), findsOneWidget);
+      await tester.tap(find.byTooltip('확대 보기 닫기'));
+      await tester.pumpAndSettle();
+      expect(
+        container(tester).read(slideStudioControllerProvider).input,
+        before,
+      );
+      expect(repository.generations, 0);
+      expect(repository.validations, 0);
+    },
+  );
+
+  testWidgets(
+    'center card enlargement uses selected recipe with pinch and close but no AI request',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final jobs = FakeTemplateJobsRepository(),
+          repository = FakeStudioRepository();
+      await mount(
+        tester,
+        repository,
+        jobs: jobs,
+        scope: const CenterSlideCatalogScope(
+          ownerId: 'local-owner',
+          centerId: 'local-center',
+        ),
+        catalog: Stream.value(
+          CenterSlideCatalog(
+            revision: 1,
+            centerId: 'local-center',
+            centerName: 'local',
+            templates: [templateTestDesign],
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('studio-category-center')));
+      await tester.pumpAndSettle();
+      final before = container(tester)
+          .read(slideStudioControllerProvider)
+          .input;
+      await reveal(
+        tester,
+        find.byKey(ValueKey('studio-enlarge-${before.design.id}')),
+      );
+      await tester.tap(
+        find.byKey(ValueKey('studio-enlarge-${before.design.id}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('center-slide-direct-canvas')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('확대 보기 닫기'), findsOneWidget);
+      await tester.tap(find.byTooltip('확대 보기 닫기'));
+      await tester.pumpAndSettle();
+      expect(
+        container(tester).read(slideStudioControllerProvider).input,
+        before,
+      );
+      expect(jobs.enqueues, 0);
+      expect(repository.validations, 0);
+    },
+  );
+
+  for (final status in ['complete', 'failed']) {
+    testWidgets(
+      '$status history stays unselected on pristine entry and re-entry',
+      (tester) async {
+        final history = templateTestJob('history', status: status);
+        final jobs = FakeTemplateJobsRepository()..jobs = [history];
+        await mount(
+          tester,
+          FakeStudioRepository(),
+          jobs: jobs,
+          scope: const CenterSlideCatalogScope(
+            ownerId: 'local-owner',
+            centerId: 'local-center',
+          ),
+        );
+        for (var entry = 0; entry < 2; entry++) {
+          final c = container(tester);
+          expect(c.read(templateJobsControllerProvider).jobs, [history]);
+          expect(
+            c.read(templateJobsControllerProvider).currentRequestId,
+            isNull,
+          );
+          expect(c.read(slideStudioControllerProvider).input.raw, isEmpty);
+          expect(c.read(slideStudioControllerProvider).result, isNull);
+          expect(jobs.assets, 0);
+          expect(jobs.enqueues, 0);
+          expect(find.byType(TemplateJobImage), findsNothing);
+          if (entry == 0) {
+            await tester.tap(find.byTooltip('뒤로'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('open'));
+            await tester.pumpAndSettle();
+          }
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'failed current job appears in result area without top history cards or automatic retries',
+    (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final failed = templateTestJob('failed', status: 'failed');
+      final jobs = FakeTemplateJobsRepository()
+        ..jobs = [failed.copyWith(status: 'pending')];
+      await mount(
+        tester,
+        FakeStudioRepository(),
+        jobs: jobs,
+        scope: const CenterSlideCatalogScope(
+          ownerId: 'local-owner',
+          centerId: 'local-center',
+        ),
+      );
+      expect(
+        container(tester).read(templateJobsControllerProvider).currentRequestId,
+        failed.requestId,
+      );
+      jobs.jobs = [failed];
+      jobs.events.add(jobs.jobs);
+      await tester.pumpAndSettle();
+      await reveal(tester, find.byKey(const ValueKey('studio-current-job')));
+      expect(find.text('이미지를 만들지 못했어요.'), findsOneWidget);
+      expect(find.text('입력 내용 보기'), findsNothing);
+      expect(find.text('센터 생성 이미지'), findsNothing);
+      expect(find.text('다시 생성 (AI 1회)'), findsNothing);
+      expect(jobs.enqueues, 0);
+      expect(jobs.assets, 0);
+      jobs.events.addError(
+        const AiSlidesFailure('revoked', code: 'permission-denied'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('template-source-failed')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets(
     'discard cancel retains input and confirmed discard creates fresh session',
     (tester) async {

@@ -97,22 +97,20 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('rounded preview keeps its existing HTML path', (
+      testWidgets('rounded CORS preview shares the canvas-first path', (
         tester,
       ) async {
         final source = '$_origin/cors/near-dark.png';
         await _mount(tester, source, radius: 12);
-        await _until(
-          tester,
-          () => find.byType(HtmlElementView).evaluate().isNotEmpty,
+        await _until(tester, () => _rawImage(tester) != null);
+        expect(find.byType(HtmlElementView), findsNothing);
+        final image = _rawImage(tester)!;
+        expect((image.width, image.height), (1672, 941));
+        expect(
+          tester.widget<RawImage>(find.byType(RawImage)).fit,
+          BoxFit.contain,
         );
-        final info = await _decodedInfo(tester);
-        expect(info.sizeBytes, 4 * 1672 * 941);
-        expect(() => info.image, throwsUnsupportedError);
-        final rect = tester.getRect(find.byType(HtmlElementView));
-        expect(rect.width / rect.height, closeTo(1672 / 941, .0001));
-        expect(rect.width, lessThan(_rect.width));
-        expect(_rawImage(tester), isNull);
+        expect(tester.getRect(find.byType(WorkoutSlidePreview)), _rect);
         expect(tester.takeException(), isNull);
       });
 
@@ -120,9 +118,15 @@ void main() {
         await _mount(tester, '$_origin/cors/missing.png');
         await _until(
           tester,
-          () => find.byIcon(Icons.broken_image_outlined).evaluate().isNotEmpty,
+          () => find
+              .byKey(const ValueKey('workout-image-retry'))
+              .evaluate()
+              .isNotEmpty,
         );
-        expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('workout-image-retry')),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       });
     },

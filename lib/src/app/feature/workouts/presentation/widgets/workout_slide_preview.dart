@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_canvas.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preview_frame.dart';
 
 class WorkoutSlidePreview extends StatelessWidget {
   const WorkoutSlidePreview({
@@ -36,51 +37,38 @@ class WorkoutSlidePreview extends StatelessWidget {
         phases.firstOrNull;
     final seconds = phase?.seconds ?? 0;
     final durationMs = seconds * 1000;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      // A square AA clip blends the black backing into fractional image edges.
-      // Keep rounded previews smooth without adding a seam to editor previews.
-      clipBehavior: borderRadius == 0 ? Clip.hardEdge : Clip.antiAlias,
-      child: ColoredBox(
-        color: Colors.black,
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final scale = constraints.maxWidth / 1280;
-              return MediaQuery.removePadding(
-                context: context,
-                removeLeft: true,
-                removeTop: true,
-                removeRight: true,
-                removeBottom: true,
-                child: WorkoutSlideCanvas(
-                  module: module,
-                  creationTypography: creationTypography,
-                  // HTML platform views composite fractional edges separately
-                  // from the black canvas backing. Prefer one canvas for editor
-                  // previews, retaining HTML compatibility when CORS denies it.
-                  webHtmlElementStrategy: borderRadius == 0
-                      ? WebHtmlElementStrategy.fallback
-                      : WebHtmlElementStrategy.prefer,
-                  isRest: phase?.isRest ?? isRest,
-                  secondsLeft: seconds,
-                  remainingMs: durationMs,
-                  durationMs: durationMs,
-                  set: phase?.set ?? 1,
-                  totalSets: phase?.totalSets ?? 1,
-                  positionLabel: phase == null
-                      ? null
-                      : workoutPhaseLabel(module, phase),
-                  isPaused: true,
-                  brandL: brandL,
-                  brandR: brandR,
-                  scale: scale,
-                ),
-              );
-            },
-          ),
-        ),
+    return WorkoutPreviewFrame(
+      borderRadius: borderRadius,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = constraints.maxWidth / 1280;
+          return MediaQuery.removePadding(
+            context: context,
+            removeLeft: true,
+            removeTop: true,
+            removeRight: true,
+            removeBottom: true,
+            child: WorkoutSlideCanvas(
+              module: module,
+              creationTypography: creationTypography,
+              preview: true,
+              webHtmlElementStrategy: WorkoutPreviewFrame.webImageStrategy,
+              isRest: phase?.isRest ?? isRest,
+              secondsLeft: seconds,
+              remainingMs: durationMs,
+              durationMs: durationMs,
+              set: phase?.set ?? 1,
+              totalSets: phase?.totalSets ?? 1,
+              positionLabel: phase == null
+                  ? null
+                  : workoutPhaseLabel(module, phase),
+              isPaused: true,
+              brandL: brandL,
+              brandR: brandR,
+              scale: scale,
+            ),
+          );
+        },
       ),
     );
   }
