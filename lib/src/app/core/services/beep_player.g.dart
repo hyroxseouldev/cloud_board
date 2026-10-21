@@ -49,3 +49,49 @@ final class BeepPlayerProvider
 }
 
 String _$beepPlayerHash() => r'248baa38eb64423eabced247aaec3371435737e0';
+
+@ProviderFor(androidCueAudio)
+final androidCueAudioProvider = AndroidCueAudioProvider._();
+
+final class AndroidCueAudioProvider
+    extends
+        $FunctionalProvider<
+          AndroidCueAudio?,
+          AndroidCueAudio?,
+          AndroidCueAudio?
+        >
+    with $Provider<AndroidCueAudio?> {
+  AndroidCueAudioProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'androidCueAudioProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$androidCueAudioHash();
+
+  @$internal
+  @override
+  $ProviderElement<AndroidCueAudio?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  AndroidCueAudio? create(Ref ref) {
+    return androidCueAudio(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AndroidCueAudio? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AndroidCueAudio?>(value),
+    );
+  }
+}
+
+String _$androidCueAudioHash() => r'793aaa30b8b3234a6356a6614dce67ed9de90185';
