@@ -53,8 +53,8 @@ Future<SlideCreationMethod?> showSlideCreationSheet(BuildContext context) =>
                     (
                       method: SlideCreationMethod.design,
                       icon: Icons.auto_awesome_rounded,
-                      title: '템플릿·AI로 만들기',
-                      description: '템플릿을 고르거나 AI로 수업 이미지를 만들어요.',
+                      title: '템플릿으로 만들기',
+                      description: '템플릿을 골라 수업 내용을 담아요.',
                     ),
                   ])
                     Padding(

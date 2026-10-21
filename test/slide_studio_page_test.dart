@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_catalog.dart';
-import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
+import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/slide_studio_actions.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/ai_raster_actions.dart';
@@ -17,7 +20,6 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/slide
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
 import 'support/slide_studio_fakes.dart';
-import 'support/ai_raster_fakes.dart';
 import 'support/ui_layout_evidence.dart';
 
 void main() {
@@ -25,6 +27,9 @@ void main() {
     WidgetTester tester,
     FakeStudioRepository repository, {
     ValueChanged<List<WorkoutModule>?>? onResult,
+    Stream<CenterSlideCatalog>? catalog,
+    CenterSlideCatalogScope? scope,
+    List<AiSlideDesign> savedDesigns = const [],
   }) async {
     final guard = ExitGuard();
     final router = GoRouter(
@@ -43,7 +48,16 @@ void main() {
           routes: [
             GoRoute(
               path: 'images/create',
-              builder: (_, _) => AiSlidesPage(guard: guard),
+              builder: (_, _) => savedDesigns.isEmpty
+                  ? AiSlidesPage(guard: guard)
+                  : ProviderScope(
+                      overrides: [
+                        aiSlideDesignControllerProvider.overrideWith(
+                          () => _SavedDesigns(savedDesigns),
+                        ),
+                      ],
+                      child: SlideStudioPage(guard: guard),
+                    ),
               onExit: (_, _) => guard.confirm(),
               routes: [
                 GoRoute(
@@ -64,15 +78,17 @@ void main() {
           aiSlidesOwnerIdProvider.overrideWithValue('local-owner'),
           aiSlideDesignOwnerIdProvider.overrideWithValue(null),
           aiSlideDesignStoreIdProvider.overrideWithValue(null),
-          centerSlideCatalogScopeProvider.overrideWithValue(null),
+          centerSlideCatalogScopeProvider.overrideWithValue(scope),
           centerSlideCatalogProvider.overrideWith(
-            (_) => Stream.value(emptyCenterSlideCatalog()),
+            (_) => catalog ?? Stream.value(emptyCenterSlideCatalog()),
           ),
           slideStudioActionsProvider.overrideWithValue(
             SlideStudioActions(repository),
           ),
-          aiRasterActionsProvider.overrideWithValue(
-            AiRasterActions(FakeRasterRepository()),
+          aiRasterActionsProvider.overrideWith(
+            (_) => throw StateError(
+              'Template studio must not read raster actions',
+            ),
           ),
         ],
         child: RepaintBoundary(
@@ -159,58 +175,249 @@ void main() {
     );
   }
   testWidgets(
-    'completed grouping stays visible and edited guidance recovers without another charge',
+    'template-only controls keep title guidance and raw text with no paid or raster requests',
     (tester) async {
       tester.view.physicalSize = const Size(834, 1194);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final repository = _GroupLayoutFailure();
+      final repository = FakeStudioRepository();
       await mount(tester, repository);
-      final c = container(tester);
-      c
-          .read(slideStudioControllerProvider.notifier)
-          .edit(
-            c
-                .read(slideStudioControllerProvider)
-                .input
-                .copyWith(mode: StudioMode.organize),
-          );
+      for (final key in [
+        'studio-reference',
+        'studio-options',
+        'studio-brief',
+        'studio-usage-tokens',
+        'studio-completed-operation',
+      ]) {
+        expect(find.byKey(ValueKey(key)), findsNothing);
+      }
+      for (final label in ['AI 내용 정리', 'AI 스타일 제안', 'AI 배경 이미지']) {
+        expect(find.text(label), findsNothing);
+      }
+      Future<void> edit(String key, String value) async {
+        final field = find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.byType(TextField),
+        );
+        await reveal(tester, field);
+        await tester.enterText(field, value);
+      }
+
+      await edit('studio-title', '아침 수업');
+      await edit('studio-subtitle', '5mins On / 90s Off');
       await enter(tester);
-      expect(repository.generations, 1);
-      await reveal(
-        tester,
-        find.byKey(const ValueKey('studio-completed-operation')),
-      );
-      expect(find.text('완료된 AI 결과 보관 중'), findsOneWidget);
-      expect(c.read(slideStudioControllerProvider).error, contains('문구가 넘쳐요'));
-      await tester.tap(find.text('완료된 AI 결과 보관 중'));
-      await tester.pumpAndSettle();
-      expect(find.text('Run 800m\nSquat 22.5kg × 12'), findsWidgets);
-      await reveal(tester, find.byKey(const ValueKey('studio-wod')));
-      await tester.enterText(
-        find.byKey(const ValueKey('studio-wod')),
-        'Row 250 m',
-      );
-      await reveal(tester, find.byKey(const ValueKey('studio-options')));
-      await tester.tap(find.text('생성 방식 · AI 내용 정리'));
-      await tester.pumpAndSettle();
-      final guidance = find.descendant(
-        of: find.byKey(const ValueKey('studio-subtitle')),
-        matching: find.byType(TextField),
-      );
-      await reveal(tester, guidance);
-      await tester.enterText(guidance, '5mins On / 90s Off');
-      FocusManager.instance.primaryFocus?.unfocus();
-      final retry = find.text('현재 입력·디자인으로 다시 적용 · 추가 차감 없음');
-      await reveal(tester, retry);
-      await tester.tap(retry);
-      await tester.pumpAndSettle();
-      final result = c.read(slideStudioControllerProvider).result!;
-      expect(result.draft!.lines, ['Row 250 m']);
+      final result = container(tester)
+          .read(slideStudioControllerProvider)
+          .result!;
+      expect(result.draft!.title, '아침 수업');
       expect(result.draft!.designSubtitle, '5mins On / 90s Off');
-      expect(c.read(slideStudioControllerProvider).completedOperation, isNull);
-      expect(repository.generations, 1);
+      expect(result.draft!.lines, ['Run 800m', 'Squat 22.5kg × 12']);
+      expect(result.input.mode, StudioMode.template);
+      expect(repository.generations, 0);
       expect(repository.statuses, 0);
+      expect(repository.usageReads, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'center catalog and basic saved sources stay separate including more and late loading',
+    (tester) async {
+      tester.view.physicalSize = const Size(834, 1194);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final catalog = StreamController<CenterSlideCatalog>();
+      addTearDown(catalog.close);
+      catalog.add(emptyCenterSlideCatalog('center-a'));
+      final center = aiSlideDesignCatalog.first.copyWith(
+        id: 'center-only',
+        name: '센터 원본',
+      );
+      final personal = aiSlideDesignCatalog.first.copyWith(
+        id: 'personal',
+        name: '내 저장 디자인',
+      );
+      final stalePrivate = personal.copyWith(
+        id: 'stale-private',
+        theme: personal.theme.copyWith(
+          centerRecipe: const CenterSlideRecipe(
+            templateId: 'private',
+            revision: 1,
+            centerId: 'other',
+            width: 1920,
+            height: 1080,
+            backgroundColor: 0xff000000,
+            fields: [],
+          ),
+        ),
+      );
+      final repository = FakeStudioRepository();
+      await mount(
+        tester,
+        repository,
+        catalog: catalog.stream,
+        scope: const CenterSlideCatalogScope(
+          ownerId: 'local-owner',
+          centerId: 'center-a',
+        ),
+        savedDesigns: [personal, stalePrivate],
+      );
+      expect(find.text('센터 전용'), findsOneWidget);
+      expect(find.text('기본 템플릿'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('studio-design-catalog-focus')),
+      );
+      await tester.pumpAndSettle();
+      catalog.add(
+        CenterSlideCatalog(
+          revision: 1,
+          centerId: 'center-a',
+          centerName: '센터',
+          templates: [center],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        container(tester).read(slideStudioControllerProvider).input.design.id,
+        'catalog-focus',
+      );
+      expect(
+        tester
+            .widget<ChoiceChip>(
+              find.byKey(const ValueKey('studio-category-basic')),
+            )
+            .selected,
+        isTrue,
+      );
+      expect(
+        find.byKey(const ValueKey('studio-design-center-only')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const ValueKey('studio-more')));
+      await tester.pumpAndSettle();
+      expect(find.text('기본 템플릿 더보기'), findsOneWidget);
+      final grid = find.byType(GridView);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('studio-design-personal')),
+        300,
+        scrollable: find.descendant(
+          of: grid,
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(find.text('저장한 디자인 · 내 저장 디자인'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('studio-design-stale-private')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('studio-design-center-only')),
+        findsNothing,
+      );
+      await tester.tap(find.byTooltip('닫기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('studio-category-center')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('studio-design-catalog-banner')),
+        findsNothing,
+      );
+      expect(find.text('센터 전용 · 센터 원본'), findsOneWidget);
+      await enter(tester);
+      expect(
+        container(tester)
+            .read(slideStudioControllerProvider)
+            .result!
+            .input
+            .design,
+        center,
+      );
+      await reveal(tester, find.byKey(const ValueKey('studio-more')));
+      expect(
+        container(tester).read(slideStudioControllerProvider).input.design,
+        center,
+      );
+      await tester.tap(find.byKey(const ValueKey('studio-more')));
+      await tester.pumpAndSettle();
+      expect(find.text('센터 전용 더보기'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(GridView),
+          matching: find.byKey(const ValueKey('studio-design-center-only')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('studio-design-personal')),
+        findsNothing,
+      );
+      await tester.tap(find.byTooltip('닫기'));
+      await tester.pumpAndSettle();
+      catalog.addError(Exception('permission denied'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('studio-design-center-only')),
+        findsNothing,
+      );
+      expect(find.textContaining('센터 전용 템플릿을 불러오지 못했어요'), findsOneWidget);
+      expect(find.textContaining('현재 사용할 수 있는 센터 전용'), findsNothing);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const ValueKey('studio-generate')))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        container(tester).read(slideStudioControllerProvider).input.design,
+        center,
+      );
+      await reveal(tester, find.byKey(const ValueKey('studio-category-basic')));
+      await tester.tap(find.byKey(const ValueKey('studio-category-basic')));
+      await tester.pumpAndSettle();
+      expect(
+        container(tester).read(slideStudioControllerProvider).input.design.id,
+        'catalog-focus',
+      );
+      expect(repository.generations, 0);
+      expect(repository.usageReads, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'center loading is not an empty catalog and cannot generate a hidden basic design',
+    (tester) async {
+      final catalog = StreamController<CenterSlideCatalog>();
+      addTearDown(catalog.close);
+      await mount(
+        tester,
+        FakeStudioRepository(),
+        catalog: catalog.stream,
+        scope: const CenterSlideCatalogScope(
+          ownerId: 'local-owner',
+          centerId: 'center-a',
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('studio-category-center')));
+      await tester.pump();
+      expect(find.text('센터 전용 템플릿을 불러오는 중이에요.'), findsOneWidget);
+      expect(find.textContaining('현재 사용할 수 있는 센터 전용'), findsNothing);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const ValueKey('studio-generate')))
+            .onPressed,
+        isNull,
+      );
+      catalog.add(emptyCenterSlideCatalog('center-a'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('현재 사용할 수 있는 센터 전용'), findsOneWidget);
+      expect(find.text('센터 전용 템플릿을 불러오는 중이에요.'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('studio-category-basic')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const ValueKey('studio-generate')))
+            .onPressed,
+        isNotNull,
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -329,7 +536,7 @@ void main() {
       expect(find.text('아직 저장되지 않았어요'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.text('라이브러리에 저장됨'), findsOneWidget);
+      expect(find.text('이미지 보관함에 저장됨'), findsOneWidget);
       expect(repository.saves, 1);
       expect(repository.generations, 0);
       await reveal(tester, find.byKey(const ValueKey('studio-wod')));
@@ -353,50 +560,75 @@ void main() {
     },
   );
   testWidgets(
-    'usage failure is unknown, retry recovers; exhausted AI remains distinct from free template',
+    'server usage shows loading failure remaining exhausted and unlimited without charging template',
     (tester) async {
-      final repository = FakeStudioRepository()
-        ..usageFailure = Exception('offline');
+      final repository = _DelayedUsage();
       await mount(tester, repository);
-      expect(find.text('사용량 미확인'), findsOneWidget);
+      expect(find.text('AI 남은 횟수 조회 중…'), findsOneWidget);
       expect(find.textContaining('0회 남음'), findsNothing);
+      repository.usageFailure = Exception('offline');
+      repository.ready.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('AI 남은 횟수 미확인'), findsOneWidget);
+      expect(find.textContaining('사용량을 불러오지 못했어요'), findsOneWidget);
       repository.usageFailure = null;
       await tester.tap(find.byTooltip('사용량 새로고침'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('8회 남음'), findsOneWidget);
-      final controller = container(tester)
-          .read(slideStudioControllerProvider.notifier);
+      expect(find.text('AI 8회 남음 · 2/10회 사용'), findsOneWidget);
       repository.currentUsage = repository.currentUsage.copyWith(
         remaining: 0,
         used: 10,
       );
-      await controller.refreshUsage();
-      controller.edit(
-        container(tester)
-            .read(slideStudioControllerProvider)
-            .input
-            .copyWith(mode: StudioMode.organize),
-      );
-      await tester.pump();
+      await tester.tap(find.byTooltip('사용량 새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI 0회 남음 · 10/10회 사용'), findsOneWidget);
+      expect(find.text('템플릿 생성은 AI 횟수를 차감하지 않아요.'), findsOneWidget);
+      await enter(tester);
+      expect(repository.generations, 0);
       expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('studio-generate')))
-            .onPressed,
-        isNull,
-      );
-      controller.edit(
-        container(tester)
-            .read(slideStudioControllerProvider)
-            .input
-            .copyWith(mode: StudioMode.template),
-      );
-      await tester.pump();
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('studio-generate')))
-            .onPressed,
+        container(tester).read(slideStudioControllerProvider).result,
         isNotNull,
       );
+      repository.usageFailure = Exception('offline');
+      await tester.tap(find.byTooltip('사용량 새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI 0회 남음 · 10/10회 사용'), findsOneWidget);
+      expect(find.text('사용량 갱신 실패 · 마지막 확인 값'), findsOneWidget);
+      repository.usageFailure = null;
+      repository.currentUsage = repository.currentUsage.copyWith(
+        unlimited: true,
+        remaining: null,
+        limit: null,
+      );
+      await tester.tap(find.byTooltip('사용량 새로고침'));
+      await tester.pumpAndSettle();
+      expect(find.text('AI 생성 횟수 무제한'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'old paid mode and exhausted quota still generate only a free template',
+    (tester) async {
+      final repository = FakeStudioRepository()
+        ..usageFailure = Exception('offline');
+      await mount(tester, repository);
+      final c = container(tester);
+      c
+          .read(slideStudioControllerProvider.notifier)
+          .edit(
+            c
+                .read(slideStudioControllerProvider)
+                .input
+                .copyWith(mode: StudioMode.artwork, brief: 'old paid request'),
+          );
+      await enter(tester);
+      expect(
+        c.read(slideStudioControllerProvider).result!.input.mode,
+        StudioMode.template,
+      );
+      expect(repository.generations, 0);
+      expect(repository.usageReads, 1);
+      expect(repository.validations, 1);
     },
   );
   testWidgets(
@@ -420,7 +652,7 @@ void main() {
       tester.view.resetViewInsets();
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('저장된 슬라이드'));
+      await tester.tap(find.byTooltip('저장된 이미지'));
       await tester.pumpAndSettle();
       expect(find.text('saved library route'), findsOneWidget);
       GoRouter.of(tester.element(find.text('saved library route'))).pop();
@@ -465,12 +697,19 @@ void main() {
   );
 }
 
-class _GroupLayoutFailure extends FakeStudioRepository {
+class _SavedDesigns extends AiSlideDesignController {
+  _SavedDesigns(this.designs);
+  final List<AiSlideDesign> designs;
   @override
-  Future<void> validate(AiSlideDraft draft) async {
-    await super.validate(draft);
-    if (draft.lines.any((line) => line.startsWith('## '))) {
-      throw const FormatException('선택한 글자 크기에 문구가 넘쳐요.');
-    }
+  AiSlideDesignStudioState build() =>
+      AiSlideDesignStudioState(templates: designs);
+}
+
+class _DelayedUsage extends FakeStudioRepository {
+  final ready = Completer<void>();
+  @override
+  Future<StudioUsage> usage({String? requestId, bool raster = false}) async {
+    await ready.future;
+    return super.usage(requestId: requestId, raster: raster);
   }
 }

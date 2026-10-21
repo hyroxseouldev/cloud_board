@@ -298,7 +298,11 @@ _PreparedField _prepareField(
             fontWeight: FontWeight.values[field.fontWeight ~/ 100 - 1],
             fontStyle: field.italic ? FontStyle.italic : FontStyle.normal,
             color: Color(field.color),
-            height: 1.15,
+            // Fixed recipe slots follow the original artwork's glyph size.
+            // Extra paragraph leading can exceed the slot even for one short
+            // line (e.g. 52.9px type in a 55.5px SINGLE field). Keep the font
+            // size and slot geometry; actual wrapped overflow still fails.
+            height: 1,
           ),
         ),
         textDirection: TextDirection.ltr,

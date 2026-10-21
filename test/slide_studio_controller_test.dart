@@ -42,6 +42,73 @@ void main() {
   }
 
   const source = 'Row 1,000 m\nDB Squat 22.5 kg × 12\n휴식 60초';
+  for (final mode in [
+    StudioMode.organize,
+    StudioMode.style,
+    StudioMode.artwork,
+  ]) {
+    test(
+      'free entry ignores legacy $mode and unused inputs without paid calls beyond initial usage read',
+      () async {
+        final repository = FakeStudioRepository();
+        final c = await setup(repository);
+        final controller = c.read(slideStudioControllerProvider.notifier);
+        expect(repository.usageReads, 1);
+        expect(c.read(slideStudioControllerProvider).brand, isNull);
+        controller.reference(Uint8List.fromList([1, 2, 3]));
+        controller.edit(
+          c
+              .read(slideStudioControllerProvider)
+              .input
+              .copyWith(
+                raw: source,
+                mode: mode,
+                brief: 'x' * 1001,
+                subtitle: '운동 안내',
+              ),
+        );
+        await controller.generateTemplate();
+        final state = c.read(slideStudioControllerProvider);
+        expect(state.result!.draft!.lines, source.split('\n'));
+        expect(state.result!.draft!.designSubtitle, '운동 안내');
+        expect(state.result!.input.mode, StudioMode.template);
+        expect(state.reference, isNull);
+        expect(state.input.referenceHash, isNull);
+        expect(repository.generations, 0);
+        expect(repository.statuses, 0);
+        expect(repository.usageReads, 1);
+      },
+    );
+  }
+  test('free entry leaves old unknown operation untouched remotely and creates current template', () async {
+    final repository = FakeStudioRepository()
+      ..generationFailure = const AiSlidesFailure(
+        'timeout',
+        code: 'unavailable',
+      );
+    final c = await setup(repository);
+    final controller = c.read(slideStudioControllerProvider.notifier);
+    controller.edit(
+      c
+          .read(slideStudioControllerProvider)
+          .input
+          .copyWith(raw: source, mode: StudioMode.organize),
+    );
+    await controller.generate();
+    expect(c.read(slideStudioControllerProvider).pendingId, isNotNull);
+    final oldUsageReads = repository.usageReads;
+    controller.edit(
+      c.read(slideStudioControllerProvider).input.copyWith(raw: 'Run 200 m'),
+    );
+    await controller.generateTemplate();
+    expect(c.read(slideStudioControllerProvider).result!.draft!.lines, [
+      'Run 200 m',
+    ]);
+    expect(c.read(slideStudioControllerProvider).pendingId, isNull);
+    expect(repository.generations, 1);
+    expect(repository.statuses, 0);
+    expect(repository.usageReads, oldUsageReads);
+  });
   test(
     'fixed originals reject unsupported grouping before any paid request',
     () async {

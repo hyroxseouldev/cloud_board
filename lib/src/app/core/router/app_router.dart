@@ -369,7 +369,8 @@ GoRouter appRouter(Ref ref) {
                     path: 'library',
                     // Keep the studio on the same navigator stack. /slides is
                     // a main tab and must not be pushed as another shell.
-                    builder: (_, _) => const SlideLibraryScreen(),
+                    builder: (_, _) =>
+                        const SlideLibraryScreen(imagesOnly: true),
                   ),
                   GoRoute(
                     path: 'raster',
