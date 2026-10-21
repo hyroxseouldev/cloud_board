@@ -118,19 +118,27 @@ class SlideStudioPage extends HookConsumerWidget {
     final showingResult =
         state.result != null && (!showingJobStatus || currentShown);
     useEffect(() {
-      // Restore only on a pristine entry. Never replace a new local result or
-      // adopt an unrelated completion while the user is editing another draft.
+      // Resume only in-progress work on a pristine entry. Finished history is
+      // opened explicitly from management, never below a new empty draft.
       if (!restoredJob.value && jobs.recoveryChecked == true && !jobs.loading) {
         restoredJob.value = true;
+        final pending = jobs.jobs.where((job) => job.inProgress).firstOrNull;
         if (!jobs.unresolved &&
             jobs.error == null &&
-            jobs.jobs.isNotEmpty &&
+            pending != null &&
             state.result == null &&
             input == initialInput.value &&
             jobs.currentRequestId == null) {
-          final id = jobs.jobs.first.requestId;
+          final id = pending.requestId;
           Future.microtask(() {
-            if (context.mounted &&
+            if (!context.mounted) return;
+            final latest = ref.read(templateJobsControllerProvider);
+            if (latest.currentRequestId == null &&
+                !latest.unresolved &&
+                latest.error == null &&
+                latest.jobs.any(
+                  (job) => job.requestId == id && job.inProgress,
+                ) &&
                 ref.read(slideStudioControllerProvider).input ==
                     initialInput.value &&
                 ref.read(slideStudioControllerProvider).result == null) {

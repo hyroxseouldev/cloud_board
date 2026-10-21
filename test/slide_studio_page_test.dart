@@ -816,25 +816,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('저장하지 않고 나갈까요?'), findsNothing);
       jobs.jobs = [
-        job.copyWith(
-          status: 'complete',
-          sha256: templateTestJob('one', status: 'complete').sha256,
-        ),
+        templateTestJob('newer-history', status: 'complete', time: 10),
+        job.copyWith(status: 'processing'),
       ];
       jobs.enqueueWait = null;
       jobs.assetFailure = const AiSlidesFailure('이미지 읽기 실패');
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
+      expect(
+        container(tester).read(templateJobsControllerProvider).currentRequestId,
+        job.requestId,
+      );
+      expect(jobs.assets, 0); // Skip newer finished history on re-entry.
       await reveal(tester, find.byKey(const ValueKey('studio-wod')));
       await tester.enterText(
         find.byKey(const ValueKey('studio-wod')),
         '새 수업 5km',
       );
       FocusManager.instance.primaryFocus?.unfocus();
+      jobs.jobs = [
+        jobs.jobs.first,
+        job.copyWith(
+          status: 'complete',
+          sha256: templateTestJob('one', status: 'complete').sha256,
+        ),
+      ];
+      jobs.events.add(jobs.jobs);
+      await tester.pumpAndSettle();
       expect(
         jobs.assets,
         1,
-      ); // Re-entry attempts only the selected current job.
+      ); // Only the resumed current job is opened when it completes.
       await reveal(tester, find.text('이미지 다시 불러오기'));
       expect(find.text('이미지 읽기 실패'), findsOneWidget);
       await container(tester)
@@ -952,11 +964,56 @@ void main() {
     },
   );
 
+  for (final status in ['complete', 'failed']) {
+    testWidgets(
+      '$status history stays unselected on pristine entry and re-entry',
+      (tester) async {
+        final history = templateTestJob('history', status: status);
+        final jobs = FakeTemplateJobsRepository()..jobs = [history];
+        await mount(
+          tester,
+          FakeStudioRepository(),
+          jobs: jobs,
+          scope: const CenterSlideCatalogScope(
+            ownerId: 'local-owner',
+            centerId: 'local-center',
+          ),
+        );
+        for (var entry = 0; entry < 2; entry++) {
+          final c = container(tester);
+          expect(c.read(templateJobsControllerProvider).jobs, [history]);
+          expect(
+            c.read(templateJobsControllerProvider).currentRequestId,
+            isNull,
+          );
+          expect(c.read(slideStudioControllerProvider).input.raw, isEmpty);
+          expect(c.read(slideStudioControllerProvider).result, isNull);
+          expect(jobs.assets, 0);
+          expect(jobs.enqueues, 0);
+          expect(find.byType(TemplateJobImage), findsNothing);
+          if (entry == 0) {
+            await tester.tap(find.byTooltip('뒤로'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('open'));
+            await tester.pumpAndSettle();
+          }
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'failed current job appears in result area without top history cards or automatic retries',
     (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
       final failed = templateTestJob('failed', status: 'failed');
-      final jobs = FakeTemplateJobsRepository()..jobs = [failed];
+      final jobs = FakeTemplateJobsRepository()
+        ..jobs = [failed.copyWith(status: 'pending')];
       await mount(
         tester,
         FakeStudioRepository(),
@@ -966,6 +1023,13 @@ void main() {
           centerId: 'local-center',
         ),
       );
+      expect(
+        container(tester).read(templateJobsControllerProvider).currentRequestId,
+        failed.requestId,
+      );
+      jobs.jobs = [failed];
+      jobs.events.add(jobs.jobs);
+      await tester.pumpAndSettle();
       await reveal(tester, find.byKey(const ValueKey('studio-current-job')));
       expect(find.text('이미지를 만들지 못했어요.'), findsOneWidget);
       expect(find.text('입력 내용 보기'), findsNothing);
