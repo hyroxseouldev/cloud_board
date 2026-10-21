@@ -23,7 +23,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/presentation/widgets/templ
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/template_job.dart';
 
 const _oat = Color(0xffF7F5EF),
-    _surface = Color(0xffFFFDF8),
+    _surface = Colors.white,
     _sage = Color(0xff526B60),
     _ink = Color(0xff2B332E),
     _secondary = Color(0xff616B63);
@@ -97,7 +97,7 @@ class SlideStudioPage extends HookConsumerWidget {
     }
 
     final input = state.input;
-    final expanded = useState(true);
+    final expanded = useState(false);
     final raw = useTextEditingController(text: input.raw);
     final focus = useFocusNode();
     final bodyScroll = useScrollController();
@@ -170,6 +170,9 @@ class SlideStudioPage extends HookConsumerWidget {
 
     Future<void> showSubtitleError() async {
       subtitleError.value = '운동 안내 문구를 입력해 주세요. 공백만 입력할 수 없어요.';
+      // Expand the details card before scrolling/focusing its required field.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!context.mounted) return;
       // Materialize the field even when the lazy list is far from the input.
       if (subtitleAnchor.currentContext == null && bodyScroll.hasClients) {
         bodyScroll.jumpTo(0);
@@ -302,6 +305,17 @@ class SlideStudioPage extends HookConsumerWidget {
           foregroundColor: _ink,
           surfaceTintColor: Colors.transparent,
         ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _sage,
+            minimumSize: const Size(0, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            side: const BorderSide(color: Color(0xff91A09A)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
       ),
       child: UnsavedChangesGuard(
         guard: guard,
@@ -322,16 +336,29 @@ class SlideStudioPage extends HookConsumerWidget {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
             actions: [
-              if (narrow)
+              if (narrow &&
+                  (MediaQuery.sizeOf(context).width < 380 ||
+                      MediaQuery.textScalerOf(context).scale(13) > 16))
                 IconButton(
                   tooltip: 'AI 생성 슬라이드 관리',
                   onPressed: locked || state.busy ? null : openLibrary,
                   icon: const Icon(Icons.photo_library_outlined),
                 )
               else
-                TextButton(
-                  onPressed: locked || state.busy ? null : openLibrary,
-                  child: const Text('AI 생성 슬라이드 관리'),
+                Tooltip(
+                  message: 'AI 생성 슬라이드 관리',
+                  child: TextButton.icon(
+                    onPressed: locked || state.busy ? null : openLibrary,
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: Text(narrow ? '슬라이드 관리' : 'AI 생성 슬라이드 관리'),
+                    style: TextButton.styleFrom(
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
                 ),
               const SizedBox(width: 8),
             ],
@@ -432,14 +459,14 @@ class SlideStudioPage extends HookConsumerWidget {
                           ),
                         ),
                         const Text(
-                          '운동 내용과 숫자·단위는 입력한 순서 그대로 사용해요.',
+                          '운동 내용을 입력해 보세요.',
                           style: TextStyle(color: _secondary, fontSize: 13),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
                       decoration: BoxDecoration(
                         color: _surface,
                         borderRadius: BorderRadius.circular(12),
@@ -456,9 +483,13 @@ class SlideStudioPage extends HookConsumerWidget {
                             minLines: expanded.value ? 5 : 3,
                             maxLines: expanded.value ? 16 : 3,
                             maxLength: 6000,
+                            style: const TextStyle(fontSize: 16, height: 1.45),
                             decoration: const InputDecoration(
                               hintText: '오늘의 수업 내용을 붙여 넣으세요.\n예: Run 800m\nSki 500m · DB Press 12회',
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
                               counterText: '',
                             ),
                             onChanged: (value) => controller.edit(
@@ -488,38 +519,42 @@ class SlideStudioPage extends HookConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    StudioTextField(
-                      key: const ValueKey('studio-title'),
-                      label: '슬라이드 제목',
-                      value: input.title,
-                      maxLength: 60,
-                      onChanged: (v) => controller.edit(
-                        ref
-                            .read(slideStudioControllerProvider)
-                            .input
-                            .copyWith(title: v),
+                    _StudioDetailsCard(
+                      title: input.title,
+                      subtitle: input.subtitle,
+                      errorText: subtitleError.value,
+                      titleField: StudioTextField(
+                        key: const ValueKey('studio-title'),
+                        label: '슬라이드 제목',
+                        value: input.title,
+                        maxLength: 60,
+                        onChanged: (v) => controller.edit(
+                          ref
+                              .read(slideStudioControllerProvider)
+                              .input
+                              .copyWith(title: v),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      key: subtitleAnchor,
-                      padding: EdgeInsets.zero,
-                      child: StudioTextField(
-                        key: const ValueKey('studio-subtitle'),
-                        label: '운동 안내 문구 (필수)',
-                        value: input.subtitle,
-                        maxLength: 120,
-                        focusNode: subtitleFocus,
-                        errorText: subtitleError.value,
-                        onChanged: (v) {
-                          if (v.trim().isNotEmpty) subtitleError.value = null;
-                          controller.edit(
-                            ref
-                                .read(slideStudioControllerProvider)
-                                .input
-                                .copyWith(subtitle: v),
-                          );
-                        },
+                      subtitleField: Padding(
+                        key: subtitleAnchor,
+                        padding: EdgeInsets.zero,
+                        child: StudioTextField(
+                          key: const ValueKey('studio-subtitle'),
+                          label: '운동 안내 문구 (필수)',
+                          value: input.subtitle,
+                          maxLength: 120,
+                          focusNode: subtitleFocus,
+                          errorText: subtitleError.value,
+                          onChanged: (v) {
+                            if (v.trim().isNotEmpty) subtitleError.value = null;
+                            controller.edit(
+                              ref
+                                  .read(slideStudioControllerProvider)
+                                  .input
+                                  .copyWith(subtitle: v),
+                            );
+                          },
+                        ),
                       ),
                     ),
                     if (state.busy) const LinearProgressIndicator(minHeight: 2),
@@ -533,44 +568,60 @@ class SlideStudioPage extends HookConsumerWidget {
                         ),
                       ),
                     const SizedBox(height: 18),
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
-                        const Expanded(
-                          child: Text(
-                            '생성된 슬라이드',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text(
+                              '생성된 슬라이드',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
+                            if (showingResult)
+                              _StudioSaveStatus(
+                                saved: state.result!.savedModule != null,
+                              ),
+                          ],
                         ),
-                        if (state.history.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: locked || state.busy
-                                ? null
-                                : () {
-                                    FocusScope.of(context).unfocus();
-                                    jobController.selectCurrent(null);
-                                    controller.undo();
-                                  },
-                            icon: const Icon(Icons.undo, size: 18),
-                            label: const Text('이전 결과 보기'),
-                          ),
-                        if (showingResult)
-                          IconButton(
-                            tooltip: '미리보기 확대',
-                            onPressed: enlarge,
-                            icon: const Icon(Icons.open_in_full, size: 18),
-                          ),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (state.history.isNotEmpty)
+                              TextButton.icon(
+                                onPressed: locked || state.busy
+                                    ? null
+                                    : () {
+                                        FocusScope.of(context).unfocus();
+                                        jobController.selectCurrent(null);
+                                        controller.undo();
+                                      },
+                                icon: const Icon(Icons.undo, size: 18),
+                                label: const Text('이전 결과 보기'),
+                              ),
+                            if (showingResult)
+                              IconButton(
+                                tooltip: '미리보기 확대',
+                                onPressed: enlarge,
+                                icon: const Icon(Icons.open_in_full, size: 18),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: _surface,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xffDEDED7)),
                       ),
                       child: showingJobStatus && !currentShown
                           ? StudioCurrentJob(
@@ -584,7 +635,10 @@ class SlideStudioPage extends HookConsumerWidget {
                             )
                           : state.result == null
                           ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 40),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 32,
+                              ),
                               child: Column(
                                 children: [
                                   Icon(
@@ -628,61 +682,38 @@ class SlideStudioPage extends HookConsumerWidget {
                           child: Text(warning),
                         ),
                       const SizedBox(height: 14),
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 10,
-                        children: [
-                          Text(
-                            state.result!.savedModule != null
-                                ? '이미지 보관함에 저장됨'
-                                : '아직 저장되지 않았어요',
-                            key: const ValueKey('studio-save-status'),
-                            style: const TextStyle(
-                              color: _secondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 8,
-                            children: [
-                              OutlinedButton.icon(
-                                key: const ValueKey('studio-save'),
-                                onPressed:
-                                    locked ||
-                                        state.busy ||
-                                        state.pendingId != null ||
-                                        (state.dirty &&
-                                            state.result!.templateJob ==
-                                                null) ||
-                                        state.result!.savedModule != null
-                                    ? null
-                                    : controller.save,
-                                icon: Icon(
+                      _StudioResultButtons(
+                        save: OutlinedButton.icon(
+                          key: const ValueKey('studio-save'),
+                          onPressed:
+                              locked ||
+                                  state.busy ||
+                                  state.pendingId != null ||
+                                  (state.dirty &&
+                                      state.result!.templateJob == null) ||
                                   state.result!.savedModule != null
-                                      ? Icons.photo_library
-                                      : Icons.save_outlined,
-                                ),
-                                label: Text(state.saving ? '처리 중…' : '이미지 저장'),
-                              ),
-                              OutlinedButton.icon(
-                                key: const ValueKey('studio-add'),
-                                onPressed:
-                                    locked ||
-                                        state.busy ||
-                                        state.pendingId != null ||
-                                        (state.dirty &&
-                                            state.result!.templateJob == null)
-                                    ? null
-                                    : add,
-                                icon: const Icon(Icons.add),
-                                label: const Text('수업에 추가'),
-                              ),
-                            ],
+                              ? null
+                              : controller.save,
+                          icon: Icon(
+                            state.result!.savedModule != null
+                                ? Icons.photo_library
+                                : Icons.save_outlined,
                           ),
-                        ],
+                          label: Text(state.saving ? '처리 중…' : '이미지 저장'),
+                        ),
+                        add: OutlinedButton.icon(
+                          key: const ValueKey('studio-add'),
+                          onPressed:
+                              locked ||
+                                  state.busy ||
+                                  state.pendingId != null ||
+                                  (state.dirty &&
+                                      state.result!.templateJob == null)
+                              ? null
+                              : add,
+                          icon: const Icon(Icons.add),
+                          label: const Text('수업에 추가'),
+                        ),
                       ),
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
@@ -701,6 +732,166 @@ class SlideStudioPage extends HookConsumerWidget {
       ),
     );
   }
+}
+
+/// Local disclosure state stays separate from the studio's existing hook order.
+class _StudioDetailsCard extends HookWidget {
+  const _StudioDetailsCard({
+    required this.title,
+    required this.subtitle,
+    required this.errorText,
+    required this.titleField,
+    required this.subtitleField,
+  });
+  final String title, subtitle;
+  final String? errorText;
+  final Widget titleField, subtitleField;
+
+  @override
+  Widget build(BuildContext context) {
+    final expanded = useState(false);
+    useEffect(() {
+      if (errorText != null) expanded.value = true;
+      return null;
+    }, [errorText]);
+    final isExpanded = expanded.value || errorText != null;
+    final summary = [
+      title,
+      subtitle,
+    ].where((value) => value.trim().isNotEmpty).join(' · ');
+    return Material(
+      color: _surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xffDEDED7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            expanded: isExpanded,
+            child: InkWell(
+              key: const ValueKey('studio-expand-details'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                if (errorText != null) return;
+                if (expanded.value) FocusScope.of(context).unfocus();
+                expanded.value = !expanded.value;
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '제목 · 안내 문구',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            summary.isEmpty
+                                ? '제목과 필수 운동 안내 문구를 입력해 주세요.'
+                                : summary,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _secondary,
+                              height: 1.4,
+                            ),
+                          ),
+                          if (summary.isNotEmpty && subtitle.trim().isEmpty)
+                            const Text(
+                              '운동 안내 문구는 필수예요.',
+                              style: TextStyle(fontSize: 12, color: _secondary),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      isExpanded ? Icons.expand_less : Icons.chevron_right,
+                      color: _sage,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Keep controllers, composing text and cursor state while collapsed.
+          Offstage(
+            offstage: !isExpanded,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Column(
+                children: [
+                  titleField,
+                  const SizedBox(height: 12),
+                  subtitleField,
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioSaveStatus extends StatelessWidget {
+  const _StudioSaveStatus({required this.saved});
+  final bool saved;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(
+        Icons.circle,
+        size: 7,
+        color: saved ? _sage : const Color(0xffAEB4AF),
+      ),
+      const SizedBox(width: 6),
+      Text(
+        saved ? '저장됨' : '미저장',
+        key: const ValueKey('studio-save-status'),
+        style: const TextStyle(fontSize: 12, color: _secondary),
+      ),
+    ],
+  );
+}
+
+class _StudioResultButtons extends StatelessWidget {
+  const _StudioResultButtons({required this.save, required this.add});
+  final Widget save, add;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      // Keep equal widths; let large accessibility text use full-width rows.
+      final requiredWidth =
+          MediaQuery.textScalerOf(context).scale(14) * 10 + 124;
+      if (bounds.maxWidth < requiredWidth) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [save, const SizedBox(height: 10), add],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: save),
+          const SizedBox(width: 10),
+          Expanded(child: add),
+        ],
+      );
+    },
+  );
 }
 
 class StudioActionBar extends StatelessWidget {
@@ -743,13 +934,15 @@ class StudioActionBar extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  const Icon(Icons.auto_awesome, color: _sage, size: 22),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       count,
                       key: const ValueKey('studio-usage-count'),
                       style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -805,7 +998,17 @@ class StudioActionBar extends StatelessWidget {
                     : onGenerate,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
+                  backgroundColor: _sage,
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
+                iconAlignment: IconAlignment.end,
                 icon: state.busy || submitting
                     ? const SizedBox(
                         width: 18,
