@@ -5,6 +5,7 @@ import {handleTemplateJobs, processTemplateJob} from '../src/template-jobs.js';
 import {rasterHash, rasterFail} from '../src/ai-slide-raster-provider.js';
 import {aiTimerMonth} from '../src/ai-timer.js';
 import {renderTemplate, validateLayout, requestTemplateLayout} from '../src/template-layout.js';
+import {TEMPLATE_IMAGE_MODE, TEMPLATE_IMAGE_RESERVE} from '../src/template-image.js';
 
 // Transaction double for crash/concurrency states; not described as E2E.
 class MemoryDb {
@@ -97,7 +98,7 @@ test('late fenced worker cleanup cannot delete the replacement worker complete i
   let unlock, notify, renders=0; const started=new Promise(r=>notify=r);
   const render=async input=>{ if(++renders===1) {notify();await new Promise(r=>unlock=r);} return renderTemplate(input); };
   const first=processTemplateJob({...s.options,...s.input,generate:s.generate,render});await started;
-  await processTemplateJob({...s.options,...s.input,clock:()=>now+180001,generate:s.generate,render});
+  await processTemplateJob({...s.options,...s.input,clock:()=>now+600001,generate:s.generate,render});
   const complete=s.db.rows.get(path(s.input.requestId));assert.equal(complete.status,'complete');
   unlock();await first;
   assert.ok(s.files.has(complete.artifact.path));assert.equal(s.calls(),1);
@@ -162,4 +163,59 @@ test('pre-provider geometry failure refunds without counting unknown external wo
   await processTemplateJob({...s.options,...s.input,generate:generateInvalid});
   const job=s.db.rows.get(path(s.input.requestId));
   assert.equal(calls,0);assert.equal(job.quotaCharged,false);assert.equal(job.costMicros,0);
+});
+
+test('full image jobs reserve image cost and return provider pixels without text composition', async () => {
+  const s=setup(); await handleTemplateJobs({...s.options,input:s.input});
+  const budgetPath=`aiTimerBudgets/${aiTimerMonth(now).id}`;
+  assert.equal(s.db.rows.get(path(s.input.requestId)).generationMode,TEMPLATE_IMAGE_MODE);
+  assert.equal(s.db.rows.get(budgetPath).spentMicros,TEMPLATE_IMAGE_RESERVE);
+  let calls=0;
+  const generate=async source=>{
+    calls++; assert.deepEqual(source.background,s.bytes);
+    return {bytes:s.bytes,sha256:rasterHash(s.bytes),width:1920,height:1080,costMicros:175000,
+      usage:{imageInput:100,imageOutput:1000,textInput:50},model:'image-test',promptVersion:'test',generatedSha256:rasterHash(s.bytes)};
+  };
+  await processTemplateJob({...s.options,...s.input,generate,render:()=>{throw Error('must not composite text');}});
+  await processTemplateJob({...s.options,...s.input,generate});
+  const job=s.db.rows.get(path(s.input.requestId));
+  assert.equal(job.status,'complete');assert.equal(calls,1);assert.equal(s.uploads(),1);
+  assert.equal(job.evidence.textComposited,false);
+  assert.equal(s.db.rows.get(budgetPath).spentMicros,175000);
+  const asset=await handleTemplateJobs({...s.options,input:{...s.input,action:'asset'}});
+  assert.deepEqual(Buffer.from(asset.base64,'base64'),s.bytes);
+  assert.equal(job.provider.bytes,undefined);
+});
+
+test('persisted image recovery reuses storage without another provider call', async () => {
+  const s=setup();await handleTemplateJobs({...s.options,input:s.input});
+  const image={path:`users/${uid}/template-generations/${centerId}/${s.input.requestId}/old/image.png`,
+    width:1920,height:1080,sha256:rasterHash(s.bytes)};
+  s.files.set(image.path,s.bytes);
+  Object.assign(s.db.rows.get(path(s.input.requestId)),{status:'processing',stage:'render',leaseUntilMs:now-1,
+    provider:{image,costMicros:100,model:'image-test',promptVersion:'test',generatedSha256:image.sha256}});
+  await processTemplateJob({...s.options,...s.input,generate:()=>{throw Error('duplicate provider call');}});
+  assert.equal(s.db.rows.get(path(s.input.requestId)).status,'complete');assert.equal(s.uploads(),0);
+  assert.equal(s.db.rows.get(usagePath).used,1);
+});
+
+test('old accepted jobs settle the old text reservation after deployment', async () => {
+  const s=setup();await handleTemplateJobs({...s.options,input:s.input});
+  delete s.db.rows.get(path(s.input.requestId)).generationMode;
+  const budgetPath=`aiTimerBudgets/${aiTimerMonth(now).id}`;
+  s.db.rows.set(budgetPath,{spentMicros:10000,calls:1});
+  await processTemplateJob({...s.options,...s.input,generate:s.generate});
+  assert.equal(s.db.rows.get(path(s.input.requestId)).status,'complete');
+  assert.equal(s.db.rows.get(budgetPath).spentMicros,50);
+});
+
+test('known image response followed by failed storage is charged only for provider cost and refunds the user', async () => {
+  const s=setup();await handleTemplateJobs({...s.options,input:s.input});
+  const original=s.bucket.file;
+  s.bucket.file=p=>({...original(p),save:async()=>{throw Error('storage unavailable');}});
+  await processTemplateJob({...s.options,...s.input,generate:async()=>({bytes:s.bytes,sha256:rasterHash(s.bytes),
+    width:1920,height:1080,costMicros:200000})});
+  const job=s.db.rows.get(path(s.input.requestId));
+  assert.equal(job.status,'failed');assert.equal(job.retryable,false);assert.equal(job.costMicros,200000);
+  assert.equal(s.db.rows.get(usagePath).used,0);
 });

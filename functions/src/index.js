@@ -254,7 +254,7 @@ export const cloudboardSlideStudio = onCall({
   return handleSlideStudio({db, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
 });
 
-// Center-only Luna text replacement. Acceptance is separate from provider work;
+// Center-only full-image generation. Acceptance is separate from provider work;
 // basic templates remain local, free and never enter this queue.
 export const cloudboardTemplateJobs = onCall({
   region, timeoutSeconds: 60, memory: '512MiB', maxInstances: 3, concurrency: 10,
@@ -269,7 +269,7 @@ export const cloudboardTemplateJobs = onCall({
 
 export const generateTemplateJob = onDocumentCreated({
   region, document: 'users/{uid}/templateGenerationCenters/{centerId}/jobs/{requestId}',
-  timeoutSeconds: 120, memory: '1GiB', maxInstances: 3, concurrency: 2, retry: true,
+  timeoutSeconds: 540, memory: '1GiB', maxInstances: 3, concurrency: 2, retry: true,
   secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
 }, async event => {
   const {processTemplateJob} = await import('./template-jobs.js');
@@ -277,7 +277,7 @@ export const generateTemplateJob = onDocumentCreated({
 });
 
 export const recoverTemplateJobs = onSchedule({
-  region, schedule: 'every 5 minutes', timeoutSeconds: 180, memory: '1GiB', maxInstances: 1,
+  region, schedule: 'every 5 minutes', timeoutSeconds: 540, memory: '1GiB', maxInstances: 1,
   secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
 }, async () => {
   const {recoverTemplateJobs: recover} = await import('./template-jobs.js');

@@ -2,9 +2,12 @@ import {randomUUID} from 'node:crypto';
 import {requirePlanEntitlement} from './plan-policy.js';
 import {aiTimerMonth, AI_TIMER_BUDGET, AI_TIMER_GLOBAL_LIMIT, AI_TIMER_RESERVE} from './ai-timer.js';
 import {rasterFail as fail, rasterHash, sourceLines} from './ai-slide-raster-provider.js';
+import {TEMPLATE_IMAGE_MODE, TEMPLATE_IMAGE_RESERVE, requestTemplateImage} from './template-image.js';
 
 const validId = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(x);
 const leaseMs = 180000;
+const imageLeaseMs = 600000;
+const reservation = job => job.generationMode === TEMPLATE_IMAGE_MODE ? TEMPLATE_IMAGE_RESERVE : AI_TIMER_RESERVE;
 const jobPath = (uid, centerId, requestId) => `users/${uid}/templateGenerationCenters/${centerId}/jobs/${requestId}`;
 const queueRef = (db, path) => db.doc(`templateGenerationQueue/${rasterHash(path)}`);
 const check = (yes, message, reason, code = 'failed-precondition') => { if (!yes) throw fail(code, message, reason); };
@@ -137,15 +140,15 @@ export async function handleTemplateJobs({db, bucket, uid, input, apiKey, clock 
     check(status.remaining > 0, '이번 달 AI 생성 횟수를 모두 사용했어요.', 'user-limit', 'resource-exhausted');
     check((used.data()?.lastAttemptMs ?? 0) + 5000 <= now, '잠시 후 다시 생성해 주세요.', 'cooldown', 'resource-exhausted');
     check((used.data()?.attempts ?? 0) < status.limit * 2, '반복 요청 한도에 도달했어요.', 'attempt-limit', 'resource-exhausted');
-    check((budget.data()?.spentMicros ?? 0) + AI_TIMER_RESERVE <= AI_TIMER_BUDGET &&
+    check((budget.data()?.spentMicros ?? 0) + TEMPLATE_IMAGE_RESERVE <= AI_TIMER_BUDGET &&
       (budget.data()?.calls ?? 0) < AI_TIMER_GLOBAL_LIMIT, '서비스의 AI 생성 한도에 도달했어요.', 'service-limit', 'resource-exhausted');
-    const value = {schemaVersion: 1, requestId: input.requestId, uid, centerId, ...values, design,
+    const value = {schemaVersion: 1, generationMode: TEMPLATE_IMAGE_MODE, requestId: input.requestId, uid, centerId, ...values, design,
       designId: design.id, designName: design.name, requestHash, retryOf,
       status: 'pending', stage: 'pending', createdAtMs: now, updatedAtMs: now, month, quotaCharged: true, attempts: 0};
     tx.set(ref, value);
     tx.set(queue, {path, uid, centerId, requestId: input.requestId, dueAtMs: now});
     tx.set(usageRef, {used: status.used + 1, attempts: (used.data()?.attempts ?? 0) + 1, lastAttemptMs: now}, {merge: true});
-    tx.set(budgetRef, {spentMicros: (budget.data()?.spentMicros ?? 0) + AI_TIMER_RESERVE,
+    tx.set(budgetRef, {spentMicros: (budget.data()?.spentMicros ?? 0) + TEMPLATE_IMAGE_RESERVE,
       calls: (budget.data()?.calls ?? 0) + 1}, {merge: true});
     if (retryOf) tx.set(db.doc(jobPath(uid, centerId, retryOf)), {retriedBy: input.requestId, retryable: false}, {merge: true});
     return {job: publicTemplateJob(value), usage: {...status, used: status.used + 1, remaining: status.remaining - 1}};
@@ -162,7 +165,7 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
     if (!j || ['complete', 'failed'].includes(j.status)) { tx.delete(queue); return null; }
     if (j.status === 'processing' && j.leaseUntilMs > clock()) return null;
     const uncertain = j.stage === 'provider' && !j.provider;
-    const value = {...j, status: 'processing', token, leaseUntilMs: clock() + leaseMs,
+    const value = {...j, status: 'processing', token, leaseUntilMs: clock() + (j.generationMode === TEMPLATE_IMAGE_MODE ? imageLeaseMs : leaseMs),
       attempts: j.attempts + 1, updatedAtMs: clock()};
     tx.set(ref, value); tx.set(queue, {dueAtMs: value.leaseUntilMs}, {merge: true});
     return {job: value, uncertain};
@@ -186,23 +189,42 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
       check(Boolean(apiKey), 'AI 연결을 준비 중이에요.', 'not-configured');
       if (!await patch({stage: 'provider'})) return;
       j.stage = 'provider';
-      provider = await (generate ?? impl.requestTemplateLayout)({...j, recipe}, apiKey);
-      if (!await patch({provider, stage: 'render'})) return;
+      const generated = await (generate ?? (j.generationMode === TEMPLATE_IMAGE_MODE ? requestTemplateImage : impl.requestTemplateLayout))({...j, recipe, background}, apiKey);
+      if (generated.bytes) {
+        // Persist the image outside Firestore before recording a recoverable
+        // provider result. Recovery reuses these bytes, never calls AI twice.
+        const {bytes, ...metadata} = generated;
+        provider = metadata;
+        artifact = {path: `users/${uid}/template-generations/${centerId}/${requestId}/${token}/${generated.sha256}.png`,
+          sha256: generated.sha256, width: generated.width, height: generated.height};
+        await bucket.file(artifact.path).save(bytes, {resumable: false,
+          metadata: {contentType: 'image/png', cacheControl: 'private, no-store', metadata: {sha256: generated.sha256}}});
+        provider = {...metadata, image: artifact};
+      } else provider = generated; // Pre-deployment layout jobs remain recoverable.
+      if (!await patch({provider, stage: 'render'})) throw fail('aborted', '다른 작업에서 접수 상태를 확인 중이에요.', 'lease-lost');
       j.stage = 'render';
     }
-    const answer = await (render ?? impl.renderTemplate)({...j, recipe, background, layout: provider.layout});
-    await requireCenter(db, uid, centerId);
-    // Each fenced worker owns its upload. A late worker can remove only its own
-    // orphan, never a replacement worker's completed artifact with the same hash.
-    artifact = {path: `users/${uid}/template-generations/${centerId}/${requestId}/${token}/${answer.sha256}.png`,
-      sha256: answer.sha256, width: answer.width, height: answer.height};
-    await bucket.file(artifact.path).save(answer.bytes, {resumable: false,
-      metadata: {contentType: 'image/png', cacheControl: 'private, no-store', metadata: {sha256: answer.sha256}}});
-    j.evidence = answer.evidence;
+    if (provider.image) {
+      artifact = provider.image;
+      await download(bucket, artifact);
+      j.evidence = {generationMode: TEMPLATE_IMAGE_MODE, model: provider.model,
+        promptVersion: provider.promptVersion, generatedSha256: provider.generatedSha256,
+        outputSha256: artifact.sha256, textComposited: false};
+    } else {
+      const answer = await (render ?? impl.renderTemplate)({...j, recipe, background, layout: provider.layout});
+      await requireCenter(db, uid, centerId);
+      // Each fenced worker owns its upload. A late worker can remove only its own
+      // orphan, never a replacement worker's completed artifact with the same hash.
+      artifact = {path: `users/${uid}/template-generations/${centerId}/${requestId}/${token}/${answer.sha256}.png`,
+        sha256: answer.sha256, width: answer.width, height: answer.height};
+      await bucket.file(artifact.path).save(answer.bytes, {resumable: false,
+        metadata: {contentType: 'image/png', cacheControl: 'private, no-store', metadata: {sha256: answer.sha256}}});
+      j.evidence = answer.evidence;
+    }
   } catch (error) { failure = error; }
   const reason = failure?.details?.reason;
   // A saved provider result can be rendered again without another call/charge.
-  if (failure && provider && !reason && j.attempts < 3) {
+  if (failure && (provider?.layout || provider?.image) && !reason && j.attempts < 3) {
     await db.runTransaction(async tx => {
       const current = (await tx.get(ref)).data();
       if (current?.token !== token || current.status !== 'processing') return;
@@ -221,7 +243,8 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
     const uncertain = failure && !provider && j.stage === 'provider' &&
       (!failure.details?.reason || failure.details.reason === 'provider-uncertain');
     const refund = Boolean(failure && !uncertain);
-    const cost = provider?.costMicros ?? failure?.details?.providerBilling?.costMicros ?? (uncertain ? AI_TIMER_RESERVE : 0);
+    const reserve = reservation(j);
+    const cost = provider?.costMicros ?? failure?.details?.providerBilling?.costMicros ?? (uncertain ? reserve : 0);
     completed = !failure;
     tx.set(ref, {status: completed ? 'complete' : 'failed', stage: 'settled', updatedAtMs: clock(),
       message: completed ? null : uncertain ? 'AI 응답을 확인하지 못했어요. 중복 차감 없이 원문과 접수 상태를 보관했어요.'
@@ -231,16 +254,21 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
       failedProviderBilling: failure?.details?.providerBilling ?? null,
       evidence: completed ? j.evidence ?? null : null, costMicros: cost, leaseUntilMs: 0}, {merge: true});
     if (refund) tx.set(usageRef, {used: Math.max(0, (used.data()?.used ?? 1) - 1)}, {merge: true});
-    tx.set(budgetRef, {spentMicros: Math.max(0, (budget.data()?.spentMicros ?? AI_TIMER_RESERVE) - AI_TIMER_RESERVE + cost)}, {merge: true});
+    tx.set(budgetRef, {spentMicros: Math.max(0, (budget.data()?.spentMicros ?? reserve) - reserve + cost)}, {merge: true});
     tx.delete(queue);
   });
   // An account deletion/ownership change during upload must not leave an
   // otherwise inaccessible orphan after the account cleanup has run.
-  if (!completed && artifact) await bucket.file(artifact.path).delete({ignoreNotFound: true});
+  if (!completed && artifact) {
+    const current = (await ref.get()).data();
+    const retained = current?.status === 'complete' && current.artifact?.path === artifact.path ||
+      ['pending', 'processing'].includes(current?.status) && current.provider?.image?.path === artifact.path;
+    if (!retained) await bucket.file(artifact.path).delete({ignoreNotFound: true});
+  }
 }
 
 export async function recoverTemplateJobs(options) {
-  const page = await options.db.collection('templateGenerationQueue').where('dueAtMs', '<=', (options.clock ?? Date.now)()).orderBy('dueAtMs').limit(6).get();
+  const page = await options.db.collection('templateGenerationQueue').where('dueAtMs', '<=', (options.clock ?? Date.now)()).orderBy('dueAtMs').limit(3).get();
   for (let offset = 0; offset < page.docs.length; offset += 3) {
     await Promise.all(page.docs.slice(offset, offset + 3).map(doc => processTemplateJob({...options, ...doc.data()})));
   }

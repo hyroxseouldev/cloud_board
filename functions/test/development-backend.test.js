@@ -55,7 +55,8 @@ test('development deploy includes app-called core functions and plan projection 
   const source = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
   const localExports = new Set([...source.matchAll(/export const (\w+)\s*=/g)].map(match => match[1]));
   const excludedProviders = new Set(['cloudboardAiTimer', 'cloudboardAiSlides',
-    'cloudboardAiSlideDesigns', 'cloudboardBilling', 'cloudboardGooglePlayBilling']);
+    'cloudboardAiSlideDesigns', 'cloudboardAiSlideRaster', 'cloudboardSlideStudio', 'cloudboardTemplateJobs',
+    'cloudboardBilling', 'cloudboardGooglePlayBilling']);
   const lib = new URL('../../lib/', import.meta.url);
   const appCalls = new Set();
   for (const file of readdirSync(lib, {recursive: true}).filter(file => file.endsWith('.dart'))) {
