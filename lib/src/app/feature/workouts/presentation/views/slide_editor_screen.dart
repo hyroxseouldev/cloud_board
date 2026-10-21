@@ -36,6 +36,8 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/sl
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/slide_editor_actions.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_appearance_controls.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_rehearsal_screen.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_image_color_picker.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/slide_timer_color_edit.dart';
 
 class SlideEditRequest {
   SlideEditRequest({
@@ -232,6 +234,27 @@ class _SlideEditorBody extends HookConsumerWidget {
     });
 
     void update(WorkoutModule value) => actions.update(value);
+    void applyTimerColor(
+      SlideTimerColorTarget target,
+      String value, {
+      bool pair = false,
+    }) {
+      if (!context.mounted) return;
+      update(
+        editSlideTimerColor(
+          ref.read(provider).module,
+          target,
+          value,
+          pair: pair,
+        ),
+      );
+    }
+
+    Future<Color?> sampleImageColor(BuildContext pickerContext) =>
+        showSlideImageColorPicker(
+          pickerContext,
+          ref.read(provider).module.imageSource,
+        );
     void resetFields(VoidCallback change) {
       FocusScope.of(context).unfocus();
       change();
@@ -776,18 +799,11 @@ class _SlideEditorBody extends HookConsumerWidget {
                               .scale(80),
                           label: '세트 숫자',
                           initialValue: colorHex(module.appearance.setsColor),
-                          onChanged: (input) {
-                            final color = parseHexColor(input);
-                            if (color != null) {
-                              update(
-                                module.copyWith(
-                                  appearance: module.appearance.copyWith(
-                                    setsColor: color,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
+                          onSampleImage: sampleImageColor,
+                          onChanged: (value) => applyTimerColor(
+                            SlideTimerColorTarget.sets,
+                            value,
+                          ),
                         ),
                         for (var i = 0; i < 4; i++)
                           HexColorField(
@@ -795,6 +811,15 @@ class _SlideEditorBody extends HookConsumerWidget {
                             compactWidth: MediaQuery.textScalerOf(context)
                                 .scale(i >= 2 ? 112 : 80),
                             key: ValueKey('phase-color-$i-${revision.value}'),
+                            onSampleImage: sampleImageColor,
+                            pairedColorLabel: i < 2
+                                ? '같은 구간의 시간 텍스트에도 함께 적용'
+                                : null,
+                            onPickerApplied: (value, pair) => applyTimerColor(
+                              SlideTimerColorTarget.values[i + 1],
+                              value,
+                              pair: pair,
+                            ),
                             label: const [
                               '운동 게이지',
                               '휴식 게이지',
@@ -815,12 +840,10 @@ class _SlideEditorBody extends HookConsumerWidget {
                                     text: i >= 2,
                                   ),
                                 ),
-                            onChanged: (v) => update(switch (i) {
-                              0 => module.copyWith(workGaugeColor: v),
-                              1 => module.copyWith(restGaugeColor: v),
-                              2 => module.copyWith(workTextColor: v),
-                              _ => module.copyWith(restTextColor: v),
-                            }),
+                            onChanged: (value) => applyTimerColor(
+                              SlideTimerColorTarget.values[i + 1],
+                              value,
+                            ),
                           ),
                       ],
                     ),
