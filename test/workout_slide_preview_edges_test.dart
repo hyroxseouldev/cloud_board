@@ -180,8 +180,9 @@ Future<GlobalKey> _mount(
           () => Future<void>.delayed(const Duration(milliseconds: 20)),
         );
         await tester.pump(const Duration(milliseconds: 20));
-        if (tester.renderObject<RenderImage>(find.byType(RawImage)).image !=
-            null) {
+        if (find.byType(RawImage).evaluate().isNotEmpty &&
+            tester.renderObject<RenderImage>(find.byType(RawImage)).image !=
+                null) {
           break;
         }
       }
