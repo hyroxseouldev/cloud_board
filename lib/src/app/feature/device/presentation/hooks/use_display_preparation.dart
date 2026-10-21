@@ -236,6 +236,25 @@ void useDisplayPreparation(
                   ),
                   audio: (sounds) async {
                     if (sounds.isEmpty || attemptStopped()) return;
+                    final scheduledAudio = ref.read(androidCueAudioProvider);
+                    if (scheduledAudio != null) {
+                      // This is the SAME retained SoundPool used by playback.
+                      // No sound or audio focus is requested during preparation.
+                      for (final sound in sounds) {
+                        if (attemptStopped()) return;
+                        final value = WorkoutSound.values.firstWhere(
+                          (v) => v.name == sound,
+                        );
+                        await prepareAndroidCue(scheduledAudio, value);
+                        if (attemptStopped()) return;
+                        await prepareAndroidCue(
+                          scheduledAudio,
+                          value,
+                          countdown: true,
+                        );
+                      }
+                      return;
+                    }
                     final player = audioPlayer = AudioPlayer();
                     await player.setVolume(0);
                     if (attemptStopped()) return;
