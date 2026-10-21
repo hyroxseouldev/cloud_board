@@ -312,6 +312,67 @@ void main() {
     );
   });
 
+  test(
+    'edited SINGLE text fits the original tight slots without shrinking',
+    () {
+      // The approved SINGLE artwork uses ~53px body type in ~55.5px slots.
+      // Paragraph leading must not make even a short replacement overflow.
+      final tight = recipe.copyWith(
+        width: 1920,
+        height: 1080,
+        backgroundPath: null,
+        backgroundSha256: null,
+        fields: [
+          titleField.copyWith(
+            x: .0137741,
+            y: .026936,
+            width: .6749311,
+            height: .0759106,
+            fontSize: 79.338843,
+            italic: true,
+          ),
+          titleField.copyWith(
+            binding: 'subtitle',
+            x: .0158402,
+            y: .1775329,
+            width: .542011,
+            height: .0599939,
+            fontSize: 63.471074,
+          ),
+          titleField.copyWith(
+            binding: 'line',
+            lineIndex: 0,
+            x: .0158402,
+            y: .285277,
+            width: .5454545,
+            height: .0514233,
+            fontSize: 52.892562,
+            fontWeight: 500,
+          ),
+        ],
+      );
+      final layout = prepareCenterSlideLayout(
+        tight,
+        draft.copyWith(
+          title: '10/21 수업',
+          designSubtitle: '5mins On / 90s Off',
+          lines: ['Run 800m · DB Press 12회'],
+        ),
+      );
+      layout.dispose();
+      expect(tight.fields.last.fontSize, 52.892562);
+      expect(
+        () => prepareCenterSlideLayout(
+          tight,
+          draft.copyWith(
+            lines: [List.filled(6, 'A long exercise line').join(' ')],
+          ),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
   test('rejects multiline content and unmapped nonempty lines', () async {
     for (final invalid in [
       draft.copyWith(title: ''),
