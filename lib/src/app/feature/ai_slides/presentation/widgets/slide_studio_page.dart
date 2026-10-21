@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/widgets/unsaved_changes_guard.dart';
+import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/slide_studio.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slide_design.dart';
@@ -903,18 +904,14 @@ class StudioCurrentJob extends StatelessWidget {
                   : '작업 상태를 다시 확인해 주세요.');
     return Padding(
       key: const ValueKey('studio-current-job'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 36),
+      padding: waiting
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 16, vertical: 36),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (waiting) ...[
-            if (MediaQuery.disableAnimationsOf(context))
-              const Icon(Icons.hourglass_top, color: _sage)
-            else
-              const SizedBox(
-                width: 120,
-                child: LinearProgressIndicator(minHeight: 3),
-              ),
+            const _StudioSlideSkeleton(),
             const SizedBox(height: 16),
           ],
           Text(text, textAlign: TextAlign.center),
@@ -955,6 +952,78 @@ class StudioCurrentJob extends StatelessWidget {
               style: TextStyle(fontSize: 12),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Keeps the exact final PNG footprint while only the placeholder breathes.
+class _StudioSlideSkeleton extends HookWidget {
+  const _StudioSlideSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final lifecycle = useAppLifecycleState();
+    final animate =
+        !AppMotion.reduced(context) &&
+        TickerMode.valuesOf(context).enabled &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+    final pulse = useAnimationController(
+      duration: AppMotion.shimmer,
+      initialValue: 1,
+    );
+    useEffect(() {
+      if (animate) {
+        pulse.repeat(reverse: true);
+      } else {
+        pulse.stop();
+        pulse.value = 1;
+      }
+      return null;
+    }, [animate, pulse]);
+    return ExcludeSemantics(
+      child: RepaintBoundary(
+        child: AspectRatio(
+          key: const ValueKey('studio-result-skeleton'),
+          aspectRatio: 16 / 9,
+          child: FadeTransition(
+            opacity: Tween<double>(
+              begin: .55,
+              end: 1,
+            ).animate(pulse.drive(CurveTween(curve: Curves.easeInOut))),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xffEBEEE8),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: LayoutBuilder(
+                builder: (_, bounds) {
+                  Widget bar(double top, double width, double height) =>
+                      Positioned(
+                        left: bounds.maxWidth * .07,
+                        top: bounds.maxHeight * top,
+                        width: bounds.maxWidth * width,
+                        height: bounds.maxHeight * height,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: const Color(0xffD4DBD2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      );
+                  return Stack(
+                    children: [
+                      bar(.14, .45, .08),
+                      bar(.37, .53, .05),
+                      bar(.51, .43, .05),
+                      bar(.65, .48, .05),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
