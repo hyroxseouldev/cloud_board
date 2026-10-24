@@ -66,4 +66,3 @@ fvm flutter build web --debug --target tool/sta209/main.dart --dart-define=FIREB
 ## 테스트 준비 중 정리한 개발 계정
 
 초기 `127.0.0.1` 주소의 FlutterFire Auth emulator 복원 문제로 이번 실행의 익명 계정 3개가 `cloud-board-development`에 생성됐다. 생성 시각·UID·익명 여부·토큰 대상 프로젝트를 확인해 해당 3개만 삭제했으며 각각 삭제 HTTP 200을 확인했다. 이후 테스트 진입점은 **가짜 API 키 + localhost 강제 + demo 프로젝트**로 변경했다. 성공 E2E는 이 격리 환경에서 수행했다. 운영 프로젝트/운영 계정은 변경하지 않았다.
-
