@@ -2,6 +2,7 @@ import 'package:cloud_board/src/app/feature/onboarding/domain/entities/center_on
 
 abstract interface class OnboardingRepository {
   Future<CenterOnboarding> load();
+  Future<CenterOnboarding> readSummary(String uid);
   Future<void> sendCode(String phone);
   Future<CenterOnboarding> verifyCode(String code);
   Future<CenterOnboarding> save(

@@ -79,6 +79,53 @@ export function resolveDisplayBinding(root, ownerId, deviceId, displayUid, {repa
   return {device, access, displayUid: actualUid, repaired};
 }
 
+// Server-owned proof of a globally unique, current registration. This is
+// issued during pairing/explicit repair or a pre-rollout audit, never by a TV.
+export function authorizeDisplayResume(root, displayUid, records, now) {
+  if (root.displayResumePolicy?.authoritativeAuthMirror !== true) return root;
+  const access = root.displayAccess?.[displayUid];
+  if (!access?.ownerId || !access.deviceId) fail('connection_missing');
+  available(root, displayUid, access.ownerId);
+  const {device} = resolveDisplayBinding(root, access.ownerId, access.deviceId, displayUid);
+  if (device.displayUid !== displayUid || !/^\d{6}$/.test(device.pairingCode || '') ||
+      device.pairingCode !== access.pairingCode || !(device.pairedAtMs > 0) ||
+      device.pairedAtMs !== access.pairedAtMs) fail('connection_conflict');
+  root.authAccess ??= {};
+  for (const uid of [displayUid, access.ownerId]) {
+    const record = records?.[uid];
+    if (!record || record.uid !== uid || record.disabled) fail('account_unavailable');
+    const validAfterSeconds = (record.tokensValidAfterTime ? Math.floor(Date.parse(record.tokensValidAfterTime) / 1000) : 0);
+    if (!Number.isFinite(validAfterSeconds)) fail('account_unavailable');
+    const previous = root.authAccess[uid];
+    // Never undo an administrative block or a later revocation using an older
+    // Auth lookup that raced this transaction.
+    if (previous?.disabled) fail('account_unavailable');
+    root.authAccess[uid] = {disabled: false, validAfterSeconds: Math.max(previous?.validAfterSeconds || 0, validAfterSeconds)};
+  }
+  root.displayResumeGrants ??= {};
+  root.displayResumeGrants[displayUid] = {protocol: 1, ownerId: access.ownerId,
+    deviceId: access.deviceId, pairingCode: device.pairingCode, pairedAtMs: device.pairedAtMs, issuedAtMs: now};
+  return root;
+}
+
+export function authorizeOwnerDisplayResume(root, ownerId, deviceId, record, now) {
+  if (root.displayResumePolicy?.authoritativeAuthMirror !== true) return root;
+  available(root, ownerId, ownerId);
+  const device = root.users?.[ownerId]?.devices?.[deviceId];
+  if (!device || device.id !== deviceId || device.paired !== true || device.displayUid ||
+      !/^\d{6}$/.test(device.pairingCode || '') || !(device.pairedAtMs > 0) ||
+      Object.values(root.displayAccess || {}).some(a => a?.ownerId === ownerId && a.deviceId === deviceId)) fail('connection_conflict');
+  if (!record || record.uid !== ownerId || record.disabled || root.authAccess?.[ownerId]?.disabled) fail('account_unavailable');
+  const validAfterSeconds = (record.tokensValidAfterTime ? Math.floor(Date.parse(record.tokensValidAfterTime) / 1000) : 0);
+  if (!Number.isFinite(validAfterSeconds)) fail('account_unavailable');
+  root.authAccess ??= {};
+  root.authAccess[ownerId] = {disabled: false, validAfterSeconds: Math.max(validAfterSeconds, root.authAccess[ownerId]?.validAfterSeconds || 0)};
+  root.ownerDisplayResumeGrants ??= {}; root.ownerDisplayResumeGrants[ownerId] ??= {};
+  root.ownerDisplayResumeGrants[ownerId][deviceId] = {protocol: 1, ownerId, deviceId,
+    pairingCode: device.pairingCode, pairedAtMs: device.pairedAtMs, issuedAtMs: now};
+  return root;
+}
+
 function latestSession(user) {
   const session = user.activeSession;
   if (session && (typeof session.id !== 'string' || !session.id ||
@@ -119,7 +166,7 @@ function verifyConnection(root, auth, ownerId, deviceId, device, data, now, requ
   return {root, result};
 }
 
-export function reduceDisplayRecovery(state, auth, action, raw, now, {requestStartedAtMs = now} = {}) {
+export function reduceDisplayRecovery(state, auth, action, raw, now, {requestStartedAtMs = now, authRecords} = {}) {
   const display = action === 'verify' || action === 'report';
   const legacyDisplay = action === 'verify' && !anonymous(auth);
   requireActor(auth, display && !legacyDisplay);
@@ -128,13 +175,18 @@ export function reduceDisplayRecovery(state, auth, action, raw, now, {requestSta
   const ownerId = display && !legacyDisplay ? root.displayAccess?.[auth.uid]?.ownerId : auth.uid;
   if (!key(ownerId)) fail('connection_missing');
   available(root, auth.uid, ownerId);
-  if (action === 'pair') return pair(root, auth, data, now);
+  if (action === 'pair') {
+    const result = pair(root, auth, data, now);
+    if (authRecords) authorizeDisplayResume(root, root.pairingCodes[data.code].displayUid, authRecords, now);
+    return result;
+  }
   const deviceId = data.deviceId;
   if (legacyDisplay) {
     const device = root.users?.[ownerId]?.devices?.[deviceId];
     if (!device || !(device.paired === true || (device.paired === undefined && device.pairedAtMs > 0))) fail('device_unpaired');
     if (device.displayUid || Object.values(root.displayAccess || {}).some(a => a?.ownerId === ownerId && a.deviceId === deviceId)) fail('connection_conflict');
     if (!key(data.connectionId)) fail('invalid_request');
+    if (authRecords) authorizeOwnerDisplayResume(root, ownerId, deviceId, authRecords[ownerId], now);
     // Owner-authenticated installed TVs have no distinct TV identity. Preserve
     // scoped presence, but never advertise anonymous-TV manual recovery support.
     return verifyConnection(root, auth, ownerId, deviceId, device, data, now, requestStartedAtMs,
@@ -153,6 +205,7 @@ export function reduceDisplayRecovery(state, auth, action, raw, now, {requestSta
   if (action === 'verify') {
     if (!key(data.connectionId)) fail('invalid_request', '연결 식별자를 확인해 주세요.', 'invalid-argument');
     device.recoveryProtocol = 1;
+    if (authRecords) authorizeDisplayResume(root, displayUid, authRecords, now);
     return verifyConnection(root, auth, ownerId, deviceId, device, data, now, requestStartedAtMs,
       {ownerId, deviceId, status: resolved.repaired ? 'repaired' : 'verified', verifiedAtMs: now, recoveryProtocol: 1});
   }
@@ -284,12 +337,14 @@ function unpair(root, ownerId, data, now) {
         ownerId, deviceId: data.deviceId, revokedAtMs: now, operationId: data.operationId};
     }
     delete root.displayAccess[uid];
+    if (root.displayResumeGrants) delete root.displayResumeGrants[uid];
   }
   const code = root.pairingCodes?.[device.pairingCode];
   if (code?.ownerId === ownerId && code.deviceId === data.deviceId) delete root.pairingCodes[device.pairingCode];
   const legacyCode = root.users[ownerId].pairingCodes?.[device.pairingCode];
   if (legacyCode?.deviceId === data.deviceId) delete root.users[ownerId].pairingCodes[device.pairingCode];
   delete root.users[ownerId].devices[data.deviceId];
+  if (root.ownerDisplayResumeGrants?.[ownerId]) delete root.ownerDisplayResumeGrants[ownerId][data.deviceId];
   const recovery = root.users[ownerId].displayRecovery?.[data.deviceId]?.current;
   if (recovery && !terminal.has(recovery.status)) storeOperation(root, ownerId, data.deviceId,
     {...recovery, status: 'failed', errorCode: 'device_unpaired', errorId: data.operationId, completedAtMs: now});
@@ -298,7 +353,7 @@ function unpair(root, ownerId, data, now) {
   return {root, result};
 }
 
-export async function mutateDisplayConnection(database, auth, action, data, {now = Date.now, requestStartedAtMs = now()} = {}) {
+export async function mutateDisplayConnection(database, auth, action, data, {now = Date.now, requestStartedAtMs = now(), authRecords} = {}) {
   // Infrequent pairing/reconnection/manual operations only. A root CAS is
   // necessary because authorization and device identity live in separate trees;
   // never use this path for heartbeat or media/preparation updates.
@@ -306,7 +361,7 @@ export async function mutateDisplayConnection(database, auth, action, data, {now
   const transaction = await database.ref().transaction(current => {
     if (current === null) return null; // Cold admin cache: force comparison/retry.
     try {
-      const reduced = reduceDisplayRecovery(current, auth, action, data, now(), {requestStartedAtMs});
+      const reduced = reduceDisplayRecovery(current, auth, action, data, now(), {requestStartedAtMs, authRecords});
       result = reduced.result; failure = null; return reduced.root;
     } catch (error) { failure = error; return undefined; }
   }, undefined, false);

@@ -24,6 +24,8 @@ class AuthEntryScreen extends ConsumerWidget {
               if (authFailed) {
                 ref.invalidate(authStateProvider);
               } else {
+                ref.invalidate(existingMemberAccessProvider);
+                ref.invalidate(onboardingRequiredProvider);
                 ref.invalidate(onboardingControllerProvider);
               }
             }

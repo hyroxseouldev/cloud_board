@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/services/realtime_server_reader.dart';
 import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy.dart';
 import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy_service.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -285,8 +286,12 @@ PlaybackRepository playbackRepository(Ref ref) {
       try {
         final response = await client
             .get(
-              Uri.parse('$realtimeDatabaseUrl/$path.json')
-                  .replace(queryParameters: {'auth': token}),
+              realtimeRestUri(
+                realtimeDatabaseUrl,
+                auth.app.options.projectId,
+                path,
+                token,
+              ),
             )
             .timeout(const Duration(seconds: 6));
         if (auth.currentUser?.uid != user.uid) {

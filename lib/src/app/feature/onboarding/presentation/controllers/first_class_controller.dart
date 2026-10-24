@@ -22,7 +22,7 @@ Future<FirstClassScope?> firstClassScope(Ref ref) async {
   // Questionnaire role is deliberately not an access-control signal. STA-56
   // will supply membership scope; until then only the actual account owner enters.
   if (!ref.mounted || owner != user.id) return null;
-  final onboarding = await ref.watch(onboardingControllerProvider.future);
+  final onboarding = await ref.watch(onboardingSummaryProvider.future);
   return (
     userId: user.id,
     centerId: onboarding.storeId.isEmpty ? 'pending' : onboarding.storeId,

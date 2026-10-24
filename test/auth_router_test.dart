@@ -628,6 +628,7 @@ class _EntryHarness {
       overrides: [
         authStateProvider.overrideWith((_) => users.stream),
         onboardingRepositoryProvider.overrideWith((_) => repo),
+        existingMemberAccessProvider.overrideWith((_) => Stream.value(false)),
       ],
     );
     container.listen(appRouterProvider, (_, _) {});

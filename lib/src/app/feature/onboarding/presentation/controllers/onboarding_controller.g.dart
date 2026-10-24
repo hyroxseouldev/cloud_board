@@ -9,6 +9,45 @@ part of 'onboarding_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(onboardingSummary)
+final onboardingSummaryProvider = OnboardingSummaryProvider._();
+
+final class OnboardingSummaryProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<CenterOnboarding>,
+          CenterOnboarding,
+          FutureOr<CenterOnboarding>
+        >
+    with $FutureModifier<CenterOnboarding>, $FutureProvider<CenterOnboarding> {
+  OnboardingSummaryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'onboardingSummaryProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$onboardingSummaryHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<CenterOnboarding> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<CenterOnboarding> create(Ref ref) {
+    return onboardingSummary(ref);
+  }
+}
+
+String _$onboardingSummaryHash() => r'dfe9380a5d271a483613f910db071a47d63d8de0';
+
 @ProviderFor(OnboardingController)
 final onboardingControllerProvider = OnboardingControllerProvider._();
 
@@ -34,7 +73,7 @@ final class OnboardingControllerProvider
 }
 
 String _$onboardingControllerHash() =>
-    r'b51701da037f7f8ff3aacafada5b5287e306b810';
+    r'efd488a2d2f65ad3bd83ae1154bd38507d25ba33';
 
 abstract class _$OnboardingController extends $AsyncNotifier<CenterOnboarding> {
   FutureOr<CenterOnboarding> build();
@@ -150,7 +189,7 @@ final class OnboardingActionProvider
   }
 }
 
-String _$onboardingActionHash() => r'043b143a447471221990638b12874c8697c17491';
+String _$onboardingActionHash() => r'db2138ef94a80062610fb9009b0867744c005fba';
 
 abstract class _$OnboardingAction extends $Notifier<AsyncValue<void>> {
   AsyncValue<void> build();
@@ -169,6 +208,40 @@ abstract class _$OnboardingAction extends $Notifier<AsyncValue<void>> {
     return element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(existingMemberAccess)
+final existingMemberAccessProvider = ExistingMemberAccessProvider._();
+
+final class ExistingMemberAccessProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, Stream<bool>>
+    with $FutureModifier<bool>, $StreamProvider<bool> {
+  ExistingMemberAccessProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'existingMemberAccessProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$existingMemberAccessHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<bool> create(Ref ref) {
+    return existingMemberAccess(ref);
+  }
+}
+
+String _$existingMemberAccessHash() =>
+    r'de2402b96cbc85654d115c7c9e9486aa52098ff6';
 
 @ProviderFor(onboardingRequired)
 final onboardingRequiredProvider = OnboardingRequiredProvider._();
@@ -202,4 +275,4 @@ final class OnboardingRequiredProvider
 }
 
 String _$onboardingRequiredHash() =>
-    r'c97a04398ac53527ef067be9246000349352d164';
+    r'd0d4a8cbbd36c345b4b58f830953326c2bbd9af0';

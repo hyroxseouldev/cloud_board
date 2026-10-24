@@ -58,6 +58,7 @@ class DisplayDevice {
     this.connectionId,
     this.verifiedConnectionId,
     this.verifiedAtMs = 0,
+    this.rulesAuthorizedAtMs = 0,
     this.readyAtMs = 0,
     this.preparationHealth = const DisplayPreparationHealth(),
     this.heartbeatPolicy = DisplayHeartbeatPolicy.legacy,
@@ -83,19 +84,21 @@ class DisplayDevice {
   final String appVersion, appBuild, appPlatform;
   final int playbackProtocol, preparationProtocol, recoveryProtocol;
   final String? connectionId, verifiedConnectionId;
-  final int verifiedAtMs, readyAtMs;
+  final int verifiedAtMs, readyAtMs, rulesAuthorizedAtMs;
+  int get connectionAuthorizedAtMs =>
+      rulesAuthorizedAtMs > 0 ? rulesAuthorizedAtMs : verifiedAtMs;
   final DisplayPreparationHealth preparationHealth;
   final DisplayHeartbeatPolicy heartbeatPolicy;
   bool connectionAuthenticated(int nowMs) =>
       recentlySeen(nowMs) &&
       connectionId != null &&
-      connectionId == verifiedConnectionId &&
-      verifiedAtMs > 0 &&
-      verifiedAtMs <= nowMs + 5000;
+      (rulesAuthorizedAtMs > 0 || connectionId == verifiedConnectionId) &&
+      connectionAuthorizedAtMs > 0 &&
+      connectionAuthorizedAtMs <= nowMs + 5000;
   bool playbackReady(int nowMs) =>
       preparationHealth.code.isEmpty &&
       connectionAuthenticated(nowMs) &&
-      readyAtMs >= verifiedAtMs &&
+      readyAtMs >= connectionAuthorizedAtMs &&
       readyAtMs <= nowMs + 5000;
   bool recentlySeen(int nowMs) =>
       online &&
