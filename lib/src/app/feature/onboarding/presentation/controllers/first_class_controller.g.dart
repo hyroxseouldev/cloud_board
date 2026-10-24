@@ -46,7 +46,7 @@ final class FirstClassScopeProvider
   }
 }
 
-String _$firstClassScopeHash() => r'911b4959025c2e3c959961e200d40f5038e50d67';
+String _$firstClassScopeHash() => r'661421914f9e8120306b0925c9ad05c5df930144';
 
 @ProviderFor(FirstClassController)
 final firstClassControllerProvider = FirstClassControllerProvider._();

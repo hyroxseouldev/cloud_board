@@ -9,6 +9,8 @@ class OnboardingActions {
   const OnboardingActions(this.repository);
   final OnboardingRepository repository;
   Future<CenterOnboarding> load() => repository.load();
+  Future<CenterOnboarding> readSummary(String uid) =>
+      repository.readSummary(uid);
   Future<void> sendCode(String phone) => repository.sendCode(phone);
   Future<CenterOnboarding> verifyCode(String code) =>
       repository.verifyCode(code);

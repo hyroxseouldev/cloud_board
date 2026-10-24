@@ -7,6 +7,7 @@ import 'package:cloud_board/src/app/feature/onboarding/data/repositories/onboard
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/center_onboarding.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/repositories/onboarding_repository.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/onboarding_screen.dart';
+import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/onboarding_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -33,7 +34,13 @@ class FakeOnboarding implements OnboardingRepository {
   Object? loadError, verifyError;
   bool fail = false;
   Completer<void>? loadGate, saveGate, verifyGate;
-  int saves = 0, loads = 0, verifications = 0;
+  int saves = 0, loads = 0, verifications = 0, summaryReads = 0;
+  @override
+  Future<CenterOnboarding> readSummary(String uid) async {
+    summaryReads++;
+    return CenterOnboarding(storeId: value.storeId, completed: value.completed);
+  }
+
   String? sentPhone, submittedCode;
   CenterOnboarding? verifiedValue;
   @override
@@ -86,6 +93,7 @@ Widget onboardingApp(
   bool editing = false,
 }) => ProviderScope(
   overrides: [
+    existingMemberAccessProvider.overrideWith((_) => Stream.value(false)),
     authStateProvider.overrideWith((ref) => Stream.value(onboardingUser)),
     onboardingRepositoryProvider.overrideWith((ref) => repository),
   ],

@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/entitlement/domain/usecases/existing_member_access_actions.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -6,12 +7,22 @@ import 'package:cloud_board/src/app/feature/onboarding/domain/entities/center_on
 import 'package:cloud_board/src/app/feature/onboarding/domain/usecases/onboarding_actions.dart';
 part 'onboarding_controller.g.dart';
 
+@riverpod
+Future<CenterOnboarding> onboardingSummary(Ref ref) async {
+  final uid = ref.watch(authStateProvider.select((value) => value.value?.id));
+  if (uid == null) return const CenterOnboarding();
+  return ref.watch(onboardingActionsProvider).readSummary(uid);
+}
+
 @Riverpod(keepAlive: true)
 class OnboardingController extends _$OnboardingController {
   @override
   Future<CenterOnboarding> build() async {
     final uid = ref.watch(authStateProvider.select((value) => value.value?.id));
     if (uid == null) return const CenterOnboarding();
+    // A profile visit may have cached a ready response. Losing a previously
+    // valid DB grant must require a fresh recovery response, not that cache.
+    ref.watch(existingMemberAccessProvider.select((access) => access.value));
     return ref.watch(onboardingActionsProvider).load();
   }
 
@@ -59,6 +70,7 @@ class OnboardingAction extends _$OnboardingAction {
           ref.read(onboardingCompletionProvider.notifier).show();
         }
         ref.read(onboardingControllerProvider.notifier).replace(value);
+        ref.invalidate(onboardingSummaryProvider);
       }
     });
     if (!ref.mounted ||
@@ -100,9 +112,37 @@ class OnboardingAction extends _$OnboardingAction {
 }
 
 @riverpod
+Stream<bool> existingMemberAccess(Ref ref) {
+  final auth = ref.watch(
+    authStateProvider.select(
+      (value) => (
+        uid: value.value?.id,
+        loading: value.isLoading,
+        failed: value.hasError,
+      ),
+    ),
+  );
+  if (auth.loading || auth.failed || auth.uid == null) {
+    return Stream.value(false);
+  }
+  return ref.watch(existingMemberAccessActionsProvider).watch(auth.uid!);
+}
+
+@riverpod
 Future<bool> onboardingRequired(Ref ref) async {
   final user = ref.watch(authStateProvider).value;
   if (user?.needsOnboarding != true) return false;
+  final access = ref.watch(existingMemberAccessProvider);
+  // Watch the state as well as the first future: expiry, permission loss and
+  // an account switch must invalidate a previous successful entry immediately.
+  if (access.hasError) {
+    Error.throwWithStackTrace(access.error!, access.stackTrace!);
+  }
+  final existing = access.isLoading
+      ? await ref.watch(existingMemberAccessProvider.future)
+      : access.requireValue;
+  if (!ref.mounted) return true;
+  if (existing) return false;
   final progress = await ref.watch(onboardingControllerProvider.future);
   return !progress.serviceReady;
 }

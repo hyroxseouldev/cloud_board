@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -8,6 +9,18 @@ class OnboardingDataSource {
 
   final FirebaseFunctions? functions;
   final FirebaseAuth? auth;
+
+  Future<Map<String, dynamic>> readSummary(String uid) async {
+    final snapshot = await FirebaseFirestore.instance
+        .doc('users/$uid/onboarding/progress')
+        .get(const GetOptions(source: Source.server));
+    final data = snapshot.data();
+    // UI progress only. This method never supplies activation or entitlement.
+    return {
+      'storeId': data?['storeId'] as String? ?? '',
+      'completed': data?['completed'] == true,
+    };
+  }
 
   Future<Map<String, dynamic>> call(Map<String, dynamic> input) async {
     try {

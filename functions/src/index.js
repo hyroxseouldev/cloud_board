@@ -52,8 +52,8 @@ const services={
     }
   },
   async disableAuth(uid) {
-    await ignoreMissingAuth(()=>auth.updateUser(uid,{disabled:true}));
-    await ignoreMissingAuth(()=>auth.revokeRefreshTokens(uid));
+    const {revokeAccountSessions} = await import('./auth-access.js');
+    await ignoreMissingAuth(()=>revokeAccountSessions({database:realtime, auth, uid, disable:true}));
   },
   async deleteFiles(uid) { await bucket.deleteFiles({prefix:`users/${uid}/`}); },
   async deleteDocuments(uid) {
@@ -520,7 +520,22 @@ async function displayConnectionCall(request, action) {
     throw new HttpsError('unauthenticated', '인증 상태를 다시 확인해 주세요.', {code: 'permission_denied'});
   }
   const {mutateDisplayConnection} = await import('./display-recovery.js');
-  return mutateDisplayConnection(realtime, request.auth, action, request.data, {requestStartedAtMs});
+  let authRecords;
+  if (action === 'verify' && request.auth.token.firebase?.sign_in_provider !== 'anonymous') {
+    const owner = await auth.getUser(request.auth.uid);
+    authRecords = {[owner.uid]: owner};
+  } else if (action === 'pair' || action === 'verify') {
+    if (action === 'pair' && !/^\d{6}$/.test(request.data?.code || '')) throw new HttpsError('invalid-argument', '연결 코드를 확인해 주세요.');
+    const displayUid = action === 'pair'
+      ? (await realtime.ref(`pairingCodes/${String(request.data?.code || '').replace(/[^0-9]/g, '')}`).get()).val()?.displayUid
+      : request.auth.uid;
+    const ownerId = action === 'pair' ? request.auth.uid
+      : (await realtime.ref(`displayAccess/${displayUid}/ownerId`).get()).val();
+    if (!displayUid || !ownerId) throw new HttpsError('failed-precondition', '등록 정보를 확인해 주세요.');
+    const records = await Promise.all([auth.getUser(displayUid), auth.getUser(ownerId)]);
+    authRecords = Object.fromEntries(records.map(record => [record.uid, record]));
+  }
+  return mutateDisplayConnection(realtime, request.auth, action, request.data, {requestStartedAtMs, authRecords});
 }
 const displayConnectionOptions = {region, timeoutSeconds: 30, maxInstances: 3, concurrency: 10, memory: '512MiB'};
 export const verifyDisplayConnection = onCall(displayConnectionOptions, request => displayConnectionCall(request, 'verify'));

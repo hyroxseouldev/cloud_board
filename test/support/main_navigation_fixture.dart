@@ -94,6 +94,7 @@ class NavigationPreviewData {
     int count = 3,
     String imageSource = '',
     OnboardingRepository? onboarding,
+    Stream<bool>? existingAccess,
   }) {
     repository = NavigationWorkoutRepository(
       navigationWorkouts(count: count, imageSource: imageSource),
@@ -106,6 +107,9 @@ class NavigationPreviewData {
       retry: (_, _) => null,
       overrides: [
         memoryWorkoutRecovery,
+        existingMemberAccessProvider.overrideWith(
+          (ref) => existingAccess ?? Stream.value(false),
+        ),
         authStateProvider.overrideWith((ref) async* {
           yield onboarding == null
               ? previewUser

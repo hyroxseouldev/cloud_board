@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/services/realtime_server_reader.dart';
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/feature/device/domain/display_resume_authorization.dart';
 import 'package:cloud_board/src/app/feature/operations/data/operation_device_snapshot.dart';
 import 'package:cloud_board/src/app/feature/operations/data/operation_event_writer.dart';
 import 'package:cloud_board/src/app/feature/operations/data/models/store_operations_models.dart';
@@ -424,6 +427,7 @@ class DevicePairingRealtimeDataSource {
     final installation = await displayInstallationInfo();
     bool sameIdentity() => !_disposed && _auth.currentUser?.uid == uid;
     if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
+    var presenceProtocol = 1;
     late final DisplayPresenceCoordinator coordinator;
     coordinator = DisplayPresenceCoordinator(
       onState: (state) {
@@ -443,6 +447,52 @@ class DevicePairingRealtimeDataSource {
       },
       verify: (id) async {
         if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
+        // Auth remains available in this scenario. Refresh rejects a disabled or
+        // revoked login independently of Cloud Run; rules also enforce revocation.
+        await _auth.currentUser!
+            .getIdToken(true)
+            .timeout(const Duration(seconds: 6));
+        if (!sameIdentity()) throw StateError('디스플레이 계정이 변경되었습니다.');
+        final server = RealtimeServerReader(
+          _auth,
+          _database.databaseURL ?? cloudBoardRealtimeDatabaseUrl,
+        );
+        Future<bool> authorized() async {
+          final grantPath = anonymous
+              ? 'displayResumeGrants/$uid'
+              : 'ownerDisplayResumeGrants/$ownerId/$deviceId';
+          final values = await Future.wait([
+            server.read(grantPath),
+            server.read('users/$ownerId/devices/$deviceId'),
+            if (anonymous) server.read('displayAccess/$uid'),
+          ]);
+          if (!anonymous) {
+            return ownerDisplayMayResume(
+              uid: uid!,
+              ownerId: ownerId,
+              deviceId: deviceId,
+              pairingCode: pairingCode,
+              grant: values[0],
+              device: values[1],
+            );
+          }
+          return displayMayResume(
+            uid: uid!,
+            ownerId: ownerId,
+            deviceId: deviceId,
+            pairingCode: pairingCode,
+            grant: values[0],
+            access: values[2],
+            device: values[1],
+          );
+        }
+
+        if (await authorized()) {
+          presenceProtocol = 2;
+          return; // Normal reconnect makes no callable.
+        }
+        // Only incomplete registration/provisioning enters server repair. A
+        // failed DB read never falls through to a callable-first timeout path.
         await FirebaseFunctions.instanceFor(
               app: _auth.app,
               region: 'asia-northeast3',
@@ -460,6 +510,9 @@ class DevicePairingRealtimeDataSource {
               'appVersion': installation['appVersion'] ?? '',
               'appBuild': installation['appBuild'] ?? '',
             });
+        // Before server-side enrollment, retain verified protocol 1. This is
+        // a staged rollout, not a timeout/error fallback for enrolled devices.
+        presenceProtocol = await authorized() ? 2 : 1;
       },
       publish: (id, isCurrent) async {
         final eventRef = _database.ref('users/$ownerId/operations/events');
@@ -482,13 +535,14 @@ class DevicePairingRealtimeDataSource {
           presence[id] = {
             'online': true,
             'lastSeenAtMs': ServerValue.timestamp,
+            if (presenceProtocol == 2) 'authorizedAtMs': ServerValue.timestamp,
           };
           return Transaction.success({
             ...current,
             'presence': presence,
             'currentConnectionId': id,
             'pendingOfflineEventKey': offlineEvent.key,
-            'presenceProtocol': 1,
+            'presenceProtocol': presenceProtocol,
             'online': true,
             'lastSeenAtMs': ServerValue.timestamp,
             'onlineSinceMs': ServerValue.timestamp,
@@ -775,7 +829,7 @@ Future<void> updateDisplayHeartbeat(
       if (policy != null && connectionId != null)
         'heartbeatPolicy': {...policy.toJson(), 'connectionId': connectionId},
     };
-    if (current['presenceProtocol'] == 1) {
+    if (current['presenceProtocol'] == 1 || current['presenceProtocol'] == 2) {
       final id = current['currentConnectionId'];
       final raw = current['presence'];
       if (id is! String ||
@@ -806,7 +860,9 @@ DisplayDevice decodeDisplayDevice(String deviceId, Map value) {
   final presence = connections is Map && connections[connectionId] is Map
       ? connections[connectionId] as Map
       : const {};
-  final usesScopedPresence = item['presenceProtocol'] == 1;
+  final usesScopedPresence =
+      item['presenceProtocol'] == 1 || item['presenceProtocol'] == 2;
+  final rulesAuthorized = item['presenceProtocol'] == 2;
   final verification = item['connectionVerification'] is Map
       ? item['connectionVerification'] as Map
       : const {};
@@ -823,6 +879,9 @@ DisplayDevice decodeDisplayDevice(String deviceId, Map value) {
         : item['online'] == true,
     connectionId: connectionId,
     verifiedConnectionId: verification['connectionId'] as String?,
+    rulesAuthorizedAtMs: rulesAuthorized
+        ? (presence['authorizedAtMs'] as num?)?.toInt() ?? 0
+        : 0,
     verifiedAtMs: (verification['verifiedAtMs'] as num?)?.toInt() ?? 0,
     readyAtMs: (presence['readyAtMs'] as num?)?.toInt() ?? 0,
     recoveryProtocol: (item['recoveryProtocol'] as num?)?.toInt() ?? 0,

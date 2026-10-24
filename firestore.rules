@@ -158,6 +158,11 @@ service cloud.firestore {
         && compatibleProfileWrite(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
 
+      // Read-only setup metadata; SMS challenges/phone ownership stay private.
+      match /onboarding/progress {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
       // Cloud Function validates item conflicts and account-wide saved-slide limits.
       match /billing/summary {
         allow read: if isOwner(userId);
