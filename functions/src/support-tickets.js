@@ -136,8 +136,13 @@ export async function submitSupportTicket({db, realtime, bucket, auth, payload, 
 export function supportSecretBindings(env = process.env) {
   return env.SUPPORT_EMAIL_SECRETS_ENABLED === 'true' ? ['SUPPORT_EMAIL_API_KEY'] : [];
 }
+export function supportEmailConfigured(config, projectId) {
+  return config?.enabled === true && config?.provider === 'resend' &&
+    config?.recipientEmail === approvedSupportRecipient && emailPattern.test(config?.fromEmail ?? '') &&
+    /^[a-z0-9-]+$/.test(projectId ?? '');
+}
 export function supportEmailEnvelope(ticket, config, projectId) {
-  if (config?.enabled !== true || config?.provider !== 'resend' || config?.recipientEmail !== approvedSupportRecipient || !emailPattern.test(config?.fromEmail ?? '') || !/^[a-z0-9-]+$/.test(projectId ?? '')) return null;
+  if (!supportEmailConfigured(config, projectId)) return null;
   const detail = `https://console.firebase.google.com/project/${projectId}/firestore/databases/-default-/data/~2F${ticketPathForConsole(ticket)}`;
   const query = `jsonPayload.message="client_diagnostic" AND jsonPayload.accountHash="${hash(ticket.ownerId).slice(0, 16)}"${ticket.diagnostics.errorId ? ` AND jsonPayload.eventId="${ticket.diagnostics.errorId}"` : ''}`;
   const logs = `https://console.cloud.google.com/logs/query;query=${encodeURIComponent(query)}?project=${projectId}`;
@@ -201,6 +206,9 @@ export async function deliverSupportNotification({db, id, send, config, projectI
   return {claimed: true, sent};
 }
 export async function retrySupportNotifications(options) {
+  // Keep queued tickets intact until delivery is configured. No polling or
+  // status writes while mail is disabled, including manual invocations.
+  if (typeof options.send !== 'function' || !supportEmailConfigured(options.config, options.projectId)) return 0;
   const now = options.now ?? Date.now();
   const due = await options.db.collection('supportNotificationOutbox').where('nextAttemptAtMs', '<=', now).limit(20).get();
   for (const doc of due.docs) await deliverSupportNotification({...options, id: doc.id, now});

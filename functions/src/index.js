@@ -3,7 +3,7 @@ import {firebaseProject} from './firebase-environment.js';
 import {developmentProject, developmentOnboardingSecret, onboardingSecretBindings} from './development-backend-config.js';
 import {assertDevelopmentSmsTester, sendDevelopmentOnboardingSms} from './development-onboarding.js';
 import {setGlobalOptions} from 'firebase-functions/v2';
-import {prunePlaybackSnapshots} from './playback-snapshots.js';
+import {cleanupSnapshots, cleanupOnboarding, runDailyMaintenance, refreshDueEntitlements, schedulePolicy} from './scheduled-maintenance.js';
 import {onDocumentWritten, onDocumentCreated} from 'firebase-functions/v2/firestore';
 import {onValueWritten} from 'firebase-functions/v2/database';
 import {syncWorkoutSummary, backfillCatalog} from './workout-catalog.js';
@@ -171,23 +171,19 @@ export const syncLegacyWorkoutSettings = onDocumentWritten(
 
 // Bound immutable session storage. The active snapshot is always retained;
 // recently ended snapshots allow slow/reconnecting clients to finish loading.
+// Legacy daily exports remain available to a rollback checkout, but are omitted
+// from this deployment. Install and verify cleanupDailyMaintenance first.
 export const cleanupPlaybackSnapshots = onSchedule(
-  {region, schedule: 'every 24 hours', timeoutSeconds: 540, maxInstances: 1},
-  async () => {
-    const cutoff = Date.now() - 7 * 86400000;
-    let cursor;
-    do {
-      let query = db.collection('users').orderBy('__name__').limit(100);
-      if (cursor) query = query.startAfter(cursor);
-      const page = await query.get();
-      for (const user of page.docs) {
-        await prunePlaybackSnapshots(userRef(user.id), cutoff);
-      }
-      cursor = page.docs.at(-1);
-      if (page.size < 100) break;
-    } while (cursor);
-  },
+  {region, schedule: 'every 24 hours', timeoutSeconds: 540, maxInstances: 1, omit: true},
+  () => cleanupSnapshots({db, realtime}),
 );
+export const cleanupDailyMaintenance = onSchedule({region, schedule: 'every 24 hours',
+  timeoutSeconds: 540, memory: '512MiB', maxInstances: 1, concurrency: 1,
+  retryCount: 3, minBackoffSeconds: 300, maxBackoffSeconds: 3600, maxRetrySeconds: 21600,
+}, () => runDailyMaintenance({db, realtime, bucket}));
+export const refreshBillingEntitlements = onSchedule({region, schedule: 'every 5 minutes',
+  timeoutSeconds: 540, maxInstances: 1, concurrency: 1, omit: projectId === developmentProject,
+}, () => refreshDueEntitlements({db, realtime}));
 
 export const updateSlideLibrary = onCall({region, timeoutSeconds: 60, maxInstances: 10}, async request => {
   const {mutateSlideLibrary} = await import('./slide-library.js');
@@ -366,9 +362,9 @@ export const processAppStoreNotification = onDocumentCreated({region,
 });
 
 export const reconcileAppStoreBilling = onSchedule({region, schedule: 'every 5 minutes',
-  secrets: appleSecrets, timeoutSeconds: 540, maxInstances: 1,
+  secrets: appleSecrets, timeoutSeconds: 540, maxInstances: 1, omit: !schedulePolicy().apple,
 }, async () => {
-  const {refreshSubscription, refreshEntitlements, processAppleEvent} = await import('./billing.js');
+  const {refreshSubscription, processAppleEvent} = await import('./billing.js');
   const now = Date.now();
   if (appleApiReady()) {
     const events = await db.collection('appStoreEvents').where('nextAttemptAtMs', '<=', now).limit(50).get();
@@ -379,8 +375,6 @@ export const reconcileAppStoreBilling = onSchedule({region, schedule: 'every 5 m
       catch (_) { /* Keep the last VERIFIED expiry; never extend on network failure. */ }
     }
   }
-  const accounts = await db.collection('billingAccounts').where('nextCheckAtMs', '<=', now).limit(100).get();
-  for (const account of accounts.docs) await refreshEntitlements(db, realtime, account.id);
   const finished = await db.collection('appStoreEvents').where('processedAtMs', '<', now - 30 * 86400000).limit(200).get();
   const batch = db.batch(); for (const event of finished.docs) batch.delete(event.ref); await batch.commit();
 });
@@ -414,10 +408,9 @@ export const processGooglePlayNotification = onDocumentCreated({region,
 });
 
 export const reconcileGooglePlayBilling = onSchedule({region, schedule: 'every 5 minutes',
-  timeoutSeconds: 540, maxInstances: 1,
+  timeoutSeconds: 540, maxInstances: 1, omit: !schedulePolicy().google,
 }, async () => {
   const {processPlayEvent, refreshPlaySubscription} = await import('./google-play-billing.js');
-  const {refreshEntitlements} = await import('./billing.js');
   const now = Date.now();
   const events = await db.collection('googlePlayEvents').where('nextAttemptAtMs', '<=', now).limit(50).get();
   for (const event of events.docs) await processPlayEvent(db, realtime, event.ref);
@@ -426,24 +419,12 @@ export const reconcileGooglePlayBilling = onSchedule({region, schedule: 'every 5
     try { await refreshPlaySubscription(db, realtime, sub.ref); }
     catch (_) { /* Retain only the verified expiry on network/permission failure. */ }
   }
-  const accounts = await db.collection('billingAccounts').where('nextCheckAtMs', '<=', now).limit(100).get();
-  for (const account of accounts.docs) await refreshEntitlements(db, realtime, account.id);
   const finished = await db.collection('googlePlayEvents').where('processedAtMs', '<', now - 30 * 86400000).limit(200).get();
   const batch = db.batch(); for (const event of finished.docs) batch.delete(event.ref); await batch.commit();
 });
 
-export const cleanupOnboardingVerification = onSchedule({region,schedule:'every 24 hours',maxInstances:1},async()=>{
-  for(const [collection,field,cutoff] of [
-    ['onboardingPhoneChallenges','expiresAtMs',Date.now()-86400000],
-    ['onboardingSmsLimits','expiresAt',Timestamp.now()],
-  ]) {
-    let page;
-    do {
-      page=await db.collection(collection).where(field,'<',cutoff).limit(400).get();
-      const batch=db.batch(); for(const document of page.docs) batch.delete(document.ref); await batch.commit();
-    } while(page.size===400);
-  }
-});
+export const cleanupOnboardingVerification = onSchedule({region, schedule: 'every 24 hours', maxInstances: 1, omit: true},
+  () => cleanupOnboarding({db}));
 
 // Web has no Crashlytics SDK. Keep handled errors in authenticated structured logs.
 export const reportClientDiagnostic = onCall({region, timeoutSeconds: 15, maxInstances: 3}, async request => {
@@ -463,7 +444,7 @@ export const manageLibraryFolder = onCall({region, timeoutSeconds: 30, maxInstan
   return manageLibraryFolder(db, request.auth?.uid, request.data);
 });
 
-export const cleanupClientDiagnostics = onSchedule({region, schedule: 'every 24 hours', timeoutSeconds: 120, maxInstances: 1}, async () => {
+export const cleanupClientDiagnostics = onSchedule({region, schedule: 'every 24 hours', timeoutSeconds: 120, maxInstances: 1, omit: true}, async () => {
   const {cleanupDiagnosticLimits} = await import('./client-diagnostics.js');
   await cleanupDiagnosticLimits(db);
   const {cleanupOperationLimits} = await import('./operation-telemetry.js');
@@ -564,11 +545,11 @@ export const cloudboardSubmitSupportTicket = onCall({region, timeoutSeconds: 60,
   submitSupportTicket({db, realtime, bucket, auth: request.auth, payload: request.data}));
 const supportSecrets = supportSecretBindings();
 async function supportDeliveryOptions() {
-  const config = (await db.doc('supportConfig/email').get()).data();
   // Both deployment intent and private runtime config are required. Development
   // defaults to no delivery; merely deploying the module never sends mail.
   const ready = process.env.SUPPORT_EMAIL_DELIVERY_ENABLED === 'true' &&
     supportSecrets.length > 0 && !!process.env.SUPPORT_EMAIL_API_KEY;
+  const config = ready ? (await db.doc('supportConfig/email').get()).data() : undefined;
   return {db, config, projectId, send: ready ? (envelope, key) =>
     sendResendEmail(envelope, key, {apiKey: process.env.SUPPORT_EMAIL_API_KEY}) : null};
 }
@@ -576,7 +557,7 @@ export const notifySupportTicket = onDocumentCreated({region, document: 'support
   secrets: supportSecrets, retry: true, timeoutSeconds: 120, maxInstances: 5}, async event =>
   deliverSupportNotification({...await supportDeliveryOptions(), id: event.params.id}));
 export const retrySupportTicketNotifications = onSchedule({region, schedule: 'every 5 minutes',
-  secrets: supportSecrets, timeoutSeconds: 540, maxInstances: 1}, async () =>
+  secrets: supportSecrets, timeoutSeconds: 540, maxInstances: 1, omit: !schedulePolicy().support}, async () =>
   retrySupportNotifications(await supportDeliveryOptions()));
 export const cleanupSupportTicketUploads = onSchedule({region, schedule: 'every 24 hours',
-  timeoutSeconds: 540, maxInstances: 1}, () => cleanupSupportUploads({db, bucket}));
+  timeoutSeconds: 540, maxInstances: 1, omit: true}, () => cleanupSupportUploads({db, bucket}));
