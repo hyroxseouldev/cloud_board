@@ -20,6 +20,103 @@ class LocalSession extends DisplayPlaybackSession {
 
 void main() {
   testWidgets(
+    'manual start survives same-revision rebuild, but is cancelled by next/pause/recovery',
+    (tester) async {
+      final initial = audioSession();
+      final session = LocalSession(initial);
+      final audio = FakeAudio();
+      var now = 10000;
+      final container = ProviderContainer(
+        overrides: [
+          displayPlaybackSessionProvider.overrideWith(() => session),
+          androidCueAudioProvider.overrideWithValue(audio),
+          serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+          playerClockProvider.overrideWith(
+            (_) =>
+                () => DateTime.fromMillisecondsSinceEpoch(now),
+          ),
+        ],
+      );
+      final provider = playerControllerProvider(
+        initial.workout,
+        sessionId: initial.id,
+        canControl: false,
+      );
+      final sub = container.listen(provider, (_, _) {});
+      container.read(provider);
+      await tester.pump();
+      await tester.pump();
+      final immediateCount = audio.calls
+          .where((c) => c.startsWith('immediate:'))
+          .length;
+      final next = initial.copyWith(
+        revision: 2,
+        anchorServerMs: 20000,
+        stepIndex: 1,
+        remainingMs: 4000,
+        startDelayMs: 0,
+      );
+      now = 20100;
+      session.set(next);
+      container.read(provider);
+      await tester.pump();
+      await tester.pump();
+      final startId = '${next.ownerId}/${next.id}/2/start/1';
+      expect(
+        audio.cues.singleWhere((c) => c['id'] == startId)['localDeadlineMs'],
+        20750,
+      );
+      now = 20600;
+      session.set(next.copyWith(updatedByDeviceId: 'metadata-update'));
+      container.read(provider);
+      await tester.pump();
+      await tester.pump();
+      expect(
+        audio.cues.singleWhere((c) => c['id'] == startId)['localDeadlineMs'],
+        20750,
+      );
+      final rapidNext = next.copyWith(
+        revision: 3,
+        anchorServerMs: 20600,
+        stepIndex: 0,
+        remainingMs: 5000,
+      );
+      session.set(rapidNext);
+      container.read(provider);
+      await tester.pump();
+      await tester.pump();
+      expect(audio.cues.where((c) => c['id'] == startId), isEmpty);
+      expect(audio.cues.any((c) => c['localDeadlineMs'] == 21350), isTrue);
+      session.set(
+        rapidNext.copyWith(status: PlaybackStatus.paused, revision: 4),
+      );
+      container.read(provider);
+      await tester.pump();
+      expect(audio.calls.last, startsWith('cancel:'));
+      container.read(tvPlaybackVisibleProvider.notifier).setVisible(false);
+      await tester.pump();
+      session.set(rapidNext.copyWith(revision: 5));
+      container.read(provider);
+      await tester.pump();
+      container.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+      container.read(provider);
+      await tester.pump();
+      await tester.pump();
+      expect(
+        audio.cues.any((c) => (c['id'] as String).contains('/5/start/0')),
+        isFalse,
+      );
+      expect(
+        audio.calls.where((c) => c.startsWith('immediate:')).length,
+        immediateCount,
+      );
+      sub.close();
+      container.dispose();
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'real player cancels on pause/revision/visibility/scope and uses latest remote volume',
     (tester) async {
       final initial = audioSession();
@@ -43,12 +140,10 @@ void main() {
         canControl: false,
       );
       final sub = container.listen(provider, (_, _) {});
+      container.read(provider);
       await tester.pump();
       await tester.pump();
       expect(audio.cues.any((c) => c['localDeadlineMs'] == 13000), isTrue);
-      final initialImmediateCount = audio.calls
-          .where((c) => c.startsWith('immediate'))
-          .length;
       final beforePause = audio.calls
           .where((c) => c.startsWith('cancel:'))
           .length;
@@ -67,6 +162,7 @@ void main() {
           startDelayMs: 0,
         ),
       );
+      container.read(provider);
       await tester.pump();
       await tester.pump();
       expect(
@@ -90,12 +186,17 @@ void main() {
       );
       expect(audio.calls.last, startsWith('cancel:'));
       session.set(initial.copyWith(revision: 5, anchorServerMs: 12000));
+      container.read(provider);
       await tester.pump();
       await tester.pump();
+      final beforeRecoveryImmediateCount = audio.calls
+          .where((c) => c.startsWith('immediate'))
+          .length;
       container.read(tvPlaybackVisibleProvider.notifier).setVisible(false);
       expect(audio.calls.last, startsWith('cancel:'));
       now = 16000;
       container.read(tvPlaybackVisibleProvider.notifier).setVisible(true);
+      container.read(provider);
       await tester.pump();
       await tester.pump();
       expect(
@@ -104,7 +205,7 @@ void main() {
       );
       expect(
         audio.calls.where((c) => c.startsWith('immediate')).length,
-        initialImmediateCount,
+        beforeRecoveryImmediateCount,
       );
       session.set(null);
       await tester.pump();

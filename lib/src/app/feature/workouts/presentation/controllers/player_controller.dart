@@ -261,12 +261,12 @@ class PlayerController extends _$PlayerController {
           );
         }
         final candidateCue = _explicitScheduledCue;
-        final commandAge = candidateCue == null
-            ? -1
-            : _now().millisecondsSinceEpoch +
-                  offset -
-                  candidateCue.serverTimeMs;
-        final explicitCue = commandAge >= 0 && commandAge <= 500
+        final explicitCue =
+            candidateCue != null &&
+                AndroidWorkoutCues.isExplicitCuePending(
+                  candidateCue,
+                  _now().millisecondsSinceEpoch + offset,
+                )
             ? candidateCue
             : null;
         _lastScheduledRevision = revision;

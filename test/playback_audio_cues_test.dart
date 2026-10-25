@@ -18,8 +18,12 @@ Workout audioFixture({
       workoutEndSound: WorkoutSound.longFinish,
       modules: [
         WorkoutModule.empty('m').copyWith(
+          timingVersion: 3,
           workSeconds: seconds,
-          restSeconds: 4,
+          restSeconds: mode == WorkoutTimerMode.forTime ? 0 : 4,
+          timerDirection: seconds == 0
+              ? TimerDirection.up
+              : TimerDirection.down,
           sets: 1,
           includeFinalRest: true,
           timerMode: mode,
