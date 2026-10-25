@@ -14,6 +14,9 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   @override
   Future<CenterOnboarding> load() => _call({'action': 'load'});
   @override
+  Future<CenterOnboarding> readSummary(String uid) async =>
+      CenterOnboardingModel.fromJson(await source.readSummary(uid)).toEntity();
+  @override
   Future<void> sendCode(String phone) async {
     await source.call({'action': 'sendCode', 'phone': phone});
   }

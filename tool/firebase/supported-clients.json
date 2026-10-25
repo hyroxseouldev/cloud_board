@@ -574,6 +574,66 @@
           "workflowRunId": "39604165354"
         }
       ]
+    },
+    {
+      "client": "2.0.1-release-d4d8cfa6a981",
+      "sourceCommit": "d4d8cfa6a981fe949f28f470730929bd78b83342",
+      "platforms": [
+        "ios",
+        "android",
+        "tv"
+      ],
+      "schemas": [
+        "legacy",
+        "contentOnly"
+      ],
+      "file": "functions/test/fixtures/workout-save/2.0.1-release-d4d8cfa6a981.json",
+      "sha256": "d985ed8294d49c9cadbf846046b786dd89cbf341656aa3f81926b9d71bcf3ac1",
+      "appContract": {
+        "file": "functions/test/fixtures/app-contracts/2.0.1-release-d4d8cfa6a981.json",
+        "sha256": "337a9882de7019e3090f97f3266b2a05cb71e5b4ffc4ef6bf4ccd83fb49afba4"
+      },
+      "releases": [
+        {
+          "platform": "ios",
+          "version": "2.0.1",
+          "build": "562",
+          "channel": "testflight",
+          "workflowRunId": "39612724756",
+          "artifactSha256": "d300e5ea55586da878120099e09520a76680baa784c70033a7994f1ef4dcfd2b",
+          "sourceReceiptArtifact": {
+            "id": "12351569626",
+            "name": "mobile-source-39612724756-1",
+            "sha256": "f5932c24e4c31cbc3296f49cb8420e1ea0a8f5012ee399bbd3113d7b9d664dc5"
+          }
+        },
+        {
+          "platform": "android",
+          "version": "2.0.1",
+          "build": "77",
+          "channel": "internal",
+          "workflowRunId": "39612720306",
+          "artifactSha256": "4ebf980b0069df798b33befcbe5e93c9d1f302095723b5bad1d7e3f42bacaef1",
+          "sourceReceiptArtifact": {
+            "id": "12351387878",
+            "name": "mobile-source-39612720306-1",
+            "sha256": "f074d8296673e5ad451d5446906faf237b973bb7218e4f34db471618f0d6277e"
+          }
+        },
+        {
+          "platform": "tv",
+          "version": "2.0.1",
+          "build": "77",
+          "channel": "internal",
+          "workflowRunId": "39612720306",
+          "artifactSha256": "4ebf980b0069df798b33befcbe5e93c9d1f302095723b5bad1d7e3f42bacaef1",
+          "sourceReceiptArtifact": {
+            "id": "12351387878",
+            "name": "mobile-source-39612720306-1",
+            "sha256": "f074d8296673e5ad451d5446906faf237b973bb7218e4f34db471618f0d6277e"
+          }
+        }
+      ]
     }
   ]
 }

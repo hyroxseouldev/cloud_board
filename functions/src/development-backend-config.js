@@ -8,17 +8,17 @@ export const developmentOnboardingSecret = 'CLOUDBOARD_DEVELOPMENT_ONBOARDING_SE
 // billing notification endpoints are provisioned in the isolated project.
 export const developmentFunctionNames = Object.freeze([
   'deleteMyAccount', 'retryAccountDeletions', 'syncWorkoutCatalog',
-  'syncLegacyWorkoutSettings', 'cleanupPlaybackSnapshots', 'updateSlideLibrary',
+  'syncLegacyWorkoutSettings', 'cleanupDailyMaintenance', 'updateSlideLibrary',
   'syncSlideLibraryPlan', 'cloudboardAppOnboarding', 'syncAppTrialAccess', 'syncVerifiedFreeAccess',
-  'cleanupOnboardingVerification', 'reportClientDiagnostic', 'listLibraryFolders',
-  'manageLibraryFolder', 'cleanupClientDiagnostics', 'recordOperationTelemetry',
+  'reportClientDiagnostic', 'listLibraryFolders',
+  'manageLibraryFolder', 'recordOperationTelemetry',
   'saveWorkout', 'getPlanUsage', 'syncWorkoutPlanUsage', 'syncSlidePlanUsage',
   'cloudboardSaveBrandConfig', 'syncStandbyBranding',
   'verifyDisplayConnection', 'requestDisplayRecovery', 'reportDisplayRecovery',
   'pairDisplayConnection', 'unpairDisplayConnection',
   'auditDisplayDeviceBinding', 'auditDisplayAccessBinding',
   'cloudboardPrepareSupportAttachment', 'cloudboardSubmitSupportTicket',
-  'notifySupportTicket', 'retrySupportTicketNotifications', 'cleanupSupportTicketUploads',
+  'notifySupportTicket',
 ]);
 
 export function onboardingSecretBindings(projectId) {

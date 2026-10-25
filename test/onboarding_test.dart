@@ -55,6 +55,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          existingMemberAccessProvider.overrideWith((_) => Stream.value(false)),
           authStateProvider.overrideWith((_) => users.stream),
           onboardingRepositoryProvider.overrideWith((_) => repository),
         ],
@@ -96,6 +97,7 @@ void main() {
     final container = ProviderContainer(
       retry: (_, _) => null,
       overrides: [
+        existingMemberAccessProvider.overrideWith((_) => Stream.value(false)),
         authStateProvider.overrideWith((_) => users.stream),
         onboardingRepositoryProvider.overrideWith((_) => repository),
       ],
@@ -163,6 +165,7 @@ void main() {
     );
     final container = ProviderContainer.test(
       overrides: [
+        existingMemberAccessProvider.overrideWith((_) => Stream.value(false)),
         authStateProvider.overrideWith((_) => Stream.value(onboardingUser)),
         onboardingRepositoryProvider.overrideWith((_) => repo),
       ],

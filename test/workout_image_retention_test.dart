@@ -116,20 +116,23 @@ void main() {
     },
   );
 
-  test('one failed image does not prevent later active slides loading', () async {
-    final loaded = <String>[];
-    final count = await warmWorkoutImages(
-      ['bad', 'second', 'third'],
-      concurrency: 1,
-      continueOnError: true,
-      load: (source) async {
-        if (source == 'bad') throw StateError('offline');
-        loaded.add(source);
-      },
-    );
-    expect(count, 2);
-    expect(loaded, ['second', 'third']);
-  });
+  test(
+    'one failed image does not prevent later active slides loading',
+    () async {
+      final loaded = <String>[];
+      final count = await warmWorkoutImages(
+        ['bad', 'second', 'third'],
+        concurrency: 1,
+        continueOnError: true,
+        load: (source) async {
+          if (source == 'bad') throw StateError('offline');
+          loaded.add(source);
+        },
+      );
+      expect(count, 2);
+      expect(loaded, ['second', 'third']);
+    },
+  );
 
   testWidgets('unclaimed preparation expires, active class cancels expiry', (
     tester,

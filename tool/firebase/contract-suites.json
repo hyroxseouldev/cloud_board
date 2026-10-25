@@ -260,6 +260,15 @@
       "coverage": [
         "database"
       ]
+    },
+    {
+      "id": "scheduled-maintenance",
+      "file": "functions/test/scheduled-maintenance-emulator.mjs",
+      "project": "demo-cloudboard-maintenance",
+      "coverage": [
+        "firestore",
+        "database"
+      ]
     }
   ]
 }
