@@ -51,6 +51,105 @@ class FakeAudio extends AndroidCueAudio {
 
 void main() {
   test(
+    'manual starts received at different times share one server deadline',
+    () async {
+      final plan = PlaybackAudioPlan(audioSession().copyWith(startDelayMs: 0));
+      final serverDeadlines = <int>[];
+      for (final (receivedAt, offset) in [
+        (10080, 200),
+        (10370, -90),
+        (10490, 45),
+      ]) {
+        final audio = FakeAudio();
+        var now = receivedAt - offset;
+        final controller = AndroidWorkoutCues(
+          audio: audio,
+          plan: plan,
+          offsetMs: offset,
+          nowMs: () => now,
+          onFailure: (_, _) => fail('unexpected'),
+        );
+        final cue = plan.recentCommand(receivedAt)!;
+        await controller.start(explicitCue: cue);
+        final queued = audio.cues.singleWhere((c) => c['id'] == cue.id);
+        serverDeadlines.add((queued['localDeadlineMs'] as int) + offset);
+        expect(audio.calls.where((c) => c.startsWith('immediate:')), isEmpty);
+        now = 10650 - offset;
+        await controller.refresh();
+        expect(audio.cues.singleWhere((c) => c['id'] == cue.id), queued);
+        now = 10751 - offset;
+        await controller.refresh();
+        expect(audio.cues.where((c) => c['id'] == cue.id), isEmpty);
+        controller.cancel();
+      }
+      expect(serverDeadlines, [10750, 10750, 10750]);
+    },
+  );
+
+  test(
+    'sound loading uses the original deadline, never a new relative delay',
+    () async {
+      for (final preparedAt in [10600, 10800]) {
+        final audio = FakeAudio()..preparation = Completer<void>();
+        var now = 10100;
+        final plan = PlaybackAudioPlan(
+          audioSession().copyWith(startDelayMs: 0),
+        );
+        final cue = plan.recentCommand(now)!;
+        final controller = AndroidWorkoutCues(
+          audio: audio,
+          plan: plan,
+          offsetMs: 0,
+          nowMs: () => now,
+          onFailure: (_, _) => fail('unexpected'),
+        );
+        final start = controller.start(explicitCue: cue);
+        await Future<void>.delayed(Duration.zero);
+        now = preparedAt;
+        audio.preparation!.complete();
+        await start;
+        expect(
+          audio.cues
+              .where((c) => c['id'] == cue.id)
+              .map((c) => c['localDeadlineMs']),
+          preparedAt < 10750 ? [10750] : isEmpty,
+        );
+        expect(audio.calls.where((c) => c.startsWith('immediate:')), isEmpty);
+        controller.cancel();
+      }
+    },
+  );
+
+  test(
+    'preparation countdown and explicit end retain immediate behavior',
+    () async {
+      final start = audioSession();
+      for (final session in [
+        start,
+        start.copyWith(startDelayMs: 0, timerCompleted: true),
+      ]) {
+        final audio = FakeAudio();
+        final plan = PlaybackAudioPlan(session);
+        final cue = plan.recentCommand(10100)!;
+        final controller = AndroidWorkoutCues(
+          audio: audio,
+          plan: plan,
+          offsetMs: 0,
+          nowMs: () => 10100,
+          onFailure: (_, _) => fail('unexpected'),
+        );
+        await controller.start(explicitCue: cue);
+        expect(
+          audio.calls.where((c) => c.startsWith('immediate:')),
+          hasLength(1),
+        );
+        expect(audio.cues.where((c) => c['id'] == cue.id), isEmpty);
+        controller.cancel();
+      }
+    },
+  );
+
+  test(
     'preparation finishing after cancel cannot rearm or send stale cues',
     () async {
       final audio = FakeAudio()..preparation = Completer<void>();
