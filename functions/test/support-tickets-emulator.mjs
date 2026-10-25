@@ -123,9 +123,10 @@ try {
   assert.equal((await submit(input('request-concurrent'))).notificationStatus, 'sent');
   await deliverSupportNotification({...delivery, now: now + 120000, send: async () => {sends++;}});
   assert.equal(sends, 2);
-  // Scheduler handles unavailable configuration while preserving tickets.
-  await retrySupportNotifications({db, config: {}, projectId, now: now + 200000, send: null});
-  assert.equal((await db.doc(ticketPath('request-own-tv')).get()).data().notificationStatus, 'retrying');
+  // Disabled scheduler leaves tickets/outbox untouched until mail is enabled.
+  const beforeDisabledMail = (await db.doc(ticketPath('request-own-tv')).get()).data();
+  assert.equal(await retrySupportNotifications({db, config: {}, projectId, now: now + 200000, send: null}), 0);
+  assert.deepEqual((await db.doc(ticketPath('request-own-tv')).get()).data(), beforeDisabledMail);
   pass('real transaction mail lease, immutable provider retry key/body, scheduler config failure preserves ticket');
 
   await db.doc(`accountDeletions/${auth.uid}`).set({status: 'processing'});
