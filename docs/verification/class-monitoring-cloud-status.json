@@ -1,0 +1,33 @@
+{
+  "verifiedAt": "2026-10-29T16:11:52.162Z",
+  "checks": [
+    {
+      "projectId": "cloud-board-stationd",
+      "version": "v1",
+      "exists": false,
+      "status": 404,
+      "message": "NOT_FOUND"
+    },
+    {
+      "projectId": "cloud-board-stationd",
+      "version": "v2",
+      "exists": false,
+      "status": 404,
+      "message": "NOT_FOUND"
+    },
+    {
+      "projectId": "timo-production-sunmkim",
+      "version": "v1",
+      "exists": false,
+      "status": 404,
+      "message": "NOT_FOUND"
+    },
+    {
+      "projectId": "timo-production-sunmkim",
+      "version": "v2",
+      "exists": false,
+      "status": 404,
+      "message": "NOT_FOUND"
+    }
+  ]
+}
