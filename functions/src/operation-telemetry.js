@@ -1,16 +1,15 @@
 import {createHash} from 'node:crypto';
 import {Timestamp} from 'firebase-admin/firestore';
 import {HttpsError} from 'firebase-functions/v2/https';
-import {validatePreparationTrace} from './preparation-trace.js';
 
-export const operationActions = ['slides.save', 'workout.import', 'plan.upgrade.purchase', 'plan.workouts.usage', 'plan.workouts.limit', 'plan.workouts.manage', 'plan.workouts.upgrade', 'plan.savedSlides.usage', 'plan.savedSlides.limit', 'plan.savedSlides.manage', 'plan.savedSlides.upgrade', 'workout.save', 'tv.prepare', 'tv.prepare.request', 'tv.prepare.receipts', 'tv.prepare.listen', 'tv.prepare.settlement', 'tv.prepare.probe', 'playback.control.submit', 'playback.control.ack'];
+export const operationActions = ['slides.save', 'workout.import', 'plan.upgrade.purchase', 'plan.workouts.usage', 'plan.workouts.limit', 'plan.workouts.manage', 'plan.workouts.upgrade', 'plan.savedSlides.usage', 'plan.savedSlides.limit', 'plan.savedSlides.manage', 'plan.savedSlides.upgrade', 'workout.save', 'tv.prepare', 'tv.prepare.request', 'tv.prepare.receipts', 'tv.prepare.listen', 'playback.control.submit', 'playback.control.ack'];
 const outcomes = ['attempt', 'success', 'failure', 'cancelled'];
-const allowed = new Set(['accountId', 'operationId', 'action', 'outcome', 'startedAt', 'occurredAt', 'durationMs', 'platform', 'version', 'build', 'code', 'trace']);
+const allowed = new Set(['accountId', 'operationId', 'action', 'outcome', 'startedAt', 'occurredAt', 'durationMs', 'platform', 'version', 'build', 'code']);
 const codes = new Set(['permission-denied', 'unauthenticated', 'unavailable', 'deadline-exceeded', 'resource-exhausted', 'aborted', 'not-found', 'failed-precondition', 'revision_conflict', 'session_changed', 'prepare_request', 'prepare_receipts', 'prepare_listen', 'prepare_images', 'prepare_audio', 'prepare_response', 'start_access', 'start_device', 'start_preferences', 'start_preparation', 'start_session', 'start_cancelled', 'timeout', 'cancelled', 'unexpected']);
 const fail = message => new HttpsError('invalid-argument', message);
 export function validateOperation(payload, now = Date.now()) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
-      Buffer.byteLength(JSON.stringify(payload)) > 2500 || Object.keys(payload).some(key => !allowed.has(key)) ||
+      Buffer.byteLength(JSON.stringify(payload)) > 1500 || Object.keys(payload).some(key => !allowed.has(key)) ||
       !/^[a-f0-9]{32}$/.test(payload.operationId ?? '') || !operationActions.includes(payload.action) ||
       !outcomes.includes(payload.outcome) || !['ios', 'android', 'web', 'macos', 'windows', 'linux', 'fuchsia'].includes(payload.platform) ||
       typeof payload.version !== 'string' || !/^(unknown|\d+(?:[.\-+][a-zA-Z0-9]+){0,8})$/.test(payload.version) || payload.version.length > 40 ||
@@ -21,16 +20,10 @@ export function validateOperation(payload, now = Date.now()) {
   const started = Date.parse(payload.startedAt), occurred = Date.parse(payload.occurredAt);
   if (!Number.isFinite(started) || !Number.isFinite(occurred) || started < now - 86400000 ||
       occurred < started || occurred > now + 300000 || started > now + 300000) throw fail('Expired operation metadata');
-  let trace;
-  if (payload.trace !== undefined) {
-    if (!payload.action.startsWith('tv.prepare')) throw fail('Invalid trace action');
-    try { trace = validatePreparationTrace(payload.trace); } catch { throw fail('Invalid preparation trace'); }
-  }
   return {operationId: payload.operationId, action: payload.action, outcome: payload.outcome,
     startedAt: new Date(started).toISOString(), occurredAt: new Date(occurred).toISOString(),
     durationMs: payload.durationMs, platform: payload.platform, version: payload.version, build: payload.build,
-    ...(payload.outcome === 'failure' ? {code: payload.code ?? 'unexpected'} : {}),
-    ...(trace === undefined ? {} : {trace})};
+    ...(payload.outcome === 'failure' ? {code: payload.code ?? 'unexpected'} : {})};
 }
 
 export async function recordOperation({db, realtime, auth, payload, emit, now = Date.now()}) {
