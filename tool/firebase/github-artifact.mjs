@@ -5,7 +5,8 @@ import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {hash} from './common.mjs';
 
-export async function readReleaseArtifact(artifact, repository, token) {
+export async function readReleaseArtifact(artifact, repository, token, member = 'release.json') {
+  assert(['release.json', 'manifest.json', 'smoke.json', 'live-rules.json'].includes(member), 'Unexpected evidence member');
   assert.match(artifact.digest || '', /^sha256:[a-f0-9]{64}$/, 'Artifact digest is required');
   assert(Number.isSafeInteger(artifact.id) && artifact.id > 0 && !artifact.expired);
   const response = await fetch(`https://api.github.com/repos/${repository}/actions/artifacts/${artifact.id}/zip`, {
@@ -19,6 +20,6 @@ export async function readReleaseArtifact(artifact, repository, token) {
   try {
     const file = join(directory, 'receipt.zip'); writeFileSync(file, bytes);
     // Read one fixed member; never extract arbitrary archive paths.
-    return JSON.parse(execFileSync('unzip', ['-p', file, 'release.json'], {encoding: 'utf8', maxBuffer: 1024 * 1024}));
+    return JSON.parse(execFileSync('unzip', ['-p', file, member], {encoding: 'utf8', maxBuffer: 1024 * 1024}));
   } finally { rmSync(directory, {recursive: true, force: true}); }
 }
