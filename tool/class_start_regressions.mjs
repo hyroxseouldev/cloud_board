@@ -4,6 +4,8 @@ import {spawn} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 
 export const requiredSuites = [
+  'test/preparation_diagnostics_test.dart',
+  'test/operation_telemetry_test.dart',
   'test/playback_start_lifecycle_test.dart',
   'test/playback_start_commit_test.dart',
   'test/playback_metadata_test.dart',

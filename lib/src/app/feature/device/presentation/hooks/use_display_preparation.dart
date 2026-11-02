@@ -12,6 +12,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:cloud_board/src/app/core/observability/preparation_diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:cloud_board/src/app/feature/device/data/repositories/display_preparation_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
@@ -49,6 +50,7 @@ void useDisplayPreparation(
 
   final reporter = ref.watch(errorReporterProvider);
   final telemetry = ref.watch(operationTelemetryProvider);
+  final diagnostics = ref.watch(preparationDiagnosticsProvider);
   final heartbeatSelection = useMemoized(
     () => DisplayHeartbeatSelection(initialHeartbeatPolicy),
     [ownerId, deviceId, connectionId],
@@ -178,10 +180,28 @@ void useDisplayPreparation(
         sources: request.images,
       );
       Future<void> run() async {
-        final attempt = telemetry.start('tv.prepare');
+        final attempt = telemetry.start(
+          'tv.prepare',
+          trace: {
+            ...diagnostics.snapshot(),
+            'requestId': request.sessionId,
+            'targetCount': request.targetDeviceIds.length,
+            'targetIndex': request.targetDeviceIds.indexOf(deviceId),
+          },
+        );
         var failureCode = 'prepare_images';
+        var mediaElapsedMs = 0, responseElapsedMs = 0, heartbeatElapsedMs = 0;
+        var lastStage = 'images';
+        Map<String, Object> trace() => {
+          ...diagnostics.snapshot(),
+          'stage': lastStage,
+          'mediaElapsedMs': mediaElapsedMs.clamp(0, 86400000),
+          'responseElapsedMs': responseElapsedMs.clamp(0, 86400000),
+          'heartbeatElapsedMs': heartbeatElapsedMs.clamp(0, 86400000),
+        };
         void capture(String stage, Object error, StackTrace stack) {
           if (stopped()) return;
+          lastStage = stage;
           failureCode = switch (stage) {
             'audio' => 'prepare_audio',
             'response' => 'prepare_response',
@@ -205,11 +225,20 @@ void useDisplayPreparation(
           String stage,
           Future<void> Function() operation,
         ) async {
+          lastStage = stage;
+          final elapsed = Stopwatch()..start();
           try {
             await operation();
           } catch (error, stack) {
             capture(stage, error, stack);
             rethrow;
+          } finally {
+            if (stage == 'response') {
+              responseElapsedMs += elapsed.elapsedMilliseconds;
+            }
+            if (stage == 'heartbeat') {
+              heartbeatElapsedMs += elapsed.elapsedMilliseconds;
+            }
           }
         }
 
@@ -219,6 +248,7 @@ void useDisplayPreparation(
             health: (stage, code, attempt) =>
                 health(stage, code, attempt, requestId: request.sessionId),
             prepare: () async {
+              final mediaElapsed = Stopwatch()..start();
               await audioPlayer?.dispose();
               audioPlayer = null;
               var attemptFinished = false;
@@ -280,6 +310,7 @@ void useDisplayPreparation(
                   },
                 );
               } finally {
+                mediaElapsedMs += mediaElapsed.elapsedMilliseconds;
                 // A native call may finish after timeout/disposal. It must not
                 // proceed to another source or touch the next retry's player.
                 attemptFinished = true;
@@ -306,11 +337,11 @@ void useDisplayPreparation(
           );
           switch (outcome) {
             case DisplayPreparationOutcome.ready:
-              attempt.success();
+              attempt.success(trace: trace());
             case DisplayPreparationOutcome.failed:
-              attempt.failure(failureCode);
+              attempt.failure(failureCode, trace: trace());
             case DisplayPreparationOutcome.cancelled:
-              attempt.cancel();
+              attempt.cancel(trace: trace());
           }
         } finally {
           await audioPlayer?.dispose();

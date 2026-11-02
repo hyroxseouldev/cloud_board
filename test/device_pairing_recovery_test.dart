@@ -29,6 +29,8 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 // #61's recovery intent is retained through #176's server-owned repair. The
 // real authorization/repair rules are exercised by display-recovery-emulator;
@@ -133,6 +135,25 @@ void main() {
 
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Database db;
+  // The released client now refreshes auth and reads RTDB through REST before
+  // callable repair. Exercise that real reader with an isolated HTTP boundary.
+  void testRecovery(String description, WidgetTesterCallback callback) {
+    testWidgets(
+      description,
+      (tester) => http.runWithClient(
+        () => callback(tester),
+        () => MockClient((request) async {
+          expectSync(request.method, 'GET');
+          expectSync(request.url.host, 'pairing-recovery.test');
+          final path = request.url.path
+              .substring(1)
+              .replaceFirst(RegExp(r'\.json$'), '');
+          return http.Response(jsonEncode(db.read(path)), 200);
+        }),
+      ),
+    );
+  }
+
   late Future<Object?> Function(Map parameters) verify;
   late Future<Object?> Function(Map arguments) invoke;
   final originalFunctions = FirebaseFunctionsPlatform.instance;
@@ -263,7 +284,7 @@ void main() {
     source.dispose();
   });
 
-  testWidgets(
+  testRecovery(
     'existing anonymous pairing awaits disconnect registration then server repair before presence',
     (tester) async {
       db.disconnectBarrier = Completer<void>();
@@ -323,7 +344,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testRecovery(
     'a failed presence publish retries with new server verification without replacing identity',
     (tester) async {
       db.failPublishOnce = true;
@@ -351,7 +372,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testRecovery(
     'reconnect records recovery even before the old disconnect arrives',
     (tester) async {
       final source = DevicePairingRealtimeDataSource(db, _Auth(), 'owner');
@@ -450,7 +471,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testRecovery(
     'delayed failed offline telemetry does not block or retry verified presence',
     (tester) async {
       db.failOfflineEvent = true;
@@ -494,7 +515,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testRecovery(
     'initial readiness emission joins unpaired code issuance before the access read completes',
     (tester) async {
       db.write('displayAccess/display', {'deviceId': 'tv'});
@@ -535,7 +556,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testRecovery(
     'current connection verification and publish gate real controller preparation after reconnect',
     (tester) async {
       final fixture = _ReadinessFixture(db);
@@ -598,7 +619,7 @@ void main() {
   );
 
   for (final manual in [false, true]) {
-    testWidgets(
+    testRecovery(
       'reconnect permission denial stays blocked until ${manual ? 'explicit refresh' : 'a new connection'}',
       (tester) async {
         final fixture = _ReadinessFixture(db);
@@ -654,7 +675,7 @@ void main() {
     );
   }
 
-  testWidgets(
+  testRecovery(
     'stale reconnect success cannot unblock a newer connection verification',
     (tester) async {
       final fixture = _ReadinessFixture(db);
@@ -696,7 +717,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testRecovery(
     'reconnect transport retry exhaustion remains blocked without an automatic controller restart',
     (tester) async {
       final fixture = _ReadinessFixture(db);
@@ -721,7 +742,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  testRecovery(
     'server denial cannot publish presence or replace a foreign UID',
     (tester) async {
       db.device['displayUid'] = 'another-display';
@@ -746,7 +767,7 @@ void main() {
     },
   );
 
-  testWidgets('removal after server verification never recreates the TV', (
+  testRecovery('removal after server verification never recreates the TV', (
     tester,
   ) async {
     db.removeBeforePublish = true;
@@ -773,7 +794,7 @@ void main() {
     source.dispose();
   });
 
-  testWidgets(
+  testRecovery(
     'late server response after account disposal cannot publish online',
     (tester) async {
       final response = Completer<Object?>();
@@ -858,6 +879,13 @@ class _Auth extends Fake implements FirebaseAuth {
 class _App extends Fake implements FirebaseApp {
   @override
   String get name => 'pairing-recovery-fixture';
+  @override
+  FirebaseOptions get options => const FirebaseOptions(
+    apiKey: 'fixture',
+    appId: 'fixture',
+    messagingSenderId: 'fixture',
+    projectId: 'fixture',
+  );
 }
 
 class _User extends Fake implements User {
@@ -865,10 +893,15 @@ class _User extends Fake implements User {
   String get uid => 'display';
   @override
   bool get isAnonymous => true;
+  @override
+  Future<String?> getIdToken([bool forceRefresh = false]) async =>
+      'fixture-token';
 }
 
 class _Database extends Fake implements FirebaseDatabase {
   static const serverNow = 1000;
+  @override
+  String get databaseURL => 'https://pairing-recovery.test';
   final Map<String, Object?> root = {
     'displayAccess': <String, Object?>{
       'display': <String, Object?>{

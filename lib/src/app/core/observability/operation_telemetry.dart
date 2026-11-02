@@ -9,6 +9,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostic_queue.dart';
+import 'package:cloud_board/src/app/core/observability/preparation_trace.dart';
 import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
 
 part 'operation_telemetry.g.dart';
@@ -31,6 +32,8 @@ const _actions = {
   'tv.prepare.request',
   'tv.prepare.receipts',
   'tv.prepare.listen',
+  'tv.prepare.settlement',
+  'tv.prepare.probe',
   'playback.control.submit',
   'playback.control.ack',
 };
@@ -73,6 +76,25 @@ String operationFailureCode(Object? error) {
   return _codes.contains(code) ? code! : 'unexpected';
 }
 
+/// A rolled-back/pre-2.0.6 collector still receives the original telemetry.
+/// New diagnostic-only actions may be dropped by that older collector.
+Future<void> sendCompatibleOperation(
+  Map<String, dynamic> payload,
+  Future<void> Function(Map<String, dynamic>) send,
+) async {
+  try {
+    await send(payload);
+  } on FirebaseFunctionsException catch (error) {
+    if (error.code != 'invalid-argument' ||
+        !payload.containsKey('trace') ||
+        payload['action'] == 'tv.prepare.settlement' ||
+        payload['action'] == 'tv.prepare.probe') {
+      rethrow;
+    }
+    await send(Map<String, dynamic>.of(payload)..remove('trace'));
+  }
+}
+
 /// Never awaited by product actions. Events contain no workout or device data.
 class OperationTelemetry {
   OperationTelemetry({
@@ -95,7 +117,10 @@ class OperationTelemetry {
     ).join();
   }
 
-  OperationAttempt start(String action) {
+  OperationAttempt start(
+    String action, {
+    Map<String, Object?> trace = const {},
+  }) {
     final account = readAccount();
     final attempt = OperationAttempt._(
       this,
@@ -103,6 +128,7 @@ class OperationTelemetry {
       account,
       createId(),
       clock().toUtc(),
+      action.startsWith('tv.prepare') ? safePreparationTrace(trace) : const {},
     );
     if (_actions.contains(action) && account != null) {
       _record(attempt, 'attempt', 0);
@@ -132,6 +158,8 @@ class OperationTelemetry {
           .toIso8601String(),
       'durationMs': elapsed.clamp(0, 86400000),
       if (outcome == 'failure') 'code': operationFailureCode(error),
+      if (attempt.trace.isNotEmpty)
+        'trace': Map<String, Object>.of(attempt.trace),
     };
     _pending = _pending
         .then((_) async {
@@ -151,20 +179,39 @@ class OperationAttempt {
     this.account,
     this.id,
     this.startedAt,
+    this.trace,
   );
   final OperationTelemetry telemetry;
   final String action;
   final String? account;
   final String id;
   final DateTime startedAt;
+  Map<String, Object> trace;
   final Stopwatch _elapsed = Stopwatch()..start();
   bool _completed = false;
-  void success() => _finish('success');
-  void failure(Object? error) => _finish('failure', error);
-  void cancel() => _finish('cancelled');
-  void _finish(String outcome, [Object? error]) {
+  void success({Map<String, Object?> trace = const {}}) =>
+      _finish('success', null, trace);
+  void failure(Object? error, {Map<String, Object?> trace = const {}}) =>
+      _finish('failure', error, trace);
+  void cancel({Map<String, Object?> trace = const {}}) =>
+      _finish('cancelled', null, trace);
+  OperationAttempt? followUp(
+    String action, {
+    Map<String, Object?> trace = const {},
+  }) {
+    if (account == null || telemetry.readAccount() != account) return null;
+    return telemetry.start(
+      action,
+      trace: {...this.trace, ...trace, 'parentOperationId': id},
+    );
+  }
+
+  void _finish(String outcome, Object? error, Map<String, Object?> extra) {
     if (_completed) return;
     _completed = true;
+    if (action.startsWith('tv.prepare')) {
+      trace = {...trace, ...safePreparationTrace(extra)};
+    }
     _elapsed.stop();
     telemetry._record(this, outcome, _elapsed.elapsedMilliseconds, error);
   }
@@ -204,14 +251,20 @@ OperationTelemetry operationTelemetry(Ref ref) {
       if (account() != owner) throw StateError('Telemetry account changed');
       final payload = Map<String, dynamic>.from(event)..remove('eventId');
       try {
-        await FirebaseFunctions.instanceFor(region: 'asia-northeast3')
-            .httpsCallable(
-              'recordOperationTelemetry',
-              options: HttpsCallableOptions(
-                timeout: const Duration(seconds: 8),
-              ),
-            )
-            .call({...payload, 'accountId': owner});
+        final callable =
+            FirebaseFunctions.instanceFor(region: 'asia-northeast3')
+                .httpsCallable(
+                  'recordOperationTelemetry',
+                  options: HttpsCallableOptions(
+                    timeout: const Duration(seconds: 8),
+                  ),
+                );
+        await sendCompatibleOperation({...payload, 'accountId': owner}, (
+          value,
+        ) async {
+          if (account() != owner) throw StateError('Telemetry account changed');
+          await callable.call(value);
+        });
       } on FirebaseFunctionsException catch (error) {
         // Invalid/expired data cannot succeed later and must not block newer events.
         if (error.code == 'invalid-argument' ||

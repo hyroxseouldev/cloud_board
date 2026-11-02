@@ -1,6 +1,7 @@
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/operation_event_recorder.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
+import 'package:cloud_board/src/app/core/observability/preparation_diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 
@@ -48,22 +49,41 @@ class DisplayPreparationController extends _$DisplayPreparationController {
     state = const DisplayPreparationState(loading: true);
     final reporter = ref.read(errorReporterProvider);
     final telemetry = ref.read(operationTelemetryProvider);
-    final attempt = telemetry.start('tv.prepare.request');
+    final diagnostics = ref.read(preparationDiagnosticsProvider);
+    final now = DateTime.now();
+    final requestId =
+        'prepare-${now.microsecondsSinceEpoch.toRadixString(36)}-$epoch';
+    final attempt = telemetry.start(
+      'tv.prepare.request',
+      trace: {
+        ...diagnostics.snapshot(),
+        'requestId': requestId,
+        'targetCount': targets.length,
+      },
+    );
     try {
       final repository = ref.read(displayPreparationRepositoryProvider);
-      final now = DateTime.now();
       final request = prepareDisplayCandidate(
         workout,
         targets,
-        sessionId:
-            'prepare-${now.microsecondsSinceEpoch.toRadixString(36)}-$epoch',
+        sessionId: requestId,
         revision: epoch,
         nowMs: preparationServerNow(
           ref.read(serverTimeOffsetProvider).value ?? 0,
         ),
       );
-      await repository.request(request).timeout(const Duration(seconds: 8));
-      attempt.success();
+      await diagnostics.observeRequest(
+        write: () => repository.request(request),
+        attempt: attempt,
+        requestId: requestId,
+        superseded: () => !ref.mounted || epoch != _epoch,
+      );
+      attempt.success(
+        trace: {
+          ...diagnostics.snapshot(),
+          'superseded': !ref.mounted || epoch != _epoch,
+        },
+      );
       if (!ref.mounted || epoch != _epoch) return;
       state = DisplayPreparationState(request: request);
       _subscription = repository.watchReceipts().listen(
@@ -110,8 +130,18 @@ class DisplayPreparationController extends _$DisplayPreparationController {
           }
         },
         onError: (Object error, StackTrace stack) {
-          final failure = telemetry.start('tv.prepare.receipts');
-          failure.failure('prepare_receipts');
+          final failure = telemetry.start(
+            'tv.prepare.receipts',
+            trace: {
+              ...diagnostics.snapshot(),
+              'requestId': requestId,
+              'targetCount': targets.length,
+            },
+          );
+          failure.failure(
+            'prepare_receipts',
+            trace: {'transportCode': operationFailureCode(error)},
+          );
           reporter.capture(
             error,
             stack,
@@ -132,7 +162,14 @@ class DisplayPreparationController extends _$DisplayPreparationController {
         },
       );
     } catch (error, stack) {
-      attempt.failure('prepare_request');
+      attempt.failure(
+        'prepare_request',
+        trace: {
+          ...diagnostics.snapshot(),
+          'superseded': !ref.mounted || epoch != _epoch,
+          'transportCode': operationFailureCode(error),
+        },
+      );
       final diagnostic = reporter.capture(
         error,
         stack,
@@ -140,6 +177,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
         context: {
           'operationId': attempt.id,
           'preparationStage': 'request',
+          'sessionId': requestId,
           'workoutId': workout.id,
         },
       );
