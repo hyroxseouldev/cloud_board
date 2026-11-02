@@ -33,6 +33,10 @@ on:
         required: true
         type: boolean
         default: false
+      backend_exception_run:
+        description: 'One-time user-approved iOS 2.0.7 smoke exception: 41475618259 only; failure remains recorded'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -126,6 +130,7 @@ jobs:
       UPLOAD_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.upload_to_testflight }}
       IOS_BUNDLE_ID: ${{ (github.event_name == 'workflow_run' || inputs.release_mode == 'release') && 'com.sunmkim.cloudboard' || 'com.sunmkim.cloudboard.dev' }}
       IOS_TEAM_ID: NL7AM62SB9
+      BACKEND_EXCEPTION_RUN: ${{ inputs.backend_exception_run || '' }}
 
     steps:
       - name: Checkout trusted workflow tools
