@@ -1,7 +1,74 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 
 void main() {
+  test('old collector fallback sends the unchanged 2.0.5 shape once; outages never cause fallback', () async {
+    final payload = <String, dynamic>{
+      'action': 'tv.prepare.request',
+      'operationId': 'a' * 32,
+      'outcome': 'failure',
+      'trace': {'connection': 'disconnected'},
+    };
+    final sent = <Map<String, dynamic>>[];
+    await sendCompatibleOperation(payload, (value) async {
+      sent.add(value);
+      if (value.containsKey('trace')) {
+        throw FirebaseFunctionsException(
+          code: 'invalid-argument',
+          message: 'old collector',
+          details: null,
+        );
+      }
+    });
+    expect(sent, [payload, Map<String, dynamic>.of(payload)..remove('trace')]);
+    expect(payload.containsKey('trace'), isTrue);
+    var calls = 0;
+    await expectLater(
+      sendCompatibleOperation(payload, (_) async {
+        calls++;
+        throw FirebaseFunctionsException(
+          code: 'unavailable',
+          message: 'offline',
+          details: null,
+        );
+      }),
+      throwsA(isA<FirebaseFunctionsException>()),
+    );
+    expect(calls, 1);
+  });
+  test('trace snapshots are immutable, sanitized and retain the request correlation at completion', () async {
+    final events = <Map<String, dynamic>>[];
+    final telemetry = OperationTelemetry(
+      readAccount: () => 'owner',
+      emit: (e, _) async => events.add(e),
+    );
+    final trace = <String, Object?>{
+      'requestId': 'prepare-test-1',
+      'connection': 'connected',
+      'ssid': 'private',
+    };
+    final attempt = telemetry.start('tv.prepare.request', trace: trace);
+    trace['connection'] = 'disconnected';
+    attempt.failure(
+      'timeout',
+      trace: {'connection': 'disconnected', 'pendingWrites': 1},
+    );
+    await telemetry.flush();
+    expect(events.first['trace'], {
+      'requestId': 'prepare-test-1',
+      'connection': 'connected',
+    });
+    expect(events.last['trace'], {
+      'requestId': 'prepare-test-1',
+      'connection': 'disconnected',
+      'pendingWrites': 1,
+    });
+    expect(events.toString(), isNot(contains('private')));
+    telemetry.start('workout.save', trace: trace).success();
+    await telemetry.flush();
+    expect(events.last.containsKey('trace'), isFalse);
+  });
   test('attempt stays pending until explicit completion; terminal result emits once', () async {
     final events = <Map<String, dynamic>>[];
     final telemetry = OperationTelemetry(

@@ -1,78 +1,25 @@
-# Production class monitoring (STA-191)
+# Class monitoring integration retired
 
-A separate `class-monitoring` Functions codebase forwards newly created records at
-`users/{ownerId}/operations/events/{eventId}` in production's Singapore database.
-The sender includes `event_id`, `title`, `message`, and `status`. The stable ID is
-a SHA-256 of the production project and full source event path. The message
-contains allowlisted event metadata; no email, full user document or lesson
-content is forwarded. Center names are unknown; the account ID is the mapping key.
+The `forwardClassOperation` webhook integration (STA-191) is retired at the user's
+request. The isolated `functions-monitoring` package, deployment helper and both
+`firebase.monitoring*.json` configurations have been removed. No monitoring tag
+or deployment should be created for this integration.
 
-The 11 supported records cover start/end, command failures, reported playback
-interruptions/recovery, connection failures/recovery, and device connection/end
-signals. Start approval does not prove TV playback, end does not prove normal
-completion, and one device's event does not establish every device's state.
-Only events actually recorded by existing clients can be forwarded. There is no
-heartbeat, backfill, additional class-start condition, or existing-data mutation.
+This removes external forwarding of class-operation events. The app's operation
+event recording, history, class playback and normal Firebase codebases and rules
+are unchanged. Existing event records are not deleted or rewritten.
 
-The function uses its delivered snapshot and has no database client or database
-IAM role. Its dedicated `class-monitoring` service account has Eventarc receiver,
-this function's Cloud Run invoker, and this webhook secret's accessor only.
-`CLASS_MONITORING_WEBHOOK_KEY` lives in production Secret Manager. Development
-and normal Firebase configs exclude this codebase; the deploy preflight rejects
-any nonproduction target. The emulator uses a demo namespace and loopback mock.
+## Cloud status
 
-Delivery uses an 8-second timeout, two maximum instances, concurrency 10 and a
-15-minute retry window measured from CloudEvent time. HTTP 408/429/5xx and network
-failures retry; other 4xx are dropped with status-only logs. Receiver outages never
-change class state. Delivery is at least once; Moring confirmed duplicate-ID
-handling (first request 202, duplicate 200). Events may be lost after the retry
-window; this is not continuous proof of playback or a complete incident detector.
+On 2026-10-29 at 16:11:52 UTC (2026-10-30 KST), authenticated read-only Cloud
+Functions API requests returned `404 NOT_FOUND` for
+`locations/asia-southeast1/functions/forwardClassOperation` in both API v1 and v2,
+for both `cloud-board-stationd` and `timo-production-sunmkim`.
 
-## Notification status
+The function was already absent when checked; this change does not claim to have
+deleted a live function. TIMO did not deploy this integration. No production
+records, secrets, service accounts or IAM bindings were changed for this removal.
+The source removal prevents redeployment from this revision; historical Git
+commits and tags are retained.
 
-`status` classifies the recorded event, not the overall class or webhook HTTP
-response. It is derived from the event type, never copied from an input field.
-
-| status | Event types |
-| --- | --- |
-| success | playback_started, playback_restored, connection_recovered |
-| failure | command_failed, command_receipt_failed, playback_interrupted, connection_failed |
-| info | playback_completed, device_online, device_offline, device_shutdown |
-
-Normal app/tab closure can produce device_offline; completion does not distinguish
-normal completion from a manual stop. These remain informational. Receipt failure
-means missing confirmation, not proven playback failure. The existing completion
-receipt false alarm (STA-192) is a separate client fix and is not suppressed here.
-
-## Isolated server release
-
-This codebase is released independently of app/rules/backend releases. It requires
-a clean fixed main commit, an immutable `monitoring/v<package version>` tag and an
-explicit reason. It deploys only `functions:class-monitoring`; do not use the normal
-app `vX.Y.Z` tag for this isolated server change. Existing app release gates and
-production receipts remain unchanged. This path implements the user's explicit
-request for immediate server-only deployment without releasing unrelated apps.
-
-```sh
-npm ci --prefix functions-monitoring
-npm test --prefix functions-monitoring
-# Java 21 and Node 22; local .secret.local contains only a fake key:
-# CLASS_MONITORING_WEBHOOK_KEY=local-demo-webhook-key
-firebase emulators:exec --project demo-cloudboard-monitoring \
-  --config firebase.monitoring.emulator.json --only functions,database \
-  'node functions-monitoring/test/emulator-smoke.mjs'
-node functions-monitoring/deploy.mjs monitoring/v1.0.1 MAIN_SHA 'STA-191 requested server-only deployment'
-```
-
-After deployment verify ACTIVE, exact event path/instance, dedicated runtime and
-trigger identities, Secret version, and the service-specific invoker binding.
-The receipt is `build/monitoring/release.json`. Local emulator verification covers
-supported creates, unchanged source/device/session data, filtering and no backfill.
-Unit tests cover payload limits, retry classification, timeouts and secret masking.
-No production fixture is written. Actual class-event arrival remains a separate
-observation after a class action occurs; setup messages are explicitly marked.
-
-To stop only this integration:
-`firebase functions:delete forwardClassOperation --region asia-southeast1 --project cloud-board-stationd`.
-This leaves existing functions, rules and records intact. A restart requires the
-same reviewed isolated deployment; it does not replay missed historical records.
+Verification evidence is in [the removal handoff](verification/class-monitoring-removal.md).

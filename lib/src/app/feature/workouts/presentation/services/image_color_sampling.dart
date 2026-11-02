@@ -13,8 +13,9 @@ Offset? imagePixelAt({
 }) {
   if (viewport.isEmpty ||
       image.isEmpty ||
-      !(Offset.zero & viewport).contains(position))
+      !(Offset.zero & viewport).contains(position)) {
     return null;
+  }
   final inverse = Matrix4.tryInvert(transform);
   if (inverse == null) return null;
   final scene = MatrixUtils.transformPoint(inverse, position);
