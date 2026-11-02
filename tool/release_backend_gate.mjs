@@ -7,6 +7,7 @@ import {latestRelease} from './firebase/latest-release.mjs';
 import {hash, writeJson} from './firebase/common.mjs';
 import {readReleaseArtifact} from './firebase/github-artifact.mjs';
 import {requireMobileCompatibility} from './release/mobile_backend_compatibility.mjs';
+import {approvedTestflightBackend} from './release/approved_testflight_backend.mjs';
 
 export async function requireBackend({repository, sha, request, readArtifact, mode = 'release', fingerprint, ignoreRunId,
   functionsOnly = false, candidateFunctionsFingerprint, mobile = false, releaseTag, checkMobileCompatibility = requireMobileCompatibility}) {
@@ -59,7 +60,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const repository = process.env.GITHUB_REPOSITORY;
   assert(repository && process.env.GITHUB_TOKEN, 'Missing GitHub release gate credentials');
   assert(!args.includes('--mobile') || !args.includes('--web'), 'Web deployments retain the exact backend gate');
-  const run = await requireBackend({repository, sha, mode: value('--mode') || (args.includes('--qa') ? 'qa' : 'release'), request: github,
+  const run = process.env.BACKEND_EXCEPTION_RUN ? await approvedTestflightBackend({
+    env: process.env, repository, sha, mobile: args.includes('--mobile'), fingerprint: backendFingerprint(sha),
+    request: github, readMember: (artifact, member) => readReleaseArtifact(artifact, repository, process.env.GITHUB_TOKEN, member),
+  }) : await requireBackend({repository, sha, mode: value('--mode') || (args.includes('--qa') ? 'qa' : 'release'), request: github,
     functionsOnly: args.includes('--rules'),
     mobile: args.includes('--mobile'), releaseTag: process.env.RELEASE_TAG,
     ignoreRunId: args.includes('--web') || args.includes('--rules') ? process.env.GITHUB_RUN_ID : undefined,
@@ -69,7 +73,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     assert(process.env.RUNNER_TEMP, 'Mobile backend audit requires RUNNER_TEMP');
     writeFileSync(`${process.env.RUNNER_TEMP}/mobile-backend-reference.json`, JSON.stringify(run.backendReference, null, 2) + '\n');
   }
-  const message = `Compatible deployed backend: ${run.html_url || run.id}; candidate ${sha}`;
+  const message = run.backendReference.approval
+    ? `USER-APPROVED TESTFLIGHT EXCEPTION: ${run.html_url || run.id}; candidate ${sha}. Post-deploy smoke FAILED, not passed.`
+    : `Compatible deployed backend: ${run.html_url || run.id}; candidate ${sha}`;
   console.log(message);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
 }
