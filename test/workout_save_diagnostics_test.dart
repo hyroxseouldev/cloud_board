@@ -48,6 +48,38 @@ class _Catalog extends FixtureWorkoutController {
 }
 
 void main() {
+  test(
+    'native preparation errors reach remote logs even when Crashlytics fails',
+    () async {
+      final primary = _Sink()..fail = true;
+      final remote = _Sink();
+      final reporter = ErrorReporter(
+        WorkoutDiagnosticSink(primary: primary, alerts: remote),
+      );
+      for (final stage in [
+        'request',
+        'receipts',
+        'request_read',
+        'images',
+        'audio',
+        'response',
+        'heartbeat',
+      ]) {
+        reporter.capture(
+          StateError('preparation'),
+          StackTrace.current,
+          action: 'tv.prepare.$stage',
+          context: {'sessionId': 'prepare-test-1', 'operationId': 'a' * 32},
+        );
+      }
+      await Future<void>.delayed(Duration.zero);
+      expect(remote.events, hasLength(7));
+      expect(
+        remote.events.every((e) => e.context['sessionId'] == 'prepare-test-1'),
+        isTrue,
+      );
+    },
+  );
   for (final duplicate in [false, true]) {
     test(
       '${duplicate ? 'duplicate' : 'save'} reports permission failure without opening error details',
