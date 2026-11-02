@@ -1,7 +1,7 @@
 {
-  "id": "2026-11-03-2-0-6-preparation-diagnostics",
+  "id": "2026-11-03-2-0-7-preparation-diagnostics",
   "date": "2026-11-03",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "title": "수업 준비 문제 확인 개선",
   "summary": "디스플레이 준비가 지연되거나 실패했을 때 원인을 더 정확하게 확인할 수 있도록 개선했어요.",
   "items": [
