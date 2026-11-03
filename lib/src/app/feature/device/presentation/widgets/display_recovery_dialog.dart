@@ -276,6 +276,8 @@ String _errorCode(Object? error) {
 }
 
 String displayRecoveryErrorMessage(String? code) => switch (code) {
+  'failed-precondition' => 'TV 연결 상태가 일치하지 않습니다. 대기 화면에서 연결 복구를 시도해 주세요.',
+  'aborted' => 'TV 상태 저장이 중단되었습니다. 잠시 후 다시 확인해 주세요.',
   'connection_conflict' =>
     '연결 정보가 서로 일치하지 않습니다. 등록을 지우지 말고 작업 ID와 함께 고객지원에 문의해 주세요.',
   'connection_missing' ||

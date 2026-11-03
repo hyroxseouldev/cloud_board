@@ -27,5 +27,6 @@ abstract interface class DisplayPreparationRepository {
     String? code,
     int attempt = 1,
     String? requestId,
+    String? connectionId,
   });
 }

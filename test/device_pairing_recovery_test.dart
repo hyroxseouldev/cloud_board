@@ -81,7 +81,13 @@ void main() {
         policy: DisplayHeartbeatPolicy.legacy,
         connectionId: 'current',
       ),
-      throwsStateError,
+      throwsA(
+        isA<FirebaseException>().having(
+          (e) => e.code,
+          'code',
+          'failed-precondition',
+        ),
+      ),
     );
     await expectLater(
       updateDisplayHeartbeat(
@@ -91,7 +97,13 @@ void main() {
         policy: policy,
         connectionId: 'old',
       ),
-      throwsStateError,
+      throwsA(
+        isA<FirebaseException>().having(
+          (e) => e.code,
+          'code',
+          'failed-precondition',
+        ),
+      ),
     );
     expect(db.device['heartbeatPolicy']['revision'], 5);
     db.device['presence']['current']['online'] = false;
@@ -103,7 +115,13 @@ void main() {
         policy: policy,
         connectionId: 'current',
       ),
-      throwsStateError,
+      throwsA(
+        isA<FirebaseException>().having(
+          (e) => e.code,
+          'code',
+          'failed-precondition',
+        ),
+      ),
     );
     expect(db.device['presence']['current']['online'], false);
     db.device['paired'] = false;
@@ -115,7 +133,13 @@ void main() {
         policy: policy,
         connectionId: 'current',
       ),
-      throwsStateError,
+      throwsA(
+        isA<FirebaseException>().having(
+          (e) => e.code,
+          'code',
+          'failed-precondition',
+        ),
+      ),
     );
     expect(db.device['paired'], false);
     db.write(path, null);
@@ -127,7 +151,13 @@ void main() {
         policy: policy,
         connectionId: 'current',
       ),
-      throwsStateError,
+      throwsA(
+        isA<FirebaseException>().having(
+          (e) => e.code,
+          'code',
+          'failed-precondition',
+        ),
+      ),
     );
     expect(db.read(path), isNull);
     await db.connection.close();
@@ -1190,6 +1220,7 @@ class _PreparationProbe extends Fake implements DisplayPreparationRepository {
     String? code,
     int attempt = 1,
     String? requestId,
+    String? connectionId,
   }) async {}
 }
 

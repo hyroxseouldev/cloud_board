@@ -7,6 +7,7 @@ import 'package:cloud_board/src/app/feature/operations/data/models/store_operati
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/services/installed_app_info.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
+import 'package:cloud_board/src/app/feature/device/data/datasources/display_heartbeat_writes.dart';
 
 import 'dart:async';
 
@@ -797,6 +798,8 @@ Future<Map<String, Object>> displayInstallationInfo() async {
 
 /// Heartbeats never create a deleted registration, restore paired=true, or move
 /// the current connection pointer. Preparation ACKs may separately mark ready.
+final _heartbeatWrites = Expando<Map<String, DisplayHeartbeatWrites>>();
+
 Future<void> updateDisplayHeartbeat(
   FirebaseDatabase database,
   String ownerId,
@@ -804,16 +807,64 @@ Future<void> updateDisplayHeartbeat(
   bool ready = false,
   DisplayHeartbeatPolicy? policy,
   String? connectionId,
+}) {
+  final paths = _heartbeatWrites[database] ??= {};
+  final path = '$ownerId/$deviceId';
+  final writes = paths.putIfAbsent(path, DisplayHeartbeatWrites.new);
+  final intent = (
+    connectionId,
+    ready,
+    policy?.revision,
+    policy?.heartbeatIntervalSeconds,
+    policy?.noResponseTimeoutSeconds,
+  );
+  return writes
+      .run(
+        intent,
+        () => _writeDisplayHeartbeat(
+          database,
+          ownerId,
+          deviceId,
+          ready: ready,
+          policy: policy,
+          connectionId: connectionId,
+        ),
+      )
+      .whenComplete(() {
+        if (writes.isIdle && identical(paths[path], writes)) paths.remove(path);
+      });
+}
+
+Future<void> _writeDisplayHeartbeat(
+  FirebaseDatabase database,
+  String ownerId,
+  String deviceId, {
+  required bool ready,
+  required DisplayHeartbeatPolicy? policy,
+  required String? connectionId,
 }) async {
   final deviceRef = database.ref('users/$ownerId/devices/$deviceId');
+  var rejection = 'heartbeat_transaction_aborted';
+  Transaction reject(String reason) {
+    rejection = reason;
+    return Transaction.abort();
+  }
+
   final result = await deviceRef.runTransaction((current) {
-    if (current == null) return Transaction.success(null);
-    if (current is! Map ||
-        !isRegisteredDisplay(current) ||
-        current['id'] != deviceId ||
-        (connectionId != null &&
-            current['currentConnectionId'] != connectionId)) {
-      return Transaction.abort();
+    rejection = 'heartbeat_transaction_aborted';
+    if (current == null) {
+      rejection = 'heartbeat_device_missing';
+      return Transaction.success(null);
+    }
+    if (current is! Map || current['id'] != deviceId) {
+      return reject('heartbeat_device_mismatch');
+    }
+    if (!isRegisteredDisplay(current)) {
+      return reject('heartbeat_device_unpaired');
+    }
+    if (connectionId != null &&
+        current['currentConnectionId'] != connectionId) {
+      return reject('heartbeat_connection_changed');
     }
     final previousPolicy = current['heartbeatPolicy'];
     if (policy != null &&
@@ -821,7 +872,7 @@ Future<void> updateDisplayHeartbeat(
         previousPolicy['connectionId'] == connectionId &&
         previousPolicy['revision'] is int &&
         (previousPolicy['revision'] as int) > policy.revision) {
-      return Transaction.abort();
+      return reject('heartbeat_policy_superseded');
     }
     final update = <Object?, Object?>{
       ...current,
@@ -832,11 +883,11 @@ Future<void> updateDisplayHeartbeat(
     if (current['presenceProtocol'] == 1 || current['presenceProtocol'] == 2) {
       final id = current['currentConnectionId'];
       final raw = current['presence'];
-      if (id is! String ||
-          raw is! Map ||
-          raw[id] is! Map ||
-          (raw[id] as Map)['online'] != true) {
-        return Transaction.abort();
+      if (id is! String || raw is! Map || raw[id] is! Map) {
+        return reject('heartbeat_presence_missing');
+      }
+      if ((raw[id] as Map)['online'] != true) {
+        return reject('heartbeat_presence_offline');
       }
       final presence = Map<Object?, Object?>.from(raw);
       presence[id] = {
@@ -849,7 +900,11 @@ Future<void> updateDisplayHeartbeat(
     return Transaction.success(update);
   }, applyLocally: false);
   if (!result.committed || !result.snapshot.exists) {
-    throw StateError('디스플레이 연결을 다시 확인해 주세요.');
+    throw FirebaseException(
+      plugin: 'cloudboard_heartbeat',
+      code: 'failed-precondition',
+      message: rejection,
+    );
   }
 }
 

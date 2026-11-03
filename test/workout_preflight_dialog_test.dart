@@ -644,6 +644,7 @@ class _PreparationRepository implements DisplayPreparationRepository {
     String? code,
     int attempt = 1,
     String? requestId,
+    String? connectionId,
   }) async {}
 }
 

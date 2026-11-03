@@ -260,6 +260,27 @@ class DisplayModeScreen extends HookConsumerWidget {
           (session == null || session.status == PlaybackStatus.completed),
       connected: connected,
       foreground: foreground,
+      recoverHeartbeat: () async {
+        // Re-read before restarting transport: a class may have started since
+        // the heartbeat cycle began. Playing AND paused sessions are preserved.
+        final latest = ref.read(activePlaybackSessionProvider);
+        final retained = ref.read(displayPlaybackSessionProvider);
+        final owner = ref.read(accountOwnerIdProvider);
+        if (!context.mounted ||
+            latest.isLoading ||
+            latest.hasError ||
+            owner.isLoading ||
+            owner.hasError ||
+            owner.value != ownerScope.value ||
+            (latest.value != null &&
+                latest.value!.status != PlaybackStatus.completed) ||
+            (retained != null && retained.status != PlaybackStatus.completed)) {
+          return false;
+        }
+        return ref
+            .read(playbackRecoveryControllerProvider.notifier)
+            .recoverConfirmed(restartTransport: true);
+      },
     );
     final showCompletion =
         session != null &&

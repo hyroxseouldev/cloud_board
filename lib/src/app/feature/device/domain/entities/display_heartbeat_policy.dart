@@ -75,6 +75,7 @@ class DisplayHeartbeatSelection {
   DisplayHeartbeatPolicy applied;
   DisplayHeartbeatPolicy? pending, _sending, _locked;
   bool _standby = true;
+  bool get isStandby => _standby;
 
   void setStandby(bool value) {
     if (_standby && !value) _locked = _sending ?? applied;
