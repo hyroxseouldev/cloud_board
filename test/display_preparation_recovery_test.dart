@@ -58,6 +58,7 @@ class _Repository implements DisplayPreparationRepository {
   final responses = <String>[];
   final heartbeats = <DisplayHeartbeatPolicy?>[];
   Completer<void>? heartbeatGate;
+  Object? heartbeatError;
   @override
   Stream<DisplayPreparation?> watchRequest(String deviceId) {
     subscriptions++;
@@ -101,6 +102,7 @@ class _Repository implements DisplayPreparationRepository {
   }) async {
     heartbeats.add(policy);
     await heartbeatGate?.future;
+    if (heartbeatError != null) throw heartbeatError!;
   }
 
   @override
@@ -110,6 +112,7 @@ class _Repository implements DisplayPreparationRepository {
     String? code,
     int attempt = 1,
     String? requestId,
+    String? connectionId,
   }) async {}
   @override
   Future<void> cancel(String sessionId) async {}
@@ -127,8 +130,10 @@ class _Harness extends HookConsumerWidget {
     this.foreground = true,
     this.standby = true,
     this.withPolicy = false,
+    this.recoverHeartbeat,
   });
   final bool connected, paired, foreground, standby, withPolicy;
+  final Future<bool> Function()? recoverHeartbeat;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useDisplayPreparation(
@@ -142,6 +147,7 @@ class _Harness extends HookConsumerWidget {
       standby: standby,
       connected: connected,
       foreground: foreground,
+      recoverHeartbeat: recoverHeartbeat,
     );
     return const SizedBox();
   }
@@ -149,7 +155,7 @@ class _Harness extends HookConsumerWidget {
 
 class _Fixture {
   final repository = _Repository();
-  int policyFetches = 0;
+  int policyFetches = 0, recoveries = 0;
   Map<String, dynamic>? policy = {
     ...DisplayHeartbeatPolicy.target.toJson(),
     'revision': 1,
@@ -195,6 +201,10 @@ class _Fixture {
             foreground: foreground,
             standby: standby,
             withPolicy: withPolicy,
+            recoverHeartbeat: () async {
+              recoveries++;
+              return true;
+            },
           ),
         ),
       ),
@@ -210,6 +220,63 @@ class _Fixture {
 }
 
 void main() {
+  testWidgets('repeated heartbeat failure requests bounded standby recovery', (
+    tester,
+  ) async {
+    final f = _Fixture();
+    f.repository.candidate = null;
+    f.repository.heartbeatError = FirebaseException(
+      plugin: 'firebase_database',
+      code: 'max-retries',
+    );
+    await f.mount(tester, withPolicy: true);
+    Future<void> exhaust() async {
+      for (final seconds in [1, 2, 4]) {
+        await tester.pump(Duration(seconds: seconds));
+        await _settlePreparation(tester);
+      }
+    }
+
+    await exhaust();
+    expect(f.recoveries, 0);
+    await tester.pump(const Duration(seconds: 13));
+    await _settlePreparation(tester);
+    await exhaust();
+    expect(f.recoveries, 1);
+    expect(
+      f.diagnostics.events.every(
+        (event) => event.code == 'firebase_database/max-retries',
+      ),
+      isTrue,
+    );
+    expect(f.repository.heartbeats, hasLength(8));
+    // The fake rethrows the same object, which ErrorReporter deduplicates.
+    expect(f.diagnostics.events.last.context['retryCount'], 1);
+    await f.close(tester);
+  });
+
+  for (final permission in [false, true]) {
+    testWidgets(
+      'heartbeat recovery is suppressed for ${permission ? "permission denial" : "an active class"}',
+      (tester) async {
+        final f = _Fixture();
+        f.repository.candidate = null;
+        f.repository.heartbeatError = FirebaseException(
+          plugin: 'firebase_database',
+          code: permission ? 'permission-denied' : 'max-retries',
+        );
+        await f.mount(tester, withPolicy: true, standby: permission);
+        for (var i = 0; i < 60; i++) {
+          await tester.pump(const Duration(seconds: 1));
+          await _settlePreparation(tester);
+        }
+        expect(f.recoveries, 0);
+        if (permission) expect(f.repository.heartbeats, hasLength(1));
+        await f.close(tester);
+      },
+    );
+  }
+
   testWidgets(
     'heartbeat changes to 60 seconds after server acceptance with one timer and one standby fetch',
     (tester) async {

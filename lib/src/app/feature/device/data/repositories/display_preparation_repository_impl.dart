@@ -58,12 +58,14 @@ class DisplayPreparationRepositoryImpl implements DisplayPreparationRepository {
     String? code,
     int attempt = 1,
     String? requestId,
+    String? connectionId,
   }) => source.reportHealth(
     deviceId,
     stage: stage,
     code: code,
     attempt: attempt,
     requestId: requestId,
+    connectionId: connectionId,
   );
 }
 

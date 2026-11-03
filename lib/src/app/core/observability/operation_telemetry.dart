@@ -73,7 +73,15 @@ String operationFailureCode(Object? error) {
       : error is String
       ? error
       : null;
-  return _codes.contains(code) ? code! : 'unexpected';
+  // Preserve the original SDK code in ErrorReporter. Use existing wire codes
+  // here so older collectors and RTDB rules also accept the classification.
+  return switch (code) {
+    'overridden-by-set' || 'max-retries' || 'data-stale' => 'aborted',
+    'disconnected' || 'network-error' => 'unavailable',
+    'expired-token' || 'invalid-token' => 'unauthenticated',
+    'write-cancelled' => 'cancelled',
+    _ => _codes.contains(code) ? code! : 'unexpected',
+  };
 }
 
 /// A rolled-back/pre-2.0.6 collector still receives the original telemetry.

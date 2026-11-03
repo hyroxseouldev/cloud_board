@@ -2,6 +2,7 @@ import 'package:cloud_board/src/app/feature/device/domain/usecases/complete_disp
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_image_retention.dart';
 import 'package:cloud_board/src/app/core/runtime_policy/display_heartbeat_policy_service.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
+import 'package:cloud_board/src/app/feature/device/domain/usecases/heartbeat_recovery_budget.dart';
 
 import 'dart:async';
 
@@ -34,6 +35,7 @@ void useDisplayPreparation(
   String? ownerId,
   String? connectionId,
   DisplayHeartbeatPolicy initialHeartbeatPolicy = DisplayHeartbeatPolicy.target,
+  Future<bool> Function()? recoverHeartbeat,
 }) {
   final enabled = paired && deviceId != null && foreground && connected;
   final offset = enabled ? ref.watch(serverTimeOffsetProvider).value ?? 0 : 0;
@@ -56,6 +58,10 @@ void useDisplayPreparation(
     [ownerId, deviceId, connectionId],
   );
   heartbeatSelection.setStandby(standby);
+  final heartbeatRecovery = useMemoized(HeartbeatRecoveryBudget.new, [
+    ownerId,
+    deviceId,
+  ]);
 
   useEffect(() {
     if (!enabled || !standby || ownerId == null || connectionId == null) {
@@ -83,77 +89,121 @@ void useDisplayPreparation(
             code: code,
             attempt: attempt,
             requestId: requestId,
+            connectionId: connectionId,
           )
           .catchError((Object _) {}),
     );
   }
 
-  useEffect(() {
-    if (!enabled) return null;
-    var cancelled = false;
-    var busy = false;
-    var permissionStopped = false;
-    Timer? timer;
-    var interval = heartbeatSelection.applied.interval;
-    Future<void> beat() async {
-      if (busy || cancelled || permissionStopped) return;
-      busy = true;
-      final selectedPolicy = heartbeatSelection.begin();
-      try {
-        final result = await retryDisplayPreparation<bool>(
-          operation: () async {
-            try {
-              await repository!
-                  .heartbeat(
-                    deviceId,
-                    policy: connectionId == null ? null : selectedPolicy,
-                    connectionId: connectionId,
-                  )
-                  .timeout(const Duration(seconds: 8));
-              return true;
-            } catch (error, stack) {
-              if (!cancelled && context.mounted) {
-                reporter.capture(
-                  error,
-                  stack,
-                  action: 'tv.prepare.heartbeat',
-                  context: {'preparationStage': 'heartbeat'},
-                );
+  useEffect(
+    () {
+      if (!enabled) return null;
+      var cancelled = false;
+      var busy = false;
+      var permissionStopped = false;
+      Timer? timer;
+      var interval = heartbeatSelection.applied.interval;
+      Future<void> beat() async {
+        if (busy || cancelled || permissionStopped) return;
+        busy = true;
+        final selectedPolicy = heartbeatSelection.begin();
+        var attemptNumber = 0;
+        final elapsed = Stopwatch()..start();
+        try {
+          final result = await retryDisplayPreparation<bool>(
+            operation: () async {
+              attemptNumber++;
+              try {
+                await repository!
+                    .heartbeat(
+                      deviceId,
+                      policy: connectionId == null ? null : selectedPolicy,
+                      connectionId: connectionId,
+                    )
+                    .timeout(const Duration(seconds: 8));
+                return true;
+              } catch (error, stack) {
+                if (!cancelled && context.mounted) {
+                  reporter.capture(
+                    error,
+                    stack,
+                    action: 'tv.prepare.heartbeat',
+                    context: {
+                      'preparationStage': 'heartbeat',
+                      'status': 'periodic_heartbeat',
+                      'connected': connected,
+                      'retryCount': attemptNumber,
+                      'elapsedMs': elapsed.elapsedMilliseconds,
+                    },
+                  );
+                }
+                rethrow;
               }
-              rethrow;
+            },
+            cancelled: () => cancelled || !context.mounted,
+            onFailure: (code, attempt) {
+              permissionStopped =
+                  code == 'permission-denied' || code == 'unauthenticated';
+              health('heartbeat', code, attempt);
+            },
+          );
+          if (result == true && !cancelled && context.mounted) {
+            heartbeatSelection.accepted(selectedPolicy);
+            heartbeatRecovery.succeeded();
+            health('heartbeat', null, 1);
+            if (interval != selectedPolicy.interval) {
+              // Advertise the complete policy successfully before slowing down.
+              interval = selectedPolicy.interval;
+              timer?.cancel();
+              timer = Timer.periodic(interval, (_) => unawaited(beat()));
             }
-          },
-          cancelled: () => cancelled || !context.mounted,
-          onFailure: (code, attempt) {
-            permissionStopped =
-                code == 'permission-denied' || code == 'unauthenticated';
-            health('heartbeat', code, attempt);
-          },
-        );
-        if (result == true && !cancelled && context.mounted) {
-          heartbeatSelection.accepted(selectedPolicy);
-          health('heartbeat', null, 1);
-          if (interval != selectedPolicy.interval) {
-            // Advertise the complete policy successfully before slowing down.
-            interval = selectedPolicy.interval;
-            timer?.cancel();
-            timer = Timer.periodic(interval, (_) => unawaited(beat()));
+          } else if (!cancelled) {
+            heartbeatSelection.failed();
+            if (recoverHeartbeat != null &&
+                context.mounted &&
+                heartbeatRecovery.failed(
+                  standby: heartbeatSelection.isStandby,
+                  permissionStopped: permissionStopped,
+                )) {
+              reporter.breadcrumb('tv.heartbeat.recover');
+              try {
+                await recoverHeartbeat();
+              } catch (error, stack) {
+                if (!cancelled && context.mounted) {
+                  reporter.capture(
+                    error,
+                    stack,
+                    action: 'tv.prepare.heartbeat',
+                    context: {
+                      'preparationStage': 'heartbeat',
+                      'status': 'heartbeat_recovery_failed',
+                    },
+                  );
+                }
+              }
+            }
           }
-        } else if (!cancelled) {
-          heartbeatSelection.failed();
+        } finally {
+          busy = false;
         }
-      } finally {
-        busy = false;
       }
-    }
 
-    unawaited(beat());
-    timer = Timer.periodic(interval, (_) => unawaited(beat()));
-    return () {
-      cancelled = true;
-      timer?.cancel();
-    };
-  }, [enabled, deviceId, repository, connectionId, heartbeatSelection]);
+      unawaited(beat());
+      timer = Timer.periodic(interval, (_) => unawaited(beat()));
+      return () {
+        cancelled = true;
+        timer?.cancel();
+      };
+    },
+    [
+      enabled,
+      deviceId,
+      repository,
+      connectionId,
+      heartbeatSelection,
+      heartbeatRecovery,
+    ],
+  );
 
   useEffect(
     () {

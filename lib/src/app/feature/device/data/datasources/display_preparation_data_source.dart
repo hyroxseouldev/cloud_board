@@ -80,30 +80,39 @@ class DisplayPreparationDataSource {
     String? code,
     int attempt = 1,
     String? requestId,
+    String? connectionId,
   }) async {
-    final target = database.ref(
-      'users/$ownerId/devices/$deviceId/preparationHealth',
-    );
-    if (stage != null && code == null) {
-      // A successful heartbeat must not erase a media/response failure.
-      await target.runTransaction(
-        (value) => value is Map && value['stage'] == stage
-            ? Transaction.success(null)
-            : Transaction.abort(),
-        applyLocally: false,
-      );
-      return;
-    }
-    await target.set(
-      stage == null
-          ? null
-          : {
-              'stage': stage,
-              'code': code ?? 'unexpected',
-              'attempt': attempt.clamp(1, 10),
-              'checkedAtMs': ServerValue.timestamp,
-              'requestId': ?requestId,
-            },
-    );
+    final target = database.ref('users/$ownerId/devices/$deviceId');
+    // A child set can abort the heartbeat's ancestor transaction. Transact on
+    // the same device instead, and fence late health from an old connection.
+    await target.runTransaction((current) {
+      // The SDK may first call us with an empty cache. Let it fetch/retry;
+      // aborting here would silently leave an existing server error uncleared.
+      if (current == null) return Transaction.success(null);
+      if (current is! Map ||
+          !isRegisteredDisplay(current) ||
+          current['id'] != deviceId ||
+          (connectionId != null &&
+              current['currentConnectionId'] != connectionId)) {
+        return Transaction.abort();
+      }
+      final value = Map<Object?, Object?>.from(current);
+      if (stage == null || code == null) {
+        final health = current['preparationHealth'];
+        if (stage != null && (health is! Map || health['stage'] != stage)) {
+          return Transaction.abort();
+        }
+        value.remove('preparationHealth');
+      } else {
+        value['preparationHealth'] = {
+          'stage': stage,
+          'code': code,
+          'attempt': attempt.clamp(1, 10),
+          'checkedAtMs': ServerValue.timestamp,
+          'requestId': ?requestId,
+        };
+      }
+      return Transaction.success(value);
+    }, applyLocally: false);
   }
 }
