@@ -87,8 +87,13 @@ export async function runSmoke({app, config, runId, emulator = false, inputs}) {
     };
     assert.equal((await readRealtime(tvApp, `users/${owner}/activeSession`)).id, id);
     assert.equal((await readRealtime(tvApp, `users/${owner}/playbackSnapshots/${id}`)).id, id);
-    await update(ref(getDatabase(tvApp), `users/${owner}/devices/${id}`), {ackRevision: state.revision, sessionId: id});
-    assert.equal((await readRealtime(ownerApp, `users/${owner}/devices/${id}`)).ackRevision, state.revision);
+    const deviceRef = ref(getDatabase(tvApp), `users/${owner}/devices/${id}`);
+    // Obsolete field names must remain denied; exercise the actual app receipt.
+    await deny(update(deviceRef, {ackRevision: state.revision, sessionId: id}));
+    await update(deviceRef, {acknowledgedRevision: state.revision, currentSessionId: id});
+    const device = await readRealtime(ownerApp, `users/${owner}/devices/${id}`);
+    assert.equal(device.acknowledgedRevision, state.revision);
+    assert.equal(device.currentSessionId, id);
     result.checks.push('tv');
     result.phase = 'isolation';
     await deny(getDocFromServer(doc(getFirestore(otherApp), `users/${owner}/workouts/${id}`)));
@@ -102,6 +107,7 @@ export async function runSmoke({app, config, runId, emulator = false, inputs}) {
     await deny(readRealtime(tvApp, `users/${owner}/playbackSnapshots/${id}`));
     result.checks.push('isolation'); result.status = 'success';
   } catch (error) {
+    if (emulator) console.error(error);
     result.status = 'failure'; result.error = error.name === 'AssertionError' ? 'Contract assertion failed' : String(error.code || 'operation-failed');
   } finally {
     try { await cleanupCanary(app, runId); result.cleanup = 'success'; }
