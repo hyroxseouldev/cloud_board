@@ -284,6 +284,7 @@ class _Repository extends Fake implements DisplayPreparationRepository {
     String? code,
     int attempt = 1,
     String? requestId,
+    String? connectionId,
   }) async {
     health.add((stage, code, attempt));
   }
