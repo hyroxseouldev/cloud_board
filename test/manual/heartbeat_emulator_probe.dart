@@ -36,7 +36,7 @@ void main() {
         messagingSenderId: '1234567890',
         projectId: project,
         authDomain: 'localhost',
-        databaseURL: 'https://$project.firebaseio.com',
+        databaseURL: 'https://$project-default-rtdb.firebaseio.com',
       ),
     );
     final auth = FirebaseAuth.instanceFor(app: app);
@@ -46,7 +46,7 @@ void main() {
     final user = (await auth.signInAnonymously()).user!;
     Future<void> seed(String path, Object? value) async {
       final response = await http.put(
-        Uri.parse('http://127.0.0.1:19600/$path.json?ns=$project'),
+        Uri.parse('http://127.0.0.1:19600/$path.json?ns=$project-default-rtdb'),
         headers: {
           'Authorization': 'Bearer owner',
           'Content-Type': 'application/json',

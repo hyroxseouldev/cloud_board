@@ -6,7 +6,8 @@ import {runSmoke} from '../tools/release-smoke.mjs';
 import {cleanupCanary, prepareCanary, canaryUsers} from '../tools/release-canary.mjs';
 import {requireDemo, writeJson} from '../../tool/firebase/common.mjs';
 const projectId = requireDemo(process.env.GCLOUD_PROJECT);
-const config = {projectId, databaseURL: `https://${projectId}.firebaseio.com`, storageBucket: `${projectId}.firebasestorage.app`, apiKey: 'demo-key'};
+// Firebase CLI installs database.rules.json into the default RTDB namespace.
+const config = {projectId, databaseURL: `https://${projectId}-default-rtdb.firebaseio.com`, storageBucket: `${projectId}.firebasestorage.app`, apiKey: 'demo-key'};
 const app = initializeApp(config);
 try {
   for (const runId of ['123-1', '123-2']) {
