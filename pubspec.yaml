@@ -16,10 +16,11 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.1.0+8
+version: 2.1.1+8
 
 environment:
-  sdk: ^3.13.0
+  sdk: ^3.13.7
+  flutter: '>=3.47.8'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -46,18 +47,19 @@ dependencies:
   envied: ^1.3.8
   freezed_annotation: ^3.1.0
   json_annotation: ^4.12.0
-  firebase_core: ^4.14.0
-  firebase_auth: ^6.6.1
-  cloud_firestore: ^6.9.0
-  firebase_storage: ^13.5.0
+  # Security backports share Firebase Apple SDK 12.19.3; keep these aligned.
+  firebase_core: ^4.15.2
+  firebase_auth: ^6.7.1
+  cloud_firestore: ^6.10.2
+  firebase_storage: ^13.6.1
   google_sign_in: ^7.2.0
-  firebase_database: ^12.5.0
-  firebase_crashlytics: ^5.3.0
+  firebase_database: ^12.6.1
+  firebase_crashlytics: ^5.4.1
   audioplayers: ^6.8.1
   audio_service: ^0.18.19
   wakelock_plus: ^1.8.0
   url_launcher: ^6.3.2
-  cloud_functions: ^6.4.0
+  cloud_functions: ^6.5.1
   mobile_scanner: ^7.4.2
   qr_flutter: ^4.1.0
   app_settings: ^9.0.0
@@ -69,8 +71,8 @@ dependencies:
   in_app_purchase: ^3.3.1
   in_app_purchase_android: ^0.5.3
   in_app_purchase_storekit: ^0.4.13
-  # Keep SwiftPM on Firebase iOS SDK 12.18.0 with the other FlutterFire plugins.
-  firebase_remote_config: 6.6.0
+  # Remote Config must use the same patched Apple SDK as the other plugins.
+  firebase_remote_config: 6.7.1
 
 dev_dependencies:
   cloud_functions_platform_interface: 6.0.7
