@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/widgets/operations_report_tab.dart';
@@ -110,6 +112,14 @@ class _BrandSettingsTab extends HookConsumerWidget {
     final message = useTextEditingController();
     final initialized = useRef(false);
     final draft = useState<BrandTemplate?>(null);
+    final actor = ref.watch(authStateProvider).value?.id;
+    final pendingLogo = useState<({Uint8List bytes, String extension})?>(null);
+    useEffect(() {
+      initialized.value = false;
+      draft.value = null;
+      pendingLogo.value = null;
+      return null;
+    }, [actor]);
 
     useEffect(() {
       final value = settings.value;
@@ -131,9 +141,17 @@ class _BrandSettingsTab extends HookConsumerWidget {
       );
     }
 
-    Future<void> uploadLogo() async {
-      final picked = await pickImage();
-      if (picked == null || draft.value == null) return;
+    Future<void> uploadLogo({bool chooseNew = false}) async {
+      final picked = !chooseNew && pendingLogo.value != null
+          ? pendingLogo.value
+          : await pickImage();
+      if (!context.mounted ||
+          ref.read(authStateProvider).value?.id != actor ||
+          picked == null ||
+          draft.value == null) {
+        return;
+      }
+      pendingLogo.value = picked;
       final url = await ref
           .read(storeOperationsActionControllerProvider.notifier)
           .uploadBrandImage(
@@ -141,7 +159,13 @@ class _BrandSettingsTab extends HookConsumerWidget {
             extension: picked.extension,
             purpose: 'logo',
           );
-      if (url != null) draft.value = draft.value!.copyWith(logoUrl: url);
+      if (!context.mounted || ref.read(authStateProvider).value?.id != actor) {
+        return;
+      }
+      if (url != null) {
+        draft.value = draft.value!.copyWith(logoUrl: url);
+        pendingLogo.value = null;
+      }
     }
 
     return AsyncValueWidget<BrandTemplate>(
@@ -256,12 +280,25 @@ class _BrandSettingsTab extends HookConsumerWidget {
                           ? '등록된 로고가 없습니다.'
                           : '대기 화면에 표시됩니다.',
                       imageUrl: value.logoUrl,
-                      actionLabel: '로고 선택',
+                      actionLabel: pendingLogo.value == null
+                          ? '로고 선택'
+                          : '선택한 로고 다시 업로드',
                       onPressed: action.isLoading ? null : uploadLogo,
                       onRemove: value.logoUrl == null
                           ? null
                           : () => draft.value = value.copyWith(logoUrl: null),
                     ),
+                    if (pendingLogo.value != null) ...[
+                      const Text('선택한 로고 파일은 유지됩니다.'),
+                      TextButton(
+                        onPressed: action.isLoading
+                            ? null
+                            : () async {
+                                await uploadLogo(chooseNew: true);
+                              },
+                        child: const Text('다른 로고 선택'),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -783,7 +820,12 @@ class _ImageSettingTile extends StatelessWidget {
     contentPadding: EdgeInsets.zero,
     leading: imageUrl == null
         ? const CircleAvatar(child: Icon(Icons.image_outlined))
-        : CircleAvatar(backgroundImage: NetworkImage(imageUrl!)),
+        : CircleAvatar(
+            backgroundImage: workoutImageProvider(imageUrl!, (
+              width: null,
+              height: null,
+            )),
+          ),
     title: Text(title),
     subtitle: Text(subtitle),
     trailing: Wrap(

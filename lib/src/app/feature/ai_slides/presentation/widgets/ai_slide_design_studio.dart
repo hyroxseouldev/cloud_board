@@ -674,7 +674,7 @@ class AiSlideDesignStudio extends HookConsumerWidget {
                   ),
                   data: (value) => Text(
                     !value.canRequest
-                        ? 'AI 슬라이드 도우미 · Plus 월 10회 / Premium 월 30회'
+                        ? 'AI 슬라이드 도우미 · Premium 월 30회'
                         : !value.enabled
                         ? value.availabilityReason == 'feature-disabled'
                               ? 'AI 슬라이드 도우미를 잠시 점검하고 있어요.'

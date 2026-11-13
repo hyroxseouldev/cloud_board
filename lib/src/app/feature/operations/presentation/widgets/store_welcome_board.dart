@@ -2,7 +2,7 @@ import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preferences.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:flutter/material.dart';
 
 import 'dart:math' as math;
@@ -333,10 +333,10 @@ class StoreWelcomeBoard extends StatelessWidget {
                                   SizedBox(
                                     height: 90,
                                     width: 240,
-                                    child: CachedNetworkImage(
-                                      imageUrl: brand.logoUrl!,
+                                    child: Image(
+                                      image: workoutImageProvider(brand.logoUrl!, (width: null, height: null)),
                                       fit: BoxFit.contain,
-                                      errorWidget: (_, _, _) =>
+                                      errorBuilder: (_, _, _) =>
                                           const SizedBox.shrink(),
                                     ),
                                   ),

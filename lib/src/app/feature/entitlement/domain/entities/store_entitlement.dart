@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/entitlement/domain/legacy_plan_adapter.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_resource_limit.dart';
 part 'store_entitlement.freezed.dart';
@@ -37,7 +38,7 @@ abstract class StoreEntitlement with _$StoreEntitlement {
         'canceling',
         'past_due',
       }.contains(status) &&
-      const {'free', 'plus', 'premium'}.contains(plan) &&
+      (const {'free', 'premium'}.contains(plan) || isHistoricalPaidPlan(plan)) &&
       (workoutsUnlimited ? maxWorkouts == null : (maxWorkouts ?? -1) >= 0) &&
       (savedSlidesUnlimited
           ? maxSavedSlides == null
@@ -64,11 +65,10 @@ abstract class StoreEntitlement with _$StoreEntitlement {
         }.contains(status) ||
         !const {
           'free',
-          'plus',
           'premium',
           'legacy',
           'cloudboard_pro',
-        }.contains(plan)) {
+        }.contains(plan) && !isHistoricalPaidPlan(plan)) {
       return const PlanResourceLimit.unknown();
     }
     final (limit, unlimited) = switch (resource) {
@@ -79,7 +79,7 @@ abstract class StoreEntitlement with _$StoreEntitlement {
     if (resource != 'workouts' && resource != 'savedSlides') {
       return const PlanResourceLimit.unknown();
     }
-    if (const {'free', 'plus', 'premium'}.contains(plan)) {
+    if (const {'free', 'premium'}.contains(plan)) {
       // Named plans are normalized by the server to this versioned contract.
       // A Free v2 grant claiming unlimited storage is contradictory. We still
       // require the explicit fields below; never fill missing values from plan.

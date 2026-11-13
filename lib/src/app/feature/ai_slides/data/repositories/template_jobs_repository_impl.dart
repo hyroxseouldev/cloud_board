@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/image_usage/presentation/managed_image_provider.dart';
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -59,8 +62,10 @@ class TemplateJobsRepositoryImpl implements TemplateJobsRepository {
     required this.preferences,
     required String scopeKey,
     required this.isCurrent,
+    this.managedImageBytes = authenticatedManagedImageBytes,
   }) : outboxKey =
            'template-job-outbox-v1-${sha256.convert(utf8.encode(scopeKey))}';
+  final Future<Uint8List> Function(String) managedImageBytes;
   final TemplateJobsDataSource source;
   final Future<SharedPreferences> Function() preferences;
   final bool Function() isCurrent;
@@ -234,10 +239,17 @@ class TemplateJobsRepositoryImpl implements TemplateJobsRepository {
       return asset(job);
     }
     final request = () async {
-      final bytes = readTemplateJobPng(
-        await _call('asset', {'requestId': job.requestId}),
-        job,
-      );
+      final response = await _call('asset', {'requestId': job.requestId});
+      final managed = response['asset'];
+      final bytes = managed is Map
+          ? await managedImageBytes(
+              ManagedImageAsset.fromJson(usageMap(managed)).source,
+            )
+          : readTemplateJobPng(response, job);
+      // Reuse the existing PNG/hash/dimension checks for gateway bodies too.
+      if (managed is Map) {
+        readTemplateJobPng({...response, 'base64': base64Encode(bytes)}, job);
+      }
       _guard();
       _assetKey = key;
       _asset = bytes;

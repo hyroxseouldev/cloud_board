@@ -1,3 +1,4 @@
+import {parseManagedSource, readManagedAsset, managedMetadata} from './managed-image-assets.js';
 import {HttpsError} from 'firebase-functions/v2/https';
 
 export const workoutImageLimitBytes = 100000000;
@@ -31,15 +32,15 @@ export function ownedWorkoutImage(source, uid, bucketName, emulatorHost) {
 /// One checker per callable invocation; transaction retries share metadata reads.
 export function workoutImageBudgetChecker(bucket, uid, {
   emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST,
-  metadataTimeoutMs = 8000, totalTimeoutMs = 20000,
+  metadataTimeoutMs = 8000, totalTimeoutMs = 20000, managedContext = null,
 } = {}) {
   const sizes = new Map();
   const deadline = Date.now() + totalTimeoutMs;
-  async function metadataSize(path) {
+  async function metadataSize(path, managed) {
     let timer;
     try {
       return await Promise.race([
-        bucket.file(path).getMetadata().then(([metadata]) => {
+        (managed ? managedMetadata({...managedContext,bucket},managed).then(({metadata})=>[metadata]) : bucket.file(path).getMetadata()).then(([metadata]) => {
           const size = Number(metadata.size);
           if (!Number.isSafeInteger(size) || size < 0 || !metadata.contentType?.startsWith('image/')) {
             throw new Error('Invalid image metadata');
@@ -53,11 +54,16 @@ export function workoutImageBudgetChecker(bucket, uid, {
   }
   return async (workout, previous) => {
     const oldSources = new Set(workoutImageSources(previous));
-    const paths = new Set();
+    const paths = new Map();
     let unknownCount = 0;
     for (const source of workoutImageSources(workout)) {
+      const parsed = managedContext && parseManagedSource(source,managedContext);
+      if (parsed) {
+        const asset = await readManagedAsset({...managedContext,bucket},uid,parsed.assetId,parsed.generation);
+        paths.set(`${asset.path}@${asset.generation}`,{path:asset.path,managed:asset});continue;
+      }
       const path = ownedWorkoutImage(source, uid, bucket.name, emulatorHost);
-      if (path) { paths.add(path); continue; }
+      if (path) { paths.set(path,{path,managed:null}); continue; }
       // Do not break editing of historical external assets. They remain unknown,
       // never zero; new/copy/restored external URLs must be replaced by an upload.
       if (oldSources.has(source)) { unknownCount++; continue; }
@@ -65,14 +71,14 @@ export function workoutImageBudgetChecker(bucket, uid, {
         '이미지 용량을 확인할 수 없습니다. 이미지를 다시 선택한 뒤 저장해 주세요.',
         {reason: 'workout-image-unverifiable'});
     }
-    const entries = [...paths];
+    const entries = [...paths.entries()];
     let next = 0, totalBytes = 0;
     async function worker() {
       while (next < entries.length) {
-        const path = entries[next++];
+        const [key,{path,managed}] = entries[next++];
         if (Date.now() >= deadline) throw new Error('Metadata deadline');
-        if (!sizes.has(path)) sizes.set(path, metadataSize(path));
-        const bytes = await sizes.get(path);
+        if (!sizes.has(key)) sizes.set(key, metadataSize(path,managed));
+        const bytes = await sizes.get(key);
         totalBytes += bytes;
       }
     }

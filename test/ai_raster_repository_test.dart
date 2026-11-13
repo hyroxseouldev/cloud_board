@@ -25,6 +25,7 @@ class Source extends AiRasterDataSource {
   final AiRasterBrand brand;
   final AiRasterJob job;
   bool revoked = false;
+  bool managed = false;
   int assets = 0, confirms = 0;
   @override
   bool Function() get isCurrent =>
@@ -41,6 +42,19 @@ class Source extends AiRasterDataSource {
     }
     if (action == 'asset') {
       assets++;
+      if (managed) {
+        return {
+          'asset': {
+            'assetId': 'managed-art',
+            'source': 'https://asia-northeast3-demo-test.cloudfunctions.net/cloudboardMedia?assetId=managed-art&v=123',
+            'generation': '123',
+            'sizeBytes': bytes.length,
+            'contentType': 'image/png',
+            'sha256': sha256.convert(bytes).toString(),
+          },
+          'brandKey': brand.key,
+        };
+      }
       return {'base64': base64Encode(bytes), 'brandKey': brand.key};
     }
     throw StateError(action);
@@ -122,5 +136,28 @@ void main() {
       throwsA(isA<AiSlidesFailure>()),
     );
     expect(source.assets, 2);
+  });
+  test('managed raster descriptor fetches authenticated bytes before private decode, without base64 response', () async {
+    final bytes = png();
+    final descriptor = AiRasterAsset(
+      sha256: sha256.convert(bytes).toString(),
+      width: 16,
+      height: 9,
+    );
+    final brand = rasterTestBrand.copyWith(logo: descriptor);
+    final source = Source((value: true), bytes, brand, rasterTestJob('one'))
+      ..managed = true;
+    var calls = 0;
+    final repository = AiRasterRepositoryImpl(
+      source,
+      managedImageBytes: (source) async {
+        calls++;
+        expect(source, contains('/cloudboardMedia?assetId=managed-art'));
+        return bytes;
+      },
+    );
+    addTearDown(repository.dispose);
+    expect(await repository.asset(brand, null, 'logo'), bytes);
+    expect(calls, 1);
   });
 }

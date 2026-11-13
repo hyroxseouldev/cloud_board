@@ -1,3 +1,4 @@
+import {fixture as usageFixture} from './media-gateway-fixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCanvas} from '@napi-rs/canvas';
@@ -218,4 +219,22 @@ test('known image response followed by failed storage is charged only for provid
   const job=s.db.rows.get(path(s.input.requestId));
   assert.equal(job.status,'failed');assert.equal(job.retryable,false);assert.equal(job.costMicros,200000);
   assert.equal(s.db.rows.get(usagePath).used,0);
+});
+
+test('enrolled template handler reserves before generation and serves descriptor without callable base64', async () => {
+  const s=setup(),f=usageFixture(),original=s.bucket.file;
+  const bucket={name:f.ctx.bucket.name,file:(p,o)=>p.includes('/managed-images/')?f.ctx.bucket.file(p,o):original(p,o)};
+  const options={...s.options,bucket,usageContext:{...f.ctx,db:s.db,bucket}};
+  s.db.rows.set(`imageUsageAccounts/${uid}`,{mode:'enrolled'});
+  await handleTemplateJobs({...options,input:s.input});
+  await processTemplateJob({...options,...s.input,generate:async()=>{
+    assert.ok(f.events.some(e=>e[0]==='reserveUpload'));
+    return s.generate();
+  }});
+  const job=s.db.rows.get(path(s.input.requestId));assert.equal(job.status,'complete');
+  assert.ok(job.artifact.assetId);assert.match(job.artifact.path,/managed-images/);
+  const response=await handleTemplateJobs({...options,input:{...s.input,action:'asset'}});
+  assert.equal(response.base64,undefined);assert.equal(response.asset.assetId,job.artifact.assetId);
+  const settled=f.events.find(e=>e[0]==='settleUpload'&&e[1].outcome==='stored');
+  assert.equal(settled[1].asset.sizeBytes,s.files.get(job.artifact.path)?.length??f.files.get(job.artifact.path).bytes.length);
 });

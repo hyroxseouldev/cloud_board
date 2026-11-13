@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
+
 import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
@@ -14,6 +16,14 @@ class ProfileStorageDataSource {
   }) async {
     final safeExtension = extension.toLowerCase().replaceAll('.', '');
     final format = safeExtension == 'png' ? 'png' : 'jpeg';
+    final managed = await managedUploadIfEnrolled(
+      _storage.app,
+      ownerId: userId,
+      bytes: bytes,
+      contentType: 'image/$format',
+      purpose: 'profile',
+    );
+    if (managed != null) return managed;
     final reference = _storage.ref(
       'users/$userId/profile/avatar.$safeExtension',
     );

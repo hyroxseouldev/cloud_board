@@ -19,6 +19,10 @@ export const developmentFunctionNames = Object.freeze([
   'auditDisplayDeviceBinding', 'auditDisplayAccessBinding',
   'cloudboardPrepareSupportAttachment', 'cloudboardSubmitSupportTicket',
   'notifySupportTicket',
+  'cloudboardImageUsage', 'cloudboardClassAdmission', 'cloudboardUsageGrant',
+  'cloudboardMediaLease', 'cloudboardImageUpload', 'cloudboardMedia',
+  'cloudboardImageUploadBody', 'retryImageUsageOutbox',
+  'retryImageUsageEnrollment', 'reconcileImageUsageSession',
 ]);
 
 export function onboardingSecretBindings(projectId) {

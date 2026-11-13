@@ -27,6 +27,21 @@ Workout workout(List<String> sources, {String countdown = ''}) =>
       ],
     );
 void main() {
+  test('enrolled draft budget measures the exact raw upload bytes without invoking optimization', () async {
+    final bytes = Uint8List.fromList([1, 2, 3, 4, 5]);
+    final source = 'data:image/png;base64,${base64Encode(bytes)}';
+    final usage = WorkoutImageUsageDataSource(
+      ownerId: 'coach',
+      bucket: bucket,
+      readBytes: (_, _) async => null,
+      useRawUploads: () async => true,
+      optimize: (_) async =>
+          throw StateError('Managed uploads must remain raw'),
+    );
+    final result = await usage.measure(workout([source, source]));
+    expect(result.knownBytes, bytes.length);
+    expect(result.failed, isFalse);
+  });
   test(
     'decimal exact boundary, token dedup, countdown and per-slide values',
     () async {

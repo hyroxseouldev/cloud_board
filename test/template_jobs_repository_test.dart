@@ -39,6 +39,7 @@ class Source implements TemplateJobsDataSource {
   final calls = <(String, Map<String, dynamic>)>[];
   Map<String, dynamic>? job;
   bool lostAck = false, missingServer = false;
+  bool managed = false;
   @override
   Stream<List<Map<String, dynamic>>> watch() => const Stream.empty();
   @override
@@ -58,7 +59,16 @@ class Source implements TemplateJobsDataSource {
     }
     if (action == 'asset') {
       return {
-        'base64': base64Encode(templateTestPng),
+        if (!managed) 'base64': base64Encode(templateTestPng),
+        if (managed)
+          'asset': {
+            'assetId': 'template-art',
+            'source': 'https://asia-northeast3-demo-test.cloudfunctions.net/cloudboardMedia?assetId=template-art&v=123',
+            'generation': '123',
+            'sizeBytes': templateTestPng.length,
+            'contentType': 'image/png',
+            'sha256': templateTestJob('one', status: 'complete').sha256,
+          },
         'sha256': templateTestJob('one', status: 'complete').sha256,
         'width': 1920,
         'height': 1080,
@@ -208,5 +218,27 @@ void main() {
       'nextCursor': 'one',
     });
     expect(parsed.nextCursor, 'one');
+  });
+  test('managed template descriptor uses authenticated bytes and retains PNG integrity checks', () async {
+    final source = Source()
+      ..managed = true
+      ..job = row('one', status: 'complete');
+    var calls = 0;
+    final repo = TemplateJobsRepositoryImpl(
+      source: source,
+      preferences: SharedPreferences.getInstance,
+      scopeKey: 'managed',
+      isCurrent: () => true,
+      managedImageBytes: (source) async {
+        calls++;
+        expect(source, contains('/cloudboardMedia?assetId=template-art'));
+        return templateTestPng;
+      },
+    );
+    expect(
+      await repo.asset(templateTestJob('one', status: 'complete')),
+      templateTestPng,
+    );
+    expect(calls, 1);
   });
 }

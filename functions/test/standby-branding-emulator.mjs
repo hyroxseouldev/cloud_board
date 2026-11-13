@@ -6,6 +6,8 @@ import {ref, uploadBytes, getBytes, deleteObject} from 'firebase/storage';
 import {doc, setDoc} from 'firebase/firestore';
 import {emulatorAddress, requireDemo} from '../../tool/firebase/common.mjs';
 import {planAccess} from '../src/plan-policy.js';
+import {historicalPlanAccess} from '../src/legacy-plan-adapter.js';
+const recordedPlanAccess = plan => plan === 'plus' ? historicalPlanAccess({plan}) : planAccess(plan);
 import {initializeApp as initializeAdminApp} from 'firebase-admin/app';
 import {getFirestore as adminFirestore} from 'firebase-admin/firestore';
 import {getDatabase as adminDatabase} from 'firebase-admin/database';
@@ -19,7 +21,7 @@ const env=await initializeTestEnvironment({projectId,
 const uid='branding-owner', owner=env.authenticatedContext(uid),tv=env.authenticatedContext('branding-tv',{firebase:{sign_in_provider:'anonymous'}}),other=env.authenticatedContext('branding-other');
 const base=`users/${uid}/operations`, bucket=`gs://${projectId}.firebasestorage.app`;
 async function seed(plan,expired=false,status='active'){await env.withSecurityRulesDisabled(async c=>{
- const entitlement={...planAccess(plan),plan,status,validUntilMs:expired?1:Date.now()+3600000};
+ const entitlement={...recordedPlanAccess(plan),plan,status,validUntilMs:expired?1:Date.now()+3600000};
  await setDoc(doc(c.firestore(),`subscriptionEntitlements/${uid}`),entitlement);
  await set(databaseRef(c.database(),`subscriptionAccess/${uid}`),entitlement);
 });}
@@ -59,7 +61,7 @@ try {
   await realtime.ref(base).set({brand:original});
   const persistedOriginal=(await realtime.ref(`${base}/brand`).get()).val();
   await db.doc('appConfig/audienceBranding').set({version:audienceLogoVersion,enabled:true,ownerIds:[uid]});
-  await db.doc(`subscriptionEntitlements/${uid}`).set({...planAccess('free'),plan:'free',status:'active',validUntilMs:now+60000,revision:10});
+  await db.doc(`subscriptionEntitlements/${uid}`).set({...recordedPlanAccess('free'),plan:'free',status:'active',validUntilMs:now+60000,revision:10});
   await projectStandbyBranding(db,realtime,uid,now);
   const projection=databaseRef(tv.database(),`${base}/brandProjection`);
   const freePolicy=(await assertSucceeds(get(projection))).val();
@@ -73,7 +75,7 @@ try {
   await assertFails(get(databaseRef(tv.database(),`subscriptionAccess/${uid}`)));
   assert.deepEqual((await realtime.ref(`${base}/brandConfig`).get()).val(),persistedOriginal, 'first projection preserves source');
   await assert.rejects(saveBrandConfig(db,realtime,{auth:{uid},data:{brand:original}},now),{code:'permission-denied'});
-  await db.doc(`subscriptionEntitlements/${uid}`).set({...planAccess('plus'),plan:'plus',status:'active',validUntilMs:now+60000,revision:11});
+  await db.doc(`subscriptionEntitlements/${uid}`).set({...recordedPlanAccess('plus'),plan:'plus',status:'active',validUntilMs:now+60000,revision:11});
   await Promise.all(Array.from({length:4},()=>projectStandbyBranding(db,realtime,uid,now+1)));
   const plusPolicy=(await get(projection)).val();
   assert.equal(plusPolicy.showCloudBoardLogo,false);assert.equal(plusPolicy.projectionRevision,5);

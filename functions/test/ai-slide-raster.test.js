@@ -1,3 +1,5 @@
+import {fixture as usageFixture} from './media-gateway-fixtures.js';
+import {handleAiSlideRaster} from '../src/ai-slide-raster.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RASTER_MODEL, RASTER_RESERVE, rasterHash, rasterCost, rasterPng,
@@ -73,4 +75,33 @@ test('image usage has a separate conservative reservation and rejects unsafe res
   await assert.rejects(requestRasterArtwork(args,'not-a-key',async()=>{throw Error('socket closed');}),e=>e.details.reason==='provider-uncertain');
   await assert.rejects(requestRasterArtwork(args,'not-a-key',async()=>({ok:true,json:async()=>({data:[{b64_json:png(1024,1024).toString('base64')}]})})),{code:'data-loss'});
   assert.throws(()=>rasterPng(png(),{width:1536,height:864,sha256:'wrong'}),{code:'data-loss'});
+});
+
+test('enrolled raster handler reserves output before provider and returns managed artwork descriptor', async () => {
+  const f=usageFixture(),uid='owner',centerId='center',now=10000;
+  const bytes=png(),digest=rasterHash(bytes),referencePath=`center-templates/${centerId}/design/${digest}.png`,logoPath=`users/${uid}/brand/logo.png`;
+  const image={sha256:digest,width:1536,height:864};
+  for(const path of [referencePath,logoPath])f.files.set(path,{bytes,metadata:{size:bytes.length,contentType:'image/png'}});
+  const config={schemaVersion:1,enabled:true,revision:1,templateId:'design',catalogRevision:1,recipeRevision:1,
+    reference:{...image,path:referencePath},logo:{...image,path:logoPath,sourceRect:[0,0,100,100]},
+    backgroundColor:'#ffffff',textColor:'#000000',accentColor:'#ff0000'};
+  f.db.rows.set(`users/${uid}/onboarding/progress`,{storeId:centerId});
+  f.db.rows.set(`centers/${centerId}`,{ownerUid:uid});
+  f.db.rows.set(`centers/${centerId}/slideTemplateCatalog/current`,{revision:1,templates:[{id:'design',published:true,recipe:{revision:1,backgroundPath:referencePath,backgroundSha256:digest}}]});
+  f.db.rows.set(`centers/${centerId}/aiSlideBrand/current`,config);
+  f.db.rows.set(`subscriptionEntitlements/${uid}`,{plan:'premium',status:'active',policyVersion:'plan-entitlements-v2',validUntilMs:now+86400000});
+  f.db.rows.set(`imageUsageAccounts/${uid}`,{mode:'enrolled'});
+  const options={db:f.db,bucket:f.ctx.bucket,uid,apiKey:'fixture',clock:()=>now,usageContext:f.ctx};
+  const context=await handleAiSlideRaster({...options,input:{action:'context',centerId}});
+  await handleAiSlideRaster({...options,input:{action:'generate',centerId,requestId:'raster_request',brandKey:context.brand.key,draft},generate:async()=>{
+    assert.ok(f.events.some(e=>e[0]==='reserveUpload'));
+    return {bytes,sha256:digest,width:1536,height:864,costMicros:1,costBasis:'fixture'};
+  }});
+  const response=await handleAiSlideRaster({...options,input:{action:'asset',kind:'artwork',centerId,requestId:'raster_request'}});
+  assert.equal(response.base64,undefined);assert.ok(response.asset.source);assert.equal(response.asset.sizeBytes,bytes.length);
+  const job=f.db.rows.get(`users/${uid}/aiSlideRasterCenters/${centerId}/jobs/raster_request`);
+  assert.equal(job.status,'completed');assert.equal(job.artifact.assetId,response.asset.assetId);
+  const common=await handleAiSlideRaster({...options,input:{action:'asset',kind:'reference',centerId}});
+  assert.equal(common.base64,bytes.toString('base64')); // Shared center-template service is excluded.
+  await assert.rejects(handleAiSlideRaster({...options,input:{action:'asset',kind:'logo',centerId}}),e=>e.details.reason==='legacy_asset_transition_required');
 });

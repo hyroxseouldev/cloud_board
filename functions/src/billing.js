@@ -234,12 +234,12 @@ export async function handleBilling(db, realtime, uid, input, adapter = {}) {
   const sandboxTester = tester.data()?.enabled === true && (adapter.store === 'google_play'
     ? settings?.googlePlaySandboxPurchasesEnabled === true && settings?.googlePlayPurchasesEnabled !== true
     : settings?.sandboxPurchasesEnabled === true && settings?.purchasesEnabled !== true);
-  const catalogReady = !planBenefitsReady || planSalesReady(settings, adapter.store, Date.now(), sandboxTester);
+  const catalogReady = planSalesReady(settings, adapter.store, Date.now(), sandboxTester);
   const enabled = storeReady && catalogReady && purchasesAllowed(config.data(), tester.data()?.enabled === true, adapter.store) && eligible;
   if (action === 'prepare' && (!enabled || !products[input.productId])) throw fail('failed-precondition', '지금은 새 구독을 시작할 수 없습니다. 이용 상태를 확인해 주세요.');
   return {appAccountToken: account.appAccountToken, purchasesEnabled: enabled, planBenefitsReady,
     phoneRequired: !hasVerifiedPhone(progress.data(), access.data()?.webGrant, account.baseline),
-    productIds: Object.keys(products), ...summary.data()};
+    ...summary.data(), productIds: Object.keys(products)};
 }
 
 export async function acceptAppleNotification(db, payload) {

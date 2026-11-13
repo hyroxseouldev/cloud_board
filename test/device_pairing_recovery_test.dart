@@ -345,7 +345,10 @@ void main() {
       expectSync(db.device['displayUid'], 'display');
       expectSync(db.device['name'], 'Keep TV name');
       expectSync(db.device['preferences'], {'volume': .5});
-      expectSync(db.device['preparationProtocol'], 1);
+      expectSync(db.device['preparationProtocol'], 2);
+      expectSync(db.device['imageUsageProtocol'], 1);
+      expectSync(db.device['mediaLeaseProtocol'], 1);
+      expectSync(db.device['classAdmissionProtocol'], 1);
       expectSync(db.device['currentConnectionId'], 'event-0');
       expectSync(db.device['pendingOfflineEventKey'], 'event-0-offline');
       final online =

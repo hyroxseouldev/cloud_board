@@ -1,4 +1,3 @@
-import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/profile_entitlements.dart';
 import 'package:cloud_board/src/app/feature/profile/data/models/user_profile_model.dart';
 import 'package:cloud_board/src/app/feature/profile/domain/entities/user_profile.dart';
@@ -27,7 +26,7 @@ void main() {
           'displaysUnlimited': true,
         }, 1000),
       ).toEntity();
-      expect(premium.planLabel, '${AppBrand.name} 프리미엄');
+      expect(premium.planLabel, 'Premium');
       expect(premium.displayLimitLabel, '디스플레이 무제한');
       final plus = UserProfileModel.fromJson(
         profileEntitlements(original, {
@@ -37,7 +36,7 @@ void main() {
           'displaysUnlimited': false,
         }, 1000),
       ).toEntity();
-      expect(plus.planLabel, '${AppBrand.name} 플러스');
+      expect(plus.planLabel, '기존 구독 이용 중');
       expect(plus.displayLimitLabel, '디스플레이 동시 1대');
     },
   );

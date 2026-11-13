@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
@@ -71,7 +72,7 @@ class MoreScreen extends ConsumerWidget {
                   backgroundColor: AppColors.selected,
                   foregroundColor: AppColors.accent,
                   foregroundImage: user?.photoUrl?.isNotEmpty == true
-                      ? NetworkImage(user!.photoUrl!)
+                      ? workoutImageProvider(user!.photoUrl!, (width: null, height: null))
                       : null,
                   child: Text(
                     name?.isNotEmpty == true ? name!.characters.first : '나',

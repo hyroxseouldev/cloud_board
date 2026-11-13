@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
+import 'package:cloud_board/src/app/feature/image_usage/presentation/managed_image_provider.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -90,6 +92,16 @@ class WorkoutImageRetention {
 
   Future<void> _download(String source) async {
     final generation = _generation;
+    if (isManagedImageSource(source)) {
+      final bytes = await authenticatedManagedImageBytes(source);
+      if (_disposed || generation != _generation) return;
+      if (bytes.isEmpty || bytes.length > maximumImageBytes || _used + bytes.length > maximumBytes) {
+        throw StateError('Image exceeds the active class cache limit');
+      }
+      _bytes[source] = bytes;
+      _used += bytes.length;
+      return;
+    }
     final client = _clientFactory();
     _clients.add(client);
     try {

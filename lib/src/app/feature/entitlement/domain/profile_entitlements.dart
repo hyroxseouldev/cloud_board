@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/entitlement/domain/legacy_plan_adapter.dart';
 /// A missing unlimited marker must never turn an unknown plan into Premium.
 Map<String, dynamic> profileEntitlements(
   Map<String, dynamic>? profile,
@@ -18,10 +19,7 @@ Map<String, dynamic> profileEntitlements(
   final valid = until > nowMs;
   final premium =
       access['plan'] == 'premium' && access['displaysUnlimited'] == true;
-  final plus =
-      access['plan'] == 'plus' &&
-      (access['maxActiveDisplays'] == 1 || access['maxActiveDisplays'] == 3) &&
-      access['displaysUnlimited'] == false;
+  final historical = historicalDisplayPolicy(access);
   final free =
       access['plan'] == 'free' &&
       access['canStartClass'] == true &&
@@ -41,8 +39,8 @@ Map<String, dynamic> profileEntitlements(
         ? 'free'
         : premium
         ? 'premium'
-        : plus
-        ? 'plus'
+        : historical
+        ? historicalPaidWirePlan
         : 'cloudboard_pro',
     'subscriptionStatus': !valid
         ? 'canceled'
@@ -59,7 +57,7 @@ Map<String, dynamic> profileEntitlements(
         ? -1
         : free
         ? 1
-        : plus
+        : historical
         ? access['maxActiveDisplays']
         : access['displayLimit'] ?? 3,
     'pilotEndsAt': !free && until > 0

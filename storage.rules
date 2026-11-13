@@ -7,6 +7,16 @@ service firebase.storage {
       return request.auth != null && request.auth.uid == userId
         && !firestore.exists(/databases/(default)/documents/accountDeletions/$(userId));
     }
+    function directImagesAllowed(userId) {
+      let path = /databases/(default)/documents/imageUsageAccounts/$(userId);
+      // A pending enrollment is fenced too; missing policy never downgrades it.
+      return !firestore.exists(path)
+        || !(firestore.get(path).data.get('mode', 'legacy') in ['enrolled', 'enrolling'])
+          && firestore.get(path).data.get('enrollmentPending', false) != true;
+    }
+    match /users/{userId}/managed-images/{allPaths=**} {
+      allow read, write: if false;
+    }
     function canCustomizeBrand(userId) {
       let path = /databases/(default)/documents/subscriptionEntitlements/$(userId);
       // Preserve installed clients until the account's v2 projection activates.
@@ -32,19 +42,19 @@ service firebase.storage {
     }
 
     match /users/{userId}/profile/{allPaths=**} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) && directImagesAllowed(userId);
       allow write: if isOwner(userId)
         && (request.resource == null
-          || (request.resource.size < 5 * 1024 * 1024
+          || (directImagesAllowed(userId) && request.resource.size < 5 * 1024 * 1024
             && request.resource.contentType.matches('image/.*')));
     }
 
     match /users/{userId}/brand/{allPaths=**} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) && directImagesAllowed(userId);
       allow write: if isOwner(userId)
         && canCustomizeBrand(userId)
         && (request.resource == null
-          || (request.resource.size < 10 * 1024 * 1024
+          || (directImagesAllowed(userId) && request.resource.size < 10 * 1024 * 1024
             && request.resource.contentType.matches('image/.*')));
     }
 
@@ -74,10 +84,10 @@ service firebase.storage {
     }
 
     match /users/{userId}/workouts/{workoutId}/{allPaths=**} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) && directImagesAllowed(userId);
       allow write: if isOwner(userId)
         && (request.resource == null
-          || (request.resource.size < 10 * 1024 * 1024
+          || (directImagesAllowed(userId) && request.resource.size < 10 * 1024 * 1024
             && request.resource.contentType.matches('image/.*')));
     }
   }

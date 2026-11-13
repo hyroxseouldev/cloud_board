@@ -1,0 +1,52 @@
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "account-deletion",
+      "runtime": "nodejs22"
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5008
+    },
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9098
+    },
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8188
+    },
+    "database": {
+      "host": "127.0.0.1",
+      "port": 9188
+    },
+    "storage": {
+      "host": "127.0.0.1",
+      "port": 9288
+    },
+    "hub": {
+      "host": "127.0.0.1",
+      "port": 4488
+    },
+    "logging": {
+      "host": "127.0.0.1",
+      "port": 4588
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  }
+}

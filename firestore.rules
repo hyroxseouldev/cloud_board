@@ -7,6 +7,55 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/accountDeletions/$(userId));
     }
 
+    function usageFenced(userId) {
+      let path = /databases/$(database)/documents/imageUsageAccounts/$(userId);
+      return exists(path) && (get(path).data.get('mode', 'legacy') in ['enrolled', 'enrolling']
+        || get(path).data.get('enrollmentPending', false) == true);
+    }
+    // Embedded images never initiate an unmetered remote request. Preserve the
+    // installed local formats; actual image decoding/timing stays in the app
+    // and server admission. Rules enforce bounded encoding syntax without claiming to decode PNGs.
+    function localImageBytes(encoded) {
+      return encoded.size() >= 16 && encoded.size() <= 900000
+        && encoded.matches('^([A-Za-z0-9+/_=-]|%[0-9A-Fa-f]{2})+$');
+    }
+    function localImageValue(source) {
+      return source is string && source.size() <= 900000
+        && (localImageBytes(source)
+          || (source.matches('(?i)^data:image/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/_=-]|%[0-9a-f]{2})+$')
+            && localImageBytes(source.split(',')[1])));
+    }
+    function registeredImage(userId, source) {
+      return source == null || source == '' || localImageValue(source) || (source is string && source.size() <= 4096
+        && (source.matches('^https://asia-northeast3-(cloud-board-development|demo-[a-z0-9-]+)[.]cloudfunctions[.]net/cloudboardMedia[?]assetId=[A-Za-z0-9_-]{1,120}&v=[0-9]+$')
+          || source.matches('^http://(127[.]0[.]0[.]1|localhost):[0-9]+/demo-[a-z0-9-]+/asia-northeast3/cloudboardMedia[?]assetId=[A-Za-z0-9_-]{1,120}&v=[0-9]+$'))
+        && registeredImageRecord(userId, source, source.split('assetId=')[1].split('&v=')[0]));
+    }
+    function registeredImageRecord(userId, source, assetId) {
+      let path = /databases/$(database)/documents/imageUsageAccounts/$(userId)/assets/$(assetId);
+      return exists(path) && get(path).data.ownerId == userId
+        && get(path).data.tokenFree == true && get(path).data.source == source;
+    }
+    function allowedImageChange(userId, previous, next) {
+      return !usageFenced(userId) || previous == next || registeredImage(userId, next);
+    }
+    function compatibleImageProfile(userId, previous, next) {
+      return !usageFenced(userId) || (
+        allowedImageChange(userId, previous.get('photoUrl', null), next.get('photoUrl', null))
+        && (previous.get('countdownDefaults', null) == next.get('countdownDefaults', null)
+          || allowedImageChange(userId, previous.get('countdownDefaults', {}).get('imageSource', ''), next.get('countdownDefaults', {}).get('imageSource', '')))
+        && (previous.get('workoutSettings', null) == next.get('workoutSettings', null)
+          || allowedImageChange(userId, previous.get('workoutSettings', {}).get('countdown', {}).get('imageSource', ''), next.get('workoutSettings', {}).get('countdown', {}).get('imageSource', ''))));
+    }
+
+    // Usage summaries are exposed through the callable, never raw records.
+    match /imageUsageAccounts/{accountId}/{document=**} {
+      allow read, write: if false;
+    }
+    match /appConfig/imageUsage {
+      allow read, write: if false;
+    }
+
     match /subscriptionEntitlements/{userId} {
       allow read: if isOwner(userId);
       allow write: if false;
@@ -153,9 +202,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.uid == userId
+        && compatibleImageProfile(userId, {}, request.resource.data)
         && !request.resource.data.keys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
       allow update: if isOwner(userId) && request.resource.data.uid == userId
         && compatibleProfileWrite(userId)
+        && compatibleImageProfile(userId, resource.data, request.resource.data)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['partnerTier', 'subscriptionPlan', 'subscriptionStatus', 'displayLimit', 'pilotStartedAt', 'pilotEndsAt']);
 
       // Read-only setup metadata; SMS challenges/phone ownership stay private.
@@ -175,8 +226,10 @@ service cloud.firestore {
       match /settings/workout {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && validSettings(request.resource.data)
+          && allowedImageChange(userId, '', request.resource.data.preferences.countdown.imageSource)
           && request.resource.data.revision == 1 && request.resource.data.contentOnly == false;
         allow update: if isOwner(userId) && validSettings(request.resource.data)
+          && allowedImageChange(userId, resource.data.preferences.countdown.imageSource, request.resource.data.preferences.countdown.imageSource)
           && request.resource.data.revision == resource.data.revision + 1
           && request.resource.data.contentOnly == resource.data.contentOnly;
         // Compatibility migrations are Admin SDK only; installed writers remain supported.
@@ -215,7 +268,7 @@ service cloud.firestore {
       }
       match /workoutSummaries/{workoutId} {
         allow read, delete: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create, update: if isOwner(userId) && !usageFenced(userId)
           && request.resource.data.keys().hasOnly(['id', 'name', 'folder', 'imageSource', 'moduleCount', 'durationSeconds', 'durationKind', 'updatedAt'])
           && request.resource.data.id == workoutId
           && request.resource.data.name is string
@@ -235,13 +288,13 @@ service cloud.firestore {
         allow read, delete: if isOwner(userId);
         // Legacy accounts remain compatible until their server-owned policy
         // projection activates v2. All v2 creates use saveWorkout atomically.
-        allow create: if isOwner(userId)
+        allow create: if isOwner(userId) && !usageFenced(userId)
           && (!exists(/databases/$(database)/documents/subscriptionEntitlements/$(userId))
             || get(/databases/$(database)/documents/subscriptionEntitlements/$(userId)).data.get('policyVersion', '') != 'plan-entitlements-v2')
           && request.resource.data.ownerId == userId
           && request.resource.data.author.id == userId
           && request.resource.data.id == workoutId;
-        allow update: if isOwner(userId)
+        allow update: if isOwner(userId) && !usageFenced(userId)
           && request.resource.data.ownerId == userId
           && request.resource.data.author.id == userId
           && request.resource.data.id == workoutId

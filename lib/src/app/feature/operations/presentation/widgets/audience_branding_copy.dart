@@ -17,5 +17,5 @@ String audienceLogoBenefit({
 
 String audienceLogoSettingDescription(bool classScreensAvailable) =>
     classScreensAvailable
-    ? '대기·시작 카운트다운·수업 화면에 함께 적용됩니다. Plus부터 숨길 수 있어요.'
-    : '대기 화면에 적용됩니다. Plus부터 숨길 수 있어요.';
+    ? '대기·시작 카운트다운·수업 화면에 함께 적용됩니다. Premium에서 숨길 수 있어요.'
+    : '대기 화면에 적용됩니다. Premium에서 숨길 수 있어요.';

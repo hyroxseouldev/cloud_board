@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
 
@@ -36,6 +37,15 @@ class WorkoutStorageDataSource {
     )) {
       throw const FormatException('지원하지 않는 이미지 형식입니다.');
     }
+    final managed = await managedUploadIfEnrolled(
+      _storage.app,
+      ownerId: userId,
+      bytes: original.bytes,
+      contentType: original.contentType,
+      purpose: 'workout',
+      workoutId: workoutId,
+    );
+    if (managed != null) return managed;
     // Content-addressed immutable paths make retries and duplicate slides reuse
     // the same upload. Cache keys include owner and workout to prevent leakage.
     final key =
@@ -85,6 +95,17 @@ class WorkoutStorageDataSource {
     if (!(module.designFingerprint?.startsWith('$visual:') ?? false) ||
         !module.imageSource.startsWith('https://')) {
       return null;
+    }
+    if (isManagedImageSource(module.imageSource)) {
+      final assetId = Uri.parse(module.imageSource).queryParameters['assetId'];
+      if (module.designFingerprint != '$visual:$assetId') return null;
+      final client = ImageUsageDataSource.forApp(_storage.app);
+      try {
+        await client.authorizeMedia(module.imageSource);
+        return module.imageSource;
+      } finally {
+        client.dispose();
+      }
     }
     final uri = Uri.tryParse(module.imageSource);
     if (uri == null ||
@@ -171,7 +192,7 @@ class WorkoutStorageDataSource {
           // Bind the visual/version key to the exact immutable object.
           // Replacing an image URL cannot accidentally retain a valid hint.
           designFingerprint: hasSlideDesign(module)
-              ? '${slideDesignFingerprint(module)}:${_storage.refFromURL(url).name}'
+              ? '${slideDesignFingerprint(module)}:${isManagedImageSource(url) ? Uri.parse(url).queryParameters['assetId'] : _storage.refFromURL(url).name}'
               : module.designFingerprint,
         );
       }).toList(),

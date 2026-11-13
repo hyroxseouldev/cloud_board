@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/presentation/image_usage_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_board/src/app/core/config/app_links.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -163,7 +164,7 @@ class SubscriptionScreen extends HookConsumerWidget {
                                   '.${data.paidPlan}.',
                                 ))
                               Text(
-                                '다음 갱신부터 ${data.nextProductId!.contains('.premium.') ? '프리미엄' : '플러스'} 적용 예정',
+                                '다음 갱신부터 ${data.nextProductId!.contains('.premium.') ? 'Premium' : '기존 구독 이용 중'} 적용 예정',
                               ),
                             if ([
                               'billing_retry',
@@ -192,7 +193,9 @@ class SubscriptionScreen extends HookConsumerWidget {
                         '연결된 계정의 구독은 모든 기기에서 적용돼요. 구매 복원은 구입한 스토어의 모바일 기기에서 진행해 주세요.',
                       ),
                     ),
-                  for (final plan in ['plus', 'premium']) ...[
+                  const ImageUsagePanel(),
+                  const SizedBox(height: 16),
+                  for (final plan in ['premium']) ...[
                     _PlanCard(
                       plan: plan,
                       benefitsReady: data.planBenefitsReady,
@@ -302,7 +305,6 @@ class _PlanCard extends StatelessWidget {
   final Future<void> Function(String) onPurchase;
   @override
   Widget build(BuildContext context) {
-    final premium = plan == 'premium';
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -313,19 +315,16 @@ class _PlanCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            premium ? '프리미엄' : '플러스',
+            'Premium',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
-            benefitsReady
-                ? premium
-                      ? 'TV·수업 보관·재사용 슬라이드 플랜 한도 없음'
-                      : 'TV 동시 3대 · 수업 보관 한도 없음 · 재사용 슬라이드 30개'
-                : premium
-                ? '센터 디스플레이·저장 슬라이드 제한 없이'
-                : 'TV 동시 3대 · 저장 슬라이드 3개',
+            'TV 연결·저장 수업 수·재사용 슬라이드 수 제한 없음',
           ),
+          const SizedBox(height: 8),
+          const Text('이미지 보관 1GB · 하루 업로드 500MB · 수업당 100MB'),
+          const Text('이미지 전송 하루 1GB · 월 20GB'),
           if (benefitsReady) ...[
             const SizedBox(height: 8),
             const Text('대기 화면 배경·문구·센터 로고 설정'),
@@ -335,8 +334,8 @@ class _PlanCard extends StatelessWidget {
                 classScreensAvailable: classBrandingAvailable,
               ),
             ),
-            Text('AI 슬라이드 도우미 · 내용 정리와 디자인 제안 합산 월 ${premium ? 30 : 10}회'),
-            if (premium) const Text('이미지 타이머 인식 · 별도 월 100회'),
+            const Text('AI 슬라이드 도우미 · 내용 정리와 디자인 제안 합산 월 30회'),
+            const Text('이미지 타이머 인식 · 별도 월 100회'),
             const SizedBox(height: 8),
             const Text('매월 1일 한국 시간 00:00 초기화 · 플랜 변경 시 사용량 유지'),
           ] else ...[

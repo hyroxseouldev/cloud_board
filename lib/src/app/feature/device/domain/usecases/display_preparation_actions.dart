@@ -44,7 +44,7 @@ class DisplayPreparationActions {
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
     if ((modern.isNotEmpty && proof == null) ||
         (proof != null &&
-            proof.manifestHash != preparationFingerprint(workout, targets))) {
+            (proof.clientFingerprint ?? proof.manifestHash) != preparationFingerprint(workout, targets))) {
       throw StateError('수업 내용이나 설정이 바뀌었어요. 수업 준비를 다시 확인해 주세요.');
     }
     // Resolve optional modern evidence before reading the server clock, so

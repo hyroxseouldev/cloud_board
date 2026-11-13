@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
 import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -34,6 +35,10 @@ class AiRasterDataSource {
       }
       return result.data;
     } on FirebaseFunctionsException catch (error) {
+      if (error.details is Map && error.details['schemaVersion'] == 1 && error.details['policyRevision'] == imageUsagePolicyRevision) {
+        final failure = ImageUsageFailure.fromJson(error.details);
+        throw AiSlidesFailure(failure.message, code:error.code, reason:failure.reason);
+      }
       throw AiSlidesFailure(
         (error.code == 'not-found' && error.details is! Map) ||
                 error.code == 'unimplemented'

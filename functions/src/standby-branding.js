@@ -1,6 +1,8 @@
 import {HttpsError} from 'firebase-functions/v2/https';
 import {requirePlanEntitlement, planPolicyVersion} from './plan-policy.js';
 import {AppBrand} from './config/app-brand.js';
+import {parseManagedSource, readManagedAsset, managedMetadata} from './managed-image-assets.js';
+import {usageHash, usageFailure} from './image-usage-policy.js';
 
 export const audienceLogoVersion = 'audience-logo-v1';
 export function audienceBrandingEnabled(config, uid) {
@@ -38,16 +40,19 @@ const booleans = ['standbyFullscreen', 'standbyShowText', 'showCloudBoardLogo'];
 const minuteFields = ['blackScreenStartMinutes', 'blackScreenEndMinutes'];
 const allowed = new Set(Object.keys(defaultStandbyBrand));
 function invalid() { return new HttpsError('invalid-argument', '대기 화면 설정을 확인해 주세요.'); }
-function imageUrl(value) { return typeof value === 'string' && value.length <= 4096 && /^https:\/\//.test(value); }
-export function validateBrandConfig(input) {
+function imageUrl(value, usageContext) {
+  return typeof value === 'string' && value.length <= 4096 &&
+    (/^https:\/\//.test(value) || usageContext && parseManagedSource(value, usageContext) !== null);
+}
+export function validateBrandConfig(input, {usageContext} = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(k => !allowed.has(k))) throw invalid();
   const v = {...defaultStandbyBrand, ...input};
   for (const [key, max] of Object.entries(stringFields)) if (typeof v[key] !== 'string' || v[key].length > max) throw invalid();
   for (const key of colors) if (!Number.isInteger(v[key]) || v[key] < 0 || v[key] > 0xFFFFFFFF) throw invalid();
   for (const key of booleans) if (typeof v[key] !== 'boolean') throw invalid();
   for (const key of minuteFields) if (!Number.isInteger(v[key]) || v[key] < 0 || v[key] >= 1440) throw invalid();
-  if (v.logoUrl !== null && !imageUrl(v.logoUrl)) throw invalid();
-  if (!Array.isArray(v.promotionImageUrls) || v.promotionImageUrls.length > 100 || !v.promotionImageUrls.every(imageUrl)) throw invalid();
+  if (v.logoUrl !== null && !imageUrl(v.logoUrl, usageContext)) throw invalid();
+  if (!Array.isArray(v.promotionImageUrls) || v.promotionImageUrls.length > 100 || !v.promotionImageUrls.every(value => imageUrl(value, usageContext))) throw invalid();
   if (!Array.isArray(v.promotionDurationMinutes) || v.promotionDurationMinutes.length > 100 || !v.promotionDurationMinutes.every(n => Number.isInteger(n) && n >= 1 && n <= 1440)) throw invalid();
   if (!['topLeft', 'center', 'bottomLeft'].includes(v.standbyTextPosition) ||
       !['none', 'fade', 'slide'].includes(v.standbyTransition) || !['contain', 'cover'].includes(v.standbyImageFit)) throw invalid();
@@ -73,66 +78,116 @@ export function applyBrandEntitlement(config, entitlement, now = Date.now()) {
     showCloudBoardLogo: access.canHideCloudBoardLogo !== true || config?.showCloudBoardLogo !== false};
 }
 
-// Projection never destroys custom settings. Unknown/expired access leaves the
-// last confirmed payload intact until the entitlement writer resolves a grant.
-export async function projectStandbyBranding(db, realtime, uid, now = Date.now()) {
+const protectedUsage = (account, gate) => ['enrolled','enrolling'].includes(account?.mode) ||
+  account?.enrollmentPending === true || ['enrolled','enrolling'].includes(gate?.mode) || gate?.enrollmentPending === true;
+const promotionSources = value => Array.isArray(value) ? value : value && typeof value === 'object' ? Object.values(value) : [];
+const brandSources = config => [...new Set([config?.logoUrl, config?.backgroundImageUrl,
+  ...promotionSources(config?.promotionImageUrls),
+].filter(source => typeof source === 'string' && source.length > 0))];
+const sourceHash = config => usageHash(brandSources(config));
+async function brandUsageState(db, realtime, uid) {
+  const [account, user] = await Promise.all([db.doc(`imageUsageAccounts/${uid}`).get(), realtime.ref(`users/${uid}`).get()]);
+  return {account:account.data(), user:user.val() ?? {}, userExists:user.exists()};
+}
+async function verifyBrandSources(db, uid, config, state, usageContext) {
+  const sources = brandSources(config), hash = sourceHash(config);
+  if (sources.length === 0) return {hash}; // Empty sources need no external configuration.
+  if (!protectedUsage(state.account, state.user.usageGate)) return null;
+  if (!usageContext?.bucket) throw usageFailure('service_unavailable','unavailable');
+  const ctx = {...usageContext, db};
+  for (const source of sources) {
+    const parsed = parseManagedSource(source, ctx);
+    if (!parsed) throw usageFailure('legacy_asset_transition_required');
+    const asset = await readManagedAsset(ctx, uid, parsed.assetId, parsed.generation);
+    if (asset.source !== source) throw usageFailure('legacy_asset_transition_required');
+    await managedMetadata(ctx, asset); // Metadata only, never download image bodies.
+  }
+  return {hash};
+}
+function brandPermissions(access, value) {
+  if (access.idleScreenCustomization !== 'custom' ||
+      (value.logoUrl && access.canUseCenterLogo !== true) ||
+      (!value.showCloudBoardLogo && access.canHideCloudBoardLogo !== true)) {
+    return new HttpsError('permission-denied', '센터 브랜딩은 Premium에서 사용할 수 있어요.', {reason:'branding-plan-required'});
+  }
+  return null;
+}
+// Projection verifies source metadata before its atomic RTDB write. A usage
+// transition or concurrent config edit after preflight cannot reuse old proof.
+export async function projectStandbyBranding(db, realtime, uid, now = Date.now(), {usageContext} = {}) {
   const [lock, snapshot, rollout] = await db.getAll(db.doc(`accountDeletions/${uid}`),
     db.doc(`subscriptionEntitlements/${uid}`), db.doc('appConfig/audienceBranding'));
   if (lock.exists) return false;
-  const entitlement = snapshot.data();
-  if (entitlement?.policyVersion !== planPolicyVersion) return false;
-  try { applyBrandEntitlement({}, entitlement, now); } catch (e) {
+  const entitlement = snapshot.data(), state = await brandUsageState(db,realtime,uid);
+  const guarded = protectedUsage(state.account,state.user.usageGate);
+  if (entitlement?.policyVersion !== planPolicyVersion && !guarded) return false;
+  try { applyBrandEntitlement({},entitlement,now); } catch (e) {
     if (e.code === 'failed-precondition') return false;
     throw e;
   }
+  const initial = state.user.operations ?? {}, config = initial.brandConfig ?? initial.brand ?? {...defaultStandbyBrand};
+  const proof = await verifyBrandSources(db,uid,config,state,usageContext);
   const revision = entitlement.revision ?? 0;
-  const result = await realtime.ref(`users/${uid}/operations`).transaction(current => {
-    const previous = current ?? {};
+  let rejection;
+  const result = await realtime.ref(`users/${uid}`).transaction(current => {
+    rejection = null;
+    // Returning null retries an initially empty SDK cache against server state.
+    if (current === null && state.userExists) return null;
+    const user = structuredClone(current ?? {}), previous = user.operations ?? {};
     if ((previous.brandProjection?.revision ?? -1) > revision) return undefined;
-    // The first projection snapshots the old payload before applying Free.
-    const config = previous.brandConfig ?? previous.brand ?? {...defaultStandbyBrand};
-    const brand = applyBrandEntitlement(config, entitlement, now);
-    return {...previous, brandConfig: config, brand,
-      // One atomic payload for audience clients: do not combine a separate
-      // entitlement/config stream to decide visibility (paired TVs cannot read it).
-      brandProjection: {ownerId: uid, revision,
-        projectionRevision: (previous.brandProjection?.projectionRevision ?? 0) + 1,
-        policyVersion: planPolicyVersion,
-        plan: entitlement.plan, appliedAtMs: now, validUntilMs: entitlement.validUntilMs,
-        audienceLogoVersion, audienceLogoScope: audienceBrandingEnabled(rollout.data(), uid)
-          ? 'all-audience' : 'standby', showCloudBoardLogo: brand.showCloudBoardLogo}};
+    const candidate = previous.brandConfig ?? previous.brand ?? {...defaultStandbyBrand};
+    if (protectedUsage(state.account,user.usageGate) && (!proof || proof.hash !== sourceHash(candidate))) {
+      rejection = usageFailure('legacy_asset_transition_required'); return undefined;
+    }
+    // A v1 legacy/observe account remains unchanged; a protected v1 account
+    // uses this same verified image path without rewriting its entitlement.
+    if (entitlement?.policyVersion !== planPolicyVersion && !protectedUsage(state.account,user.usageGate)) return undefined;
+    const brand = applyBrandEntitlement(candidate,entitlement,now);
+    user.operations = {...previous,brandConfig:candidate,brand,
+      brandProjection:{ownerId:uid,revision,projectionRevision:(previous.brandProjection?.projectionRevision ?? 0)+1,
+        policyVersion:planPolicyVersion,plan:entitlement.plan,appliedAtMs:now,validUntilMs:entitlement.validUntilMs,
+        audienceLogoVersion,audienceLogoScope:audienceBrandingEnabled(rollout.data(),uid) ? 'all-audience' : 'standby',
+        showCloudBoardLogo:brand.showCloudBoardLogo}};
+    return user;
   });
+  if (rejection) throw rejection;
   if ((await db.doc(`accountDeletions/${uid}`).get()).exists) {
-    await realtime.ref(`users/${uid}/operations`).remove();
-    return false;
+    await realtime.ref(`users/${uid}/operations`).remove(); return false;
   }
   return result.committed;
 }
 
-export async function saveBrandConfig(db, realtime, request, now = Date.now()) {
+export async function saveBrandConfig(db, realtime, request, now = Date.now(), {usageContext} = {}) {
   const uid = request.auth?.uid;
-  if (!uid || request.auth?.token?.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
-  const value = validateBrandConfig(request.data?.brand);
-  const [lock, snapshot] = await db.getAll(db.doc(`accountDeletions/${uid}`), db.doc(`subscriptionEntitlements/${uid}`));
-  if (lock.exists) throw new HttpsError('permission-denied', '계정 삭제 중입니다.');
-  // The v2 rollout is per account. Unmigrated accounts keep their installed
-  // brand writer behavior; this callable is not an implicit plan migration.
-  const access = requireBrandEntitlement(snapshot.data(), now);
-  if (snapshot.data()?.policyVersion !== planPolicyVersion) {
-    const result = await realtime.ref(`users/${uid}/operations`).transaction(current => {
-      // A missing/regressed mirror must never reopen a migrated account.
-      if (current?.brandProjection?.policyVersion === planPolicyVersion) return undefined;
-      return {...(current ?? {}), brand: value};
-    });
-    if (!result.committed) throw new HttpsError('failed-precondition', '브랜드 권한을 확인하지 못했습니다.', {reason: 'entitlement-unavailable'});
-    return {saved: true};
-  }
-  if (access.idleScreenCustomization !== 'custom' ||
-      (value.logoUrl && access.canUseCenterLogo !== true) ||
-      (!value.showCloudBoardLogo && access.canHideCloudBoardLogo !== true)) {
-    throw new HttpsError('permission-denied', '센터 브랜딩은 Plus부터 사용할 수 있어요.', {reason: 'branding-plan-required'});
-  }
-  await realtime.ref(`users/${uid}/operations/brandConfig`).set(value);
-  await projectStandbyBranding(db, realtime, uid, now);
-  return {saved: true};
+  if (!uid || request.auth?.token?.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('unauthenticated','로그인이 필요합니다.');
+  const value = validateBrandConfig(request.data?.brand,{usageContext});
+  const [lock,snapshot] = await db.getAll(db.doc(`accountDeletions/${uid}`),db.doc(`subscriptionEntitlements/${uid}`));
+  if (lock.exists) throw new HttpsError('permission-denied','계정 삭제 중입니다.');
+  const access = requireBrandEntitlement(snapshot.data(),now), state = await brandUsageState(db,realtime,uid);
+  const proof = await verifyBrandSources(db,uid,value,state,usageContext);
+  const modern = snapshot.data()?.policyVersion === planPolicyVersion;
+  let rejection, legacyWrite = false;
+  const result = await realtime.ref(`users/${uid}`).transaction(current => {
+    rejection = null; legacyWrite = false;
+    if (current === null && state.userExists) return null;
+    const user = structuredClone(current ?? {}), operations = user.operations ?? {};
+    const guarded = protectedUsage(state.account,user.usageGate);
+    if (guarded && (!proof || proof.hash !== sourceHash(value))) {
+      rejection = usageFailure('legacy_asset_transition_required'); return undefined;
+    }
+    if (!modern && !guarded) {
+      if (operations.brandProjection?.policyVersion === planPolicyVersion) {
+        rejection = new HttpsError('failed-precondition','브랜드 권한을 확인하지 못했습니다.',{reason:'entitlement-unavailable'});
+        return undefined;
+      }
+      user.operations = {...operations,brand:value}; legacyWrite = true; return user;
+    }
+    rejection = brandPermissions(access,value);
+    if (rejection) return undefined;
+    user.operations = {...operations,brandConfig:value}; return user;
+  });
+  if (rejection) throw rejection;
+  if (!result.committed) throw usageFailure('usage_reconciliation_pending','unavailable');
+  if (!legacyWrite) await projectStandbyBranding(db,realtime,uid,now,{usageContext});
+  return {saved:true};
 }

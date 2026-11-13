@@ -1,7 +1,9 @@
+import {publicAsset} from './managed-image-assets.js';
+import {reserveGeneratedImage, storeGeneratedImage, enrolledAssetResponse, cancelUnwrittenGeneratedImage} from './image-upload.js';
 import {randomUUID} from 'node:crypto';
 import {requirePlanEntitlement} from './plan-policy.js';
 import {aiTimerMonth, AI_TIMER_BUDGET, AI_TIMER_GLOBAL_LIMIT, AI_TIMER_RESERVE} from './ai-timer.js';
-import {rasterFail as fail, rasterHash, sourceLines} from './ai-slide-raster-provider.js';
+import {rasterFail as fail, rasterHash, sourceLines, RASTER_MAX_BYTES} from './ai-slide-raster-provider.js';
 import {TEMPLATE_IMAGE_MODE, TEMPLATE_IMAGE_RESERVE, requestTemplateImage} from './template-image.js';
 
 const validId = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(x);
@@ -40,7 +42,8 @@ export function publicTemplateJob(j) {
     designId: j.design.id, designName: j.design.name, design: j.design, createdAtMs: j.createdAtMs,
     updatedAtMs: j.updatedAtMs, retryable: j.retryable ?? false, message: j.message ?? null,
     usage: j.provider?.usage ?? null, quotaCharged: j.quotaCharged,
-    artifact: j.artifact ? {sha256: j.artifact.sha256, width: j.artifact.width, height: j.artifact.height} : null};
+    artifact: j.artifact ? {sha256: j.artifact.sha256, width: j.artifact.width, height: j.artifact.height,
+      ...(j.artifact.source ? publicAsset(j.artifact) : {})} : null};
 }
 async function loadDesign(db, centerId, design, reader = db) {
   const submitted = design?.theme?.centerRecipe;
@@ -64,7 +67,7 @@ function sourceInput(input) {
   return {title: input.title.trim(), subtitle: input.subtitle.trim(), rawWod: input.rawWod};
 }
 async function download(bucket, descriptor) {
-  const file = bucket.file(descriptor.path), [meta] = await file.getMetadata();
+  const file = bucket.file(descriptor.path,descriptor.generation ? {generation:descriptor.generation} : undefined), [meta] = await file.getMetadata();
   check(meta.contentType === 'image/png' && Number(meta.size) <= 10 * 1024 * 1024, '템플릿 이미지를 확인하지 못했어요.', 'invalid-asset');
   const [bytes] = await file.download();
   check(rasterHash(bytes) === descriptor.sha256, '템플릿 이미지 버전이 변경됐어요.', 'invalid-asset');
@@ -72,7 +75,7 @@ async function download(bucket, descriptor) {
 }
 
 /** Acceptance only: no provider call and no work started after returning HTTP. */
-export async function handleTemplateJobs({db, bucket, uid, input, apiKey, clock = Date.now}) {
+export async function handleTemplateJobs({db, bucket, uid, input, apiKey, clock = Date.now, usageContext}) {
   const centerId = input?.centerId, now = clock();
   await requireCenter(db, uid, centerId);
   if (input.action === 'list') {
@@ -94,6 +97,8 @@ export async function handleTemplateJobs({db, bucket, uid, input, apiKey, clock 
     check(j, '접수된 요청을 찾지 못했어요.', 'not-found', 'not-found');
     if (input.action === 'status') return {job: publicTemplateJob(j), usage: await usage(db, uid, apiKey, now)};
     check(j.status === 'complete' && j.artifact, '아직 이미지 생성이 끝나지 않았어요.', 'result-pending');
+    const managed = await enrolledAssetResponse({db,uid,usageContext},j.artifact);
+    if (managed) { await requireCenter(db,uid,centerId); return managed; }
     const bytes = await download(bucket, j.artifact);
     await requireCenter(db, uid, centerId);
     return {base64: bytes.toString('base64'), sha256: j.artifact.sha256, width: j.artifact.width, height: j.artifact.height};
@@ -158,7 +163,7 @@ export async function handleTemplateJobs({db, bucket, uid, input, apiKey, clock 
 /** Firestore deliveries and recovery share a fenced durable claim. A provider
  * operation with an unknown outcome is NEVER automatically repeated. */
 export async function processTemplateJob({db, bucket, uid, centerId, requestId, apiKey, clock = Date.now,
-  generate, render}) {
+  generate, render, usageContext}) {
   const path = jobPath(uid, centerId, requestId), ref = db.doc(path), queue = queueRef(db, path), token = randomUUID();
   const claimed = await db.runTransaction(async tx => {
     const s = await tx.get(ref), j = s.data();
@@ -171,7 +176,7 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
     return {job: value, uncertain};
   });
   if (!claimed) return;
-  let j = claimed.job, artifact, failure, background, provider = j.provider;
+  let j = claimed.job, artifact, failure, background, imageReservation, provider = j.provider;
   const patch = async value => db.runTransaction(async tx => {
     const current = (await tx.get(ref)).data();
     if (current?.token !== token || current.status !== 'processing') return false;
@@ -185,6 +190,8 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
     const recipe = j.design.theme.centerRecipe;
     background = await download(bucket, {path: recipe.backgroundPath, sha256: recipe.backgroundSha256});
     const impl = await import('./template-layout.js');
+    imageReservation = await reserveGeneratedImage({db,bucket,uid,usageContext},`${centerId}/${requestId}`,'template_job',
+      j.generationMode === TEMPLATE_IMAGE_MODE ? RASTER_MAX_BYTES : undefined);
     if (!provider) {
       check(Boolean(apiKey), 'AI 연결을 준비 중이에요.', 'not-configured');
       if (!await patch({stage: 'provider'})) return;
@@ -197,7 +204,8 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
         provider = metadata;
         artifact = {path: `users/${uid}/template-generations/${centerId}/${requestId}/${token}/${generated.sha256}.png`,
           sha256: generated.sha256, width: generated.width, height: generated.height};
-        await bucket.file(artifact.path).save(bytes, {resumable: false,
+        if (imageReservation) artifact = {...artifact,...await storeGeneratedImage(imageReservation,bytes)};
+        else await bucket.file(artifact.path).save(bytes, {resumable: false,preconditionOpts:{ifGenerationMatch:0},
           metadata: {contentType: 'image/png', cacheControl: 'private, no-store', metadata: {sha256: generated.sha256}}});
         provider = {...metadata, image: artifact};
       } else provider = generated; // Pre-deployment layout jobs remain recoverable.
@@ -217,11 +225,14 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
       // orphan, never a replacement worker's completed artifact with the same hash.
       artifact = {path: `users/${uid}/template-generations/${centerId}/${requestId}/${token}/${answer.sha256}.png`,
         sha256: answer.sha256, width: answer.width, height: answer.height};
-      await bucket.file(artifact.path).save(answer.bytes, {resumable: false,
+      if (imageReservation) artifact = {...artifact,...await storeGeneratedImage(imageReservation,answer.bytes)};
+      else await bucket.file(artifact.path).save(answer.bytes, {resumable: false,preconditionOpts:{ifGenerationMatch:0},
         metadata: {contentType: 'image/png', cacheControl: 'private, no-store', metadata: {sha256: answer.sha256}}});
       j.evidence = answer.evidence;
     }
-  } catch (error) { failure = error; }
+  } catch (error) { failure = error;
+    try { await cancelUnwrittenGeneratedImage(imageReservation); } catch { /* Reservation stays conservative. */ }
+  }
   const reason = failure?.details?.reason;
   // A saved provider result can be rendered again without another call/charge.
   if (failure && (provider?.layout || provider?.image) && !reason && j.attempts < 3) {
@@ -259,7 +270,7 @@ export async function processTemplateJob({db, bucket, uid, centerId, requestId, 
   });
   // An account deletion/ownership change during upload must not leave an
   // otherwise inaccessible orphan after the account cleanup has run.
-  if (!completed && artifact) {
+  if (!completed && artifact && !artifact.assetId) {
     const current = (await ref.get()).data();
     const retained = current?.status === 'complete' && current.artifact?.path === artifact.path ||
       ['pending', 'processing'].includes(current?.status) && current.provider?.image?.path === artifact.path;

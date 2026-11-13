@@ -1,5 +1,6 @@
+import {receiptPlan} from './legacy-plan-adapter.js';
 import {createHash} from 'node:crypto';
-import {products, tokenPattern} from './billing-policy.js';
+import {tokenPattern} from './billing-policy.js';
 
 export const playPackageName = 'com.sunmkim.cloudboard';
 export const playBasePlanId = 'monthly';
@@ -26,7 +27,7 @@ export function playSnapshot(value, now = Date.now(), knownAccountToken = null) 
     throw new Error('unsupported-play-state');
   }
   const items = value.lineItems ?? [];
-  if (!items.length || items.some(i => !products[i.productId] || i.offerDetails?.basePlanId !== playBasePlanId ||
+  if (!items.length || items.some(i => !receiptPlan(i.productId) || i.offerDetails?.basePlanId !== playBasePlanId ||
       !i.autoRenewingPlan || i.autoRenewingPlan.installmentDetails || i.prepaidPlan)) throw new Error('unsupported-play-product');
   const grants = items.map(item => {
     const expiry = Date.parse(item.expiryTime);
@@ -34,11 +35,11 @@ export function playSnapshot(value, now = Date.now(), knownAccountToken = null) 
     if (owned && !Number.isSafeInteger(expiry)) throw new Error('invalid-play-expiry');
     // The deferred replacement line has no purchased entitlement until it starts.
     const active = owned && ['active', 'canceled', 'grace_period'].includes(status) && expiry > now;
-    return {source: 'google_play', plan: products[item.productId], productId: item.productId,
+    return {source: 'google_play', plan: receiptPlan(item.productId), productId: item.productId,
       validUntilMs: active ? expiry : 0, expiresAtMs: owned ? expiry : 0,
       status: active && status === 'canceled' ? 'active' : status,
       autoRenew: owned && !['expired', 'canceled'].includes(status) && item.autoRenewingPlan.autoRenewEnabled === true,
-      nextProductId: products[item.deferredItemReplacement?.productId] ? item.deferredItemReplacement.productId : null,
+      nextProductId: receiptPlan(item.deferredItemReplacement?.productId) ? item.deferredItemReplacement.productId : null,
       environment: value.testPurchase != null ? 'Sandbox' : 'Production'};
   });
   // Select active entitlement first, then its own expiry; never mix plan and dates.

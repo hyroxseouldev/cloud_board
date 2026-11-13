@@ -1,3 +1,4 @@
+import {historicalPlanAccess, isHistoricalPlan, receiptPlan, legacyGrantRank} from './legacy-plan-adapter.js';
 import {planAccess, planPolicyVersion} from './plan-policy.js';
 export {planAccess} from './plan-policy.js';
 
@@ -5,7 +6,6 @@ export {planAccess} from './plan-policy.js';
 export const bundleId = 'com.sunmkim.cloudboard';
 export const appAppleId = 6809105126;
 export const products = Object.freeze({
-  'com.sunmkim.cloudboard.plus.monthly': 'plus',
   'com.sunmkim.cloudboard.premium.monthly': 'premium',
 });
 export const billingSource = 'firebase_billing';
@@ -14,7 +14,7 @@ export const tokenPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 
 export function validateTransaction(t, environment) {
   if (!t || t.bundleId !== bundleId || t.environment !== environment ||
-      !['Production', 'Sandbox'].includes(environment) || !products[t.productId] ||
+      !['Production', 'Sandbox'].includes(environment) || !receiptPlan(t.productId) ||
       t.type !== 'Auto-Renewable Subscription' || t.inAppOwnershipType !== 'PURCHASED' ||
       !idPattern.test(t.transactionId ?? '') || !idPattern.test(t.originalTransactionId ?? '') ||
       !tokenPattern.test(t.appAccountToken ?? '') || !Number.isSafeInteger(t.expiresDate)) {
@@ -29,12 +29,12 @@ export function appleGrant(t, renewal, status, now = Date.now()) {
   const until = revoked ? 0 : grace ? renewal.gracePeriodExpiresDate : t.expiresDate;
   const active = !revoked && [1, 4].includes(status) && until > now;
   return {
-    source: 'app_store', plan: products[t.productId], productId: t.productId,
+    source: 'app_store', plan: receiptPlan(t.productId), productId: t.productId,
     validUntilMs: active ? until : 0, expiresAtMs: t.expiresDate,
     status: revoked ? 'revoked' : grace && active ? 'grace_period' :
       renewal.isInBillingRetryPeriod ? 'billing_retry' : active ? 'active' : 'expired',
     autoRenew: renewal.autoRenewStatus === 1,
-    nextProductId: products[renewal.autoRenewProductId] ? renewal.autoRenewProductId : null,
+    nextProductId: receiptPlan(renewal.autoRenewProductId) ? renewal.autoRenewProductId : null,
     environment: t.environment,
   };
 }
@@ -44,8 +44,8 @@ export function resolveGrants(grants, now = Date.now()) {
   const active = grants.filter(g => g && Number.isSafeInteger(g.validUntilMs) && g.validUntilMs > now &&
     (g.status == null || ['active', 'trialing', 'grace_period', 'canceling', 'past_due'].includes(g.status) ||
       (g.source === 'pilot' && g.status === 'pilot' && g.plan !== 'free') ||
-      (!['free', 'plus', 'premium'].includes(g.plan) && g.status === 'legacy')));
-  const rank = g => g.plan === 'premium' ? 3 : g.plan === 'free' ? 0 : g.plan === 'plus' ? 1 : 2;
+      (!['free', 'premium'].includes(g.plan) && !isHistoricalPlan(g.plan) && g.status === 'legacy')));
+  const rank = legacyGrantRank;
   active.sort((a, b) => rank(b) - rank(a) || b.validUntilMs - a.validUntilMs);
   const winner = active[0];
   if (!winner) return {managed: true, source: billingSource, plan: 'free', status: 'expired',
@@ -55,24 +55,17 @@ export function resolveGrants(grants, now = Date.now()) {
     policyVersion: planPolicyVersion, workoutsUnlimited: false, maxWorkouts: 7,
     savedSlidesUnlimited: false, maxSavedSlides: 3, canHideCloudBoardLogo: false, canUseCenterLogo: false,
     aiSlidesMonthlyLimit: 0, aiTimerMonthlyLimit: 0};
-  const legacyDefaults = {...planAccess('plus'), displayLimit: 3, maxActiveDisplays: 3,
+  const legacyDefaults = {...planAccess('free'), displayLimit: 3, maxActiveDisplays: 3,
     maxFavorites: 3, maxSavedSlides: 3, idleScreenCustomization: 'basic',
     canHideCloudBoardLogo: false, canUseCenterLogo: false, aiSlidesMonthlyLimit: 0, aiTimerMonthlyLimit: 0};
-  const capabilities = ['free', 'plus', 'premium'].includes(winner.plan)
+  const capabilities = isHistoricalPlan(winner.plan) ? historicalPlanAccess(winner) : ['free', 'premium'].includes(winner.plan)
     ? planAccess(winner.plan) : Object.fromEntries(Object.keys(legacyDefaults).map(k => [k, Object.hasOwn(winner, k) ? winner[k] : legacyDefaults[k]]));
-  if (!['free', 'plus', 'premium'].includes(winner.plan)) {
+  if (!['free', 'premium'].includes(winner.plan) && !isHistoricalPlan(winner.plan)) {
     capabilities.maxSavedSlides = Object.hasOwn(winner, 'maxSavedSlides') ? winner.maxSavedSlides : capabilities.maxFavorites;
     capabilities.savedSlidesUnlimited = capabilities.maxSavedSlides === null;
     capabilities.maxWorkouts = Object.hasOwn(winner, 'maxWorkouts') ? winner.maxWorkouts : null;
     capabilities.workoutsUnlimited = capabilities.maxWorkouts === null;
     capabilities.policyVersion = planPolicyVersion;
-  }
-  // Only a recognized modern Plus grant receives the new three-TV policy.
-  // Unknown legacy grants keep their independently assigned capabilities.
-  if (winner.plan === 'plus' && winner.displaysUnlimited === false &&
-      [1, 3].includes(winner.maxActiveDisplays)) {
-    capabilities.maxActiveDisplays = 3;
-    capabilities.displayLimit = 3;
   }
   return {...capabilities, managed: true, source: billingSource, grantSource: winner.source ?? 'legacy',
     plan: winner.plan ?? 'cloudboard_pro', status: winner.status ?? 'active', validUntilMs: winner.validUntilMs};

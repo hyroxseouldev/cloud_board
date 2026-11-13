@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_image_budget.dart';
 
 import 'dart:async';
@@ -16,9 +17,13 @@ String workoutErrorMessage(
   Object? error, {
   String fallback = '작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
 }) {
+  if (error is ImageUsageFailure) return error.message;
   if (error is WorkoutImageBudgetExceeded) return error.message;
   if (error is FirebaseFunctionsException && error.details is Map) {
     final details = error.details as Map;
+    if (details['schemaVersion'] == 1 && details['policyRevision'] == imageUsagePolicyRevision) {
+      try { return ImageUsageFailure.fromJson(details).message; } on FormatException { return fallback; }
+    }
     if (details['reason'] == 'workout-image-budget-exceeded') {
       final bytes = details['totalBytes'];
       if (bytes is num && bytes > workoutImageLimitBytes) {

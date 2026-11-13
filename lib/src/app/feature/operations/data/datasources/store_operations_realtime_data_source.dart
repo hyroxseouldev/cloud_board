@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 
 import 'dart:async';
@@ -141,9 +142,18 @@ class StoreOperationsRealtimeDataSource {
 
   Future<void> saveBrandTemplate(BrandTemplateModel model) async {
     _requireOwnerId();
-    await FirebaseFunctions.instanceFor(region: 'asia-northeast3')
-        .httpsCallable('cloudboardSaveBrandConfig')
-        .call({'brand': model.toJson()});
+    try {
+      await FirebaseFunctions.instanceFor(region: 'asia-northeast3')
+          .httpsCallable('cloudboardSaveBrandConfig')
+          .call({'brand': model.toJson()});
+    } on FirebaseFunctionsException catch (error) {
+      if (error.details is Map &&
+          error.details['schemaVersion'] == 1 &&
+          error.details['policyRevision'] == imageUsagePolicyRevision) {
+        throw ImageUsageFailure.fromJson(error.details);
+      }
+      rethrow;
+    }
   }
 
   Future<void> saveSchedule(WorkoutScheduleModel model) =>

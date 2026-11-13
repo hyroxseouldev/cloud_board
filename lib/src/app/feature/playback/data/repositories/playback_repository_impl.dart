@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
+import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/core/services/realtime_server_reader.dart';
 import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy.dart';
 import 'package:cloud_board/src/app/core/runtime_policy/runtime_feature_policy_service.dart';
@@ -259,6 +262,7 @@ PlaybackRepository playbackRepository(Ref ref) {
     databaseURL: realtimeDatabaseUrl,
   );
   final runtimePolicy = ref.watch(runtimeFeaturePolicyServiceProvider);
+  if (ownerId != null) ref.watch(imageUsageSourceProvider);
   final source = PlaybackRealtimeDataSource(
     database,
     ownerId,
@@ -267,6 +271,25 @@ PlaybackRepository playbackRepository(Ref ref) {
       RuntimeFeature.splitPlayback,
       ownerId: ownerId ?? '',
     ),
+    serverStart: (model, scheduled, scheduledAtMs) async {
+      final usage = ref.read(imageUsageSourceProvider);
+      if (!await usage.enrolled()) return null;
+      final admission = await usage.pendingAdmission();
+      if (admission == null) throw const ImageUsageFailure('admission_expired');
+      final fingerprint = preparationFingerprint(model.toEntity().workout, model.targetDeviceIds);
+      if (admission.clientFingerprint != fingerprint) throw const ImageUsageFailure('session_changed');
+      var result = admission;
+      if (result.status == 'preparing') {
+        result = await usage.commit(admission, {
+          'stepIndex':model.stepIndex,'durationMs':model.remainingMs,'briefing':model.briefing,
+          'scheduled':scheduled,'scheduledAtMs':scheduledAtMs,'updatedByDeviceId':model.updatedByDeviceId});
+      }
+      if (result.pending || result.session == null) {
+        throw const ImageUsageFailure('start_pending', retryable: true);
+      }
+      if (result.status != 'active') throw const ImageUsageFailure('admission_expired');
+      return result.session;
+    },
     isCurrentAccount: () => auth.currentUser?.uid == ownerId,
     onAncillaryFailure: (error, stack) {
       if (ref.mounted) {

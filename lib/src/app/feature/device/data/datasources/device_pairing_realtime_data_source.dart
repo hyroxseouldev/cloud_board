@@ -548,7 +548,8 @@ class DevicePairingRealtimeDataSource {
             'lastSeenAtMs': ServerValue.timestamp,
             'onlineSinceMs': ServerValue.timestamp,
             'playbackProtocol': 5,
-            'preparationProtocol': anonymous ? 1 : 0,
+            'imageUsageProtocol': 1, 'mediaLeaseProtocol': 1, 'classAdmissionProtocol': 1,
+            'preparationProtocol': anonymous ? 2 : 0,
             ...installation,
           });
         }, applyLocally: false);
@@ -696,6 +697,7 @@ class DevicePairingRealtimeDataSource {
         'devices/$deviceId/online': false,
         'devices/$deviceId/lastSeenAtMs': ServerValue.timestamp,
         'devices/$deviceId/playbackProtocol': 5,
+        'devices/$deviceId/imageUsageProtocol': 1, 'devices/$deviceId/mediaLeaseProtocol': 1, 'devices/$deviceId/classAdmissionProtocol': 1,
       };
       if (!previousDevice.exists) {
         updates['devices/$deviceId/displayState'] = 'auto';
