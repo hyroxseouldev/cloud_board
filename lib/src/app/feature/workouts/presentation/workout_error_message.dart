@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_image_budget.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
@@ -14,6 +16,23 @@ String workoutErrorMessage(
   Object? error, {
   String fallback = '작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
 }) {
+  if (error is WorkoutImageBudgetExceeded) return error.message;
+  if (error is FirebaseFunctionsException && error.details is Map) {
+    final details = error.details as Map;
+    if (details['reason'] == 'workout-image-budget-exceeded') {
+      final bytes = details['totalBytes'];
+      if (bytes is num && bytes > workoutImageLimitBytes) {
+        return WorkoutImageBudgetExceeded(bytes.toInt()).message;
+      }
+      return '워크아웃 이미지가 100 MB를 초과했어요. 큰 이미지를 줄이거나 삭제한 뒤 다시 저장해 주세요.';
+    }
+    if (details['reason'] == 'workout-image-unverifiable') {
+      return '이미지 용량을 확인할 수 없습니다. 이미지를 다시 선택한 뒤 저장해 주세요.';
+    }
+    if (details['reason'] == 'workout-image-metadata-unavailable') {
+      return '이미지 용량을 확인하지 못했습니다. 연결을 확인하거나 이미지를 다시 선택한 뒤 저장해 주세요.';
+    }
+  }
   final limit = PlanLimitFailure.from(error);
   if (limit != null) return limit.message;
   if (error is FirebaseFunctionsException &&

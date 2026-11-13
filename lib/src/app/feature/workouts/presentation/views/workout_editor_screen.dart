@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_image_budget.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/slide_design.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_image_usage_provider.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image_budget_notice.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_write_conflict.dart';
@@ -328,6 +332,27 @@ class _EditorBody extends HookConsumerWidget {
     useListenable(folder);
     final templateScope =
         ref.watch(authStateProvider).value?.id ?? initial.ownerId;
+    final imageLoader = ref.watch(
+      workoutImageUsageLoaderProvider(templateScope),
+    );
+    final imageRetry = useState(0);
+    final imageFuture = useMemoized(() async {
+      final workout = draft.value;
+      if (workout.countdownImageSource.isEmpty &&
+          workout.modules.every(
+            (m) => m.imageSource.isEmpty && !hasSlideDesign(m),
+          )) {
+        return WorkoutImageUsage(
+          moduleBytes: {for (final m in workout.modules) m.id: 0},
+          countdownBytes: 0,
+          knownBytes: 0,
+          unknownCount: 0,
+        );
+      }
+      return imageLoader().measure(workout);
+    }, [draft.value, imageLoader, imageRetry.value]);
+    final imageSnapshot = useFuture(imageFuture, preserveState: false);
+    final imageUsage = imageSnapshot.data;
     final templatesProvider = slideTemplatesControllerProvider(templateScope);
     final templates = ref.watch(templatesProvider);
     final favoriteTemplates = templates.value ?? <WorkoutModule>[];
@@ -428,6 +453,16 @@ class _EditorBody extends HookConsumerWidget {
     }
 
     Future<Workout?> persist({Workout? edited}) async {
+      if (edited == null && imageUsage?.exceedsLimit == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              WorkoutImageBudgetExceeded(imageUsage!.knownBytes).message,
+            ),
+          ),
+        );
+        return null;
+      }
       if (name.text.trim().isEmpty) {
         final enteredName = await showDialog<String>(
           context: context,
@@ -870,9 +905,22 @@ class _EditorBody extends HookConsumerWidget {
                           key: const ValueKey('workout-slide-list'),
                           scrollController: slideScroll,
                           itemExtent: rowExtent,
-                          header: (guide || isNew) && !guideHidden.value
-                              ? ExpansionTile(
-                                  key: guideHeaderKey,
+                          header: Column(
+                            key: guideHeaderKey,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              WorkoutImageBudgetNotice(
+                                usage: imageUsage,
+                                failed: imageSnapshot.hasError,
+                                hasCountdown:
+                                    draft.value.countdownImageSource.isNotEmpty,
+                                onRetry: () {
+                                  imageLoader().retry();
+                                  imageRetry.value++;
+                                },
+                              ),
+                              if ((guide || isNew) && !guideHidden.value)
+                                ExpansionTile(
                                   title: const Text('수업 구성 도움말'),
                                   children: [
                                     const Padding(
@@ -886,8 +934,9 @@ class _EditorBody extends HookConsumerWidget {
                                       child: const Text('만들기 안내 숨기기'),
                                     ),
                                   ],
-                                )
-                              : null,
+                                ),
+                            ],
+                          ),
                           footer: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             child: Column(
@@ -967,6 +1016,15 @@ class _EditorBody extends HookConsumerWidget {
                             return WorkoutSlideListCard(
                               key: ValueKey(module.id),
                               module: module,
+                              imageSizeLabel: imageUsage == null
+                                  ? (imageSnapshot.hasError
+                                        ? '용량 확인 불가'
+                                        : '용량 확인 중…')
+                                  : imageUsage.moduleBytes[module.id] == null
+                                  ? '용량 확인 불가'
+                                  : imageMegabytes(
+                                      imageUsage.moduleBytes[module.id]!,
+                                    ),
                               index: index,
                               brandL: draft.value.brandL,
                               brandR: draft.value.brandR,

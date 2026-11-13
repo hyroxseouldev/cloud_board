@@ -11,6 +11,7 @@ import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/ai_slides.
 import 'package:cloud_board/src/app/feature/ai_slides/domain/entities/center_slide_recipe.dart';
 import 'package:cloud_board/src/app/feature/ai_slides/domain/usecases/center_slide_creation.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_firestore_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_image_usage_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_local_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_storage_data_source.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_repository_impl.dart';
@@ -60,7 +61,7 @@ void main() {
         messagingSenderId: '1234567890',
         projectId: project,
         authDomain: 'localhost',
-        storageBucket: '$project.appspot.com',
+        storageBucket: '$project.firebasestorage.app',
       ),
     ).timeout(const Duration(seconds: 30));
     final auth = FirebaseAuth.instanceFor(app: app);
@@ -175,6 +176,47 @@ void main() {
     final metadata = await storedImage.getMetadata();
     expect(metadata.contentType, 'image/png');
     expect(metadata.size, png.length);
+    final measured = await WorkoutImageUsageDataSource.firebase(storage, owner)
+        .measure(
+          first.copyWith(
+            modules: [
+              savedModule,
+              savedModule.copyWith(id: 'duplicate'),
+            ],
+            countdownImageSource: savedModule.imageSource,
+          ),
+        );
+    expect(measured.knownBytes, png.length);
+    expect(measured.unknownCount, 0);
+    expect(measured.moduleBytes['duplicate'], png.length);
+    // The new server validates installed-client wire data as well. A new
+    // arbitrary remote URL cannot be used to bypass trusted metadata checks.
+    await expectLater(
+      repository.save(
+        first.copyWith(
+          modules: [
+            savedModule.copyWith(
+              imageSource: 'https://unverified.example/new.png',
+            ),
+          ],
+        ),
+      ),
+      throwsA(
+        isA<FirebaseFunctionsException>().having(
+          (error) => (error.details as Map)['reason'],
+          'reason',
+          'workout-image-unverifiable',
+        ),
+      ),
+    );
+    expect(
+      (await data.loadOne(
+        owner,
+        first.id,
+        requireServer: true,
+      ))!.toEntity().modules.single.imageSource,
+      savedModule.imageSource,
+    );
     final ref = firestore.doc('users/$owner/workouts/browser-lesson');
     await ref.update({
       'futureMetadata': {'retained': true},

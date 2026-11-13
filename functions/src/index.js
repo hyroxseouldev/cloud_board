@@ -461,7 +461,10 @@ export const recordOperationTelemetry = onCall({region, timeoutSeconds: 30, maxI
 // Saves atomically commit content/summary; creates also check and update usage.
 export const saveWorkout = onCall({region, timeoutSeconds: 60, maxInstances: 10}, async request => {
   const {saveWorkout: save} = await import('./workout-save.js');
-  return save(db, request.auth?.uid, request.data);
+  const {workoutImageBudgetChecker} = await import('./workout-image-budget.js');
+  return save(db, request.auth?.uid, request.data, {
+    checkImageBudget: workoutImageBudgetChecker(bucket, request.auth?.uid),
+  });
 });
 export const syncWorkoutPlanUsage = onDocumentWritten({region, document: 'users/{uid}/workouts/{id}', retry: true, maxInstances: 3}, async event => {
   const {reconcileWorkoutPlanUsage} = await import('./plan-usage.js');

@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/workouts/data/datasources/workout_image_usage_data_source.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_image_budget.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_image_usage_provider.dart';
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/datasources/slide_editor_local_data_source.dart';
@@ -105,6 +108,39 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'over-budget editor shows each size and blocks saving without losing draft',
+    (tester) async {
+      final saved = <Workout>[];
+      await _pumpEditor(
+        tester,
+        saved: saved,
+        imageUsage: const WorkoutImageUsage(
+          moduleBytes: {'wave': 101000000, 'race': 0, 'timer': 0},
+          countdownBytes: 0,
+          knownBytes: 101000000,
+          unknownCount: 0,
+        ),
+      );
+      expect(find.text('이미지 · 101.00 MB'), findsOneWidget);
+      expect(find.text('이미지 용량 · 101.00 MB / 100 MB'), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('wave')),
+          matching: find.byTooltip('슬라이드 메뉴'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('아래로 이동'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('workout-save-button')));
+      await tester.pump();
+      expect(saved, isEmpty);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('WAVE ZONE (CASH OUT)'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'menu reorder works without dragging and persists the chosen order',
@@ -348,6 +384,7 @@ Future<GoRouter> _pumpEditor(
   double scale = 1,
   List<Workout>? saved,
   ValueChanged<SlideEditRequest>? onEdit,
+  WorkoutImageUsage? imageUsage,
 }) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
@@ -390,6 +427,10 @@ Future<GoRouter> _pumpEditor(
     ProviderScope(
       overrides: [
         authStateProvider.overrideWith((ref) => Stream.value(null)),
+        workoutImageUsageLoaderProvider('coach').overrideWith(
+          (ref) =>
+              () => _ImageUsage(imageUsage),
+        ),
         fixtureWorkoutDetails,
         fixtureSavedSlideOrder,
         workoutControllerProvider.overrideWith(_Workouts.new),
@@ -401,8 +442,11 @@ Future<GoRouter> _pumpEditor(
       child: MaterialApp.router(
         theme: XonTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+            // Geometry assertions do not wait for offscreen image shimmer.
+            disableAnimations: true,
+          ),
           child: child!,
         ),
         routerConfig: router,
@@ -426,4 +470,18 @@ class _Save extends WorkoutActionController {
     saved.add(workout);
     return workout;
   }
+}
+
+class _ImageUsage extends Fake implements WorkoutImageUsageDataSource {
+  _ImageUsage(this.value);
+  final WorkoutImageUsage? value;
+  @override
+  Future<WorkoutImageUsage> measure(Workout workout) async =>
+      value ??
+      WorkoutImageUsage(
+        moduleBytes: {for (final module in workout.modules) module.id: 0},
+        countdownBytes: 0,
+        knownBytes: 0,
+        unknownCount: 0,
+      );
 }

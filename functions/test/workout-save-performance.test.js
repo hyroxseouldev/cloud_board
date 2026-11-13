@@ -97,3 +97,21 @@ for (const [label, change] of [
     assert.equal(f.writes.find(write => write.path === usagePath).value.workoutCount, 4);
   });
 }
+
+test('image guard checks effective persisted legacy countdown and aborts before any write', async () => {
+  const f = fixture();
+  const path = 'users/owner/workouts/lesson';
+  f.values.set(path, {...f.values.get(path), countdownImageSource: 'legacy-countdown'});
+  let checked = false;
+  await assert.rejects(saveWorkout(f.db, 'owner', {ownerId: 'owner',
+    workout: {...workout, countdownImageSource: 'ignored-new-countdown'}}, {
+    checkImageBudget: async (value, previous) => {
+      checked = true;
+      assert.equal(value.countdownImageSource, 'legacy-countdown');
+      assert.equal(previous.countdownImageSource, 'legacy-countdown');
+      throw new Error('budget-exceeded');
+    },
+  }), /budget-exceeded/);
+  assert.equal(checked, true);
+  assert.equal(f.writes.length, 0);
+});

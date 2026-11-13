@@ -19,6 +19,7 @@ class WorkoutSlideListCard extends StatelessWidget {
     this.enabled = true,
     this.brandL = '',
     this.brandR = '',
+    this.imageSizeLabel,
   });
 
   final WorkoutModule module;
@@ -29,8 +30,9 @@ class WorkoutSlideListCard extends StatelessWidget {
   final bool enabled;
   final String brandL;
   final String brandR;
+  final String? imageSizeLabel;
 
-  static double extent(TextScaler textScaler) => 100 * textScaler.scale(1);
+  static double extent(TextScaler textScaler) => 120 * textScaler.scale(1);
 
   String get _timingLabel {
     final blocks = effectiveIntervalBlocks(module);
@@ -140,6 +142,17 @@ class WorkoutSlideListCard extends StatelessWidget {
                           height: 1.4,
                         ),
                       ),
+                      if (imageSizeLabel != null)
+                        Text(
+                          '이미지 · $imageSizeLabel',
+                          key: ValueKey('slide-image-size-${module.id}'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                          ),
+                        ),
                     ],
                   ),
                 ),

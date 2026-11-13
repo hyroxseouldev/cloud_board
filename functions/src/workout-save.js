@@ -24,7 +24,7 @@ export function workoutWire(value) {
 // The client's versioned DTO owns content and unknown-field preservation. Read
 // the latest document in the transaction only to retain its creation time and
 // settings compatibility values, without resurrecting deliberately removed data.
-export async function saveWorkout(db, uid, input) {
+export async function saveWorkout(db, uid, input, {checkImageBudget} = {}) {
   if (!uid) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
   if (input?.ownerId !== uid) throw new HttpsError('permission-denied', '로그인 계정이 변경되었습니다.');
   const {workout: source, ifAbsent = false, requireExisting = false,
@@ -71,6 +71,9 @@ export async function saveWorkout(db, uid, input) {
         else delete value[key];
       }
     }
+    // Validate the effective persisted legacy/schema-v2 content, not untrusted
+    // client byte hints. This also protects installed clients without new fields.
+    if (checkImageBudget) await checkImageBudget(value, current);
     if (current && isDeepStrictEqual(current, value)) {
       return {workout: workoutWire(current), created: false};
     }
