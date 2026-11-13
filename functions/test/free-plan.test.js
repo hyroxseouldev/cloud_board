@@ -1,3 +1,4 @@
+import {historicalPlanAccess} from '../src/legacy-plan-adapter.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {freeGrant, freeValidUntilMs, hasPaidOrTrialHistory, planAccess, resolveGrants} from '../src/billing-policy.js';
@@ -15,8 +16,8 @@ test('only explicit server enrollment creates Free access; missing access remain
 });
 
 test('Plus expands to three without changing product identity or Premium', () => {
-  assert.equal(planAccess('plus').maxActiveDisplays, 3);
-  assert.equal(planAccess('plus').maxFavorites, 30);
+  assert.equal(historicalPlanAccess({plan:'plus'}).maxActiveDisplays, 3);
+  assert.equal(historicalPlanAccess({plan:'plus'}).maxFavorites, 30);
   assert.equal(planAccess('premium').displaysUnlimited, true);
 });
 
@@ -31,11 +32,11 @@ test('Free never outranks trial, paid or legacy; expiry falls back without exten
   assert.equal(resolveGrants([grants[0], {source: 'legacy', plan: 'legacy', validUntilMs: 4000}], 1000).plan, 'legacy');
 });
 
-test('recognized legacy Plus expands to three while unknown limits remain unchanged', () => {
+test('historical paid grants retain each assigned display limit without automatic upgrades', () => {
   const plus = {source: 'live', managed: true, plan: 'plus', validUntilMs: 2000,
     displaysUnlimited: false, maxActiveDisplays: 1, displayLimit: 1};
-  assert.equal(resolveGrants([plus], 1000).maxActiveDisplays, 3);
-  assert.equal(resolveGrants([plus], 1000).displayLimit, 3);
+  assert.equal(resolveGrants([plus], 1000).maxActiveDisplays, 1);
+  assert.equal(resolveGrants([plus], 1000).displayLimit, 1);
   assert.equal(resolveGrants([{...plus, plan: 'legacy', maxActiveDisplays: 7, displayLimit: 7}], 1000).maxActiveDisplays, 7);
 });
 

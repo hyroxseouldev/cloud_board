@@ -28,6 +28,74 @@ const db=getFirestore(), realtime=getDatabase(), auth=getAuth(), bucket=getStora
 const jobs=db.collection('accountDeletions');
 const region='asia-northeast3';
 const userRef=uid=>realtime.ref(`users/${uid}`);
+
+// Usage enforcement is an explicit development-only enrollment. Existing
+// production endpoints and non-enrolled playback retain their current paths.
+const usageRuntimeAvailable = projectId === developmentProject || /^demo-[a-z0-9-]+$/.test(projectId);
+const usageEmulator = /^demo-[a-z0-9-]+$/.test(projectId) && process.env.FUNCTIONS_EMULATOR === 'true';
+const usageContext = {
+  db, realtime, auth, bucket, projectId, clock: Date.now, emulator: usageEmulator,
+  mediaBaseUrl: usageEmulator && process.env.CLOUDBOARD_MEDIA_EMULATOR_BASE_URL
+    ? process.env.CLOUDBOARD_MEDIA_EMULATOR_BASE_URL
+    : `https://${region}-${projectId}.cloudfunctions.net/cloudboardMedia`,
+  allowedOrigins: (process.env.CLOUDBOARD_MEDIA_ALLOWED_ORIGINS ?? '').split(',')
+    .map(value => value.trim()).filter(Boolean),
+};
+async function verifiedUsageCall(request, module, handler) {
+  const {invokeUsageCallable} = await import('./image-usage-runtime.js');
+  const endpoint = (await import(module))[handler];
+  return invokeUsageCallable(usageContext, request, endpoint);
+}
+const usageCallOptions = {region, timeoutSeconds: 60, memory: '512MiB',
+  concurrency: 4, maxInstances: 3, omit: !usageRuntimeAvailable};
+export const cloudboardImageUsage = onCall(usageCallOptions, request =>
+  verifiedUsageCall(request, './image-usage-ledger.js', 'handleImageUsage'));
+export const cloudboardClassAdmission = onCall(usageCallOptions, request =>
+  verifiedUsageCall(request, './class-admission.js', 'handleClassAdmission'));
+export const cloudboardUsageGrant = onCall(usageCallOptions, request =>
+  verifiedUsageCall(request, './usage-grants.js', 'handleUsageGrant'));
+export const cloudboardMediaLease = onCall(usageCallOptions, request =>
+  verifiedUsageCall(request, './media-gateway.js', 'handleMediaLease'));
+export const cloudboardImageUpload = onCall(usageCallOptions, request =>
+  verifiedUsageCall(request, './image-upload.js', 'handleImageUpload'));
+const usageHttpOptions = {...usageCallOptions, cors: false};
+export const cloudboardMedia = onRequest(usageHttpOptions, async (request, response) => {
+  const {handleMediaRequest} = await import('./media-gateway.js');
+  return handleMediaRequest({...usageContext, request, response});
+});
+export const cloudboardImageUploadBody = onRequest(usageHttpOptions, async (request, response) => {
+  const {handleImageUploadRequest} = await import('./image-upload.js');
+  return handleImageUploadRequest({...usageContext, request, response});
+});
+export const retryImageUsageOutbox = onDocumentWritten({
+  region, document: 'imageUsageAccounts/{ownerId}/outbox/{admissionId}',
+  retry: true, timeoutSeconds: 120, maxInstances: 3, omit: !usageRuntimeAvailable,
+}, async event => {
+  if (!event.data?.after.exists || event.data.after.data()?.status === 'done') return;
+  const {processUsageOutbox} = await import('./class-admission.js');
+  await processUsageOutbox(usageContext, event.params);
+});
+export const retryImageUsageEnrollment = onValueWritten({
+  region: 'asia-southeast1', instance: `${projectId}-default-rtdb`,
+  ref: '/users/{ownerId}/usageGate', retry: true, timeoutSeconds: 120,
+  maxInstances: 3, omit: !usageRuntimeAvailable,
+}, async event => {
+  const before = event.data.before.val(), after = event.data.after.val();
+  if (!after?.enrollmentRequestId ||
+      (after.mode !== 'enrolling' && before?.mode !== 'enrolling')) return;
+  const {reconcileUsageEnrollment} = await import('./class-admission.js');
+  await reconcileUsageEnrollment(usageContext, event.params);
+});
+export const reconcileImageUsageSession = onValueWritten({
+  region: 'asia-southeast1', instance: `${projectId}-default-rtdb`,
+  ref: '/users/{ownerId}/activeSession', retry: true, timeoutSeconds: 60,
+  maxInstances: 3, omit: !usageRuntimeAvailable,
+}, async event => {
+  // Only explicit completion is terminal evidence. Offline/TTL is not completion.
+  if (event.data.after.val()?.status !== 'completed') return;
+  const {reconcileUsageSession} = await import('./class-admission.js');
+  await reconcileUsageSession(usageContext, event.params);
+});
 async function ignoreMissingAuth(action) {
   try { await action(); } catch(error) { if(error.code!=='auth/user-not-found') throw error; }
 }
@@ -235,7 +303,7 @@ export const cloudboardAiSlideRaster = onCall({
     throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
   }
   const {handleAiSlideRaster} = await import('./ai-slide-raster.js');
-  return handleAiSlideRaster({db, bucket, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+  return handleAiSlideRaster({db, bucket, usageContext, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
 });
 
 // STA-203 optional usage + durable request wrapper; existing endpoints unchanged.
@@ -260,7 +328,7 @@ export const cloudboardTemplateJobs = onCall({
     throw new HttpsError('unauthenticated', '로그인 후 이용해 주세요.');
   }
   const {handleTemplateJobs} = await import('./template-jobs.js');
-  return handleTemplateJobs({db, bucket, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
+  return handleTemplateJobs({db, bucket, usageContext, uid: request.auth.uid, input: request.data, apiKey: process.env.OPENAI_API_KEY});
 });
 
 export const generateTemplateJob = onDocumentCreated({
@@ -269,7 +337,7 @@ export const generateTemplateJob = onDocumentCreated({
   secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
 }, async event => {
   const {processTemplateJob} = await import('./template-jobs.js');
-  await processTemplateJob({db, bucket, ...event.params, apiKey: process.env.OPENAI_API_KEY});
+  await processTemplateJob({db, bucket, usageContext, ...event.params, apiKey: process.env.OPENAI_API_KEY});
 });
 
 export const recoverTemplateJobs = onSchedule({
@@ -277,7 +345,7 @@ export const recoverTemplateJobs = onSchedule({
   secrets: process.env.AI_TIMER_SECRETS_ENABLED === 'true' ? ['OPENAI_API_KEY'] : [],
 }, async () => {
   const {recoverTemplateJobs: recover} = await import('./template-jobs.js');
-  await recover({db, bucket, apiKey: process.env.OPENAI_API_KEY});
+  await recover({db, bucket, usageContext, apiKey: process.env.OPENAI_API_KEY});
 });
 
 export const syncSlideLibraryPlan = onDocumentWritten({
@@ -463,7 +531,7 @@ export const saveWorkout = onCall({region, timeoutSeconds: 60, maxInstances: 10}
   const {saveWorkout: save} = await import('./workout-save.js');
   const {workoutImageBudgetChecker} = await import('./workout-image-budget.js');
   return save(db, request.auth?.uid, request.data, {
-    checkImageBudget: workoutImageBudgetChecker(bucket, request.auth?.uid),
+    checkImageBudget: workoutImageBudgetChecker(bucket, request.auth?.uid, {managedContext: usageContext}),
   });
 });
 export const syncWorkoutPlanUsage = onDocumentWritten({region, document: 'users/{uid}/workouts/{id}', retry: true, maxInstances: 3}, async event => {
@@ -484,11 +552,11 @@ export const getPlanUsage = onCall({region, timeoutSeconds: 30, maxInstances: 5}
 });
 export const cloudboardSaveBrandConfig = onCall({region, timeoutSeconds: 30, maxInstances: 5}, async request => {
   const {saveBrandConfig} = await import('./standby-branding.js');
-  return saveBrandConfig(db, realtime, request);
+  return saveBrandConfig(db, realtime, request, Date.now(), {usageContext});
 });
 export const syncStandbyBranding = onDocumentWritten({region, document: 'subscriptionEntitlements/{uid}', retry: true, maxInstances: 3}, async event => {
   const {projectStandbyBranding} = await import('./standby-branding.js');
-  await projectStandbyBranding(db, realtime, event.params.uid);
+  await projectStandbyBranding(db, realtime, event.params.uid, Date.now(), {usageContext});
 });
 
 async function displayConnectionCall(request, action) {

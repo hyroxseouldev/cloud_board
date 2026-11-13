@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -180,14 +181,25 @@ class WorkoutPreferencesDataSource {
       )) {
         throw const FormatException('지원하지 않는 이미지 형식입니다.');
       }
-      final file = storage.ref(
-        'users/$ownerId/brand/workout-settings/${DateTime.now().microsecondsSinceEpoch}',
+      final managed = await managedUploadIfEnrolled(
+        storage.app,
+        ownerId: ownerId,
+        bytes: image.bytes,
+        contentType: image.contentType,
+        purpose: 'brand',
       );
-      await file.putData(
-        image.bytes,
-        SettableMetadata(contentType: image.contentType),
-      );
-      source = await file.getDownloadURL();
+      if (managed != null) {
+        source = managed;
+      } else {
+        final file = storage.ref(
+          'users/$ownerId/brand/workout-settings/${DateTime.now().microsecondsSinceEpoch}',
+        );
+        await file.putData(
+          image.bytes,
+          SettableMetadata(contentType: image.contentType),
+        );
+        source = await file.getDownloadURL();
+      }
     }
     checkOwner(ownerId);
     final normalized = value.copyWith(

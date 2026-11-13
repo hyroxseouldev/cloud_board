@@ -1,3 +1,5 @@
+import 'support/legacy_image_usage_fixture.dart';
+
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 
 import 'dart:async';
@@ -68,6 +70,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              legacyImageUsageFixture,
               workoutPreferencesRepositoryProvider.overrideWith(
                 (_) => preferences,
               ),
@@ -153,6 +156,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            legacyImageUsageFixture,
+            displayPreparationRepositoryProvider.overrideWith(
+              (_) => _PreparationRepository(),
+            ),
             workoutPreferencesRepositoryProvider.overrideWith(
               (_) => preferences,
             ),
@@ -190,6 +197,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            legacyImageUsageFixture,
+            displayPreparationRepositoryProvider.overrideWith(
+              (_) => _PreparationRepository(),
+            ),
             workoutPreferencesRepositoryProvider.overrideWith(
               (_) => preferences,
             ),
@@ -239,6 +250,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          legacyImageUsageFixture,
           workoutPreferencesRepositoryProvider.overrideWith(
             (_) => _Preferences(),
           ),
@@ -324,6 +336,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            legacyImageUsageFixture,
             workoutPreferencesRepositoryProvider.overrideWith(
               (_) => _Preferences(),
             ),
@@ -418,6 +431,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          legacyImageUsageFixture,
+          displayPreparationRepositoryProvider.overrideWith(
+            (_) => _PreparationRepository(),
+          ),
           workoutPreferencesRepositoryProvider.overrideWith(
             (_) => _Preferences(),
           ),
@@ -469,6 +486,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          legacyImageUsageFixture,
+          displayPreparationRepositoryProvider.overrideWith(
+            (_) => _PreparationRepository(),
+          ),
           workoutPreferencesRepositoryProvider.overrideWith(
             (_) => _Preferences(),
           ),
@@ -530,6 +551,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          legacyImageUsageFixture,
+          displayPreparationRepositoryProvider.overrideWith(
+            (_) => _PreparationRepository(),
+          ),
           workoutPreferencesRepositoryProvider.overrideWith(
             (_) => _Preferences(),
           ),

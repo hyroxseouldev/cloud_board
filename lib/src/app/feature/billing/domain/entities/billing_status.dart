@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/entitlement/domain/legacy_plan_adapter.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 part 'billing_status.freezed.dart';
 
@@ -24,8 +25,8 @@ abstract class BillingStatus with _$BillingStatus {
   }) = _BillingStatus;
 
   String get planLabel => switch (plan) {
-    'premium' => '프리미엄',
-    'plus' => '플러스',
+    'premium' => 'Premium',
+    historicalPaidWirePlan => historicalSubscriptionLabel,
     'free' => 'Free',
     _ => '기존 이용 플랜',
   };

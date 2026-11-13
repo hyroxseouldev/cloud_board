@@ -1,6 +1,6 @@
 // Approved STA-158 offer, not a substitute for a localized store price.
 export const billingCatalogVersion = 'monthly-krw-2026-10';
-export const monthlyKrwPrices = Object.freeze({plus: 49000, premium: 99000});
+export const monthlyKrwPrices = Object.freeze({premium: 99000});
 
 // This server-owned attestation is populated only after reading the actual
 // store catalog and verifying sandbox purchase/restore against this release.

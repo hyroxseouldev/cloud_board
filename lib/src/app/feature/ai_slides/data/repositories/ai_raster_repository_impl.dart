@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/image_usage/presentation/managed_image_provider.dart';
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -40,7 +43,12 @@ AiRasterRepository? aiRasterRepository(Ref ref) {
 }
 
 class AiRasterRepositoryImpl implements AiRasterRepository {
-  AiRasterRepositoryImpl(this.source, {this.compose = composeRasterSlide});
+  AiRasterRepositoryImpl(
+    this.source, {
+    this.compose = composeRasterSlide,
+    this.managedImageBytes = authenticatedManagedImageBytes,
+  });
+  final Future<Uint8List> Function(String) managedImageBytes;
   final AiRasterDataSource source;
   final Future<Uint8List> Function(
     AiRasterDraft,
@@ -184,13 +192,20 @@ class AiRasterRepositoryImpl implements AiRasterRepository {
         'kind': kind,
         if (job != null) 'requestId': job.requestId,
       });
-      final encoded = json['base64'] as String;
+      final encoded = json['base64'] as String?;
       if (_disposed ||
           json['brandKey'] != brand.key ||
-          encoded.length > 5592408) {
+          (encoded != null && encoded.length > 5592408)) {
         throw const AiSlidesFailure('센터 이미지 권한 또는 버전을 확인해 주세요.');
       }
-      final bytes = base64Decode(encoded);
+      final bytes = json['asset'] is Map
+          ? await managedImageBytes(
+              ManagedImageAsset.fromJson(usageMap(json['asset'])).source,
+            )
+          : base64Decode(encoded ?? '');
+      if (_disposed || !source.isCurrent()) {
+        throw const AiSlidesFailure('센터 연결이 변경되었어요.');
+      }
       const signature = [137, 80, 78, 71, 13, 10, 26, 10];
       if (bytes.length < 33 ||
           bytes.length > 4 * 1024 * 1024 ||

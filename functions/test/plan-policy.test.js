@@ -1,17 +1,19 @@
+import {historicalPlanAccess, isHistoricalPlan} from '../src/legacy-plan-adapter.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {planAccess, planPolicyVersion, projectPlanPolicy, requirePlanEntitlement, assertPlanCapacity} from '../src/plan-policy.js';
 import {resolveGrants, freeGrant} from '../src/billing-policy.js';
 
-const active = (plan, extra = {}) => ({...planAccess(plan), plan, status:'active', validUntilMs:2000, ...extra});
+const active = (plan, extra = {}) => ({...isHistoricalPlan(plan) ? historicalPlanAccess({plan}) : planAccess(plan), plan, status:'active', validUntilMs:2000, ...extra});
 test('single versioned plan matrix retains installed-client aliases', () => {
   const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/plan-entitlements-v2.json',import.meta.url),'utf8'));
   assert.equal(fixture.policyVersion,planPolicyVersion);
   for (const [plan, displays, workouts, slides, ai, timer] of [
     ['free',1,7,3,0,0],['plus',3,null,30,10,0],['premium',null,null,null,30,100],
   ]) {
-    const value = planAccess(plan);
+    const value = isHistoricalPlan(plan) ? historicalPlanAccess({plan}) : planAccess(plan);
+    if (isHistoricalPlan(plan)) { delete value.plan; assert.throws(() => planAccess(plan)); }
     assert.deepEqual(value,fixture.plans[plan]);
     assert.equal(value.policyVersion, planPolicyVersion);
     assert.deepEqual([value.maxActiveDisplays,value.maxWorkouts,value.maxSavedSlides,value.aiSlidesMonthlyLimit,value.aiTimerMonthlyLimit],

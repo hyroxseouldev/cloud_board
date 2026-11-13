@@ -33,7 +33,7 @@ class AiSlideDesignActions {
     final access = await repository.access(ownerId);
     if (!access.canRequest) {
       throw const AiSlidesFailure(
-        'AI 슬라이드 도우미는 Plus와 Premium에서 이용할 수 있어요. 기본 디자인은 바로 이용할 수 있어요.',
+        'AI 슬라이드 도우미는 Premium에서 이용할 수 있어요. 기본 디자인은 바로 이용할 수 있어요.',
       );
     }
     if (!access.enabled) {

@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -239,7 +242,9 @@ class EditUserProfileScreen extends HookConsumerWidget {
         SnackBar(
           content: Text(
             next.hasError
-                ? '프로필을 저장하지 못했습니다. 입력은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.'
+                ? next.error is ImageUsageFailure
+                      ? (next.error! as ImageUsageFailure).message
+                      : '프로필을 저장하지 못했습니다. 입력은 유지됩니다. 연결을 확인하고 다시 저장해 주세요.'
                 : '프로필을 저장했습니다.',
           ),
           backgroundColor: next.hasError ? Colors.red.shade800 : null,
@@ -538,7 +543,7 @@ class _ProfileAvatar extends StatelessWidget {
     final image = bytes != null
         ? MemoryImage(bytes!) as ImageProvider
         : photoUrl != null && photoUrl!.isNotEmpty
-        ? NetworkImage(photoUrl!)
+        ? workoutImageProvider(photoUrl!, (width: null, height: null))
         : null;
     return SizedBox(
       width: radius * 2 + 12,

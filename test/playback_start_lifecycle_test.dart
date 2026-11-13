@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -469,6 +472,12 @@ class _Harness {
     );
     h.container = ProviderContainer(
       overrides: [
+        imageUsageSourceProvider.overrideWith((_) => ImageUsageDataSource(
+          projectId: 'demo-legacy-playback', actorId: 'owner', currentActorId: () => 'owner',
+          token: () async => 'fixture', readGate: () async => null,
+          call: (_, _) async => throw StateError('Legacy must not call admission'),
+          send: (_) async => throw StateError('No managed body in legacy fixture'),
+          preferences: SharedPreferences.getInstance)),
         fixtureSavedSlideOrder,
         memoryWorkoutRecovery,
         if (captureReceipts)

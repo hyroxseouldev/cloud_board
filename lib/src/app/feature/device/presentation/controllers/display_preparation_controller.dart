@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/admission_workout_wire.dart';
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
+import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/operation_event_recorder.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
@@ -19,11 +23,17 @@ class DisplayPreparationState {
     this.receipts = const {},
     this.error,
     this.loading = false,
+    this.admission,
+    this.clientFingerprint,
+    this.accessChecked = false,
   });
   final DisplayPreparation? request;
   final Map<String, DisplayPreparationReceipt> receipts;
   final String? error;
   final bool loading;
+  final ClassAdmission? admission;
+  final String? clientFingerprint;
+  final bool accessChecked;
 }
 
 @riverpod
@@ -34,6 +44,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
   @override
   DisplayPreparationState build() {
     ref.watch(displayPreparationRepositoryProvider);
+    ref.watch(imageUsageSourceProvider);
     ref.onDispose(() {
       _epoch++;
       unawaited(_subscription?.cancel());
@@ -63,21 +74,58 @@ class DisplayPreparationController extends _$DisplayPreparationController {
     );
     try {
       final repository = ref.read(displayPreparationRepositoryProvider);
-      final request = prepareDisplayCandidate(
-        workout,
-        targets,
-        sessionId: requestId,
-        revision: epoch,
-        nowMs: preparationServerNow(
-          ref.read(serverTimeOffsetProvider).value ?? 0,
-        ),
-      );
-      await diagnostics.observeRequest(
-        write: () => repository.request(request),
-        attempt: attempt,
-        requestId: requestId,
-        superseded: () => !ref.mounted || epoch != _epoch,
-      );
+      final usage = ref.read(imageUsageSourceProvider);
+      final enrolled = await usage.enrolled();
+      if (!ref.mounted || epoch != _epoch) return;
+      ClassAdmission? admission;
+      final fingerprint = preparationFingerprint(workout, targets);
+      DisplayPreparation? request;
+      if (enrolled) {
+        admission = await usage.prepare(
+          workout: admissionWorkoutWire(workout),
+          targets: targets,
+          controllerDeviceId: await ref.read(deviceIdProvider.future),
+          clientFingerprint: fingerprint,
+        );
+        if (!ref.mounted || epoch != _epoch) return;
+        if (admission.pending || admission.status == 'active') {
+          throw const ImageUsageFailure('start_pending', retryable: true);
+        }
+        // The server publishes after reservation; never client-write a fallback.
+        request = await repository.current();
+        if (request == null ||
+            request.sessionId != admission.sessionId ||
+            request.manifestHash != admission.manifestHash) {
+          throw const ImageUsageFailure('service_unavailable', retryable: true);
+        }
+      } else if (targets.isNotEmpty) {
+        request = prepareDisplayCandidate(
+          workout,
+          targets,
+          sessionId: requestId,
+          revision: epoch,
+          nowMs: preparationServerNow(
+            ref.read(serverTimeOffsetProvider).value ?? 0,
+          ),
+        );
+        await diagnostics.observeRequest(
+          write: () => repository.request(request!),
+          attempt: attempt,
+          requestId: requestId,
+          superseded: () => !ref.mounted || epoch != _epoch,
+        );
+      }
+      if (request == null) {
+        if (ref.mounted && epoch == _epoch) {
+          state = DisplayPreparationState(
+            accessChecked: true,
+            clientFingerprint: fingerprint,
+          );
+        }
+        attempt.success();
+        return;
+      }
+      final acceptedRequest = request;
       attempt.success(
         trace: {
           ...diagnostics.snapshot(),
@@ -85,13 +133,21 @@ class DisplayPreparationController extends _$DisplayPreparationController {
         },
       );
       if (!ref.mounted || epoch != _epoch) return;
-      state = DisplayPreparationState(request: request);
+      state = DisplayPreparationState(
+        request: acceptedRequest,
+        admission: admission,
+        clientFingerprint: fingerprint,
+        accessChecked: true,
+      );
       _subscription = repository.watchReceipts().listen(
         (receipts) {
           if (ref.mounted && epoch == _epoch) {
             state = DisplayPreparationState(
-              request: request,
+              request: acceptedRequest,
               receipts: receipts,
+              admission: admission,
+              clientFingerprint: fingerprint,
+              accessChecked: true,
             );
             final devices = ref.read(displayDevicesProvider).value ?? const [];
             for (final display in devices.where(
@@ -99,28 +155,28 @@ class DisplayPreparationController extends _$DisplayPreparationController {
             )) {
               final receipt = receipts[display.id];
               if (receipt == null ||
-                  receipt.sessionId != request.sessionId ||
-                  receipt.revision != request.revision ||
-                  receipt.manifestHash != request.manifestHash ||
+                  receipt.sessionId != acceptedRequest.sessionId ||
+                  receipt.revision != acceptedRequest.revision ||
+                  receipt.manifestHash != acceptedRequest.manifestHash ||
                   (receipt.status != 'ready' && receipt.status != 'failed')) {
                 continue;
               }
               final ready = receipt.readyFor(
-                request,
+                acceptedRequest,
                 preparationServerNow(
                   ref.read(serverTimeOffsetProvider).value ?? 0,
                 ),
               );
               if (!ready && receipt.status != 'failed') continue;
               final key =
-                  '${request.sessionId}-${display.id}-${receipt.status}';
+                  '${acceptedRequest.sessionId}-${display.id}-${receipt.status}';
               if (!_recorded.add(key)) continue;
               recordOperationEvent(
                 ref,
                 type: ready ? 'preparation_ready' : 'preparation_failed',
                 phase: 'tv_preparation',
                 eventId: key,
-                sessionId: request.sessionId,
+                sessionId: acceptedRequest.sessionId,
                 workoutId: workout.id,
                 workoutName: workout.name,
                 display: display,
@@ -149,13 +205,13 @@ class DisplayPreparationController extends _$DisplayPreparationController {
             context: {
               'operationId': failure.id,
               'preparationStage': 'receipts',
-              'sessionId': request.sessionId,
-              'expectedRevision': request.revision,
+              'sessionId': acceptedRequest.sessionId,
+              'expectedRevision': acceptedRequest.revision,
             },
           );
           if (ref.mounted && epoch == _epoch) {
             state = DisplayPreparationState(
-              request: request,
+              request: acceptedRequest,
               error: 'TV 응답을 확인하지 못했어요. 다시 시도해 주세요.',
             );
           }
@@ -192,8 +248,10 @@ class DisplayPreparationController extends _$DisplayPreparationController {
           workoutId: workout.id,
           workoutName: workout.name,
         );
-        state = const DisplayPreparationState(
-          error: 'TV 준비 요청을 보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+        state = DisplayPreparationState(
+          error: error is ImageUsageFailure
+              ? error.message
+              : 'TV 준비 요청을 보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
         );
       }
     }

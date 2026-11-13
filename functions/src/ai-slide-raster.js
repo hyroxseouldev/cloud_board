@@ -1,3 +1,5 @@
+import {publicAsset} from './managed-image-assets.js';
+import {reserveGeneratedImage, storeGeneratedImage, enrolledAssetResponse, cancelUnwrittenGeneratedImage} from './image-upload.js';
 import {requirePlanEntitlement} from './plan-policy.js';
 import {aiTimerMonth, AI_TIMER_BUDGET, AI_TIMER_GLOBAL_LIMIT, handleMeteredAi} from './ai-timer.js';
 import {RASTER_MODEL, RASTER_RESERVE, RASTER_MAX_BYTES, rasterHash, rasterFail, rasterPng,
@@ -12,7 +14,9 @@ function assert(condition, message = '센터 이미지 설정을 확인해 주�
 function descriptor(value) {
   assert(value && typeof value.path === 'string' && sha.test(value.sha256) &&
     [value.width, value.height].every(n => Number.isSafeInteger(n) && n > 0 && n <= 4096));
-  return {path: value.path, sha256: value.sha256, width: value.width, height: value.height};
+  const managed = value.assetId ? {assetId:value.assetId,source:value.source,generation:value.generation,
+    sizeBytes:value.sizeBytes,contentType:value.contentType} : {};
+  return {path: value.path, sha256: value.sha256, width: value.width, height: value.height,...managed};
 }
 
 export async function loadRasterBrand(db, uid, centerId, reader = db) {
@@ -33,7 +37,8 @@ export async function loadRasterBrand(db, uid, centerId, reader = db) {
   const reference = descriptor(config.reference), logo = descriptor(config.logo);
   assert(reference.path === template.recipe.backgroundPath && reference.sha256 === template.recipe.backgroundSha256 &&
     reference.path === `center-templates/${centerId}/${config.templateId}/${reference.sha256}.png`);
-  assert(logo.path.startsWith(`users/${uid}/brand/`) && /^users\/[A-Za-z0-9_-]+\/brand\/[A-Za-z0-9_.-]+\.png$/.test(logo.path));
+  assert(logo.path.startsWith(`users/${uid}/brand/`) && /^users\/[A-Za-z0-9_-]+\/brand\/[A-Za-z0-9_.-]+\.png$/.test(logo.path) ||
+    logo.assetId && logo.path.startsWith(`users/${uid}/managed-images/brand/`) && !logo.path.split('/').some(p=>!p||p==='..'||p==='.'));
   const crop = config.logo.sourceRect;
   assert(Array.isArray(crop) && crop.length === 4 && crop.every(n => Number.isFinite(n) && n >= 0) &&
     crop[2] > 0 && crop[3] > 0 && crop[0] + crop[2] <= logo.width && crop[1] + crop[3] <= logo.height);
@@ -50,7 +55,7 @@ function publicBrand(brand) {
   return {...brand, reference, logo};
 }
 async function assetBytes(bucket, item) {
-  const file = bucket.file(item.path);
+  const file = bucket.file(item.path, item.generation ? {generation:item.generation} : undefined);
   const [metadata] = await file.getMetadata();
   assert(Number(metadata.size) <= RASTER_MAX_BYTES && metadata.contentType === 'image/png', '이미지를 확인하지 못했어요.', 'invalid-asset');
   const [bytes] = await file.download();
@@ -69,7 +74,8 @@ async function access(db, uid, apiKey, now) {
 }
 function publicJob(job, requestId, now) {
   const stale = job.status === 'processing' && job.startedAtMs + 10 * 60000 < now;
-  const {path: _path, ...artifact} = job.artifact ?? {};
+  const a = job.artifact;
+  const artifact = a ? {sha256:a.sha256,width:a.width,height:a.height,...(a.source ? publicAsset(a) : {})} : null;
   return {requestId, status: stale ? 'uncertain' : job.status, draft: job.draft,
     brandKey: job.brandKey, artifact: job.artifact ? artifact : null,
     expiresAtMs: job.expiresAtMs ?? null, message: job.message ?? null};
@@ -81,7 +87,7 @@ function requireJob(job, brand, now) {
 }
 
 export async function handleAiSlideRaster({db, bucket, uid, input, apiKey, clock = Date.now,
-  generate = requestRasterArtwork, organize = requestRasterGroups}) {
+  generate = requestRasterArtwork, organize = requestRasterGroups, usageContext}) {
   const centerId = input?.centerId;
   const brand = await loadRasterBrand(db, uid, centerId);
   const now = clock();
@@ -104,7 +110,7 @@ export async function handleAiSlideRaster({db, bucket, uid, input, apiKey, clock
       ? publicJob(recent, recentId, now) : null, previous: previous?.brandKey === brand.key && previous.expiresAtMs > now
       ? publicJob(previous, previousId, now) : null};
   }
-  if (!status.allowed) throw rasterFail('permission-denied', 'AI 슬라이드 도우미는 Plus와 Premium에서 사용할 수 있어요.', 'plan-required');
+  if (!status.allowed) throw rasterFail('permission-denied', 'AI 슬라이드 도우미는 Premium에서 사용할 수 있어요.', 'plan-required');
   if (input.action === 'organize') {
     const lines = sourceLines(input.rawWod);
     assert(typeof input.brief === 'string' && input.brief.length <= 1000, '요청은 1,000자 이내로 적어 주세요.', 'invalid-brief');
@@ -120,6 +126,10 @@ export async function handleAiSlideRaster({db, bucket, uid, input, apiKey, clock
   }
   if (input.action === 'asset' && ['logo','reference'].includes(input.kind)) {
     const item = input.kind === 'logo' ? brand.logo : brand.reference;
+    // Published center-template originals are the separate service namespace
+    // excluded by policy; user-owned logos still require managed delivery.
+    const managed = input.kind === 'reference' ? null : await enrolledAssetResponse({db,uid,usageContext},item);
+    if (managed) { await checkFresh(); return {...managed,brandKey:brand.key}; }
     const bytes = await assetBytes(bucket, item);
     await checkFresh();
     return {base64: bytes.toString('base64'), ...publicBrand(brand)[input.kind], brandKey: brand.key};
@@ -132,6 +142,8 @@ export async function handleAiSlideRaster({db, bucket, uid, input, apiKey, clock
     assert(job.status === 'completed' && job.artifact, '아직 이미지 생성이 완료되지 않았어요.', 'result-pending');
     if (input.action === 'confirm') return {job: publicJob(job, requestId, now), brand: publicBrand(brand)};
     assert(input.kind === 'artwork', '이미지를 확인해 주세요.', 'invalid-asset');
+    const managed = await enrolledAssetResponse({db,uid,usageContext},job.artifact);
+    if (managed) { await checkFresh(); return {...managed,brandKey:brand.key}; }
     const bytes = await assetBytes(bucket, job.artifact);
     await checkFresh();
     return {base64: bytes.toString('base64'), ...publicJob(job, requestId, now).artifact, brandKey: brand.key};
@@ -185,18 +197,21 @@ export async function handleAiSlideRaster({db, bucket, uid, input, apiKey, clock
     return {status: {...availability, used: availability.used + 1, remaining: availability.remaining - 1}, job: jobValue};
   });
   if (claim.cached) return {...claim.status, job: publicJob(claim.job, requestId, clock())};
-  let answer, failure;
+  let answer, failure, imageReservation;
   try {
+    imageReservation = await reserveGeneratedImage({db,bucket,uid,usageContext},`${centerId}/${requestId}`,'ai_slide_raster',RASTER_MAX_BYTES);
     answer = await generate({reference, previous, draft, brand, uid}, apiKey);
     await checkFresh();
-    const artifact = {path: `users/${uid}/ai-slide-raster/${centerId}/${requestId}/${answer.sha256}.png`,
+    let artifact = {path: `users/${uid}/ai-slide-raster/${centerId}/${requestId}/${answer.sha256}.png`,
       sha256: answer.sha256, width: answer.width, height: answer.height};
     rasterPng(answer.bytes, artifact);
-    await bucket.file(artifact.path).save(answer.bytes, {resumable: false, preconditionOpts: {ifGenerationMatch: 0},
+    if (imageReservation) artifact = {...artifact,...await storeGeneratedImage(imageReservation,answer.bytes)};
+    else await bucket.file(artifact.path).save(answer.bytes, {resumable: false, preconditionOpts: {ifGenerationMatch: 0},
       metadata: {contentType: 'image/png', cacheControl: 'private, no-store', metadata: {sha256: answer.sha256}}});
     answer.artifact = artifact;
   } catch (error) {
     failure = error;
+    try { await cancelUnwrittenGeneratedImage(imageReservation); } catch { /* Reservation stays conservative. */ }
   }
   let settled;
   try { settled = await db.runTransaction(async tx => {
@@ -223,7 +238,7 @@ export async function handleAiSlideRaster({db, bucket, uid, input, apiKey, clock
   }); } catch (error) {
     // A transaction acknowledgement may itself be lost. Never delete a valid
     // completed result on that uncertainty; query its durable commit first.
-    if (answer?.artifact) {
+    if (answer?.artifact && !answer.artifact.assetId) {
       try {
         const persisted = (await jobRef.get()).data();
         if (persisted?.status !== 'completed' || persisted.artifact?.path !== answer.artifact.path) {
@@ -233,7 +248,7 @@ export async function handleAiSlideRaster({db, bucket, uid, input, apiKey, clock
     }
     throw error;
   }
-  if ((!settled || settled.status !== 'completed') && answer?.artifact) {
+  if ((!settled || settled.status !== 'completed') && answer?.artifact && !answer.artifact.assetId) {
     try { await bucket.file(answer.artifact.path).delete({ignoreNotFound: true}); } catch { /* Private orphan is never returned. */ }
   }
   if (!settled) throw rasterFail('permission-denied', '계정 상태가 변경되어 결과를 표시하지 않습니다.', 'account-changed');

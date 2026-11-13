@@ -196,6 +196,30 @@ void main() {
       throwsFormatException,
     );
   });
+  test('enrolled server commit owns session and snapshot publication without direct RTDB writes', () async {
+    final db = _Database();
+    var calls = 0;
+    final published = model('server-session');
+    final source = PlaybackRealtimeDataSource(
+      db,
+      'u',
+      serverStart: (candidate, scheduled, at) async {
+        calls++;
+        return {
+          ...split(published),
+          'workoutSnapshot': published.workoutSnapshot,
+        };
+      },
+    );
+    addTearDown(source.dispose);
+    final accepted = await source.start(model('client-placeholder'));
+    expect(accepted.id, 'server-session');
+    expect(calls, 1);
+    expect(db.lastTransaction, isNull);
+    expect(db.updates, isEmpty);
+    expect(db.values.keys.where((key) => key.startsWith('users/')), isEmpty);
+    expect(db.reads, isEmpty);
+  });
 }
 
 class _Database implements FirebaseDatabase {

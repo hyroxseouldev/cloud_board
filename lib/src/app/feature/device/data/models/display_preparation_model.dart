@@ -20,10 +20,10 @@ List<String> _strings(Object? value) => value is List
     : (value as Map).values.cast<String>().toList();
 DisplayPreparation? decodeDisplayPreparation(Object? value) {
   try {
-    if (value is! Map || value['schemaVersion'] != 1) return null;
+    if (value is! Map || !const {1, 2}.contains(value['schemaVersion'])) return null;
     final images = _strings(value['images']),
         sounds = _strings(value['sounds']);
-    final targets = (value['targets'] as Map).keys.cast<String>().toList();
+    final targets = value['targets'] is Map ? (value['targets'] as Map).keys.cast<String>().toList() : <String>[];
     if (images.length > 64 ||
         targets.length > 32 ||
         sounds.length > 4 ||

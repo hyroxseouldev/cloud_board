@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
@@ -21,6 +22,8 @@ class WorkoutImageUsageDataSource {
     this.prepareDesign = prepareSlideDesign,
     this.optimize = optimizeWorkoutImage,
     this.allowEmulatorUrls = false,
+    this.managedBytes,
+    this.useRawUploads,
   });
 
   factory WorkoutImageUsageDataSource.firebase(
@@ -30,6 +33,22 @@ class WorkoutImageUsageDataSource {
     ownerId: ownerId,
     bucket: storage.bucket,
     allowEmulatorUrls: storage.app.options.projectId.startsWith('demo-'),
+    useRawUploads: () async {
+      final client = ImageUsageDataSource.forApp(storage.app);
+      try {
+        return await client.enrolled();
+      } finally {
+        client.dispose();
+      }
+    },
+    managedBytes: (source) async {
+      final client = ImageUsageDataSource.forApp(storage.app);
+      try {
+        return (await client.authorizeMedia(source)).asset.sizeBytes;
+      } finally {
+        client.dispose();
+      }
+    },
     readBytes: (_, path) async =>
         (await storage
                 .ref(path)
@@ -41,6 +60,8 @@ class WorkoutImageUsageDataSource {
   final String ownerId, bucket;
   final bool allowEmulatorUrls;
   final StoredImageBytes readBytes;
+  final Future<int?> Function(String source)? managedBytes;
+  final Future<bool> Function()? useRawUploads;
   final Future<WorkoutModule> Function(WorkoutModule) prepareDesign;
   final Future<WorkoutImageSource> Function(WorkoutImageSource) optimize;
   final _cache = <String, Future<int?>>{};
@@ -64,8 +85,18 @@ class WorkoutImageUsageDataSource {
   Future<({String identity, int? bytes})> _source(
     String source,
     String workoutId,
+    bool rawUploads,
   ) async {
     if (source.isEmpty) return (identity: '', bytes: 0);
+    if (isManagedImageSource(source)) {
+      return (
+        identity: source,
+        bytes: await _cached(
+          source,
+          () => managedBytes?.call(source) ?? Future<int?>.value(null),
+        ),
+      );
+    }
     final uri = Uri.tryParse(source);
     if (uri?.scheme == 'http' ||
         uri?.scheme == 'https' ||
@@ -106,16 +137,20 @@ class WorkoutImageUsageDataSource {
       return (identity: identity, bytes: bytes);
     }
     final original = WorkoutImageSource.decode(source);
-    final identity =
-        'gs://$bucket/users/$ownerId/workouts/$workoutId/images/${sha256.convert(original.bytes)}';
+    final identity = rawUploads
+        ? 'pending-raw:$ownerId/$workoutId/${sha256.convert(original.bytes)}'
+        : 'gs://$bucket/users/$ownerId/workouts/$workoutId/images/${sha256.convert(original.bytes)}';
     final size = await _cached(
       identity,
-      () async => (await optimize(original)).bytes.length,
+      () async => rawUploads
+          ? original.bytes.length
+          : (await optimize(original)).bytes.length,
     );
     return (identity: identity, bytes: size);
   }
 
   Future<WorkoutImageUsage> measure(Workout workout) async {
+    final rawUploads = await useRawUploads?.call() ?? false;
     final sources = <({String id, String source})>[];
     var failed = false;
     // Designs are normally already prepared by the slide editor. Regenerate
@@ -139,7 +174,7 @@ class WorkoutImageUsageDataSource {
     sources.add((id: '\u0000countdown', source: workout.countdownImageSource));
     final results = await boundedMap(sources, (item) async {
       try {
-        return await _source(item.source, workout.id);
+        return await _source(item.source, workout.id, rawUploads);
       } catch (_) {
         failed = true;
         return (identity: item.source, bytes: null);

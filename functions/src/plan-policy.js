@@ -1,23 +1,24 @@
+import {historicalPlanAccess, isHistoricalPlan, projectHistoricalPlan} from './legacy-plan-adapter.js';
 import {HttpsError} from 'firebase-functions/v2/https';
 
 // Server-owned contract. null is unlimited, never an unavailable entitlement.
 export const planPolicyVersion = 'plan-entitlements-v2';
-export const planNames = Object.freeze(['free', 'plus', 'premium']);
+export const planNames = Object.freeze(['free', 'premium']);
 export function planAccess(plan) {
   if (!planNames.includes(plan)) throw new Error('unknown-plan');
   const free = plan === 'free', premium = plan === 'premium';
   return {
     policyVersion: planPolicyVersion,
     canPrepare: true, canPairDisplay: true, canStartClass: true,
-    displaysUnlimited: premium, maxActiveDisplays: premium ? null : free ? 1 : 3,
-    displayLimit: premium ? 2147483647 : free ? 1 : 3,
+    displaysUnlimited: premium, maxActiveDisplays: premium ? null : 1,
+    displayLimit: premium ? 2147483647 : 1,
     workoutsUnlimited: !free, maxWorkouts: free ? 7 : null,
-    savedSlidesUnlimited: premium, maxSavedSlides: premium ? null : free ? 3 : 30,
+    savedSlidesUnlimited: premium, maxSavedSlides: premium ? null : 3,
     // Installed clients use these names for the same saved-slide resource.
-    favoritesUnlimited: premium, maxFavorites: premium ? null : free ? 3 : 30,
+    favoritesUnlimited: premium, maxFavorites: premium ? null : 3,
     idleScreenCustomization: free ? 'basic' : 'custom',
     canHideCloudBoardLogo: !free, canUseCenterLogo: !free,
-    aiSlidesMonthlyLimit: free ? 0 : premium ? 30 : 10,
+    aiSlidesMonthlyLimit: premium ? 30 : 0,
     aiTimerMonthlyLimit: premium ? 100 : 0,
   };
 }
@@ -28,6 +29,7 @@ export function unavailableEntitlement() {
 }
 
 export function legacyPlanAccess(plan) {
+  if (isHistoricalPlan(plan)) return historicalPlanAccess({plan, policyVersion: 'plan-entitlements-v1'});
   const premium = plan === 'premium';
   return {...planAccess(plan), policyVersion: 'plan-entitlements-v1',
     maxWorkouts: null, workoutsUnlimited: true,
@@ -42,6 +44,7 @@ export function legacyPlanAccess(plan) {
 // operator activates v2 explicitly after supporting clients/companion are ready.
 // Disabling enrollment does not flap already-migrated accounts back and forth.
 export function projectPlanPolicy(result, previous, config) {
+  if (isHistoricalPlan(result.plan)) return projectHistoricalPlan(result, previous);
   if (previous?.policyVersion === planPolicyVersion ||
       previous?.webGrant?.policyVersion === planPolicyVersion ||
       (config?.enabled === true && config.version === planPolicyVersion)) return result;
@@ -64,6 +67,7 @@ export function requirePlanEntitlement(entitlement, now = Date.now()) {
   }
   if (planNames.includes(e.plan)) return {...e, ...(e.policyVersion === planPolicyVersion
     ? planAccess(e.plan) : legacyPlanAccess(e.plan))};
+  if (isHistoricalPlan(e.plan)) return historicalPlanAccess(e);
   if (!['legacy', 'cloudboard_pro'].includes(e.plan)) throw unavailableEntitlement();
   const savedLimit = Object.hasOwn(e, 'maxSavedSlides') ? e.maxSavedSlides : e.maxFavorites;
   if (savedLimit !== null && (!Number.isSafeInteger(savedLimit) || savedLimit < 0)) throw unavailableEntitlement();

@@ -1,3 +1,5 @@
+import 'support/legacy_image_usage_fixture.dart';
+
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 
 import 'dart:async';
@@ -176,6 +178,7 @@ class _Fixture {
   );
   late final container = ProviderContainer(
     overrides: [
+      legacyImageUsageFixture,
       displayPreparationRepositoryProvider.overrideWithValue(repository),
       displayHeartbeatPolicyServiceProvider.overrideWithValue(policyService),
       serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),

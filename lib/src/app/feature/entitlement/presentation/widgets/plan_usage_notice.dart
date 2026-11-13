@@ -145,7 +145,7 @@ class PlanUsageNotice extends HookConsumerWidget {
                       .success();
                   context.push('/subscription');
                 },
-                child: const Text('Plus 알아보기'),
+                child: const Text('Premium 알아보기'),
               ),
             ],
           ],
@@ -184,7 +184,7 @@ Future<void> showPlanLimitNotice(
         ),
         FilledButton(
           onPressed: () => Navigator.pop(dialog, 'upgrade'),
-          child: const Text('Plus 알아보기'),
+          child: const Text('Premium 알아보기'),
         ),
       ],
     ),

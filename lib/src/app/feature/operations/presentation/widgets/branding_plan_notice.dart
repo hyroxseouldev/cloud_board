@@ -19,22 +19,22 @@ class BrandingPlanNotice extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '센터 브랜딩은 Plus부터',
+              '센터 브랜딩은 Premium에서',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Free는 ${available ? '대기·수업 화면' : '대기 화면'}에 ${AppBrand.name} 로고를 표시합니다. Plus부터 제품 로고를 숨길 수 있어요.',
+              'Free는 ${available ? '대기·수업 화면' : '대기 화면'}에 ${AppBrand.name} 로고를 표시합니다. Premium에서 제품 로고를 숨길 수 있어요.',
             ),
             const SizedBox(height: 8),
-            const Text('대기 화면의 배경·안내 문구·센터 로고도 Plus부터 설정할 수 있어요.'),
+            const Text('대기 화면의 배경·안내 문구·센터 로고도 Premium에서 설정할 수 있어요.'),
             const SizedBox(height: 8),
             const Text('기존 설정과 로고는 보관되어 있어요. 다시 업그레이드하면 그대로 복원됩니다.'),
             const SizedBox(height: 16),
             OutlinedButton(
               onPressed: () => context.push('/subscription'),
               style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
-              child: const Text('Plus 알아보기'),
+              child: const Text('Premium 알아보기'),
             ),
           ],
         ),

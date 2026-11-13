@@ -89,14 +89,14 @@ void main() {
       expect(find.text('저장 수업 7 / 7'), findsOneWidget);
       expect(find.text('닫기').hitTestable(), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Plus 알아보기'),
+        find.text('Premium 알아보기'),
         100,
         scrollable: find.descendant(
           of: find.byType(AlertDialog),
           matching: find.byType(Scrollable),
         ),
       );
-      expect(find.text('Plus 알아보기').hitTestable(), findsOneWidget);
+      expect(find.text('Premium 알아보기').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('닫기'));
       await tester.pumpAndSettle();
@@ -483,7 +483,7 @@ void main() {
       await tester.enterText(find.byType(TextField), '내 수업 초안');
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Plus 알아보기'));
+      await tester.tap(find.text('Premium 알아보기'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();

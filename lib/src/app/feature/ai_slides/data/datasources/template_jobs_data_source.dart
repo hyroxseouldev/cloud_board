@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -36,6 +37,10 @@ class FirebaseTemplateJobsDataSource implements TemplateJobsDataSource {
           });
       return reply.data;
     } on FirebaseFunctionsException catch (error) {
+      if (error.details is Map && error.details['schemaVersion'] == 1 && error.details['policyRevision'] == imageUsagePolicyRevision) {
+        final failure = ImageUsageFailure.fromJson(error.details);
+        throw AiSlidesFailure(failure.message, code:error.code, reason:failure.reason);
+      }
       throw AiSlidesFailure(
         error.code == 'not-found'
             ? '새 슬라이드 생성 서버를 사용할 수 없어요. 입력과 이전 결과는 유지됩니다.'

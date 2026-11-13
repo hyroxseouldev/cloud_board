@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/entitlement/domain/legacy_plan_adapter.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -31,14 +32,14 @@ extension SubscriptionStatusLabel on SubscriptionStatus {
 extension UserProfilePlan on UserProfile {
   bool get hasPlanDisplayPolicy =>
       subscriptionPlan == 'free' ||
-      subscriptionPlan == 'plus' ||
+      isHistoricalPaidPlan(subscriptionPlan) ||
       subscriptionPlan == 'premium';
   bool get unlimitedDisplays =>
       subscriptionPlan == 'premium' && displayLimit == -1;
   String get planLabel => switch (subscriptionPlan) {
     'free' => displayLimit > 0 ? 'Free' : '수업 준비',
-    'plus' => '${AppBrand.name} 플러스',
-    'premium' => '${AppBrand.name} 프리미엄',
+    historicalPaidWirePlan => historicalSubscriptionLabel,
+    'premium' => 'Premium',
     _ => partnerTier.label,
   };
   String get statusLabel => subscriptionPlan == 'free' && displayLimit <= 0

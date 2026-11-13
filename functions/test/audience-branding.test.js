@@ -3,22 +3,23 @@ import assert from 'node:assert/strict';
 import {audienceBrandingEnabled, audienceBrandingPublicReady, audienceLogoVersion,
   applyBrandEntitlement, defaultStandbyBrand, projectStandbyBranding, saveBrandConfig} from '../src/standby-branding.js';
 import {planAccess} from '../src/plan-policy.js';
+import {historicalPlanAccess} from '../src/legacy-plan-adapter.js';
 
 const now = 10000, uid = 'owner';
 const gate = {version: audienceLogoVersion, enabled: true, ownerIds: [uid]};
-const access = (plan, extra = {}) => ({...planAccess(plan), plan, status: 'active', validUntilMs: now + 10000, revision: 3, ...extra});
+const access = (plan, extra = {}) => ({...(plan === 'plus' ? historicalPlanAccess({plan}) : planAccess(plan)), plan, status: 'active', validUntilMs: now + 10000, revision: 3, ...extra});
 const custom = {...defaultStandbyBrand, storeName: 'Saved center', logoUrl: 'https://example.org/logo.png',
   promotionImageUrls: ['https://example.org/fullscreen.png'], standbyFullscreen: true, standbyShowText: false, showCloudBoardLogo: false};
 function fixture(entitlement = access('plus'), rollout = gate, initial = {brand: custom}) {
-  let operations = structuredClone(initial);
-  const values = {'subscriptionEntitlements/owner': entitlement, 'appConfig/audienceBranding': rollout};
-  const snapshot = path => ({exists: values[path] != null, data: () => values[path]});
-  const db = {doc: path => ({path, get: async () => snapshot(path)}), getAll: async (...refs) => refs.map(r => snapshot(r.path))};
-  const realtime = {ref: path => ({transaction: async update => {
-    const next = update(operations); if (next !== undefined) operations = next;
-    return {committed: next !== undefined};
-  }, set: async value => {operations[path.split('/').at(-1)] = value;}, remove: async () => {operations = null;}})};
-  return {db, realtime, values, read: () => operations};
+  let user = {operations:structuredClone(initial)};
+  const values = {'subscriptionEntitlements/owner':entitlement,'appConfig/audienceBranding':rollout};
+  const snapshot = path => ({exists:values[path] != null,data:() => values[path]});
+  const db = {doc:path => ({path,get:async () => snapshot(path)}),getAll:async (...refs) => refs.map(r => snapshot(r.path))};
+  const realtime = {ref:path => ({get:async () => ({exists:() => user !== null,val:() => structuredClone(user)}),
+    transaction:async update => { const next=update(user); if (next !== undefined) user=next;
+      return {committed:next !== undefined,snapshot:{val:() => structuredClone(user)}}; },
+    remove:async () => { if (path.endsWith('/operations')) delete user.operations; else user=null; }})};
+  return {db,realtime,values,read:() => user?.operations ?? null};
 }
 
 test('activation is exact, per-owner, and public only after explicit global rollout', () => {

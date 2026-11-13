@@ -71,12 +71,12 @@ class BillingDataSource {
       throw StateError('$storeLabel에 연결할 수 없습니다.');
     }
     final response = await InAppPurchase.instance.queryProductDetails(
-      ids.toSet(),
+      ids.where((id) => id == 'com.sunmkim.cloudboard.premium.monthly').toSet(),
     );
     if (response.error != null) throw StateError('구독 상품을 불러오지 못했습니다.');
     _products.clear();
     for (final item in response.productDetails) {
-      if (!ids.contains(item.id)) continue;
+      if (!ids.contains(item.id) || item.id != 'com.sunmkim.cloudboard.premium.monthly') continue;
       if (store == 'google_play' && !isMonthlyPlayProduct(item)) continue;
       if (store == 'app_store' && !isMonthlyAppleProduct(item)) continue;
       _products[item.id] = item;
@@ -87,6 +87,7 @@ class BillingDataSource {
   }
 
   Future<void> buy(String productId, String token) async {
+    if (productId != 'com.sunmkim.cloudboard.premium.monthly') throw StateError('새 구독은 Premium만 선택할 수 있어요.');
     final product = _products[productId];
     if (!supported || product == null) throw StateError('구독 상품을 다시 불러와 주세요.');
     final launched = await InAppPurchase.instance.buyNonConsumable(

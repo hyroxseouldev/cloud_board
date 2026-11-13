@@ -30,8 +30,15 @@ class PlaybackRealtimeDataSource {
     this.allowSplitPlayback,
     this.appVersion,
     this.isCurrentAccount,
+    this.serverStart,
   });
 
+  final Future<Map<String, dynamic>?> Function(
+    PlaybackSessionModel model,
+    bool scheduled,
+    int? scheduledAtMs,
+  )?
+  serverStart;
   final String? appVersion;
   final Future<Object?> Function(String path)? serverRead;
   final Future<bool> Function()? allowSplitPlayback;
@@ -340,6 +347,22 @@ class PlaybackRealtimeDataSource {
     ensureStartCurrent();
     await waitForPlaybackConnection(watchConnected());
     ensureStartCurrent();
+    final admitted = await serverStart?.call(model, scheduled, scheduledAtMs);
+    ensureStartCurrent();
+    if (admitted != null) {
+      // The callable already returns its immutable snapshot. A second network
+      // read must not turn an acknowledged publication into an apparent failure.
+      if (admitted['schemaVersion'] == 2 &&
+          admitted['workoutSnapshot'] is Map) {
+        _rememberSnapshot(
+          admitted['id'] as String,
+          _stringMap(admitted['workoutSnapshot']),
+        );
+      }
+      await _ensureSnapshot(admitted);
+      ensureStartCurrent();
+      return _decode(admitted);
+    }
     final devices = (await _user.child('devices').get()).value;
     ensureStartCurrent();
     for (final id in model.targetDeviceIds) {

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_board/main.dart' as app;
 import 'package:cloud_board/src/app/core/config/firebase_environment.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 
 /// Debug-only, isolated simulator preview. Start and seed the emulators using
 /// tool/studio-preview before launching; no production Firebase writes occur.
@@ -38,6 +39,11 @@ void main() {
         FirebaseFunctions.instanceFor(region: region)
             .useFunctionsEmulator(host, 5001);
       }
+      ImageUsageDataSource.configureLocalEmulator(
+        Firebase.app(),
+        host: host,
+        port: 5001,
+      );
       for (final database in [
         FirebaseDatabase.instance,
         FirebaseDatabase.instanceFor(

@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
+
 import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,6 +22,16 @@ class StoreBrandStorageDataSource {
     final safeExtension = {'png', 'webp', 'gif'}.contains(normalized)
         ? normalized
         : 'jpg';
+    final managed = await managedUploadIfEnrolled(
+      _storage.app,
+      ownerId: user.uid,
+      bytes: bytes,
+      contentType: safeExtension == 'jpg'
+          ? 'image/jpeg'
+          : 'image/$safeExtension',
+      purpose: 'brand',
+    );
+    if (managed != null) return managed;
     final reference = _storage.ref(
       'users/${user.uid}/brand/$purpose-${DateTime.now().microsecondsSinceEpoch}.$safeExtension',
     );

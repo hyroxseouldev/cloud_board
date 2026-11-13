@@ -1,3 +1,5 @@
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/operations/domain/operation_history.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
@@ -77,8 +79,14 @@ OperationsReport operationsReport(Ref ref) => buildOperationsReport(
 @riverpod
 class StoreOperationsActionController
     extends _$StoreOperationsActionController {
+  int _epoch = 0;
   @override
-  AsyncValue<void> build() => const AsyncData(null);
+  AsyncValue<void> build() {
+    ref.watch(authStateProvider.select((value) => value.value?.id));
+    _epoch++;
+    ref.onDispose(() => _epoch++);
+    return const AsyncData(null);
+  }
 
   Future<bool> saveBrandTemplate(BrandTemplate template) => _run(
     () => ref.read(storeOperationsActionsProvider).saveBrandTemplate(template),
@@ -111,8 +119,11 @@ class StoreOperationsActionController
   );
 
   Future<bool> _run(Future<void> Function() action) async {
+    final epoch = _epoch;
     state = const AsyncLoading();
-    state = await AsyncValue.guard(action);
+    final result = await AsyncValue.guard(action);
+    if (!ref.mounted || epoch != _epoch) return false;
+    state = result;
     return !state.hasError;
   }
 }

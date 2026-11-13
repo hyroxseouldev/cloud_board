@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
+import 'package:cloud_board/src/app/feature/image_usage/presentation/managed_image_provider.dart';
 import 'dart:async';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_retention.dart';
@@ -69,7 +71,9 @@ ImageProvider workoutImageProvider(
 }) {
   final remote = source.startsWith('https://') || source.startsWith('http://');
   final retained = remote ? retainedWorkoutImage(source) : null;
-  final ImageProvider provider = retained != null
+  final ImageProvider provider = isManagedImageSource(source)
+      ? retained != null ? MemoryImage(retained) : ManagedImageProvider(source)
+      : retained != null
       ? MemoryImage(retained)
       : remote
       ? kIsWeb
@@ -80,7 +84,7 @@ ImageProvider workoutImageProvider(
             : CachedNetworkImageProvider(source)
       : MemoryImage(_bytesCache.decode(source));
   // Keep web network providers unresized so their HTML fallback stays available.
-  if ((kIsWeb && remote && retained == null) ||
+  if ((kIsWeb && remote && retained == null && !isManagedImageSource(source)) ||
       (size.width == null && size.height == null)) {
     return provider;
   }
@@ -157,6 +161,7 @@ Future<int> precacheWorkoutImages(
         try {
           await retention.load(source);
         } catch (_) {
+          if (isManagedImageSource(source)) rethrow;
           // CORS/HTML-only URLs keep their existing provider and render path.
         }
         if (!context.mounted ||
@@ -164,7 +169,7 @@ Future<int> precacheWorkoutImages(
             retention.sessionId != retainedSession) {
           return;
         }
-        if (source.startsWith('http') && retention.bytesFor(source) == null) {
+        if (!isManagedImageSource(source) && source.startsWith('http') && retention.bytesFor(source) == null) {
           await _retainFallbackImage(
             context,
             source,

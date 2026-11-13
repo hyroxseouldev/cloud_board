@@ -117,37 +117,65 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
           .toSet(),
     );
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
+    final preparation = ref.watch(displayPreparationControllerProvider);
+    final fingerprint = preparationFingerprint(
+      workout,
+      selectedDeviceIds.value,
+    );
+    final currentApproval =
+        preparation.accessChecked &&
+        preparation.clientFingerprint == fingerprint &&
+        (preparation.admission == null ||
+            (preparation.admission!.status == 'preparing' &&
+                preparation.admission!.prepareExpiresAtMs > nowMs));
     final imageCheck = useState<AsyncValue<int>>(const AsyncLoading());
     final readiness = evaluateWorkoutReadiness(workout);
-    useEffect(() {
-      var cancelled = false;
-      final reporter = ref.read(errorReporterProvider);
+    useEffect(
+      () {
+        var cancelled = false;
+        final reporter = ref.read(errorReporterProvider);
 
-      Future<void> precacheAfterBuild() async {
-        if (cancelled || !context.mounted) return;
-        try {
-          final count = await precacheWorkoutImages(
-            context,
-            workoutImageWindow(workout, count: 2, includeCountdown: true),
-            isCancelled: () => cancelled,
-          );
-          if (!cancelled && context.mounted) {
-            imageCheck.value = AsyncData(count);
+        Future<void> precacheAfterBuild() async {
+          if (cancelled ||
+              !context.mounted ||
+              !currentApproval ||
+              preparation.loading ||
+              preparation.error != null) {
+            return;
           }
-        } catch (error, stack) {
-          reporter.capture(error, stack, action: 'workout.preflight.images');
-          if (!cancelled && context.mounted) {
-            imageCheck.value = AsyncError(error, stack);
+          try {
+            final count = await precacheWorkoutImages(
+              context,
+              workoutImageWindow(workout, count: 2, includeCountdown: true),
+              isCancelled: () => cancelled,
+            );
+            if (!cancelled && context.mounted) {
+              imageCheck.value = AsyncData(count);
+            }
+          } catch (error, stack) {
+            reporter.capture(error, stack, action: 'workout.preflight.images');
+            if (!cancelled && context.mounted) {
+              imageCheck.value = AsyncError(error, stack);
+            }
           }
         }
-      }
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(precacheAfterBuild());
-      });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(precacheAfterBuild());
+        });
 
-      return () => cancelled = true;
-    }, [workout.id, workout.updatedAt]);
+        return () => cancelled = true;
+      },
+      [
+        workout.id,
+        workout.updatedAt,
+        currentApproval,
+        fingerprint,
+        preparation.admission?.admissionId,
+        preparation.loading,
+        preparation.error,
+      ],
+    );
 
     final onlineDeviceIds = onlineDevices.map((device) => device.id).toSet();
     final onlineDeviceSignature = onlineDeviceIds.toList()..sort();
@@ -174,15 +202,8 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
     final retry = useState(0);
     final signature = (selectedDeviceIds.value.toList()..sort()).join('|');
-    final fingerprint = preparationFingerprint(
-      workout,
-      selectedDeviceIds.value,
-    );
-    final preparation = modern.isEmpty
-        ? const DisplayPreparationState()
-        : ref.watch(displayPreparationControllerProvider);
     useEffect(() {
-      if (modern.isNotEmpty) {
+      {
         Future.microtask(() {
           if (context.mounted) {
             unawaited(
@@ -196,7 +217,7 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
       return null;
     }, [workout, signature, retry.value]);
     final requiredProtocol = requiredTimingProtocol(workout);
-    final matchingRequest = preparation.request?.manifestHash == fingerprint
+    final matchingRequest = preparation.clientFingerprint == fingerprint
         ? preparation.request
         : null;
     DisplayPreparationStatus statusOf(device) => displayPreparationStatus(
@@ -214,7 +235,11 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
       },
     );
     final canStart =
-        readiness.isReady && imageCheck.value.hasValue && allPrepared;
+        readiness.isReady &&
+        currentApproval &&
+        preparation.error == null &&
+        imageCheck.value.hasValue &&
+        allPrepared;
 
     Future<void> start() async {
       if (context.mounted) {
@@ -225,7 +250,8 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
             preparation: selected.isEmpty
                 ? null
                 : DisplayPreparationProof(
-                    manifestHash: fingerprint,
+                    manifestHash: matchingRequest?.manifestHash ?? fingerprint,
+                    clientFingerprint: fingerprint,
                     sessionId: matchingRequest?.sessionId,
                     revision: matchingRequest?.revision,
                   ),
@@ -251,6 +277,16 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
                     ? '총 수업 시간 ${workoutDurationText(workout)}'
                     : readiness.issues.join('\n'),
               ),
+              if (preparation.error != null && modern.isEmpty) ...[
+                Text(
+                  preparation.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                TextButton(
+                  onPressed: preparation.loading ? null : () => retry.value++,
+                  child: const Text('수업 상태 다시 확인'),
+                ),
+              ],
               imageCheck.value.when(
                 loading: () => const _CheckTile(
                   ok: null,

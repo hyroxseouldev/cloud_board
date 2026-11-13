@@ -156,8 +156,10 @@ void main() {
       isFalse,
     );
     expect(
-      access({...storageGrant, 'plan': 'plus'}).limitFor('savedSlides').known,
-      isFalse,
+      access({...storageGrant, 'plan': 'plus'})
+          .limitFor('savedSlides')
+          .isUnlimited,
+      isTrue, // Historical independently assigned paid rights are retained.
     );
     expect(
       access({

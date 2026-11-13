@@ -107,8 +107,10 @@ class DisplayPreparationProof {
     required this.manifestHash,
     this.sessionId,
     this.revision,
+    this.clientFingerprint,
   });
   final String manifestHash;
+  final String? clientFingerprint;
   final String? sessionId;
   final int? revision;
 }
