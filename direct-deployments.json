@@ -503,8 +503,10 @@
         },
         {
           "id": "readback",
-          "status": "running",
-          "startedAt": "2026-11-14T05:45:48.720Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:45:48.720Z",
+          "completedAt": "2026-11-14T05:45:54.882Z",
+          "durationMs": 6162
         }
       ],
       "targets": [
@@ -605,6 +607,253 @@
         ],
         "outputSha256": "41ece46e9752f2c21a6559be24987115f2c0f3e3c31ce467105b2f20b4a4517c",
         "deployComplete": true
+      },
+      "serverObservation": {
+        "status": "active",
+        "functions": [
+          {
+            "name": "auditDisplayAccessBinding",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "auditDisplayDeviceBinding",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cleanupDailyMaintenance",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardAppOnboarding",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardClassAdmission",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardImageUpload",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardImageUploadBody",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardImageUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardMedia",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardMediaLease",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardPrepareSupportAttachment",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardSaveBrandConfig",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardSubmitSupportTicket",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardUsageGrant",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "deleteMyAccount",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "getPlanUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "listLibraryFolders",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "manageLibraryFolder",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "notifySupportTicket",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "pairDisplayConnection",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "reconcileImageUsageSession",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "recordOperationTelemetry",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "reportClientDiagnostic",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "reportDisplayRecovery",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "requestDisplayRecovery",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "retryAccountDeletions",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "retryImageUsageEnrollment",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "retryImageUsageOutbox",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "saveWorkout",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncAppTrialAccess",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncLegacyWorkoutSettings",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncSlideLibraryPlan",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncSlidePlanUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncStandbyBranding",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncVerifiedFreeAccess",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncWorkoutCatalog",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncWorkoutPlanUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "unpairDisplayConnection",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "updateSlideLibrary",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "verifyDisplayConnection",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          }
+        ],
+        "sourceVerification": "successful-selected-deploy-command",
+        "appQa": "not-run"
       }
     }
   ]
