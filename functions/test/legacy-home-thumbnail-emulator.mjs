@@ -11,6 +11,7 @@ import {getStorage} from 'firebase-admin/storage';
 import {hashBytes} from '../src/managed-image-assets.js';
 import {handleMedia} from '../src/media-gateway.js';
 import {readUsage,reserveTransfer} from '../src/image-usage-ledger.js';
+import {imageUsagePolicies,imageUsagePolicyRevision,usagePeriods} from '../src/image-usage-policy.js';
 import {resolveLegacyHomeAsset} from '../src/legacy-home-image.js';
 import {homeThumbnailPath,homeThumbnailRef,homeImageDimensions} from '../src/home-image-thumbnail.js';
 import {serve} from './media-gateway-fixtures.js';
@@ -48,18 +49,102 @@ function artwork(width,height,type) {
     process.stdout.write(canvas.toBuffer(${JSON.stringify(type)}));
   `],{cwd:new URL('../',import.meta.url),maxBuffer:10*1024*1024});
 }
-async function seed(id,path,bytes,type) {
+async function seed(id,path,bytes,type,uid=ownerId) {
   const file=bucket.file(path);
   await file.save(bytes,{resumable:false,metadata:{contentType:type,metadata:{firebaseStorageDownloadTokens:'existing-token'}}});
   const source=`https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(path)}?alt=media&token=existing-token`;
   const input={workoutId:id,sourceHash:hashBytes(source),updatedAtMs};
   const summary={id,imageSource:source,updatedAt:Timestamp.fromMillis(updatedAtMs)};
-  const workout={id,ownerId,author:{id:ownerId},modules:[{imageUrl:source}],updatedAt:Timestamp.fromMillis(updatedAtMs)};
-  await db.doc(`users/${ownerId}/workouts/${id}`).set(workout);
-  await db.doc(`users/${ownerId}/workoutSummaries/${id}`).set(summary);
+  const workout={id,ownerId:uid,author:{id:uid},modules:[{imageUrl:source}],updatedAt:Timestamp.fromMillis(updatedAtMs)};
+  await db.doc(`users/${uid}/workouts/${id}`).set(workout);
+  await db.doc(`users/${uid}/workoutSummaries/${id}`).set(summary);
   return {id,path,input,source,summary,workout,bytes,type};
 }
 const query=f=>`?${new URLSearchParams({rendition:'home-v1',...f.input,updatedAtMs:String(updatedAtMs)})}`;
+
+async function enrolledContract(base,bytes) {
+  const uid='enrolled-legacy-home-fixture',h={Authorization:`Bearer ${uid}`};
+  const account=db.doc(`imageUsageAccounts/${uid}`),entitlement=db.doc(`subscriptionEntitlements/${uid}`),config=db.doc('appConfig/imageUsage');
+  const validAccount={mode:'enrolled',policyPlan:'free',policyRevision:imageUsagePolicyRevision,revision:0,
+    inventoryComplete:true,enrollmentPending:false,storageUsedBytes:0,storageReservedBytes:0,storageUnknownBytes:0};
+  const validEntitlement={plan:'free',canStartClass:true,status:'active',validUntilMs:updatedAtMs+86400000};
+  const validConfig={schemaVersion:1,policyRevision:imageUsagePolicyRevision,enabled:true,allowedProjectIds:[projectId]};
+  await account.set(validAccount);await entitlement.set(validEntitlement);await config.set(validConfig);
+  await realtime.ref(`users/${uid}`).set({uid});
+  const f=await seed('enrolled-class',`users/${uid}/workouts/old/images/${'e'.repeat(64)}`,bytes,'image/png',uid),url=base+query(f);
+  const count=async()=>(await db.collection(`imageUsageAccounts/${uid}/attempts`).get()).size;
+  const first=await fetch(url,{headers:h});assert.equal(first.status,200,await first.clone().text());
+  const size=(await first.arrayBuffer()).byteLength;assert.ok(size<=65536);
+  let usage=await readUsage(ctx,{ownerId:uid});
+  assert.equal(usage.downloadDay.usedBytes,size);assert.equal(usage.downloadMonth.usedBytes,size);
+  assert.equal(usage.downloadDay.reservedBytes,0);assert.equal(await count(),1);
+  assert.equal((await fetch(url,{headers:h,method:'HEAD'})).status,200);assert.equal(await count(),1);
+  // This exception cannot request the original or use the managed original route.
+  assert.equal((await fetch(url.replace('rendition=home-v1&',''),{headers:h})).status,400);
+  assert.equal((await fetch(url.replace('rendition=home-v1','rendition=original'),{headers:h})).status,400);
+  const sourceAsset=await resolveLegacyHomeAsset(ctx,uid,f.input);
+  assert.equal((await fetch(`${base}?assetId=${sourceAsset.assetId}&v=${sourceAsset.generation}`,{headers:{...h,'X-CloudBoard-Media-Lease':'missing-lease'}})).status,403);
+  const periods=usagePeriods(updatedAtMs),day=db.doc(`imageUsageAccounts/${uid}/periods/downloadDay_${periods.dayKey}`),
+    month=db.doc(`imageUsageAccounts/${uid}/periods/downloadMonth_${periods.monthKey}`),limits=imageUsagePolicies.free;
+  const setUsed=async(d,m)=>{await day.update({usedBytes:d});await month.update({usedBytes:m});};
+  // Exactly one rendition's remaining capacity must succeed, without a second
+  // capacity check double-counting its own reservation after body I/O.
+  await setUsed(limits.downloadDayLimitBytes-size,limits.downloadMonthLimitBytes-size);
+  assert.equal((await fetch(url,{headers:h})).status,200);assert.equal(await count(),2);
+  usage=await readUsage(ctx,{ownerId:uid});assert.equal(usage.downloadDay.usedBytes,limits.downloadDayLimitBytes);
+  assert.equal(usage.downloadMonth.usedBytes,limits.downloadMonthLimitBytes);
+  for(const [d,m] of [[limits.downloadDayLimitBytes,0],[0,limits.downloadMonthLimitBytes],
+    [limits.downloadDayLimitBytes,limits.downloadMonthLimitBytes]]){
+    await setUsed(d,m);
+    for(const method of ['GET','HEAD'])assert.equal((await fetch(url,{headers:h,method})).status,429);
+    assert.equal(await count(),2);
+  }
+  const grant=db.doc(`imageUsageAccounts/${uid}/grants/home-grant`);
+  await grant.set({status:'active',validFromMs:updatedAtMs-1,validUntilMs:updatedAtMs+60000,targetDayKey:periods.dayKey,
+    targetMonthKey:periods.monthKey,additionalDayBytes:size,additionalMonthBytes:size});
+  assert.equal((await fetch(url,{headers:h})).status,200);assert.equal(await count(),3);
+  usage=await readUsage(ctx,{ownerId:uid});
+  assert.equal(usage.downloadDay.usedBytes,limits.downloadDayLimitBytes+size);
+  assert.equal(usage.downloadMonth.usedBytes,limits.downloadMonthLimitBytes+size);
+  for(const ref of [day,month])assert.equal((await ref.get()).data().allocations['home-grant'].usedBytes,size);
+  assert.equal((await fetch(url,{headers:h})).status,429);assert.equal(await count(),3);
+  await grant.delete();await day.update({allocations:{}});await month.update({allocations:{}});await setUsed(0,0);
+  const denied=[];
+  for(const [label,a,e,c,status] of [
+    ['enrolling',{mode:'enrolling'},{},{},403],['pending',{enrollmentPending:true},{},{},403],
+    ['inactive entitlement',{}, {status:'expired'},{},400],['expired entitlement',{}, {validUntilMs:updatedAtMs},{},400],
+    ['wrong account policy',{policyRevision:'old'},{},{},400],['wrong plan',{policyPlan:'unknown'},{},{},400],
+    ['incomplete inventory',{inventoryComplete:false},{},{},400],['disabled config',{},{},{enabled:false},400],
+    ['wrong config policy',{},{},{policyRevision:'old'},400],['wrong project',{},{},{allowedProjectIds:['demo-other']},400],
+  ]){
+    await account.set({...validAccount,...a});await entitlement.set({...validEntitlement,...e});await config.set({...validConfig,...c});
+    const reads=events.length;
+    for(const method of ['GET','HEAD'])assert.equal((await fetch(url,{headers:h,method})).status,status,label);
+    assert.equal(events.length,reads,label);assert.equal(await count(),3,label);denied.push(label);
+  }
+  await account.set(validAccount);await entitlement.set(validEntitlement);await config.set(validConfig);
+  // Policy revoked during the real derivative read is rechecked before handoff.
+  beforeRead=async path=>{if(path===homeThumbnailPath(sourceAsset))await entitlement.update({status:'expired'});};
+  assert.equal((await fetch(url,{headers:h})).status,400);beforeRead=null;
+  await entitlement.set(validEntitlement);
+  beforeRead=async path=>{if(path===homeThumbnailPath(sourceAsset))await account.update({mode:'observe'});};
+  assert.equal((await fetch(url,{headers:h})).status,403);beforeRead=null;
+  await account.set(validAccount);
+  const attempts=await db.collection(`imageUsageAccounts/${uid}/attempts`).get();
+  assert.equal(attempts.docs.filter(d=>d.data().status==='served').length,3);
+  assert.equal(attempts.docs.reduce((total,d)=>total+(d.data().bodyBytes??0),0),size*3);
+  // Existing ledger stores null bodyBytes for not_sent and releases all of its
+  // reservation; zero charged bytes are verified in both actual usage periods.
+  assert.equal(attempts.docs.filter(d=>d.data().status==='not_sent'&&d.data().bodyBytes===null).length,2);
+  usage=await readUsage(ctx,{ownerId:uid});assert.equal(usage.downloadDay.reservedBytes,0);assert.equal(usage.downloadMonth.reservedBytes,0);
+  assert.equal(usage.downloadDay.usedBytes,0);assert.equal(usage.downloadMonth.usedBytes,0);
+  for(const name of ['admissions','assets','uploads'])assert.equal((await db.collection(`imageUsageAccounts/${uid}/${name}`).get()).size,0);
+  assert.equal(events.filter(e=>e.path===f.path).length,1);
+  await bucket.deleteFiles({prefix:`users/${uid}/`});await db.recursiveDelete(db.doc(`users/${uid}`));
+  return {renditionBytes:size,servedAttempts:3,actualServedBytes:size*3,quotaRejectedExtraAttempts:0,
+    grantDayBytes:size,grantMonthBytes:size,postIoNotSent:2,denied,admissions:0,assetEnrollments:0,uploads:0,
+    originalGatewayDenied:true,serverOriginalReads:1};
+}
 try {
   if(evidence)await mkdir(evidence,{recursive:true});
   await db.doc(`imageUsageAccounts/${ownerId}`).set({mode:'observe',policyPlan:'free',revision:0,
@@ -126,11 +211,12 @@ try {
     await realtime.ref(`authAccess/${ownerId}`).set({disabled:true});
     for(const method of ['GET','HEAD'])assert.equal((await fetch(endpoint,{headers,method})).status,403);
     await realtime.ref(`authAccess/${ownerId}`).remove();
-    for(const mode of ['enrolling','enrolled']){
-      await db.doc(`imageUsageAccounts/${ownerId}`).update({mode});
+    for(const value of [{mode:'enrolling'},{mode:'enrolled',enrollmentPending:true}]){
+      await db.doc(`imageUsageAccounts/${ownerId}`).update(value);
       assert.equal((await fetch(endpoint,{headers})).status,403);
     }
-    await db.doc(`imageUsageAccounts/${ownerId}`).update({mode:'observe'});
+    await db.doc(`imageUsageAccounts/${ownerId}`).update({mode:'observe',enrollmentPending:false});
+    report.enrolledLegacy=await enrolledContract(base,fixtures[0].bytes);
     // Canonical deletion during the actual derivative stream is settled zero.
     const asset=await resolveLegacyHomeAsset(ctx,ownerId,f.input);
     beforeRead=async path=>{if(path===homeThumbnailPath(asset))await db.doc(`users/${ownerId}/workouts/${f.id}`).delete();};
@@ -164,7 +250,7 @@ try {
   Object.assign(report,{downloadDayUsedBytes:usage.downloadDay.usedBytes,downloadMonthUsedBytes:usage.downloadMonth.usedBytes,
     servedAttempts:5,notSentAttempts:1,reservedBytes:0,admissions:0,assetEnrollments:0,uploads:0,
     originalClientGETs:0,accountCleanupVerified:true,storageOverwriteGenerationsVerified:true,
-    quotaPolicy:'observe meters actual bytes without enforcement; enrolled legacy denied (unchanged direct-image fence)'});
+    quotaPolicy:'legacy/observe meter-only; enrolled home-only exception enforces existing policy/entitlement/inventory/quota/grants; enrolling/pending blocked'});
   if(evidence)await writeFile(`${evidence}/legacy-emulator-evidence.json`,JSON.stringify(report,null,2));
   console.log('PASS legacy real Storage/Firestore/RTDB/HTTP rendition contract',report);
 } finally {await deleteApp(app);}

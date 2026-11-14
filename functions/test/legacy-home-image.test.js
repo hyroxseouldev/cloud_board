@@ -66,7 +66,7 @@ test('legacy 4K cold GET is real small JPEG, reused by copied class, with no lea
 });
 
 test('strict query and authoritative ownership/source/revision reject before any original read',async()=>{
-  for(const mode of ['other','anonymous','revoked','tv','missing','summary','revision','firstSource','owner','deleted','enrolled','enrolling','pending']){
+  for(const mode of ['other','anonymous','revoked','tv','missing','summary','revision','firstSource','owner','deleted','policy','enrolling','pending']){
     const s=setup();let h=headers;
     if(mode==='other')h={Authorization:'Bearer other'};
     if(mode==='revoked')h={Authorization:'Bearer revoked'};
@@ -78,7 +78,8 @@ test('strict query and authoritative ownership/source/revision reject before any
     if(mode==='firstSource')s.db.rows.get('users/owner/workouts/copied-class').modules[0].imageUrl='';
     if(mode==='owner')s.db.rows.get('users/owner/workouts/copied-class').ownerId='other';
     if(mode==='deleted')s.db.rows.set('accountDeletions/owner',{});
-    if(['enrolled','enrolling','pending'].includes(mode))s.db.rows.set('imageUsageAccounts/owner',{mode:mode==='pending'?'legacy':mode,enrollmentPending:mode==='pending'});
+    if(mode==='policy')s.ctx.denyHomePolicy=true;
+    if(['enrolling','pending'].includes(mode))s.db.rows.set('imageUsageAccounts/owner',{mode:mode==='pending'?'enrolled':mode,enrollmentPending:mode==='pending'});
     await request(s,async url=>assert.ok((await fetch(url,{headers:h})).status>=400,mode));
     assert.equal(s.events.filter(e=>e[0]==='stream').length,0,mode);
   }
@@ -86,6 +87,19 @@ test('strict query and authoritative ownership/source/revision reject before any
   for(const bad of [{...q,url:s.source},{...q,assetId:'image-one'},{...q,sourceHash:'A'.repeat(64)},
     {...q,updatedAtMs:'01'},{...q,updatedAtMs:'Infinity'},{...q,updatedAtMs:'253402300800000'},
     {...q,workoutId:'../other'},{...q,workoutId:['copied-class']},{...q,rendition:'original'}])assert.throws(()=>legacyHomeRequest(bad));
+});
+
+test('enrolled legacy uses the home policy gate before and after I/O, never opens the original branch',async()=>{
+  const s=setup();s.db.rows.set('imageUsageAccounts/owner',{mode:'enrolled'});
+  await request(s,async url=>{
+    assert.equal((await fetch(url,{headers})).status,200);
+    assert.equal((await fetch(url.replace('rendition=home-v1','rendition=original'),{headers})).status,400);
+    assert.equal((await fetch(url.replace('rendition=home-v1&',''),{headers})).status,400);
+  });
+  assert.equal(s.events.filter(e=>e[0]==='homePolicy').length,2);
+  s.beforeStream=path=>{if(path.includes('/home-v1/'))s.ctx.denyHomePolicy=true;};
+  await request(s,async url=>assert.equal((await fetch(url,{headers})).status,400));
+  assert.equal(s.events.filter(e=>e[0]==='settleTransfer').at(-1)[1].outcome,'not_sent');
 });
 
 test('exact bucket and the two historical namespaces only; source token never grants access',()=>{

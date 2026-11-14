@@ -34,7 +34,9 @@ Storage URL은 설정된 **정확한** bucket만 받는다. Firebase HTTPS URL �
 
 매 요청은 최신 Storage metadata에서 generation을 읽는다. 원본 stream은 그 generation에 고정하며, 캐시 사용 시에도 마지막 본문 전달 전에 **현재 이름의** metadata를 다시 확인한다. 오래된 generation이 보존된 bucket에서도 원본 교체·삭제 후 예전 파생본을 내보내지 않는다. 문서·계정·인증은 생성/본문 I/O 뒤 다시 검증하고, claim 및 전송 예약 transaction에서도 현재 workout/summary/source/revision을 검증한다. Firestore·Storage·RTDB는 하나의 원자 transaction이 아니므로 마지막 검사와 응답 사이의 극소 경합 구간까지 원자성이 있다고 주장하지 않는다.
 
-`enrolled`, `enrolling`, `enrollmentPending`인 계정의 레거시 분기는 기존 direct-image fence와 동일하게 차단한다. 홈에서 계정을 enrollment하거나 원본 자산 registry를 만들지 않는다. legacy/observe는 기존 정책대로 실제 사용량을 기록하며 강제 한도를 새로 부과하지 않는다. enrolled managed 요청의 기존 quota 검사는 유지한다.
+PR #198 리뷰에서 허용 범위를 명확히 했다. `enrolling` 또는 `enrollmentPending`은 계속 403으로 차단한다. `enrolled`는 **이 인증된 private home-v1 파생본에만** 예외를 둔다. 요청 전후 `requireLedgerEnabled`의 config/project/policyRevision/inventoryComplete/plan/entitlement 검사를 통과해야 하고, GET은 기존 `reserveTransfer` transaction의 day/month 잔여량·grant·`checkTransferCapacity`를 모두 통과한 실제 파생 bytes만 예약·정산한다. HEAD도 정책과 해당 파생 크기의 남은 용량을 확인하되 attempt/예약/사용량을 만들지 않는다. GET 후 검사는 이미 확보한 자기 reservation을 두 번 세지 않는다. I/O 사이 mode 변경은 거부한다.
+
+이는 원본/direct legacy GET이나 Storage rules, enrollment/migration fence의 완화가 아니다. legacy URL을 managed asset으로 등록하지 않으며 원본을 얻으려는 쿼리는 계속 거부한다. 홈에서 계정 enrollment·asset registry·upload·class admission을 만들지 않는다. legacy/observe는 기존 meter-only 정책을 유지하고, enrolled managed 요청의 기존 quota와 원본 GET/lease 계약도 변경하지 않는다.
 
 ## 생성·메모리·보관 경계
 
@@ -58,3 +60,7 @@ managed/legacy 공통 입력은 **10MiB 미만**, 16×1024×1024 화소 이하, 
 - 별도 renderer 프로세스(Node 22.21.1, macOS x64/Rosetta): 4K PNG peak RSS 약 125.5MiB, 최댓값 4096² PNG 4,108,734B는 약 179.8MiB, 4096² JPEG 8,284,415B는 약 187.8MiB. 4K 원본을 32회 연속 디코드한 별도 프로세스도 모두 성공했고 peak RSS는 약 132.7MiB였다. 테스트용 대형 canvas 생성은 별도 fixture 프로세스로 격리해 서버 RSS 측정에 섞지 않았다. 이는 로컬 측정이며 배포 Linux/Cloud Functions의 실제 cold-start/동시 runtime peak는 미확인이다.
 
 Auth identity는 에뮬레이터 HTTP fixture에 주입했다. 실제 Firebase 로그인/callable 인증, 보안 규칙 배포, 개발·운영 외부 서비스, 실제 계정/수업 쓰기, 배포/backfill/IAM/새 함수 등록, TestFlight 및 native build는 미실행이다. 원본 작업 폴더는 수정하지 않았다. 위젯 전후 PNG와 앱 통합은 홈 프런트엔드 담당 및 root 범위이며 이 백엔드 검사만으로 완료를 주장하지 않는다. 알려진 baseline remote partial-seek 두 실패는 수정·삭제·skip하지 않았다.
+
+### 등록 완료 계정 리뷰 보완 검증
+
+`backend/enrolled-review/`에 추가 증거를 보관한다. 실제 emulator에서 enrolled legacy cold GET과 정확히 한 파생본만 남은 잔여량의 GET, day/month grant 사용을 확인했다. 파생본 3,793B를 세 번 전달한 attempt의 실제 bodyBytes 합계는 11,379B이며 원본 stream은 1회였다. grant는 day/month 각각 3,793B를 정확히 사용했다. day/month 각각 및 동시 quota 초과는 429이며 추가 attempt가 없다. enrolling/pending은 403, 비활성/만료 entitlement·잘못된 account/config policy·비활성/다른 project config·미완료 inventory는 기존 ledger의 오류 매핑에 따른 400으로 막으며 원본 stream/attempt를 만들지 않는다. 실제 derivative I/O 중 entitlement 철회와 account mode 변경은 본문 전달 전 차단하고 0B로 정산한다. 이 확인은 로컬 Firebase와 주입 auth의 서버 계약 검사이며 실제 로그인·설치 앱·배포는 미실행이다. 기존 c372f98의 managed/original 호환 및 native memory 증거는 해당 분기·renderer·Storage rules가 변경되지 않아 재사용한다.

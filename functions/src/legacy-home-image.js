@@ -39,7 +39,9 @@ export function legacyHomePath(ctx, ownerId, source) {
 }
 
 export function legacyHomeAllowed(account) {
-  return !['enrolled','enrolling'].includes(account?.mode) && account?.enrollmentPending !== true;
+  // Only this private home rendition may use enrolled legacy sources. The
+  // gateway/transfer ledger still require enrolled policy, entitlement and quota.
+  return account?.mode !== 'enrolling' && account?.enrollmentPending !== true;
 }
 
 export async function readLegacyHomeBinding(ctx, ownerId, input, reader = ctx.db) {

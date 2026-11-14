@@ -136,7 +136,8 @@ export async function handleMedia(ctx, req, res) {
     if (legacy) {
       // Check both stores and revoked auth after generation/body I/O, also HEAD.
       if (await authenticateRequest(ctx,req,{nonAnonymous:true}) !== actorUid) throw usageFailure('media_lease_invalid','permission-denied');
-      await legacyHomeAccess(ctx,ledger,actorUid);
+      const fresh=await legacyHomeAccess(ctx,ledger,actorUid,req.method==='HEAD' ? served.sizeBytes : 0);
+      if (fresh.mode!==access.mode) throw usageFailure('media_lease_invalid','permission-denied');
       await assertLegacyHomeCurrent(ctx,asset);
       await legacyHomeMetadata(ctx,asset);
     }
@@ -161,9 +162,10 @@ export async function handleMedia(ctx, req, res) {
   }
 }
 
-async function legacyHomeAccess(ctx,ledger,actorUid) {
+async function legacyHomeAccess(ctx,ledger,actorUid,sizeBytes=0) {
   const access=await ledger.requireUsageContext(ctx,{actorUid,purpose:'preview'});
   if (access.ownerId!==actorUid || access.deviceId) throw usageFailure('media_lease_invalid','permission-denied');
+  await ledger.requireHomeThumbnailPolicy(ctx,{ownerId:access.ownerId,sizeBytes});
   return access;
 }
 

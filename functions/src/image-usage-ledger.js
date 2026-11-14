@@ -1,5 +1,5 @@
 import {HOME_RENDITION, homeThumbnailRef, validHomeThumbnail} from './home-image-thumbnail.js';
-import {assertLegacyHomeCurrent} from './legacy-home-image.js';
+import {assertLegacyHomeCurrent, legacyHomeAllowed} from './legacy-home-image.js';
 import {randomUUID} from 'node:crypto';
 import {assertUsage, imageUsagePolicies, imageUsagePolicyRevision, nowOf, usagePeriods, usageHash,
   validUsageId, validBytes, requireUsageProject, usageConfigEnabled, usageFailure} from './image-usage-policy.js';
@@ -66,6 +66,18 @@ export function requireLedgerEnabled(l, {protectedSession = false, requireInvent
       Number.isSafeInteger(l.entitlement.validUntilMs) && l.entitlement.validUntilMs > l.now,
     'entitlement_unverified');
   }
+}
+// Read-only home gate: no enrollment, asset registry, admission or reservation.
+// GET reserves the actual rendition in reserveTransfer; HEAD may check capacity
+// without consuming it. Never borrow an active class's protected entitlement.
+export async function requireHomeThumbnailPolicy(ctx,{ownerId,sizeBytes=0}) {
+  assertUsage(validBytes(sizeBytes), 'media_lease_invalid');
+  return ctx.db.runTransaction(async tx=>{
+    const l=await loadUsageLedger(ctx,tx,ownerId);
+    assertUsage(legacyHomeAllowed(l.account), 'media_lease_invalid', 'permission-denied');
+    requireLedgerEnabled(l);
+    if (sizeBytes>0) checkTransferCapacity(l,sizeBytes);
+  });
 }
 export function periodLimit(l, kind) {
   return l.policy?.[`${kind}LimitBytes`] ?? null;
