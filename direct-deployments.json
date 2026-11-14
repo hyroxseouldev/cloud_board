@@ -1419,8 +1419,10 @@
         },
         {
           "id": "deploy",
-          "status": "running",
-          "startedAt": "2026-11-14T12:26:53.867Z"
+          "status": "success",
+          "startedAt": "2026-11-14T12:26:53.867Z",
+          "completedAt": "2026-11-14T12:28:12.851Z",
+          "durationMs": 78984
         }
       ],
       "targets": [
@@ -1434,7 +1436,18 @@
       "dependencyCache": {
         "functions": "installed"
       },
-      "runtimeConfigurationHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f"
+      "runtimeConfigurationHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f",
+      "deployCommand": {
+        "exitCode": 0,
+        "completedAt": "2026-11-14T12:28:12.844Z",
+        "project": "cloud-board-development",
+        "targets": [
+          "functions:account-deletion:cloudboardMedia",
+          "functions:account-deletion:cloudboardMediaLease"
+        ],
+        "outputSha256": "0deb7449106e3b6b0adfaf39fdd7255fade26f998ccb57c4a2a2112331491d16",
+        "deployComplete": true
+      }
     }
   ]
 }
