@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "kind": "development-direct-deployment-handoff",
+  "project": "cloud-board-development",
+  "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+  "backendSourceSha": "d7c707b5efbd5b3ec187e82fdce4ab360ad2a4d6",
+  "applicationAndBackendSourceIdentical": true,
+  "backend": {
+    "originalReceiptId": "1794632812372450",
+    "originalStatus": "failed",
+    "originalCommandExitCode": null,
+    "readiness": "provider-source-verified; accepted by coordinator",
+    "reconciliationPath": "reconciliations/1794632812372450.json",
+    "activeFunctions": 41,
+    "wholeCliTiming": {
+      "sourceSha": "d7c707b5efbd5b3ec187e82fdce4ab360ad2a4d6",
+      "scope": "backend",
+      "project": "cloud-board-development",
+      "startedAt": "2026-11-14T05:06:50.942085+00:00",
+      "completedAt": "2026-11-14T05:10:04.497671+00:00",
+      "wholeCliElapsedSeconds": 193.554,
+      "exitCode": 1
+    }
+  },
+  "rules": {
+    "ledgerBlobSha": "f3a2d1639099177921510668d71c10b32acd1104",
+    "pendingAttempts": 0,
+    "attempt": {
+      "schemaVersion": 1,
+      "kind": "direct-deployment",
+      "id": "1794634099135363",
+      "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+      "environment": "development",
+      "project": "cloud-board-development",
+      "scope": "rules",
+      "tag": "",
+      "version": "2.1.6",
+      "actor": "hyroxseouldev",
+      "status": "success",
+      "startedAt": "2026-11-14T05:28:19.214Z",
+      "validation": {
+        "status": "not-run",
+        "reason": "Direct CLI: no GitHub Actions integration CI is requested"
+      },
+      "steps": [
+        {
+          "id": "verify-source",
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:20.978Z",
+          "completedAt": "2026-11-14T05:28:23.066Z",
+          "durationMs": 2088
+        },
+        {
+          "id": "verify-environment",
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:24.060Z",
+          "completedAt": "2026-11-14T05:28:25.053Z",
+          "durationMs": 993
+        },
+        {
+          "id": "toolchain",
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:26.404Z",
+          "completedAt": "2026-11-14T05:28:27.362Z",
+          "durationMs": 958
+        },
+        {
+          "id": "firebase-access",
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:28.300Z",
+          "completedAt": "2026-11-14T05:28:33.035Z",
+          "durationMs": 4735
+        },
+        {
+          "id": "recheck-source",
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:34.314Z",
+          "completedAt": "2026-11-14T05:28:35.968Z",
+          "durationMs": 1654
+        },
+        {
+          "id": "deploy",
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:37.102Z",
+          "completedAt": "2026-11-14T05:28:58.930Z",
+          "durationMs": 21828
+        },
+        {
+          "id": "readback",
+          "status": "success",
+          "startedAt": "2026-11-14T05:29:00.012Z",
+          "completedAt": "2026-11-14T05:29:10.025Z",
+          "durationMs": 10013
+        }
+      ],
+      "targets": [
+        "firestore:rules",
+        "firestore:indexes",
+        "database",
+        "storage"
+      ],
+      "storeReview": "not-submitted",
+      "toolchain": {
+        "node": "22.21.1"
+      },
+      "deployCommand": {
+        "exitCode": 0,
+        "completedAt": "2026-11-14T05:28:58.928Z",
+        "project": "cloud-board-development",
+        "targets": [
+          "firestore:rules",
+          "firestore:indexes",
+          "database",
+          "storage"
+        ],
+        "outputSha256": "449796f43af2a23433212a98ee6db0bfc37d15fcbce88d6c8ba9ff8232adb63e",
+        "deployComplete": true
+      },
+      "dependencyCache": {
+        "functions": "reused"
+      },
+      "rulesObservation": {
+        "status": "success",
+        "indexes": "deployment-command-only",
+        "services": {
+          "firestore": {
+            "version": "projects/cloud-board-development/rulesets/1a4089c9-4652-405c-8891-936a6df8a9b4",
+            "sourceHash": "8342ffab385afa55899ef8f8abe9a335d8e86a9f1c019cede629033d2e3e041d"
+          },
+          "storage": {
+            "version": "projects/cloud-board-development/rulesets/fa6455ad-8b00-4029-a57c-5439d04a3937",
+            "sourceHash": "8492278b0ce0e29fab6ff5810988b6eef78c8b64e726e39b3de3b99dfc260908"
+          },
+          "database": {
+            "semanticHash": "42b68e5374b663892efd2a831b81b66c26bf75913248aa96d7a125f9d892f5e9"
+          }
+        }
+      },
+      "completedAt": "2026-11-14T05:29:11.022Z"
+    }
+  },
+  "rulesTiming": {
+    "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+    "scope": "rules",
+    "startedAt": "2026-11-14T05:28:17.829912+00:00",
+    "completedAt": "2026-11-14T05:29:12.122364+00:00",
+    "wholeCliElapsedSeconds": 54.292,
+    "exitCode": 0
+  },
+  "policyActivation": "not-executed",
+  "globalEnrollment": "not-executed",
+  "fixtures": "not-executed",
+  "authenticatedApiFlow": "unverified; iOS worker owns fixture/app verification",
+  "productionHostingStores": "not-executed",
+  "regressionTests": {
+    "passed": 43,
+    "failed": 0,
+    "skipped": 0,
+    "command": "node --test tool/release/direct.test.mjs tool/firebase/release-cli.test.mjs tool/firebase/latest-release.test.mjs"
+  },
+  "fixPr": "https://github.com/hyroxseouldev/cloud_board/pull/179"
+}
