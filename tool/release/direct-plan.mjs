@@ -25,6 +25,7 @@ export function directPlan({sourceSha, environment, scope, version, tag = '', fu
     if (['backend', 'functions'].includes(scope)) steps.push('function-targets');
     if (environment === 'production' && scope !== 'web') steps.push('smoke-inputs');
     steps.push('recheck-source', 'deploy');
+    if (environment === 'development') steps.push('readback');
     if (environment === 'production') steps.push(...(scope !== 'web' ? ['verify-rules', 'live-smoke'] : []), 'verify-receipt');
   }
   return {schemaVersion: 1, kind: 'direct-deployment-plan', sourceSha, environment, scope, version, tag,

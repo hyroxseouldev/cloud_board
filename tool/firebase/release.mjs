@@ -272,7 +272,7 @@ export async function github(path, {method = 'GET', body} = {}) {
     } catch { throw new Error('GitHub request failed; check local gh authentication and repository permissions'); }
   }
   const response = await fetch(`https://api.github.com${path}`, {method,
-    headers: {Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
+    headers: {Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(body ? {'Content-Type': 'application/json'} : {})},
     body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(30_000)});
   if (!response.ok) throw new Error(`GitHub request failed (${response.status})`);
   return response.json();

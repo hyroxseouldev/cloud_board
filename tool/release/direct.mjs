@@ -4,6 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync} from 'node:fs';
 import {resolve, dirname, basename} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {readbackRules, verifyFunctionInventory} from '../firebase/direct-readback.mjs';
 import {directPlan} from './direct-plan.mjs';
 import {runtimeConfiguration, verifySecretBindings} from './direct-runtime.mjs';
 import {functionTargets} from './direct-targets.mjs';
@@ -77,15 +78,16 @@ export async function runRecordedStage({id, attempt, save, work, log = console.l
   const record = {id, status: 'running', startedAt: new Date().toISOString()};
   attempt.steps.push(record); await save();
   try {
-    await work(); record.status = 'success'; record.completedAt = new Date().toISOString();
+    await work(); record.status = 'success'; record.completedAt = new Date().toISOString(); record.durationMs = Date.parse(record.completedAt) - Date.parse(record.startedAt);
     await save(); log(`Completed ${id}`);
-  } catch (error) { record.status = 'failed'; record.completedAt = new Date().toISOString(); throw error; }
+  } catch (error) { record.status = 'failed'; record.completedAt = new Date().toISOString(); record.durationMs = Date.parse(record.completedAt) - Date.parse(record.startedAt); throw error; }
 }
 export async function executePlan(plan) {
   // Source and access checks precede the receipt lock; no deployment occurs here.
   assert.equal(resolve(process.cwd()), resolve(root), 'Execute control tools from their own fixed source checkout');
   await sourceCheck(plan);
   verifyEnvironments();
+  for (const key of ['FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST', 'FIREBASE_DATABASE_EMULATOR_HOST', 'FIREBASE_STORAGE_EMULATOR_HOST', 'FUNCTIONS_EMULATOR']) assert(!process.env[key], 'Clear emulator environment before a real deployment');
   assert.equal(Number(process.versions.node.split('.')[0]), 22, 'Execute with the repository Node 22 toolchain');
   process.env.PATH = `${dirname(process.execPath)}:${process.env.PATH}`;
   const actor = (await github('/user')).login;
@@ -111,7 +113,7 @@ export async function executePlan(plan) {
     writeFileSync(`${directory}/attempt.json`, JSON.stringify(attempt, null, 2) + '\n');
     state = await updateAttempt(github, state, attempt);
   };
-  let target, manifest, backend, buildNumber, artifact, runtime;
+  let target, manifest, backend, buildNumber, artifact, runtime, webStamp;
   const dependencies = dir => {
     const digest = createHash('sha256').update(readFileSync(`${dir}/package.json`)).update(readFileSync(`${dir}/package-lock.json`)).digest('hex');
     const stamp = `${dir}/node_modules/.cloudboard-direct-lock`;
@@ -215,6 +217,8 @@ export async function executePlan(plan) {
             const versioned = versionDevelopmentEntrypoint(readFileSync('build/web/index.html', 'utf8'), readFileSync('build/web/flutter_bootstrap.js', 'utf8'), readFileSync('build/web/main.dart.js'));
             writeFileSync('build/web/index.html', versioned.index); writeFileSync('build/web/flutter_bootstrap.js', versioned.bootstrap);
             assert.equal(json('build/web/version.json').build_number, buildNumber);
+            webStamp = {sourceSha: plan.sourceSha, project: plan.project, environment: plan.environment, version: plan.version, build: buildNumber, mainJsSha256: versioned.mainJsSha256};
+            writeJson('build/web/direct-build.json', webStamp);
           } else if (plan.scope === 'android') {
             flutter('build', 'appbundle', '--flavor', plan.environment, '--release', `--dart-define=FIREBASE_ENV=${plan.environment}`,
               '--build-name', plan.version, '--build-number', buildNumber);
@@ -271,6 +275,19 @@ export async function executePlan(plan) {
           } finally { if (createdRuntime) rmSync(runtimePath, {force: true}); }
           break;
         }
+        case 'readback':
+          if (['backend', 'functions'].includes(plan.scope)) {
+            attempt.serverObservation = {status: 'active', functions: verifyFunctionInventory(JSON.parse(firebase('functions:list', '--project', plan.project, '--json')), attempt.targets, plan.project),
+              sourceVerification: 'successful-selected-deploy-command', appQa: 'not-run'};
+          } else if (plan.scope === 'rules') {
+            dependencies('functions');
+            attempt.rulesObservation = await readbackRules({project: plan.project, files: Object.fromEntries(['firestore.rules', 'storage.rules', 'database.rules.json'].map(path => [path, readFileSync(path, 'utf8')]))});
+          } else {
+            const response = await fetch(`https://${plan.project}.web.app/direct-build.json?build=${buildNumber}`, {cache: 'no-store', signal: AbortSignal.timeout(30000)});
+            assert(response.ok, 'Hosting build stamp unavailable'); assert.deepEqual(await response.json(), webStamp, 'Hosting still serves a different build');
+            attempt.webObservation = {status: 'success', stamp: webStamp};
+          }
+          break;
         case 'verify-rules': node('functions/tools/live-rules.mjs', 'build/release/manifest.json', '--wait'); break;
         case 'live-smoke': node('functions/tools/release-smoke.mjs'); break;
         case 'verify-receipt': {

@@ -169,3 +169,18 @@ test('real CLI dry-run reads fixed source only and does not request any deploy/b
     assert.equal(result.operation, 'dry-run'); assert.equal(result.sourceSha, head);
   }
 });
+
+test('development readback rejects wrong project, missing/non-active functions and drifted rules', async () => {
+  const {verifyFunctionInventory, readbackRules} = await import('../firebase/direct-readback.mjs');
+  const project = 'cloud-board-development';
+  const inventory = {status: 'success', result: [{id: 'saveWorkout', codebase: 'account-deletion', project, state: 'ACTIVE', region: 'asia-northeast3'}]};
+  assert.equal(verifyFunctionInventory(inventory, ['functions:account-deletion:saveWorkout'], project)[0].state, 'ACTIVE');
+  assert.throws(() => verifyFunctionInventory(inventory, ['functions:account-deletion:missing'], project));
+  assert.throws(() => verifyFunctionInventory(inventory, ['functions:account-deletion:saveWorkout'], 'cloud-board-stationd'));
+  inventory.result[0].state = 'DEPLOYING';
+  assert.throws(() => verifyFunctionInventory(inventory, ['functions:account-deletion:saveWorkout'], project));
+  const files = {'firestore.rules': 'allow no;', 'storage.rules': 'allow no;', 'database.rules.json': '{"rules":{}}'};
+  const request = async url => url.includes('/releases/') ? {rulesetName: `projects/${project}/rulesets/rule1`} : url.includes('/rulesets/') ? {source: {files: [{content: 'allow no;'}]}} : {rules: {}};
+  assert.equal((await readbackRules({project, files, request})).status, 'success');
+  await assert.rejects(readbackRules({project, files: {...files, 'storage.rules': 'drift'}, request}), /differ/);
+});

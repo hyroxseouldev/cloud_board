@@ -129,16 +129,16 @@ A failure before deployment may conservatively require reconciliation too.
 
 Production full-backend/rules/web receipts embed the same format-1 manifest,
 live-rule/smoke or compatible-backend proof as the previous workflow artifacts.
-`latest-release` checks the direct ledger first when enabled, then reads historical
+`latest-release` checks the direct ledger first for the CloudBoard repository, then reads historical
 Actions artifacts if that component has no direct history. Historical receipt
 validation is unchanged. Partial function deployment records command success but
 cannot claim a full backend fingerprint; mobile/web compatibility blocks until a
 complete backend/rules reconciliation establishes a verified receipt. Development
-command success is not production backend verification; actual app/API QA and
+readback records selected function ACTIVE metadata, exact Firestore/Storage/RTDB rule hashes, or the deployed Hosting build stamp. Index readiness and actual callable/app behavior are not inferred from that readback. Development command success is not production backend verification; actual app/API QA and
 policy activation remain separate.
 
-The monitor enables the adapter. The native CLI enables it automatically. For
-standalone historical helpers, set `CLOUDBOARD_DIRECT_RECEIPTS=true`.
+The monitor, native CLI and CloudBoard repository readers use the adapter automatically;
+`CLOUDBOARD_DIRECT_RECEIPTS=true` also explicitly selects it for helper execution.
 Installed-client inventory accepts `directDeploymentId` alongside historical
 `workflowRunId`, retaining uploaded production clients and excluding development.
 Direct mobile receipts use schema 5 (fixed SHA development source); old schemas
@@ -246,7 +246,10 @@ work. The dry-run/fixture timings are **not** service deployment timings.
 ## Verification of this implementation
 
 Focused Node script/receipt/workflow-fixture tests: **198 passed, 0 failed,
-0 skipped** on Node 24, repeated on repository Node 22 before handoff. Native
+0 skipped** on Node 24 and repository Node 22 before final readback additions.
+The added direct readback/receipt suite has **16 passed, 0 failed, 0 skipped**.
+Integration on develop 2.1.6+10 repeated the 32 relevant source/environment/direct
+tests successfully; unchanged historical checks reuse their existing results. Native
 artifact Python fixtures: **5 passed**; iOS signing fixtures: **4 passed**.
 Actual CLI dry-runs cover all six development scopes and produce plans only.
 The first combined run found one historical fixture path still pointing to a
