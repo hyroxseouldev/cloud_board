@@ -12,6 +12,8 @@ const publicAdmission = async (ctx, ownerId, a, session) => ({schemaVersion: 1, 
   sessionId: a.sessionId, epoch: a.epoch, manifestHash: a.manifestHash, clientFingerprint: a.clientFingerprint,
   policyRevision: a.policyRevision, status: a.status, prepareExpiresAtMs: a.prepareExpiresAtMs,
   targetDeviceIds: a.targetDeviceIds, reservedDownloadBytes: a.reservedDownloadBytes,
+  supportsTargetSubset: true,
+  ...(a.selectedTargetDeviceIds ? {selectedTargetDeviceIds: a.selectedTargetDeviceIds} : {}),
   usage: await readUsage(ctx, {ownerId}), ...(session !== undefined ? {session} : {})});
 const wireSnapshot = workout => ({...workout,
   createdAt: new Date(workout.createdAt).toISOString(), updatedAt: new Date(workout.updatedAt).toISOString()});
@@ -141,14 +143,14 @@ export async function handleClassAdmission(ctx) {
   requireUsageProject(ctx.projectId);
   const {actor, input} = ctx, ownerId = actor?.uid;
   assertUsage(validUsageId(ownerId) && actor?.token?.firebase?.sign_in_provider !== 'anonymous', 'media_lease_invalid', 'permission-denied');
-  assertUsage(input?.schemaVersion === 1 && ['prepare', 'commit', 'get', 'cancel'].includes(input.action));
+  assertUsage(input?.schemaVersion === 1 && ['prepare', 'commit', 'commitSelected', 'get', 'cancel'].includes(input.action));
   if (input.action !== 'get') requireUsageMutation(input);
   if (input.action === 'prepare') return prepareAdmission(ctx, ownerId, input);
   assertUsage(validUsageId(input.admissionId));
   if (input.action === 'get') {
     await processUsageOutbox(ctx, {ownerId, admissionId: input.admissionId});
     await reconcileUsageSession(ctx, {ownerId});
-  } else if (input.action === 'commit') await commitAdmission(ctx, ownerId, input);
+  } else if (['commit', 'commitSelected'].includes(input.action)) await commitAdmission(ctx, ownerId, input);
   else await cancelAdmission(ctx, ownerId, input);
   const a = (await usageChildRef(ctx.db, ownerId, 'admissions', input.admissionId).get()).data();
   assertUsage(a, 'media_lease_invalid', 'permission-denied');
@@ -197,32 +199,67 @@ async function prepareAdmission(ctx, ownerId, input) {
   await processUsageOutbox(ctx, {ownerId, admissionId: a.admissionId});
   return publicAdmission(ctx, ownerId, a);
 }
-function validReceipts(owner, a, now) {
+function validReceipts(owner, a, now, targets = a.targetDeviceIds) {
   const request = owner.displayPreparation?.request, receipts = owner.displayPreparation?.responses ?? {};
   return request?.admissionId === a.admissionId && request.sessionId === a.sessionId && request.epoch === a.epoch &&
-    request.manifestHash === a.manifestHash && a.targetDeviceIds.every(id => {
+    request.manifestHash === a.manifestHash && targets.every(id => {
       const r = receipts[id];
       return r?.sessionId === a.sessionId && r.manifestHash === a.manifestHash && r.revision === a.epoch &&
         r.status === 'ready' && r.imageCount === a.images.length && r.audioReady === true &&
         Number.isSafeInteger(r.checkedAtMs) && r.checkedAtMs >= a.createdAtMs && r.checkedAtMs <= now + 5000;
     });
 }
-function sameTargets(owner, a) {
-  return a.targetDeviceIds.every(id => {
+function sameTargets(owner, a, targets = a.targetDeviceIds) {
+  return targets.every(id => {
     const expected = a.targetBindings?.[id], current = owner.devices?.[id];
     return expected && current?.paired === true && current.id === id &&
       current.displayUid === expected.displayUid && current.pairingCode === expected.pairingCode &&
       (current.pairedAtMs ?? null) === expected.pairedAtMs;
   });
 }
+function commitTargets(a, input) {
+  assertUsage(a, 'session_changed');
+  if (input.action !== 'commitSelected') return a.targetDeviceIds;
+  const ids = input.selectedTargetDeviceIds;
+  assertUsage(Array.isArray(ids) && ids.length > 0 && ids.length <= 32 &&
+    ids.every(validUsageId) && new Set(ids).size === ids.length);
+  assertUsage(ids.every(id => a.targetDeviceIds.includes(id)), 'session_changed');
+  return [...ids].sort();
+}
+const sameIds = (left, right) => left.length === right.length && left.every(id => right.includes(id));
+// Same connection-scoped freshness policy as DisplayDevice.recentlySeen. This
+// is only a new-start check; an admitted active class never expires on presence.
+function selectedReady(owner, a, targets, now) {
+  return targets.every(id => {
+    const d = owner.devices?.[id], p = d?.heartbeatPolicy;
+    const policyValid = d?.currentConnectionId && p?.connectionId === d.currentConnectionId &&
+      p.schemaVersion === 1 && Number.isSafeInteger(p.revision) && p.revision >= 0 &&
+      Number.isSafeInteger(p.heartbeatIntervalSeconds) && p.heartbeatIntervalSeconds >= 10 && p.heartbeatIntervalSeconds <= 120 &&
+      Number.isSafeInteger(p.noResponseTimeoutSeconds) && p.noResponseTimeoutSeconds >= p.heartbeatIntervalSeconds * 3 &&
+      p.noResponseTimeoutSeconds <= 600;
+    const health = d?.preparationHealth;
+    return d?.displayState === 'auto' && d.online === true && Number.isSafeInteger(d.lastSeenAtMs) &&
+      d.lastSeenAtMs > 0 && d.lastSeenAtMs <= now + 5000 &&
+      now - d.lastSeenAtMs < (policyValid ? p.noResponseTimeoutSeconds : 75) * 1000 &&
+      !(health?.code && (health.requestId == null || health.requestId === a.sessionId));
+  });
+}
 async function commitAdmission(ctx, ownerId, input) {
-  const owner = await ownerState(ctx, ownerId), hash = usageHash(input);
+  const owner = await ownerState(ctx, ownerId);
   const recorded = (await usageChildRef(ctx.db, ownerId, 'admissions', input.admissionId).get()).data();
+  const targets = commitTargets(recorded, input), selected = input.action === 'commitSelected';
+  const hash = usageHash(selected ? {...input, selectedTargetDeviceIds: targets} : input);
   if (recorded?.status === 'preparing') {
     const verified = await resolveManifest(ctx, ownerId, {workout: recorded.manifest.workout,
-      targetDeviceIds: recorded.targetDeviceIds, controllerDeviceId: recorded.controllerDeviceId,
+      targetDeviceIds: targets, controllerDeviceId: recorded.controllerDeviceId,
       clientFingerprint: recorded.clientFingerprint}, owner);
-    assertUsage(verified.manifestHash === recorded.manifestHash, 'session_changed');
+    assertUsage(sameTargets(owner, recorded, targets), 'session_changed');
+    // The preparation hash binds the immutable cohort. Verify current selected
+    // bindings first, then restore that cohort only for the media/brand hash
+    // comparison. A removed or failed UNselected display cannot veto a start.
+    const manifest = selected ? {...verified.manifest,
+      targetDeviceIds: recorded.manifest.targetDeviceIds, targetBindings: recorded.manifest.targetBindings} : verified.manifest;
+    assertUsage(usageHash(manifest) === recorded.manifestHash, 'session_changed');
   }
   await ctx.db.runTransaction(async tx => {
     const ref = usageChildRef(ctx.db, ownerId, 'admissions', input.admissionId), a = (await tx.get(ref)).data();
@@ -230,13 +267,17 @@ async function commitAdmission(ctx, ownerId, input) {
     const op = operationRef(l, 'admission', 'commit', input.requestId);
     const prior = checkOperation(await tx.get(op), hash); if (prior) return;
     assertUsage(a && a.sessionId === input.sessionId && a.epoch === input.epoch && a.manifestHash === input.manifestHash, 'session_changed');
+    assertUsage(sameIds(targets, commitTargets(a, input)), 'session_changed');
     if (['committing', 'active'].includes(a.status)) {
-      assertUsage(a.startHash === usageHash(input.start), 'idempotency_conflict', 'already-exists');
+      assertUsage(a.startHash === usageHash(input.start) && sameIds(targets, a.selectedTargetDeviceIds ?? a.targetDeviceIds),
+        'idempotency_conflict', 'already-exists');
       l.put(op, {payloadHash: hash, result: {admissionId: a.admissionId}}); l.flush(); return;
     }
     requireLedgerEnabled(l);
     assertUsage(a.status === 'preparing' && a.prepareExpiresAtMs > l.now, 'admission_expired');
-    assertUsage(validReceipts(owner, a, l.now), 'session_changed');
+    assertUsage(validReceipts(owner, a, l.now, targets), 'session_changed');
+    if (selected) assertUsage(l.account.activeAdmissionId === a.admissionId &&
+      sameTargets(owner, a, targets) && selectedReady(owner, a, targets, l.now), 'session_changed');
     // Recheck devices/revocation metadata on every start, without trusting the
     // preparation ACK as evidence of the actual account binding.
     const steps = validateAdmissionWorkout(a.manifest.workout, ownerId), s = input.start;
@@ -256,9 +297,11 @@ async function commitAdmission(ctx, ownerId, input) {
     const view = usageView(l);
     for (const p of [view.downloadDay, view.downloadMonth]) assertUsage(p && p.usedBytes + p.reservedBytes + p.unknownBytes <= p.limitBytes + p.grantedBytes,
       'insufficient_start_budget', 'resource-exhausted');
-    const value = {...a, status: 'committing', start: s, startHash: usageHash(s), committingAtMs: l.now};
+    const value = {...a, status: 'committing', start: s, startHash: usageHash(s), committingAtMs: l.now,
+      ...(selected ? {selectedTargetDeviceIds: targets} : {})};
     l.put(ref, value); l.put(l.base.collection('outbox').doc(a.admissionId), {
-      admissionId: a.admissionId, epoch: a.epoch, phase: 'commit', status: 'pending', createdAtMs: l.now});
+      // Old outbox workers reject this unknown phase instead of publishing C.
+      admissionId: a.admissionId, epoch: a.epoch, phase: selected ? 'commitSelected' : 'commit', status: 'pending', createdAtMs: l.now});
     l.put(op, {payloadHash: hash, result: {admissionId: a.admissionId}}); l.flush();
   });
   await processUsageOutbox(ctx, {ownerId, admissionId: input.admissionId});
@@ -288,6 +331,8 @@ export async function processUsageOutbox(ctx, {ownerId, admissionId}) {
   const ob = usageChildRef(ctx.db, ownerId, 'outbox', admissionId), outbox = (await ob.get()).data();
   if (!outbox || outbox.status === 'done') return;
   const now = nowOf(ctx);
+  const isCommit = ['commit', 'commitSelected'].includes(outbox.phase);
+  const targets = a.selectedTargetDeviceIds ?? a.targetDeviceIds;
   let published = false;
   const result = await ctx.realtime.ref(`users/${ownerId}`).transaction(current => {
     // RTDB can invoke a transaction first with an empty local cache. Returning
@@ -309,17 +354,18 @@ export async function processUsageOutbox(ctx, {ownerId, admissionId}) {
         expiresAtMs: a.prepareExpiresAtMs, requiredProtocol: a.requiredProtocol,
         targets: Object.fromEntries(a.targetDeviceIds.map(id => [id, true])),
         images: a.images, sounds: a.sounds, imageCount: a.images.length}};
-    } else if (outbox.phase === 'commit') {
+    } else if (isCommit) {
       if (!['committing','active'].includes(a.status) || gate.epoch !== a.epoch || gate.admissionId !== admissionId) return undefined;
       if (active?.id === a.sessionId) {
-        if (active.epoch !== a.epoch || active.manifestHash !== a.manifestHash) return undefined;
+        if (active.epoch !== a.epoch || active.manifestHash !== a.manifestHash ||
+            a.selectedTargetDeviceIds && !sameIds(active.targetDeviceIds ?? [], targets)) return undefined;
         published = true; return v;
       }
-      if (gate.phase !== 'preparing' || !validReceipts(v, a, now)) return undefined;
-      if (!sameTargets(v, a)) return undefined;
+      if (gate.phase !== 'preparing' || !validReceipts(v, a, now, targets)) return undefined;
+      if (!sameTargets(v, a, targets) || a.selectedTargetDeviceIds && !selectedReady(v, a, targets, now)) return undefined;
       const s = a.start, w = a.manifest.workout;
       v.playbackSnapshots ??= {}; v.playbackSnapshots[a.sessionId] = {...wireSnapshot(w), _storedAtMs: now};
-      v.activeSession = {id: a.sessionId, ownerId, zoneId: 'main', targetDeviceIds: a.targetDeviceIds,
+      v.activeSession = {id: a.sessionId, ownerId, zoneId: 'main', targetDeviceIds: targets,
         schemaVersion: 2, snapshotId: a.sessionId, workoutId: w.id, workoutName: w.name,
         status: s.briefing ? 'paused' : 'playing', briefing: s.briefing, timerCompleted: false,
         startDelayMs: s.briefing ? 0 : (w.countdownSeconds ?? 3) * 1000, stepIndex: s.stepIndex,
@@ -346,13 +392,13 @@ export async function processUsageOutbox(ctx, {ownerId, admissionId}) {
   const snapshot = result.snapshot.val();
   assertUsage(snapshot?.usageGate?.epoch === a.epoch && snapshot.usageGate.admissionId === admissionId,
     'usage_reconciliation_pending', 'unavailable');
-  if (outbox.phase === 'commit') assertUsage(published && snapshot?.activeSession?.id === a.sessionId &&
+  if (isCommit) assertUsage(published && snapshot?.activeSession?.id === a.sessionId &&
     snapshot.activeSession.epoch === a.epoch, 'usage_reconciliation_pending', 'unavailable');
   await ctx.db.runTransaction(async tx => {
     const latest = (await tx.get(ref)).data(), latestOutbox = (await tx.get(ob)).data();
     if (!latest || latest.epoch !== a.epoch || latestOutbox?.phase !== outbox.phase) return;
     const l = await loadUsageLedger(ctx, tx, ownerId, latest.preparationAllocations.map(x => x.periodId));
-    if (outbox.phase === 'commit' && !terminal.includes(latest.status)) {
+    if (isCommit && !terminal.includes(latest.status)) {
       latest.status = 'active';
       latest.publishedAtMs = now;
     }
