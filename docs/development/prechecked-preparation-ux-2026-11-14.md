@@ -6,7 +6,7 @@
 
 - `showWorkoutPreflight`만 root Navigator에 push한다. 실제 홈 목록과 편집/온보딩 caller의 결과·뒤로·취소(null) 계약은 그대로다. 전역 router/하단 dock/theme을 수정하지 않았다.
 - 상단 Back 하나, SafeArea 안의 고정 Start 하나를 둔다. 본문은 별도 Expanded scroll 영역이라 버튼 높이·안전 영역을 침범하지 않으며 수업 구성이 본문의 마지막이다.
-- 공유 기기 health 구독의 첫 성공 결과에서 paired + auto인 소유 TV 전체 집합 C를 고정하고 한 번 prepare한다. offline TV도 C에 포함하며 최근 응답한 TV를 기본 선택한다. 이후 checkbox/전체 선택/전체 해제는 S만 즉시 바꾸며 prepare/admission/서버 쓰기·invalidate·debounce 호출은 0이다. 재시도 버튼만 C 전체를 명시적으로 재확인한다.
+- 공유 기기 health 구독의 첫 성공 결과에서 paired + auto인 소유 TV와 프로토콜 정보를 고정한다. 기존 enrollment 확인 직후 알려진 프로토콜 비호환 TV를 제외한 준비 가능 집합 C를 한 번 prepare한다(하단 경계 보정 참고). 호환되는 offline TV도 C에 포함하며 최근 응답한 호환 TV를 기본 선택한다. 이후 checkbox/전체 선택/전체 해제는 S만 즉시 바꾸며 prepare/admission/서버 쓰기·invalidate·debounce 호출은 0이다. 재시도 버튼만 C 전체를 명시적으로 재확인한다.
 - `선택 적용`, TV/이 기기 모드 선택, 수업 구성 이미지 보기/닫기와 준비 화면 이미지 loader를 제거했다. 텍스트 구성 카드와 기존 상태 카드는 유지한다. 0 TV/빈 선택은 Start 비활성, `재생할 TV를 선택해 주세요.` 안내이며 solo나 broadcast로 전환하지 않는다.
 - Start는 S만 반환한다. 실제 caller의 기존 action은 최신 preferences, 소유 기기, 연결/프로토콜/건강 상태, 준비 request/session/revision/hash/만료와 선택 TV receipt를 최종 검증하고 정상 session/권한/할당 경로로 진행한다. 준비되지 않은 미선택 TV는 S를 차단하지 않는다. 중복 Start와 계정 변경 취소는 기존 guard를 유지한다.
 - TV 실제 이미지·소리 준비, 진행 중 수업, player 이미지 revision/cache/flicker 로직은 수정하지 않았다.
@@ -55,10 +55,28 @@ flutter test --no-pub test/workout_preflight_dialog_test.dart test/display_prepa
 - fixture clock만 보정한 `155783caf82bc2235d53003a7f0be12b6b966cc8`에서 준비 위젯 18개 재통과: [로그](precheck-ux-evidence/fixture-tests.log). 같은 소스의 실제 웹 빌드 성공: [로그](precheck-ux-evidence/fixture-build.log).
 - 홈 PR #189와 서버 PR #188이 포함된 `origin/develop cc139f5`를 충돌 없이 반영했다. 통합 후 홈의 Material TextField를 가정하던 테스트 finder만 실제 EditableText로 바꿨다. 실제 router/list 경계 2개는 `13d535c644dc1e4c480e83d173bd6bf78abaa440`, 실제 list start 전체/선택 subset 2개는 `8a6b4b47f526c88a391c07ee5b62cedd2306cade`에서 재확인했다 (사이 변경은 문서·불필요한 test null assertion 제거뿐): [route](precheck-ux-evidence/integrated-routing.log), [start](precheck-ux-evidence/integrated-start.log). 홈 전체 70개나 서버 전체 검사는 반복하지 않았다.
 - 실제 Flutter 화면: [before 390](precheck-ux-evidence/before-390.png), [준비 완료 390](precheck-ux-evidence/after-ready-390.png), [320×568/2배 글자 고정 CTA](precheck-ux-evidence/after-error-320-scale2.png), [동일 320px 오류 내용 전체를 보는 tall 캡처](precheck-ux-evidence/after-error-320-scale2-tall.png). 마지막 tall은 viewport 320×2000이며 작은 화면으로 가장하지 않는다.
-- 캡처 fixture의 앱/준비 소스는 `155783c`이며 그 이후 준비 제품 소스는 무변경이다. 이후 2.2.1 메타데이터와 새 홈 통합 경계는 별도 위젯 검사로 확인했다.
+- 캡처 fixture의 앱/준비 소스는 `155783c`이며 아래 프로토콜 경계 보정 전의 화면이다. 고정 CTA·root route·카드/테마 레이아웃은 이후 변경하지 않았다. 이후 2.2.1 메타데이터와 새 홈 통합 경계는 별도 위젯 검사로 확인했다.
 - 브라우저 이미지 endpoint 기록 [local-image-http.json](precheck-ux-evidence/local-image-http.json)은 0건이다. fixture에 실제 계정/원격 미디어가 없으며 이 기록을 실물 TV 네트워크 검증으로 확대하지 않는다.
 - Orca IME 입력 보호가 일시적으로 클릭을 차단했으며 정상 재시도 후 화면 진입·캡처는 완료했다. CanvasKit 브라우저의 wheel/Back 입력으로 화면 전환을 확정하지 못해 브라우저 Back/scroll 성공을 주장하지 않는다. 390·320 큰 글자/safe-area 조건의 실제 앱 라우터 위젯 테스트에서 Back/scroll/CTA 위치와 목록 복원을 검증했다. 통합 담당의 실제 시뮬레이터 런칭이 남는다.
 
 최종 인계 PR head는 PR 본문의 `검증한 커밋:`에 기록한다. 그 이후 문서·로그만 추가된 경우 위 제품 소스 검증을 재사용한다.
 
 최종 관련 테스트/fixture analyze: `13d535c644dc1e4c480e83d173bd6bf78abaa440`, [문제 없음](precheck-ux-evidence/integrated-analyze.log). 버전/소식 6개 검증도 같은 SHA에서 재확인했다. 이 기록과 로그 추가는 제품 코드를 바꾸지 않는다.
+
+
+## Enrolled 혼합 프로토콜 경계 보정
+
+기존 구현은 이 경계를 처리하지 못했다. enrollment는 controller에서 확인했지만 paired + auto 전체를 그대로 admission에 전달해, `resolveManifest`의 TV 한 대 프로토콜 거부가 전체 준비를 실패시켰다. receipt가 실패한 미선택 TV를 제외하는 기존 검사는 이 admission 이전 실패를 다루지 못했다.
+
+보정 구현·검사 SHA: `3a61534e90e56acadc13dc2edec98d6cdb08a8ba`. 공유 device decoder에서 기존 서버 필드 `imageUsageProtocol`을 읽는다. 새 RPC나 구독 없이 기존 enrollment 확인 뒤 초기 후보의 프로토콜로 준비 집합 C를 결정한다. 공통으로 workout의 required timing protocol 미만을 제외하고, enrolled에만 imageUsageProtocol != 1 / preparationProtocol < 2 / playbackProtocol < 2를 추가 적용한다. 따라서 enrolled의 playback 조건은 서버와 같은 max(2, required)이며 nonenrolled의 기존 preparationProtocol 0/1 지원에 enrolled 요구를 적용하지 않는다.
+
+제외 TV는 화면에 계속 표시하되 `TV 앱 업데이트 필요 · 준비 대상에서 제외됨`과 비활성 checkbox를 보이고 전체 선택에도 포함하지 않는다. 선택 S와 proof/fingerprint는 실제 준비 가능한 C에 묶인다. checkbox·전체 선택·전체 해제는 로컬 연산만 하며, C가 0이면 빈 대상 admission/prepare를 보내지 않고 Start를 비활성화한다. TV 업데이트 뒤 준비 화면을 다시 열면 새 health snapshot으로 확인한다. 서버의 실제 pairing/display UID/access/revocation/owner/quota/active-slot/만료/manifest 및 commitSelected 권한 검사는 그대로이며 backend 파일은 수정하지 않았다.
+
+```sh
+flutter test --no-pub test/preparation_protocol_cohort_test.dart test/workout_preflight_dialog_test.dart --name 'enrolled mixed protocols|enrolled all incompatible|all eligible displays prepare once'
+dart analyze lib/src/app/feature/device/domain/entities/device_pairing.dart lib/src/app/feature/device/data/datasources/device_pairing_realtime_data_source.dart lib/src/app/feature/device/presentation/controllers/display_preparation_controller.dart lib/src/app/feature/workouts/presentation/widgets/preparation_shadcn.dart lib/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart test/preparation_protocol_cohort_test.dart
+```
+
+관련 3개 통과([로그](precheck-ux-evidence/protocol-cohort-tests.log)), analyze 문제 없음([로그](precheck-ux-evidence/protocol-cohort-analyze.log)). 혼합 enrolled 한 대 호환/한 대 비호환의 실제 page/controller 흐름: enrollment 1, prepare 1(호환 ID만), client preparation write 0, shared device subscription 1; checkbox 4회·전체 해제/선택 2회 후 추가 prepare/enrollment 0; Start proof 검증 후 실제 client commitSelected 경로를 fake transport로 1회 호출하여 정확한 호환 ID만 전달/반환했다. 전부 비호환이면 prepare 0이고 broadcast/solo 없음도 확인했다. 기존 nonenrolled fixture(preparationProtocol 1, imageUsageProtocol 기본 0)는 모든 TV 준비 1회와 반복 선택 RPC 0을 유지했다.
+
+기존 79개 전체, UI 캡처·native build·외부 callable 저장 검증은 재실행하지 않았다. 이번 3개는 로컬 fake repository/transport 검증이며 실제 개발 서버나 실물 TV 연결 성공을 뜻하지 않는다. 버전 `2.2.1+13`, 홈 UI, 전역 navigation 및 backend 보안 계약은 무변경이다. root가 최종 SHA로 개발 callable/TV 통합과 iOS 빌드를 진행한다.
