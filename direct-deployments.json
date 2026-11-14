@@ -1890,6 +1890,11 @@
           "startedAt": "2026-11-14T13:55:11.442Z",
           "completedAt": "2026-11-14T13:55:13.597Z",
           "durationMs": 2155
+        },
+        {
+          "id": "build",
+          "status": "running",
+          "startedAt": "2026-11-14T13:55:14.647Z"
         }
       ],
       "targets": [],
