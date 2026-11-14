@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "direct-deployment-ledger",
+  "attempts": [
+    {
+      "schemaVersion": 1,
+      "kind": "direct-deployment",
+      "id": "1794632230157917",
+      "sourceSha": "ed18722910eb58af4686c4559183e8063adcf6c9",
+      "environment": "development",
+      "project": "cloud-board-development",
+      "scope": "backend",
+      "tag": "",
+      "version": "2.1.6",
+      "actor": "hyroxseouldev",
+      "status": "running",
+      "startedAt": "2026-11-14T04:57:10.221Z",
+      "validation": {
+        "status": "not-run",
+        "reason": "Direct CLI: no GitHub Actions integration CI is requested"
+      },
+      "steps": [],
+      "targets": [],
+      "storeReview": "not-submitted"
+    }
+  ]
+}
