@@ -1,5 +1,43 @@
 # TestFlight 자동 배포
 
+## 개발 앱 로컬 서명 준비 (2026-11-14)
+
+개발 앱은 `CloudBoard Dev`, bundle `com.sunmkim.cloudboard.dev`, scheme/flavor
+`development`, Firebase `cloud-board-development`를 사용한다. 운영 앱과 동시에
+설치할 수 있으며 production 설정과 표시명은 변경하지 않는다.
+
+Apple 팀 `NL7AM62SB9`의 기존 개발 App ID를 재사용했다. 개발 확장
+`com.sunmkim.cloudboard.dev.ClassActivity`와 아래 App Store 배포 프로필을 준비했다.
+두 프로필 모두 기존 로컬 Apple Distribution 인증서를 사용하며
+`get-task-allow=false`, 만료일 2027-09-06을 확인했다. 앱 프로필에는
+`com.apple.developer.applesignin=Default`가 있고 확장에는 앱 로그인 권한을 복사하지 않는다.
+
+- 앱 프로필: `CloudBoard Dev AppStore`
+- 확장 프로필: `CloudBoard Dev ClassActivity AppStore`
+- 로컬 export 설정: [`ios/ExportOptions-Development.plist`](../ios/ExportOptions-Development.plist)
+- 직접 배포 CLI 입력: `IOS_EXPORT_OPTIONS_PATH=ios/ExportOptions-Development.plist`,
+  `IOS_TEAM_ID=NL7AM62SB9`, 기존 제출 키의 `APP_STORE_CONNECT_API_KEY_PATH`.
+  키·프로필 원문·IPA는 Git에 넣지 않는다.
+
+Firebase Management API의 개발 iOS 등록값과 저장소 plist의 project, bundle,
+app ID, Google client ID 및 reverse client ID 일치를 확인했다. 개발 Auth의
+Google 제공자도 활성화되어 있다. 이 설정 검증은 실기기의 Google 본인인증
+완료를 의미하지 않는다.
+
+**준비와 업로드 상태는 별개다.** 이 기록 시점에는 ASC의 개발 앱 레코드 생성이
+내부 브라우저 로그인 대기 중이며, 최종 통합 2.1.6 소스의 archive·IPA 검증·업로드·
+Apple processing 및 내부 TestFlight 접근 확인은 미실행이다.
+`MOBILE_DEVELOPMENT_READY`도 아직 설정하지 않았다. 기존 개발 Firebase 계정과
+수업은 보존한다. StationD의 명시적 `시뮬레이션` 수업 1개(5모듈, PNG 4개,
+591,573바이트)는 읽기와 메타데이터 확인만 마쳤고, 개발 서버의 새 이미지 API
+배포 후 별도 개발 소유 수업·객체·manifest로 복사하고 다시 읽어 검증해야 한다.
+
+아래 GitHub 경로의 실제 실행 조건은 현재 워크플로를 기준으로 확인한다.
+로컬 개발 배포의 고정 source SHA·준비 검사·영수증 절차는
+[`tool/release/README.md`](../tool/release/README.md)를 따른다.
+
+## GitHub 자동화
+
 `main`에 관련 Flutter/iOS 변경이 병합되면 기존 개발 앱 `com.sunmkim.cloudboard.dev`를
 `development` flavor·개발 Firebase `cloud-board-development`로 빌드해 TestFlight에 올리는 경로를 시작한다.
 스토어 등록·서명 준비를 확인하고 `testflight` Environment의 `MOBILE_DEVELOPMENT_READY=true`를
