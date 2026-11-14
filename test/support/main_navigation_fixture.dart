@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:hooks_riverpod/misc.dart' show Override;
 import 'package:cloud_board/src/app/feature/onboarding/domain/repositories/onboarding_repository.dart';
 import 'package:cloud_board/src/app/feature/onboarding/data/repositories/onboarding_repository.dart';
@@ -197,7 +198,9 @@ class MainNavigationPreview extends ConsumerWidget {
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
           .copyWith(textScaler: TextScaler.linear(textScale)),
-      child: XonTheme.responsiveBuilder(context, child),
+      child: AppErrorToastHost(
+        child: XonTheme.responsiveBuilder(context, child),
+      ),
     ),
   );
 }

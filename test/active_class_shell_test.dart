@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
@@ -40,6 +43,7 @@ void main() {
           ],
           child: MaterialApp(
             theme: XonTheme.light,
+            builder: (context, child) => AppErrorToastHost(child: child!),
             home: const ActiveClassShell(
               playerVisible: false,
               child: Scaffold(body: Text('수업 화면')),
@@ -50,12 +54,13 @@ void main() {
       await tester.pumpAndSettle();
       commands.fail(error);
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(ShadToast), findsOneWidget);
       expect(
         find.text('수업을 제어하지 못했습니다. 연결과 현재 수업 상태를 확인한 뒤 다시 시도해 주세요.'),
         findsOneWidget,
       );
-      expect(tester.widget<SnackBar>(find.byType(SnackBar)).action, isNull);
+      expect(find.byKey(const ValueKey('error-toast-close')), findsOneWidget);
       expect(find.text('문제 문의하기'), findsNothing);
       expect(sink.events.single.error, same(error));
       expect(sink.events.single.context['action'], 'playback.action');
@@ -183,7 +188,7 @@ void main() {
                     textScaler: TextScaler.linear(size.width == 320 ? 2 : 1),
                     disableAnimations: reduced,
                   ),
-                  child: child!,
+                  child: AppErrorToastHost(child: child!),
                 ),
               ),
             ),
