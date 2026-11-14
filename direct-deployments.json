@@ -236,8 +236,10 @@
         },
         {
           "id": "recheck-source",
-          "status": "running",
-          "startedAt": "2026-11-14T05:28:34.314Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:34.314Z",
+          "completedAt": "2026-11-14T05:28:35.968Z",
+          "durationMs": 1654
         }
       ],
       "targets": [],
