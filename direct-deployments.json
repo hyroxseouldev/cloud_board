@@ -1024,7 +1024,7 @@
       "tag": "",
       "version": "2.1.7",
       "actor": "hyroxseouldev",
-      "status": "running",
+      "status": "failed",
       "startedAt": "2026-11-14T09:49:25.102Z",
       "validation": {
         "status": "not-run",
@@ -1075,8 +1075,10 @@
         },
         {
           "id": "build",
-          "status": "running",
-          "startedAt": "2026-11-14T09:49:46.948Z"
+          "status": "failed",
+          "startedAt": "2026-11-14T09:49:46.948Z",
+          "completedAt": "2026-11-14T09:50:58.886Z",
+          "durationMs": 71938
         }
       ],
       "targets": [],
@@ -1086,7 +1088,8 @@
         "flutter": "3.47.8",
         "xcode": "Xcode 26.2\nBuild version 17C52"
       },
-      "buildNumber": "2"
+      "buildNumber": "2",
+      "completedAt": "2026-11-14T09:50:58.886Z"
     }
   ]
 }
