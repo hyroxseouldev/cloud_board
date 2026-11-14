@@ -1510,12 +1510,17 @@
         },
         {
           "id": "toolchain",
-          "status": "running",
-          "startedAt": "2026-11-14T12:28:59.155Z"
+          "status": "success",
+          "startedAt": "2026-11-14T12:28:59.155Z",
+          "completedAt": "2026-11-14T12:29:00.720Z",
+          "durationMs": 1565
         }
       ],
       "targets": [],
-      "storeReview": "not-submitted"
+      "storeReview": "not-submitted",
+      "toolchain": {
+        "node": "22.21.1"
+      }
     }
   ]
 }
