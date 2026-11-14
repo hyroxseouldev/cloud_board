@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/feature/operations/presentation/controllers/operation_event_recorder.dart';
 import 'package:cloud_board/src/app/core/services/event_id.dart';
 import 'package:cloud_board/src/app/core/observability/playback_ack.dart';
@@ -101,12 +102,22 @@ class PlaybackActionController extends _$PlaybackActionController {
     };
     void onStage(String next) {
       stage = next;
+      if (ref.mounted && epoch == _startEpoch && !cancelled) {
+        ref.read(playbackStartProgressProvider.notifier).show(switch (next) {
+          'access' => '이용 상태 확인 중',
+          'device' => '컨트롤러 연결 정보 확인 중',
+          'preferences' => '최신 수업 설정·이용 상태 확인 중',
+          'preparation' => 'TV 준비 상태 최종 확인 중',
+          _ => '서버에서 시작 확인 중',
+        });
+      }
       reporter.breadcrumb('playback.start.$next', {
         ...context,
         'startStage': next,
       });
     }
 
+    onStage('access');
     state = const AsyncLoading();
     PlaybackSession? session;
     late AsyncValue<String?> result;
@@ -199,9 +210,11 @@ class PlaybackActionController extends _$PlaybackActionController {
     // controller survives routes. Account/provider changes cancel before writes.
     // Once committed, the server session is authoritative; never replay it.
     if (!ref.mounted || epoch != _startEpoch) return null;
+    ref.read(playbackStartProgressProvider.notifier).show(null);
     if (!cancelled && !result.hasError && session != null) {
       _watchDisplayAcknowledgement(
         session!,
+        startAcknowledgement: true,
         revision: session!.revision,
         deviceId: session!.updatedByDeviceId,
       );
@@ -396,6 +409,7 @@ class PlaybackActionController extends _$PlaybackActionController {
     PlaybackSession expected, {
     required int revision,
     required String deviceId,
+    bool startAcknowledgement = false,
   }) {
     _cancelAck?.call();
     if (expected.targetDeviceIds.isEmpty || !ref.mounted) return;
@@ -410,6 +424,11 @@ class PlaybackActionController extends _$PlaybackActionController {
       'role': 'controller',
     };
     reporter.breadcrumb('playback.ack.waiting', ackContext);
+    if (startAcknowledgement) {
+      ref
+          .read(playbackStartProgressProvider.notifier)
+          .show('시작 승인 완료 · TV 응답 확인 중');
+    }
     var done = false;
     AccountOperationScope? scope;
     final baselineSessionId = ref.read(activePlaybackSessionProvider).value?.id;
@@ -423,6 +442,9 @@ class PlaybackActionController extends _$PlaybackActionController {
     void finish(PlaybackAckVerdict verdict, [String? failure]) {
       if (done) return;
       done = true;
+      if (startAcknowledgement && ref.mounted) {
+        ref.read(playbackStartProgressProvider.notifier).show(null);
+      }
       timer?.cancel();
       closeSession?.call();
       closeDevices?.call();
@@ -522,6 +544,9 @@ class PlaybackActionController extends _$PlaybackActionController {
     if (scope == null || scope.ownerId != expected.ownerId) {
       scope?.close();
       attempt.cancel();
+      if (startAcknowledgement) {
+        ref.read(playbackStartProgressProvider.notifier).show(null);
+      }
       return;
     }
     closeSession = ref
@@ -811,6 +836,9 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
 
   Future<void> _recover(int epoch, {required bool restartTransport}) async {
     final elapsed = Stopwatch()..start();
+    ref
+        .read(playbackRecoveryProgressProvider.notifier)
+        .show('서버 연결·현재 수업 확인 중');
     state = const AsyncLoading();
     void Function()? closeActions;
     try {
@@ -823,6 +851,9 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
       if (!identical(actions, ref.read(playbackActionsProvider))) {
         throw StateError('계정이 변경되었습니다. 다시 확인해 주세요.');
       }
+      ref
+          .read(playbackRecoveryProgressProvider.notifier)
+          .show('최신 수업 상태 구독 확인 중');
       ref.invalidate(activePlaybackSessionProvider);
       ref.invalidate(serverTimeOffsetProvider);
       final received = Completer<void>();
@@ -890,6 +921,9 @@ class PlaybackRecoveryController extends _$PlaybackRecoveryController {
       }
     } finally {
       closeActions?.call();
+      if (ref.mounted && epoch == _epoch) {
+        ref.read(playbackRecoveryProgressProvider.notifier).show(null);
+      }
     }
   }
 }

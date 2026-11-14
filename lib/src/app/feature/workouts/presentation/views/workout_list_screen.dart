@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart'
     show allowPlanAddition, showPlanLimitNotice;
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
@@ -222,6 +223,7 @@ class _WorkoutListBody extends HookConsumerWidget {
       },
       child: AsyncActionOverlay(
         isLoading: authAction.isLoading || workoutAction.isLoading,
+        label: ref.watch(workoutMaterialProgressProvider),
         child: Scaffold(
           appBar: AppBar(
             centerTitle: false,

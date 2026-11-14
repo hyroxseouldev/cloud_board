@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
+import 'package:cloud_board/src/app/core/widgets/preparation_stage_status.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_content_transition.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
@@ -59,6 +61,8 @@ class ActiveClassShell extends HookConsumerWidget {
     if (mode == DeviceMode.controller) ref.watch(firstClassControllerProvider);
     final session = ref.watch(activePlaybackSessionProvider).value;
     final recovery = ref.watch(playbackRecoveryControllerProvider);
+    final startProgress = ref.watch(playbackStartProgressProvider);
+    final submitting = ref.watch(playbackActionControllerProvider).isLoading;
     final suspended = useRef(false);
     useOnAppLifecycleStateChange((previous, next) {
       if (kIsWeb ||
@@ -144,10 +148,32 @@ class ActiveClassShell extends HookConsumerWidget {
               ],
             ),
             if (mode == DeviceMode.controller &&
+                startProgress != null &&
+                (submitting || startProgress == '시작 승인 완료 · TV 응답 확인 중'))
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 8,
+                left: 16,
+                right: 16,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: PreparationStageStatus(label: startProgress),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (mode == DeviceMode.controller &&
                 !recovery.hasValue &&
                 playerVisible)
               Positioned.fill(
                 child: PlaybackRecoveryView(
+                  stage: ref.watch(playbackRecoveryProgressProvider),
                   error: recovery.error,
                   stackTrace: recovery.stackTrace,
                   onRetry: () => unawaited(

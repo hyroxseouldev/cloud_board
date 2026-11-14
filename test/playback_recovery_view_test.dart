@@ -38,7 +38,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     final label = tester.widget<RichText>(
       find.descendant(
-        of: find.text('수업 동기화 중'),
+        of: find.text('서버 연결·현재 수업 확인 중'),
         matching: find.byType(RichText),
       ),
     );
@@ -76,11 +76,11 @@ void main() {
       ),
     );
     await tester.pump(const Duration(seconds: 5));
-    expect(find.text('연결을 확인하고 있어요. 잠시만 기다려 주세요.'), findsOneWidget);
+    expect(find.text('서버 연결·현재 수업 확인 중 · 5초 이상 기다리고 있어요.'), findsOneWidget);
     error.value = StateError('server confirmation unavailable');
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('수업 동기화 중'), findsNothing);
+    expect(find.text('서버 연결·현재 수업 확인 중'), findsNothing);
     expect(find.text('다시 연결'), findsOneWidget);
     await tester.tap(find.text('오류 상세'));
     await tester.pumpAndSettle();
@@ -97,9 +97,9 @@ void main() {
     await tester.tap(find.text('다시 연결'));
     await tester.pump();
     expect(retries, 1);
-    expect(find.text('연결을 확인하고 있어요. 잠시만 기다려 주세요.'), findsNothing);
+    expect(find.text('서버 연결·현재 수업 확인 중 · 5초 이상 기다리고 있어요.'), findsNothing);
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('수업 동기화 중'), findsOneWidget);
+    expect(find.text('서버 연결·현재 수업 확인 중'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

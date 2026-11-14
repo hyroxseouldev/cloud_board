@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/core/observability/operation_telemetry.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
@@ -380,6 +381,7 @@ class WorkoutActionController extends _$WorkoutActionController {
     if (state.isLoading) return null;
     final reporter = ref.read(errorReporterProvider);
     state = const AsyncLoading();
+    ref.read(workoutMaterialProgressProvider.notifier).show('수업 자료 불러오는 중');
     Workout? detail;
     final subscription = ref.listen(workoutDetailProvider(id), (_, _) {});
     final result = await AsyncValue.guard<String?>(() async {
@@ -396,6 +398,7 @@ class WorkoutActionController extends _$WorkoutActionController {
       );
     }
     if (!ref.mounted) return null;
+    ref.read(workoutMaterialProgressProvider.notifier).show(null);
     state = result;
     return result.hasError ? null : detail;
   }
