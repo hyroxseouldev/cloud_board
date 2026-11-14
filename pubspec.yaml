@@ -73,6 +73,8 @@ dependencies:
   in_app_purchase_storekit: ^0.4.13
   # Remote Config must use the same patched Apple SDK as the other plugins.
   firebase_remote_config: 6.7.1
+  # Preparation page only; keep app-wide Material theme and routing.
+  shadcn_ui: 0.59.0
 
 dev_dependencies:
   cloud_functions_platform_interface: 6.0.7
