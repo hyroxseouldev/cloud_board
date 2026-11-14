@@ -114,15 +114,64 @@
         },
         {
           "id": "function-targets",
-          "status": "running",
-          "startedAt": "2026-11-14T05:07:05.135Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:07:05.135Z",
+          "completedAt": "2026-11-14T05:07:23.109Z",
+          "durationMs": 17974
         }
       ],
-      "targets": [],
+      "targets": [
+        "functions:account-deletion:auditDisplayAccessBinding",
+        "functions:account-deletion:auditDisplayDeviceBinding",
+        "functions:account-deletion:cleanupDailyMaintenance",
+        "functions:account-deletion:cloudboardAppOnboarding",
+        "functions:account-deletion:cloudboardClassAdmission",
+        "functions:account-deletion:cloudboardImageUpload",
+        "functions:account-deletion:cloudboardImageUploadBody",
+        "functions:account-deletion:cloudboardImageUsage",
+        "functions:account-deletion:cloudboardMedia",
+        "functions:account-deletion:cloudboardMediaLease",
+        "functions:account-deletion:cloudboardPrepareSupportAttachment",
+        "functions:account-deletion:cloudboardSaveBrandConfig",
+        "functions:account-deletion:cloudboardSubmitSupportTicket",
+        "functions:account-deletion:cloudboardUsageGrant",
+        "functions:account-deletion:deleteMyAccount",
+        "functions:account-deletion:getPlanUsage",
+        "functions:account-deletion:listLibraryFolders",
+        "functions:account-deletion:manageLibraryFolder",
+        "functions:account-deletion:notifySupportTicket",
+        "functions:account-deletion:pairDisplayConnection",
+        "functions:account-deletion:reconcileImageUsageSession",
+        "functions:account-deletion:recordOperationTelemetry",
+        "functions:account-deletion:reportClientDiagnostic",
+        "functions:account-deletion:reportDisplayRecovery",
+        "functions:account-deletion:requestDisplayRecovery",
+        "functions:account-deletion:retryAccountDeletions",
+        "functions:account-deletion:retryImageUsageEnrollment",
+        "functions:account-deletion:retryImageUsageOutbox",
+        "functions:account-deletion:saveWorkout",
+        "functions:account-deletion:syncAppTrialAccess",
+        "functions:account-deletion:syncLegacyWorkoutSettings",
+        "functions:account-deletion:syncSlideLibraryPlan",
+        "functions:account-deletion:syncSlidePlanUsage",
+        "functions:account-deletion:syncStandbyBranding",
+        "functions:account-deletion:syncVerifiedFreeAccess",
+        "functions:account-deletion:syncWorkoutCatalog",
+        "functions:account-deletion:syncWorkoutPlanUsage",
+        "functions:account-deletion:unpairDisplayConnection",
+        "functions:account-deletion:updateSlideLibrary",
+        "functions:account-deletion:verifyDisplayConnection",
+        "functions:cloudboard-auth:cloudboardSetDisplayState"
+      ],
       "storeReview": "not-submitted",
       "toolchain": {
         "node": "22.21.1"
-      }
+      },
+      "dependencyCache": {
+        "functions": "reused",
+        "functions-legacy": "installed"
+      },
+      "runtimeConfigurationHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500"
     }
   ]
 }
