@@ -1174,8 +1174,10 @@
         },
         {
           "id": "recheck-build",
-          "status": "running",
-          "startedAt": "2026-11-14T09:59:14.771Z"
+          "status": "success",
+          "startedAt": "2026-11-14T09:59:14.771Z",
+          "completedAt": "2026-11-14T09:59:16.863Z",
+          "durationMs": 2092
         }
       ],
       "targets": [],
