@@ -959,6 +959,11 @@
           "startedAt": "2026-11-14T09:42:08.732Z",
           "completedAt": "2026-11-14T09:42:10.625Z",
           "durationMs": 1893
+        },
+        {
+          "id": "verify-environment",
+          "status": "running",
+          "startedAt": "2026-11-14T09:42:11.993Z"
         }
       ],
       "targets": [],
