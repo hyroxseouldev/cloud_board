@@ -6,7 +6,7 @@
 - clean Orca worktree: `/Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux`
 - 기준 develop: `1f9cb6b49898e63de2dc30680252d159036fedac` (구현 후 fetch로 동일함 확인)
 - 실제 최종 코드 검사 커밋: `7c194a0a2456989eb89f897c5de02742af035bc7`
-- PR 인계 head는 PR 본문의 `검증한 커밋:`으로 기록한다. 코드 커밋 이후의 차이는 이 문서와 검증 로그·fixture 캡처뿐이며 실행 코드 변경이 없다.
+- PR 인계 head는 PR 본문의 `검증한 커밋:`으로 기록한다. 코드 커밋 이후 Flutter 실행 코드 변경은 없다. 문서·검증 로그·fixture 캡처와 후속 표시 버전/소식 후보 메타데이터 변경을 포함하며, 버전 일치 검사는 아래 후속 기록의 커밋에서 별도 수행했다.
 - 원본 기획: `/Users/sunmkim/Dev2026/CloudBoard/report/output/preparation-performance-2026-11-14/astra-analysis.json`의 `latency_plan`.
 - 구현·관련 검증 완료. develop/main 병합·배포 미실행. 원래 dirty develop checkout, 타이모, CI 설정, 서버, TV protocol, 캐시/압축/전송 정책은 수정하지 않았다. 최초 UX 검증의 표시 버전은 `2.1.5+9`였으며, 이후 사용자 지시로 `2.1.6+10` 기점 변경을 추가했다(아래 후속 기록).
 
