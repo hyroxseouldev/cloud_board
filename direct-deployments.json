@@ -1244,8 +1244,10 @@
       "steps": [
         {
           "id": "verify-source",
-          "status": "running",
-          "startedAt": "2026-11-14T11:10:34.460Z"
+          "status": "success",
+          "startedAt": "2026-11-14T11:10:34.460Z",
+          "completedAt": "2026-11-14T11:10:36.222Z",
+          "durationMs": 1762
         }
       ],
       "targets": [],
