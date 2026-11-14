@@ -16,6 +16,16 @@ export function verifyFunctionInventory(inventory, selectors, project) {
     return {name, codebase, region: fn.region, state: fn.state, ...(fn.updateTime ? {updateTime: fn.updateTime} : {})};
   });
 }
+export async function firebaseLoginToken(auth, cwd = process.cwd()) {
+  const account = auth.getProjectDefaultAccount(cwd);
+  // Firebase CLI grants the Firebase scope, not firebase.database. Requesting
+  // an ungranted refresh scope fails before any rules can be read back.
+  return (await auth.getAccessToken(account?.tokens?.refresh_token, [
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/firebase',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ])).access_token;
+}
 export async function localGoogleRequest(url) {
   let token;
   try {
@@ -28,8 +38,7 @@ export async function localGoogleRequest(url) {
       const binary = execFileSync('which', [process.env.FIREBASE_BIN || 'firebase'], {encoding: 'utf8'}).trim();
       const require = createRequire(realpathSync(binary));
       const auth = require('../auth.js');
-      const account = auth.getProjectDefaultAccount(process.cwd());
-      token = (await auth.getAccessToken(account?.tokens?.refresh_token, ['https://www.googleapis.com/auth/cloud-platform', 'https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'])).access_token;
+      token = await firebaseLoginToken(auth);
     } catch { throw new Error('Rule readback requires existing ADC or Firebase CLI authentication'); }
   }
   assert(token, 'Missing local Google access token');
