@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
+import 'package:shadcn_ui/shadcn_ui.dart' show ShadToast;
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -256,7 +259,32 @@ void main() {
     },
   );
 
-  testWidgets('failed import keeps draft and displays error', (tester) async {
+  testWidgets(
+    'failed save uses Sonner and a successful retry keeps success feedback',
+    (tester) async {
+      final repo = _Defaults()..fail = true;
+      var draft = base;
+      await _mount(tester, repo, () => draft, (v) => draft = v);
+      await _tap(tester, find.text('내 기본값으로 저장'));
+      expect(draft, base);
+      expect(repo.values, isEmpty);
+      expect(find.byType(ShadToast), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('error-toast-close')));
+      await tester.pumpAndSettle();
+      repo.fail = false;
+      await _tap(tester, find.text('내 기본값으로 저장'));
+      expect(repo.values['u'], CountdownPreferences.fromWorkout(base));
+      expect(find.byType(ShadToast), findsNothing);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('내 기본값으로 저장했습니다. 새 워크아웃부터 적용됩니다.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('failed import keeps draft and displays root Sonner error', (
+    tester,
+  ) async {
     final repo = _Defaults()..fail = true;
     var draft = base;
     await _mount(tester, repo, () => draft, (v) => draft = v);
@@ -267,6 +295,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('가져오기 되돌리기'), findsNothing);
+    expect(find.byType(ShadToast), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('error-toast-close')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ShadToast), findsNothing);
   });
 }
 
@@ -292,6 +325,7 @@ Future<void> _mount(
         ),
       ],
       child: MaterialApp(
+        builder: (_, child) => AppErrorToastHost(child: child!),
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, update) => SingleChildScrollView(
@@ -334,6 +368,8 @@ class _Defaults implements CountdownDefaultsRepository {
   }
 
   @override
-  Future<void> save(String ownerId, CountdownPreferences value) async =>
-      values[ownerId] = value;
+  Future<void> save(String ownerId, CountdownPreferences value) async {
+    if (fail) throw StateError('offline');
+    values[ownerId] = value;
+  }
 }
