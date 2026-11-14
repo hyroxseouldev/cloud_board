@@ -60,10 +60,18 @@ export async function readLedger(request, repo = repository) {
 }
 export async function writeLedger(request, state, ledger) {
   validateLedger(ledger);
-  return request(`/repos/${repository}/contents/${ledgerPath}`, {method: 'PUT', body: {
+  try { return await request(`/repos/${repository}/contents/${ledgerPath}`, {method: 'PUT', body: {
     branch: ledgerBranch, message: `release receipt: ${ledger.attempts.at(-1).id} ${ledger.attempts.at(-1).status}`,
     content: Buffer.from(JSON.stringify(ledger, null, 2) + '\n').toString('base64'), ...(state?.sha ? {sha: state.sha} : {}),
-  }});
+  }}); } catch {
+    // The PUT may have reached GitHub even if its response was lost. Read the
+    // latest document once; accept only the complete intended content, never
+    // replay a stale CAS or overwrite a concurrent owner's attempt.
+    const observed = await readLedger(request);
+    assert(observed && JSON.stringify(observed.ledger) === JSON.stringify(ledger),
+      'Receipt write is unconfirmed or conflicted; inspect latest ledger before recovery');
+    return {content: {sha: observed.sha}};
+  }
 }
 export async function beginAttempt(request, attempt) {
   validateAttempt(attempt);
@@ -76,13 +84,16 @@ export async function beginAttempt(request, attempt) {
   }
   const ledger = {...state.ledger, attempts: [...state.ledger.attempts, attempt]};
   const result = await writeLedger(request, state, ledger);
-  return {sha: result.content.sha, ledger};
+  return {sha: result.content.sha, ledger: structuredClone(ledger)};
 }
 export async function updateAttempt(request, state, attempt) {
+  const previous = state.ledger.attempts.at(-1);
+  assert(previous?.id === attempt.id && previous.status === 'running', 'Only the pending owner may update its attempt; terminal history is immutable');
+  for (const key of ['sourceSha', 'environment', 'project', 'scope', 'startedAt']) assert.equal(attempt[key], previous[key], 'Attempt identity changed');
   const ledger = {...state.ledger, attempts: state.ledger.attempts.map(a => a.id === attempt.id ? attempt : a)};
   assert(ledger.attempts.some(a => a.id === attempt.id));
   const result = await writeLedger(request, state, ledger);
-  return {sha: result.content.sha, ledger};
+  return {sha: result.content.sha, ledger: structuredClone(ledger)};
 }
 export function latestDirect(ledger, {component = 'backend', environment = 'production', ignoreRunId, attemptOnly = false} = {}) {
   const scopes = component === 'backend' ? ['backend', 'rules', 'functions'] : [component];

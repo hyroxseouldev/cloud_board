@@ -265,7 +265,7 @@ export async function requireNoRollback({repository, sha, ref, tag, request, rea
   }
 }
 export async function github(path, {method = 'GET', body} = {}) {
-  if (!process.env.GITHUB_TOKEN) {
+  if (process.env.CLOUDBOARD_DIRECT_RELEASE === 'true' || !process.env.GITHUB_TOKEN) {
     try {
       return JSON.parse(execFileSync('gh', ['api', path, '--method', method, ...(body ? ['--input', '-'] : [])],
         {input: body ? JSON.stringify(body) : undefined, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']}));
