@@ -2285,8 +2285,10 @@
         },
         {
           "id": "inspect-artifact",
-          "status": "running",
-          "startedAt": "2026-11-14T18:44:58.337Z"
+          "status": "success",
+          "startedAt": "2026-11-14T18:44:58.337Z",
+          "completedAt": "2026-11-14T18:45:00.262Z",
+          "durationMs": 1925
         }
       ],
       "targets": [],
@@ -2296,7 +2298,33 @@
         "flutter": "3.47.8",
         "xcode": "Xcode 26.2\nBuild version 17C52"
       },
-      "buildNumber": "7"
+      "buildNumber": "7",
+      "mobile": {
+        "platform": "ios",
+        "package": "com.sunmkim.cloudboard.dev",
+        "firebaseProject": "cloud-board-development",
+        "version": "2.2.1",
+        "build": "7",
+        "dartArchitectures": [
+          "cpu-16777228-0"
+        ],
+        "artifactSha256": "eb288bc5de989f26fcd7d32daef29386ba235c604a8775c5a2d9f46ba44efb06",
+        "artifact": "cloud_board.ipa",
+        "environment": "development",
+        "environmentBindingVerified": true,
+        "productionBindingVerified": false,
+        "schemaVersion": 5,
+        "kind": "mobile-source",
+        "sourceSha": "a6ea313cab1bdce029acf61432cb6ef5befac1c9",
+        "workflowSha": "a6ea313cab1bdce029acf61432cb6ef5befac1c9",
+        "controlSha": "a6ea313cab1bdce029acf61432cb6ef5befac1c9",
+        "sourceRef": "a6ea313cab1bdce029acf61432cb6ef5befac1c9",
+        "releaseMode": "qa",
+        "runId": "1794681636220689",
+        "runAttempt": "1",
+        "origin": "direct-cli",
+        "validationMode": "not_requested"
+      }
     }
   ]
 }
