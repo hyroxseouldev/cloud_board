@@ -475,8 +475,10 @@
         },
         {
           "id": "firebase-access",
-          "status": "running",
-          "startedAt": "2026-11-14T05:43:41.054Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:41.054Z",
+          "completedAt": "2026-11-14T05:43:45.542Z",
+          "durationMs": 4488
         }
       ],
       "targets": [],
