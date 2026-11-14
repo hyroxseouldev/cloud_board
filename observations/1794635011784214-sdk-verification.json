@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "kind": "development-cors-sdk-verification-link",
+  "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+  "corsReceiptId": "1794635011784214",
+  "corsEvidence": "observations/1794635011784214-cors.json",
+  "producerDispatch": "ctx_be830fdcee04",
+  "producerMessageId": "msg_9c8403f885fe",
+  "verificationReceiptSha256": "ff9d7843346e85d163cf8b16bb0223bd0ded0a282d1a17b384b545dee942ec2b",
+  "verificationReceipt": {
+    "at": "2026-11-14T05:48:15.669Z",
+    "projectId": "cloud-board-development",
+    "classId": "stationd_sim_ed24f0aa0811490f",
+    "name": "StationD \uc2dc\ubbac\ub808\uc774\uc158 \u00b7 \uac1c\ubc1c \ud14c\uc2a4\ud2b8",
+    "moduleCount": 5,
+    "uniqueImages": 3,
+    "totalImageBytes": 555131,
+    "classImageLimitBytes": 100000000,
+    "authenticatedRead": {
+      "status": 200,
+      "id": "stationd_sim_ed24f0aa0811490f",
+      "name": "StationD \uc2dc\ubbac\ub808\uc774\uc158 \u00b7 \uac1c\ubc1c \ud14c\uc2a4\ud2b8",
+      "ownerMatches": true,
+      "moduleCount": 5,
+      "projectId": "cloud-board-development"
+    },
+    "managedPreview": [
+      {
+        "assetId": "2f433ef4-19d6-40b8-82c2-812bf46f5e0c",
+        "generation": "1794635255281060",
+        "bytes": 204807,
+        "sha256": "2c3b30c1102f9fc3212cd51dbee810184a1276ebebdc85e66d55456df605f69e",
+        "contentType": "image/png",
+        "status": 200
+      },
+      {
+        "assetId": "c509d65f-c5e0-414c-91a5-00d205d9eaa6",
+        "generation": "1794635248557786",
+        "bytes": 175742,
+        "sha256": "d4e655cb001c3444dd5c7521933ae0c312aa02db19940599f6191614228bd7ae",
+        "contentType": "image/png",
+        "status": 200
+      },
+      {
+        "assetId": "e3665175-2310-41ac-b817-7b2ce30b8d43",
+        "generation": "1794635251953746",
+        "bytes": 174582,
+        "sha256": "b55c1931aeccce88c9ccd393b439d62f87c0088661a54a6d4f3dff089e195e58",
+        "contentType": "image/png",
+        "status": 200
+      }
+    ],
+    "metadata": [
+      {
+        "assetId": "c509d65f-c5e0-414c-91a5-00d205d9eaa6",
+        "generation": "1794635248557786",
+        "sizeBytes": 175742,
+        "contentType": "image/png",
+        "tokenFree": true,
+        "ownerMatches": true,
+        "accounted": true
+      },
+      {
+        "assetId": "e3665175-2310-41ac-b817-7b2ce30b8d43",
+        "generation": "1794635251953746",
+        "sizeBytes": 174582,
+        "contentType": "image/png",
+        "tokenFree": true,
+        "ownerMatches": true,
+        "accounted": true
+      },
+      {
+        "assetId": "2f433ef4-19d6-40b8-82c2-812bf46f5e0c",
+        "generation": "1794635255281060",
+        "sizeBytes": 204807,
+        "contentType": "image/png",
+        "tokenFree": true,
+        "ownerMatches": true,
+        "accounted": true
+      }
+    ],
+    "unchanged": {
+      "workouts": {
+        "before": 5,
+        "after": 6,
+        "allOldUnchanged": true
+      },
+      "slideTemplates": {
+        "before": 3,
+        "after": 3,
+        "allOldUnchanged": true
+      },
+      "identity": true,
+      "activeSession": true,
+      "usageGate": true,
+      "operations/brand": true
+    },
+    "accountMode": "legacy",
+    "inventoryComplete": false,
+    "storageUsedBytes": 555131,
+    "storageReservedBytes": 0,
+    "storageUnknownBytes": 0,
+    "productionReferences": false,
+    "physicalIosGoogleAuthentication": "not-executed",
+    "latestIosPreparationUi": "not-executed"
+  },
+  "verificationMethod": "iOS worker real Google SDK web session and raw-body upload; checked producer receipt, not rerun by deploy worker",
+  "limitations": [
+    "physical iOS Google authentication not executed",
+    "latest iOS preparation UI not executed"
+  ]
+}
