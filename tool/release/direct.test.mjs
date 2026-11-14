@@ -34,6 +34,8 @@ test('scopes remain independent: web does not deploy backend, mobile never deplo
     assert.equal(p.steps.includes('function-targets'), ['backend', 'functions'].includes(scope));
     assert.equal(p.steps.includes('deploy'), !['ios', 'android'].includes(scope));
     assert.equal(p.steps.includes('build'), ['web', 'ios', 'android'].includes(scope));
+    assert.equal(p.steps.includes('installed-clients'), environment === 'production' && ['rules', 'backend', 'functions'].includes(scope));
+    if (p.steps.includes('installed-clients')) assert(p.steps.indexOf('installed-clients') < p.steps.indexOf('deploy'));
     assert(!p.steps.includes('upload'));
     assert.equal(p.project, environment === 'development' ? 'cloud-board-development' : 'cloud-board-stationd');
   }

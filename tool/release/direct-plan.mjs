@@ -21,6 +21,7 @@ export function directPlan({sourceSha, environment, scope, version, tag = '', fu
   } else {
     steps.push('toolchain', 'firebase-access');
     if (environment === 'production') steps.push('no-rollback', ...(['web', 'rules'].includes(scope) ? ['backend-compatibility'] : []));
+    if (environment === 'production' && scope !== 'web') steps.push('installed-clients');
     if (scope === 'web') steps.push('build');
     if (['backend', 'functions'].includes(scope)) steps.push('function-targets');
     if (environment === 'production' && scope !== 'web') steps.push('smoke-inputs');
