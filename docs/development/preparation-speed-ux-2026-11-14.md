@@ -8,7 +8,7 @@
 - 실제 최종 코드 검사 커밋: `7c194a0a2456989eb89f897c5de02742af035bc7`
 - PR 인계 head는 PR 본문의 `검증한 커밋:`으로 기록한다. 코드 커밋 이후의 차이는 이 문서와 검증 로그·fixture 캡처뿐이며 실행 코드 변경이 없다.
 - 원본 기획: `/Users/sunmkim/Dev2026/CloudBoard/report/output/preparation-performance-2026-11-14/astra-analysis.json`의 `latency_plan`.
-- 구현·관련 검증 완료. develop/main 병합·배포 미실행. 원래 dirty develop checkout, 타이모, CI 설정, 서버, TV protocol, 캐시/압축/전송 정책은 수정하지 않았다. 표시 버전 `2.1.5+9` 유지.
+- 구현·관련 검증 완료. develop/main 병합·배포 미실행. 원래 dirty develop checkout, 타이모, CI 설정, 서버, TV protocol, 캐시/압축/전송 정책은 수정하지 않았다. 최초 UX 검증의 표시 버전은 `2.1.5+9`였으며, 이후 사용자 지시로 `2.1.6+10` 기점 변경을 추가했다(아래 후속 기록).
 
 ## 의존성 확인과 동작
 
@@ -87,3 +87,18 @@ git diff 1f9cb6b HEAD --name-only -- '*.dart' | xargs /Users/sunmkim/fvm/version
 - 전체 CI/전체 Firebase 계약 검사/전 플랫폼 빌드/자동 앱 E2E: **미실행**. CI 정책 변경 없음, 통과로 표시하지 않음.
 - preview 작업 무효화는 화면 결과와 후속 요청의 취소이며 이미 전송 중인 HTTP abort를 보장하지 않는다. 캐시/중복 GET/이미지 압축/한도 변경은 범위 밖.
 - 기능 브랜치 → develop PR 인계만 수행하며 병합·승격·릴리즈는 통합 담당자 소유. 충돌이나 관련 코드·환경 변경이 있을 때만 영향을 받는 검사를 다시 수행한다.
+
+
+## 후속 버전 기점 변경 — 2026-11-14
+
+총괄의 추가 지시에 따라 `2.1.5+9` 유지 지시를 `2.1.6+10`으로 변경했다. 전체 2.1.6 기점·통합 커밋은 준비 UX와 별도 CI/CD 담당 결과를 확인한 뒤 총괄이 남긴다.
+
+- 버전 변경·실제 검사 커밋: `a700ca70fa3740f3d19c340500486d76c4979f49`.
+- 표시 버전의 단일 소스는 `pubspec.yaml`이다. Android는 `flutter.versionName/versionCode`, iOS/macOS는 `FLUTTER_BUILD_NAME/NUMBER`, Windows는 Flutter의 생성 버전 값을 사용하므로 네이티브 파일의 별도 숫자는 변경하지 않았다.
+- `release-notes/README.md`의 기존 일치 규칙에 따라 `release-notes/current.json`의 후보 버전을 `2.1.6`, 새 ID를 `2026-11-14-2-1-6-candidate`로 동기화했다. 본문은 기존 미게시 후보 그대로이며 **최종 2.1.6 배포 소식 확정/게시가 아니다**. 총괄이 통합 후보에서 플랫폼별 직전 실제 배포 SHA와 diff를 검토해 준비 UX 등을 포함한 최종 문구를 확정해야 한다.
+- `image-usage-2.1.5-v1`은 표시 버전이 아닌 서버/클라이언트 정책 계약 식별자이므로 변경하지 않았다. 기존 사용량 구현 기록도 당시 버전의 역사적 증거로 유지한다.
+- 로컬 소스 build suffix `+10`은 실제 Play/TestFlight 예약·업로드 번호가 아니다. main에서 버전을 최종 확정하면 develop 역동기화가 필요하다는 기존 규칙을 유지한다.
+- `node --test tool/update-news/news.test.mjs`: **6 passed, 0 failed, 0 skipped**, exit 0. 후보 소식과 실제 pubspec 버전 일치·형식 및 미배포 소식 제외 규칙 확인.
+- `node tool/release/play_version_code.mjs --version-name`: **2.1.6**, exit 0. 읽기 전용 버전 추출이며 번호 예약·네트워크·태그 생성 없음.
+- `git diff --check`: 통과. Flutter 실행 코드·의존성·lockfile에 변경이 없어 앞선 관련 검증을 재사용했으며 전체 회귀/빌드는 재실행하지 않았다.
+- `.github/workflows`, `tool/release`, Firebase 문서는 읽기만 했고 수정하지 않았다. 별도 담당과 경로 충돌 없음. 태그·배포·소식 게시·스토어 빌드/업로드 미실행.
