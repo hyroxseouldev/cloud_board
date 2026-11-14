@@ -2243,8 +2243,10 @@
         },
         {
           "id": "verify-environment",
-          "status": "running",
-          "startedAt": "2026-11-14T18:40:42.448Z"
+          "status": "success",
+          "startedAt": "2026-11-14T18:40:42.448Z",
+          "completedAt": "2026-11-14T18:40:43.807Z",
+          "durationMs": 1359
         }
       ],
       "targets": [],
