@@ -1,3 +1,4 @@
+import {HOME_RENDITION, homeThumbnailRef, validHomeThumbnail} from './home-image-thumbnail.js';
 import {randomUUID} from 'node:crypto';
 import {assertUsage, imageUsagePolicies, imageUsagePolicyRevision, nowOf, usagePeriods, usageHash,
   validUsageId, validBytes, requireUsageProject, usageConfigEnabled, usageFailure} from './image-usage-policy.js';
@@ -376,8 +377,13 @@ export async function reserveTransfer(ctx, input) {
     if (admissionId) assertUsage(admissionIncludesDevice(admission, deviceId), 'media_lease_invalid', 'permission-denied');
     const l = await loadUsageLedger(ctx, tx, ownerId, oldIds);
     const asset = (await tx.get(l.base.collection('assets').doc(assetId))).data();
+    const thumbnail = input.rendition === HOME_RENDITION && asset
+      ? (await tx.get(homeThumbnailRef(ctx,asset))).data() : null;
+    const validSize = input.rendition === undefined ? asset?.sizeBytes === sizeBytes
+      : input.rendition === HOME_RENDITION && purpose === 'preview' && actorUid === ownerId && !deviceId && !admissionId && !sessionId &&
+        validHomeThumbnail(thumbnail,asset) && thumbnail.sizeBytes === sizeBytes;
     assertUsage(asset?.ownerId === ownerId && asset.tokenFree === true && asset.generation === generation &&
-      asset.sizeBytes === sizeBytes && (!admission || admission.assets.some(a => a.assetId === assetId && a.generation === generation)),
+      validSize && (!admission || admission.assets.some(a => a.assetId === assetId && a.generation === generation)),
     'media_lease_invalid', 'permission-denied');
     if (identity.allowedAssetSources !== null) assertUsage(identity.allowedAssetSources.includes(asset.source),
       'media_lease_invalid', 'permission-denied');
@@ -402,7 +408,7 @@ export async function reserveTransfer(ctx, input) {
     if (!protectedSession) checkTransferCapacity(l, sizeBytes);
     const allocations = ['downloadDay', 'downloadMonth'].map(kind => reservePeriod(l, kind, sizeBytes, {protectedSession}));
     l.put(l.base.collection('attempts').doc(attemptId), {attemptId, reservationId: attemptId, leaseId,
-      assetId, generation, sizeBytes, actorUid, deviceId: deviceId ?? null, admissionId, sessionId,
+      assetId, generation, sizeBytes, ...(input.rendition ? {rendition:input.rendition} : {}), actorUid, deviceId: deviceId ?? null, admissionId, sessionId,
       protected: protectedSession, status: 'reserved', allocations, createdAtMs: l.now});
     if (usingPreparation) l.put(ar.ref, admission);
     l.flush(); return {attemptId, reservationId: attemptId, protected: protectedSession};

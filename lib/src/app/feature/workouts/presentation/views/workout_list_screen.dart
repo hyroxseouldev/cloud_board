@@ -16,6 +16,7 @@ import 'dart:math' as math;
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_board/src/app/core/theme/app_style.dart';
@@ -39,7 +40,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_icon_tile.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/home_workout_thumbnail.dart';
 
 class WorkoutListScreen extends StatelessWidget {
   const WorkoutListScreen({super.key});
@@ -342,6 +343,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                     child: CustomScrollView(
                       key: const ValueKey('workout-scroll'),
                       controller: scroll,
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(0),
                       physics: const AlwaysScrollableScrollPhysics(),
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
@@ -359,35 +361,13 @@ class _WorkoutListBody extends HookConsumerWidget {
                               children: [
                                 if (!searchOpen.value &&
                                     constraints.maxHeight > 440) ...[
-                                  // Keep the actual connection state and class list
-                                  // ahead of a decorative greeting in large text.
-                                  if (MediaQuery.textScalerOf(context)
-                                              .scale(26) <=
-                                          36 ||
-                                      constraints.maxHeight > 700) ...[
-                                    Text(
-                                      user == null ||
-                                              user.displayName.trim().isEmpty
-                                          ? '반가워요.'
-                                          : '${user.displayName}님, 반가워요.',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: AppColors.muted,
-                                        letterSpacing: -.16,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
+                                  HomeWelcome(displayName: user?.displayName),
                                   _DisplayStatus(
                                     onPressed: isBusy
                                         ? null
                                         : () => context.go('/displays'),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 28),
                                 ],
                                 if (!searchOpen.value)
                                   const FirstClassHomeCard(),
@@ -685,7 +665,7 @@ class _DisplayStatus extends ConsumerWidget {
         enabled: onPressed != null,
         height: math.max(
           56,
-          MediaQuery.textScalerOf(context).scale(13) * 2.8 + 28,
+          MediaQuery.textScalerOf(context).scale(13) * 2.8 + 20,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
@@ -734,7 +714,7 @@ class _WorkoutList extends StatelessWidget {
     idOf: (item) => item.id,
     scope: scope,
     itemBuilder: (_, item) => Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.zero,
       child: _WorkoutRow(workout: item, isBusy: isBusy),
     ),
   );
@@ -750,96 +730,104 @@ class _WorkoutRow extends ConsumerWidget {
       ref.watch(activePlaybackSessionProvider),
       workout.id,
     );
-    return shadcn.ShadCard(
-      padding: const EdgeInsets.all(14),
-      radius: BorderRadius.circular(16),
-      shadows: const [],
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: isBusy
-                ? null
-                : () {
-                    if (editBlocked != null) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(SnackBar(content: Text(editBlocked)));
-                    } else {
-                      context.push('/editor/${workout.id}');
-                    }
-                  },
-            child: Row(
-              children: [
-                WorkoutIconTile(
-                  key: ValueKey('workout-thumbnail-${workout.id}'),
-                  workoutId: workout.id,
-                  moduleCount: workout.moduleCount,
-                  size: 52,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        workout.name.isEmpty ? '이름 없음' : workout.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                          letterSpacing: -.17,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        '${workout.moduleCount}개 슬라이드 · ${timingDurationLabel(workout.durationSeconds, workout.durationKind)}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.muted,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
+    final ownerId = ref.watch(authStateProvider).value?.id ?? '';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < 330 ||
+            MediaQuery.textScalerOf(context).scale(17) > 23;
+        final details = InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: isBusy
+              ? null
+              : () {
+                  if (editBlocked != null) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(editBlocked)));
+                  } else {
+                    context.push('/editor/${workout.id}');
+                  }
+                },
+          child: Row(
             children: [
+              HomeWorkoutThumbnail(
+                key: ValueKey('workout-thumbnail-${workout.id}'),
+                ownerId: ownerId,
+                workout: workout,
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: shadcn.ShadBadge.secondary(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workout.name.isEmpty ? '이름 없음' : workout.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        height: 1.3,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -.17,
+                      ),
                     ),
-                    child: Text(
-                      workout.folder.isEmpty ? '폴더 없음' : workout.folder,
-                      maxLines: 1,
+                    const SizedBox(height: 6),
+                    Text(
+                      '${workout.folder.isEmpty ? '폴더 없음' : workout.folder} · ${workout.moduleCount}개 슬라이드',
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                        color: AppColors.muted,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    Text(
+                      timingDurationLabel(
+                        workout.durationSeconds,
+                        workout.durationKind,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              _WorkoutActions(workout: workout, isBusy: isBusy, compact: true),
             ],
           ),
-        ],
-      ),
+        );
+        final actions = _WorkoutActions(
+          workout: workout,
+          isBusy: isBusy,
+          compact: true,
+        );
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppColors.line)),
+          ),
+          child: stacked
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    details,
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerRight, child: actions),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: details),
+                    const SizedBox(width: 8),
+                    actions,
+                  ],
+                ),
+        );
+      },
     );
   }
 }
