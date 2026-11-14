@@ -157,6 +157,20 @@ void main() {
         sessionId: 's',
         canControl: true,
       );
+      final revisedWorkout = workout.copyWith(
+        modules: [
+          workout.modules.first.copyWith(
+            imageSource: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==',
+          ),
+          workout.modules.last,
+        ],
+      );
+      final revisedProvider = playerControllerProvider(
+        revisedWorkout,
+        startModule: 0,
+        sessionId: 's',
+        canControl: true,
+      );
       final snapshots = StreamController<PlaybackSession>();
       addTearDown(snapshots.close);
       final container = ProviderContainer(
@@ -170,6 +184,7 @@ void main() {
           playbackConnectionProvider.overrideWith((_) => Stream.value(true)),
           androidTvProvider.overrideWith((_) async => true),
           provider.overrideWith(_ControlledPlayer.new),
+          revisedProvider.overrideWith(_ControlledPlayer.new),
         ],
       );
       await tester.pumpWidget(
@@ -240,6 +255,48 @@ void main() {
         expect(find.byType(WorkoutImageSkeleton), findsNothing);
         expect(tester.takeException(), isNull);
       }
+      snapshots.add(
+        session.copyWith(
+          workout: revisedWorkout,
+          revision: session.revision + 2,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(WorkoutImage),
+        findsNothing,
+        reason: 'changed workout invalidates the explicit preview scope',
+      );
+      await tester.tap(find.text('미리보기 보기'));
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<WorkoutSlideCanvas>(
+              find.byWidgetPredicate(
+                (w) => w is WorkoutSlideCanvas && w.module.id == 'm0',
+              ),
+            )
+            .module
+            .imageSource,
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==',
+      );
+      expect(tester.state(imageFor(0)), isNot(same(before)));
+      expect(
+        tester.widget<Image>(imageFor(0)).image,
+        isNot(same(imageProvider)),
+      );
+      expect(
+        tester
+            .widget<RawImage>(
+              find.descendant(of: imageFor(0), matching: find.byType(RawImage)),
+            )
+            .image,
+        isNotNull,
+      );
       await tester.pumpWidget(const SizedBox());
       container.dispose();
     },
