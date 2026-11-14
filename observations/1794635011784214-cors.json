@@ -1,0 +1,1662 @@
+{
+  "schemaVersion": 1,
+  "kind": "development-cors-deployment-evidence",
+  "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+  "receiptId": "1794635011784214",
+  "plan": {
+    "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+    "project": "cloud-board-development",
+    "sites": [
+      {
+        "name": "projects/cloud-board-development/sites/cloud-board-development",
+        "defaultUrl": "https://cloud-board-development.web.app",
+        "type": "DEFAULT_SITE"
+      }
+    ],
+    "scope": "functions",
+    "selected": [
+      "account-deletion:auditDisplayAccessBinding",
+      "account-deletion:auditDisplayDeviceBinding",
+      "account-deletion:cleanupDailyMaintenance",
+      "account-deletion:cloudboardAppOnboarding",
+      "account-deletion:cloudboardClassAdmission",
+      "account-deletion:cloudboardImageUpload",
+      "account-deletion:cloudboardImageUploadBody",
+      "account-deletion:cloudboardImageUsage",
+      "account-deletion:cloudboardMedia",
+      "account-deletion:cloudboardMediaLease",
+      "account-deletion:cloudboardPrepareSupportAttachment",
+      "account-deletion:cloudboardSaveBrandConfig",
+      "account-deletion:cloudboardSubmitSupportTicket",
+      "account-deletion:cloudboardUsageGrant",
+      "account-deletion:deleteMyAccount",
+      "account-deletion:getPlanUsage",
+      "account-deletion:listLibraryFolders",
+      "account-deletion:manageLibraryFolder",
+      "account-deletion:notifySupportTicket",
+      "account-deletion:pairDisplayConnection",
+      "account-deletion:reconcileImageUsageSession",
+      "account-deletion:recordOperationTelemetry",
+      "account-deletion:reportClientDiagnostic",
+      "account-deletion:reportDisplayRecovery",
+      "account-deletion:requestDisplayRecovery",
+      "account-deletion:retryAccountDeletions",
+      "account-deletion:retryImageUsageEnrollment",
+      "account-deletion:retryImageUsageOutbox",
+      "account-deletion:saveWorkout",
+      "account-deletion:syncAppTrialAccess",
+      "account-deletion:syncLegacyWorkoutSettings",
+      "account-deletion:syncSlideLibraryPlan",
+      "account-deletion:syncSlidePlanUsage",
+      "account-deletion:syncStandbyBranding",
+      "account-deletion:syncVerifiedFreeAccess",
+      "account-deletion:syncWorkoutCatalog",
+      "account-deletion:syncWorkoutPlanUsage",
+      "account-deletion:unpairDisplayConnection",
+      "account-deletion:updateSlideLibrary",
+      "account-deletion:verifyDisplayConnection"
+    ],
+    "targets": [
+      "functions:account-deletion:auditDisplayAccessBinding",
+      "functions:account-deletion:auditDisplayDeviceBinding",
+      "functions:account-deletion:cleanupDailyMaintenance",
+      "functions:account-deletion:cloudboardAppOnboarding",
+      "functions:account-deletion:cloudboardClassAdmission",
+      "functions:account-deletion:cloudboardImageUpload",
+      "functions:account-deletion:cloudboardImageUploadBody",
+      "functions:account-deletion:cloudboardImageUsage",
+      "functions:account-deletion:cloudboardMedia",
+      "functions:account-deletion:cloudboardMediaLease",
+      "functions:account-deletion:cloudboardPrepareSupportAttachment",
+      "functions:account-deletion:cloudboardSaveBrandConfig",
+      "functions:account-deletion:cloudboardSubmitSupportTicket",
+      "functions:account-deletion:cloudboardUsageGrant",
+      "functions:account-deletion:deleteMyAccount",
+      "functions:account-deletion:getPlanUsage",
+      "functions:account-deletion:listLibraryFolders",
+      "functions:account-deletion:manageLibraryFolder",
+      "functions:account-deletion:notifySupportTicket",
+      "functions:account-deletion:pairDisplayConnection",
+      "functions:account-deletion:reconcileImageUsageSession",
+      "functions:account-deletion:recordOperationTelemetry",
+      "functions:account-deletion:reportClientDiagnostic",
+      "functions:account-deletion:reportDisplayRecovery",
+      "functions:account-deletion:requestDisplayRecovery",
+      "functions:account-deletion:retryAccountDeletions",
+      "functions:account-deletion:retryImageUsageEnrollment",
+      "functions:account-deletion:retryImageUsageOutbox",
+      "functions:account-deletion:saveWorkout",
+      "functions:account-deletion:syncAppTrialAccess",
+      "functions:account-deletion:syncLegacyWorkoutSettings",
+      "functions:account-deletion:syncSlideLibraryPlan",
+      "functions:account-deletion:syncSlidePlanUsage",
+      "functions:account-deletion:syncStandbyBranding",
+      "functions:account-deletion:syncVerifiedFreeAccess",
+      "functions:account-deletion:syncWorkoutCatalog",
+      "functions:account-deletion:syncWorkoutPlanUsage",
+      "functions:account-deletion:unpairDisplayConnection",
+      "functions:account-deletion:updateSlideLibrary",
+      "functions:account-deletion:verifyDisplayConnection"
+    ],
+    "oldRuntimeKeys": [
+      "AI_TIMER_SECRETS_ENABLED",
+      "APPLE_IAP_SECRETS_ENABLED"
+    ],
+    "oldOrigins": null,
+    "newOrigins": "https://cloud-board-development.web.app,https://cloud-board-development.firebaseapp.com",
+    "oldRuntimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+    "newRuntimeHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f",
+    "narrowRejected": "Per-function runtime configuration differs; a shared dotenv would change it\n+ actual - expected\n\n+ 'bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f'\n- '8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500'\n",
+    "allCoreHomogeneous": true,
+    "secretBindings": "match current source",
+    "snapshot": [
+      {
+        "name": "cleanupDailyMaintenance",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "2ef4ad57237c72805dc83c1b0acd1b7d13b798122798f1bcbbbdf867d81f1c03",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardAiSlideRaster",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "e4a416826c5657c576fbddad9cded23d054e2263",
+        "runtimeHash": "e878dcd1598ecbae76d2c7a68432213f4bdf461d07b782cc934822cf1e95c6a1",
+        "secretBindingsHash": "4dd69e09d07ca0c9a8514a1c0cb6e08edbaf80ddc83a834252ceacbfc80ba88e"
+      },
+      {
+        "name": "cloudboardAppOnboarding",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "711776f518e013d0c12cbf2181bb6b4da24b5fe7",
+        "runtimeHash": "99c6664b09c2be6e28f90255961fc2ba2f6d1aa52b52251762ad2b595be140ce",
+        "secretBindingsHash": "8166197e6a071ef1ed821a31d89d5f0a40996331841fb10ab7b51d55193f045c"
+      },
+      {
+        "name": "cloudboardClassAdmission",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "1051501f27b7af1eff5b1d8e7f40717b2f86cb7736d17d7b4850e6d033849201",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardImageUpload",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "6d266fc393b7509ea1dd3e4c9eb841f0f739ae8eec058376bff50e73d39c7de4",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardImageUploadBody",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "e8474626c641d26c35b4ac004d389fd395ce407a2654a67669a2b77f32721cf9",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardImageUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "b55bdebdab19b5cc3b4edf8068b14696343ce51b51757f5ceca8d23a926e0d11",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardMedia",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "c4c62716d89c6fc15a2677fb76ef371aa024b77df3ec97c0ee48336313e52a54",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardMediaLease",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "4a82f544c59a52dc97c377df206e6b2ad3baecb854cebbb25af0220ec3e8e7c7",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardPrepareSupportAttachment",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "0f5e5574c527ab5261fd05c14349f955b4695cea5cbdec8690ae4fe3ae5ba39a",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardSaveBrandConfig",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "a2102e15a9916d394d26a054b73758c9ad1aefa133736e21940376e2f9f8d9ed",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardSlideStudio",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "a1aa509c0fb10fd9c6e60e7f7d0366265fb74c7e",
+        "runtimeHash": "803aae10ada3ef44d535928a0fef7c752626e78b9a407df39f5ece32b646f2d7",
+        "secretBindingsHash": "4dd69e09d07ca0c9a8514a1c0cb6e08edbaf80ddc83a834252ceacbfc80ba88e"
+      },
+      {
+        "name": "cloudboardSubmitSupportTicket",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "0c1cf33e8b87ef999b235ea4a00d12e43de12b2aec3097eb4751c55b06764ade",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardTemplateJobs",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "cf64efdaf431659108d3cc249522365300047fe7",
+        "runtimeHash": "8f9baea565efdc682bd89b9a0abae7926b7cae4aa5d1e5974bf4acf997f2186d",
+        "secretBindingsHash": "4dd69e09d07ca0c9a8514a1c0cb6e08edbaf80ddc83a834252ceacbfc80ba88e"
+      },
+      {
+        "name": "cloudboardUsageGrant",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "7f0aeeb661f364698cb0b7af884d9f02e83b87d3d7991a2f7c40ab2806b39b20",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "deleteMyAccount",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "1ae24ebf25c2c3030c350383d361839318da9ec8e2eb2f957777ba279007e6a7",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "generateTemplateJob",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "cf64efdaf431659108d3cc249522365300047fe7",
+        "runtimeHash": "09710f92aaaa0e4868a8381e0fb246e7d97fd102483b89b54cfe652baaf911cb",
+        "secretBindingsHash": "4dd69e09d07ca0c9a8514a1c0cb6e08edbaf80ddc83a834252ceacbfc80ba88e"
+      },
+      {
+        "name": "getPlanUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "20dfdb928a9416006efc4c4d1079f2f441500b25c3e878d7c968f3fca3e9dc21",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "listLibraryFolders",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "aef935e04b57cfee788bd9bc8d1b7295e743696fee749ca2198856baa6310278",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "manageLibraryFolder",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "b7734f96e50987088e8f91a900eb70512c3dc2d7fb6d4b79d5ebda9aa32515ad",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "notifySupportTicket",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "aab6f40ee8dc432f09a1c8bb40174eb32e095f60ea873020be5e169ced9c7256",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "pairDisplayConnection",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "210b87d452415481950db5bb9b1ba59699e9e851c08fc0145a89df431f1bb148",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "recordOperationTelemetry",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "0f72429ce8c164ba6cebdd71b9b13837f52ce8023e25e52fd34a1b62b3b9ed24",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "recoverTemplateJobs",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "cf64efdaf431659108d3cc249522365300047fe7",
+        "runtimeHash": "f7d70500646c425a148accafc0a180773bd53f087b079ec8401933133b1df9e0",
+        "secretBindingsHash": "4dd69e09d07ca0c9a8514a1c0cb6e08edbaf80ddc83a834252ceacbfc80ba88e"
+      },
+      {
+        "name": "reportClientDiagnostic",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "35645cb7cf35d6d697bc496c0dbc9b0946422a5481d40992afa89bc16ffaf6aa",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "reportDisplayRecovery",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "a29651829370d235f7665c667ea84e5cb24e438a56d94f2cfbaa512f429a2435",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "requestDisplayRecovery",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "d94eb51ef74a14efc7d7e251473c9b9dac6a7a97996d57bb59e881ef0188ff1d",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "retryAccountDeletions",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "1b9d48b1beb165ea00b149f742d118df378d63e822cbd2b50e9dac7a909a3f1c",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "retryImageUsageOutbox",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "e2cb4296100c0410b0b441731fa3441f73aeb08264da9ca8a0ef13a13d2b878e",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "saveWorkout",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "0c348d8c9f7c3b41c25b77da3a0784bfdaa77ff23113a1521da17976f37f0f2a",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncAppTrialAccess",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "70110aff00bf999033925e0e70e3560188e367604a5102524d4c03d0c64c1e77",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncLegacyWorkoutSettings",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "4cbe2accca1c1bb5a4d18c2c7c894d834b48dda0bab2232671e3edc62c7f7aa9",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncSlideLibraryPlan",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "d26bb0173deec9ac71c557f3ecbfdb9c039b679d64515414923cef5945283465",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncSlidePlanUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "6230f1d99fcf5d8a06471b19cbfcf535f3e91895c5626453b9b9f2c8a53f7a79",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncStandbyBranding",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "979521b3a047563df15c8643d6954f5d93291040942f827f99194bc442188062",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncVerifiedFreeAccess",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "8d4d654dcb59f8efe5078e7a8755031514f5b3368f25e9093a40bf60a465eff8",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncWorkoutCatalog",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "cf99b639ce98918e23a503a73828428f9c0972e9ec5e135ea6ce31edb4a56a59",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "syncWorkoutPlanUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "572436fab2369e01293961349d06b733b4eaadb15b6ec1a56bda2768472badd9",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "unpairDisplayConnection",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "c4317c76adb705593b2ce0b0452517ca2db63efffbd55821e3debbd00f07018e",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "updateSlideLibrary",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "8cf106206c643b5fa4daf76596760186b40c1870f88e51d8c19ae81752122da1",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "verifyDisplayConnection",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "cdc1c463c20806607246e9f394313e82e7aac9e67dcafb1204c29529839a26f1",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "auditDisplayAccessBinding",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "82bf209b102df4044396aeb809d781ab6f9601b0aad765d69707ab0ea3e789dc",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "auditDisplayDeviceBinding",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "eaf3375afa55fa450aee87d320c094223f84c148944aaef5df4d74f59acac042",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "cloudboardSetDisplayState",
+        "codebase": "cloudboard-auth",
+        "region": "asia-southeast1",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "657e29b9edff75ad2897bcb4b5793bffa38caa9e",
+        "runtimeHash": "c0e7f80a46b31a071f411abd3f0f17226f57b64bd58507023049d05934b69ce8",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "reconcileImageUsageSession",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "14ec3d8b50aafdf35b4b553287315ca55246ec43671d6347b747f49a8e9422af",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "name": "retryImageUsageEnrollment",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "project": "cloud-board-development",
+        "state": "ACTIVE",
+        "sourceHash": "8101cf9019ca5f4be7eaf3f8ef94b893cc92245d",
+        "runtimeHash": "13875a48a18b2499ec38165cc77a0eaea4c87ca7b4765e8df3ef5234424d67dd",
+        "secretBindingsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    ],
+    "pending": [
+      {
+        "id": "1794634534029534",
+        "scope": "ios",
+        "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e"
+      }
+    ],
+    "checkedAt": "2026-11-14T05:42:13.557Z"
+  },
+  "readback": {
+    "checkedAt": "2026-11-14T05:46:12.539Z",
+    "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+    "project": "cloud-board-development",
+    "receiptId": "1794635011784214",
+    "status": "success",
+    "ledgerSha": "34b7154ead020cf1d76f847f41b51d1415ee0028",
+    "pendingAttempts": 0,
+    "oldRuntimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+    "newRuntimeHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f",
+    "origins": "https://cloud-board-development.web.app,https://cloud-board-development.firebaseapp.com",
+    "otherRuntimePreserved": true,
+    "secretBindingsPreserved": true,
+    "untouched": [
+      "cloudboardAiSlideRaster",
+      "cloudboardSlideStudio",
+      "cloudboardTemplateJobs",
+      "generateTemplateJob",
+      "recoverTemplateJobs",
+      "cloudboardSetDisplayState"
+    ],
+    "selected": [
+      {
+        "name": "auditDisplayAccessBinding",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "state": "ACTIVE",
+        "revision": "auditdisplayaccessbinding-00010-huw",
+        "updateTime": "2026-11-14T05:45:31.792844367Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "auditDisplayDeviceBinding",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "state": "ACTIVE",
+        "revision": "auditdisplaydevicebinding-00010-rox",
+        "updateTime": "2026-11-14T05:45:37.609634671Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cleanupDailyMaintenance",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cleanupdailymaintenance-00005-bot",
+        "updateTime": "2026-11-14T05:45:02.284669037Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardAppOnboarding",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardapponboarding-00025-qib",
+        "updateTime": "2026-11-14T05:45:07.232285369Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardClassAdmission",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardclassadmission-00002-jep",
+        "updateTime": "2026-11-14T05:45:08.682360406Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardImageUpload",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardimageupload-00002-cec",
+        "updateTime": "2026-11-14T05:45:11.782372097Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardImageUploadBody",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardimageuploadbody-00002-ric",
+        "updateTime": "2026-11-14T05:45:07.311850956Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardImageUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardimageusage-00002-xeb",
+        "updateTime": "2026-11-14T05:45:08.045503390Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardMedia",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardmedia-00002-jon",
+        "updateTime": "2026-11-14T05:45:07.697454176Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardMediaLease",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardmedialease-00002-zex",
+        "updateTime": "2026-11-14T05:45:08.988930238Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardPrepareSupportAttachment",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardpreparesupportattachment-00012-yur",
+        "updateTime": "2026-11-14T05:45:08.256045873Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardSaveBrandConfig",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardsavebrandconfig-00020-wes",
+        "updateTime": "2026-11-14T05:45:07.550000823Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardSubmitSupportTicket",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardsubmitsupportticket-00012-tik",
+        "updateTime": "2026-11-14T05:45:00.255816184Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "cloudboardUsageGrant",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "cloudboardusagegrant-00002-suj",
+        "updateTime": "2026-11-14T05:45:07.664196074Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "deleteMyAccount",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "deletemyaccount-00025-nif",
+        "updateTime": "2026-11-14T05:45:08.703942928Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "getPlanUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "getplanusage-00020-sem",
+        "updateTime": "2026-11-14T05:45:08.464413936Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "listLibraryFolders",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "listlibraryfolders-00024-zam",
+        "updateTime": "2026-11-14T05:45:08.022834898Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "manageLibraryFolder",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "managelibraryfolder-00024-toj",
+        "updateTime": "2026-11-14T05:45:07.660822575Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "notifySupportTicket",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "notifysupportticket-00012-rur",
+        "updateTime": "2026-11-14T05:45:09.765533179Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "pairDisplayConnection",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "pairdisplayconnection-00010-xoz",
+        "updateTime": "2026-11-14T05:45:07.754533053Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "reconcileImageUsageSession",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "state": "ACTIVE",
+        "revision": "reconcileimageusagesession-00002-qok",
+        "updateTime": "2026-11-14T05:45:39.573889703Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "recordOperationTelemetry",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "recordoperationtelemetry-00024-nob",
+        "updateTime": "2026-11-14T05:45:08.641525410Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "reportClientDiagnostic",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "reportclientdiagnostic-00024-wev",
+        "updateTime": "2026-11-14T05:45:07.771372998Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "reportDisplayRecovery",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "reportdisplayrecovery-00010-rol",
+        "updateTime": "2026-11-14T05:45:08.364076313Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "requestDisplayRecovery",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "requestdisplayrecovery-00010-kow",
+        "updateTime": "2026-11-14T05:45:07.126784831Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "retryAccountDeletions",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "retryaccountdeletions-00024-les",
+        "updateTime": "2026-11-14T05:45:07.782439026Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "retryImageUsageEnrollment",
+        "codebase": "account-deletion",
+        "region": "asia-southeast1",
+        "state": "ACTIVE",
+        "revision": "retryimageusageenrollment-00002-bis",
+        "updateTime": "2026-11-14T05:45:39.272544093Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "retryImageUsageOutbox",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "retryimageusageoutbox-00002-paq",
+        "updateTime": "2026-11-14T05:45:08.729156131Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "saveWorkout",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "saveworkout-00021-yut",
+        "updateTime": "2026-11-14T05:45:07.802585365Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncAppTrialAccess",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "syncapptrialaccess-00024-mav",
+        "updateTime": "2026-11-14T05:45:09.807246675Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncLegacyWorkoutSettings",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "synclegacyworkoutsettings-00024-sem",
+        "updateTime": "2026-11-14T05:45:09.008407546Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncSlideLibraryPlan",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "syncslidelibraryplan-00024-naf",
+        "updateTime": "2026-11-14T05:45:09.312892272Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncSlidePlanUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "syncslideplanusage-00020-xad",
+        "updateTime": "2026-11-14T05:45:08.712932457Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncStandbyBranding",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "syncstandbybranding-00020-tul",
+        "updateTime": "2026-11-14T05:45:10.338026245Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncVerifiedFreeAccess",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "syncverifiedfreeaccess-00019-zej",
+        "updateTime": "2026-11-14T05:45:08.681458834Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncWorkoutCatalog",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "syncworkoutcatalog-00024-feg",
+        "updateTime": "2026-11-14T05:45:09.267462920Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "syncWorkoutPlanUsage",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "syncworkoutplanusage-00020-kaz",
+        "updateTime": "2026-11-14T05:45:08.442120128Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "unpairDisplayConnection",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "unpairdisplayconnection-00010-zid",
+        "updateTime": "2026-11-14T05:45:07.345808364Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "updateSlideLibrary",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "updateslidelibrary-00024-poj",
+        "updateTime": "2026-11-14T05:45:08.454284806Z",
+        "runtime": "nodejs22"
+      },
+      {
+        "name": "verifyDisplayConnection",
+        "codebase": "account-deletion",
+        "region": "asia-northeast3",
+        "state": "ACTIVE",
+        "revision": "verifydisplayconnection-00010-zux",
+        "updateTime": "2026-11-14T05:45:07.464965183Z",
+        "runtime": "nodejs22"
+      }
+    ],
+    "attempt": {
+      "schemaVersion": 1,
+      "kind": "direct-deployment",
+      "id": "1794635011784214",
+      "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+      "environment": "development",
+      "project": "cloud-board-development",
+      "scope": "functions",
+      "tag": "",
+      "version": "2.1.6",
+      "actor": "hyroxseouldev",
+      "status": "success",
+      "startedAt": "2026-11-14T05:43:31.866Z",
+      "validation": {
+        "status": "not-run",
+        "reason": "Direct CLI: no GitHub Actions integration CI is requested"
+      },
+      "steps": [
+        {
+          "id": "verify-source",
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:33.704Z",
+          "completedAt": "2026-11-14T05:43:35.346Z",
+          "durationMs": 1642
+        },
+        {
+          "id": "verify-environment",
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:36.518Z",
+          "completedAt": "2026-11-14T05:43:37.691Z",
+          "durationMs": 1173
+        },
+        {
+          "id": "toolchain",
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:38.936Z",
+          "completedAt": "2026-11-14T05:43:40.035Z",
+          "durationMs": 1099
+        },
+        {
+          "id": "firebase-access",
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:41.054Z",
+          "completedAt": "2026-11-14T05:43:45.542Z",
+          "durationMs": 4488
+        },
+        {
+          "id": "function-targets",
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:46.666Z",
+          "completedAt": "2026-11-14T05:43:52.894Z",
+          "durationMs": 6228
+        },
+        {
+          "id": "recheck-source",
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:54.456Z",
+          "completedAt": "2026-11-14T05:43:56.314Z",
+          "durationMs": 1858
+        },
+        {
+          "id": "deploy",
+          "status": "success",
+          "startedAt": "2026-11-14T05:43:57.474Z",
+          "completedAt": "2026-11-14T05:45:47.670Z",
+          "durationMs": 110196
+        },
+        {
+          "id": "readback",
+          "status": "success",
+          "startedAt": "2026-11-14T05:45:48.720Z",
+          "completedAt": "2026-11-14T05:45:54.882Z",
+          "durationMs": 6162
+        }
+      ],
+      "targets": [
+        "functions:account-deletion:auditDisplayAccessBinding",
+        "functions:account-deletion:auditDisplayDeviceBinding",
+        "functions:account-deletion:cleanupDailyMaintenance",
+        "functions:account-deletion:cloudboardAppOnboarding",
+        "functions:account-deletion:cloudboardClassAdmission",
+        "functions:account-deletion:cloudboardImageUpload",
+        "functions:account-deletion:cloudboardImageUploadBody",
+        "functions:account-deletion:cloudboardImageUsage",
+        "functions:account-deletion:cloudboardMedia",
+        "functions:account-deletion:cloudboardMediaLease",
+        "functions:account-deletion:cloudboardPrepareSupportAttachment",
+        "functions:account-deletion:cloudboardSaveBrandConfig",
+        "functions:account-deletion:cloudboardSubmitSupportTicket",
+        "functions:account-deletion:cloudboardUsageGrant",
+        "functions:account-deletion:deleteMyAccount",
+        "functions:account-deletion:getPlanUsage",
+        "functions:account-deletion:listLibraryFolders",
+        "functions:account-deletion:manageLibraryFolder",
+        "functions:account-deletion:notifySupportTicket",
+        "functions:account-deletion:pairDisplayConnection",
+        "functions:account-deletion:reconcileImageUsageSession",
+        "functions:account-deletion:recordOperationTelemetry",
+        "functions:account-deletion:reportClientDiagnostic",
+        "functions:account-deletion:reportDisplayRecovery",
+        "functions:account-deletion:requestDisplayRecovery",
+        "functions:account-deletion:retryAccountDeletions",
+        "functions:account-deletion:retryImageUsageEnrollment",
+        "functions:account-deletion:retryImageUsageOutbox",
+        "functions:account-deletion:saveWorkout",
+        "functions:account-deletion:syncAppTrialAccess",
+        "functions:account-deletion:syncLegacyWorkoutSettings",
+        "functions:account-deletion:syncSlideLibraryPlan",
+        "functions:account-deletion:syncSlidePlanUsage",
+        "functions:account-deletion:syncStandbyBranding",
+        "functions:account-deletion:syncVerifiedFreeAccess",
+        "functions:account-deletion:syncWorkoutCatalog",
+        "functions:account-deletion:syncWorkoutPlanUsage",
+        "functions:account-deletion:unpairDisplayConnection",
+        "functions:account-deletion:updateSlideLibrary",
+        "functions:account-deletion:verifyDisplayConnection"
+      ],
+      "storeReview": "not-submitted",
+      "toolchain": {
+        "node": "22.21.1"
+      },
+      "dependencyCache": {
+        "functions": "reused"
+      },
+      "runtimeConfigurationHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f",
+      "deployCommand": {
+        "exitCode": 0,
+        "completedAt": "2026-11-14T05:45:47.665Z",
+        "project": "cloud-board-development",
+        "targets": [
+          "functions:account-deletion:auditDisplayAccessBinding",
+          "functions:account-deletion:auditDisplayDeviceBinding",
+          "functions:account-deletion:cleanupDailyMaintenance",
+          "functions:account-deletion:cloudboardAppOnboarding",
+          "functions:account-deletion:cloudboardClassAdmission",
+          "functions:account-deletion:cloudboardImageUpload",
+          "functions:account-deletion:cloudboardImageUploadBody",
+          "functions:account-deletion:cloudboardImageUsage",
+          "functions:account-deletion:cloudboardMedia",
+          "functions:account-deletion:cloudboardMediaLease",
+          "functions:account-deletion:cloudboardPrepareSupportAttachment",
+          "functions:account-deletion:cloudboardSaveBrandConfig",
+          "functions:account-deletion:cloudboardSubmitSupportTicket",
+          "functions:account-deletion:cloudboardUsageGrant",
+          "functions:account-deletion:deleteMyAccount",
+          "functions:account-deletion:getPlanUsage",
+          "functions:account-deletion:listLibraryFolders",
+          "functions:account-deletion:manageLibraryFolder",
+          "functions:account-deletion:notifySupportTicket",
+          "functions:account-deletion:pairDisplayConnection",
+          "functions:account-deletion:reconcileImageUsageSession",
+          "functions:account-deletion:recordOperationTelemetry",
+          "functions:account-deletion:reportClientDiagnostic",
+          "functions:account-deletion:reportDisplayRecovery",
+          "functions:account-deletion:requestDisplayRecovery",
+          "functions:account-deletion:retryAccountDeletions",
+          "functions:account-deletion:retryImageUsageEnrollment",
+          "functions:account-deletion:retryImageUsageOutbox",
+          "functions:account-deletion:saveWorkout",
+          "functions:account-deletion:syncAppTrialAccess",
+          "functions:account-deletion:syncLegacyWorkoutSettings",
+          "functions:account-deletion:syncSlideLibraryPlan",
+          "functions:account-deletion:syncSlidePlanUsage",
+          "functions:account-deletion:syncStandbyBranding",
+          "functions:account-deletion:syncVerifiedFreeAccess",
+          "functions:account-deletion:syncWorkoutCatalog",
+          "functions:account-deletion:syncWorkoutPlanUsage",
+          "functions:account-deletion:unpairDisplayConnection",
+          "functions:account-deletion:updateSlideLibrary",
+          "functions:account-deletion:verifyDisplayConnection"
+        ],
+        "outputSha256": "41ece46e9752f2c21a6559be24987115f2c0f3e3c31ce467105b2f20b4a4517c",
+        "deployComplete": true
+      },
+      "serverObservation": {
+        "status": "active",
+        "functions": [
+          {
+            "name": "auditDisplayAccessBinding",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "auditDisplayDeviceBinding",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cleanupDailyMaintenance",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardAppOnboarding",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardClassAdmission",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardImageUpload",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardImageUploadBody",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardImageUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardMedia",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardMediaLease",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardPrepareSupportAttachment",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardSaveBrandConfig",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardSubmitSupportTicket",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardUsageGrant",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "deleteMyAccount",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "getPlanUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "listLibraryFolders",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "manageLibraryFolder",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "notifySupportTicket",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "pairDisplayConnection",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "reconcileImageUsageSession",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "recordOperationTelemetry",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "reportClientDiagnostic",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "reportDisplayRecovery",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "requestDisplayRecovery",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "retryAccountDeletions",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "retryImageUsageEnrollment",
+            "codebase": "account-deletion",
+            "region": "asia-southeast1",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "retryImageUsageOutbox",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "saveWorkout",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncAppTrialAccess",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncLegacyWorkoutSettings",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncSlideLibraryPlan",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncSlidePlanUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncStandbyBranding",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncVerifiedFreeAccess",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncWorkoutCatalog",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "syncWorkoutPlanUsage",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "unpairDisplayConnection",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "updateSlideLibrary",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "verifyDisplayConnection",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          }
+        ],
+        "sourceVerification": "successful-selected-deploy-command",
+        "appQa": "not-run"
+      },
+      "completedAt": "2026-11-14T05:45:56.023Z"
+    }
+  },
+  "timing": {
+    "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+    "scope": "functions",
+    "selectedCount": 40,
+    "startedAt": "2026-11-14T05:43:30.356018+00:00",
+    "completedAt": "2026-11-14T05:45:57.208415+00:00",
+    "wholeCliElapsedSeconds": 146.852,
+    "exitCode": 0
+  },
+  "beforeProbes": {
+    "checkedAt": "2026-11-14T05:42:35.306Z",
+    "mode": "before",
+    "rows": [
+      {
+        "name": "cloudboardImageUploadBody",
+        "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardImageUploadBody",
+        "state": "ACTIVE",
+        "revision": "cloudboardimageuploadbody-00001-taf",
+        "updateTime": "2026-11-14T05:09:00.099393859Z",
+        "configuredOrigins": null,
+        "runtimeHash": "e8474626c641d26c35b4ac004d389fd395ce407a2654a67669a2b77f32721cf9",
+        "secretsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "probes": [
+          {
+            "origin": "https://cloud-board-development.web.app",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://cloud-board-development.firebaseapp.com",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://denied.example",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://cloud-board-stationd.web.app",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "null",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": null,
+            "status": 204,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          }
+        ]
+      },
+      {
+        "name": "cloudboardMedia",
+        "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardMedia",
+        "state": "ACTIVE",
+        "revision": "cloudboardmedia-00001-jam",
+        "updateTime": "2026-11-14T05:09:00.284608995Z",
+        "configuredOrigins": null,
+        "runtimeHash": "c4c62716d89c6fc15a2677fb76ef371aa024b77df3ec97c0ee48336313e52a54",
+        "secretsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "probes": [
+          {
+            "origin": "https://cloud-board-development.web.app",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://cloud-board-development.firebaseapp.com",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://denied.example",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://cloud-board-stationd.web.app",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "null",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": null,
+            "status": 204,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          }
+        ]
+      }
+    ]
+  },
+  "afterProbes": {
+    "checkedAt": "2026-11-14T05:46:09.678Z",
+    "mode": "after",
+    "rows": [
+      {
+        "name": "cloudboardImageUploadBody",
+        "probeUrl": "https://asia-northeast3-cloud-board-development.cloudfunctions.net/cloudboardImageUploadBody",
+        "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardImageUploadBody",
+        "state": "ACTIVE",
+        "revision": "cloudboardimageuploadbody-00002-ric",
+        "updateTime": "2026-11-14T05:45:07.311850956Z",
+        "configuredOrigins": "https://cloud-board-development.web.app,https://cloud-board-development.firebaseapp.com",
+        "runtimeHash": "8582555b2456b30d5c7070afd493c7d5b3ffbd4d588cbc4ef3d5d42b8176dfe9",
+        "secretsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "probes": [
+          {
+            "origin": "https://cloud-board-development.web.app",
+            "status": 204,
+            "allowOrigin": "https://cloud-board-development.web.app",
+            "allowMethods": "POST, OPTIONS",
+            "allowHeaders": "Authorization, X-CloudBoard-Media-Lease, X-CloudBoard-Upload-Id, Content-Type"
+          },
+          {
+            "origin": "https://cloud-board-development.firebaseapp.com",
+            "status": 204,
+            "allowOrigin": "https://cloud-board-development.firebaseapp.com",
+            "allowMethods": "POST, OPTIONS",
+            "allowHeaders": "Authorization, X-CloudBoard-Media-Lease, X-CloudBoard-Upload-Id, Content-Type"
+          },
+          {
+            "origin": "https://denied.example",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://cloud-board-stationd.web.app",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "http://localhost:3000",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "*",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "null",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": null,
+            "status": 204,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          }
+        ]
+      },
+      {
+        "name": "cloudboardMedia",
+        "probeUrl": "https://asia-northeast3-cloud-board-development.cloudfunctions.net/cloudboardMedia",
+        "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardMedia",
+        "state": "ACTIVE",
+        "revision": "cloudboardmedia-00002-jon",
+        "updateTime": "2026-11-14T05:45:07.697454176Z",
+        "configuredOrigins": "https://cloud-board-development.web.app,https://cloud-board-development.firebaseapp.com",
+        "runtimeHash": "58fe2a09ae62567cd530da2169ecae4923e71331cc6879396035dd4218ee831d",
+        "secretsHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "probes": [
+          {
+            "origin": "https://cloud-board-development.web.app",
+            "status": 204,
+            "allowOrigin": "https://cloud-board-development.web.app",
+            "allowMethods": "GET, HEAD, OPTIONS",
+            "allowHeaders": "Authorization, X-CloudBoard-Media-Lease, X-CloudBoard-Upload-Id, Content-Type"
+          },
+          {
+            "origin": "https://cloud-board-development.firebaseapp.com",
+            "status": 204,
+            "allowOrigin": "https://cloud-board-development.firebaseapp.com",
+            "allowMethods": "GET, HEAD, OPTIONS",
+            "allowHeaders": "Authorization, X-CloudBoard-Media-Lease, X-CloudBoard-Upload-Id, Content-Type"
+          },
+          {
+            "origin": "https://denied.example",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "https://cloud-board-stationd.web.app",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "http://localhost:3000",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "*",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": "null",
+            "status": 403,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          },
+          {
+            "origin": null,
+            "status": 204,
+            "allowOrigin": null,
+            "allowMethods": null,
+            "allowHeaders": null
+          }
+        ]
+      }
+    ]
+  },
+  "applicationSourceChanged": false,
+  "policyActivation": "not-executed",
+  "globalEnrollment": "not-executed",
+  "hostingProductionStores": "not-executed",
+  "sdkUpload": "delegated to iOS ctx_be830fdcee04; result pending"
+}
