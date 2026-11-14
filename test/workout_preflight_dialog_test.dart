@@ -1053,7 +1053,10 @@ Future<void> _previewHarness(
       child: MaterialApp(
         theme: XonTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          data: MediaQuery.of(context).copyWith(
+            disableAnimations: true,
+            textScaler: TextScaler.linear(scale),
+          ),
           child: child!,
         ),
         home: RepaintBoundary(
