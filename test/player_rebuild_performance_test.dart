@@ -29,7 +29,7 @@ void main() {
     ['tv'],
   ]) {
     testWidgets(
-      'player image policy follows actual targets $targets, not server session id',
+      'controller carousel is immediate for actual targets $targets',
       (tester) async {
         final workout =
             Workout.empty(
@@ -85,20 +85,11 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(
-          find.text('미리보기 보기'),
-          targets.isEmpty ? findsNothing : findsOneWidget,
-        );
-        expect(
-          find.byType(WorkoutSlideCanvas),
-          targets.isEmpty ? findsOneWidget : findsNothing,
-        );
-        expect(find.byType(WorkoutImage), findsNothing);
-        if (targets.isNotEmpty) {
-          await tester.tap(find.text('미리보기 보기'));
-          await tester.pumpAndSettle();
-          expect(find.byType(WorkoutSlideCanvas), findsOneWidget);
-        }
+        expect(find.text('미리보기 보기'), findsNothing);
+        expect(find.text('미리보기 닫기'), findsNothing);
+        expect(find.byType(PageView), findsOneWidget);
+        expect(find.byType(WorkoutSlideCanvas), findsOneWidget);
+        expect(find.byType(WorkoutImage), findsNothing); // Image-free fixture.
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         container.dispose();
@@ -202,10 +193,9 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
-      expect(find.byType(WorkoutImage), findsNothing);
-      await tester.tap(find.text('미리보기 보기'));
       await tester.pump();
+      expect(find.byType(WorkoutImage), findsWidgets);
+      expect(find.text('미리보기 보기'), findsNothing);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
@@ -218,6 +208,20 @@ void main() {
       );
       final before = tester.state(imageFor(0));
       final imageProvider = tester.widget<Image>(imageFor(0)).image;
+      final originalPixels = await tester.runAsync(
+        () async =>
+            (await tester
+                    .widget<RawImage>(
+                      find.descendant(
+                        of: imageFor(0),
+                        matching: find.byType(RawImage),
+                      ),
+                    )
+                    .image!
+                    .toByteData())!
+                .buffer
+                .asUint8List(),
+      );
       final controller = container.read(provider.notifier) as _ControlledPlayer;
       controller.tick(59000);
       await tester.pump();
@@ -261,14 +265,8 @@ void main() {
           revision: session.revision + 2,
         ),
       );
-      await tester.pumpAndSettle();
-      expect(
-        find.byType(WorkoutImage),
-        findsNothing,
-        reason: 'changed workout invalidates the explicit preview scope',
-      );
-      await tester.tap(find.text('미리보기 보기'));
       await tester.pump();
+      expect(find.byType(WorkoutImage), findsWidgets);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
@@ -296,6 +294,26 @@ void main() {
             )
             .image,
         isNotNull,
+      );
+      final revisedPixels = await tester.runAsync(
+        () async =>
+            (await tester
+                    .widget<RawImage>(
+                      find.descendant(
+                        of: imageFor(0),
+                        matching: find.byType(RawImage),
+                      ),
+                    )
+                    .image!
+                    .toByteData())!
+                .buffer
+                .asUint8List(),
+      );
+      expect(
+        revisedPixels,
+        isNot(orderedEquals(originalPixels!)),
+        reason:
+            'the new source decodes different PNG pixels, not only a new URL',
       );
       await tester.pumpWidget(const SizedBox());
       container.dispose();

@@ -34,15 +34,8 @@ class WorkoutControlPanel extends HookWidget {
     this.timerResult,
     this.timerFinished = false,
     this.locked = false,
-    this.previewOnDemand = false,
-    this.previewScope,
-    this.moduleNames = const [],
     this.onLockChanged,
   });
-
-  final bool previewOnDemand;
-  final Object? previewScope;
-  final List<String> moduleNames;
 
   final String title;
   final int moduleCount, currentModule;
@@ -61,14 +54,6 @@ class WorkoutControlPanel extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final openPreviewScope = useState<Object?>(null);
-    final currentPreviewScope = (previewScope, previewOnDemand);
-    useEffect(() {
-      openPreviewScope.value = null;
-      return null;
-    }, [currentPreviewScope]);
-    final previewVisible =
-        !previewOnDemand || openPreviewScope.value == currentPreviewScope;
     final pages = usePageController(
       initialPage: currentModule,
       viewportFraction: .9,
@@ -89,7 +74,7 @@ class WorkoutControlPanel extends HookWidget {
         if (!dragging.value && !pending.value) restorePage();
       });
       return null;
-    }, [currentModule, previewVisible]);
+    }, [currentModule]);
 
     Future<void> select(int index) async {
       if (pending.value || busy || locked) {
@@ -311,106 +296,52 @@ class WorkoutControlPanel extends HookWidget {
                                   ),
                                 ),
                               const SizedBox(height: 8),
-                              if (previewOnDemand) ...[
-                                if (moduleNames.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
+                              SizedBox(
+                                height: previewHeight,
+                                child: NotificationListener<ScrollNotification>(
+                                  onNotification: (notification) {
+                                    if (notification.depth != 0) return false;
+                                    if (notification
+                                            is ScrollStartNotification &&
+                                        notification.dragDetails != null) {
+                                      dragging.value = true;
+                                    }
+                                    if (notification is ScrollEndNotification &&
+                                        dragging.value) {
+                                      dragging.value = false;
+                                      final index = pages.page!.round().clamp(
+                                        0,
+                                        moduleCount - 1,
+                                      );
+                                      if (index != latestModule.value) {
+                                        unawaited(select(index));
+                                      }
+                                    }
+                                    return false;
+                                  },
+                                  child: PageView.builder(
+                                    key: const ValueKey(
+                                      'workout-control-carousel',
                                     ),
-                                    child: DropdownButtonFormField<int>(
-                                      key: ValueKey((
-                                        previewScope,
-                                        currentModule,
-                                      )),
-                                      initialValue: currentModule,
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(
-                                        labelText: '현재 슬라이드',
+                                    controller: pages,
+                                    physics: disabled
+                                        ? const NeverScrollableScrollPhysics()
+                                        : null,
+                                    itemCount: moduleCount,
+                                    itemBuilder: (context, index) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
                                       ),
-                                      items: [
-                                        for (var i = 0; i < moduleCount; i++)
-                                          DropdownMenuItem(
-                                            value: i,
-                                            child: Text(
-                                              '${i + 1}. ${i < moduleNames.length ? moduleNames[i] : "슬라이드"}',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                      child: Center(
+                                        child: AspectRatio(
+                                          aspectRatio: 16 / 9,
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
-                                          ),
-                                      ],
-                                      onChanged: disabled
-                                          ? null
-                                          : (index) {
-                                              if (index != null &&
-                                                  index != currentModule) {
-                                                unawaited(select(index));
-                                              }
-                                            },
-                                    ),
-                                  ),
-                                TextButton.icon(
-                                  onPressed: () =>
-                                      openPreviewScope.value = previewVisible
-                                      ? null
-                                      : currentPreviewScope,
-                                  icon: Icon(
-                                    previewVisible
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                  ),
-                                  label: Text(
-                                    previewVisible ? '미리보기 닫기' : '미리보기 보기',
-                                  ),
-                                ),
-                              ],
-                              if (previewVisible)
-                                SizedBox(
-                                  height: previewHeight,
-                                  child: NotificationListener<ScrollNotification>(
-                                    onNotification: (notification) {
-                                      if (notification.depth != 0) return false;
-                                      if (notification
-                                              is ScrollStartNotification &&
-                                          notification.dragDetails != null) {
-                                        dragging.value = true;
-                                      }
-                                      if (notification
-                                              is ScrollEndNotification &&
-                                          dragging.value) {
-                                        dragging.value = false;
-                                        final index = pages.page!.round().clamp(
-                                          0,
-                                          moduleCount - 1,
-                                        );
-                                        if (index != latestModule.value) {
-                                          unawaited(select(index));
-                                        }
-                                      }
-                                      return false;
-                                    },
-                                    child: PageView.builder(
-                                      key: const ValueKey(
-                                        'workout-control-carousel',
-                                      ),
-                                      controller: pages,
-                                      physics: disabled
-                                          ? const NeverScrollableScrollPhysics()
-                                          : null,
-                                      itemCount: moduleCount,
-                                      itemBuilder: (context, index) => Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                        ),
-                                        child: Center(
-                                          child: AspectRatio(
-                                            aspectRatio: 16 / 9,
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: previewBuilder(
-                                                context,
-                                                index,
-                                              ),
+                                            child: previewBuilder(
+                                              context,
+                                              index,
                                             ),
                                           ),
                                         ),
@@ -418,6 +349,7 @@ class WorkoutControlPanel extends HookWidget {
                                     ),
                                   ),
                                 ),
+                              ),
                               const SizedBox(height: 12),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -436,9 +368,7 @@ class WorkoutControlPanel extends HookWidget {
                   key: const ValueKey('control-tips'),
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                   child: Text(
-                    previewVisible
-                        ? '막대 터치·드래그: 구간 이동\n이미지 좌우 스와이프: 이전/다음 슬라이드 시작으로 이동'
-                        : '막대 터치·드래그: 구간 이동',
+                    '막대 터치·드래그: 구간 이동\n이미지 좌우 스와이프: 이전/다음 슬라이드 시작으로 이동',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 12,

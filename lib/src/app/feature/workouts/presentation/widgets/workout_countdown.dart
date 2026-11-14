@@ -30,7 +30,6 @@ class WorkoutCountdown extends StatelessWidget {
     this.isPaused = false,
     this.actionsEnabled = true,
     this.preview = false,
-    this.showBackgroundImage = true,
   });
   final Workout workout;
   final int seconds;
@@ -43,14 +42,11 @@ class WorkoutCountdown extends StatelessWidget {
   /// Only settings previews opt out of the playback letterbox.
   final bool preview;
 
-  /// Remote controllers keep the countdown controls without fetching artwork.
-  final bool showBackgroundImage;
-
   @override
   Widget build(BuildContext context) {
     final appearance = workout.countdownAppearance;
     final module = slide ?? workout.modules.firstOrNull;
-    final customImage = showBackgroundImage ? workout.countdownImageSource : '';
+    final customImage = workout.countdownImageSource;
     final image = customImage.isNotEmpty
         ? customImage
         : module?.imageSource ?? '';
@@ -78,7 +74,7 @@ class WorkoutCountdown extends StatelessWidget {
         builder: (context, box) => Stack(
           fit: StackFit.expand,
           children: [
-            if (showBackgroundImage && image.isNotEmpty)
+            if (image.isNotEmpty)
               WorkoutImage(
                 source: image,
                 preview: preview,
