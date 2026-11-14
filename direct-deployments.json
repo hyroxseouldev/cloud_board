@@ -2026,8 +2026,10 @@
         },
         {
           "id": "build",
-          "status": "running",
-          "startedAt": "2026-11-14T14:44:34.612Z"
+          "status": "success",
+          "startedAt": "2026-11-14T14:44:34.612Z",
+          "completedAt": "2026-11-14T14:48:55.972Z",
+          "durationMs": 261360
         }
       ],
       "targets": [],
