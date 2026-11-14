@@ -1598,7 +1598,7 @@
       "tag": "",
       "version": "2.2.1",
       "actor": "hyroxseouldev",
-      "status": "running",
+      "status": "success",
       "startedAt": "2026-11-14T12:33:35.473Z",
       "validation": {
         "status": "not-run",
@@ -1695,7 +1695,8 @@
         ],
         "sourceVerification": "successful-selected-deploy-command",
         "appQa": "not-run"
-      }
+      },
+      "completedAt": "2026-11-14T12:35:18.169Z"
     }
   ]
 }
