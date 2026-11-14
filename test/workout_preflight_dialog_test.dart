@@ -420,7 +420,7 @@ void main() {
           expect(
             tester
                 .widget<EditableText>(find.byType(EditableText))
-                .controller!
+                .controller
                 .text,
             'HYROX',
           );
