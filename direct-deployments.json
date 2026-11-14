@@ -1283,6 +1283,11 @@
           "startedAt": "2026-11-14T11:10:51.359Z",
           "completedAt": "2026-11-14T11:10:53.615Z",
           "durationMs": 2256
+        },
+        {
+          "id": "build",
+          "status": "running",
+          "startedAt": "2026-11-14T11:10:54.651Z"
         }
       ],
       "targets": [],
