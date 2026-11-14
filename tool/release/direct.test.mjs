@@ -172,7 +172,7 @@ test('news requires real production deploy/upload evidence and ignores developme
   assert.throws(() => directNewsForAttempt(ledger([attempt({environment: 'development', project: 'cloud-board-development'})]), '123', note), /production/);
 });
 test('active workflows contain only operational observers and historical inputs are retained', () => {
-  assert.deepEqual(readdirSync('.github/workflows').sort(), ['app-update-news.yml', 'firebase-release-monitor.yml', 'native-development-readiness.yml']);
+  assert.deepEqual(readdirSync('.github/workflows').sort(), ['app-update-news.yml', 'native-development-readiness.yml']);
   assert.equal(readdirSync('tool/release/fixtures/retired-workflows').length, 7);
   for (const file of readdirSync('.github/workflows')) {
     const source = readFileSync(`.github/workflows/${file}`, 'utf8');
