@@ -1653,6 +1653,11 @@
           "startedAt": "2026-11-14T12:34:01.165Z",
           "completedAt": "2026-11-14T12:35:10.010Z",
           "durationMs": 68845
+        },
+        {
+          "id": "readback",
+          "status": "running",
+          "startedAt": "2026-11-14T12:35:11.108Z"
         }
       ],
       "targets": [
