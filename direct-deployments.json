@@ -2401,6 +2401,11 @@
           "startedAt": "2026-11-14T20:00:39.605Z",
           "completedAt": "2026-11-14T20:00:54.608Z",
           "durationMs": 15003
+        },
+        {
+          "id": "recheck-source",
+          "status": "running",
+          "startedAt": "2026-11-14T20:00:55.624Z"
         }
       ],
       "targets": [
