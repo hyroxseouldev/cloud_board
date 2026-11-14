@@ -1,4 +1,5 @@
 import {HOME_RENDITION, homeThumbnailRef, validHomeThumbnail} from './home-image-thumbnail.js';
+import {assertLegacyHomeCurrent, legacyHomeAllowed} from './legacy-home-image.js';
 import {randomUUID} from 'node:crypto';
 import {assertUsage, imageUsagePolicies, imageUsagePolicyRevision, nowOf, usagePeriods, usageHash,
   validUsageId, validBytes, requireUsageProject, usageConfigEnabled, usageFailure} from './image-usage-policy.js';
@@ -65,6 +66,18 @@ export function requireLedgerEnabled(l, {protectedSession = false, requireInvent
       Number.isSafeInteger(l.entitlement.validUntilMs) && l.entitlement.validUntilMs > l.now,
     'entitlement_unverified');
   }
+}
+// Read-only home gate: no enrollment, asset registry, admission or reservation.
+// GET reserves the actual rendition in reserveTransfer; HEAD may check capacity
+// without consuming it. Never borrow an active class's protected entitlement.
+export async function requireHomeThumbnailPolicy(ctx,{ownerId,sizeBytes=0}) {
+  assertUsage(validBytes(sizeBytes), 'media_lease_invalid');
+  return ctx.db.runTransaction(async tx=>{
+    const l=await loadUsageLedger(ctx,tx,ownerId);
+    assertUsage(legacyHomeAllowed(l.account), 'media_lease_invalid', 'permission-denied');
+    requireLedgerEnabled(l);
+    if (sizeBytes>0) checkTransferCapacity(l,sizeBytes);
+  });
 }
 export function periodLimit(l, kind) {
   return l.policy?.[`${kind}LimitBytes`] ?? null;
@@ -376,13 +389,20 @@ export async function reserveTransfer(ctx, input) {
     // while this transfer was waiting for its Firestore transaction.
     if (admissionId) assertUsage(admissionIncludesDevice(admission, deviceId), 'media_lease_invalid', 'permission-denied');
     const l = await loadUsageLedger(ctx, tx, ownerId, oldIds);
-    const asset = (await tx.get(l.base.collection('assets').doc(assetId))).data();
+    const legacy = input.legacyHome !== undefined;
+    if (legacy) {
+      assertUsage(input.rendition === HOME_RENDITION && purpose === 'preview' && actorUid === ownerId &&
+        !deviceId && !admissionId && !sessionId && leaseId === null && input.legacyHome?.ownerId === ownerId &&
+        input.legacyHome?.assetId === assetId, 'media_lease_invalid', 'permission-denied');
+      await assertLegacyHomeCurrent(ctx,input.legacyHome,tx);
+    }
+    const asset = legacy ? input.legacyHome : (await tx.get(l.base.collection('assets').doc(assetId))).data();
     const thumbnail = input.rendition === HOME_RENDITION && asset
       ? (await tx.get(homeThumbnailRef(ctx,asset))).data() : null;
     const validSize = input.rendition === undefined ? asset?.sizeBytes === sizeBytes
       : input.rendition === HOME_RENDITION && purpose === 'preview' && actorUid === ownerId && !deviceId && !admissionId && !sessionId &&
         validHomeThumbnail(thumbnail,asset) && thumbnail.sizeBytes === sizeBytes;
-    assertUsage(asset?.ownerId === ownerId && asset.tokenFree === true && asset.generation === generation &&
+    assertUsage(asset?.ownerId === ownerId && (legacy || asset.tokenFree === true) && asset.generation === generation &&
       validSize && (!admission || admission.assets.some(a => a.assetId === assetId && a.generation === generation)),
     'media_lease_invalid', 'permission-denied');
     if (identity.allowedAssetSources !== null) assertUsage(identity.allowedAssetSources.includes(asset.source),
@@ -408,7 +428,9 @@ export async function reserveTransfer(ctx, input) {
     if (!protectedSession) checkTransferCapacity(l, sizeBytes);
     const allocations = ['downloadDay', 'downloadMonth'].map(kind => reservePeriod(l, kind, sizeBytes, {protectedSession}));
     l.put(l.base.collection('attempts').doc(attemptId), {attemptId, reservationId: attemptId, leaseId,
-      assetId, generation, sizeBytes, ...(input.rendition ? {rendition:input.rendition} : {}), actorUid, deviceId: deviceId ?? null, admissionId, sessionId,
+      assetId, generation, sizeBytes, ...(input.rendition ? {rendition:input.rendition} : {}),
+      ...(legacy ? {sourceKind:'legacy-home',workoutId:asset.homeBinding.workoutId,sourceRevision:asset.sourceRevision} : {}),
+      actorUid, deviceId: deviceId ?? null, admissionId, sessionId,
       protected: protectedSession, status: 'reserved', allocations, createdAtMs: l.now});
     if (usingPreparation) l.put(ar.ref, admission);
     l.flush(); return {attemptId, reservationId: attemptId, protected: protectedSession};

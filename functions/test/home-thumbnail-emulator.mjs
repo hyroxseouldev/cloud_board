@@ -10,7 +10,7 @@ import {createCanvas} from '@napi-rs/canvas';
 import {assetSource,hashBytes} from '../src/managed-image-assets.js';
 import {handleMedia,handleMediaLease} from '../src/media-gateway.js';
 import {readUsage,reserveTransfer} from '../src/image-usage-ledger.js';
-import {imageUsagePolicyRevision} from '../src/image-usage-policy.js';
+import {imageUsagePolicies,imageUsagePolicyRevision,usagePeriods} from '../src/image-usage-policy.js';
 import {homeThumbnailRef,homeThumbnailPath} from '../src/home-image-thumbnail.js';
 import {serve} from './media-gateway-fixtures.js';
 for (const key of ['FIRESTORE_EMULATOR_HOST','FIREBASE_DATABASE_EMULATOR_HOST','FIREBASE_STORAGE_EMULATOR_HOST'])
@@ -64,6 +64,12 @@ try {
   for(const extra of [{rendition:'home-v1',sizeBytes:bytes.length},{rendition:'home-v1',sizeBytes:size-1},
       {rendition:'other',sizeBytes:size},{sizeBytes:size}])await assert.rejects(reserveTransfer(ctx,{...base,...extra}));
   const manifest=(await homeThumbnailRef(ctx,asset).get()).data();assert.equal(manifest.status,'ready');assert.equal(manifest.attempts,1);
+  // Enrolled managed home requests still enforce the actual transfer budget.
+  const dayRef=db.doc(`imageUsageAccounts/${ownerId}/periods/downloadDay_${usagePeriods(now).dayKey}`);
+  const savedDay=(await dayRef.get()).data();await dayRef.update({usedBytes:imageUsagePolicies.free.downloadDayLimitBytes});
+  await serve(handleMedia,ctx,async url=>assert.equal((await fetch(`${url}?assetId=${assetId}&v=${asset.generation}&rendition=home-v1`,{headers})).status,429));
+  await dayRef.set(savedDay);
+  assert.equal((await db.collection(`imageUsageAccounts/${ownerId}/attempts`).get()).size,2);
   // Generation mismatch and missing originals cannot resurrect a saved rendition.
   await db.doc(`imageUsageAccounts/${ownerId}/assets/${assetId}`).update({generation:'999'});
   await serve(handleMedia,ctx,async url=>assert.equal((await fetch(`${url}?assetId=${assetId}&v=${asset.generation}&rendition=home-v1`,{headers})).status,403));
@@ -75,7 +81,7 @@ try {
   const report={projectId,originalBytes:bytes.length,renditionBytes:size,httpRenditionRequests:2,originalClientGETs:0,
     downloadDayUsedBytes:usage.downloadDay.usedBytes,downloadMonthUsedBytes:usage.downloadMonth.usedBytes,
     reservationRemaining:0,admissions:0,thumbnailGenerationAttempts:1,accountCleanupVerified:true,
-    auth:'injected local identity',externalServices:false};
+    enrolledTransferBudgetDenied:true,auth:'injected local identity',externalServices:false};
   if(process.env.HOME_EVIDENCE)await writeFile(`${process.env.HOME_EVIDENCE}/emulator-byte-evidence.json`,JSON.stringify(report,null,2));
   console.log('PASS home rendition HTTP + actual ledger transactions, forged-size denial, revision denial and account cleanup',report);
 } finally {await deleteApp(app);}

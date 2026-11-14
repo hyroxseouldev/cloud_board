@@ -82,7 +82,7 @@ export function validateImage(bytes, contentType, purpose = 'workout') {
     throw usageFailure('upload_mismatch', 'invalid-argument');
   }
 }
-export async function authenticateRequest(ctx, req) {
+export async function authenticateRequest(ctx, req, {nonAnonymous = false} = {}) {
   const authorization = req?.get?.('Authorization') ?? req?.headers?.authorization;
   const match = /^Bearer ([^\s]+)$/.exec(authorization ?? '');
   if (!match) throw usageFailure('media_lease_invalid', 'unauthenticated');
@@ -90,6 +90,7 @@ export async function authenticateRequest(ctx, req) {
   try { token = await ctx.auth.verifyIdToken(match[1], true); }
   catch { throw usageFailure('media_lease_invalid', 'unauthenticated'); }
   if (!validId(token.uid)) throw usageFailure('media_lease_invalid', 'unauthenticated');
+  if (nonAnonymous && token.firebase?.sign_in_provider === 'anonymous') throw usageFailure('media_lease_invalid', 'permission-denied');
   return token.uid;
 }
 export function cors(ctx, req, res, methods) {

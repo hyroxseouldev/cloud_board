@@ -1,7 +1,8 @@
 import {HOME_RENDITION, ensureHomeThumbnail, homeThumbnailRef, readHomeThumbnail, validHomeThumbnail} from './home-image-thumbnail.js';
+import {assertLegacyHomeCurrent, legacyHomeMetadata, legacyHomeRequest, resolveLegacyHomeAsset} from './legacy-home-image.js';
 import {randomUUID} from 'node:crypto';
 import {accountPath, authenticateRequest, cors, hashBytes, httpFailure, ledgerFor,
-  managedMetadata, publicAsset, readManagedAsset, usageFailure, validId, validRequestId} from './managed-image-assets.js';
+  managedMetadata, mediaBaseUrl, publicAsset, readManagedAsset, usageFailure, validId, validRequestId} from './managed-image-assets.js';
 
 const now = ctx => (ctx.clock ?? Date.now)();
 const leaseRef = (ctx, id) => ctx.db.doc(`imageUsageMediaLeases/${id}`);
@@ -80,20 +81,31 @@ export async function handleMedia(ctx, req, res) {
     if (cors(ctx, req, res, ['GET','HEAD','OPTIONS'])) return;
     if (!['GET','HEAD'].includes(req.method)) { res.statusCode = 405; res.end(); return; }
     if (req.headers?.range) { res.statusCode = 416; res.end(); return; }
-    const actorUid = await authenticateRequest(ctx, req), query = req.query ?? {};
-    if (Object.keys(query).some(k=>!['assetId','v','rendition'].includes(k)) || !validId(query.assetId) || !/^[0-9]+$/.test(query.v ?? '')) throw usageFailure('media_lease_invalid','invalid-argument');
-    if (query.rendition !== undefined && query.rendition !== HOME_RENDITION) throw usageFailure('media_lease_invalid','invalid-argument');
-    const leaseId = req.get?.('X-CloudBoard-Media-Lease') ?? req.headers?.['x-cloudboard-media-lease'];
-    if (!validId(leaseId)) throw usageFailure('media_lease_invalid','permission-denied');
-    const lease = (await leaseRef(ctx, leaseId).get()).data();
-    if (!lease || lease.actorUid !== actorUid || lease.expiresAtMs <= now(ctx) ||
-        !lease.assets.some(a=>a.assetId===query.assetId && a.generation===query.v)) throw usageFailure('media_lease_invalid','permission-denied');
+    const query = req.query ?? {}, legacy = query.workoutId !== undefined;
+    const actorUid = await authenticateRequest(ctx, req, {nonAnonymous:legacy});
     ledger = await ledgerFor(ctx);
-    const {access, admission} = await binding(ctx, ledger, actorUid, lease);
+    let access, admission, asset, file, leaseId=null, lease;
+    if (legacy) {
+      mediaBaseUrl(ctx); // Preserve the existing development/demo service gate.
+      const input=legacyHomeRequest(query);
+      access=await legacyHomeAccess(ctx,ledger,actorUid);
+      asset=await resolveLegacyHomeAsset(ctx,access.ownerId,input);
+      if (!asset) { res.statusCode=404; res.setHeader('Cache-Control','private,no-store'); res.end(); return; }
+      admission=null; lease={purpose:'preview',admissionId:null,sessionId:null};
+    } else {
+      if (Object.keys(query).some(k=>!['assetId','v','rendition'].includes(k)) || !validId(query.assetId) || !/^[0-9]+$/.test(query.v ?? '')) throw usageFailure('media_lease_invalid','invalid-argument');
+      if (query.rendition !== undefined && query.rendition !== HOME_RENDITION) throw usageFailure('media_lease_invalid','invalid-argument');
+      leaseId = req.get?.('X-CloudBoard-Media-Lease') ?? req.headers?.['x-cloudboard-media-lease'];
+      if (!validId(leaseId)) throw usageFailure('media_lease_invalid','permission-denied');
+      lease = (await leaseRef(ctx, leaseId).get()).data();
+      if (!lease || lease.actorUid !== actorUid || lease.expiresAtMs <= now(ctx) ||
+          !lease.assets.some(a=>a.assetId===query.assetId && a.generation===query.v)) throw usageFailure('media_lease_invalid','permission-denied');
+      ({access, admission}=await binding(ctx,ledger,actorUid,lease));
+      asset=await readManagedAsset(ctx,access.ownerId,query.assetId,query.v);
+      if (!allowedAsset(admission,asset,access)) throw usageFailure('media_lease_invalid','permission-denied');
+      ({file}=await managedMetadata(ctx,asset));
+    }
     ownerId = access.ownerId;
-    const asset = await readManagedAsset(ctx, ownerId, query.assetId, query.v);
-    if (!allowedAsset(admission,asset,access)) throw usageFailure('media_lease_invalid','permission-denied');
-    const {file} = await managedMetadata(ctx, asset);
     let rendition=null;
     if (query.rendition === HOME_RENDITION) {
       // Home never borrows class preparation/playback reservations or TV access.
@@ -107,7 +119,7 @@ export async function handleMedia(ctx, req, res) {
     if (req.method === 'GET') {
       attempt = {...await ledger.reserveTransfer(ctx, {ownerId,actorUid,deviceId:access.deviceId,leaseId,
         assetId:asset.assetId,generation:asset.generation,sizeBytes:served.sizeBytes,
-        ...(rendition ? {rendition:HOME_RENDITION} : {}),
+        ...(rendition ? {rendition:HOME_RENDITION} : {}), ...(legacy ? {legacyHome:asset} : {}),
         admissionId:lease.admissionId,sessionId:lease.sessionId,purpose:lease.purpose}),sizeBytes:served.sizeBytes};
     }
     let bytes;
@@ -116,8 +128,18 @@ export async function handleMedia(ctx, req, res) {
       else [bytes] = await file.download({decompress:false});
       if (!Buffer.isBuffer(bytes) || bytes.length !== served.sizeBytes || hashBytes(bytes) !== served.sha256) throw usageFailure('media_lease_invalid','permission-denied');
       // Recheck revocation and session after Storage I/O, before handing body off.
-      const fresh = await binding(ctx,ledger,actorUid,lease);
-      if (!allowedAsset(fresh.admission,asset,fresh.access)) throw usageFailure('media_lease_invalid','permission-denied');
+      if (!legacy) {
+        const fresh = await binding(ctx,ledger,actorUid,lease);
+        if (!allowedAsset(fresh.admission,asset,fresh.access)) throw usageFailure('media_lease_invalid','permission-denied');
+      }
+    }
+    if (legacy) {
+      // Check both stores and revoked auth after generation/body I/O, also HEAD.
+      if (await authenticateRequest(ctx,req,{nonAnonymous:true}) !== actorUid) throw usageFailure('media_lease_invalid','permission-denied');
+      const fresh=await legacyHomeAccess(ctx,ledger,actorUid,req.method==='HEAD' ? served.sizeBytes : 0);
+      if (fresh.mode!==access.mode) throw usageFailure('media_lease_invalid','permission-denied');
+      await assertLegacyHomeCurrent(ctx,asset);
+      await legacyHomeMetadata(ctx,asset);
     }
     if (res.destroyed) { if (attempt) await settle('not_sent'); return; }
     res.statusCode = 200;
@@ -138,6 +160,13 @@ export async function handleMedia(ctx, req, res) {
     if (attempt) { try { await settle(handedOff ? 'unknown' : 'not_sent'); } catch { /* durable attempt remains */ } }
     httpFailure(res,error);
   }
+}
+
+async function legacyHomeAccess(ctx,ledger,actorUid,sizeBytes=0) {
+  const access=await ledger.requireUsageContext(ctx,{actorUid,purpose:'preview'});
+  if (access.ownerId!==actorUid || access.deviceId) throw usageFailure('media_lease_invalid','permission-denied');
+  await ledger.requireHomeThumbnailPolicy(ctx,{ownerId:access.ownerId,sizeBytes});
+  return access;
 }
 
 // Public onRequest contract; root supplies the v2 request and response in ctx.

@@ -1,11 +1,14 @@
 // Optional private, image-only home rendition. Never fetch a client URL.
 import {randomUUID} from 'node:crypto';
-import {accountPath, hashBytes, managedMetadata} from './managed-image-assets.js';
+import {accountPath, hashBytes, IMAGE_MAX_BYTES, managedMetadata, validSha} from './managed-image-assets.js';
+import {assertLegacyHomeCurrent, legacyHomeMetadata} from './legacy-home-image.js';
 
 export const HOME_RENDITION = 'home-v1';
 export const HOME_MAX_BYTES = 64 * 1024;
-export const HOME_INPUT_BYTES = 2 * 1024 * 1024;
-const MAX_PIXELS = 4 * 1024 * 1024;
+export const HOME_INPUT_BYTES = IMAGE_MAX_BYTES - 1;
+export const HOME_MAX_PIXELS = 16 * 1024 * 1024;
+const DECODE_BUDGET_BYTES = 384 * 1024 * 1024; // 128MiB headroom in the existing 512MiB function.
+const INPUT_POLICY = 'bounded-16mp-v2';
 let decoding = false;
 export const homeThumbnailId = asset => `${asset.assetId}-${asset.generation}`;
 export const homeThumbnailPath = asset =>
@@ -21,6 +24,7 @@ export function homeImageDimensions(bytes, type) {
     if (bytes.length < 33 || !bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ||
         bytes.toString('ascii',12,16) !== 'IHDR' || bytes.readUInt32BE(8) !== 13) return null;
     width=bytes.readUInt32BE(16); height=bytes.readUInt32BE(20);
+    if (![1,2,4,8,16].includes(bytes[24])) return null;
     let end=false;
     for (let pos=8; pos+12<=bytes.length;) {
       const length=bytes.readUInt32BE(pos), tag=bytes.toString('ascii',pos+4,pos+8);
@@ -48,27 +52,42 @@ export function homeImageDimensions(bytes, type) {
       pos+=length;
     }
   } else return null; // GIF/WebP/animated inputs retain neutral placeholders.
-  return width>0 && height>0 && width<=8192 && height<=8192 && width*height<=MAX_PIXELS
+  return width>0 && height>0 && width<=8192 && height<=8192 && width*height<=HOME_MAX_PIXELS
     ? {width,height} : null;
 }
 export async function renderHomeThumbnail(bytes, type) {
   const dimensions=homeImageDimensions(bytes,type);
   if (!dimensions) return null;
+  // Include resident memory from previous decodes/other requests. The estimate
+  // allows three RGBA8 surfaces and two encoded copies, before native work.
+  const workingBytesPerPixel=type==='image/png' && bytes[24]===16 ? 24 : 12;
+  if (!homeDecodeFitsMemory(dimensions,bytes.length,process.memoryUsage().rss,workingBytesPerPixel)) throw Error('home-image-memory-budget');
   const {loadImage, createCanvas}=await import('@napi-rs/canvas');
   const image=await loadImage(bytes);
-  if (image.width*image.height>MAX_PIXELS) return null;
-  const scale=Math.min(1,192/Math.max(image.width,image.height));
-  const canvas=createCanvas(Math.max(1,Math.round(image.width*scale)),Math.max(1,Math.round(image.height*scale)));
-  const context=canvas.getContext('2d');
-  context.fillStyle='#fffdf8'; context.fillRect(0,0,canvas.width,canvas.height);
-  context.drawImage(image,0,0,canvas.width,canvas.height);
-  const body=await canvas.encode('jpeg',72);
-  return body.length<=HOME_MAX_BYTES ? {body,width:canvas.width,height:canvas.height} : null;
+  try {
+    if (image.width>8192 || image.height>8192 || image.width*image.height>HOME_MAX_PIXELS) return null;
+    const scale=Math.min(1,192/Math.max(image.width,image.height));
+    const canvas=createCanvas(Math.max(1,Math.round(image.width*scale)),Math.max(1,Math.round(image.height*scale)));
+    const context=canvas.getContext('2d');
+    context.fillStyle='#fffdf8'; context.fillRect(0,0,canvas.width,canvas.height);
+    context.drawImage(image,0,0,canvas.width,canvas.height);
+    const body=await canvas.encode('jpeg',72);
+    return body.length<=HOME_MAX_BYTES ? {body,width:canvas.width,height:canvas.height} : null;
+  } finally {
+    // Empty src silently resets Image in the installed canvas version. Release
+    // native pixels and loadImage's callbacks now, rather than waiting for GC.
+    image.onload=undefined; image.onerror=undefined; image.src=Buffer.alloc(0);
+  }
+}
+export function homeDecodeFitsMemory({width,height},inputBytes,rssBytes=process.memoryUsage().rss,workingBytesPerPixel=12) {
+  return rssBytes + width*height*workingBytesPerPixel + inputBytes*2 + HOME_MAX_BYTES*4 <= DECODE_BUDGET_BYTES;
 }
 export function validHomeThumbnail(value, asset) {
   return value?.status==='ready' && value.rendition===HOME_RENDITION &&
     value.ownerId===asset.ownerId && value.assetId===asset.assetId &&
-    value.originalGeneration===asset.generation && value.originalSha256===asset.sha256 &&
+    value.originalGeneration===asset.generation && (asset.kind==='legacy-home'
+      ? value.sourceRevision===asset.sourceRevision && validSha(value.originalSha256)
+      : value.originalSha256===asset.sha256) &&
     value.path===homeThumbnailPath(asset) && /^[0-9]+$/.test(value.generation) &&
     /^[a-f0-9]{64}$/.test(value.sha256) && Number.isSafeInteger(value.sizeBytes) &&
     value.sizeBytes>0 && value.sizeBytes<=HOME_MAX_BYTES && value.contentType==='image/jpeg' &&
@@ -95,7 +114,8 @@ export async function readHomeThumbnail(ctx, asset, value) {
   if (String(meta.generation)!==value.generation || Number(meta.size)!==value.sizeBytes ||
       meta.contentType!==value.contentType || meta.contentEncoding && meta.contentEncoding!=='identity' ||
       meta.metadata?.firebaseStorageDownloadTokens || meta.metadata?.sha256!==value.sha256 ||
-      meta.metadata?.originalSha256!==asset.sha256) throw Error('invalid-home-thumbnail-metadata');
+      meta.metadata?.originalSha256!==value.originalSha256 ||
+      asset.kind==='legacy-home' && meta.metadata?.sourceRevision!==asset.sourceRevision) throw Error('invalid-home-thumbnail-metadata');
   const bytes=await boundedRead(file,HOME_MAX_BYTES);
   if (bytes.length!==value.sizeBytes || hashBytes(bytes)!==value.sha256) throw Error('invalid-home-thumbnail-body');
   return bytes;
@@ -114,50 +134,67 @@ export async function ensureHomeThumbnail(ctx,asset,uploadBytes=null) {
     const claimed=await ctx.db.runTransaction(async tx=>{
       const old=(await tx.get(ref)).data();
       const deleting=await tx.get(ctx.db.doc(`accountDeletions/${asset.ownerId}`));
-      const current=(await tx.get(ctx.db.doc(accountPath(asset.ownerId,'assets',asset.assetId)))).data();
-      if (deleting.exists || current?.generation!==asset.generation || current?.sha256!==asset.sha256) return false;
-      if (validHomeThumbnail(old,asset) || old?.status==='unsupported' ||
-          old?.attempts>=2 || old?.status==='pending' && old.expiresAtMs>now) return false;
-      tx.set(ref,{status:'pending',claim,attempts:(old?.attempts??0)+1,expiresAtMs:now+60000});
+      if (deleting.exists || !await sourceCurrent(ctx,asset,tx)) return false;
+      // An old 4MP terminal result may now be eligible. Re-evaluate it once
+      // under this bounded policy; ready manifests and live claims stay intact.
+      const previousPolicy=old?.status==='unsupported' && old.inputPolicy!==INPUT_POLICY;
+      if (validHomeThumbnail(old,asset) || old?.status==='unsupported' && !previousPolicy ||
+          old?.attempts>=2 && !previousPolicy || old?.status==='pending' && old.expiresAtMs>now) return false;
+      tx.set(ref,{status:'pending',claim,inputPolicy:INPUT_POLICY,attempts:(previousPolicy ? 0 : old?.attempts??0)+1,expiresAtMs:now+60000});
       return true;
     });
     if (!claimed) return null;
     const finish=async result=>ctx.db.runTransaction(async tx=>{
       const old=(await tx.get(ref)).data();
       const deleting=await tx.get(ctx.db.doc(`accountDeletions/${asset.ownerId}`));
-      if (!deleting.exists && old?.claim===claim) tx.set(ref,{...old,...result,expiresAtMs:0});
+      if (deleting.exists || old?.claim!==claim || !await sourceCurrent(ctx,asset,tx)) return false;
+      tx.set(ref,{...old,...result,expiresAtMs:0}); return true;
     });
     try {
       let bytes=uploadBytes;
-      if (!bytes) { const {file}=await managedMetadata(ctx,asset); bytes=await boundedRead(file,HOME_INPUT_BYTES); }
-      if (bytes.length!==asset.sizeBytes || hashBytes(bytes)!==asset.sha256) throw Error('home-original-mismatch');
+      if (!bytes) { const {file}=await (asset.kind==='legacy-home' ? legacyHomeMetadata : managedMetadata)(ctx,asset);
+        bytes=await boundedRead(file,HOME_INPUT_BYTES); }
+      const originalSha256=hashBytes(bytes);
+      if (bytes.length!==asset.sizeBytes || asset.kind!=='legacy-home' && originalSha256!==asset.sha256) throw Error('home-original-mismatch');
       const rendered=await renderHomeThumbnail(bytes,asset.contentType);
       if (!rendered) { await finish({status:'unsupported'}); return null; }
-      const [deleting,current]=await Promise.all([
-        ctx.db.doc(`accountDeletions/${asset.ownerId}`).get(),
-        ctx.db.doc(accountPath(asset.ownerId,'assets',asset.assetId)).get(),
-      ]);
-      if (deleting.exists || current.data()?.generation!==asset.generation || current.data()?.sha256!==asset.sha256) return null;
+      const deleting=await ctx.db.doc(`accountDeletions/${asset.ownerId}`).get();
+      if (deleting.exists || !await sourceCurrent(ctx,asset)) return null;
+      if (asset.kind==='legacy-home') await legacyHomeMetadata(ctx,asset);
       const {body,width,height}=rendered, path=homeThumbnailPath(asset), sha256=hashBytes(body);
       const file=ctx.bucket.file(path);
       try {
         await file.save(body,{resumable:false,preconditionOpts:{ifGenerationMatch:0},
           metadata:{contentType:'image/jpeg',cacheControl:'private,no-store',
-            metadata:{sha256,originalSha256:asset.sha256,ownerId:asset.ownerId,rendition:HOME_RENDITION}}});
+            metadata:{sha256,originalSha256,ownerId:asset.ownerId,rendition:HOME_RENDITION,
+              ...(asset.kind==='legacy-home' ? {sourceRevision:asset.sourceRevision} : {})}}});
       } catch(error) { if (Number(error.code)!==412) throw error; }
       const [meta]=await file.getMetadata();
       const value={status:'ready',rendition:HOME_RENDITION,ownerId:asset.ownerId,assetId:asset.assetId,
-        originalGeneration:asset.generation,originalSha256:asset.sha256,path,generation:String(meta.generation),
+        originalGeneration:asset.generation,originalSha256,path,generation:String(meta.generation),
+        ...(asset.kind==='legacy-home' ? {sourceRevision:asset.sourceRevision} : {}),
         sizeBytes:Number(meta.size),sha256:meta.metadata?.sha256,contentType:'image/jpeg',width,height};
       // A previous create may have committed before a timeout. Validate its
       // immutable metadata rather than overwrite any object on retry.
       if (!validHomeThumbnail(value,asset) || meta.contentType!=='image/jpeg' ||
-          meta.metadata?.originalSha256!==asset.sha256 || meta.metadata?.firebaseStorageDownloadTokens) throw Error('home-object-mismatch');
-      if ((await ctx.db.doc(`accountDeletions/${asset.ownerId}`).get()).exists) {
-        await ctx.bucket.file(path,{generation:value.generation}).delete({ignoreNotFound:true});
+          meta.metadata?.originalSha256!==originalSha256 || meta.metadata?.firebaseStorageDownloadTokens ||
+          asset.kind==='legacy-home' && meta.metadata?.sourceRevision!==asset.sourceRevision) throw Error('home-object-mismatch');
+      if (!await finish(value)) {
+        // Account deletion may race the object write after its prefix sweep.
+        if ((await ctx.db.doc(`accountDeletions/${asset.ownerId}`).get()).exists)
+          await ctx.bucket.file(path,{generation:value.generation}).delete({ignoreNotFound:true});
         return null;
       }
-      await finish(value); return value;
+      return value;
     } catch (_) { await finish({status:'failed'}); return null; }
   } finally { decoding=false; }
+}
+
+async function sourceCurrent(ctx,asset,reader=ctx.db) {
+  if (asset.kind==='legacy-home') {
+    try { await assertLegacyHomeCurrent(ctx,asset,reader); return true; } catch { return false; }
+  }
+  const ref=ctx.db.doc(accountPath(asset.ownerId,'assets',asset.assetId));
+  const current=(reader===ctx.db ? await ref.get() : await reader.get(ref)).data();
+  return current?.generation===asset.generation && current?.sha256===asset.sha256;
 }

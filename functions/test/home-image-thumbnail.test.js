@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
+import {deflateSync} from 'node:zlib';
 import {createCanvas} from '@napi-rs/canvas';
 import {writeFile,mkdir} from 'node:fs/promises';
 import {fixture,serve} from './media-gateway-fixtures.js';
 import {handleMedia,handleMediaLease} from '../src/media-gateway.js';
 import {HOME_MAX_BYTES, HOME_INPUT_BYTES, homeImageDimensions, renderHomeThumbnail,
-  ensureHomeThumbnail, homeThumbnailRef, homeThumbnailPath, readHomeThumbnail} from '../src/home-image-thumbnail.js';
+  ensureHomeThumbnail, homeThumbnailRef, homeThumbnailPath, readHomeThumbnail, homeDecodeFitsMemory} from '../src/home-image-thumbnail.js';
 import {hashBytes} from '../src/managed-image-assets.js';
 
 function artwork(width=960,height=540) {
@@ -16,7 +17,7 @@ function artwork(width=960,height=540) {
   g.fillStyle=gradient;g.fillRect(0,0,width,height);
   g.fillStyle='#fffdf8';g.font='bold 110px sans-serif';g.fillText('MOVE',60,250);
   g.font='40px sans-serif';g.fillText('TOGETHER',65,320);
-  return canvas.toBuffer('image/png');
+  const bytes=canvas.toBuffer('image/png');canvas.width=1;canvas.height=1;return bytes;
 }
 function setup(bytes=artwork()) {
   const s=fixture(bytes), original=s.ctx.bucket.file;
@@ -42,6 +43,7 @@ test('actual canvas rendition is image-only JPEG <=192px and <=64KiB',async()=>{
 test('dimension/byte/animation/type bounds reject before decoder and original stream',async()=>{
   const png=artwork();assert.equal(homeImageDimensions(png,'image/gif'),null);
   const giant=Buffer.from(png);giant.writeUInt32BE(100000,16);assert.equal(homeImageDimensions(giant,'image/png'),null);
+  const invalidDepth=Buffer.from(png);invalidDepth[24]=32;assert.equal(homeImageDimensions(invalidDepth,'image/png'),null);
   const animated=Buffer.concat([png.subarray(0,33),Buffer.from([0,0,0,0,97,99,84,76,0,0,0,0]),png.subarray(33)]);
   assert.equal(homeImageDimensions(animated,'image/png'),null);
   assert.equal(homeImageDimensions(Buffer.alloc(HOME_INPUT_BYTES+1),'image/png'),null);
@@ -50,11 +52,32 @@ test('dimension/byte/animation/type bounds reject before decoder and original st
     assert.equal(s.events.filter(e=>e[0]==='stream').length,0);
   }
 });
+test('native decode admission keeps 128MiB function headroom and rejects current RSS pressure',()=>{
+  assert.equal(homeDecodeFitsMemory({width:4096,height:4096},HOME_INPUT_BYTES,100*1024*1024),true);
+  assert.equal(homeDecodeFitsMemory({width:4096,height:4096},HOME_INPUT_BYTES,200*1024*1024),false);
+  assert.equal(homeDecodeFitsMemory({width:3840,height:2160},66620,300*1024*1024),false);
+  assert.equal(homeDecodeFitsMemory({width:4096,height:4096},66620,70*1024*1024,24),false);
+  assert.equal(homeDecodeFitsMemory({width:2048,height:2048},66620,70*1024*1024,24),true);
+});
+test('existing small 16-bit PNG inputs remain renderable with the larger memory estimate',async()=>{
+  const chunk=(tag,data)=>{
+    const body=Buffer.concat([Buffer.from(tag),data]);let crc=0xffffffff;
+    for(const b of body){crc^=b;for(let i=0;i<8;i++)crc=crc&1?(crc>>>1)^0xedb88320:crc>>>1;}
+    const output=Buffer.alloc(data.length+12);output.writeUInt32BE(data.length);body.copy(output,4);
+    output.writeUInt32BE((crc^0xffffffff)>>>0,output.length-4);return output;
+  };
+  const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(2);ihdr.writeUInt32BE(2,4);ihdr[8]=16;ihdr[9]=6;
+  const row=Buffer.from([0,255,255,0,0,0,0,255,255,0,0,255,255,0,0,255,255]);
+  const png=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),
+    chunk('IDAT',deflateSync(Buffer.concat([row,row]))),chunk('IEND',Buffer.alloc(0))]);
+  assert.deepEqual(homeImageDimensions(png,'image/png'),{width:2,height:2});
+  const result=await renderHomeThumbnail(png,'image/png');assert.ok(result);assert.equal(result.width,2);assert.equal(result.height,2);
+});
 test('upload bytes reuse has no Storage original read; repeated rendition reuses immutable result',async()=>{
   const s=setup(),first=await ensureHomeThumbnail(s.ctx,s.asset,s.bytes);
   assert.ok(first);assert.equal(s.events.filter(e=>e[0]==='stream').length,0);
   assert.deepEqual(await ensureHomeThumbnail(s.ctx,s.asset),{...first,claim:s.db.rows.get(homeThumbnailRef(s.ctx,s.asset).path).claim,
-    attempts:1,expiresAtMs:0});
+    inputPolicy:'bounded-16mp-v2',attempts:1,expiresAtMs:0});
   assert.equal(s.events.filter(e=>e[0]==='save').length,1);
 });
 test('cold authenticated HTTP fetch reserves and settles thumbnail bytes, never original bytes',async()=>{
@@ -111,6 +134,15 @@ test('failed/crashed claims retry at most twice; unsupported inputs are terminal
   for(let i=0;i<3;i++)assert.equal(await ensureHomeThumbnail(failed.ctx,failed.asset),null);
   assert.equal(failed.db.rows.get(homeThumbnailRef(failed.ctx,failed.asset).path).attempts,2);
 });
+test('old 4MP unsupported manifest is evaluated once under the expanded bounded input policy',async()=>{
+  const s=setup(artwork(2050,2050)),ref=homeThumbnailRef(s.ctx,s.asset);
+  s.db.rows.set(ref.path,{status:'unsupported',attempts:1,expiresAtMs:0});
+  assert.ok(await ensureHomeThumbnail(s.ctx,s.asset));
+  assert.equal(s.db.rows.get(ref.path).inputPolicy,'bounded-16mp-v2');
+  assert.equal(s.db.rows.get(ref.path).attempts,1);
+  assert.ok(await ensureHomeThumbnail(s.ctx,s.asset));
+  assert.equal(s.events.filter(e=>e[0]==='stream'&&e[1]===s.asset.path).length,1);
+});
 test('real stream cap, body integrity and generation-pinned derivative metadata fail closed',async()=>{
   const s=setup(),factory=s.ctx.bucket.file;
   s.ctx.bucket.file=(p,o)=>({...factory(p,o),createReadStream:()=>Readable.from([Buffer.alloc(HOME_INPUT_BYTES),Buffer.alloc(1)])});
@@ -121,9 +153,9 @@ test('real stream cap, body integrity and generation-pinned derivative metadata 
   s.files.get(result.path).bytes=Buffer.from('tampered');await assert.rejects(readHomeThumbnail(s.ctx,s.asset,result));
 });
 test('old server/unavailable rendition has no original response fallback; original endpoint remains exact',async()=>{
-  const s=setup(),lease=await issue(s);s.asset.sizeBytes=HOME_INPUT_BYTES+1;
+  const s=setup(),lease=await issue(s);s.asset.contentType='image/webp';
   s.db.rows.set('imageUsageAccounts/owner/assets/image-one',s.asset);
-  s.files.get(s.asset.path).metadata.size=s.asset.sizeBytes;
+  s.files.get(s.asset.path).metadata.contentType=s.asset.contentType;
   await serve(handleMedia,s.ctx,async url=>assert.equal((await fetch(`${url}?assetId=image-one&v=7&rendition=home-v1`,{headers:headers(lease)})).status,404));
   assert.equal(s.events.filter(e=>e[0]==='stream').length,0);
   const normal=setup(),normalLease=await issue(normal);

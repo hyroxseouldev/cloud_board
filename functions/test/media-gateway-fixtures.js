@@ -21,6 +21,7 @@ export function fixture(bytes=png()) {
   })};
   const records=()=>[...db.rows.values()].filter(v=>v.uploadId);
   ctx.ledger={
+    requireHomeThumbnailPolicy:async(_ctx,value)=>{events.push(['homePolicy',value]);if(ctx.denyHomePolicy)throw usageFailure('entitlement_unverified','invalid-argument');},
     requireUsageContext:async(_ctx,value)=>{events.push(['context',value]);if(ctx.denyActor)throw usageFailure('media_lease_invalid','permission-denied');const b=ctx.actorBindings?.[value.actorUid];return {ownerId:b?.ownerId??value.ownerId??value.actorUid,actorUid:value.actorUid,deviceId:b?.deviceId??null,deviceBinding:b?.deviceBinding??null,allowedAssetSources:ctx.previewSources??[],mode:'enrolled'};},
     reserveTransfer:async(_ctx,args)=>{events.push(['reserveTransfer',args]);if(ctx.denyReserve)throw usageFailure('daily_transfer_limit','resource-exhausted');return {attemptId:randomUUID()};},
     settleTransfer:async(_ctx,args)=>{events.push(['settleTransfer',args]);},
