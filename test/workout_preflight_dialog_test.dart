@@ -407,6 +407,11 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(tester.getRect(startButton), rect);
+          // The detailed vertical composition may be taller than the viewport.
+          // Both its end and heading remain reachable with the CTA pinned.
+          await tester.ensureVisible(find.text('수업 구성'));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(startButton), rect);
           expect(find.text('수업 구성').hitTestable(), findsOneWidget);
           expect(startButton.hitTestable(), findsOneWidget);
           expect(tester.takeException(), isNull);

@@ -20,7 +20,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
+
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/preparation_lesson_content.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 
@@ -74,7 +76,7 @@ class WorkoutPreparationPage extends HookConsumerWidget {
     }
     return _PreparationLayout(
       workout: workout,
-      composition: _WorkoutComposition(workout: workout),
+      composition: PreparationLessonComposition(workout: workout),
       children: [
         if (resolved.hasError) ...[
           _CheckTile(
@@ -95,6 +97,7 @@ class WorkoutPreparationPage extends HookConsumerWidget {
           PreparationShadcnStage(
             key: ValueKey(loading),
             label: '최신 수업 설정 확인 중',
+            detail: '설정을 확인하는 동안 아래 수업 구성을 살펴보세요.',
           ),
       ],
     );
@@ -134,7 +137,7 @@ class _PreparedWorkoutPreparationPage extends ConsumerWidget {
     }
     return _PreparationLayout(
       workout: workout,
-      composition: _WorkoutComposition(workout: workout),
+      composition: PreparationLessonComposition(workout: workout),
       children: [
         _CheckTile(
           ok: false,
@@ -341,15 +344,9 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     return _PreparationLayout(
       workout: workout,
       onStart: canStart ? start : null,
-      composition: _WorkoutComposition(workout: workout),
+      composition: PreparationLessonComposition(workout: workout),
       children: [
         if (eligibleDevices.isNotEmpty) ...[
-          if (!allPrepared)
-            Text(
-              '준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          const Divider(height: 24),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -391,6 +388,14 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                       }
                       selectedDeviceIds.value = next;
                     },
+            ),
+          if (!allPrepared)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
           shadcn.ShadAccordion<String>(
             children: [
@@ -474,13 +479,25 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         ] else if (!accessChecked || preparation.loading || starting.value)
           PreparationShadcnStage(
             key: ValueKey('$fingerprint-${retry.value}'),
-            label: '최신 수업 설정·이용 상태 확인 중',
+            label: starting.value
+                ? '수업 시작 준비 중'
+                : deviceState.isLoading
+                ? '연결된 TV 확인 중'
+                : '최신 수업 설정·이용 상태 확인 중',
+            detail: starting.value
+                ? '시작 준비가 끝나면 재생 화면으로 이동해요.'
+                : '아래 수업 구성을 확인해 주세요. 확인이 끝나면 시작할 수 있어요.',
           ),
-        if (modern.isNotEmpty) ...[
+        if (modern.isNotEmpty &&
+            accessChecked &&
+            !preparation.loading &&
+            !starting.value &&
+            preparation.error == null) ...[
           if (waiting)
             PreparationShadcnStage(
               key: ValueKey(matchingRequest?.sessionId),
               label: 'TV 이미지 준비 중 · $readyCount/${modern.length}대 완료',
+              detail: '선택한 TV의 이미지·소리를 확인하고 있어요. 기다리거나 준비되지 않은 TV를 제외해 주세요.',
             )
           else
             _CheckTile(
@@ -578,19 +595,22 @@ class _PreparationLayout extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.selected,
-                                  borderRadius: BorderRadius.circular(16),
+                              if (MediaQuery.textScalerOf(context).scale(14) <=
+                                  20) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.selected,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(
+                                    shadcn.LucideIcons.sparkles,
+                                    color: AppColors.accent,
+                                    size: 24,
+                                  ),
                                 ),
-                                child: const Icon(
-                                  shadcn.LucideIcons.sparkles,
-                                  color: AppColors.accent,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
+                                const SizedBox(width: 12),
+                              ],
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -618,7 +638,7 @@ class _PreparationLayout extends StatelessWidget {
                                       children: [
                                         shadcn.ShadBadge.outline(
                                           child: Text(
-                                            workoutDurationText(workout),
+                                            preparationDurationText(workout),
                                           ),
                                         ),
                                         shadcn.ShadBadge.outline(
@@ -628,12 +648,22 @@ class _PreparationLayout extends StatelessWidget {
                                         ),
                                       ],
                                     ),
+                                    if (workout.modules.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        preparationTimerKinds(workout),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.muted,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
                           shadcn.ShadCard(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -683,79 +713,6 @@ class _PreparationLayout extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Text-only composition never fetches controller media during preparation.
-class _WorkoutComposition extends StatelessWidget {
-  const _WorkoutComposition({required this.workout});
-  final Workout workout;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    if (workout.modules.isEmpty) return const SizedBox.shrink();
-    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('수업 구성', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 112 * scale.clamp(1, 2),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: workout.modules.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final module = workout.modules[index];
-                return SizedBox(
-                  width: 164 * scale.clamp(1, 1.5),
-                  child: shadcn.ShadCard(
-                    padding: EdgeInsets.zero,
-                    backgroundColor: index == 0
-                        ? AppColors.selected
-                        : AppColors.dialog,
-                    radius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${index + 1}'.padLeft(2, '0'),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: AppColors.accent,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Expanded(
-                            child: Text(
-                              module.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            moduleDurationText(module),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

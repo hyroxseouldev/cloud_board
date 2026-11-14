@@ -86,8 +86,9 @@ class PreparationDeviceTile extends StatelessWidget {
 
 /// Same observed-stage timing as the shared Material status, with shadcn UI.
 class PreparationShadcnStage extends HookWidget {
-  const PreparationShadcnStage({super.key, required this.label});
+  const PreparationShadcnStage({super.key, required this.label, this.detail});
   final String label;
+  final String? detail;
   @override
   Widget build(BuildContext context) {
     final slow = useState(false);
@@ -113,7 +114,10 @@ class PreparationShadcnStage extends HookWidget {
               const SizedBox(
                 width: 20,
                 height: 20,
-                child: Center(child: shadcn.ShadProgress(minHeight: 3)),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.accent,
+                ),
               ),
             const SizedBox(width: 10),
             Expanded(
@@ -124,11 +128,22 @@ class PreparationShadcnStage extends HookWidget {
                     label,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
+                  if (detail != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        detail!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ),
                   if (slow.value)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        '$label · 5초 이상 기다리고 있어요.',
+                        '확인이 평소보다 오래 걸리고 있어요.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.muted,
