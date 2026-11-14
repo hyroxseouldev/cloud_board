@@ -1998,8 +1998,10 @@
         },
         {
           "id": "development-store-readiness",
-          "status": "running",
-          "startedAt": "2026-11-14T14:44:20.866Z"
+          "status": "success",
+          "startedAt": "2026-11-14T14:44:20.866Z",
+          "completedAt": "2026-11-14T14:44:24.345Z",
+          "durationMs": 3479
         }
       ],
       "targets": [],
