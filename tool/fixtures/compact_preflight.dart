@@ -21,7 +21,7 @@ import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dar
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/repositories/workout_preferences_repository.dart';
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 
 void main() {
   final params = Uri.base.queryParameters;
@@ -107,7 +107,7 @@ void main() {
                 startModule: 0,
                 sessionId: 'local-session',
               )
-            : Scaffold(body: WorkoutPreflightDialog(workout: workout)),
+            : WorkoutPreparationPage(workout: workout),
       ),
     ),
   );

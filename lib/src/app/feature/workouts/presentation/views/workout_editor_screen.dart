@@ -16,7 +16,7 @@ import 'dart:async';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_rehearsal_screen.dart';
 
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';

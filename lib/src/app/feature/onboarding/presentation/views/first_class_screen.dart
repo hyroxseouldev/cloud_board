@@ -10,7 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 import 'package:cloud_board/src/app/feature/onboarding/domain/entities/first_class_progress.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/controllers/first_class_controller.dart';
 

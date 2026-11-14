@@ -1,4 +1,4 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';

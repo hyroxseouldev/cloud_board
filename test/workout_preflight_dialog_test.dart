@@ -13,6 +13,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
@@ -34,12 +35,121 @@ import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'preparation pushes a page, shows metadata during settings load and back cancels',
+    (tester) async {
+      final preferences = _Preferences()..pending = Completer<void>();
+      final repository = _PreparationRepository();
+      final workout =
+          Workout.empty(
+            'page',
+            const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+          ).copyWith(
+            name: '페이지 수업',
+            modules: [WorkoutModule.empty('m').copyWith(name: '첫 운동')],
+          );
+      Future<WorkoutPreflightSelection?>? result;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            legacyImageUsageFixture,
+            workoutPreferencesRepositoryProvider.overrideWithValue(preferences),
+            displayPreparationRepositoryProvider.overrideWithValue(repository),
+            displayDevicesProvider.overrideWith((ref) => Stream.value([])),
+          ],
+          child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!,
+            ),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () {
+                    result = showWorkoutPreflight(context, workout);
+                  },
+                  child: const Text('준비 열기'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('준비 열기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutPreparationPage), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        ModalRoute.of(tester.element(find.byType(WorkoutPreparationPage)))!
+            .settings
+            .name,
+        '/workouts/page/prepare',
+      );
+      expect(find.text('페이지 수업'), findsOneWidget);
+      expect(find.text('첫 운동'), findsOneWidget);
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(_startEnabled(tester), isFalse);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(await result, isNull);
+      preferences.pending!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutPreparationPage), findsNothing);
+      expect(repository.requests, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'page image preview is explicit, resets with targets and never repeats TV preparation',
+    (tester) async {
+      final repository = _PreparationRepository();
+      var calls = 0;
+      await _previewHarness(tester, repository, (
+        context,
+        sources, {
+        isCancelled,
+      }) async {
+        calls++;
+        return 1;
+      });
+      expect(find.text('수업 구성'), findsOneWidget);
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(calls, 0);
+      await tester.tap(find.text('이미지 보기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSlidePreview), findsOneWidget);
+      expect(
+        _startEnabled(tester),
+        isTrue,
+        reason: 'optional display failure cannot gate remote start',
+      );
+      expect(repository.requests, 1);
+      expect(calls, 0);
+      await tester.ensureVisible(find.text('전체 해제'));
+      await tester.tap(find.text('전체 해제'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(
+        calls,
+        1,
+        reason: 'new solo mode requires its initial image window',
+      );
+      await tester.ensureVisible(find.text('전체 선택'));
+      await tester.tap(find.text('전체 선택'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(repository.requests, 2);
+      expect(_startEnabled(tester), isTrue);
+    },
+  );
+
   testWidgets(
     'cold cache real preflight loader never reaches HTTP for remote mode',
     (tester) async {
@@ -301,6 +411,12 @@ void main() {
         expect(calls, 0);
         expect(_startEnabled(tester), isFalse);
         expect(find.text('이용 상태를 다시 확인해 주세요'), findsOneWidget);
+        expect(
+          tester
+              .widget<TextButton>(find.widgetWithText(TextButton, '이미지 보기'))
+              .onPressed,
+          isNull,
+        );
         expect(find.textContaining('미리보기'), findsNothing);
       },
     );
@@ -351,7 +467,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('계정 연결을 확인하지 못했어요'), findsOneWidget);
     expect(find.textContaining('PRIVATE_ACCOUNT'), findsNothing);
-    expect(find.text('수업 시작'), findsNothing);
+    expect(_startEnabled(tester), isFalse);
     expect(calls, 0);
   });
 
@@ -491,13 +607,13 @@ void main() {
             errorReporterProvider.overrideWithValue(ErrorReporter(sink)),
             displayDevicesProvider.overrideWith((_) => Stream.value([])),
           ],
-          child: MaterialApp(home: WorkoutPreflightDialog(workout: raw)),
+          child: MaterialApp(home: WorkoutPreparationPage(workout: raw)),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('수업 설정을 불러오지 못했어요'), findsOneWidget);
+      expect(find.text('수업 설정을 확인하지 못했어요'), findsOneWidget);
       expect(find.textContaining('PRIVATE_SETTINGS_ERROR'), findsNothing);
-      expect(find.text('수업 시작'), findsNothing);
+      expect(_startEnabled(tester), isFalse);
       expect(
         sink.events.single.context['action'],
         'workout.preflight.preferences',
@@ -530,7 +646,7 @@ void main() {
               (_) => preferences,
             ),
           ],
-          child: MaterialApp(home: WorkoutPreflightDialog(workout: raw)),
+          child: MaterialApp(home: WorkoutPreparationPage(workout: raw)),
         ),
       );
       await tester.pump();
@@ -585,7 +701,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: XonTheme.light,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
@@ -769,7 +885,7 @@ void main() {
         child: MaterialApp(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
@@ -823,7 +939,7 @@ void main() {
         child: MaterialApp(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
@@ -888,7 +1004,7 @@ void main() {
         child: MaterialApp(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
@@ -1115,7 +1231,7 @@ Future<void> _previewHarness(
         ),
         home: RepaintBoundary(
           key: const ValueKey('preflight-evidence'),
-          child: WorkoutPreflightDialog(workout: workout),
+          child: WorkoutPreparationPage(workout: workout),
         ),
       ),
     ),
