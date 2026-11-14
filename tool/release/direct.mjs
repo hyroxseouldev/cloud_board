@@ -193,7 +193,7 @@ export async function executePlan(plan) {
           dependencies('functions');
           Object.assign(env, {GCLOUD_PROJECT: plan.project, GOOGLE_CLOUD_PROJECT: plan.project, FIREBASE_CONFIG: JSON.stringify({projectId: plan.project})});
           const inventory = JSON.parse(firebase('functions:list', '--project', plan.project, '--json'));
-          runtime = runtimeConfiguration(inventory, {environment: plan.environment, origins: env.CLOUDBOARD_MEDIA_ALLOWED_ORIGINS});
+          runtime = runtimeConfiguration(inventory, {environment: plan.environment, origins: env.CLOUDBOARD_MEDIA_ALLOWED_ORIGINS, selected: plan.functions});
           for (const key of ['APPLE_IAP_SECRETS_ENABLED', 'AI_TIMER_SECRETS_ENABLED', 'APP_STORE_RECONCILIATION_ENABLED', 'GOOGLE_PLAY_RECONCILIATION_ENABLED', 'SUPPORT_EMAIL_DELIVERY_ENABLED', 'SUPPORT_EMAIL_SECRETS_ENABLED']) delete env[key];
           Object.assign(env, runtime.variables);
           const exports = await import('../../functions/src/index.js');

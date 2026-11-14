@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict';
+import {developmentFunctionNames} from '../../functions/src/development-backend-config.js';
 import {canonical, hash} from '../firebase/common.mjs';
 
 const flags = ['APPLE_IAP_SECRETS_ENABLED', 'AI_TIMER_SECRETS_ENABLED', 'APP_STORE_RECONCILIATION_ENABLED',
   'GOOGLE_PLAY_RECONCILIATION_ENABLED', 'SUPPORT_EMAIL_DELIVERY_ENABLED', 'SUPPORT_EMAIL_SECRETS_ENABLED'];
 const allowed = [...flags, 'SOLAPI_FROM', 'CLOUDBOARD_MEDIA_ALLOWED_ORIGINS'];
 const reserved = /^(FIREBASE_|GCLOUD_PROJECT$|GOOGLE_CLOUD_PROJECT$|FUNCTION_|EVENTARC_|K_|PORT$|LOG_EXECUTION_ID$)/;
-export function runtimeConfiguration(inventory, {environment, origins} = {}) {
+export function runtimeConfiguration(inventory, {environment, origins, selected = []} = {}) {
   assert.equal(inventory.status, 'success', 'Cannot inspect live function configuration');
   assert(Array.isArray(inventory.result));
-  const functions = inventory.result.filter(f => f.codebase === 'account-deletion');
+  assert(['development', 'production'].includes(environment));
+  assert(Array.isArray(selected) && selected.every(name => /^(account-deletion|cloudboard-auth):[A-Za-z][A-Za-z0-9]*$/.test(name)), 'Use explicit function selectors for runtime inspection');
+  // The inventory also contains externally managed AI/provider endpoints. They
+  // are not part of the development allowlist and must neither supply shared
+  // dotenv values nor block an unrelated selected deployment.
+  const names = selected.length ? new Set(selected.filter(name => name.startsWith('account-deletion:')).map(name => name.split(':')[1]))
+    : environment === 'development' ? new Set(developmentFunctionNames) : null;
+  const functions = inventory.result.filter(f => f.codebase === 'account-deletion' && (!names || names.has(f.id)));
   const maps = functions.map(f => Object.fromEntries(Object.entries(f.environmentVariables || {}).filter(([key]) => !reserved.test(key))));
   // Never copy unrecognized (possibly secret) values into a dotenv file.
   for (const map of maps) for (const key of Object.keys(map)) assert(allowed.includes(key), 'Unrecognized runtime configuration: review it separately; no value was printed or copied');
