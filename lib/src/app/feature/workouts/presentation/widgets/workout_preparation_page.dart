@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
 import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
 
@@ -171,7 +172,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     final eligibleIds = eligibleDevices.map((device) => device.id).toSet();
     // The preparation cohort is captured once after the shared health stream
     // resolves. Selection is independent and never invalidates that request.
-    final cohort = useState<List<String>?>(null);
+    final cohort = useState<List<DisplayDevice>?>(null);
     final selectedDeviceIds = useState<Set<String>>({});
     final retry = useState(0);
     useEffect(() {
@@ -183,7 +184,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
       var cancelled = false;
       Future.microtask(() {
         if (cancelled || !context.mounted) return;
-        cohort.value = List.unmodifiable(eligibleIds.toList()..sort());
+        cohort.value = List.unmodifiable(eligibleDevices);
         selectedDeviceIds.value = eligibleDevices
             .where((device) => device.recentlySeen(nowMs))
             .map((device) => device.id)
@@ -191,8 +192,14 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
       });
       return () => cancelled = true;
     }, [cohort.value, deviceState]);
-    final preparedTargets = cohort.value ?? const <String>[];
-    final targets = selectedDeviceIds.value;
+    final requestedTargets =
+        cohort.value?.map((device) => device.id).toList() ?? const <String>[];
+    final incompatible = preparation.incompatibleDeviceIds;
+    final preparedTargets = requestedTargets
+        .where((id) => !incompatible.contains(id))
+        .toList();
+    final selectableIds = eligibleIds.difference(incompatible);
+    final targets = selectedDeviceIds.value.difference(incompatible);
     final fingerprint = preparationFingerprint(workout, preparedTargets);
     final approvalExpired =
         preparation.admission != null &&
@@ -211,14 +218,14 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         !approvalExpired;
     final readiness = evaluateWorkoutReadiness(workout);
     useEffect(() {
-      if (preparedTargets.isEmpty) return null;
+      if (requestedTargets.isEmpty) return null;
       var cancelled = false;
       Future.microtask(() {
         if (!cancelled && context.mounted) {
           unawaited(
             ref
                 .read(displayPreparationControllerProvider.notifier)
-                .prepare(workout, preparedTargets),
+                .prepare(workout, requestedTargets, candidates: cohort.value),
           );
         }
       });
@@ -322,14 +329,12 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                 height: 0,
                 onPressed: () {
                   selectedDeviceIds.value =
-                      selectedDeviceIds.value.length == eligibleDevices.length
+                      targets.length == selectableIds.length
                       ? <String>{}
-                      : eligibleIds;
+                      : selectableIds;
                 },
                 child: Text(
-                  selectedDeviceIds.value.length == eligibleDevices.length
-                      ? '전체 해제'
-                      : '전체 선택',
+                  targets.length == selectableIds.length ? '전체 해제' : '전체 선택',
                 ),
               ),
             ],
@@ -338,17 +343,21 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             PreparationDeviceTile(
               key: ValueKey('preparation-device-${device.id}'),
               name: device.name,
-              selected: selectedDeviceIds.value.contains(device.id),
-              status: _preparationLabel(statusOf(device)),
-              onChanged: (checked) {
-                final next = Set<String>.from(selectedDeviceIds.value);
-                if (checked == true) {
-                  next.add(device.id);
-                } else {
-                  next.remove(device.id);
-                }
-                selectedDeviceIds.value = next;
-              },
+              selected: targets.contains(device.id),
+              status: incompatible.contains(device.id)
+                  ? 'TV 앱 업데이트 필요 · 준비 대상에서 제외됨'
+                  : _preparationLabel(statusOf(device)),
+              onChanged: incompatible.contains(device.id)
+                  ? null
+                  : (checked) {
+                      final next = Set<String>.from(selectedDeviceIds.value);
+                      if (checked == true) {
+                        next.add(device.id);
+                      } else {
+                        next.remove(device.id);
+                      }
+                      selectedDeviceIds.value = next;
+                    },
             ),
           shadcn.ShadAccordion<String>(
             children: [
