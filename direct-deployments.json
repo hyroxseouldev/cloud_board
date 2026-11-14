@@ -125,6 +125,11 @@
           "startedAt": "2026-11-14T05:07:24.042Z",
           "completedAt": "2026-11-14T05:07:25.768Z",
           "durationMs": 1726
+        },
+        {
+          "id": "deploy",
+          "status": "running",
+          "startedAt": "2026-11-14T05:07:26.587Z"
         }
       ],
       "targets": [
