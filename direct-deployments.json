@@ -1991,8 +1991,10 @@
         },
         {
           "id": "verify-environment",
-          "status": "running",
-          "startedAt": "2026-11-14T14:44:17.922Z"
+          "status": "success",
+          "startedAt": "2026-11-14T14:44:17.922Z",
+          "completedAt": "2026-11-14T14:44:19.444Z",
+          "durationMs": 1522
         }
       ],
       "targets": [],
