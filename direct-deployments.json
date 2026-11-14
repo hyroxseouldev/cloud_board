@@ -107,8 +107,10 @@
         },
         {
           "id": "firebase-access",
-          "status": "running",
-          "startedAt": "2026-11-14T05:07:00.134Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:07:00.134Z",
+          "completedAt": "2026-11-14T05:07:04.035Z",
+          "durationMs": 3901
         }
       ],
       "targets": [],
