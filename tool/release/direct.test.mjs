@@ -184,3 +184,25 @@ test('development readback rejects wrong project, missing/non-active functions a
   assert.equal((await readbackRules({project, files, request})).status, 'success');
   await assert.rejects(readbackRules({project, files: {...files, 'storage.rules': 'drift'}, request}), /differ/);
 });
+
+test('runtime comparison follows selected development targets and preserves excluded managed endpoints', () => {
+  const core = {AI_TIMER_SECRETS_ENABLED: 'false', APPLE_IAP_SECRETS_ENABLED: 'false'};
+  const inventory = {status: 'success', result: [
+    {codebase: 'account-deletion', id: 'saveWorkout', environmentVariables: core},
+    {codebase: 'account-deletion', id: 'syncWorkoutCatalog', environmentVariables: {...core}},
+    {codebase: 'account-deletion', id: 'cloudboardAiSlideRaster', environmentVariables: {AI_TIMER_SECRETS_ENABLED: 'true'}, secretEnvironmentVariables: [{key: 'OPENAI_API_KEY'}]},
+    {codebase: 'cloudboard-auth', id: 'cloudboardSetDisplayState', environmentVariables: {UNRELATED_LEGACY_SETTING: 'not-copied'}},
+  ]};
+  const untouched = structuredClone(inventory);
+  const runtime = runtimeConfiguration(inventory, {environment: 'development'});
+  assert.deepEqual(runtime.variables, core);
+  assert(!runtime.dotenv.includes('true') && !runtime.dotenv.includes('UNRELATED_LEGACY_SETTING'));
+  assert.deepEqual(inventory, untouched, 'Inspection must not mutate excluded function configuration');
+  inventory.result[1].environmentVariables.AI_TIMER_SECRETS_ENABLED = 'true';
+  assert.throws(() => runtimeConfiguration(inventory, {environment: 'development'}), /Per-function runtime configuration differs/);
+  const narrow = runtimeConfiguration(inventory, {environment: 'development', selected: ['account-deletion:saveWorkout']});
+  assert.deepEqual(narrow.variables, core);
+  assert.throws(() => runtimeConfiguration(inventory, {environment: 'production'}), /Per-function runtime configuration differs/);
+  inventory.result[0].environmentVariables.API_KEY = 'never-copy';
+  assert.throws(() => runtimeConfiguration(inventory, {environment: 'development', selected: ['account-deletion:saveWorkout']}), /Unrecognized runtime configuration/);
+});
