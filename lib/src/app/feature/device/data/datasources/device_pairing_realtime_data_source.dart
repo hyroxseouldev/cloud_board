@@ -958,6 +958,7 @@ DisplayDevice decodeDisplayDevice(String deviceId, Map value) {
     appPlatform: (item['appPlatform'] as String?) ?? '',
     playbackProtocol: (item['playbackProtocol'] as num?)?.toInt() ?? 1,
     preparationProtocol: (item['preparationProtocol'] as num?)?.toInt() ?? 0,
+    imageUsageProtocol: (item['imageUsageProtocol'] as num?)?.toInt() ?? 0,
     lastSeenAtMs:
         ((usesScopedPresence ? presence['lastSeenAtMs'] : item['lastSeenAtMs'])
                 as num?)

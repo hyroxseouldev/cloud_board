@@ -1,10 +1,9 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
-import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
 import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/preparation_shadcn.dart';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/display_preparation_controller.dart';
@@ -13,7 +12,6 @@ import 'package:cloud_board/src/app/feature/playback/domain/playback_position.da
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -21,26 +19,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
-
-typedef PreflightImageLoader = Future<int> Function(
-  BuildContext context,
-  Iterable<String> sources, {
-  bool Function()? isCancelled,
-});
-final preflightImageLoaderProvider = Provider<PreflightImageLoader>(
-  (ref) => precacheWorkoutImages,
-);
-
-// Local image failures keep solo playback blocked; remote access is checked
-// by preparation and again by the existing server start gates.
-bool _blocksAccess(Object? error) =>
-    (error is ImageUsageFailure && error.reason != 'service_unavailable') ||
-    error is FirebaseException &&
-        const {'permission-denied', 'unauthenticated'}.contains(error.code);
 
 class WorkoutPreflightSelection {
   WorkoutPreflightSelection({
@@ -57,7 +38,7 @@ class WorkoutPreflightSelection {
 Future<WorkoutPreflightSelection?> showWorkoutPreflight(
   BuildContext context,
   Workout workout,
-) => Navigator.of(context).push<WorkoutPreflightSelection>(
+) => Navigator.of(context, rootNavigator: true).push<WorkoutPreflightSelection>(
   MaterialPageRoute(
     settings: RouteSettings(name: '/workouts/${workout.id}/prepare'),
     builder: (_) => WorkoutPreparationPage(workout: workout),
@@ -167,18 +148,6 @@ class _PreparedWorkoutPreparationPage extends ConsumerWidget {
   }
 }
 
-class _PreviewWork {
-  bool cancelled = false;
-}
-
-class _AppliedPlayback {
-  _AppliedPlayback(this.remote, Iterable<String> targets)
-    : targets = Set.unmodifiable(targets);
-  final bool remote;
-  final Set<String> targets;
-  bool get canPrepare => !remote || targets.isNotEmpty;
-}
-
 class _WorkoutReadinessPage extends HookConsumerWidget {
   const _WorkoutReadinessPage({
     super.key,
@@ -192,174 +161,80 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Playback intent is explicit: an empty TV selection must never opt into
-    // local playback or its automatic image preparation.
-    final localPlayback = useState(false);
-    final remote = !localPlayback.value;
     final deviceState = ref.watch(displayDevicesProvider);
     final devices = deviceState.value ?? const [];
     final nowMs =
         ref.watch(displayHealthNowProvider).value ??
         DateTime.now().millisecondsSinceEpoch;
-    final onlineDevices = devices
+    final eligibleDevices = devices
         .where((item) => item.paired && item.displayState == 'auto')
         .toList();
-    final selectedDeviceIds = useState<Set<String>>(
-      onlineDevices
-          .where((device) => device.recentlySeen(nowMs))
-          .map((device) => device.id)
-          .toSet(),
-    );
-    final applied = useState(_AppliedPlayback(true, selectedDeviceIds.value));
-    final draftDirty = useState(false);
-    final userEdited = useRef(false);
-    final applying = useRef(false);
-    final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
-    final selectingInitialTargets =
-        !initializedDeviceSelection.value && onlineDevices.isNotEmpty;
-    final targets = remote ? selectedDeviceIds.value : <String>{};
-    final canPrepare = !remote || targets.isNotEmpty;
-    final selectionApplied =
-        !draftDirty.value &&
-        remote == applied.value.remote &&
-        _sameIds(targets, applied.value.targets);
-    final fingerprint = preparationFingerprint(workout, targets);
+    final eligibleIds = eligibleDevices.map((device) => device.id).toSet();
+    // The preparation cohort is captured once after the shared health stream
+    // resolves. Selection is independent and never invalidates that request.
+    final cohort = useState<List<DisplayDevice>?>(null);
+    final selectedDeviceIds = useState<Set<String>>({});
+    final retry = useState(0);
+    useEffect(() {
+      if (cohort.value != null ||
+          deviceState.isLoading ||
+          deviceState.hasError) {
+        return null;
+      }
+      var cancelled = false;
+      Future.microtask(() {
+        if (cancelled || !context.mounted) return;
+        cohort.value = List.unmodifiable(eligibleDevices);
+        selectedDeviceIds.value = eligibleDevices
+            .where((device) => device.recentlySeen(nowMs))
+            .map((device) => device.id)
+            .toSet();
+      });
+      return () => cancelled = true;
+    }, [cohort.value, deviceState]);
+    final requestedTargets =
+        cohort.value?.map((device) => device.id).toList() ?? const <String>[];
+    final incompatible = preparation.incompatibleDeviceIds;
+    final preparedTargets = requestedTargets
+        .where((id) => !incompatible.contains(id))
+        .toList();
+    final selectableIds = eligibleIds.difference(incompatible);
+    final targets = selectedDeviceIds.value.difference(incompatible);
+    final fingerprint = preparationFingerprint(workout, preparedTargets);
     final approvalExpired =
         preparation.admission != null &&
         (preparation.admission!.status != 'preparing' ||
             preparation.admission!.prepareExpiresAtMs <= nowMs);
     final currentApproval =
-        selectionApplied &&
-        canPrepare &&
-        !deviceState.isLoading &&
-        !deviceState.hasError &&
-        !selectingInitialTargets &&
+        preparedTargets.isNotEmpty &&
         preparation.accessChecked &&
         preparation.clientFingerprint == fingerprint &&
-        (preparation.admission == null ||
-            (preparation.admission!.status == 'preparing' &&
-                preparation.admission!.prepareExpiresAtMs > nowMs));
-    final previewRetry = useState(0);
-    final loader = ref.watch(preflightImageLoaderProvider);
+        preparation.request != null &&
+        !preparation.request!.expired(nowMs) &&
+        preparation.request!.targetDeviceIds.length == preparedTargets.length &&
+        preparation.request!.targetDeviceIds.toSet().containsAll(
+          preparedTargets,
+        ) &&
+        !approvalExpired;
     final readiness = evaluateWorkoutReadiness(workout);
-    final previewWork = useMemoized(_PreviewWork.new, [
-      accountScope,
-      workout,
-      fingerprint,
-      currentApproval,
-      remote,
-      preparation.admission,
-      preparation.request?.sessionId,
-      preparation.request?.revision,
-      preparation.request?.manifestHash,
-      preparation.loading,
-      preparation.error,
-      previewRetry.value,
-      loader,
-    ]);
-    useEffect(
-      () =>
-          () => previewWork.cancelled = true,
-      [previewWork],
-    );
-    final preview = useMemoized(() {
-      if (remote ||
-          !currentApproval ||
-          preparation.loading ||
-          preparation.error != null) {
-        return null;
-      }
-      return Future<int>.sync(() async {
-        await WidgetsBinding.instance.endOfFrame;
-        if (previewWork.cancelled || !context.mounted) return 0;
-        try {
-          return await loader(
-            context,
-            workoutImageWindow(workout, count: 2, includeCountdown: true),
-            isCancelled: () => previewWork.cancelled,
-          );
-        } catch (error, stack) {
-          if (!previewWork.cancelled) {
+    useEffect(() {
+      if (requestedTargets.isEmpty) return null;
+      var cancelled = false;
+      Future.microtask(() {
+        if (!cancelled && context.mounted) {
+          unawaited(
             ref
-                .read(errorReporterProvider)
-                .capture(error, stack, action: 'workout.preflight.images');
-          }
-          Error.throwWithStackTrace(error, stack);
+                .read(displayPreparationControllerProvider.notifier)
+                .prepare(workout, requestedTargets, candidates: cohort.value),
+          );
         }
       });
-    }, [previewWork]);
-    // Never keep a prior success while a different account/target/mode loads.
-    final imageCheck = useFuture(preview, preserveState: false);
-    final imageReady =
-        imageCheck.connectionState == ConnectionState.done &&
-        imageCheck.hasData;
-    final accessError = _blocksAccess(imageCheck.error);
-
-    final onlineDeviceIds = onlineDevices.map((device) => device.id).toSet();
-    final onlineDeviceSignature = onlineDeviceIds.toList()..sort();
-    useEffect(() {
-      final initialSelection =
-          !initializedDeviceSelection.value && !userEdited.value;
-      final retained = selectedDeviceIds.value.intersection(onlineDeviceIds);
-      final next = initialSelection && retained.isEmpty
-          ? onlineDevices
-                .where((device) => device.recentlySeen(nowMs))
-                .map((device) => device.id)
-                .toSet()
-          : retained;
-      if (onlineDeviceIds.isNotEmpty) initializedDeviceSelection.value = true;
-      if (!_sameIds(next, selectedDeviceIds.value)) {
-        Future.microtask(() {
-          if (context.mounted) {
-            selectedDeviceIds.value = next;
-            if (initialSelection) {
-              applied.value = _AppliedPlayback(true, next);
-            } else {
-              draftDirty.value = true;
-            }
-          }
-        });
-      }
-      return null;
-    }, [onlineDeviceSignature.join('|')]);
-
-    final selected = onlineDevices
+      return () => cancelled = true;
+    }, [accountScope, workout, cohort.value, retry.value]);
+    final selected = eligibleDevices
         .where((d) => targets.contains(d.id))
         .toList();
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
-    final retry = useState(0);
-    useEffect(
-      () {
-        if (deviceState.isLoading ||
-            deviceState.hasError ||
-            selectingInitialTargets) {
-          return null;
-        }
-        applying.value = false;
-        if (!applied.value.canPrepare) return null;
-        var cancelled = false;
-        final requestedTargets = applied.value.targets.toList();
-        Future.microtask(() {
-          if (!cancelled && context.mounted) {
-            unawaited(
-              ref
-                  .read(displayPreparationControllerProvider.notifier)
-                  .prepare(workout, requestedTargets),
-            );
-          }
-        });
-        return () => cancelled = true;
-      },
-      [
-        accountScope,
-        workout,
-        applied.value,
-        retry.value,
-        deviceState.isLoading,
-        deviceState.hasError,
-        selectingInitialTargets,
-      ],
-    );
     final requiredProtocol = requiredTimingProtocol(workout);
     final matchingRequest = preparation.clientFingerprint == fingerprint
         ? preparation.request
@@ -385,8 +260,8 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         !preparation.loading &&
         !deviceState.isLoading &&
         !deviceState.hasError &&
-        !accessError &&
-        (remote || imageReady) &&
+        targets.isNotEmpty &&
+        preparedTargets.toSet().containsAll(targets) &&
         selected.length == targets.length &&
         allPrepared;
 
@@ -398,17 +273,13 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         Navigator.of(context).pop(
           WorkoutPreflightSelection(
             targetDeviceIds: targets,
-            // Preserve the existing local-route vs empty-target server-session
-            // contract. Both zero-target cases still require controller images.
-            localOnly: !remote && devices.isNotEmpty,
-            preparation: selected.isEmpty
-                ? null
-                : DisplayPreparationProof(
-                    manifestHash: matchingRequest?.manifestHash ?? fingerprint,
-                    clientFingerprint: fingerprint,
-                    sessionId: matchingRequest?.sessionId,
-                    revision: matchingRequest?.revision,
-                  ),
+            preparation: DisplayPreparationProof(
+              manifestHash: matchingRequest?.manifestHash ?? fingerprint,
+              clientFingerprint: fingerprint,
+              preparedTargetDeviceIds: preparedTargets,
+              sessionId: matchingRequest?.sessionId,
+              revision: matchingRequest?.revision,
+            ),
           ),
         );
       }
@@ -437,85 +308,9 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     return _PreparationLayout(
       workout: workout,
       onStart: canStart ? start : null,
-      composition: _WorkoutComposition(
-        workout: workout,
-        allowImages:
-            currentApproval &&
-            !accessError &&
-            !preparation.loading &&
-            preparation.error == null,
-        scope: (
-          fingerprint,
-          remote,
-          preparation.admission,
-          preparation.request?.sessionId,
-          preparation.request?.revision,
-          preparation.request?.manifestHash,
-        ),
-      ),
+      composition: _WorkoutComposition(workout: workout),
       children: [
-        LayoutBuilder(
-          builder: (context, bounds) {
-            final stacked = MediaQuery.textScalerOf(context).scale(14) > 20;
-            final buttons = [
-              for (final local in [false, true])
-                Semantics(
-                  selected: localPlayback.value == local,
-                  child: shadcn.ShadButton.raw(
-                    height: 0,
-                    expands: true,
-                    key: ValueKey(
-                      local ? 'playback-mode-solo' : 'playback-mode-tv',
-                    ),
-                    variant: localPlayback.value == local
-                        ? shadcn.ShadButtonVariant.secondary
-                        : shadcn.ShadButtonVariant.outline,
-                    onPressed: () {
-                      if (localPlayback.value == local) return;
-                      userEdited.value = true;
-                      draftDirty.value = true;
-                      localPlayback.value = local;
-                    },
-                    child: Row(
-                      children: [
-                        Icon(
-                          local
-                              ? shadcn.LucideIcons.smartphone
-                              : shadcn.LucideIcons.tv,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            local ? '이 기기에서 재생' : 'TV에서 재생',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ];
-            return stacked
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      buttons.first,
-                      const SizedBox(height: 8),
-                      buttons.last,
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(child: buttons.first),
-                      const SizedBox(width: 8),
-                      Expanded(child: buttons.last),
-                    ],
-                  );
-          },
-        ),
-        const SizedBox(height: 12),
-        if (remote && onlineDevices.isNotEmpty) ...[
+        if (eligibleDevices.isNotEmpty) ...[
           if (!allPrepared)
             Text(
               '준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.',
@@ -533,42 +328,36 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
               shadcn.ShadButton.ghost(
                 height: 0,
                 onPressed: () {
-                  userEdited.value = true;
-                  draftDirty.value = true;
                   selectedDeviceIds.value =
-                      selectedDeviceIds.value.length == onlineDevices.length
+                      targets.length == selectableIds.length
                       ? <String>{}
-                      : onlineDeviceIds;
+                      : selectableIds;
                 },
                 child: Text(
-                  selectedDeviceIds.value.length == onlineDevices.length
-                      ? '전체 해제'
-                      : '전체 선택',
+                  targets.length == selectableIds.length ? '전체 해제' : '전체 선택',
                 ),
               ),
             ],
           ),
-          for (final device in onlineDevices)
+          for (final device in eligibleDevices)
             PreparationDeviceTile(
               key: ValueKey('preparation-device-${device.id}'),
               name: device.name,
-              selected: selectedDeviceIds.value.contains(device.id),
-              status: selectedDeviceIds.value.contains(device.id)
-                  ? selectionApplied
-                        ? _preparationLabel(statusOf(device))
-                        : '선택 적용 대기'
-                  : '선택 안 함',
-              onChanged: (checked) {
-                final next = Set<String>.from(selectedDeviceIds.value);
-                if (checked == true) {
-                  next.add(device.id);
-                } else {
-                  next.remove(device.id);
-                }
-                userEdited.value = true;
-                draftDirty.value = true;
-                selectedDeviceIds.value = next;
-              },
+              selected: targets.contains(device.id),
+              status: incompatible.contains(device.id)
+                  ? 'TV 앱 업데이트 필요 · 준비 대상에서 제외됨'
+                  : _preparationLabel(statusOf(device)),
+              onChanged: incompatible.contains(device.id)
+                  ? null
+                  : (checked) {
+                      final next = Set<String>.from(selectedDeviceIds.value);
+                      if (checked == true) {
+                        next.add(device.id);
+                      } else {
+                        next.remove(device.id);
+                      }
+                      selectedDeviceIds.value = next;
+                    },
             ),
           shadcn.ShadAccordion<String>(
             children: [
@@ -578,7 +367,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final device in onlineDevices)
+                    for (final device in eligibleDevices)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Text(
@@ -595,30 +384,10 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             ],
           ),
         ],
-        if (!selectionApplied) ...[
-          const Text('선택을 적용하면 준비를 시작해요.'),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: shadcn.ShadButton.secondary(
-              height: 0,
-              enabled: canPrepare,
-              onPressed: !canPrepare
-                  ? null
-                  : () {
-                      if (applying.value) return;
-                      applying.value = true;
-                      ref.invalidate(displayPreparationControllerProvider);
-                      applied.value = _AppliedPlayback(remote, targets);
-                      draftDirty.value = false;
-                    },
-              child: const Text('선택 적용'),
-            ),
-          ),
-        ],
-        if (remote && targets.isEmpty)
+        if (targets.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('재생할 TV를 선택해 주세요. 이 기기에서 재생하려면 위에서 직접 선택해 주세요.'),
+            child: Text('재생할 TV를 선택해 주세요.'),
           ),
         if (!readiness.isReady)
           _CheckTile(
@@ -626,29 +395,20 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             title: '수업 내용을 확인해 주세요',
             subtitle: readiness.issues.join('\n'),
           ),
-        if (canPrepare &&
-            (preparation.error != null || accessError || approvalExpired)) ...[
+        if (preparedTargets.isNotEmpty &&
+            (preparation.error != null || approvalExpired)) ...[
           _CheckTile(
             ok: false,
             title: approvalExpired
                 ? '수업 준비 승인을 다시 확인해 주세요'
                 : '이용 상태를 다시 확인해 주세요',
-            subtitle:
-                preparation.error ??
-                (approvalExpired
-                    ? '준비 시간이 만료되었거나 수업 상태가 변경됐어요.'
-                    : workoutErrorMessage(
-                        imageCheck.error,
-                        fallback: '수업 이용 승인을 확인하지 못했어요.',
-                      )),
+            subtitle: preparation.error ?? '준비 시간이 만료되었거나 수업 상태가 변경됐어요.',
           ),
           shadcn.ShadButton.ghost(
             expands: true,
             height: 0,
-            enabled: !preparation.loading && selectionApplied,
-            onPressed: preparation.loading || !selectionApplied
-                ? null
-                : () => retry.value++,
+            enabled: !preparation.loading,
+            onPressed: preparation.loading ? null : () => retry.value++,
             child: const Text('수업 상태 다시 확인'),
           ),
         ] else if (deviceState.hasError) ...[
@@ -663,50 +423,13 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             onPressed: () => ref.invalidate(displayDevicesProvider),
             child: const Text('TV 목록 다시 확인'),
           ),
-        ] else if (selectionApplied &&
-            canPrepare &&
+        ] else if (preparedTargets.isNotEmpty &&
             (!currentApproval || preparation.loading))
           PreparationShadcnStage(
             key: ValueKey('$fingerprint-${retry.value}'),
             label: '최신 수업 설정·이용 상태 확인 중',
           ),
-        if (!remote) ...[
-          const Text(
-            '이 기기에서만 재생',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          if (imageCheck.hasError && !accessError) ...[
-            _CheckTile(
-              ok: false,
-              title: '이미지 준비 실패',
-              subtitle: workoutErrorMessage(
-                imageCheck.error,
-                fallback: '이미지를 불러오지 못했어요. 연결을 확인해 주세요.',
-              ),
-            ),
-            shadcn.ShadButton.ghost(
-              expands: true,
-              height: 0,
-              enabled: currentApproval,
-              onPressed: currentApproval ? () => previewRetry.value++ : null,
-              child: const Text('시작 이미지 다시 불러오기'),
-            ),
-          ] else if (imageReady)
-            const _CheckTile(
-              ok: true,
-              title: '이미지 준비 완료',
-              subtitle: '시작 화면과 다음 슬라이드를 준비했어요.',
-            )
-          else if (currentApproval &&
-              !preparation.loading &&
-              preparation.error == null &&
-              !approvalExpired)
-            PreparationShadcnStage(
-              key: ValueKey(previewWork),
-              label: '시작 이미지 준비 중',
-            ),
-        ],
-        if (remote && selectionApplied && modern.isNotEmpty) ...[
+        if (modern.isNotEmpty) ...[
           if (waiting)
             PreparationShadcnStage(
               key: ValueKey(matchingRequest?.sessionId),
@@ -748,7 +471,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
   }
 }
 
-/// The start action scrolls with the body, before the optional composition. No router/auth or start protocol is replaced.
+/// Reserve footer space outside the scroll view, including the bottom safe area.
 class _PreparationLayout extends StatelessWidget {
   const _PreparationLayout({
     required this.workout,
@@ -882,28 +605,30 @@ class _PreparationLayout extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          shadcn.ShadButton(
-                            key: const ValueKey('preparation-start'),
-                            enabled: onStart != null,
-                            onPressed: onStart,
-                            height: 0,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 20,
-                            ),
-                            leading: const Icon(
-                              shadcn.LucideIcons.play,
-                              size: 18,
-                            ),
-                            child: const Text(
-                              '수업 시작',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
                           ?composition,
                         ],
                       ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 580),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: shadcn.ShadButton(
+                      key: const ValueKey('preparation-start'),
+                      enabled: onStart != null,
+                      onPressed: onStart,
+                      height: 0,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 20,
+                      ),
+                      leading: const Icon(shadcn.LucideIcons.play, size: 18),
+                      child: const Text('수업 시작', textAlign: TextAlign.center),
                     ),
                   ),
                 ),
@@ -916,27 +641,13 @@ class _PreparationLayout extends StatelessWidget {
   }
 }
 
-/// Metadata is immediately available. Images enter the tree only after a tap,
-/// and approval/target/account changes discard that explicit preview choice.
-class _WorkoutComposition extends HookWidget {
-  const _WorkoutComposition({
-    required this.workout,
-    this.allowImages = false,
-    this.scope,
-  });
+/// Text-only composition never fetches controller media during preparation.
+class _WorkoutComposition extends StatelessWidget {
+  const _WorkoutComposition({required this.workout});
   final Workout workout;
-  final bool allowImages;
-  final Object? scope;
 
   @override
   Widget build(BuildContext context) {
-    final selected = useState(0);
-    final showImage = useState(false);
-    useEffect(() {
-      showImage.value = false;
-      selected.value = 0;
-      return null;
-    }, [workout, scope, allowImages]);
     final theme = Theme.of(context);
     if (workout.modules.isEmpty) return const SizedBox.shrink();
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
@@ -945,27 +656,8 @@ class _WorkoutComposition extends HookWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text('수업 구성', style: theme.textTheme.titleMedium),
-              shadcn.ShadButton.ghost(
-                height: 0,
-                enabled: allowImages,
-                onPressed: allowImages
-                    ? () => showImage.value = !showImage.value
-                    : null,
-                leading: Icon(
-                  showImage.value
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  size: 18,
-                ),
-                child: Text(showImage.value ? '이미지 닫기' : '이미지 보기'),
-              ),
-            ],
-          ),
+          Text('수업 구성', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
           SizedBox(
             height: 112 * scale.clamp(1, 2),
             child: ListView.separated(
@@ -978,41 +670,37 @@ class _WorkoutComposition extends HookWidget {
                   width: 164 * scale.clamp(1, 1.5),
                   child: shadcn.ShadCard(
                     padding: EdgeInsets.zero,
-                    backgroundColor: selected.value == index
+                    backgroundColor: index == 0
                         ? AppColors.selected
                         : AppColors.dialog,
                     radius: BorderRadius.circular(12),
-                    child: shadcn.ShadButton.ghost(
-                      height: 0,
-                      onPressed: () => selected.value = index,
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${index + 1}'.padLeft(2, '0'),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.accent,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${index + 1}'.padLeft(2, '0'),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: AppColors.accent,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: Text(
+                              module.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Expanded(
-                              child: Text(
-                                module.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              moduleDurationText(module),
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
+                          ),
+                          Text(
+                            moduleDurationText(module),
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1020,30 +708,11 @@ class _WorkoutComposition extends HookWidget {
               },
             ),
           ),
-          if (showImage.value && allowImages) ...[
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: WorkoutSlidePreview(
-                  key: ValueKey((scope, selected.value)),
-                  module: workout.modules[selected.value],
-                  isRest: false,
-                  brandL: workout.brandL,
-                  brandR: workout.brandR,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 }
-
-bool _sameIds(Set<String> first, Set<String> second) =>
-    first.length == second.length && first.containsAll(second);
 
 class _CheckTile extends StatelessWidget {
   const _CheckTile({

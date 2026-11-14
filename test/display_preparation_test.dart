@@ -66,6 +66,69 @@ DisplayPreparationProof proof(DisplayPreparation r) => DisplayPreparationProof(
 );
 
 void main() {
+  test('explicit cohort proof verifies only selected readiness, without changing candidate', () async {
+    final r = request(targets: ['tv', 'offline']);
+    final repository = _Preparation()
+      ..value = r
+      ..acks = {'tv': receipt(r)};
+    final devices = _Devices([device('tv'), device('offline', online: false)]);
+    final actions = DisplayPreparationActions(repository, devices);
+    final cohort = DisplayPreparationProof(
+      manifestHash: r.manifestHash,
+      clientFingerprint: preparationFingerprint(workout, r.targetDeviceIds),
+      preparedTargetDeviceIds: r.targetDeviceIds,
+      sessionId: r.sessionId,
+      revision: r.revision,
+    );
+    await actions.verifyStart(workout, ['tv'], cohort, nowMs: now);
+    for (final ids in [
+      <String>[],
+      ['tv', 'new'],
+      ['tv', 'tv'],
+      ['tv', 'offline'],
+    ]) {
+      await expectLater(
+        actions.verifyStart(workout, ids, cohort, nowMs: now),
+        throwsStateError,
+      );
+    }
+    // Existing proofs never gain implicit subset semantics.
+    await expectLater(
+      actions.verifyStart(workout, ['tv'], proof(r), nowMs: now),
+      throwsStateError,
+    );
+    await expectLater(
+      actions.verifyStart(
+        workout.copyWith(name: 'changed'),
+        ['tv'],
+        cohort,
+        nowMs: now,
+      ),
+      throwsStateError,
+    );
+    await expectLater(
+      actions.verifyStart(workout, ['tv'], cohort, nowMs: r.expiresAtMs),
+      throwsStateError,
+    );
+    repository.acks = {'tv': receipt(r, revision: r.revision + 1)};
+    await expectLater(
+      actions.verifyStart(workout, ['tv'], cohort, nowMs: now),
+      throwsStateError,
+    );
+    repository.acks = {'tv': receipt(r)};
+    devices.values = [device('offline', online: false)];
+    await expectLater(
+      actions.verifyStart(workout, ['tv'], cohort, nowMs: now),
+      throwsStateError,
+    );
+    devices.values = [device('tv')];
+    repository.value = request(targets: ['tv']);
+    await expectLater(
+      actions.verifyStart(workout, ['tv'], cohort, nowMs: now),
+      throwsStateError,
+    );
+  });
+
   testWidgets(
     'independent final evidence reads overlap; server clock remains last',
     (tester) async {

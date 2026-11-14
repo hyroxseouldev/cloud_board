@@ -1,0 +1,20 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart
+00:00 +0: all eligible displays prepare once; every selection edit stays local
+00:00 +1: unselected failed/offline TVs do not block ready subset or change its proof
+00:01 +2: cold ready preparation and text composition make zero controller HTTP requests
+00:01 +3: cold offline preparation and text composition make zero controller HTTP requests
+00:01 +4: cold empty preparation and text composition make zero controller HTTP requests
+00:01 +5: cold error preparation and text composition make zero controller HTTP requests
+00:01 +6: initial failure is safe; explicit retry prepares the cohort once
+00:01 +7: access refusal daily_transfer_limit still blocks start
+00:01 +8: access refusal entitlement_unverified still blocks start
+00:01 +9: access refusal admission_expired still blocks start
+00:01 +10: access refusal media_lease_invalid still blocks start
+00:01 +11: expiry and missing current owner device cannot reuse readiness
+00:02 +12: account source replacement removes prior readiness and checks again
+00:02 +13: fresh effective preferences stay bound to the preparation proof
+00:02 +14: settings failure retains readable retry and blocks preparation
+00:02 +15: loading preferences shows metadata; back cancels without late prepare
+00:02 +16: actual list caller covers shell; back restores list and pinned safe CTA (Size(390.0, 844.0), 1.0)
+00:03 +17: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:03 +18: All tests passed!

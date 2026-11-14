@@ -56,16 +56,17 @@ class PreparationDeviceTile extends StatelessWidget {
   final String name;
   final String status;
   final bool selected;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
     behavior: HitTestBehavior.opaque,
-    onTap: () => onChanged(!selected),
+    onTap: onChanged == null ? null : () => onChanged!(!selected),
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: shadcn.ShadCheckbox(
         value: selected,
+        enabled: onChanged != null,
         onChanged: onChanged,
         size: 18,
         label: Text(

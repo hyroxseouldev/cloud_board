@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
+import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/admission_workout_wire.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
 import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
@@ -26,6 +28,7 @@ class DisplayPreparationState {
     this.admission,
     this.clientFingerprint,
     this.accessChecked = false,
+    this.incompatibleDeviceIds = const {},
   });
   final DisplayPreparation? request;
   final Map<String, DisplayPreparationReceipt> receipts;
@@ -34,6 +37,7 @@ class DisplayPreparationState {
   final ClassAdmission? admission;
   final String? clientFingerprint;
   final bool accessChecked;
+  final Set<String> incompatibleDeviceIds;
 }
 
 @riverpod
@@ -52,7 +56,11 @@ class DisplayPreparationController extends _$DisplayPreparationController {
     return const DisplayPreparationState();
   }
 
-  Future<void> prepare(Workout workout, List<String> targets) async {
+  Future<void> prepare(
+    Workout workout,
+    List<String> targets, {
+    List<DisplayDevice>? candidates,
+  }) async {
     final epoch = ++_epoch;
     _recorded.clear();
     unawaited(_subscription?.cancel());
@@ -72,11 +80,48 @@ class DisplayPreparationController extends _$DisplayPreparationController {
         'targetCount': targets.length,
       },
     );
+    var incompatible = const <String>{};
     try {
       final repository = ref.read(displayPreparationRepositoryProvider);
       final usage = ref.read(imageUsageSourceProvider);
       final enrolled = await usage.enrolled();
       if (!ref.mounted || epoch != _epoch) return;
+      // Enrollment is resolved once by the existing access check. Do not send
+      // known-incompatible displays to admission, where one rejects the entire
+      // cohort. Legacy accounts keep their existing preparation protocol support.
+      if (candidates != null) {
+        final required = requiredTimingProtocol(workout);
+        incompatible = Set.unmodifiable(
+          candidates
+              .where(
+                (device) =>
+                    targets.contains(device.id) &&
+                    (device.playbackProtocol < required ||
+                        (enrolled &&
+                            (device.imageUsageProtocol != 1 ||
+                                device.preparationProtocol < 2 ||
+                                device.playbackProtocol < 2))),
+              )
+              .map((device) => device.id),
+        );
+        targets = List.unmodifiable(
+          targets.where((id) => !incompatible.contains(id)),
+        );
+        state = DisplayPreparationState(
+          loading: true,
+          incompatibleDeviceIds: incompatible,
+        );
+        if (targets.isEmpty) {
+          // Empty targets mean broadcast/controller-only in older contracts.
+          // Here they mean no compatible TV, so never make that admission call.
+          state = DisplayPreparationState(
+            accessChecked: true,
+            incompatibleDeviceIds: incompatible,
+          );
+          attempt.success();
+          return;
+        }
+      }
       ClassAdmission? admission;
       final fingerprint = preparationFingerprint(workout, targets);
       DisplayPreparation? request;
@@ -119,6 +164,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
         if (ref.mounted && epoch == _epoch) {
           state = DisplayPreparationState(
             accessChecked: true,
+            incompatibleDeviceIds: incompatible,
             clientFingerprint: fingerprint,
           );
         }
@@ -135,6 +181,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
       if (!ref.mounted || epoch != _epoch) return;
       state = DisplayPreparationState(
         request: acceptedRequest,
+        incompatibleDeviceIds: incompatible,
         admission: admission,
         clientFingerprint: fingerprint,
         accessChecked: true,
@@ -144,6 +191,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
           if (ref.mounted && epoch == _epoch) {
             state = DisplayPreparationState(
               request: acceptedRequest,
+              incompatibleDeviceIds: incompatible,
               receipts: receipts,
               admission: admission,
               clientFingerprint: fingerprint,
@@ -212,6 +260,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
           if (ref.mounted && epoch == _epoch) {
             state = DisplayPreparationState(
               request: acceptedRequest,
+              incompatibleDeviceIds: incompatible,
               error: 'TV 응답을 확인하지 못했어요. 다시 시도해 주세요.',
             );
           }
@@ -249,6 +298,7 @@ class DisplayPreparationController extends _$DisplayPreparationController {
           workoutName: workout.name,
         );
         state = DisplayPreparationState(
+          incompatibleDeviceIds: incompatible,
           error: error is ImageUsageFailure
               ? error.message
               : 'TV 준비 요청을 보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.',

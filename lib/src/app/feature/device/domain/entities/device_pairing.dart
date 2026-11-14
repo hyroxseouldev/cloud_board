@@ -54,6 +54,7 @@ class DisplayDevice {
     this.appPlatform = '',
     this.playbackProtocol = 1,
     this.preparationProtocol = 0,
+    this.imageUsageProtocol = 0,
     this.recoveryProtocol = 0,
     this.connectionId,
     this.verifiedConnectionId,
@@ -83,6 +84,7 @@ class DisplayDevice {
   final int onlineSinceMs;
   final String appVersion, appBuild, appPlatform;
   final int playbackProtocol, preparationProtocol, recoveryProtocol;
+  final int imageUsageProtocol;
   final String? connectionId, verifiedConnectionId;
   final int verifiedAtMs, readyAtMs, rulesAuthorizedAtMs;
   int get connectionAuthorizedAtMs =>

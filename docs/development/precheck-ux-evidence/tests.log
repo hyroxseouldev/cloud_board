@@ -1,0 +1,81 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart
+00:00 +0: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/display_preparation_test.dart: explicit cohort proof verifies only selected readiness, without changing candidate
+00:00 +1: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/display_preparation_test.dart: independent final evidence reads overlap; server clock remains last
+00:00 +2: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/display_preparation_test.dart: image and audio preparation overlap and both must finish before ready
+00:00 +3: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +4: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +5: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +6: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +7: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +8: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +9: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +10: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +11: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +12: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +13: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +14: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +15: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +16: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +17: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +18: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +19: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +20: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +21: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +22: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +23: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +24: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +25: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +26: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +27: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +28: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +29: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +30: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +31: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +32: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:00 +33: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +34: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +35: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +36: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +37: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +38: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +39: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +40: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +41: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:01 +42: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: unselected failed/offline TVs do not block ready subset or change its proof
+00:01 +43: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: cold ready preparation and text composition make zero controller HTTP requests
+00:01 +44: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: cold offline preparation and text composition make zero controller HTTP requests
+00:01 +45: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: start receipt survives a completed baseline until the new session stream arrives
+00:02 +46: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: start receipt survives a completed baseline until the new session stream arrives
+00:02 +47: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: start receipt survives a completed baseline until the new session stream arrives
+00:02 +48: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: initial failure is safe; explicit retry prepares the cohort once
+00:02 +49: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:02 +50: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:02 +51: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:02 +52: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:02 +53: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:02 +54: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:02 +55: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:02 +56: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:03 +57: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:03 +58: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: list starts one playing session after all three TV receipts
+00:03 +59: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(390.0, 844.0), 1.0)
+00:03 +60: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(390.0, 844.0), 1.0)
+00:04 +61: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart: ready subset from actual list caller commits exact IDs and keeps active session
+00:04 +62: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +63: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +64: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +65: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +66: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +67: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +68: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +69: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +70: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +71: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +72: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +73: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +74: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +75: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +76: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +77: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +78: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:04 +79: All tests passed!

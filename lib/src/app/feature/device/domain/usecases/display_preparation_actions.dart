@@ -24,6 +24,15 @@ class DisplayPreparationActions {
     DisplayPreparationProof? proof, {
     int? nowMs,
   }) async {
+    final cohort = proof?.preparedTargetDeviceIds;
+    if (cohort != null &&
+        (cohort.isEmpty ||
+            targets.isEmpty ||
+            cohort.toSet().length != cohort.length ||
+            targets.toSet().length != targets.length ||
+            !cohort.toSet().containsAll(targets))) {
+      throw StateError('수업 준비 대상이 바뀌었어요. 다시 확인해 주세요.');
+    }
     final all = await devices.watchDevices().first.timeout(
       const Duration(seconds: 5),
     );
@@ -31,7 +40,11 @@ class DisplayPreparationActions {
         ? all
         : all.where((d) => targets.contains(d.id)).toList();
     if (targets.any((id) => !selected.any((d) => d.id == id)) ||
-        selected.any((device) => !device.paired)) {
+        selected.any(
+          (device) =>
+              !device.paired ||
+              (cohort != null && device.displayState != 'auto'),
+        )) {
       throw StateError('디스플레이 연결이 변경됐어요. 수업 준비를 다시 확인해 주세요.');
     }
     final required = requiredTimingProtocol(workout);
@@ -45,14 +58,14 @@ class DisplayPreparationActions {
     if ((modern.isNotEmpty && proof == null) ||
         (proof != null &&
             (proof.clientFingerprint ?? proof.manifestHash) !=
-                preparationFingerprint(workout, targets))) {
+                preparationFingerprint(workout, cohort ?? targets))) {
       throw StateError('수업 내용이나 설정이 바뀌었어요. 수업 준비를 다시 확인해 주세요.');
     }
     // Resolve optional modern evidence before reading the server clock, so
     // both legacy connections and media receipts use the same final
     // freshness check immediately before starting.
     // Install both error handlers immediately and preserve the original error.
-    final evidence = modern.isEmpty
+    final evidence = modern.isEmpty && cohort == null
         ? null
         : await Future.wait<Object?>([
             repository.current(),
@@ -71,17 +84,19 @@ class DisplayPreparationActions {
         throw StateError('최근 응답이 없는 TV가 있어요. 연결을 확인하거나 재생 대상에서 제외해 주세요.');
       }
     }
-    if (modern.isEmpty) return;
+    if (modern.isEmpty && cohort == null) return;
     if (proof == null ||
         request == null ||
+        request.workoutId != workout.id ||
+        request.expired(now) ||
         request.sessionId != proof.sessionId ||
         request.revision != proof.revision ||
         request.manifestHash != proof.manifestHash ||
         request.targetDeviceIds
             .toSet()
-            .difference(targets.toSet())
+            .difference((cohort ?? targets).toSet())
             .isNotEmpty ||
-        targets
+        (cohort ?? targets)
             .toSet()
             .difference(request.targetDeviceIds.toSet())
             .isNotEmpty) {

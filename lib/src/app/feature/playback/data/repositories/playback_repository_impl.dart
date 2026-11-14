@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
 import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
@@ -252,6 +253,66 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   }
 }
 
+/// Preserve the admitted cohort identity while committing precisely the
+/// current selection through the authoritative server start gate.
+Future<Map<String, dynamic>> commitPreparedPlayback(
+  ImageUsageDataSource usage,
+  ClassAdmission admission,
+  PlaybackSessionModel model, {
+  required bool scheduled,
+  int? scheduledAtMs,
+}) async {
+  final selected = model.targetDeviceIds.toSet();
+  final cohort = admission.targetDeviceIds.toSet();
+  if (selected.isEmpty ||
+      selected.length != model.targetDeviceIds.length ||
+      cohort.isEmpty ||
+      !cohort.containsAll(selected) ||
+      admission.clientFingerprint !=
+          preparationFingerprint(
+            model.toEntity().workout,
+            admission.targetDeviceIds,
+          )) {
+    throw const ImageUsageFailure('session_changed');
+  }
+  final start = <String, dynamic>{
+    'stepIndex': model.stepIndex,
+    'durationMs': model.remainingMs,
+    'briefing': model.briefing,
+    'scheduled': scheduled,
+    'scheduledAtMs': scheduledAtMs,
+    'updatedByDeviceId': model.updatedByDeviceId,
+  };
+  var result = admission;
+  if (admission.supportsTargetSubset) {
+    // Replays also bind the selected set and start settings on the server.
+    result = await usage.commitSelected(
+      admission,
+      start,
+      model.targetDeviceIds,
+    );
+  } else {
+    if (selected.length != cohort.length) {
+      throw const ImageUsageFailure('policy_or_client_upgrade_required');
+    }
+    if (result.status == 'preparing') {
+      result = await usage.commit(admission, start);
+    }
+  }
+  if (result.pending || result.session == null) {
+    throw const ImageUsageFailure('start_pending', retryable: true);
+  }
+  if (result.status != 'active') {
+    throw const ImageUsageFailure('admission_expired');
+  }
+  final actual = List<String>.from(result.session!['targetDeviceIds'] as List)
+      .toSet();
+  if (actual.length != selected.length || !actual.containsAll(selected)) {
+    throw const ImageUsageFailure('session_changed');
+  }
+  return result.session!;
+}
+
 @Riverpod(keepAlive: true)
 PlaybackRepository playbackRepository(Ref ref) {
   final auth = ref.watch(firebaseClientAuthProvider);
@@ -276,19 +337,13 @@ PlaybackRepository playbackRepository(Ref ref) {
       if (!await usage.enrolled()) return null;
       final admission = await usage.pendingAdmission();
       if (admission == null) throw const ImageUsageFailure('admission_expired');
-      final fingerprint = preparationFingerprint(model.toEntity().workout, model.targetDeviceIds);
-      if (admission.clientFingerprint != fingerprint) throw const ImageUsageFailure('session_changed');
-      var result = admission;
-      if (result.status == 'preparing') {
-        result = await usage.commit(admission, {
-          'stepIndex':model.stepIndex,'durationMs':model.remainingMs,'briefing':model.briefing,
-          'scheduled':scheduled,'scheduledAtMs':scheduledAtMs,'updatedByDeviceId':model.updatedByDeviceId});
-      }
-      if (result.pending || result.session == null) {
-        throw const ImageUsageFailure('start_pending', retryable: true);
-      }
-      if (result.status != 'active') throw const ImageUsageFailure('admission_expired');
-      return result.session;
+      return commitPreparedPlayback(
+        usage,
+        admission,
+        model,
+        scheduled: scheduled,
+        scheduledAtMs: scheduledAtMs,
+      );
     },
     isCurrentAccount: () => auth.currentUser?.uid == ownerId,
     onAncillaryFailure: (error, stack) {

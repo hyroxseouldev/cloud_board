@@ -1,4 +1,5 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
+import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
@@ -213,8 +214,8 @@ void main() {
         expect(find.text('수업 준비'), findsOneWidget);
         expect(h.preparation.value.targetDeviceIds, unorderedEquals(_targets));
         expect(h.preparation.values.length, 3);
-        final start = find.widgetWithText(FilledButton, '수업 시작');
-        expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+        final start = find.widgetWithText(shadcn.ShadButton, '수업 시작');
+        expect(tester.widget<shadcn.ShadButton>(start).onPressed, isNotNull);
         h.preferences.gate = Completer<void>();
         await tester.tap(start);
         await tester.pump();
@@ -241,15 +242,9 @@ void main() {
     );
   }
   testWidgets(
-    'remote start commits without any preview loader and keeps active session',
+    'ready subset from actual list caller commits exact IDs and keeps active session',
     (tester) async {
-      var previewCalls = 0;
-      final h = await _Harness.create(
-        previewLoader: (context, sources, {isCancelled}) async {
-          previewCalls++;
-          throw StateError("unexpected remote preview");
-        },
-      );
+      final h = await _Harness.create();
       addTearDown(h.dispose);
       final router = GoRouter(
         routes: [
@@ -277,9 +272,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('재생').first);
       await tester.pumpAndSettle();
-      final start = find.widgetWithText(FilledButton, '수업 시작');
-      expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
-      expect(previewCalls, 0);
+      expect(h.preparation.requests, 1);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('preparation-device-tv-c')),
+      );
+      await tester.tap(find.byKey(const ValueKey('preparation-device-tv-c')));
+      await tester.pumpAndSettle();
+      expect(h.preparation.requests, 1);
+      final start = find.widgetWithText(shadcn.ShadButton, '수업 시작');
+      expect(tester.widget<shadcn.ShadButton>(start).onPressed, isNotNull);
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
       h.preferences.gate = Completer<void>();
       await tester.tap(start);
       await tester.pump();
@@ -292,9 +294,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(h.repository.starts, 1);
       final active = h.repository.session;
-      expect(active?.status, PlaybackStatus.playing);
+      expect(active!.targetDeviceIds, unorderedEquals(['tv-a', 'tv-b']));
+      expect(active.status, PlaybackStatus.playing);
       expect(find.text('진행 중 수업'), findsOneWidget);
-      expect(previewCalls, 0);
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
       await tester.pumpAndSettle();
       expect(h.repository.starts, 1);
       expect(h.repository.session, same(active));
@@ -537,10 +540,7 @@ class _Harness {
   late final ProviderContainer container;
   late DisplayPreparationProof proof;
   Completer<void>? deviceGate;
-  static Future<_Harness> create({
-    bool captureReceipts = false,
-    PreflightImageLoader? previewLoader,
-  }) async {
+  static Future<_Harness> create({bool captureReceipts = false}) async {
     final h = _Harness();
     h.preparation = _Preparation();
     h.repository = _Playback(h.devices);
@@ -551,8 +551,6 @@ class _Harness {
     );
     h.container = ProviderContainer(
       overrides: [
-        if (previewLoader != null)
-          preflightImageLoaderProvider.overrideWithValue(previewLoader),
         imageUsageSourceProvider.overrideWith(
           (_) => ImageUsageDataSource(
             projectId: 'demo-legacy-playback',
@@ -698,6 +696,7 @@ class _Devices extends Fake implements DevicePairingRepository {
 }
 
 class _Preparation extends Fake implements DisplayPreparationRepository {
+  int requests = 0;
   _Preparation() {
     value = prepareDisplayCandidate(
       _workout,
@@ -723,6 +722,7 @@ class _Preparation extends Fake implements DisplayPreparationRepository {
   late Map<String, DisplayPreparationReceipt> values;
   @override
   Future<void> request(DisplayPreparation request) async {
+    requests++;
     value = request;
     values = {
       for (final id in request.targetDeviceIds)

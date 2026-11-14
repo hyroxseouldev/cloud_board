@@ -1,0 +1,5 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/preparation_protocol_cohort_test.dart
+00:00 +0: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:03 +1: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart: all eligible displays prepare once; every selection edit stays local
+00:04 +2: /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/preparation_protocol_cohort_test.dart: enrolled mixed protocols prepare once and start compatible TV only
+00:04 +3: All tests passed!
