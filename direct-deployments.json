@@ -902,6 +902,11 @@
           "startedAt": "2026-11-14T09:33:52.199Z",
           "completedAt": "2026-11-14T09:33:54.191Z",
           "durationMs": 1992
+        },
+        {
+          "id": "signing-preflight",
+          "status": "running",
+          "startedAt": "2026-11-14T09:33:55.301Z"
         }
       ],
       "targets": [],
