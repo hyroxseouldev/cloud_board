@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/core/widgets/preparation_stage_status.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
@@ -49,11 +50,10 @@ class ActiveClassShell extends HookConsumerWidget {
               next.stackTrace ?? StackTrace.current,
               action: 'playback.action',
             );
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text(playbackErrorMessage(error)),
-            duration: const Duration(seconds: 8),
-          ),
+        AppErrorToast.show(
+          context,
+          playbackErrorMessage(error),
+          duration: const Duration(seconds: 8),
         );
       }
     });

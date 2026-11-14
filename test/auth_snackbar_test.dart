@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/profile/presentation/controllers/account_deletion_controller.dart';
+import 'package:cloud_board/src/app/feature/profile/domain/repositories/account_deletion_repository.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -9,7 +12,7 @@ import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/core/router/app_router.dart';
 import 'package:cloud_board/src/app/core/services/android_class_notifications.dart';
 import 'package:cloud_board/src/app/core/services/ios_class_controls.dart';
-import 'package:cloud_board/src/app/core/theme/app_colors.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:cloud_board/src/app/feature/app_update/domain/entities/app_release.dart';
 import 'package:cloud_board/src/app/feature/app_update/presentation/controllers/app_update_controller.dart';
 import 'package:cloud_board/src/app/feature/auth/data/repositories/firebase_auth_repository.dart';
@@ -43,6 +46,7 @@ const _user = AuthUser(
 
 class _AuthRepository implements AuthRepository {
   Completer<AuthUser>? pending;
+  Stream<AuthUser?>? authStream;
   final calls = <String>[];
   Future<AuthUser> attempt(String provider) {
     calls.add(provider);
@@ -58,7 +62,7 @@ class _AuthRepository implements AuthRepository {
   Future<AuthUser> signInWithEmail(String email, String password) =>
       attempt('email');
   @override
-  Stream<AuthUser?> authStateChanges() => Stream.value(null);
+  Stream<AuthUser?> authStateChanges() => authStream ?? Stream.value(null);
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -75,7 +79,19 @@ class _Updates extends AppUpdateController {
   Future<({AppRelease release, UpdateKind kind})?> build() async => null;
 }
 
+class _Deletion extends AccountDeletionController {
+  @override
+  AsyncValue<AccountDeletionResult?> build() => const AsyncData(null);
+  void fail(Object error) {
+    state = const AsyncLoading();
+    state = AsyncError(error, StackTrace.current);
+  }
+}
+
 class _Workouts extends WorkoutActionController {
+  void start() => state = const AsyncLoading();
+  void finishError(Object error) =>
+      state = AsyncError(error, StackTrace.current);
   void fail(Object error) {
     state = const AsyncLoading();
     state = AsyncError(error, StackTrace.current);
@@ -108,6 +124,7 @@ void main() {
     Size size = const Size(390, 844),
     double scale = 1,
     _Workouts? workouts,
+    _Deletion? deletion,
   }) async {
     debugDefaultTargetPlatformOverride = platform;
     tester.view.physicalSize = size;
@@ -145,6 +162,8 @@ void main() {
         appUpdateControllerProvider.overrideWith(_Updates.new),
         iosClassControlsProvider.overrideWith((ref) async {}),
         androidClassNotificationsProvider.overrideWith((ref) async => true),
+        if (deletion != null)
+          accountDeletionControllerProvider.overrideWith(() => deletion),
         if (workouts != null)
           workoutActionControllerProvider.overrideWith(() => workouts),
       ],
@@ -175,21 +194,15 @@ void main() {
   }
 
   void expectNotice(WidgetTester tester, String message) {
-    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.byType(ShadSonner), findsOneWidget);
+    expect(find.byType(ShadToast), findsOneWidget);
     expect(find.text(message), findsOneWidget);
     expect(
-      find.descendant(of: find.byType(SnackBar), matching: find.text(message)),
+      find.descendant(of: find.byType(ShadToast), matching: find.text(message)),
       findsOneWidget,
     );
-    final notice = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(notice.action, isNull);
-    expect(notice.backgroundColor, isNull);
-    expect(
-      Theme.of(tester.element(find.byType(SnackBar)))
-          .snackBarTheme
-          .backgroundColor,
-      AppColors.ink,
-    );
+    expect(find.byKey(const ValueKey('error-toast-close')), findsOneWidget);
     expect(find.text('문의하기'), findsNothing);
     expect(find.text('문제 문의하기'), findsNothing);
     expect(find.text('오류 상세'), findsNothing);
@@ -234,11 +247,13 @@ void main() {
         await tester.pump(const Duration(seconds: 5));
         await tester.pumpAndSettle();
         expect(find.byType(SnackBar), findsNothing);
+        expect(find.byType(ShadToast), findsNothing);
         fixture.router.push('/away');
         await tester.pumpAndSettle();
         fixture.router.pop();
         await tester.pumpAndSettle();
         expect(find.byType(SnackBar), findsNothing);
+        expect(find.byType(ShadToast), findsNothing);
         // Even the same error object represents a new failure after a new attempt.
         await tap(tester, button);
         repository.pending!.completeError(error);
@@ -255,6 +270,7 @@ void main() {
         await tester.pump(const Duration(seconds: 5));
         await tester.pumpAndSettle();
         expect(find.byType(SnackBar), findsNothing);
+        expect(find.byType(ShadToast), findsNothing);
       },
     );
   }
@@ -276,6 +292,7 @@ void main() {
         repository.pending!.completeError(cancellation);
         await tester.pumpAndSettle();
         expect(find.byType(SnackBar), findsNothing);
+        expect(find.byType(ShadToast), findsNothing);
         expect(
           fixture.container.read(authControllerProvider).hasError,
           isFalse,
@@ -322,11 +339,13 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
       expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(ShadToast), findsNothing);
       fixture.router.push('/away');
       await tester.pumpAndSettle();
       fixture.router.pop();
       await tester.pumpAndSettle();
       expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(ShadToast), findsNothing);
       await tap(tester, submit);
       repository.pending!.completeError(
         FirebaseAuthException(code: 'invalid-credential'),
@@ -337,6 +356,7 @@ void main() {
       repository.pending!.complete(_user);
       await tester.pumpAndSettle();
       expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(ShadToast), findsNothing);
       expect(repository.calls, hasLength(3));
       expect(
         tester
@@ -367,7 +387,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expectNotice(tester, _networkMessage);
-        final rect = tester.getRect(find.byType(SnackBar));
+        final rect = tester.getRect(find.byType(ShadToast));
         expect(rect.bottom, lessThanOrEqualTo(348));
         expect(
           tester.getSize(find.text(_networkMessage)).height,
@@ -389,11 +409,64 @@ void main() {
     final fixture = await mount(tester, _AuthRepository(), workouts: actions);
     actions.fail(StateError('수업 변경 실패'));
     await tester.pumpAndSettle();
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(tester.widget<SnackBar>(find.byType(SnackBar)).action, isNull);
+    expect(find.byType(ShadToast), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
     expect(fixture.sink.events.single.context['action'], 'ui.action');
     expect(tester.takeException(), isNull);
   });
+
+  testAppWidgets(
+    'account deletion failure uses shared mapped Sonner and diagnostics',
+    (tester) async {
+      final deletion = _Deletion();
+      final fixture = await mount(
+        tester,
+        _AuthRepository(),
+        deletion: deletion,
+      );
+      deletion.fail(StateError('private-token'));
+      await tester.pumpAndSettle();
+      expectNotice(tester, '계정 삭제를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      expect(fixture.sink.events, hasLength(1));
+    },
+  );
+
+  testAppWidgets(
+    'account switch clears visible and pending old-account errors',
+    (tester) async {
+      final accounts = StreamController<AuthUser?>();
+      addTearDown(accounts.close);
+      final actions = _Workouts();
+      final repository = _AuthRepository()..authStream = accounts.stream;
+      await mount(tester, repository, workouts: actions);
+      accounts.add(_user);
+      await tester.pumpAndSettle();
+      actions.fail(StateError('private-token'));
+      await tester.pumpAndSettle();
+      expectNotice(tester, '작업을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      actions.start();
+      accounts.add(
+        const AuthUser(
+          id: 'other-user',
+          email: '',
+          displayName: '다른 계정',
+          photoUrl: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ShadToast), findsNothing);
+      actions.finishError(StateError('old-account-secret'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ShadToast), findsNothing);
+      actions.fail(StateError('new-action'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ShadToast), findsOneWidget);
+      accounts.add(null);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 9));
+      expect(find.byType(ShadToast), findsNothing);
+    },
+  );
 
   testAppWidgets('login failure visual evidence', (tester) async {
     const directory = String.fromEnvironment('STA185_CAPTURE_DIR');
@@ -411,16 +484,37 @@ void main() {
     repository.pending!.completeError(FirebaseAuthException(code: 'unknown'));
     await tester.pumpAndSettle();
     expectNotice(tester, '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.');
-    final boundary = tester.renderObject<RenderRepaintBoundary>(
-      find.byKey(const ValueKey('capture')),
+    Future<void> capture(String filename) async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('capture')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        await Directory(directory).create(recursive: true);
+        await File('$directory/$filename')
+            .writeAsBytes(data!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+
+    await capture('login-error-phone.png');
+    await tester.pump(const Duration(seconds: 6));
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 34);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    await tester.pumpAndSettle();
+    await tap(tester, find.text('Google로 계속하기'));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 220);
+    repository.pending!.completeError(
+      FirebaseAuthException(code: 'network-request-failed'),
     );
-    await tester.runAsync(() async {
-      final image = await boundary.toImage(pixelRatio: 2);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      await Directory(directory).create(recursive: true);
-      await File('$directory/login-error-phone.png')
-          .writeAsBytes(data!.buffer.asUint8List());
-      image.dispose();
-    });
+    await tester.pumpAndSettle();
+    expectNotice(tester, _networkMessage);
+    expect(
+      tester.getRect(find.byType(ShadToast)).bottom,
+      lessThanOrEqualTo(348),
+    );
+    await capture('login-error-320-text2-keyboard-inset.png');
   });
 }

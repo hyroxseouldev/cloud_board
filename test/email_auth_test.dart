@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -235,7 +238,7 @@ void main() {
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!,
+            child: AppErrorToastHost(child: child!),
           ),
           home: const EmailLoginScreen(),
         ),
@@ -296,11 +299,12 @@ void main() {
       repo.pending!.complete();
       await tester.pumpAndSettle();
       expect(find.text('이메일 또는 비밀번호를 확인해 주세요.'), findsOneWidget);
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(tester.widget<SnackBar>(find.byType(SnackBar)).action, isNull);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(ShadToast), findsOneWidget);
+      expect(find.byKey(const ValueKey('error-toast-close')), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byType(SnackBar),
+          of: find.byType(ShadToast),
           matching: find.text('이메일 또는 비밀번호를 확인해 주세요.'),
         ),
         findsOneWidget,
