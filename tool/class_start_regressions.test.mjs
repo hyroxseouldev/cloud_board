@@ -1,3 +1,4 @@
+// Historical workflow fixtures retain legacy release/receipt contract coverage.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
@@ -87,11 +88,11 @@ test('a Flutter launch failure clears the old report and saves only new machine 
   assert.equal(readFileSync(f.machine, 'utf8'), '');
 });
 test('production retains class-start CI while main development builds skip the heavy suite', () => {
-  const required = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  const required = readFileSync('tool/release/fixtures/retired-workflows/firebase-hosting-merge.yml', 'utf8');
   assert.match(required, /uses: \.\/\.github\/workflows\/class-start-regressions.yml/);
   assert.match(required, /needs: \[[^\n]*class_start_regressions/);
   assert.match(required, /requireReleaseJobs\(JSON.parse\(process.env.REQUIRED_JOBS\)\)/);
-  const development = readFileSync('.github/workflows/firebase-development.yml', 'utf8');
+  const development = readFileSync('tool/release/fixtures/retired-workflows/firebase-development.yml', 'utf8');
   assert.doesNotMatch(development, /class-start-regressions|flutter test|npm test|firebase_contracts/);
 });
 test('required workflow and manifest aggregation accept the same five jobs and reject unverified class starts', () => {
@@ -107,7 +108,7 @@ test('required workflow and manifest aggregation accept the same five jobs and r
 });
 
 test('production deploy uses automated evidence without a physical QA approval or waiver', () => {
-  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  const workflow = readFileSync('tool/release/fixtures/retired-workflows/firebase-hosting-merge.yml', 'utf8');
   assert.doesNotMatch(workflow, /CLASS_START_PHYSICAL_|class_start_physical_gate|physical-qa-decision/);
   for (const command of ['node tool/firebase/release.mjs current', 'node tool/firebase/release.mjs verify',
     'node functions/tools/release-smoke.mjs preflight']) {
@@ -115,7 +116,7 @@ test('production deploy uses automated evidence without a physical QA approval o
     assert(workflow.indexOf(command) < workflow.indexOf('name: Authenticate Firebase rule deployment'));
   }
   for (const name of ['google-play-main', 'testflight-main']) {
-    const native = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
+    const native = readFileSync(`tool/release/fixtures/retired-workflows/${name}.yml`, 'utf8');
     assert.doesNotMatch(native, /needs: \[[^\n]*backend_ready/);
     assert.match(native, /release_backend_gate\.mjs/);
     assert.match(native, /--check-only/);

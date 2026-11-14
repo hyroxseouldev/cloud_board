@@ -1,3 +1,5 @@
+> Current release entrypoint: [fixed-source direct CLI](direct-release/README.md). Build/deploy Actions are retired in this change; the workflow-specific procedure below is historical reference. Production source, signing, compatibility and actual-result evidence requirements remain. Required-check migration is a separate administrator action.
+
 # 모바일을 먼저 설치하고 서버를 나중에 배포하기
 
 운영 앱 `com.sunmkim.cloudboard`를 TestFlight·Play 내부 테스트로 먼저 업로드하고, 설치 후 같은 후보의 서버만 배포할 수 있다. 스토어 처리·설치 가능 여부·일반 공개는 업로드 성공과 별도로 확인한다.

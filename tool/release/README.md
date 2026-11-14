@@ -1,3 +1,5 @@
+> Current release entrypoint: [fixed-source direct CLI](../../docs/operations/direct-release/README.md). Build/deploy Actions are retired in this change; the workflow-specific procedure below is historical reference. Production source, signing, compatibility and actual-result evidence requirements remain. Required-check migration is a separate administrator action.
+
 # Native release identity and build numbers
 
 Marketing version comes from the selected app source's `pubspec.yaml`. Production

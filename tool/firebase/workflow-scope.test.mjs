@@ -1,10 +1,11 @@
+// Historical workflow fixtures retain legacy release/receipt contract coverage.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 function jobCondition(file, job) {
-  const text = readFileSync(`.github/workflows/${file}`, 'utf8');
+  const text = readFileSync(`tool/release/fixtures/retired-workflows/${file}`, 'utf8');
   const block = text.match(new RegExp(`^  ${job}:\\n([\\s\\S]*?)(?=^  [a-z_]+:|$(?![\\s\\S]))`, 'm'))?.[1];
   assert(block, `Missing workflow job: ${job}`);
   return block.match(/^    if: >-\n((?:      .+\n)+)/m)?.[1].trim() ?? block.match(/^    if: (.+)$/m)?.[1];
@@ -32,7 +33,7 @@ const evaluate = (condition, values) => {
 
 test('native QA requires a development tag and main pushes never deploy', () => {
   for (const file of ['testflight-main.yml', 'google-play-main.yml']) {
-    const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
+    const workflow = readFileSync(`tool/release/fixtures/retired-workflows/${file}`, 'utf8');
     const triggers = workflow.match(/^on:\n([\s\S]*?)(?=^\S)/m)?.[1];
     assert.deepEqual([...triggers.matchAll(/^  ([a-z_]+):/gm)].map(match => match[1]), ['push', 'workflow_run', 'workflow_dispatch']);
     const check = (event, branch = 'v1.2.2', conclusion = 'success', repo = 'owner/repo', ref = 'refs/heads/main') => evaluate(jobCondition(file, 'preflight'), {
@@ -57,7 +58,7 @@ test('native QA requires a development tag and main pushes never deploy', () => 
 });
 
 test('Hosting and Functions are deployed only by their selected scopes', () => {
-  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  const workflow = readFileSync('tool/release/fixtures/retired-workflows/firebase-hosting-merge.yml', 'utf8');
   for (const [step, allowed] of [
     ['Deploy to Firebase Hosting', ['web', 'full']],
     ['Deploy account deletion functions and data rules', ['backend', 'full']],
@@ -80,7 +81,7 @@ test('mobile-first compatibility runs only for selected mobile without a server 
       mobile_requested === 'true' && ['verify', 'web'].includes(scope));
     }
   }
-  const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
+  const workflow = readFileSync(`tool/release/fixtures/retired-workflows/${file}`, 'utf8');
   const job = workflow.slice(workflow.indexOf('  mobile_backend_compatibility:'), workflow.indexOf('  web_build:'));
   assert(job.indexOf('verify_mobile_backend.mjs prepare') < job.indexOf('uses: subosito/flutter-action'));
   assert(job.includes('verify_mobile_backend.mjs test'));
@@ -91,7 +92,7 @@ test('mobile-first compatibility runs only for selected mobile without a server 
 });
 
 test('validation has no workflow-wide queue while production writes remain serialized', () => {
-  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  const workflow = readFileSync('tool/release/fixtures/retired-workflows/firebase-hosting-merge.yml', 'utf8');
   assert(!/^concurrency:/m.test(workflow));
   const production = workflow.slice(workflow.indexOf('  firebase_production:'));
   assert.match(production, /    concurrency:\n      group: firebase-production\n      cancel-in-progress: false/);
@@ -141,7 +142,7 @@ test('explicit CI skip omits heavy jobs while preserving the selected web build'
       assert.equal(evaluate(jobCondition(file, 'smoke_inputs'), values), validation_mode === 'skipped' && ['backend', 'rules', 'full'].includes(scope));
     }
   }
-  const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
+  const workflow = readFileSync(`tool/release/fixtures/retired-workflows/${file}`, 'utf8');
   assert.match(workflow, /skip_ci:\n(?:[^\n]+\n)*?        type: boolean\n        default: false/);
   assert.match(workflow, /name: release-validation-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
   assert.match(workflow, /path: build\/release\/validation\/release.json/);
@@ -154,7 +155,7 @@ test('explicit CI skip omits heavy jobs while preserving the selected web build'
 });
 
 test('skipped backend CI exports current smoke payloads and validates them before production writes', () => {
-  const workflow = readFileSync('.github/workflows/firebase-hosting-merge.yml', 'utf8');
+  const workflow = readFileSync('tool/release/fixtures/retired-workflows/firebase-hosting-merge.yml', 'utf8');
   const inputs = workflow.slice(workflow.indexOf('  smoke_inputs:'), workflow.indexOf('  firebase_required:'));
   assert(inputs.includes('flutter test tool/export_workout_save_fixtures_test.dart tool/export_app_contracts_test.dart'));
   assert(inputs.includes('node tool/firebase/smoke-inputs.mjs prepare'));

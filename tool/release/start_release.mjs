@@ -86,31 +86,6 @@ async function githubRequest(path, {method = 'GET', body} = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    const env = process.env;
-    assert(env.GITHUB_TOKEN, 'The workflow GITHUB_TOKEN is required');
-    const inputs = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')).inputs ?? {};
-    assert(inputs.scope === undefined, 'Use deploy_server, deploy_web and deploy_mobile instead of scope');
-    const plan = releaseStartPlan({tag: inputs.tag,
-      server: booleanInput(inputs.deploy_server, 'deploy_server'),
-      web: booleanInput(inputs.deploy_web, 'deploy_web'),
-      mobile: booleanInput(inputs.deploy_mobile, 'deploy_mobile'),
-      skipCi: booleanInput(inputs.skip_ci, 'skip_ci'),
-      reason: inputs.skip_ci_reason || '', sourceSha: env.GITHUB_SHA, ref: env.GITHUB_REF,
-      eventName: env.GITHUB_EVENT_NAME, repository: env.GITHUB_REPOSITORY, actor: env.GITHUB_ACTOR,
-      runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT});
-    const receipt = await startRelease(plan, {request: githubRequest,
-      record: value => writeFileSync('release-start.json', `${JSON.stringify(value, null, 2)}\n`)});
-    const summary = `## Production release requested\n\nTag: \`${receipt.releaseTag}\`\n\nSource: \`${receipt.sourceSha}\`\n\n` +
-      `Targets: server=${receipt.targets.server}, web=${receipt.targets.web}, mobile=${receipt.targets.mobile}.\n\n` +
-      `Firebase scope: ${receipt.scope}; CI: ${receipt.skipCi ? 'SKIPPED (not passed)' : 'required (not yet verified)'}.\n\n` +
-      `Requested by: ${receipt.actor}. ${receipt.reason ? `Reason (JSON): ${JSON.stringify(receipt.reason)}` : ''}\n\n` +
-      'One Firebase release dispatch was accepted. Deployment and native upload results must be checked in their own runs.\n';
-    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, summary);
-    console.log(`Release dispatch accepted: ${receipt.releaseTag} at ${receipt.sourceSha}`);
-  } catch (error) {
-    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Release start did not complete\n\n${error.message}\n`);
-    console.error(error.message);
-    process.exitCode = 1;
-  }
+  console.error('Actions release dispatch is retired. Use node tool/release/direct.mjs with a fixed source commit and explicit scope.');
+  process.exitCode = 1;
 }

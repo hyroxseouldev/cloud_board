@@ -1,17 +1,16 @@
+// Historical workflow fixtures retain legacy release/receipt contract coverage.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const workflow = readFileSync(new URL('../../.github/workflows/app-update-news.yml', import.meta.url), 'utf8');
 
-test('news runs only for production completion or explicit recovery, without duplicate test jobs', () => {
+test('news keeps manual direct receipt and historical run publishing without retired workflow hooks', () => {
   assert.match(workflow, /^  workflow_dispatch:/m);
-  assert.match(workflow, /^  workflow_run:/m);
-  assert.match(workflow, /types: \[completed\]\s+branches: \[main, 'v\*'\]/);
-  assert.doesNotMatch(workflow, /^  (pull_request|push|verify):/m);
+  assert.match(workflow, /direct_deployment_id:/);
+  assert.match(workflow, /deployment_run_id:/);
+  assert.doesNotMatch(workflow, /^  (workflow_run|pull_request|push|verify):/m);
   assert.doesNotMatch(workflow, /node --test/);
-  const release = readFileSync(new URL('../../.github/workflows/firebase-hosting-merge.yml', import.meta.url), 'utf8');
-  assert.match(release, /node --test tool\/update-news\/\*\.test\.mjs/);
 });
 
 test('publication keeps actual-step evidence and conditional runtime dependencies after removing self-tests', () => {

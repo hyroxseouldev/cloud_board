@@ -76,7 +76,9 @@ function currentValidation(id = identity()) {
   const validation = validateReleaseValidation(readJson(releaseValidationFile), {sourceSha: id.sha,
     releaseTag: process.env.RELEASE_TAG || '', runId: id.runId, runAttempt: id.attempt, validationMode: mode});
   if (mode === 'skipped') {
-    assert.equal(process.env.GITHUB_EVENT_NAME, 'workflow_dispatch', 'CI skip requires an explicit manual dispatch');
+    assert(process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' ||
+      (process.env.GITHUB_EVENT_NAME === 'direct_cli' && process.env.CLOUDBOARD_DIRECT_RELEASE === 'true'),
+      'CI skip requires an explicit manual dispatch or direct CLI execution');
     assert.equal(process.env.GITHUB_REF, `refs/tags/${validation.releaseTag}`, 'CI skip requires its release tag ref');
     assert(['web', 'rules', 'backend', 'full'].includes(deploymentScope()), 'Validation-only runs cannot skip CI');
   }
@@ -263,9 +265,14 @@ export async function requireNoRollback({repository, sha, ref, tag, request, rea
   }
 }
 export async function github(path, {method = 'GET', body} = {}) {
-  assert(process.env.GITHUB_TOKEN, 'GitHub token required');
+  if (!process.env.GITHUB_TOKEN) {
+    try {
+      return JSON.parse(execFileSync('gh', ['api', path, '--method', method, ...(body ? ['--input', '-'] : [])],
+        {input: body ? JSON.stringify(body) : undefined, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']}));
+    } catch { throw new Error('GitHub request failed; check local gh authentication and repository permissions'); }
+  }
   const response = await fetch(`https://api.github.com${path}`, {method,
-    headers: {Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
+    headers: {Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(body ? {'Content-Type': 'application/json'} : {})},
     body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(30_000)});
   if (!response.ok) throw new Error(`GitHub request failed (${response.status})`);
   return response.json();

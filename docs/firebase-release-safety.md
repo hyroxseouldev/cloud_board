@@ -1,3 +1,5 @@
+> Current release entrypoint: [fixed-source direct CLI](operations/direct-release/README.md). Build/deploy Actions are retired in this change; the workflow-specific procedure below is historical reference. Production source, signing, compatibility and actual-result evidence requirements remain. Required-check migration is a separate administrator action.
+
 # Firebase release safety
 
 Feature work is developed and reviewed against `develop`, then integrated into
