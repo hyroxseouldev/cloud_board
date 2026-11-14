@@ -13,10 +13,80 @@ import 'dart:ui' show Tristate;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shadcn_ui/shadcn_ui.dart' as shad;
 
 import 'support/main_navigation_fixture.dart';
 
 void main() {
+  test('dock destinations match exact roots only', () {
+    for (final destination in MainDestination.values) {
+      expect(MainDestination.forPath(destination.path), destination);
+    }
+    for (final path in [
+      '/editor/new',
+      '/workouts/id/prepare',
+      '/player/id',
+      '/slides/detail',
+      '/displays/id',
+      '/more/help',
+      '/unknown',
+    ]) {
+      expect(MainDestination.forPath(path), isNull);
+    }
+  });
+
+  testWidgets('keyboard focus and activation dispatch only explicit actions', (
+    tester,
+  ) async {
+    final selections = <MainDestination>[];
+    final semantics = tester.ensureSemantics();
+    Future<void> mount(MainDestination selected) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: MainNavigationDock(
+            selected: selected,
+            onSelected: selections.add,
+          ),
+        ),
+      ),
+    );
+    await mount(MainDestination.home);
+    expect(selections, isEmpty);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    final home = tester.getSemantics(find.bySemanticsLabel('홈'));
+    expect(home.getSemanticsData().flagsCollection.isFocused, Tristate.isTrue);
+    expect(home.getSemanticsData().flagsCollection.isButton, isTrue);
+    final focusedDecorators = tester.widgetList<shad.ShadDecorator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('main-tab-home')),
+        matching: find.byType(shad.ShadDecorator),
+      ),
+    );
+    expect(focusedDecorators.any((widget) => widget.focused), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selections, [MainDestination.home]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(selections, [MainDestination.home, MainDestination.library]);
+    await mount(MainDestination.library);
+    await tester.pumpAndSettle();
+    expect(
+      selections.length,
+      2,
+    ); // Selection rebuild never triggers navigation.
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('라이브러리'))
+          .getSemanticsData()
+          .flagsCollection
+          .isSelected,
+      Tristate.isTrue,
+    );
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
+
   for (final accessible in [false, true]) {
     testWidgets(
       'dock respects reduced motion and still selects immediately: accessible=$accessible',
@@ -56,7 +126,7 @@ void main() {
       final data = await mountNavigation(tester, active: false, count: 30);
       await tester.tap(find.byTooltip('검색'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'HYROX');
+      await tester.enterText(find.byType(EditableText), 'HYROX');
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.drag(
         find.byKey(const ValueKey('workout-scroll')),
@@ -79,7 +149,7 @@ void main() {
       );
       await tester.tap(find.text('워크아웃').last);
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '토요일');
+      await tester.enterText(find.byType(EditableText), '토요일');
       FocusManager.instance.primaryFocus?.unfocus();
       await selectTab(tester, 'displays');
       await selectTab(tester, 'more');
@@ -89,7 +159,7 @@ void main() {
         same(homeElement),
       );
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
         'HYROX',
       );
       expect(scroll.offset, closeTo(offset, 1));
@@ -97,7 +167,7 @@ void main() {
       expect(scroll.offset, closeTo(offset, 1));
       await selectTab(tester, 'library');
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
         '토요일',
       );
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
@@ -203,7 +273,7 @@ void main() {
   navigationTest('account switch clears mounted tab filters', (tester) async {
     final data = await mountNavigation(tester, active: false);
     await selectTab(tester, 'library');
-    await tester.enterText(find.byType(TextField), '다른 계정에 남으면 안 됨');
+    await tester.enterText(find.byType(EditableText), '다른 계정에 남으면 안 됨');
     FocusManager.instance.primaryFocus?.unfocus();
     await selectTab(tester, 'more');
     data.users.add(
@@ -212,7 +282,7 @@ void main() {
     await tester.pumpAndSettle();
     await selectTab(tester, 'library');
     expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
       isEmpty,
     );
     expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
@@ -313,6 +383,7 @@ Future<NavigationPreviewData> mountNavigation(
   int count = 3,
   Size size = const Size(390, 844),
   double textScale = 1,
+  GlobalKey? captureKey,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -327,9 +398,12 @@ Future<NavigationPreviewData> mountNavigation(
   final data = NavigationPreviewData(active: active, count: count);
   _mountedData.add(data);
   await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: data.container,
-      child: MainNavigationPreview(textScale: textScale),
+    RepaintBoundary(
+      key: captureKey,
+      child: UncontrolledProviderScope(
+        container: data.container,
+        child: MainNavigationPreview(textScale: textScale),
+      ),
     ),
   );
   await tester.pumpAndSettle();

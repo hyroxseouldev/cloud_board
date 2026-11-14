@@ -48,7 +48,7 @@ void main() {
     'one body per source revision, bounded cache, no cross-account bytes',
     () async {
       final calls = <String>[];
-      final a = HomeThumbnailCache((source) async {
+      final a = HomeThumbnailCache((source, {workoutId, updatedAt}) async {
         calls.add(source);
         return tinyImage();
       });
@@ -58,7 +58,7 @@ void main() {
       expect(calls, ['asset?v=7', 'asset?v=8']);
       a.dispose();
       expect(await a.load('asset?v=7'), isNull);
-      final b = HomeThumbnailCache((source) async {
+      final b = HomeThumbnailCache((source, {workoutId, updatedAt}) async {
         calls.add('account-b/$source');
         return tinyImage();
       });
@@ -70,7 +70,7 @@ void main() {
   test('failures settle to placeholder without retry loops and dispose cancels queued work', () async {
     var calls = 0;
     final gate = Completer<Uint8List?>();
-    final cache = HomeThumbnailCache((_) {
+    final cache = HomeThumbnailCache((_, {workoutId, updatedAt}) {
       calls++;
       return gate.future;
     });
@@ -83,7 +83,7 @@ void main() {
     expect(await two, isNull);
     expect(calls, 1);
     var failures = 0;
-    final failing = HomeThumbnailCache((_) async {
+    final failing = HomeThumbnailCache((_, {workoutId, updatedAt}) async {
       failures++;
       throw StateError('offline');
     });
@@ -95,7 +95,7 @@ void main() {
   test('cells leaving viewport cancel queued requests; managed clones share source', () async {
     final gate = Completer<Uint8List?>();
     final calls = <String>[];
-    final cache = HomeThumbnailCache((source) {
+    final cache = HomeThumbnailCache((source, {workoutId, updatedAt}) {
       calls.add(source);
       return gate.future;
     });
@@ -112,11 +112,117 @@ void main() {
     cache.dispose();
   });
 
+  test('legacy cache identity includes workout and revision, managed copies share generation', () async {
+    final calls = <(String, String?, DateTime?)>[];
+    final cache = HomeThumbnailCache((source, {workoutId, updatedAt}) async {
+      calls.add((source, workoutId, updatedAt));
+      return tinyImage();
+    });
+    final first = DateTime(2026);
+    final changed = first.add(const Duration(seconds: 1));
+    final a = cache.watch('legacy', first, workoutId: 'one');
+    final duplicate = cache.watch('legacy', first, workoutId: 'one');
+    expect(identical(a.future, duplicate.future), isTrue);
+    await a.future;
+    await cache.watch('legacy', first, workoutId: 'copy').future;
+    await cache.watch('legacy', changed, workoutId: 'one').future;
+    expect(calls.length, 3);
+    const managed = 'https://example.invalid/cloudboardMedia?assetId=a&v=1';
+    await cache.watch(managed, first, workoutId: 'one').future;
+    await cache.watch(managed, changed, workoutId: 'copy').future;
+    expect(calls.length, 4);
+    cache.dispose();
+  });
+
+  test(
+    'compressed cache stays at 32 entries and pending work stays bounded',
+    () async {
+      var calls = 0;
+      final cache = HomeThumbnailCache((_, {workoutId, updatedAt}) async {
+        calls++;
+        return tinyImage();
+      });
+      for (var i = 0; i < 33; i++) {
+        await cache.load('source-$i');
+      }
+      await cache.load('source-1');
+      expect(calls, 33);
+      await cache.load('source-0');
+      expect(calls, 34, reason: 'The oldest of 33 entries was evicted');
+      cache.dispose();
+      final gate = Completer<Uint8List?>();
+      var activeCalls = 0;
+      final bounded = HomeThumbnailCache((_, {workoutId, updatedAt}) {
+        activeCalls++;
+        return gate.future;
+      });
+      final pending = [for (var i = 0; i < 8; i++) bounded.load('source-$i')];
+      expect(await bounded.load('overflow'), isNull);
+      expect(activeCalls, 1);
+      gate.complete(tinyImage());
+      await Future.wait(pending);
+      expect(activeCalls, 8);
+      bounded.dispose();
+    },
+  );
+
+  testWidgets(
+    'covered route releases queued thumbnail work and resume can request it',
+    (tester) async {
+      final blocker = Completer<Uint8List?>();
+      final calls = <String>[];
+      final cache = HomeThumbnailCache((source, {workoutId, updatedAt}) {
+        calls.add(source);
+        return source == 'blocker' ? blocker.future : Future.value(tinyImage());
+      });
+      addTearDown(cache.dispose);
+      final first = cache.load('blocker');
+      Future<void> mount(bool active) => tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            homeThumbnailCacheProvider('owner').overrideWithValue(cache),
+          ],
+          child: MaterialApp(
+            home: TickerMode(
+              enabled: active,
+              child: Center(
+                child: HomeWorkoutThumbnail(
+                  ownerId: 'owner',
+                  workout: WorkoutSummary(
+                    id: 'w',
+                    name: 'class',
+                    folder: '',
+                    imageSource: 'queued',
+                    moduleCount: 1,
+                    durationSeconds: 30,
+                    updatedAt: DateTime(2026),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await mount(true);
+      await tester.pump();
+      await mount(false);
+      await tester.pump();
+      blocker.complete(tinyImage());
+      await first;
+      await tester.pumpAndSettle();
+      expect(calls, ['blocker']);
+      await mount(true);
+      await tester.pumpAndSettle();
+      expect(calls, ['blocker', 'queued']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'fixed image-only slot drops stale source and broken images gracefully',
     (tester) async {
       final cache = HomeThumbnailCache(
-        (source) async =>
+        (source, {workoutId, updatedAt}) async =>
             source == 'good' ? tinyImage() : Uint8List.fromList([1, 2, 3]),
       );
       addTearDown(cache.dispose);
@@ -151,7 +257,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getSize(find.byType(HomeWorkoutThumbnail)),
-        const Size(56, 56),
+        const Size(108, 60.75),
       );
       expect(find.byType(Image), findsOneWidget);
       expect(find.text('30'), findsNothing);
