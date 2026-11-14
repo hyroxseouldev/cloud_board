@@ -6,7 +6,7 @@
 - clean Orca worktree: `/Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux`
 - 기준 develop: `1f9cb6b49898e63de2dc30680252d159036fedac` (구현 후 fetch로 동일함 확인)
 - 실제 최종 코드 검사 커밋: `7c194a0a2456989eb89f897c5de02742af035bc7`
-- PR 인계 head는 PR 본문의 `검증한 커밋:`으로 기록한다. 코드 커밋 이후 Flutter 실행 코드 변경은 없다. 문서·검증 로그·fixture 캡처와 후속 표시 버전/소식 후보 메타데이터 변경을 포함하며, 버전 일치 검사는 아래 후속 기록의 커밋에서 별도 수행했다.
+- PR 인계 head는 PR 본문의 `검증한 커밋:`으로 기록한다. 코드 커밋 이후 Flutter 실행 코드 변경은 없다. 문서·검증 로그·fixture 캡처, 후속 표시 버전/소식 후보 메타데이터 및 캡처 fixture 글자 배율 적용 보정을 포함하며, 버전 일치 검사는 아래 후속 기록의 커밋에서 별도 수행했다.
 - 원본 기획: `/Users/sunmkim/Dev2026/CloudBoard/report/output/preparation-performance-2026-11-14/astra-analysis.json`의 `latency_plan`.
 - 구현·관련 검증 완료. develop/main 병합·배포 미실행. 원래 dirty develop checkout, 타이모, CI 설정, 서버, TV protocol, 캐시/압축/전송 정책은 수정하지 않았다. 최초 UX 검증의 표시 버전은 `2.1.5+9`였으며, 이후 사용자 지시로 `2.1.6+10` 기점 변경을 추가했다(아래 후속 기록).
 
@@ -102,3 +102,6 @@ git diff 1f9cb6b HEAD --name-only -- '*.dart' | xargs /Users/sunmkim/fvm/version
 - `node tool/release/play_version_code.mjs --version-name`: **2.1.6**, exit 0. 읽기 전용 버전 추출이며 번호 예약·네트워크·태그 생성 없음.
 - `git diff --check`: 통과. Flutter 실행 코드·의존성·lockfile에 변경이 없어 앞선 관련 검증을 재사용했으며 전체 회귀/빌드는 재실행하지 않았다.
 - `.github/workflows`, `tool/release`, Firebase 문서는 읽기만 했고 수정하지 않았다. 별도 담당과 경로 충돌 없음. 태그·배포·소식 게시·스토어 빌드/업로드 미실행.
+
+
+후속 증거 점검에서 preview fixture의 `scale` 인자가 실제 `MediaQuery.textScaler`에 전달되지 않은 점을 발견해 보정했다. 검사 커밋 `6497872f16e1058a853c45e9021ef6805a2c7ac4`에서 `/Users/sunmkim/fvm/versions/3.47.8/bin/flutter test --no-pub --dart-define=STA190_EVIDENCE=/tmp/preparation-speed-ux-evidence test/workout_preflight_dialog_test.dart --plain-name 'narrow scaled preview'` **1 passed**, exit 0이며 실제 320×568/1.3배의 시작·재시도 접근을 확인하고 `remote-narrow-scaled.png`를 교체했다. 최초 47개 배치의 해당 fixture는 배율 1.0이었으며, 1.3배 근거는 이 후속 결과다. 앱 실행 코드 변경은 없다.
