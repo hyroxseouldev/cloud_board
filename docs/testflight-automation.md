@@ -24,17 +24,57 @@ app ID, Google client ID 및 reverse client ID 일치를 확인했다. 개발 Au
 Google 제공자도 활성화되어 있다. 이 설정 검증은 실기기의 Google 본인인증
 완료를 의미하지 않는다.
 
-**준비와 업로드 상태는 별개다.** 내부 브라우저에서 ASC 개발 앱
-[`6834676780`](https://appstoreconnect.apple.com/apps/6834676780/testflight/ios)을
-생성하고 공식 API로 이름·bundle·SKU·한국어 기본 언어를 다시 확인했다. 새 앱에
-기존 그룹이 없어 `CloudBoard Dev Internal` 내부 그룹을 만들었다. 이 시점의 빌드 수는
-0이며 테스터 추가·외부 초대·심사 제출은 하지 않았다. 최종 통합 2.1.6 소스의
-archive·IPA 검증·업로드·Apple processing 및 내부 TestFlight 접근 확인은 미실행이다.
-등록·프로필·인증서·제출 API 접근 준비 확인 뒤 `testflight` Environment의
-`MOBILE_DEVELOPMENT_READY=true`를 설정했다. 이는 실제 업로드 성공 기록이 아니다. 기존 개발 Firebase 계정과
-수업은 보존한다. StationD의 명시적 `시뮬레이션` 수업 1개(5모듈, PNG 4개,
-591,573바이트)는 읽기와 메타데이터 확인만 마쳤고, 개발 서버의 새 이미지 API
-배포 후 별도 개발 소유 수업·객체·manifest로 복사하고 다시 읽어 검증해야 한다.
+**실제 업로드·처리 결과 (2026-11-14).** ASC 개발 앱
+[`6834676780`](https://appstoreconnect.apple.com/apps/6834676780/testflight/ios)의
+`2.1.6 (1)`을 고정 통합 소스 `ff1eb303332c9f532ccf84124d8e28223565033e`에서
+직접 CLI로 빌드·서명·업로드했다. pubspec의 `2.1.6+10`과 별개로 새 개발 앱의
+실제 ASC 이력에서 독립 할당한 첫 빌드 번호는 `1`이다.
+
+- 직접 배포 영수증: `1794634534029534`, CLI exit 0, 모든 단계 success.
+- Apple delivery/build ID: `44e5be44-ad24-4f16-aa98-aebb0f4fb668`.
+- Apple processing: `VALID`, 내부 빌드 상태: `IN_BETA_TESTING`.
+- `CloudBoard Dev Internal`: 빌드 1개와 기존 계정 소유자 내부 테스터 1명 연결.
+  본인의 Timo 개발 앱 설치 이력을 대조하여 재사용했으며, 새 앱의 상태는 `INVITED`이다.
+  본인 Apple 계정으로 TestFlight 초대를 수락하고 `CloudBoard Dev`를 설치한다.
+- 실제 IPA에서 앱·ClassActivity 확장의 `.dev` ID, 팀, 배포 서명,
+  Apple 로그인 권한, `get-task-allow=false`, 개발 Firebase 네이티브/Dart 연결을 확인했다.
+- IPA SHA-256: `5c6440ed88e9e3a7fb74fd507326d2426528f13c7fcf11c8abe3a6f568001037`.
+
+등록·서명·제출 API 준비 확인 뒤 `testflight` Environment의
+`MOBILE_DEVELOPMENT_READY=true`를 설정했다. 외부 테스터·외부 심사·스토어 심사·공개
+출시는 진행하지 않았다. 실제 iPhone TestFlight 설치와 iOS Google 로그인,
+실제 TV에서의 전체 수업은 미실행이며 위 API/서명 검증과 구분한다.
+같은 `ff1eb303`의 `Debug-development` 빌드는 기존에 켜진 iPhone 17 / iOS 26.2
+시뮬레이터 한 대에 설치·실행하여 로그인 화면과 Apple/Google 버튼을 확인했다.
+설치된 bundle·표시명·버전·Firebase project/app ID도 다시 읽어 일치함을 확인했다.
+시뮬레이터는 인증하지 않았으며 TestFlight 배포 바이너리 검증을 대체하지 않는다.
+
+개발 Firebase의 요청된 Google 계정은 이미 존재하여 그대로 재사용했다.
+정상 Google 로그인 후 개발 웹의 프로필에서 이메일 일치를 확인하고, 그 세션의
+공식 Firebase SDK로 새 수업의 업로드·저장·재조회를 실행했다. 기존 Auth provider,
+verified 값, claims, 수업 5개와 템플릿 3개, activeSession/usageGate/brand는
+전후 동일함을 확인했다. 계정은 `legacy`를 유지하며 전체 자산의
+`inventoryComplete` 또는 계정 전체 enforcement 완료를 주장하지 않는다.
+
+StationD의 명시적 `시뮬레이션` 한 수업을 새 개발 소유 수업
+`StationD 시뮬레이션 · 개발 테스트` (`stationd_sim_ed24f0aa0811490f`)로 복사했다.
+5개 모듈이 공유하는 PNG는 3개, 합계 555,131바이트이다. 초기 메타데이터의
+4개/591,573바이트에는 원작성자 프로필 사진이 포함되어 있었으며, 이 사진은 복사하지 않았다.
+새 수업·모듈 ID와 개발 작성자를 사용하고 작성자 사진을 비웠다.
+
+정상 이미지 reserve/body/manifest와 `saveWorkout` callable을 거쳤으며,
+인증된 Firestore GET 200 및 preview lease를 사용한 이미지 3개 GET 200,
+크기·SHA-256·개발 소유권·token-free Storage metadata를 확인했다.
+수업 100,000,000바이트 제한을 통과했고 새 이미지에 대한 ledger의 사용량은 555,131바이트,
+예약·불명 사용량은 각각 0이다. 운영 URL·token·작성자 UID·세션은 재사용하지 않았다.
+
+최초 웹 body 업로드는 개발 CORS origin 설정 누락으로 차단되어 해당 예약을 정상 취소했다.
+개발 Hosting의 정확한 두 origin만 허용한 선택 배포 `1794635011784214` 이후
+동일 Google 세션에서 전체 업로드·읽기를 검증했다. 확인한 revision은
+`cloudboardimageuploadbody-00002-ric`, `cloudboardmedia-00002-jon`이다.
+기존 backend 실제 배포는 `d7c707b5`의 `1794632812372450`이며 그 영수증 실패는
+별도 provider reconciliation으로 기록했다. rules `1794634099135363`과 CORS는
+`ff1eb303` 기준이다. 문서 후속 커밋은 바이너리·서버 소스를 바꾸지 않으며 재빌드하지 않는다.
 
 아래 GitHub 경로의 실제 실행 조건은 현재 워크플로를 기준으로 확인한다.
 로컬 개발 배포의 고정 source SHA·준비 검사·영수증 절차는
@@ -66,7 +106,7 @@ Firebase 수동 태그 릴리즈의 생략 기록을 받아 자동으로 이어�
 
 QA와 release는 기존 `testflight` GitHub 환경의 Apple 계정 인증을 사용할 수 있지만 앱 ID,
 빌드 번호와 업로드 동시 실행 그룹은 앱별로 분리한다. 개발 Firebase SDK 설정은 기존에 존재하며,
-`.dev`의 App Store Connect 등록·서명·업로드 준비 여부는 아직 확인되지 않았다.
+`.dev`의 App Store Connect 등록·서명·업로드는 위 실제 개발 배포 기록에서 확인했다.
 QA IPA는 개발 Firebase, release IPA는 운영 Firebase의 네이티브 SDK와 Dart 설정에 연결됐는지 검사한다.
 개발 QA는 운영 설치 클라이언트 계약 추적과 공개 소식에서 제외하며, 과거 실제 운영 Firebase 연결 QA 기록은 계속 추적한다.
 개발·운영 앱은 별도 앱 ID의 기존 샌드박스를 사용한다.
