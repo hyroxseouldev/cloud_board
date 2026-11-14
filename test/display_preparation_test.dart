@@ -66,6 +66,44 @@ DisplayPreparationProof proof(DisplayPreparation r) => DisplayPreparationProof(
 );
 
 void main() {
+  testWidgets(
+    'independent final evidence reads overlap; server clock remains last',
+    (tester) async {
+      final candidate = request();
+      final reads = <String>[];
+      final repository = _Preparation()
+        ..readRequest = () async {
+          reads.add('request');
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+          return candidate;
+        }
+        ..readReceipts = () async {
+          reads.add('receipts');
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+          return {'tv': receipt(candidate)};
+        };
+      var done = false;
+      final verification = DisplayPreparationActions(
+        repository,
+        _Devices([device('tv')]),
+        serverNow: () async {
+          reads.add('clock');
+          return now;
+        },
+      ).verifyStart(workout, ['tv'], proof(candidate)).then((_) => done = true);
+      await tester.pump();
+      expect(reads, ['request', 'receipts']);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(done, isFalse);
+      expect(reads, ['request', 'receipts']);
+      await tester.pump(const Duration(milliseconds: 200));
+      await verification;
+      expect(done, isTrue);
+      expect(reads, ['request', 'receipts', 'clock']);
+      // Fake matched I/O: sequential=600+400ms, parallel=max(600,400)=600ms.
+    },
+  );
+
   test(
     'image and audio preparation overlap and both must finish before ready',
     () async {
@@ -459,11 +497,15 @@ class _Devices implements DevicePairingRepository {
 
 class _Preparation implements DisplayPreparationRepository {
   DisplayPreparation? value;
+  Future<DisplayPreparation?> Function()? readRequest;
+  Future<Map<String, DisplayPreparationReceipt>> Function()? readReceipts;
   Map<String, DisplayPreparationReceipt> acks = {};
   @override
-  Future<DisplayPreparation?> current() async => value;
+  Future<DisplayPreparation?> current() async =>
+      readRequest == null ? value : await readRequest!();
   @override
-  Future<Map<String, DisplayPreparationReceipt>> receipts() async => acks;
+  Future<Map<String, DisplayPreparationReceipt>> receipts() async =>
+      readReceipts == null ? acks : await readReceipts!();
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

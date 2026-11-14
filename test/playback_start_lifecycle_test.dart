@@ -1,6 +1,9 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
@@ -108,6 +111,10 @@ void main() {
         PlaybackStatus.completed,
       );
       expect(h.receiptEvents, isEmpty);
+      expect(
+        h.container.read(playbackStartProgressProvider),
+        '시작 승인 완료 · TV 응답 확인 중',
+      );
 
       // Publish the new session first. The old display receipts must neither
       // satisfy nor cancel the new start's receipt observer.
@@ -126,6 +133,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(h.receiptEvents, hasLength(_targets.length));
+      expect(h.container.read(playbackStartProgressProvider), isNull);
       expect(
         h.receiptEvents.every(
           (event) =>
@@ -232,6 +240,71 @@ void main() {
       },
     );
   }
+  testWidgets(
+    'start commits while preview is pending and late failure cannot stop or restart it',
+    (tester) async {
+      final preview = Completer<int>();
+      final h = await _Harness.create(
+        previewLoader: (context, sources, {isCancelled}) => preview.future,
+      );
+      addTearDown(h.dispose);
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const WorkoutListScreen()),
+          GoRoute(
+            path: '/player/:id',
+            builder: (_, _) => const Scaffold(body: Text('진행 중 수업')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: h.container,
+          child: MaterialApp.router(
+            theme: XonTheme.light,
+            routerConfig: router,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('재생').first);
+      await tester.pumpAndSettle();
+      final start = find.widgetWithText(FilledButton, '수업 시작');
+      expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+      expect(preview.isCompleted, isFalse);
+      h.preferences.gate = Completer<void>();
+      await tester.tap(start);
+      await tester.pump();
+      expect(
+        h.container.read(playbackStartProgressProvider),
+        '최신 수업 설정·이용 상태 확인 중',
+      );
+      expect(h.repository.starts, 0);
+      h.preferences.gate!.complete();
+      await tester.pumpAndSettle();
+      expect(h.repository.starts, 1);
+      final active = h.repository.session;
+      expect(active?.status, PlaybackStatus.playing);
+      expect(find.text('진행 중 수업'), findsOneWidget);
+      preview.completeError(StateError('late preview decode failure'));
+      await tester.pumpAndSettle();
+      expect(h.repository.starts, 1);
+      expect(h.repository.session, same(active));
+      expect(
+        h.container.read(playbackActionControllerProvider).hasError,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await h.dispose();
+    },
+  );
+
   for (final delayed in ['preferences', 'device']) {
     test(
       'real generated start survives delayed $delayed across disposal frames',
@@ -461,7 +534,10 @@ class _Harness {
   late final ProviderContainer container;
   late DisplayPreparationProof proof;
   Completer<void>? deviceGate;
-  static Future<_Harness> create({bool captureReceipts = false}) async {
+  static Future<_Harness> create({
+    bool captureReceipts = false,
+    PreflightImageLoader? previewLoader,
+  }) async {
     final h = _Harness();
     h.preparation = _Preparation();
     h.repository = _Playback(h.devices);
@@ -472,12 +548,22 @@ class _Harness {
     );
     h.container = ProviderContainer(
       overrides: [
-        imageUsageSourceProvider.overrideWith((_) => ImageUsageDataSource(
-          projectId: 'demo-legacy-playback', actorId: 'owner', currentActorId: () => 'owner',
-          token: () async => 'fixture', readGate: () async => null,
-          call: (_, _) async => throw StateError('Legacy must not call admission'),
-          send: (_) async => throw StateError('No managed body in legacy fixture'),
-          preferences: SharedPreferences.getInstance)),
+        if (previewLoader != null)
+          preflightImageLoaderProvider.overrideWithValue(previewLoader),
+        imageUsageSourceProvider.overrideWith(
+          (_) => ImageUsageDataSource(
+            projectId: 'demo-legacy-playback',
+            actorId: 'owner',
+            currentActorId: () => 'owner',
+            token: () async => 'fixture',
+            readGate: () async => null,
+            call: (_, _) async =>
+                throw StateError('Legacy must not call admission'),
+            send: (_) async =>
+                throw StateError('No managed body in legacy fixture'),
+            preferences: SharedPreferences.getInstance,
+          ),
+        ),
         fixtureSavedSlideOrder,
         memoryWorkoutRecovery,
         if (captureReceipts)

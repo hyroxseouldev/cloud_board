@@ -1,3 +1,7 @@
+import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
+import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
+import 'package:cloud_board/src/app/core/widgets/preparation_stage_status.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/display_preparation_controller.dart';
@@ -17,6 +21,22 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/services/worko
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_metrics.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
+
+typedef PreflightImageLoader = Future<int> Function(
+  BuildContext context,
+  Iterable<String> sources, {
+  bool Function()? isCancelled,
+});
+final preflightImageLoaderProvider = Provider<PreflightImageLoader>(
+  (ref) => precacheWorkoutImages,
+);
+
+// Approval/lease failures never become a harmless preview warning. Transport or
+// decode failures are local to the preview; the final server gates still run.
+bool _blocksAccess(Object? error) =>
+    (error is ImageUsageFailure && error.reason != 'service_unavailable') ||
+    error is FirebaseException &&
+        const {'permission-denied', 'unauthenticated'}.contains(error.code);
 
 class WorkoutPreflightSelection {
   WorkoutPreflightSelection({
@@ -74,13 +94,9 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
                 fallback: '수업 설정을 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
               ),
             )
-          : const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(),
-                SizedBox(height: 12),
-                Text('최신 수업 설정을 확인하고 있어요.'),
-              ],
+          : PreparationStageStatus(
+              key: ValueKey(loading),
+              label: '최신 수업 설정 확인 중',
             ),
       actions: [
         TextButton(
@@ -97,13 +113,74 @@ class WorkoutPreflightDialog extends HookConsumerWidget {
   }
 }
 
-class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
+// Catch synchronous account/provider failures inside the provider boundary:
+// a Widget try/catch cannot handle a later ref.watch error notification.
+final _preflightScopeProvider =
+    Provider.autoDispose<AsyncValue<(Object, DisplayPreparationState)>>((ref) {
+      try {
+        final scope = ref.watch(imageUsageSourceProvider);
+        return AsyncData((
+          scope,
+          ref.watch(displayPreparationControllerProvider),
+        ));
+      } catch (error, stack) {
+        return AsyncError(error, stack);
+      }
+    });
+
+class _PreparedWorkoutPreflightDialog extends ConsumerWidget {
   const _PreparedWorkoutPreflightDialog({required this.workout});
   final Workout workout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final devices = ref.watch(displayDevicesProvider).value ?? const [];
+    final scope = ref.watch(_preflightScopeProvider);
+    final ready = scope.value;
+    if (ready != null) {
+      return _WorkoutReadinessDialog(
+        key: ObjectKey(ready.$1),
+        workout: workout,
+        accountScope: ready.$1,
+        preparation: ready.$2,
+      );
+    }
+    return AppAlertDialog(
+      title: const Text('수업 준비'),
+      content: Text(
+        workoutErrorMessage(
+          scope.error,
+          fallback: '계정 연결을 확인하지 못했어요. 현재 계정을 확인한 뒤 수업 준비를 다시 열어 주세요.',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PreviewWork {
+  bool cancelled = false;
+}
+
+class _WorkoutReadinessDialog extends HookConsumerWidget {
+  const _WorkoutReadinessDialog({
+    super.key,
+    required this.workout,
+    required this.accountScope,
+    required this.preparation,
+  });
+  final Workout workout;
+  final Object accountScope;
+  final DisplayPreparationState preparation;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final deviceState = ref.watch(displayDevicesProvider);
+    final devices = deviceState.value ?? const [];
     final nowMs =
         ref.watch(displayHealthNowProvider).value ??
         DateTime.now().millisecondsSinceEpoch;
@@ -117,65 +194,77 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
           .toSet(),
     );
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
-    final preparation = ref.watch(displayPreparationControllerProvider);
+    final selectingInitialTargets =
+        !initializedDeviceSelection.value && onlineDevices.isNotEmpty;
     final fingerprint = preparationFingerprint(
       workout,
       selectedDeviceIds.value,
     );
+    final approvalExpired =
+        preparation.admission != null &&
+        (preparation.admission!.status != 'preparing' ||
+            preparation.admission!.prepareExpiresAtMs <= nowMs);
     final currentApproval =
+        !deviceState.isLoading &&
+        !deviceState.hasError &&
+        !selectingInitialTargets &&
         preparation.accessChecked &&
         preparation.clientFingerprint == fingerprint &&
         (preparation.admission == null ||
             (preparation.admission!.status == 'preparing' &&
                 preparation.admission!.prepareExpiresAtMs > nowMs));
-    final imageCheck = useState<AsyncValue<int>>(const AsyncLoading());
+    final remote = selectedDeviceIds.value.isNotEmpty;
+    final previewRetry = useState(0);
+    final loader = ref.watch(preflightImageLoaderProvider);
     final readiness = evaluateWorkoutReadiness(workout);
+    final previewWork = useMemoized(_PreviewWork.new, [
+      accountScope,
+      workout,
+      fingerprint,
+      currentApproval,
+      preparation.admission?.admissionId,
+      preparation.request?.sessionId,
+      preparation.loading,
+      preparation.error,
+      previewRetry.value,
+      loader,
+    ]);
     useEffect(
-      () {
-        var cancelled = false;
-        final reporter = ref.read(errorReporterProvider);
-
-        Future<void> precacheAfterBuild() async {
-          if (cancelled ||
-              !context.mounted ||
-              !currentApproval ||
-              preparation.loading ||
-              preparation.error != null) {
-            return;
-          }
-          try {
-            final count = await precacheWorkoutImages(
-              context,
-              workoutImageWindow(workout, count: 2, includeCountdown: true),
-              isCancelled: () => cancelled,
-            );
-            if (!cancelled && context.mounted) {
-              imageCheck.value = AsyncData(count);
-            }
-          } catch (error, stack) {
-            reporter.capture(error, stack, action: 'workout.preflight.images');
-            if (!cancelled && context.mounted) {
-              imageCheck.value = AsyncError(error, stack);
-            }
-          }
-        }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          unawaited(precacheAfterBuild());
-        });
-
-        return () => cancelled = true;
-      },
-      [
-        workout.id,
-        workout.updatedAt,
-        currentApproval,
-        fingerprint,
-        preparation.admission?.admissionId,
-        preparation.loading,
-        preparation.error,
-      ],
+      () =>
+          () => previewWork.cancelled = true,
+      [previewWork],
     );
+    final preview = useMemoized(() {
+      if (!currentApproval ||
+          preparation.loading ||
+          preparation.error != null) {
+        return null;
+      }
+      return Future<int>.sync(() async {
+        await WidgetsBinding.instance.endOfFrame;
+        if (previewWork.cancelled || !context.mounted) return 0;
+        try {
+          return await loader(
+            context,
+            workoutImageWindow(workout, count: 2, includeCountdown: true),
+            isCancelled: () => previewWork.cancelled,
+          );
+        } catch (error, stack) {
+          if (!previewWork.cancelled) {
+            ref
+                .read(errorReporterProvider)
+                .capture(error, stack, action: 'workout.preflight.images');
+          }
+          Error.throwWithStackTrace(error, stack);
+        }
+      });
+    }, [previewWork]);
+    // Never keep a prior success while a different account/target/mode loads.
+    final imageCheck = useFuture(preview, preserveState: false);
+    final imageReady =
+        imageCheck.connectionState == ConnectionState.done &&
+        imageCheck.hasData;
+    final accessError = _blocksAccess(imageCheck.error);
 
     final onlineDeviceIds = onlineDevices.map((device) => device.id).toSet();
     final onlineDeviceSignature = onlineDeviceIds.toList()..sort();
@@ -202,20 +291,36 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
     final retry = useState(0);
     final signature = (selectedDeviceIds.value.toList()..sort()).join('|');
-    useEffect(() {
-      {
+    useEffect(
+      () {
+        if (deviceState.isLoading ||
+            deviceState.hasError ||
+            selectingInitialTargets) {
+          return null;
+        }
+        var cancelled = false;
+        final targets = selectedDeviceIds.value.toList();
         Future.microtask(() {
-          if (context.mounted) {
+          if (!cancelled && context.mounted) {
             unawaited(
               ref
                   .read(displayPreparationControllerProvider.notifier)
-                  .prepare(workout, selectedDeviceIds.value.toList()),
+                  .prepare(workout, targets),
             );
           }
         });
-      }
-      return null;
-    }, [workout, signature, retry.value]);
+        return () => cancelled = true;
+      },
+      [
+        accountScope,
+        workout,
+        signature,
+        retry.value,
+        deviceState.isLoading,
+        deviceState.hasError,
+        selectingInitialTargets,
+      ],
+    );
     final requiredProtocol = requiredTimingProtocol(workout);
     final matchingRequest = preparation.clientFingerprint == fingerprint
         ? preparation.request
@@ -238,7 +343,12 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
         readiness.isReady &&
         currentApproval &&
         preparation.error == null &&
-        imageCheck.value.hasValue &&
+        !preparation.loading &&
+        !deviceState.isLoading &&
+        !deviceState.hasError &&
+        !accessError &&
+        (remote || imageReady) &&
+        selected.length == selectedDeviceIds.value.length &&
         allPrepared;
 
     Future<void> start() async {
@@ -246,7 +356,9 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
         Navigator.of(context).pop(
           WorkoutPreflightSelection(
             targetDeviceIds: selectedDeviceIds.value,
-            localOnly: selectedDeviceIds.value.isEmpty && devices.isNotEmpty,
+            // Preserve the existing local-route vs empty-target server-session
+            // contract. Both zero-target cases still require controller images.
+            localOnly: !remote && devices.isNotEmpty,
             preparation: selected.isEmpty
                 ? null
                 : DisplayPreparationProof(
@@ -259,6 +371,54 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
         );
       }
     }
+
+    final previewSection = <Widget>[
+      if (remote) const Divider(),
+      if (imageCheck.hasError)
+        _CheckTile(
+          ok: false,
+          title: remote ? '미리보기를 불러오지 못했어요' : '이미지 준비 실패',
+          subtitle: accessError
+              ? '수업 이용 상태 확인이 필요해요.'
+              : remote
+              ? 'TV 준비와 이용 상태가 확인되면 수업을 시작할 수 있어요.'
+              : workoutErrorMessage(
+                  imageCheck.error,
+                  fallback:
+                      '이미지를 준비하지 못했습니다. 인터넷 연결과 슬라이드 이미지를 확인한 뒤 다시 시도해 주세요.',
+                ),
+        )
+      else if (imageReady)
+        _CheckTile(
+          ok: true,
+          title: remote ? '컨트롤러 미리보기 준비됨' : '이미지 준비 완료',
+          subtitle: '${imageCheck.data}개 이미지를 확인했습니다.',
+        )
+      else if (preparation.error != null ||
+          approvalExpired ||
+          deviceState.hasError)
+        const _CheckTile(
+          ok: false,
+          title: '이미지 이용 승인 대기',
+          subtitle: '수업 상태를 다시 확인한 뒤 이미지를 준비해요.',
+        )
+      else
+        PreparationStageStatus(
+          key: ValueKey(previewWork),
+          label: !currentApproval
+              ? '이미지 이용 승인 대기 중'
+              : remote
+              ? '컨트롤러 미리보기 불러오는 중'
+              : '시작 이미지 준비 중',
+          detail: remote ? 'TV 수업 시작과 별도로 준비해요.' : '시작 화면과 다음 슬라이드를 준비하고 있습니다.',
+        ),
+      if (imageCheck.hasError && !accessError)
+        TextButton(
+          onPressed: currentApproval ? () => previewRetry.value++ : null,
+          child: Text(remote ? '미리보기 다시 불러오기' : '시작 이미지 다시 불러오기'),
+        ),
+      if (remote) const Divider(),
+    ];
 
     return AppAlertDialog(
       scrollable: false,
@@ -277,9 +437,12 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
                     ? '총 수업 시간 ${workoutDurationText(workout)}'
                     : readiness.issues.join('\n'),
               ),
-              if (preparation.error != null && modern.isEmpty) ...[
+              if ((preparation.error != null ||
+                      accessError ||
+                      approvalExpired) &&
+                  modern.isEmpty) ...[
                 Text(
-                  preparation.error!,
+                  preparation.error ?? '최신 수업 이용 상태를 다시 확인해 주세요.',
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
                 TextButton(
@@ -287,26 +450,39 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
                   child: const Text('수업 상태 다시 확인'),
                 ),
               ],
-              imageCheck.value.when(
-                loading: () => const _CheckTile(
-                  ok: null,
-                  title: '시작 이미지 준비 중',
-                  subtitle: '시작 화면과 다음 슬라이드를 준비하고 있습니다.',
-                ),
-                error: (error, _) => _CheckTile(
+              if (approvalExpired)
+                const _CheckTile(
                   ok: false,
-                  title: '이미지 준비 실패',
+                  title: '수업 준비 승인을 다시 확인해 주세요',
+                  subtitle: '준비 시간이 만료되었거나 수업 상태가 변경됐어요.',
+                )
+              else if (deviceState.hasError)
+                const _CheckTile(
+                  ok: false,
+                  title: 'TV 목록 확인 실패',
+                  subtitle: '연결을 확인한 뒤 다시 시도해 주세요.',
+                )
+              else if (preparation.error == null &&
+                  (!currentApproval || preparation.loading))
+                PreparationStageStatus(
+                  key: ValueKey('$fingerprint-${retry.value}'),
+                  label: '최신 수업 설정·이용 상태 확인 중',
+                ),
+              if (accessError)
+                _CheckTile(
+                  ok: false,
+                  title: '이용 상태를 다시 확인해 주세요',
                   subtitle: workoutErrorMessage(
-                    error,
-                    fallback: '이미지를 준비하지 못했습니다. 인터넷 연결과 슬라이드 이미지를 확인한 뒤 수업 준비를 다시 열어 주세요.',
+                    imageCheck.error,
+                    fallback: '이미지 이용 승인을 확인하지 못했어요. 수업 상태를 다시 확인해 주세요.',
                   ),
                 ),
-                data: (count) => _CheckTile(
-                  ok: true,
-                  title: '이미지 준비 완료',
-                  subtitle: '$count개 이미지를 확인했습니다.',
+              if (deviceState.hasError)
+                TextButton(
+                  onPressed: () => ref.invalidate(displayDevicesProvider),
+                  child: const Text('TV 목록 다시 확인'),
                 ),
-              ),
+              if (!remote) ...previewSection,
               _CheckTile(
                 ok: onlineDevices.any((d) => d.recentlySeen(nowMs)),
                 title: !onlineDevices.any((d) => d.recentlySeen(nowMs))
@@ -316,7 +492,19 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
                     ? '이 기기에서만 재생합니다. TV에는 수업을 보내지 않아요.'
                     : '${selectedDeviceIds.value.length}대를 선택했습니다.',
               ),
+              if (selected.length > modern.length)
+                Text(
+                  '이미지 준비 상태 미지원 ${selected.length - modern.length}대 · 연결·재생 호환성으로 확인해요.',
+                ),
               if (modern.isNotEmpty) ...[
+                if (currentApproval &&
+                    modern.any(
+                      (d) => statusOf(d) == DisplayPreparationStatus.waiting,
+                    ))
+                  PreparationStageStatus(
+                    key: ValueKey(matchingRequest?.sessionId),
+                    label: '대상 TV의 실제 준비 상태 확인 중',
+                  ),
                 _CheckTile(
                   ok:
                       matchingRequest != null &&
@@ -324,7 +512,7 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
                         (d) => statusOf(d) == DisplayPreparationStatus.ready,
                       ),
                   title:
-                      'TV ${selected.length}대 중 ${modern.where((d) => statusOf(d) == DisplayPreparationStatus.ready).length}대 준비 완료',
+                      'TV ${modern.length}대 중 ${modern.where((d) => statusOf(d) == DisplayPreparationStatus.ready).length}대 준비 완료',
                   subtitle:
                       '${preparation.error ?? '선택한 수업의 이미지와 소리를 각 TV에서 확인해요.'}\n'
                       '준비되지 않은 TV는 체크를 해제하면 제외하고 수업을 시작할 수 있어요.',
@@ -390,6 +578,7 @@ class _PreparedWorkoutPreflightDialog extends HookConsumerWidget {
                   ),
                 ),
               ],
+              if (remote) ...previewSection,
             ],
           ),
         ),
@@ -424,23 +613,26 @@ class _CheckTile extends StatelessWidget {
   final String subtitle;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: ok == null
-        ? const CircularProgressIndicator()
-        : Icon(
-            ok! ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-            color: ok! ? Colors.green : Colors.orange,
-          ),
-    title: Text(title),
-    subtitle: Text(subtitle),
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: ok == null
+          ? const CircularProgressIndicator()
+          : Icon(
+              ok! ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+              color: ok! ? Colors.green : Colors.orange,
+            ),
+      title: Text(title),
+      subtitle: Text(subtitle),
+    ),
   );
 }
 
 String _preparationLabel(DisplayPreparationStatus status) => switch (status) {
   DisplayPreparationStatus.offline => '최근 응답 없음 · 연결 확인 또는 제외',
   DisplayPreparationStatus.updateRequired => '이 수업은 TV 업데이트가 필요해요',
-  DisplayPreparationStatus.legacy => '연결 및 재생 호환성 확인됨',
+  DisplayPreparationStatus.legacy => '연결 및 재생 호환성 확인됨 · 이미지 준비 상태 미지원',
   DisplayPreparationStatus.waiting => '이 수업의 이미지·소리 준비 중',
   DisplayPreparationStatus.failed => '자료 준비 실패 · 재시도 또는 제외',
   DisplayPreparationStatus.ready => '이 수업의 이미지·소리 준비 완료',

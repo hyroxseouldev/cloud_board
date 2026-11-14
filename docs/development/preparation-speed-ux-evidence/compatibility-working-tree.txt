@@ -1,0 +1,67 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart
+00:00 +0: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: slow remote preview is auxiliary; retry never prepares TVs or starts a class
+00:01 +1: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: zero targets use solo gate and stale remote preview cannot release it
+00:02 +2: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: pending TV still blocks with ready preview; legacy is not counted ready
+00:02 +3: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: managed preview transport failure stays auxiliary
+00:02 +4: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: narrow scaled preview keeps start and retry reachable
+00:02 +5: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: approval/lease refusal is not downgraded to preview error: 이미지 전송 한도에 도달해 새 수업을 시작할 수 없어요. 진행 중인 수업은 계속할 수 있어요. 사용량과 다음 이용 가능 시각을 확인해 주세요.
+00:03 +6: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: approval/lease refusal is not downgraded to preview error: 이용 권한을 확인하지 못했어요. 프로필의 이용 상태를 확인해 주세요.
+00:03 +7: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: approval/lease refusal is not downgraded to preview error: 수업 준비 시간이 만료됐어요. 수업 준비를 다시 확인해 주세요.
+00:03 +8: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: approval/lease refusal is not downgraded to preview error: 사용량 확인 실패. 연결을 확인하고 다시 시도해 주세요. 선택한 파일과 초안은 유지됩니다.
+00:03 +9: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: approval/lease refusal is not downgraded to preview error: [auth/permission-denied] null
+00:03 +10: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +11: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +12: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +13: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +14: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +15: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +16: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +17: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +18: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +19: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +20: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +21: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +22: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:04 +23: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:05 +24: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:05 +25: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: per-display menu opens only its recovery and silent stale heartbeat updates the list count
+00:05 +26: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: offline controller keeps its connection message
+00:05 +27: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: offline controller keeps its connection message
+00:05 +28: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +29: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +30: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +31: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +32: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +33: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +34: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +35: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +36: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +37: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +38: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +39: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +40: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: offline request never means success and repeated taps send one operation
+00:05 +41: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: 온라인 디스플레이 여러 대를 기본으로 모두 선택한다
+00:05 +42: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: 온라인 디스플레이 여러 대를 기본으로 모두 선택한다
+00:05 +43: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/workout_preflight_dialog_test.dart: 온라인 디스플레이 여러 대를 기본으로 모두 선택한다
+00:05 +44: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: expired and denied recovery explain field actions without raw exception data
+00:05 +45: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: expired and denied recovery explain field actions without raw exception data
+00:05 +46: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: expired and denied recovery explain field actions without raw exception data
+00:05 +47: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: expired and denied recovery explain field actions without raw exception data
+00:05 +48: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: expired and denied recovery explain field actions without raw exception data
+00:05 +49: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: expired and denied recovery explain field actions without raw exception data
+00:05 +50: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: foreground TV keeps real ticker, interval transitions and cues during disconnect and recovery
+00:05 +51: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: an account switch hides identity and ignores a delayed old-owner response
+00:05 +52: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: an account switch hides identity and ignores a delayed old-owner response
+00:05 +53: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: an account switch hides identity and ignores a delayed old-owner response
+00:05 +54: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: active TV cannot continue after raw permission-denied
+00:05 +55: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: unpaired device cannot retain a recovery action or success
+00:05 +56: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: unpaired device cannot retain a recovery action or success
+00:06 +57: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: unpaired device cannot retain a recovery action or success
+00:06 +58: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: active TV cannot continue after recovery unauthenticated
+00:06 +59: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_recovery_ui_test.dart: recovery controls remain reachable at Size(320.0, 568.0) and double text
+00:06 +60: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: real Display ACK effect never acknowledges its retained rendering value
+00:06 +61: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: real Display ACK effect never acknowledges its retained rendering value
+00:06 +62: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: offline class crosses every slide and stays completed after remount and stale recovery
+00:06 +63: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: offline paused remains at its manual boundary without a local completion
+00:06 +64: /Users/sunmkim/orca/workspaces/cloudboardapp/preparation-speed-ux/test/display_playback_continuity_test.dart: offline forTime remains at its manual boundary without a local completion
+00:06 +65: All tests passed!
