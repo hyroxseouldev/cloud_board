@@ -7,6 +7,9 @@ import 'package:cloud_board/src/app/feature/device/presentation/controllers/devi
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 
 import 'dart:ui' show Tristate;
 
@@ -16,8 +19,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart' as shad;
 
 import 'support/main_navigation_fixture.dart';
+import 'support/ui_layout_evidence.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test('dock destinations match exact roots only', () {
     for (final destination in MainDestination.values) {
       expect(MainDestination.forPath(destination.path), destination);
@@ -121,13 +126,20 @@ void main() {
   }
 
   navigationTest(
-    'tab switches preserve both searches, category and home scroll',
+    'search page returns to home state and tab switches preserve library search and category',
     (tester) async {
       final data = await mountNavigation(tester, active: false, count: 30);
-      await tester.tap(find.byTooltip('검색'));
+      await tester.tap(find.byKey(const ValueKey('home-layout-list')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(EditableText), 'HYROX');
-      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.tap(find.byTooltip('폴더 선택'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(shad.ShadOption<String>),
+          matching: find.text('Stationd'),
+        ),
+      );
+      await tester.pumpAndSettle();
       await tester.drag(
         find.byKey(const ValueKey('workout-scroll')),
         const Offset(0, -250),
@@ -139,9 +151,73 @@ void main() {
           )
           .controller!;
       final offset = scroll.offset;
+      expect(offset, greaterThan(0));
       final homeElement = tester.element(
         find.byKey(const ValueKey('workout-scroll')),
       );
+
+      await tester.tap(find.byTooltip('검색'));
+      await tester.pumpAndSettle();
+      expect(
+        GoRouterState.of(tester.element(find.byType(EditableText))).uri.path,
+        '/search',
+      );
+      expect(find.byType(MainNavigationDock), findsNothing);
+      expect(find.byKey(const ValueKey('create-workout')), findsNothing);
+      expect(find.text('모든 폴더'), findsOneWidget);
+      await tester.enterText(find.byType(EditableText), 'HYROX');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+        'HYROX',
+      );
+      expect(find.text('내 수업 10개'), findsOneWidget);
+      final searchScroll = tester
+          .widget<CustomScrollView>(
+            find.byKey(const ValueKey('workout-scroll')),
+          )
+          .controller!;
+      expect(searchScroll, isNot(same(scroll)));
+      await tester.drag(
+        find.byKey(const ValueKey('workout-scroll')),
+        const Offset(0, -400),
+      );
+      await tester.pumpAndSettle();
+      expect(searchScroll.offset, greaterThan(0));
+      expect(scroll.offset, closeTo(offset, 1));
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+
+      Future<void> expectHomeState() async {
+        expect(
+          tester.element(find.byKey(const ValueKey('workout-scroll'))),
+          same(homeElement),
+        );
+        expect(find.byType(EditableText), findsNothing);
+        expect(scroll.offset, closeTo(offset, 1));
+        expect(
+          data.container.read(homeWorkoutLayoutProvider),
+          HomeWorkoutLayout.list,
+        );
+        // Reveal the lazy header to assert its retained folder, then return to
+        // the original offset before the next navigation transition.
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byType(shad.ShadSelect<String>),
+            matching: find.text('Stationd'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('내 수업 15개'), findsOneWidget);
+        scroll.jumpTo(offset);
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.byType(MainNavigationDock), findsOneWidget);
+      await expectHomeState();
       await selectTab(tester, 'library');
       expect(
         find.byKey(const ValueKey('library-category-tabs')),
@@ -154,15 +230,7 @@ void main() {
       await selectTab(tester, 'displays');
       await selectTab(tester, 'more');
       await selectTab(tester, 'home');
-      expect(
-        tester.element(find.byKey(const ValueKey('workout-scroll'))),
-        same(homeElement),
-      );
-      expect(
-        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-        'HYROX',
-      );
-      expect(scroll.offset, closeTo(offset, 1));
+      await expectHomeState();
       await selectTab(tester, 'home');
       expect(scroll.offset, closeTo(offset, 1));
       await selectTab(tester, 'library');
@@ -173,6 +241,7 @@ void main() {
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
       expect(data.repository.loads, 1);
       expect(data.commands.transports, 0);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -299,11 +368,41 @@ void main() {
     navigationTest(
       'dock, mini player, safe area and keyboard at $size text $scale',
       (tester) async {
-        await mountNavigation(tester, size: size, textScale: scale);
+        await loadLayoutFonts(tester);
+        await tester.runAsync(
+          () =>
+              (FontLoader('packages/lucide_icons_flutter/Lucide')..addFont(
+                    rootBundle.load(
+                      'packages/lucide_icons_flutter/assets/lucide.ttf',
+                    ),
+                  ))
+                  .load(),
+        );
+        final previousShadows = debugDisableShadows;
+        debugDisableShadows = false;
+        addTearDown(() => debugDisableShadows = previousShadows);
+        final captureKey = GlobalKey();
+        await mountNavigation(
+          tester,
+          size: size,
+          textScale: scale,
+          captureKey: captureKey,
+        );
         tester.view.padding = const FakeViewPadding(bottom: 24);
         await tester.pumpAndSettle();
         final dock = find.byKey(const ValueKey('main-navigation-dock'));
         final mini = find.byKey(const ValueKey('mini-class-bar'));
+        await captureLayout(
+          tester,
+          find.byKey(captureKey),
+          'active-home-${size.width.toInt()}x${size.height.toInt()}-text$scale',
+        );
+        final fab = find.byKey(const ValueKey('create-workout'));
+        expect(fab.hitTestable(), findsOneWidget);
+        // The existing responsive theme enlarges the FAB on tablet/desktop.
+        expect(tester.getSize(fab).width, greaterThanOrEqualTo(48));
+        expect(tester.getSize(fab).height, greaterThanOrEqualTo(48));
+        expect(tester.getRect(fab).bottom, lessThan(tester.getRect(mini).top));
         expect(tester.getRect(mini).bottom, lessThan(tester.getRect(dock).top));
         expect(tester.getRect(dock).bottom, closeTo(size.height - 24 - 16, 1));
         expect(
@@ -328,6 +427,28 @@ void main() {
           expect(find.byTooltip('수업 재개').hitTestable(), findsOneWidget);
           expect(find.byTooltip('수업으로 돌아가기').hitTestable(), findsOneWidget);
         }
+        final scroll = tester
+            .widget<CustomScrollView>(
+              find.byKey(const ValueKey('workout-scroll')),
+            )
+            .controller!;
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        for (final action in ['재생', '워크아웃 메뉴']) {
+          final last = find.byTooltip(action).last;
+          expect(last.hitTestable(), findsOneWidget);
+          expect(
+            tester.getRect(last).bottom,
+            lessThan(tester.getRect(fab).top),
+          );
+        }
+        await captureLayout(
+          tester,
+          find.byKey(captureKey),
+          'active-home-${size.width.toInt()}x${size.height.toInt()}-text$scale-scrolled',
+        );
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
         final semantics = tester.ensureSemantics();
         for (final destination in MainDestination.values) {
           final tab = find.byKey(ValueKey('main-tab-${destination.name}'));
@@ -353,9 +474,54 @@ void main() {
         await selectTab(tester, 'library');
         await selectTab(tester, 'more');
         expect(tester.takeException(), isNull);
+        debugDisableShadows = previousShadows;
       },
     );
   }
+
+  navigationTest(
+    'single class actions remain reachable above FAB in both layouts',
+    (tester) async {
+      for (final scene in [
+        (const Size(390, 844), 1.0),
+        (const Size(844, 390), 1.0),
+        (const Size(320, 568), 2.0),
+      ]) {
+        await mountNavigation(
+          tester,
+          active: false,
+          count: 1,
+          size: scene.$1,
+          textScale: scene.$2,
+        );
+        final scroll = tester
+            .widget<CustomScrollView>(
+              find.byKey(const ValueKey('workout-scroll')),
+            )
+            .controller!;
+        for (final layout in ['grid', 'list']) {
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(ValueKey('home-layout-$layout')));
+          await tester.pumpAndSettle();
+          scroll.jumpTo(scroll.position.maxScrollExtent);
+          await tester.pumpAndSettle();
+          final fab = find.byKey(const ValueKey('create-workout'));
+          expect(fab.hitTestable(), findsOneWidget);
+          for (final action in ['재생', '워크아웃 메뉴']) {
+            final button = find.byTooltip(action);
+            expect(button.hitTestable(), findsOneWidget);
+            expect(
+              tester.getRect(button).bottom,
+              lessThan(tester.getRect(fab).top),
+            );
+          }
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
 
   navigationTest(
     'controller navigation hides when the device switches to display mode',

@@ -111,6 +111,9 @@ void main() {
             media.requests.clear();
             PaintingBinding.instance.imageCache.clear();
             PaintingBinding.instance.imageCache.clearLiveImages();
+            await tester.ensureVisible(find.byTooltip('재생').first);
+            await tester.pumpAndSettle();
+            expect(find.byTooltip('재생').first.hitTestable(), findsOneWidget);
             await tester.tap(find.byTooltip('재생').first);
             await tester.pumpAndSettle();
             expect(find.byType(MainNavigationDock), findsNothing);
@@ -297,6 +300,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('재생').first);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('재생').first.hitTestable(), findsOneWidget);
     await tester.tap(find.byTooltip('재생').first);
     await tester.pumpAndSettle();
     expect(enabled(tester), isFalse);
