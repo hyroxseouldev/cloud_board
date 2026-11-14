@@ -2394,6 +2394,11 @@
           "startedAt": "2026-11-14T20:00:33.994Z",
           "completedAt": "2026-11-14T20:00:38.541Z",
           "durationMs": 4547
+        },
+        {
+          "id": "function-targets",
+          "status": "running",
+          "startedAt": "2026-11-14T20:00:39.605Z"
         }
       ],
       "targets": [],
