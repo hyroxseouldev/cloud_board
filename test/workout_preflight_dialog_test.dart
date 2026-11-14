@@ -1,3 +1,6 @@
+import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/preparation_shadcn.dart';
+
 import 'support/ui_layout_evidence.dart';
 
 import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
@@ -44,6 +47,48 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
   testWidgets(
+    'shadcn scope stays on the preparation route and cancel is removed',
+    (tester) async {
+      await _previewHarness(
+        tester,
+        _PreparationRepository(),
+        (context, sources, {isCancelled}) async => 1,
+        onSelection: (_) {},
+      );
+      final root = tester.element(
+        find.byType(Scaffold, skipOffstage: false).first,
+      );
+      final materialTheme = Theme.of(root);
+      expect(shadcn.ShadTheme.maybeOf(root), isNull);
+      final start = tester.element(
+        find.byKey(const ValueKey('preparation-start')),
+      );
+      expect(
+        shadcn.ShadTheme.of(start).colorScheme.primary,
+        materialTheme.colorScheme.primary,
+      );
+      expect(shadcn.ShadTheme.of(start).textTheme.p.fontFamily, 'Pretendard');
+      expect(
+        start.findAncestorWidgetOfExactType<Theme>(),
+        same(root.findAncestorWidgetOfExactType<Theme>()),
+      );
+      expect(find.byType(shadcn.ShadApp), findsNothing);
+      expect(find.byType(Navigator), findsOneWidget);
+      expect(find.byType(shadcn.ShadCard), findsWidgets);
+      expect(find.byType(shadcn.ShadCheckbox), findsOneWidget);
+      expect(find.byType(shadcn.ShadBadge), findsWidgets);
+      expect(find.text('취소'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('preparation-back')));
+      await tester.pumpAndSettle();
+      expect(find.byType(PreparationShadcnScope), findsNothing);
+      expect(
+        Theme.of(tester.element(find.byType(Scaffold))),
+        same(materialTheme),
+      );
+    },
+  );
+
+  testWidgets(
     'TV edits stay local until one guarded apply and reuse the device subscription',
     (tester) async {
       final repository = _PreparationRepository()..allReady = true;
@@ -68,7 +113,7 @@ void main() {
       expect(subscriptions, 1);
       final first = repository.value;
       for (final index in [0, 1, 0, 1]) {
-        await tester.tap(find.byType(CheckboxListTile).at(index));
+        await tester.tap(find.byType(PreparationDeviceTile).at(index));
         await tester.pumpAndSettle();
         expect(repository.value, same(first));
         expect(repository.requests, 1);
@@ -79,7 +124,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '선택 적용'))
+            .widget<shadcn.ShadButton>(
+              find.widgetWithText(shadcn.ShadButton, '선택 적용'),
+            )
             .onPressed,
         isNull,
       );
@@ -88,7 +135,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.requests, 1);
       final apply = tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '선택 적용'))
+          .widget<shadcn.ShadButton>(
+            find.widgetWithText(shadcn.ShadButton, '선택 적용'),
+          )
           .onPressed!;
       apply();
       apply();
@@ -126,8 +175,10 @@ void main() {
         await _applySelection(tester);
         await tester.pumpAndSettle();
         expect(_startEnabled(tester), isTrue);
-        await tester.ensureVisible(find.widgetWithText(FilledButton, '수업 시작'));
-        await tester.tap(find.widgetWithText(FilledButton, '수업 시작'));
+        await tester.ensureVisible(
+          find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+        );
+        await tester.tap(find.widgetWithText(shadcn.ShadButton, '수업 시작'));
         await tester.pumpAndSettle();
         expect(selection, isNotNull);
         expect(selection!.targetDeviceIds, isEmpty);
@@ -314,7 +365,7 @@ void main() {
       expect(find.text('첫 운동'), findsOneWidget);
       expect(find.byType(WorkoutSlidePreview), findsNothing);
       expect(_startEnabled(tester), isFalse);
-      await tester.pageBack();
+      await tester.tap(find.byKey(const ValueKey('preparation-back')));
       await tester.pumpAndSettle();
       expect(await result, isNull);
       preferences.pending!.complete();
@@ -605,9 +656,11 @@ void main() {
         tester.widget<Scaffold>(find.byType(Scaffold).last).bottomNavigationBar,
         isNull,
       );
-      await tester.ensureVisible(find.widgetWithText(FilledButton, '수업 시작'));
+      await tester.ensureVisible(
+        find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+      );
       expect(
-        find.widgetWithText(FilledButton, '수업 시작').hitTestable(),
+        find.widgetWithText(shadcn.ShadButton, '수업 시작').hitTestable(),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
@@ -647,7 +700,9 @@ void main() {
         expect(find.text('이용 상태를 다시 확인해 주세요'), findsOneWidget);
         expect(
           tester
-              .widget<TextButton>(find.widgetWithText(TextButton, '이미지 보기'))
+              .widget<shadcn.ShadButton>(
+                find.widgetWithText(shadcn.ShadButton, '이미지 보기'),
+              )
               .onPressed,
           isNull,
         );
@@ -776,12 +831,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('구형 TV 화면을 직접 확인했어요'), findsNothing);
         expect(
-          find.byType(CheckboxListTile),
+          find.byType(PreparationDeviceTile),
           findsOneWidget,
           reason: 'Only the playback target remains selectable.',
         );
-        final start = find.widgetWithText(FilledButton, '수업 시작');
-        expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+        final start = find.widgetWithText(shadcn.ShadButton, '수업 시작');
+        expect(tester.widget<shadcn.ShadButton>(start).onPressed, isNotNull);
         await tester.ensureVisible(start);
         await tester.tap(start);
         await tester.pumpAndSettle();
@@ -948,16 +1003,18 @@ void main() {
     expect(find.textContaining('PRIVATE_REQUEST_ERROR'), findsNothing);
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+          .widget<shadcn.ShadButton>(
+            find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+          )
           .onPressed,
       isNull,
     );
     expect(
       tester
-          .widget<CheckboxListTile>(
-            find.widgetWithText(CheckboxListTile, 'TV a'),
+          .widget<PreparationDeviceTile>(
+            find.widgetWithText(PreparationDeviceTile, 'TV a'),
           )
-          .value,
+          .selected,
       isTrue,
     );
     repository.failRequest = false;
@@ -966,7 +1023,9 @@ void main() {
     expect(find.text('TV 이미지 준비 1/1대 완료'), findsOneWidget);
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+          .widget<shadcn.ShadButton>(
+            find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+          )
           .onPressed,
       isNotNull,
     );
@@ -1039,14 +1098,18 @@ void main() {
       expect(find.text('TV 이미지 준비 1/2대 완료'), findsOneWidget);
       expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+            .widget<shadcn.ShadButton>(
+              find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+            )
             .onPressed,
         isNull,
       );
       final first = repository.value!.sessionId;
       expect(
         tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'TV 준비 다시 확인'))
+            .widget<shadcn.ShadButton>(
+              find.widgetWithText(shadcn.ShadButton, 'TV 준비 다시 확인'),
+            )
             .onPressed,
         isNotNull,
       );
@@ -1056,12 +1119,14 @@ void main() {
       expect(repository.value!.sessionId, isNot(first));
       expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+            .widget<shadcn.ShadButton>(
+              find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+            )
             .onPressed,
         isNull,
       );
       final both = repository.value!.manifestHash;
-      final second = find.widgetWithText(CheckboxListTile, 'TV b');
+      final second = find.widgetWithText(PreparationDeviceTile, 'TV b');
       await tester.ensureVisible(second);
       await tester.tap(second);
       await tester.pump();
@@ -1074,12 +1139,16 @@ void main() {
       expect(find.text('TV 이미지 준비 1/1대 완료'), findsOneWidget);
       expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+            .widget<shadcn.ShadButton>(
+              find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+            )
             .onPressed,
         isNotNull,
       );
-      await tester.ensureVisible(find.widgetWithText(FilledButton, '수업 시작'));
-      await tester.tap(find.widgetWithText(FilledButton, '수업 시작'));
+      await tester.ensureVisible(
+        find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+      );
+      await tester.tap(find.widgetWithText(shadcn.ShadButton, '수업 시작'));
       await tester.pumpAndSettle();
       expect(selected!.targetDeviceIds, ['a']);
       expect(
@@ -1137,7 +1206,9 @@ void main() {
     expect(find.textContaining('FormatException'), findsNothing);
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+          .widget<shadcn.ShadButton>(
+            find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+          )
           .onPressed,
       isNull,
     );
@@ -1260,36 +1331,33 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final checkboxes = tester.widgetList<CheckboxListTile>(
+    final checkboxes = tester.widgetList<PreparationDeviceTile>(
       find.byWidgetPredicate(
         (w) =>
-            w is CheckboxListTile &&
-            (w.title is Text) &&
-            ['메인 TV', '보조 TV'].contains((w.title as Text).data),
+            w is PreparationDeviceTile && ['메인 TV', '보조 TV'].contains(w.name),
       ),
     );
     expect(checkboxes.length, 2);
-    expect(checkboxes.every((tile) => tile.value == true), isTrue);
+    expect(checkboxes.every((tile) => tile.selected == true), isTrue);
     expect(find.text('재생 TV · 2대 선택'), findsOneWidget);
 
-    await tester.ensureVisible(find.byType(CheckboxListTile).last);
+    await tester.ensureVisible(find.byType(PreparationDeviceTile).last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(CheckboxListTile).last);
+    await tester.tap(find.byType(PreparationDeviceTile).last);
     await tester.pump();
     expect(find.text('브리핑 미리보기'), findsNothing);
     expect(find.text('소리 테스트'), findsNothing);
     expect(find.text('재생 TV · 1대 선택'), findsOneWidget);
     expect(
       tester
-          .widgetList<CheckboxListTile>(
+          .widgetList<PreparationDeviceTile>(
             find.byWidgetPredicate(
               (w) =>
-                  w is CheckboxListTile &&
-                  (w.title is Text) &&
-                  ['메인 TV', '보조 TV'].contains((w.title as Text).data),
+                  w is PreparationDeviceTile &&
+                  ['메인 TV', '보조 TV'].contains(w.name),
             ),
           )
-          .map((tile) => tile.value),
+          .map((tile) => tile.selected),
       [true, false],
     );
   });
@@ -1398,7 +1466,7 @@ class _Devices extends Fake implements DevicePairingRepository {
 
 Future<void> _applySelection(WidgetTester tester) async {
   await tester.pump();
-  final apply = find.widgetWithText(FilledButton, '선택 적용');
+  final apply = find.widgetWithText(shadcn.ShadButton, '선택 적용');
   await tester.ensureVisible(apply);
   await tester.tap(apply);
   await tester.pump();
@@ -1406,7 +1474,9 @@ Future<void> _applySelection(WidgetTester tester) async {
 
 bool _startEnabled(WidgetTester tester) =>
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
+        .widget<shadcn.ShadButton>(
+          find.widgetWithText(shadcn.ShadButton, '수업 시작'),
+        )
         .onPressed !=
     null;
 

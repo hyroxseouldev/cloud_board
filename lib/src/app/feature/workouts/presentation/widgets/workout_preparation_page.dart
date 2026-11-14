@@ -1,6 +1,9 @@
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
 import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
-import 'package:cloud_board/src/app/core/widgets/preparation_stage_status.dart';
+import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
+
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/preparation_shadcn.dart';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/workout_preferences_actions.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_preparation.dart';
@@ -100,12 +103,14 @@ class WorkoutPreparationPage extends HookConsumerWidget {
               fallback: '연결을 확인하고 다시 시도해 주세요.',
             ),
           ),
-          TextButton(
+          shadcn.ShadButton.ghost(
+            expands: true,
+            height: 0,
             onPressed: () => retry.value++,
             child: const Text('다시 시도'),
           ),
         ] else
-          PreparationStageStatus(
+          PreparationShadcnStage(
             key: ValueKey(loading),
             label: '최신 수업 설정 확인 중',
           ),
@@ -449,29 +454,65 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         ),
       ),
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final local in [false, true])
-              ChoiceChip(
-                key: ValueKey(
-                  local ? 'playback-mode-solo' : 'playback-mode-tv',
+        LayoutBuilder(
+          builder: (context, bounds) {
+            final stacked = MediaQuery.textScalerOf(context).scale(14) > 20;
+            final buttons = [
+              for (final local in [false, true])
+                Semantics(
+                  selected: localPlayback.value == local,
+                  child: shadcn.ShadButton.raw(
+                    height: 0,
+                    expands: true,
+                    key: ValueKey(
+                      local ? 'playback-mode-solo' : 'playback-mode-tv',
+                    ),
+                    variant: localPlayback.value == local
+                        ? shadcn.ShadButtonVariant.secondary
+                        : shadcn.ShadButtonVariant.outline,
+                    onPressed: () {
+                      if (localPlayback.value == local) return;
+                      userEdited.value = true;
+                      draftDirty.value = true;
+                      localPlayback.value = local;
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          local
+                              ? shadcn.LucideIcons.smartphone
+                              : shadcn.LucideIcons.tv,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            local ? '이 기기에서 재생' : 'TV에서 재생',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                avatar: Icon(
-                  local ? Icons.phone_android_rounded : Icons.tv_rounded,
-                  size: 18,
-                ),
-                label: Text(local ? '이 기기에서 재생' : 'TV에서 재생'),
-                selected: localPlayback.value == local,
-                onSelected: (_) {
-                  if (localPlayback.value == local) return;
-                  userEdited.value = true;
-                  draftDirty.value = true;
-                  localPlayback.value = local;
-                },
-              ),
-          ],
+            ];
+            return stacked
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      buttons.first,
+                      const SizedBox(height: 8),
+                      buttons.last,
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: buttons.first),
+                      const SizedBox(width: 8),
+                      Expanded(child: buttons.last),
+                    ],
+                  );
+          },
         ),
         const SizedBox(height: 12),
         if (remote && onlineDevices.isNotEmpty) ...[
@@ -489,7 +530,8 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                 '재생 TV · ${selected.length}대 선택',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              TextButton(
+              shadcn.ShadButton.ghost(
+                height: 0,
                 onPressed: () {
                   userEdited.value = true;
                   draftDirty.value = true;
@@ -507,23 +549,15 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             ],
           ),
           for (final device in onlineDevices)
-            CheckboxListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              value: selectedDeviceIds.value.contains(device.id),
-              title: Text(
-                device.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                selectedDeviceIds.value.contains(device.id)
-                    ? selectionApplied
-                          ? _preparationLabel(statusOf(device))
-                          : '선택 적용 대기'
-                    : '선택 안 함',
-              ),
+            PreparationDeviceTile(
+              key: ValueKey('preparation-device-${device.id}'),
+              name: device.name,
+              selected: selectedDeviceIds.value.contains(device.id),
+              status: selectedDeviceIds.value.contains(device.id)
+                  ? selectionApplied
+                        ? _preparationLabel(statusOf(device))
+                        : '선택 적용 대기'
+                  : '선택 안 함',
               onChanged: (checked) {
                 final next = Set<String>.from(selectedDeviceIds.value);
                 if (checked == true) {
@@ -536,19 +570,28 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                 selectedDeviceIds.value = next;
               },
             ),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('연결 정보', style: TextStyle(fontSize: 13)),
+          shadcn.ShadAccordion<String>(
             children: [
-              for (final device in onlineDevices)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(device.name),
-                  subtitle: Text(
-                    '${device.zoneName} · ${device.installedVersion}',
-                  ),
+              shadcn.ShadAccordionItem(
+                value: 'connection',
+                title: const Text('연결 정보'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final device in onlineDevices)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text(
+                          '${device.name} · ${device.zoneName} · ${device.installedVersion}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ],
@@ -556,7 +599,9 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
           const Text('선택을 적용하면 준비를 시작해요.'),
           Align(
             alignment: Alignment.centerLeft,
-            child: FilledButton.tonal(
+            child: shadcn.ShadButton.secondary(
+              height: 0,
+              enabled: canPrepare,
               onPressed: !canPrepare
                   ? null
                   : () {
@@ -597,7 +642,10 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                         fallback: '수업 이용 승인을 확인하지 못했어요.',
                       )),
           ),
-          TextButton(
+          shadcn.ShadButton.ghost(
+            expands: true,
+            height: 0,
+            enabled: !preparation.loading && selectionApplied,
             onPressed: preparation.loading || !selectionApplied
                 ? null
                 : () => retry.value++,
@@ -609,14 +657,16 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             title: 'TV 목록 확인 실패',
             subtitle: '연결을 확인한 뒤 다시 시도해 주세요.',
           ),
-          TextButton(
+          shadcn.ShadButton.ghost(
+            expands: true,
+            height: 0,
             onPressed: () => ref.invalidate(displayDevicesProvider),
             child: const Text('TV 목록 다시 확인'),
           ),
         ] else if (selectionApplied &&
             canPrepare &&
             (!currentApproval || preparation.loading))
-          PreparationStageStatus(
+          PreparationShadcnStage(
             key: ValueKey('$fingerprint-${retry.value}'),
             label: '최신 수업 설정·이용 상태 확인 중',
           ),
@@ -634,7 +684,10 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                 fallback: '이미지를 불러오지 못했어요. 연결을 확인해 주세요.',
               ),
             ),
-            TextButton(
+            shadcn.ShadButton.ghost(
+              expands: true,
+              height: 0,
+              enabled: currentApproval,
               onPressed: currentApproval ? () => previewRetry.value++ : null,
               child: const Text('시작 이미지 다시 불러오기'),
             ),
@@ -648,14 +701,14 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
               !preparation.loading &&
               preparation.error == null &&
               !approvalExpired)
-            PreparationStageStatus(
+            PreparationShadcnStage(
               key: ValueKey(previewWork),
               label: '시작 이미지 준비 중',
             ),
         ],
         if (remote && selectionApplied && modern.isNotEmpty) ...[
           if (waiting)
-            PreparationStageStatus(
+            PreparationShadcnStage(
               key: ValueKey(matchingRequest?.sessionId),
               label: 'TV 이미지 준비 중 · $readyCount/${modern.length}대 완료',
             )
@@ -675,7 +728,9 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
               style: TextStyle(color: colors.error),
             ),
           if (!allPrepared && !preparation.loading && preparation.error == null)
-            TextButton(
+            shadcn.ShadButton.ghost(
+              expands: true,
+              height: 0,
               onPressed: () => retry.value++,
               child: const Text('TV 준비 다시 확인'),
             ),
@@ -708,116 +763,152 @@ class _PreparationLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.canvas,
-      appBar: AppBar(
+    return PreparationShadcnScope(
+      child: Scaffold(
         backgroundColor: AppColors.canvas,
-        title: const Text('수업 준비'),
-        leading: BackButton(onPressed: () => Navigator.of(context).maybePop()),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: SingleChildScrollView(
-              key: const ValueKey('preparation-page-scroll'),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.selected,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.auto_awesome_rounded,
-                          color: AppColors.accent,
-                          size: 28,
-                        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 20, 0),
+                child: Row(
+                  children: [
+                    shadcn.ShadButton.ghost(
+                      height: 0,
+                      key: const ValueKey('preparation-back'),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      child: const Icon(
+                        shadcn.LucideIcons.arrowLeft,
+                        size: 20,
+                        semanticLabel: '뒤로',
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '함께 시작할 준비',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.accent,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              workout.name,
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '수업 준비',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 620),
+                    child: SingleChildScrollView(
+                      key: const ValueKey('preparation-page-scroll'),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Icon(
-                            Icons.schedule_rounded,
-                            size: 18,
-                            color: AppColors.muted,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.selected,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(
+                                  shadcn.LucideIcons.sparkles,
+                                  color: AppColors.accent,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      '오늘의 수업',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.muted,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      workout.name,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: [
+                                        shadcn.ShadBadge.outline(
+                                          child: Text(
+                                            workoutDurationText(workout),
+                                          ),
+                                        ),
+                                        shadcn.ShadBadge.outline(
+                                          child: Text(
+                                            '${workout.modules.length}개 슬라이드',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            workoutDurationText(workout),
-                            style: theme.textTheme.bodyMedium,
+                          const SizedBox(height: 24),
+                          shadcn.ShadCard(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  '재생할 곳',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ...children,
+                              ],
+                            ),
                           ),
+                          const SizedBox(height: 16),
+                          shadcn.ShadButton(
+                            key: const ValueKey('preparation-start'),
+                            enabled: onStart != null,
+                            onPressed: onStart,
+                            height: 0,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 20,
+                            ),
+                            leading: const Icon(
+                              shadcn.LucideIcons.play,
+                              size: 18,
+                            ),
+                            child: const Text(
+                              '수업 시작',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ?composition,
                         ],
                       ),
-                      Text(
-                        '${workout.modules.length}개 슬라이드',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  ...children,
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        child: const Text('취소'),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: onStart,
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(0, 52),
-                          ),
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('수업 시작'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  ?composition,
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -859,17 +950,19 @@ class _WorkoutComposition extends HookWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text('수업 구성', style: theme.textTheme.titleMedium),
-              TextButton.icon(
+              shadcn.ShadButton.ghost(
+                height: 0,
+                enabled: allowImages,
                 onPressed: allowImages
                     ? () => showImage.value = !showImage.value
                     : null,
-                icon: Icon(
+                leading: Icon(
                   showImage.value
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
                   size: 18,
                 ),
-                label: Text(showImage.value ? '이미지 닫기' : '이미지 보기'),
+                child: Text(showImage.value ? '이미지 닫기' : '이미지 보기'),
               ),
             ],
           ),
@@ -883,14 +976,15 @@ class _WorkoutComposition extends HookWidget {
                 final module = workout.modules[index];
                 return SizedBox(
                   width: 164 * scale.clamp(1, 1.5),
-                  child: Material(
-                    color: selected.value == index
+                  child: shadcn.ShadCard(
+                    padding: EdgeInsets.zero,
+                    backgroundColor: selected.value == index
                         ? AppColors.selected
                         : AppColors.dialog,
-                    borderRadius: BorderRadius.circular(18),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => selected.value = index,
+                    radius: BorderRadius.circular(12),
+                    child: shadcn.ShadButton.ghost(
+                      height: 0,
+                      onPressed: () => selected.value = index,
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
@@ -970,14 +1064,16 @@ class _CheckTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            ok == true
-                ? Icons.check_circle_outline_rounded
-                : Icons.error_outline_rounded,
-            size: 20,
-            color: ok == true
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.error,
+          shadcn.ShadBadge.secondary(
+            child: Icon(
+              ok == true
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.error_outline_rounded,
+              size: 20,
+              color: ok == true
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.error,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(

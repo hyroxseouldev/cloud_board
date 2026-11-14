@@ -26,6 +26,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workou
 void main() {
   final params = Uri.base.queryParameters;
   final scene = params['scene'] ?? 'ready';
+  final fixtureNow = DateTime.now().millisecondsSinceEpoch;
   final scale = double.tryParse(params['scale'] ?? '') ?? 1;
   final image = Uri.base.resolve('/fixture-image.png?scene=$scene').toString();
   final workout =
@@ -50,9 +51,7 @@ void main() {
           zoneId: 'main',
           zoneName: '스튜디오',
           online: scene != 'offline',
-          lastSeenAtMs: scene == 'offline'
-              ? 0
-              : DateTime.now().millisecondsSinceEpoch,
+          lastSeenAtMs: scene == 'offline' ? 0 : fixtureNow,
           currentSessionId: null,
           acknowledgedRevision: 0,
           paired: true,
@@ -90,8 +89,13 @@ void main() {
         workoutPreferencesRepositoryProvider.overrideWithValue(_Preferences()),
         displayDevicesProvider.overrideWith((ref) => Stream.value(devices)),
         serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+        // Static preview devices do not send heartbeats: freeze only fixture
+        // health time so review tabs do not drift into unrelated offline UI.
+        displayHealthNowProvider.overrideWith(
+          (ref) => Stream.value(fixtureNow),
+        ),
         displayPreparationRepositoryProvider.overrideWithValue(
-          _Preparation(scene),
+          _Preparation(scene, fixtureNow),
         ),
       ],
       child: MaterialApp(
@@ -141,7 +145,8 @@ class _Preferences implements WorkoutPreferencesRepository {
 }
 
 class _Preparation implements DisplayPreparationRepository {
-  _Preparation(this.scene);
+  _Preparation(this.scene, this.nowMs);
+  final int nowMs;
   final String scene;
   DisplayPreparation? value;
   @override
@@ -159,7 +164,7 @@ class _Preparation implements DisplayPreparationRepository {
             sessionId: value!.sessionId,
             revision: value!.revision,
             manifestHash: value!.manifestHash,
-            checkedAtMs: DateTime.now().millisecondsSinceEpoch,
+            checkedAtMs: nowMs,
             status: scene == 'waiting'
                 ? 'preparing'
                 : scene == 'error' && id == '1'
