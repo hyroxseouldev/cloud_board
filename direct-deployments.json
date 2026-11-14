@@ -199,7 +199,7 @@
       "tag": "",
       "version": "2.1.6",
       "actor": "hyroxseouldev",
-      "status": "running",
+      "status": "success",
       "startedAt": "2026-11-14T05:28:19.214Z",
       "validation": {
         "status": "not-run",
@@ -298,7 +298,8 @@
             "semanticHash": "42b68e5374b663892efd2a831b81b66c26bf75913248aa96d7a125f9d892f5e9"
           }
         }
-      }
+      },
+      "completedAt": "2026-11-14T05:29:11.022Z"
     }
   ]
 }
