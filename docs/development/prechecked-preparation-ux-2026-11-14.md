@@ -53,10 +53,12 @@ flutter test --no-pub test/workout_preflight_dialog_test.dart test/display_prepa
 
 - 구현 79개 검사: `1baebea69bc559da3fbdff84d78eaa2bdd5edb26`.
 - fixture clock만 보정한 `155783caf82bc2235d53003a7f0be12b6b966cc8`에서 준비 위젯 18개 재통과: [로그](precheck-ux-evidence/fixture-tests.log). 같은 소스의 실제 웹 빌드 성공: [로그](precheck-ux-evidence/fixture-build.log).
-- 홈 PR #189와 서버 PR #188이 포함된 `origin/develop cc139f5`를 충돌 없이 반영했다. 통합 후 홈의 Material TextField를 가정하던 테스트 finder만 실제 EditableText로 바꿨다. 실제 router/list 경계 2개와 실제 list start 전체/선택 subset 2개를 통합 코드에서 재확인했다: [route](precheck-ux-evidence/integrated-routing.log), [start](precheck-ux-evidence/integrated-start.log). 홈 전체 70개나 서버 전체 검사는 반복하지 않았다.
+- 홈 PR #189와 서버 PR #188이 포함된 `origin/develop cc139f5`를 충돌 없이 반영했다. 통합 후 홈의 Material TextField를 가정하던 테스트 finder만 실제 EditableText로 바꿨다. 실제 router/list 경계 2개는 `13d535c644dc1e4c480e83d173bd6bf78abaa440`, 실제 list start 전체/선택 subset 2개는 `8a6b4b47f526c88a391c07ee5b62cedd2306cade`에서 재확인했다 (사이 변경은 문서·불필요한 test null assertion 제거뿐): [route](precheck-ux-evidence/integrated-routing.log), [start](precheck-ux-evidence/integrated-start.log). 홈 전체 70개나 서버 전체 검사는 반복하지 않았다.
 - 실제 Flutter 화면: [before 390](precheck-ux-evidence/before-390.png), [준비 완료 390](precheck-ux-evidence/after-ready-390.png), [320×568/2배 글자 고정 CTA](precheck-ux-evidence/after-error-320-scale2.png), [동일 320px 오류 내용 전체를 보는 tall 캡처](precheck-ux-evidence/after-error-320-scale2-tall.png). 마지막 tall은 viewport 320×2000이며 작은 화면으로 가장하지 않는다.
 - 캡처 fixture의 앱/준비 소스는 `155783c`이며 그 이후 준비 제품 소스는 무변경이다. 이후 2.2.1 메타데이터와 새 홈 통합 경계는 별도 위젯 검사로 확인했다.
 - 브라우저 이미지 endpoint 기록 [local-image-http.json](precheck-ux-evidence/local-image-http.json)은 0건이다. fixture에 실제 계정/원격 미디어가 없으며 이 기록을 실물 TV 네트워크 검증으로 확대하지 않는다.
 - Orca IME 입력 보호가 일시적으로 클릭을 차단했으며 정상 재시도 후 화면 진입·캡처는 완료했다. CanvasKit 브라우저의 wheel/Back 입력으로 화면 전환을 확정하지 못해 브라우저 Back/scroll 성공을 주장하지 않는다. 390·320 큰 글자/safe-area 조건의 실제 앱 라우터 위젯 테스트에서 Back/scroll/CTA 위치와 목록 복원을 검증했다. 통합 담당의 실제 시뮬레이터 런칭이 남는다.
 
 최종 인계 PR head는 PR 본문의 `검증한 커밋:`에 기록한다. 그 이후 문서·로그만 추가된 경우 위 제품 소스 검증을 재사용한다.
+
+최종 관련 테스트/fixture analyze: `13d535c644dc1e4c480e83d173bd6bf78abaa440`, [문제 없음](precheck-ux-evidence/integrated-analyze.log). 버전/소식 6개 검증도 같은 SHA에서 재확인했다. 이 기록과 로그 추가는 제품 코드를 바꾸지 않는다.

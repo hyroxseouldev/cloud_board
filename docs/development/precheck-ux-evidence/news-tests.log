@@ -1,0 +1,14 @@
+✔ current release news matches the actual app version (0.471042ms)
+✔ editorial source validates without allowing operational fields or malformed content (1.681083ms)
+✔ only successful deployment steps with confirmed platform builds enter feed (0.690667ms)
+✔ platform arrivals and reruns preserve earliest compatible build and one immutable item (0.492542ms)
+✔ Android news keeps confirmed builds from both internal and historical Alpha uploads (0.2215ms)
+✔ history stays newest first and bounded without exposing extra fields (34.684459ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95.713667

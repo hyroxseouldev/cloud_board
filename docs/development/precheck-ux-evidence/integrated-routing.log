@@ -1,0 +1,4 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/workout_preflight_dialog_test.dart
+00:00 +0: actual list caller covers shell; back restores list and pinned safe CTA (Size(390.0, 844.0), 1.0)
+00:01 +1: actual list caller covers shell; back restores list and pinned safe CTA (Size(320.0, 568.0), 2.0)
+00:01 +2: All tests passed!

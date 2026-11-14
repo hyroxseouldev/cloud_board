@@ -1,0 +1,12 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/update_news_test.dart
+00:00 +0: native platform metadata displays eligible published news (variant: TargetPlatform.iOS)
+00:01 +1: native platform metadata displays eligible published news (variant: TargetPlatform.android)
+00:01 +2: filters unavailable platform/version/build and sorts eligible history
+00:01 +3: malformed entry does not hide valid history, malformed feed is retryable
+00:01 +4: read state persists separately for each account on this device
+00:01 +5: rapid detail reads serialize, and old account writes cannot affect new account
+00:01 +6: more menu opens news, detail marks only opened item, returns with state at Size(320.0, 568.0)
+00:02 +7: more menu opens news, detail marks only opened item, returns with state at Size(1280.0, 800.0)
+00:03 +8: loading failure retries, empty state and unknown detail stay readable
+00:04 +9: read persistence failure retains badge and can retry without losing content
+00:05 +10: All tests passed!

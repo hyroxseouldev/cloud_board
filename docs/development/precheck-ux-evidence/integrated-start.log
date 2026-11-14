@@ -1,0 +1,4 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/precheck-ux/test/playback_start_lifecycle_test.dart
+00:00 +0: list starts one playing session after all three TV receipts
+00:01 +1: ready subset from actual list caller commits exact IDs and keeps active session
+00:01 +2: All tests passed!
