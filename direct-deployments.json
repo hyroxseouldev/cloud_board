@@ -1981,7 +1981,13 @@
         "status": "not-run",
         "reason": "Direct CLI: no GitHub Actions integration CI is requested"
       },
-      "steps": [],
+      "steps": [
+        {
+          "id": "verify-source",
+          "status": "running",
+          "startedAt": "2026-11-14T14:44:14.899Z"
+        }
+      ],
       "targets": [],
       "storeReview": "not-submitted"
     }
