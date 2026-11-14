@@ -2166,8 +2166,10 @@
         },
         {
           "id": "readback",
-          "status": "running",
-          "startedAt": "2026-11-14T18:36:56.728Z"
+          "status": "success",
+          "startedAt": "2026-11-14T18:36:56.728Z",
+          "completedAt": "2026-11-14T18:37:03.409Z",
+          "durationMs": 6681
         }
       ],
       "targets": [
@@ -2192,6 +2194,25 @@
         ],
         "outputSha256": "86550bcd7facd0760f729e5d16fe4789e63c64f7c4fda88de4d0f42ae989aa37",
         "deployComplete": true
+      },
+      "serverObservation": {
+        "status": "active",
+        "functions": [
+          {
+            "name": "cloudboardImageUploadBody",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          },
+          {
+            "name": "cloudboardMedia",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          }
+        ],
+        "sourceVerification": "successful-selected-deploy-command",
+        "appQa": "not-run"
       }
     }
   ]
