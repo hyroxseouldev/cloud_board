@@ -98,16 +98,13 @@ SliverGridDelegateWithFixedCrossAxisCount workoutListGridDelegate(
   double width,
 ) {
   final scaler = MediaQuery.textScalerOf(context);
-  final minWidth = 440 + math.max(0, scaler.scale(16) - 16) * 10;
-  final textHeight =
-      (scaler.scale(17) * 1.3).ceilToDouble() * 2 +
-      4 +
-      (scaler.scale(14) * 1.3).ceilToDouble() +
-      4 +
-      (scaler.scale(14) * 1.3).ceilToDouble();
+  // Home cards keep their artwork/title above the folder and 48px actions.
+  // Larger type uses one column before it can crowd the title or controls.
+  final minWidth = 350 + math.max(0, scaler.scale(16) - 16) * 20;
+  final textHeight = scaler.scale(17) * 2.6 + 5 + scaler.scale(13) * 2.8;
   return SliverGridDelegateWithFixedCrossAxisCount(
-    crossAxisCount: ((width + 16) / (minWidth + 16)).floor().clamp(1, 2),
-    mainAxisExtent: 32 + math.max(72, textHeight),
+    crossAxisCount: (width / minWidth).floor().clamp(1, 2),
+    mainAxisExtent: 92 + math.max(52, textHeight),
     crossAxisSpacing: 16,
     mainAxisSpacing: 16,
   );

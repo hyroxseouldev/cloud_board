@@ -1,0 +1,72 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart
+00:00 +0: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_loading_test.dart: fast first response never flashes skeletons or a zero count
+00:01 +1: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: home uses local artwork even for remote class media at 390.0
+00:02 +2: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_loading_test.dart: slow first load shows one accessible skeleton and locks folders
+00:02 +3: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: home uses local artwork even for remote class media at 1200.0
+00:02 +4: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_loading_test.dart: a genuine empty response is distinct from loading
+00:02 +5: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: shadcn stays within home and preserves Material navigator
+00:02 +6: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_loading_test.dart: initial error has one safe retry and retry restores the skeleton
+00:02 +7: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: STA-190 evidence class search
+00:03 +8: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: STA-190 evidence class search
+00:03 +9: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_loading_test.dart: pagination keeps existing rows and has only a footer spinner
+00:04 +10: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.0 (variant: TargetPlatform.android)
+00:04 +11: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.0 (variant: TargetPlatform.android)
+00:04 +12: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.0 (variant: TargetPlatform.android)
+00:04 +13: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_loading_test.dart: static reduced-motion skeleton fits Size(834.0, 1194.0) at text scale 2.0
+00:04 +14: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.0 (variant: TargetPlatform.iOS)
+00:05 +15: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.0 (variant: TargetPlatform.iOS)
+00:05 +16: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.0 (variant: TargetPlatform.iOS)
+00:05 +17: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.3 (variant: TargetPlatform.android)
+00:05 +18: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x1.3 (variant: TargetPlatform.iOS)
+00:06 +19: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x2.0 (variant: TargetPlatform.android)
+00:06 +20: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(320.0, 568.0) x2.0 (variant: TargetPlatform.iOS)
+00:06 +21: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(390.0, 844.0) x1.0 (variant: TargetPlatform.android)
+00:07 +22: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(390.0, 844.0) x1.0 (variant: TargetPlatform.iOS)
+00:07 +23: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(390.0, 844.0) x1.3 (variant: TargetPlatform.android)
+00:07 +24: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(390.0, 844.0) x1.3 (variant: TargetPlatform.iOS)
+00:08 +25: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(390.0, 844.0) x2.0 (variant: TargetPlatform.android)
+00:08 +26: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(390.0, 844.0) x2.0 (variant: TargetPlatform.iOS)
+00:09 +27: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(430.0, 932.0) x1.0 (variant: TargetPlatform.android)
+00:09 +28: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(430.0, 932.0) x1.0 (variant: TargetPlatform.iOS)
+00:10 +29: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(430.0, 932.0) x1.3 (variant: TargetPlatform.android)
+00:10 +30: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(430.0, 932.0) x1.3 (variant: TargetPlatform.iOS)
+00:11 +31: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(430.0, 932.0) x2.0 (variant: TargetPlatform.android)
+00:11 +32: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(430.0, 932.0) x2.0 (variant: TargetPlatform.iOS)
+00:12 +33: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(834.0, 1194.0) x1.0 (variant: TargetPlatform.android)
+00:12 +34: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(834.0, 1194.0) x1.0 (variant: TargetPlatform.iOS)
+00:12 +35: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(834.0, 1194.0) x1.3 (variant: TargetPlatform.android)
+00:13 +36: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(834.0, 1194.0) x1.3 (variant: TargetPlatform.iOS)
+00:13 +37: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(834.0, 1194.0) x2.0 (variant: TargetPlatform.android)
+00:13 +38: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(834.0, 1194.0) x2.0 (variant: TargetPlatform.iOS)
+00:13 +39: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(844.0, 390.0) x1.0 (variant: TargetPlatform.android)
+00:14 +40: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(844.0, 390.0) x1.0 (variant: TargetPlatform.iOS)
+00:14 +41: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(844.0, 390.0) x1.3 (variant: TargetPlatform.android)
+00:14 +42: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(844.0, 390.0) x1.3 (variant: TargetPlatform.iOS)
+00:15 +43: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(844.0, 390.0) x2.0 (variant: TargetPlatform.android)
+00:16 +44: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: search and home have no usage entry Size(844.0, 390.0) x2.0 (variant: TargetPlatform.iOS)
+00:16 +45: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: folder menu uses metadata without draining 10 workouts
+00:16 +46: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: folder menu uses metadata without draining 100 workouts
+00:17 +47: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: folder menu uses metadata without draining 500 workouts
+00:17 +48: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: v5 home keeps row actions accessible and the create action singular
+00:18 +49: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: scroll loads the next page and search finds the last unrequested page
+00:19 +50: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: mode selector is hidden by default but can enable both browsing modes
+00:20 +51: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: paged browsing restores search, resets filters, clamps deleted pages and refreshes at Size(390.0, 844.0)
+00:22 +52: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: paged browsing restores search, resets filters, clamps deleted pages and refreshes at Size(834.0, 1194.0)
+00:25 +53: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: header create opens the workout editor and returns to home
+00:26 +54: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: closing search restores folder and continuous scroll position
+00:27 +55: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: cards retain bounds and thumbnail ratio as the window resizes
+00:29 +56: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: class commands do not flash a page overlay or reset browsing
+00:30 +57: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: active workout card explains lock; edit/delete disabled and copy allowed
+00:31 +58: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: continuous lazy scrolling reaches every item and retains filters at Size(390.0, 844.0)
+00:35 +59: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: continuous lazy scrolling reaches every item and retains filters at Size(834.0, 1194.0)
+00:42 +60: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: continuous lazy scrolling reaches every item and retains filters at Size(1194.0, 834.0)
+00:46 +61: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: refresh waits for the server, preserves browsing, and coalesces requests
+00:46 +62: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: PointerDeviceKind.touch pull refresh works over the header with 0 rows
+00:47 +63: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: PointerDeviceKind.touch pull refresh works over the header with 1 rows
+00:47 +64: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: PointerDeviceKind.mouse pull refresh works over the header with 0 rows
+00:47 +65: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: PointerDeviceKind.mouse pull refresh works over the header with 1 rows
+00:47 +66: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: desktop web offers an accessible refresh action
+00:47 +67: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: pull refresh works for empty catalog
+00:47 +68: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: pull refresh works for zero search results
+00:48 +69: /Users/sunmkim/orca/workspaces/cloudboardapp/home-shadcn/test/home_workout_list_test.dart: failed reload retains the list and the next pull can recover
+00:48 +70: All tests passed!
