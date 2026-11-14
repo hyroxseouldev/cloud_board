@@ -966,6 +966,11 @@
           "startedAt": "2026-11-14T09:42:11.993Z",
           "completedAt": "2026-11-14T09:42:13.269Z",
           "durationMs": 1276
+        },
+        {
+          "id": "development-store-readiness",
+          "status": "running",
+          "startedAt": "2026-11-14T09:42:14.443Z"
         }
       ],
       "targets": [],
