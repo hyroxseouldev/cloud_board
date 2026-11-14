@@ -1750,6 +1750,11 @@
           "startedAt": "2026-11-14T12:38:33.283Z",
           "completedAt": "2026-11-14T12:38:34.860Z",
           "durationMs": 1577
+        },
+        {
+          "id": "allocate-build",
+          "status": "running",
+          "startedAt": "2026-11-14T12:38:36.305Z"
         }
       ],
       "targets": [],
