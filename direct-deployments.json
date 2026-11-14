@@ -250,8 +250,10 @@
         },
         {
           "id": "readback",
-          "status": "running",
-          "startedAt": "2026-11-14T05:29:00.012Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:29:00.012Z",
+          "completedAt": "2026-11-14T05:29:10.025Z",
+          "durationMs": 10013
         }
       ],
       "targets": [
@@ -276,6 +278,26 @@
         ],
         "outputSha256": "449796f43af2a23433212a98ee6db0bfc37d15fcbce88d6c8ba9ff8232adb63e",
         "deployComplete": true
+      },
+      "dependencyCache": {
+        "functions": "reused"
+      },
+      "rulesObservation": {
+        "status": "success",
+        "indexes": "deployment-command-only",
+        "services": {
+          "firestore": {
+            "version": "projects/cloud-board-development/rulesets/1a4089c9-4652-405c-8891-936a6df8a9b4",
+            "sourceHash": "8342ffab385afa55899ef8f8abe9a335d8e86a9f1c019cede629033d2e3e041d"
+          },
+          "storage": {
+            "version": "projects/cloud-board-development/rulesets/fa6455ad-8b00-4029-a57c-5439d04a3937",
+            "sourceHash": "8492278b0ce0e29fab6ff5810988b6eef78c8b64e726e39b3de3b99dfc260908"
+          },
+          "database": {
+            "semanticHash": "42b68e5374b663892efd2a831b81b66c26bf75913248aa96d7a125f9d892f5e9"
+          }
+        }
       }
     }
   ]
