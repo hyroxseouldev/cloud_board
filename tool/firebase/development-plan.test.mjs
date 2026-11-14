@@ -1,3 +1,4 @@
+// Historical workflow fixtures retain legacy release/receipt contract coverage.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
@@ -160,7 +161,7 @@ test('late old retries without writes cannot hide newer actual deployment eviden
 });
 
 test('workflow has no main trigger and pins build/deploy checkouts to the plan source', () => {
-  const workflow = readFileSync('.github/workflows/firebase-development.yml', 'utf8');
+  const workflow = readFileSync('tool/release/fixtures/retired-workflows/firebase-development.yml', 'utf8');
   const triggers = workflow.match(/^on:\n([\s\S]*?)(?=^\S)/m)[1];
   assert.match(triggers, /tags: \['dev\/v/);
   assert.doesNotMatch(triggers, /branches:|paths:|main/);

@@ -28,6 +28,7 @@ jobs:
       - name: Load latest verified production receipt
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          CLOUDBOARD_DIRECT_RECEIPTS: true
         run: node tool/firebase/latest-release.mjs
       - name: Install observation dependencies only when a release is ready
         if: env.FIREBASE_DEPLOYMENT_PENDING != 'true'

@@ -53,12 +53,13 @@ export async function requireBackend({repository, sha, request, readArtifact, mo
     fingerprint: deployedFingerprint || fingerprint, ...(compatibility ? {compatibility} : {})}};
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.env.GITHUB_ACTIONS !== 'true') process.env.CLOUDBOARD_DIRECT_RECEIPTS = 'true';
   const args = process.argv.slice(2);
   const value = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
   const sha = value('--source-sha') || process.env.SOURCE_SHA || process.env.RELEASE_SOURCE_SHA || process.env.GITHUB_SHA;
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(), sha, 'Checkout must match the selected source SHA');
   const repository = process.env.GITHUB_REPOSITORY;
-  assert(repository && process.env.GITHUB_TOKEN, 'Missing GitHub release gate credentials');
+  assert(repository, 'Missing GitHub release repository');
   assert(!args.includes('--mobile') || !args.includes('--web'), 'Web deployments retain the exact backend gate');
   const run = process.env.BACKEND_EXCEPTION_RUN ? await approvedTestflightBackend({
     env: process.env, repository, sha, mobile: args.includes('--mobile'), fingerprint: backendFingerprint(sha),

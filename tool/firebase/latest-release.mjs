@@ -17,7 +17,13 @@ function cancelledBeforeRunnerAssignment(job) {
     job.completed_at === job.started_at;
 }
 
-export async function latestRelease({repository, request, readArtifact, ignoreRunId, component = 'backend', allowFailed = false, attemptOnly = false}) {
+export async function latestRelease({repository, request, readArtifact, ignoreRunId, component = 'backend', allowFailed = false, attemptOnly = false, direct = repository === 'hyroxseouldev/cloud_board' || process.env.CLOUDBOARD_DIRECT_RECEIPTS === 'true'}) {
+  if (direct) {
+    const {readLedger, latestDirect} = await import('../release/direct-receipts.mjs');
+    const state = await readLedger(request, repository);
+    const result = state && latestDirect(state.ledger, {component, ignoreRunId, attemptOnly});
+    if (result) return result;
+  }
   // Search both release tags and historical main deployments; older backend
   // releases can sit behind many web/docs runs. Bound API work explicitly instead of silently stopping at 100.
   const maximumPages = 10;

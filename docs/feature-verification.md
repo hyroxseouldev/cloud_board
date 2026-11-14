@@ -1,3 +1,5 @@
+> Current release entrypoint: [fixed-source direct CLI](operations/direct-release/README.md). Build/deploy Actions are retired in this change; the workflow-specific procedure below is historical reference. Production source, signing, compatibility and actual-result evidence requirements remain. Required-check migration is a separate administrator action.
+
 # 기능 검증과 배포 인계
 
 기능 개발 담당자가 변경한 기능을 검증하고 결과를 인계한다. PR과 `develop`에서는 가벼운 인계 확인과 코드·증거 리뷰를 수행한다. `main` push는 통합만 하며 배포하지 않는다. 개발 `dev/vX.Y.Z-N` 태그는 개발 웹·서버·모바일 QA를 시작하고, 운영 `vX.Y.Z` 태그는 필수 통합 CI를 기본으로 실행한다. 수동 운영 릴리즈에는 사유를 기록하는 명시적 CI 생략 옵션이 있다. 서버 배포, 웹 배포, 모바일 업로드와 CI 생략의 결과는 각각 구분한다.
