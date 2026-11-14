@@ -13,7 +13,7 @@
       "tag": "",
       "version": "2.1.6",
       "actor": "hyroxseouldev",
-      "status": "running",
+      "status": "failed",
       "startedAt": "2026-11-14T04:57:10.221Z",
       "validation": {
         "status": "not-run",
@@ -50,15 +50,21 @@
         },
         {
           "id": "function-targets",
-          "status": "running",
-          "startedAt": "2026-11-14T04:57:24.232Z"
+          "status": "failed",
+          "startedAt": "2026-11-14T04:57:24.232Z",
+          "completedAt": "2026-11-14T04:57:50.641Z",
+          "durationMs": 26409
         }
       ],
       "targets": [],
       "storeReview": "not-submitted",
       "toolchain": {
         "node": "22.21.1"
-      }
+      },
+      "dependencyCache": {
+        "functions": "installed"
+      },
+      "completedAt": "2026-11-14T04:57:50.642Z"
     }
   ]
 }
