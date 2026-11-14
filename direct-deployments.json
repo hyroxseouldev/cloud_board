@@ -1893,8 +1893,10 @@
         },
         {
           "id": "build",
-          "status": "running",
-          "startedAt": "2026-11-14T13:55:14.647Z"
+          "status": "success",
+          "startedAt": "2026-11-14T13:55:14.647Z",
+          "completedAt": "2026-11-14T13:59:06.356Z",
+          "durationMs": 231709
         }
       ],
       "targets": [],
