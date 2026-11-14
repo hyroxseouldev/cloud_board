@@ -69,6 +69,8 @@ class PreparationFixture {
       );
     }),
     displayHealthNowProvider.overrideWith((ref) async* {
+      // Match the production health provider's subscription to server time.
+      ref.watch(serverTimeOffsetProvider);
       yield now;
       yield* health.stream;
     }),
