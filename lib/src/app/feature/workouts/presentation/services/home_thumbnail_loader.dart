@@ -197,7 +197,9 @@ class HomeThumbnailLoader {
   }) async {
     if (_disposed || ownerId.isEmpty) return null;
     if (isManagedImageSource(source)) return _managed(source);
-    if (source.startsWith('http://') || source.startsWith('https://')) {
+    if (source.startsWith('http://') ||
+        source.startsWith('https://') ||
+        source.startsWith('gs://')) {
       // A source token is never forwarded: the server resolves the authorized
       // first image from the workout and validates this exact summary hash.
       if (!homeLegacySourceOwned(source, ownerId) ||
@@ -418,21 +420,30 @@ bool homeLegacySourceOwned(String source, String ownerId) {
   final uri = Uri.tryParse(source);
   if (ownerId.isEmpty ||
       uri == null ||
-      uri.scheme != 'https' ||
-      uri.host != 'firebasestorage.googleapis.com' ||
-      uri.port != 443 ||
       uri.userInfo.isNotEmpty ||
-      uri.fragment.isNotEmpty ||
-      uri.pathSegments.length != 5 ||
-      uri.pathSegments[0] != 'v0' ||
-      uri.pathSegments[1] != 'b' ||
-      uri.pathSegments[3] != 'o' ||
-      uri.queryParametersAll.values.any((values) => values.length != 1) ||
-      uri.queryParameters.keys.any((key) => key != 'alt' && key != 'token') ||
-      uri.queryParameters['alt'] != 'media') {
+      uri.fragment.isNotEmpty) {
     return false;
   }
-  final object = uri.pathSegments.last;
+  final String object;
+  if (uri.scheme == 'gs' &&
+      uri.host.isNotEmpty &&
+      !uri.hasPort &&
+      !uri.hasQuery) {
+    object = uri.pathSegments.join('/');
+  } else if (uri.scheme == 'https' &&
+      uri.host == 'firebasestorage.googleapis.com' &&
+      uri.port == 443 &&
+      uri.pathSegments.length == 5 &&
+      uri.pathSegments[0] == 'v0' &&
+      uri.pathSegments[1] == 'b' &&
+      uri.pathSegments[3] == 'o' &&
+      !uri.queryParametersAll.values.any((values) => values.length != 1) &&
+      !uri.queryParameters.keys.any((key) => key != 'alt' && key != 'token') &&
+      uri.queryParameters['alt'] == 'media') {
+    object = uri.pathSegments.last;
+  } else {
+    return false;
+  }
   final prefix = 'users/$ownerId/';
   if (!object.startsWith(prefix)) return false;
   final relative = object.substring(prefix.length);
@@ -458,10 +469,9 @@ Uri? homeLegacyThumbnailUri({
     return null;
   }
   final sourceUri = Uri.parse(source);
-  if (!{
-    '$projectId.appspot.com',
-    '$projectId.firebasestorage.app',
-  }.contains(sourceUri.pathSegments[2])) {
+  if (!{'$projectId.appspot.com', '$projectId.firebasestorage.app'}.contains(
+    sourceUri.scheme == 'gs' ? sourceUri.host : sourceUri.pathSegments[2],
+  )) {
     return null;
   }
   final Uri endpoint;

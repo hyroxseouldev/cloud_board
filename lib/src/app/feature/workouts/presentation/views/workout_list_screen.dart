@@ -63,10 +63,13 @@ class WorkoutListBody extends HookConsumerWidget {
     final search = searchController;
     useListenable(search);
     final searching = search != null;
+    final showCreate =
+        !searching && MediaQuery.viewInsetsOf(context).bottom == 0;
     final selectedFolder = useState<String?>(null);
     final scroll = useScrollController();
     final refreshing = useState(false);
     final creating = useState(false);
+    final openingSearch = useRef(false);
     final page = useState(0);
     final mode = ref.watch(workoutListModeControllerProvider);
     final showModeSelector = ref.watch(workoutListModeSelectorEnabledProvider);
@@ -211,8 +214,7 @@ class WorkoutListBody extends HookConsumerWidget {
         // The shell already reserves the dock and device safe area below this
         // scaffold. Keep the FAB in that remaining viewport, without guessing
         // the dock height (which also grows with accessibility text).
-        floatingActionButton:
-            searching || MediaQuery.viewInsetsOf(context).bottom > 0
+        floatingActionButton: !showCreate
             ? null
             : FloatingActionButton(
                 key: const ValueKey('create-workout'),
@@ -242,6 +244,12 @@ class WorkoutListBody extends HookConsumerWidget {
               ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         appBar: AppBar(
+          toolbarHeight: searching
+              ? math.max(
+                  56,
+                  MediaQuery.textScalerOf(context).scale(16) * 1.5 + 24,
+                )
+              : null,
           centerTitle: false,
           titleSpacing: searching
               ? 0
@@ -284,7 +292,24 @@ class WorkoutListBody extends HookConsumerWidget {
             else
               IconButton(
                 tooltip: '검색',
-                onPressed: () => context.push('/search'),
+                onPressed: () async {
+                  if (openingSearch.value) return;
+                  openingSearch.value = true;
+                  final offset = scroll.hasClients ? scroll.offset : 0.0;
+                  try {
+                    await context.push('/search');
+                  } finally {
+                    openingSearch.value = false;
+                  }
+                  if (!context.mounted) return;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted && scroll.hasClients) {
+                      scroll.jumpTo(
+                        offset.clamp(0, scroll.position.maxScrollExtent),
+                      );
+                    }
+                  });
+                },
                 icon: const Icon(Icons.search_rounded),
               ),
             if (showModeSelector)
@@ -327,6 +352,9 @@ class WorkoutListBody extends HookConsumerWidget {
         ),
         body: SafeArea(
           top: false,
+          // Keep card text and menu hit targets out of the floating control's
+          // footprint, including the first grid row before any scrolling.
+          minimum: EdgeInsets.only(bottom: showCreate ? 80 : 0),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final listLayout = layout == HomeWorkoutLayout.list;
@@ -579,9 +607,6 @@ class WorkoutListBody extends HookConsumerWidget {
                             ),
                           ),
                         ),
-                      // Let the final row/actions scroll completely above the
-                      // floating create control, including short lists.
-                      const SliverToBoxAdapter(child: SizedBox(height: 80)),
                     ],
                   ),
                 ),
@@ -614,6 +639,10 @@ class _FolderMenu extends StatelessWidget {
       key: ValueKey(selected),
       enabled: enabled,
       initialValue: selected ?? '',
+      minWidth: math.min(
+        MediaQuery.sizeOf(context).width - 40,
+        MediaQuery.textScalerOf(context).scale(16) * 5 + 48,
+      ),
       maxWidth: MediaQuery.sizeOf(context).width - 40,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       selectedOptionBuilder: (_, value) => Text(
@@ -739,10 +768,10 @@ class _WorkoutRow extends ConsumerWidget {
         final stacked = constraints.maxWidth < 330 || scaler.scale(17) > 23;
         final title = Text(
           workout.name.isEmpty ? '이름 없음' : workout.name,
-          maxLines: 2,
+          maxLines: grid && scaler.scale(16) <= 22 ? 1 : 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 17,
+            fontSize: 16,
             height: 1.3,
             fontWeight: FontWeight.w600,
             letterSpacing: -.17,
@@ -750,7 +779,7 @@ class _WorkoutRow extends ConsumerWidget {
         );
         final metadata = Text(
           '${workout.folder.isEmpty ? '폴더 없음' : workout.folder} · ${workout.moduleCount}개 슬라이드',
-          maxLines: 2,
+          maxLines: grid && scaler.scale(16) <= 22 ? 1 : 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 12,
@@ -770,7 +799,7 @@ class _WorkoutRow extends ConsumerWidget {
           key: ValueKey('workout-thumbnail-${workout.id}'),
           ownerId: ownerId,
           workout: workout,
-          width: grid ? null : (constraints.maxWidth < 330 ? 96 : 108),
+          width: grid ? null : 96,
         );
         final details = InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -822,7 +851,7 @@ class _WorkoutRow extends ConsumerWidget {
         );
         if (grid) {
           final footerStacked =
-              constraints.maxWidth - 20 < 110 + scaler.scale(13) * 3.5;
+              constraints.maxWidth - 20 < 106 + scaler.scale(13) * 3;
           return Container(
             key: ValueKey('workout-grid-card-${workout.id}'),
             padding: const EdgeInsets.all(10),

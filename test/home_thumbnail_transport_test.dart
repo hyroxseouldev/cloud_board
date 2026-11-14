@@ -90,6 +90,18 @@ void main() {
     );
     expect(build(historical), isNotNull);
     expect(
+      build(
+        'gs://$project.firebasestorage.app/users/owner/workouts/original/modules/slide-1/background',
+      ),
+      isNotNull,
+    );
+    expect(
+      build(
+        'gs://foreign.appspot.com/users/owner/workouts/original/modules/slide-1/background',
+      ),
+      isNull,
+    );
+    expect(
       build(historical.replaceFirst('workouts%2Foriginal%2F', '')),
       isNull,
     );

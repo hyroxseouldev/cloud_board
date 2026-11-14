@@ -1,4 +1,4 @@
-import 'package:cloud_board/src/app/core/router/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_search_screen.dart';
 import 'package:image/image.dart' as img;
@@ -171,7 +171,7 @@ void main() {
             find.byKey(const ValueKey('workout-scroll')),
           )
           .controller!;
-      scrolling.jumpTo(240);
+      scrolling.jumpTo(256);
 
       await tester.pumpAndSettle();
       expect(tester.getRect(fab), initialFab);
@@ -184,13 +184,12 @@ void main() {
       );
       // The same account cache survives the subtree swap; only newly visible
       // workout identities may request a rendition.
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('home-layout-list')),
-      );
+      scrolling.jumpTo(0);
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('home-layout-list')));
       await tester.pumpAndSettle();
       scrolling.jumpTo(
-        240.clamp(0, scrolling.position.maxScrollExtent).toDouble(),
+        256.clamp(0, scrolling.position.maxScrollExtent).toDouble(),
       );
       await tester.pumpAndSettle();
       await resolveThumbnails();
@@ -220,7 +219,7 @@ void main() {
         data.container.read(homeWorkoutLayoutProvider),
         HomeWorkoutLayout.list,
       );
-      expect(scrolling.offset, closeTo(240, 1));
+      expect(scrolling.offset, closeTo(256, 1));
       await tester.drag(
         find.byKey(const ValueKey('workout-scroll')),
         const Offset(0, -5000),
@@ -236,10 +235,7 @@ void main() {
       expect(fab, findsNothing);
       expect(find.byType(WorkoutSearchScreen), findsOneWidget);
       expect(
-        data.container
-            .read(appRouterProvider)
-            .routeInformationProvider
-            .value
+        GoRouterState.of(tester.element(find.byType(WorkoutSearchScreen)))
             .uri
             .path,
         '/search',
@@ -268,19 +264,19 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding();
       await tester.pumpAndSettle();
       expect(fab.hitTestable(), findsOneWidget);
-      expect(
-        data.container
-            .read(appRouterProvider)
-            .routeInformationProvider
-            .value
-            .uri
-            .path,
-        '/',
-      );
+      expect(GoRouterState.of(tester.element(fab)).uri.path, '/');
       expect(scrolling.offset, closeTo(homeOffset, 1));
       expect(
         data.container.read(homeWorkoutLayoutProvider),
         HomeWorkoutLayout.list,
+      );
+      final allIds = requests
+          .map((request) => request.url.queryParameters['workoutId'])
+          .toList();
+      expect(
+        allIds.toSet().length,
+        allIds.length,
+        reason: 'Tab/search revisits reuse cached source revisions',
       );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

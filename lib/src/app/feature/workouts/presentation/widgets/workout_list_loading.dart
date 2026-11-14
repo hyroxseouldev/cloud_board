@@ -97,18 +97,19 @@ SliverGridDelegateWithFixedCrossAxisCount workoutListGridDelegate(
   double width,
 ) {
   final scaler = MediaQuery.textScalerOf(context);
-  final minWidth = scaler.scale(17) > 22 ? 280.0 : 164.0;
+  final minWidth = scaler.scale(16) > 22 ? 280.0 : 164.0;
+  final lines = scaler.scale(16) > 22 ? 2 : 1;
   final columns = ((width + 12) / (minWidth + 12)).floor().clamp(1, 3);
   final innerWidth = (width - (columns - 1) * 12) / columns - 20;
-  final stackedFooter = innerWidth < 110 + scaler.scale(13) * 3.5;
+  final stackedFooter = innerWidth < 106 + scaler.scale(13) * 3;
   return SliverGridDelegateWithFixedCrossAxisCount(
     crossAxisCount: columns,
     mainAxisExtent:
         (innerWidth * 9 / 16 +
                 12 +
-                scaler.scale(17) * 2.6 +
+                scaler.scale(16) * 1.3 * lines +
                 6 +
-                scaler.scale(12) * 2.8 +
+                scaler.scale(12) * 1.4 * lines +
                 12 +
                 48 +
                 20 +
@@ -213,11 +214,7 @@ class _SkeletonRow extends StatelessWidget {
         }
         final details = Row(
           children: [
-            _block(
-              width: constraints.maxWidth < 330 ? 96 : 108,
-              height: (constraints.maxWidth < 330 ? 96 : 108) * 9 / 16,
-              radius: 12,
-            ),
+            _block(width: 96, height: 96 * 9 / 16, radius: 12),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

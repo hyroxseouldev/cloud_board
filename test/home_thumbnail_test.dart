@@ -167,6 +167,58 @@ void main() {
   );
 
   testWidgets(
+    'covered route releases queued thumbnail work and resume can request it',
+    (tester) async {
+      final blocker = Completer<Uint8List?>();
+      final calls = <String>[];
+      final cache = HomeThumbnailCache((source, {workoutId, updatedAt}) {
+        calls.add(source);
+        return source == 'blocker' ? blocker.future : Future.value(tinyImage());
+      });
+      addTearDown(cache.dispose);
+      final first = cache.load('blocker');
+      Future<void> mount(bool active) => tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            homeThumbnailCacheProvider('owner').overrideWithValue(cache),
+          ],
+          child: MaterialApp(
+            home: TickerMode(
+              enabled: active,
+              child: Center(
+                child: HomeWorkoutThumbnail(
+                  ownerId: 'owner',
+                  workout: WorkoutSummary(
+                    id: 'w',
+                    name: 'class',
+                    folder: '',
+                    imageSource: 'queued',
+                    moduleCount: 1,
+                    durationSeconds: 30,
+                    updatedAt: DateTime(2026),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await mount(true);
+      await tester.pump();
+      await mount(false);
+      await tester.pump();
+      blocker.complete(tinyImage());
+      await first;
+      await tester.pumpAndSettle();
+      expect(calls, ['blocker']);
+      await mount(true);
+      await tester.pumpAndSettle();
+      expect(calls, ['blocker', 'queued']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'fixed image-only slot drops stale source and broken images gracefully',
     (tester) async {
       final cache = HomeThumbnailCache(

@@ -236,6 +236,9 @@ GoRouter appRouter(Ref ref) {
           ),
         ],
       ),
+      // A root push leaves the mounted home shell/dock geometry intact below
+      // search, so back restores its list position without a dock resize.
+      GoRoute(path: '/search', builder: (_, _) => const WorkoutSearchScreen()),
       ShellRoute(
         builder: (context, state, child) {
           final destination = MainDestination.forPath(state.uri.path);
@@ -311,10 +314,6 @@ GoRouter appRouter(Ref ref) {
                 ],
               ),
             ],
-          ),
-          GoRoute(
-            path: '/search',
-            builder: (_, _) => const WorkoutSearchScreen(),
           ),
           GoRoute(
             path: '/support',

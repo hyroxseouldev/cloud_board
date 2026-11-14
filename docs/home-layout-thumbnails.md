@@ -4,7 +4,7 @@
 
 이번 FAB/legacy 후속 작업의 기준은 `origin/develop`의 `a6ea313cab1bdce029acf61432cb6ef5befac1c9`(Dev TestFlight 2.2.1(7))이며 소스 버전 `2.2.1+13`은 유지한다. 홈의 실제 프로필 인사, 두 줄 환영 문구, 연결 상태, 내 수업 목록을 정리한다. 브랜드·전역 내비게이션·경로·검색·폴더·페이지 전환·첫 수업 안내·활성 수업 편집 잠금은 기존 흐름을 사용한다. 좁은 화면과 큰 글꼴에서는 행의 동작 버튼을 아래로 옮기고 전체 콘텐츠를 스크롤한다.
 
-카드 리디자인은 사용자 3안 선택을 기다리며 기존 구조를 유지한다. 홈 이미지는 56×56 고정 슬롯 안에 원본 비율을 보존하는 image-only 표시다. `WorkoutImage`, `SlideCanvas`, timer, player/preparation, 공용 이미지 loader/cache는 수정하지 않는다. 이미지가 없거나 실패하면 중립 이미지 아이콘을 표시하며 셀별 토스트는 만들지 않는다.
+사용자 선택 2번 목록/3번 그리드를 제공하고 미설정 계정의 기본은 그리드다. 홈 이미지는 16:9 슬롯 안에 원본 비율을 보존하는 image-only 표시다(목록 96px, 그리드 카드 폭). `WorkoutImage`, `SlideCanvas`, timer, player/preparation, 공용 이미지 loader/cache는 수정하지 않는다. 이미지가 없거나 실패하면 중립 이미지 아이콘을 표시하며 셀별 토스트는 만들지 않는다.
 
 ## 조사 결과와 확장 계약
 
@@ -30,7 +30,7 @@
 
 홈 캐시는 계정/로그인 상태별 auto-dispose, source의 immutable generation과 `home-v1`에 묶인다. legacy/embedded 셀의 변경에는 summary `id`와 `updatedAt`도 사용한다. 같은 legacy source라도 다른 수업은 서버가 각 summary를 검증하므로 별도 요청 identity이며 managed 복사본은 동일 generation을 공유한다. 최대 32항목×64KiB compressed bytes, 한 요청씩 실행하며 총 대기 8개를 넘기지 않는다. 뷰포트 밖 셀은 만들지 않고, 스크롤로 사라진 셀의 아직 시작하지 않은 요청은 취소한다. 같은 계정/source를 공유하는 셀은 한 요청을 재사용한다. 실패는 현재 방문에서 placeholder로 유지하고 반복 retry/toast를 만들지 않는다. 화면/계정 scope 폐기 시 전용 bytes와 해당 decoded image key만 해제한다. 전체 앱 이미지 캐시는 지우지 않는다.
 
-## 검증과 한계
+## 기존 managed home-v1 검증 기록
 
 증거는 작업 트리 밖 `/Users/sunmkim/CloudBoard-release-artifacts/2026-11-15-ux-polish/home/`에 보관한다. 인계 커밋·실제 검사 커밋과 명령/결과는 PR 및 그 디렉터리의 `report.md`에 기록한다.
 
@@ -45,11 +45,22 @@
 ## 2.2.1(7) 후속: FAB와 기존 이미지 전송
 
 - 헤더의 수업 만들기 버튼을 제거하고 `Scaffold`의 하단 우측 56×56 플러스 FAB 하나로 옮겼다. tooltip/접근성 이름은 `수업 만들기`이며 기존 `allowPlanAddition` 검사를 유지한다. 비동기 검사·편집 화면 진입 중 중복 탭을 막는다.
-- 검색/키보드 중 FAB는 숨긴다. 마지막 행 뒤 80px의 스크롤 여유가 있어 행 메뉴가 FAB에 가려진 채 고정되지 않는다. 기존 `ActiveClassShell`의 Column이 dock·safe area를 확보하므로 dock 높이를 하드코딩하지 않는다. navbar/router/환영 문구와 카드 스타일은 변경하지 않는다.
+- 검색/키보드 중 FAB는 숨긴다. 홈 스크롤 viewport 아래 80px를 FAB 영역으로 확보하여 초기 카드와 마지막 행의 메뉴가 FAB와 겹치지 않는다. 기존 `ActiveClassShell`의 Column이 dock·safe area를 확보하므로 dock 높이를 하드코딩하지 않는다. 기존 환영 문구·브랜드·탭 목적지·재생 동작을 유지한다. navbar PR #197의 변경은 develop 동기화로만 포함했다.
 - 승인 legacy 요청: `GET cloudboardMedia?rendition=home-v1&workoutId=<summary.id>&sourceHash=<sha256 exact source>&updatedAtMs=<decimal ms>`, `Authorization: Bearer <Firebase ID token>`. legacy에는 Media-Lease 헤더가 없다. managed의 assetId/v 및 owner-preview lease 계약은 그대로다.
 - 응답은 `200 image/jpeg`, 실제/선언 body 길이 일치, ≤64KiB, 정적 JPEG 각 변 ≤192px일 때만 표시한다. 401/404/409/503, redirect, malformed, 초과 body, 오래된 summary는 중립 placeholder로 끝난다. 원본 다운로드 fallback이나 끝없는 loading/retry를 추가하지 않는다.
 - 서버 담당자가 제공한 legacy 계약은 같은 owner의 현재 canonical workout+summary source/revision, configured bucket, Storage generation, 삭제/등록/인증 fence를 검증한다. cold legacy 원본 한도는 <10MiB, ≤16Mi pixels, 각 변 ≤8192의 정적 PNG/JPEG이며 managed 기존 ≤2MiB/4MP 계약과 구분한다. 서버 코드/배포는 별도 PR의 책임이며 이 프런트엔드 PR만으로 가용성을 보장하지 않는다.
 - 클라이언트 검증은 관련 홈 widget/unit/transport 테스트와 파일별 analyze이다. real loopback HTTP + injected local auth session 테스트는 실제 client stream 경로를 확인하지만 Firebase 인증·서버 quota/Storage 통합 검사는 아니다.
 - 외부 증거: `/Users/sunmkim/CloudBoard-release-artifacts/2026-11-15-home-nav/home/`. `before`는 기준 소스의 embedded-image widget, `after`의 shell 이미지는 현재 production home/router/dock에 legacy HTTP fixture를 주입한 390/320/2x widget이다. `reference/library-current-390.png`는 사용자 시안 선택용 현재 실제 라이브러리 위젯·번들 이미지 참조다. 실기기·TestFlight 검증으로 주장하지 않는다.
-- 기존 `static reduced-motion skeleton fits Size(320.0, 568.0) at text scale 2.0`의 첫 viewport skeleton assertion은 기준 a6ea313에서도 재현된다(큰 환영 영역 아래 lazy skeleton이 화면 밖). `baseline-exact-loading.log`에 보관했고 테스트를 삭제/skip하지 않았다. 기존 remote partial-seek 실패 2개는 이번 범위에서 수정/실행하지 않았다.
+- 기존 `static reduced-motion skeleton fits Size(320.0, 568.0) at text scale 2.0`의 첫 viewport skeleton assertion은 기준 a6ea313에서도 재현된다(큰 환영 영역 아래 lazy skeleton이 화면 밖). `baseline-exact-loading.log`에 보관했고 테스트를 삭제/skip하지 않았다. 이번 FAB 안전 영역/기본 grid 레이아웃에서는 해당 기존 테스트도 실행하여 결과를 별도로 기록한다. 기존 remote partial-seek 실패 2개는 이번 범위에서 수정/실행하지 않았다.
 - 실제 검사 SHA/명령/결과는 PR 및 외부 `report.md`에 기록한다. 개발/운영 연결·실계정/수업 쓰기·서버 배포·native build·TestFlight·전체 suite는 미실행이며 root의 최종 source 통합/개발 backend 검증이 남는다.
+
+
+## 선택된 목록·그리드와 별도 검색 페이지
+
+- 시각 기준: 외부 `card-concepts/displayed-2.png`(가로 이미지 목록), `displayed-3.png`(2열 갤러리). 신규/미설정 계정은 그리드이며 사용자 선택은 기존 SharedPreferences의 계정별 `home.workoutLayout.v1.<uid>` 키로 보관한다. 기존 저장값을 기본값으로 덮어쓰지 않는다. 기존 `WorkoutListMode.continuous/paged`의 의미와 데이터 탐색 동작은 그대로 유지하며 이 파일의 별도 표시 상태만 추가했다.
+- 로컬 preference read가 늦게 끝나도 새 선택을 덮지 않는다. 쓰기는 순서를 지키고 계정 변경·로그아웃은 그리드 기본으로 시작한 뒤 해당 계정의 값만 복원한다. 저장 실패는 현재 방문 선택을 유지하고 안전한 안내를 표시한다. 수업/서버 저장 동작은 변경하지 않았다.
+- 목록은 96px 가로 16:9 이미지, 제목·폴더/슬라이드·시간, 기존 재생/메뉴다. 390px에서는 같은 행, 좁은 화면·큰 글꼴에서는 동작을 아래로 옮긴다. 그리드는 390px에서 2열, 320px/큰 글꼴에서는 1열, 넓은 화면에서는 최대 3열이다. 일반 크기 grid의 긴 제목/폴더는 ellipsis로 제한하고 접근성 텍스트는 원문을 유지하며 큰 글꼴은 2줄을 허용한다. skeleton은 같은 그리드 크기를 사용한다.
+- 보기 버튼은 선택 semantics/tooltip과 48px hit target을 갖는다. 보기 전환은 데이터 provider/filter/page를 재생성하지 않는다. 페이지가 account cache를 보유하여 두 보기를 바꾸거나 검색/탭에서 돌아와도 같은 identity의 body를 다시 받지 않는다. 비활성 route의 셀은 TickerMode에서 queued watch를 해제한다.
+- 홈 검색은 `context.push('/search')`로 별도 최상위 route를 연다. 전역 auth redirect는 그대로 적용하고 기존 ShellRoute·MainDestination은 재구성하지 않는다. 홈 셸은 아래에 유지되어 dock 숨김/표시가 홈 viewport를 다시 배치하지 않는다. 검색이 입력·포커스를 소유하고, 뒤로 오면 기존 홈 폴더·페이지·스크롤과 보기 선택을 보존한다. 공유 `WorkoutListBody`로 데이터/카드/실패/액션 가드를 재사용하고 홈의 inline search toggle은 제거했다.
+- 검색은 기존 summary catalog와 250ms debounce/loadComplete 동작을 유지한다. 새 all-list prefetch/detail 조회/다른 슬라이드 이미지 조회는 추가하지 않았다. 입력이 사라지면 debounce를 취소하고 계정 전환의 catalog 취소는 기존 controller가 처리한다. 검색 키보드/큰 글꼴은 toolbar 높이와 폴더 선택 폭을 조정한다.
+- 최종 시각/전환 증거는 외부 `after-v2/`와 `design-qa.md`, 실행 commit/명령/결과/남은 제한은 `report.md` 및 PR에 기록한다. `after/`는 FAB/transport 중간 단계, `before/`는 최초 기준 소스다.

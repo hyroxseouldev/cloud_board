@@ -737,8 +737,8 @@ void main() {
 
   for (final (size, columns) in [
     (const Size(390, 844), 1),
-    (const Size(834, 1194), 2),
-    (const Size(1194, 834), 2),
+    (const Size(834, 1194), 3),
+    (const Size(1194, 834), 3),
   ]) {
     testWidgets(
       'continuous lazy scrolling reaches every item and retains filters at $size',
