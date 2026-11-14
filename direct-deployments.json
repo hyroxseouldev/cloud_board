@@ -1975,7 +1975,7 @@
       "tag": "",
       "version": "2.2.1",
       "actor": "hyroxseouldev",
-      "status": "running",
+      "status": "success",
       "startedAt": "2026-11-14T14:44:12.851Z",
       "validation": {
         "status": "not-run",
@@ -2094,7 +2094,8 @@
         "origin": "direct-cli",
         "validationMode": "not_requested"
       },
-      "uploadStatus": "uploaded"
+      "uploadStatus": "uploaded",
+      "completedAt": "2026-11-14T14:50:35.429Z"
     }
   ]
 }
