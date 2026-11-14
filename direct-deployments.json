@@ -100,12 +100,17 @@
         },
         {
           "id": "toolchain",
-          "status": "running",
-          "startedAt": "2026-11-14T05:06:58.414Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:06:58.414Z",
+          "completedAt": "2026-11-14T05:06:59.258Z",
+          "durationMs": 844
         }
       ],
       "targets": [],
-      "storeReview": "not-submitted"
+      "storeReview": "not-submitted",
+      "toolchain": {
+        "node": "22.21.1"
+      }
     }
   ]
 }
