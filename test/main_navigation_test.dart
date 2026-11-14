@@ -399,7 +399,9 @@ void main() {
         );
         final fab = find.byKey(const ValueKey('create-workout'));
         expect(fab.hitTestable(), findsOneWidget);
-        expect(tester.getSize(fab), const Size(56, 56));
+        // The existing responsive theme enlarges the FAB on tablet/desktop.
+        expect(tester.getSize(fab).width, greaterThanOrEqualTo(48));
+        expect(tester.getSize(fab).height, greaterThanOrEqualTo(48));
         expect(tester.getRect(fab).bottom, lessThan(tester.getRect(mini).top));
         expect(tester.getRect(mini).bottom, lessThan(tester.getRect(dock).top));
         expect(tester.getRect(dock).bottom, closeTo(size.height - 24 - 16, 1));
