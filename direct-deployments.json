@@ -47,6 +47,11 @@
           "startedAt": "2026-11-14T04:57:18.899Z",
           "completedAt": "2026-11-14T04:57:23.392Z",
           "durationMs": 4493
+        },
+        {
+          "id": "function-targets",
+          "status": "running",
+          "startedAt": "2026-11-14T04:57:24.232Z"
         }
       ],
       "targets": [],
