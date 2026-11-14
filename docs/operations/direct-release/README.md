@@ -165,8 +165,11 @@ focused tests cover the live direct path and absence of deployment workflow
 hooks/needs. Old workflow tests are **historical compatibility checks**, not proof
 that Actions ran. No CI status is synthesized as passing.
 
-Retained: `firebase-release-monitor.yml` (drift/save alerts),
-`app-update-news.yml` (explicit confirmed-release publishing), and
+The scheduled `firebase-release-monitor.yml` (drift/save alerts) has also been
+removed at the user's request to stop recurring workflow failure notifications.
+Its workflow source is deleted; runtime alert/support code is not removed.
+
+Retained: `app-update-news.yml` (explicit confirmed-release publishing) and
 `native-development-readiness.yml` (manual read-only store/profile inventory;
 no build, upload, gating check or deployment). Its same direct information commands
 are `node tool/release/development_readiness.mjs ios|android`. Existing alert and
