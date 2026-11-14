@@ -1778,6 +1778,11 @@
           "startedAt": "2026-11-14T12:41:55.335Z",
           "completedAt": "2026-11-14T12:41:57.257Z",
           "durationMs": 1922
+        },
+        {
+          "id": "recheck-build",
+          "status": "running",
+          "startedAt": "2026-11-14T12:41:58.749Z"
         }
       ],
       "targets": [],
