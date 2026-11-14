@@ -79,9 +79,19 @@ export async function runRecordedStage({id, attempt, save, work, log = console.l
   const record = {id, status: 'running', startedAt: new Date().toISOString()};
   attempt.steps.push(record); await save();
   try {
-    await work(); record.status = 'success'; record.completedAt = new Date().toISOString(); record.durationMs = Date.parse(record.completedAt) - Date.parse(record.startedAt);
-    await save(); log(`Completed ${id}`);
-  } catch (error) { record.status = 'failed'; record.completedAt = new Date().toISOString(); record.durationMs = Date.parse(record.completedAt) - Date.parse(record.startedAt); throw error; }
+    await work();
+  } catch (error) {
+    record.status = 'failed'; record.completedAt = new Date().toISOString();
+    record.durationMs = Date.parse(record.completedAt) - Date.parse(record.startedAt);
+    throw error;
+  }
+  // Persistence is a separate outcome: a lost receipt response must never
+  // rewrite a completed deploy/upload as a failed external operation.
+  record.status = 'success'; record.completedAt = new Date().toISOString();
+  record.durationMs = Date.parse(record.completedAt) - Date.parse(record.startedAt);
+  try { await save(); }
+  catch (error) { record.receiptPersistence = 'unconfirmed'; throw error; }
+  log(`Completed ${id}`);
 }
 export async function executePlan(plan) {
   // Source and access checks precede the receipt lock; no deployment occurs here.
@@ -277,7 +287,8 @@ export async function executePlan(plan) {
           let createdRuntime = false;
           try {
             if (runtime) { writeFileSync(runtimePath, runtime.dotenv, {mode: 0o600, flag: 'wx'}); createdRuntime = true; }
-            firebase('deploy', '--project', plan.project, '--config', plan.config, '--only', target, '--non-interactive', ...(runtime ? ['--force'] : []));
+            const deployOutput = firebase('deploy', '--project', plan.project, '--config', plan.config, '--only', target, '--non-interactive', ...(runtime ? ['--force'] : []));
+            attempt.deployCommand = {exitCode: 0, completedAt: new Date().toISOString(), project: plan.project, targets: target.split(','), outputSha256: createHash('sha256').update(deployOutput).digest('hex'), deployComplete: /Deploy complete!/.test(deployOutput)};
           } finally { if (createdRuntime) rmSync(runtimePath, {force: true}); }
           break;
         }
