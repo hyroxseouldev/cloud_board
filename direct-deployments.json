@@ -2163,6 +2163,11 @@
           "startedAt": "2026-11-14T18:35:31.602Z",
           "completedAt": "2026-11-14T18:36:55.006Z",
           "durationMs": 83404
+        },
+        {
+          "id": "readback",
+          "status": "running",
+          "startedAt": "2026-11-14T18:36:56.728Z"
         }
       ],
       "targets": [
