@@ -1907,8 +1907,10 @@
         },
         {
           "id": "recheck-source",
-          "status": "running",
-          "startedAt": "2026-11-14T13:59:10.723Z"
+          "status": "success",
+          "startedAt": "2026-11-14T13:59:10.723Z",
+          "completedAt": "2026-11-14T13:59:12.680Z",
+          "durationMs": 1957
         }
       ],
       "targets": [],
