@@ -1865,8 +1865,10 @@
         },
         {
           "id": "development-store-readiness",
-          "status": "running",
-          "startedAt": "2026-11-14T13:55:01.017Z"
+          "status": "success",
+          "startedAt": "2026-11-14T13:55:01.017Z",
+          "completedAt": "2026-11-14T13:55:04.106Z",
+          "durationMs": 3089
         }
       ],
       "targets": [],
