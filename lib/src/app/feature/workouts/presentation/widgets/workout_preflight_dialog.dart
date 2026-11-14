@@ -31,8 +31,8 @@ final preflightImageLoaderProvider = Provider<PreflightImageLoader>(
   (ref) => precacheWorkoutImages,
 );
 
-// Approval/lease failures never become a harmless preview warning. Transport or
-// decode failures are local to the preview; the final server gates still run.
+// Local image failures keep solo playback blocked; remote access is checked
+// by preparation and again by the existing server start gates.
 bool _blocksAccess(Object? error) =>
     (error is ImageUsageFailure && error.reason != 'service_unavailable') ||
     error is FirebaseException &&
@@ -222,8 +222,11 @@ class _WorkoutReadinessDialog extends HookConsumerWidget {
       workout,
       fingerprint,
       currentApproval,
-      preparation.admission?.admissionId,
+      remote,
+      preparation.admission,
       preparation.request?.sessionId,
+      preparation.request?.revision,
+      preparation.request?.manifestHash,
       preparation.loading,
       preparation.error,
       previewRetry.value,
@@ -235,7 +238,8 @@ class _WorkoutReadinessDialog extends HookConsumerWidget {
       [previewWork],
     );
     final preview = useMemoized(() {
-      if (!currentApproval ||
+      if (remote ||
+          !currentApproval ||
           preparation.loading ||
           preparation.error != null) {
         return null;
@@ -372,53 +376,25 @@ class _WorkoutReadinessDialog extends HookConsumerWidget {
       }
     }
 
-    final previewSection = <Widget>[
-      if (remote) const Divider(),
-      if (imageCheck.hasError)
-        _CheckTile(
-          ok: false,
-          title: remote ? '미리보기를 불러오지 못했어요' : '이미지 준비 실패',
-          subtitle: accessError
-              ? '수업 이용 상태 확인이 필요해요.'
-              : remote
-              ? 'TV 준비와 이용 상태가 확인되면 수업을 시작할 수 있어요.'
-              : workoutErrorMessage(
-                  imageCheck.error,
-                  fallback:
-                      '이미지를 준비하지 못했습니다. 인터넷 연결과 슬라이드 이미지를 확인한 뒤 다시 시도해 주세요.',
-                ),
+    final colors = Theme.of(context).colorScheme;
+    final readyCount = modern
+        .where((device) => statusOf(device) == DisplayPreparationStatus.ready)
+        .length;
+    final waiting =
+        currentApproval &&
+        modern.any(
+          (device) => statusOf(device) == DisplayPreparationStatus.waiting,
+        );
+    final blockedTVs = selected
+        .where(
+          (device) => switch (statusOf(device)) {
+            DisplayPreparationStatus.ready ||
+            DisplayPreparationStatus.legacy ||
+            DisplayPreparationStatus.waiting => false,
+            _ => true,
+          },
         )
-      else if (imageReady)
-        _CheckTile(
-          ok: true,
-          title: remote ? '컨트롤러 미리보기 준비됨' : '이미지 준비 완료',
-          subtitle: '${imageCheck.data}개 이미지를 확인했습니다.',
-        )
-      else if (preparation.error != null ||
-          approvalExpired ||
-          deviceState.hasError)
-        const _CheckTile(
-          ok: false,
-          title: '이미지 이용 승인 대기',
-          subtitle: '수업 상태를 다시 확인한 뒤 이미지를 준비해요.',
-        )
-      else
-        PreparationStageStatus(
-          key: ValueKey(previewWork),
-          label: !currentApproval
-              ? '이미지 이용 승인 대기 중'
-              : remote
-              ? '컨트롤러 미리보기 불러오는 중'
-              : '시작 이미지 준비 중',
-          detail: remote ? 'TV 수업 시작과 별도로 준비해요.' : '시작 화면과 다음 슬라이드를 준비하고 있습니다.',
-        ),
-      if (imageCheck.hasError && !accessError)
-        TextButton(
-          onPressed: currentApproval ? () => previewRetry.value++ : null,
-          child: Text(remote ? '미리보기 다시 불러오기' : '시작 이미지 다시 불러오기'),
-        ),
-      if (remote) const Divider(),
-    ];
+        .toList();
 
     return AppAlertDialog(
       scrollable: false,
@@ -430,115 +406,152 @@ class _WorkoutReadinessDialog extends HookConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _CheckTile(
-                ok: readiness.isReady,
-                title: '${workout.modules.length}개 슬라이드',
-                subtitle: readiness.isReady
-                    ? '총 수업 시간 ${workoutDurationText(workout)}'
-                    : readiness.issues.join('\n'),
+              Text(
+                workout.name,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              if ((preparation.error != null ||
-                      accessError ||
-                      approvalExpired) &&
-                  modern.isEmpty) ...[
-                Text(
-                  preparation.error ?? '최신 수업 이용 상태를 다시 확인해 주세요.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+              const SizedBox(height: 4),
+              Text(
+                '${workout.modules.length}개 슬라이드 · ${workoutDurationText(workout)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              if (!readiness.isReady)
+                _CheckTile(
+                  ok: false,
+                  title: '수업 내용을 확인해 주세요',
+                  subtitle: readiness.issues.join('\n'),
+                ),
+              if (preparation.error != null ||
+                  accessError ||
+                  approvalExpired) ...[
+                _CheckTile(
+                  ok: false,
+                  title: approvalExpired
+                      ? '수업 준비 승인을 다시 확인해 주세요'
+                      : '이용 상태를 다시 확인해 주세요',
+                  subtitle:
+                      preparation.error ??
+                      (approvalExpired
+                          ? '준비 시간이 만료되었거나 수업 상태가 변경됐어요.'
+                          : workoutErrorMessage(
+                              imageCheck.error,
+                              fallback: '수업 이용 승인을 확인하지 못했어요.',
+                            )),
                 ),
                 TextButton(
                   onPressed: preparation.loading ? null : () => retry.value++,
                   child: const Text('수업 상태 다시 확인'),
                 ),
-              ],
-              if (approvalExpired)
-                const _CheckTile(
-                  ok: false,
-                  title: '수업 준비 승인을 다시 확인해 주세요',
-                  subtitle: '준비 시간이 만료되었거나 수업 상태가 변경됐어요.',
-                )
-              else if (deviceState.hasError)
+              ] else if (deviceState.hasError) ...[
                 const _CheckTile(
                   ok: false,
                   title: 'TV 목록 확인 실패',
                   subtitle: '연결을 확인한 뒤 다시 시도해 주세요.',
-                )
-              else if (preparation.error == null &&
-                  (!currentApproval || preparation.loading))
-                PreparationStageStatus(
-                  key: ValueKey('$fingerprint-${retry.value}'),
-                  label: '최신 수업 설정·이용 상태 확인 중',
                 ),
-              if (accessError)
-                _CheckTile(
-                  ok: false,
-                  title: '이용 상태를 다시 확인해 주세요',
-                  subtitle: workoutErrorMessage(
-                    imageCheck.error,
-                    fallback: '이미지 이용 승인을 확인하지 못했어요. 수업 상태를 다시 확인해 주세요.',
-                  ),
-                ),
-              if (deviceState.hasError)
                 TextButton(
                   onPressed: () => ref.invalidate(displayDevicesProvider),
                   child: const Text('TV 목록 다시 확인'),
                 ),
-              if (!remote) ...previewSection,
-              _CheckTile(
-                ok: onlineDevices.any((d) => d.recentlySeen(nowMs)),
-                title: !onlineDevices.any((d) => d.recentlySeen(nowMs))
-                    ? '온라인 디스플레이 없음'
-                    : '${onlineDevices.where((d) => d.recentlySeen(nowMs)).length}대 온라인',
-                subtitle: selectedDeviceIds.value.isEmpty
-                    ? '이 기기에서만 재생합니다. TV에는 수업을 보내지 않아요.'
-                    : '${selectedDeviceIds.value.length}대를 선택했습니다.',
-              ),
-              if (selected.length > modern.length)
-                Text(
-                  '이미지 준비 상태 미지원 ${selected.length - modern.length}대 · 연결·재생 호환성으로 확인해요.',
+              ] else if (!currentApproval || preparation.loading)
+                PreparationStageStatus(
+                  key: ValueKey('$fingerprint-${retry.value}'),
+                  label: '최신 수업 설정·이용 상태 확인 중',
                 ),
-              if (modern.isNotEmpty) ...[
-                if (currentApproval &&
-                    modern.any(
-                      (d) => statusOf(d) == DisplayPreparationStatus.waiting,
-                    ))
+              if (!remote) ...[
+                const Text(
+                  '이 기기에서만 재생',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                if (imageCheck.hasError && !accessError) ...[
+                  _CheckTile(
+                    ok: false,
+                    title: '이미지 준비 실패',
+                    subtitle: workoutErrorMessage(
+                      imageCheck.error,
+                      fallback: '이미지를 불러오지 못했어요. 연결을 확인해 주세요.',
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: currentApproval
+                        ? () => previewRetry.value++
+                        : null,
+                    child: const Text('시작 이미지 다시 불러오기'),
+                  ),
+                ] else if (imageReady)
+                  const _CheckTile(
+                    ok: true,
+                    title: '이미지 준비 완료',
+                    subtitle: '시작 화면과 다음 슬라이드를 준비했어요.',
+                  )
+                else if (currentApproval &&
+                    !preparation.loading &&
+                    preparation.error == null &&
+                    !approvalExpired)
+                  PreparationStageStatus(
+                    key: ValueKey(previewWork),
+                    label: '시작 이미지 준비 중',
+                  ),
+              ],
+              if (remote && modern.isNotEmpty) ...[
+                if (waiting)
                   PreparationStageStatus(
                     key: ValueKey(matchingRequest?.sessionId),
-                    label: '대상 TV의 실제 준비 상태 확인 중',
+                    label: 'TV 이미지 준비 중 · $readyCount/${modern.length}대 완료',
+                  )
+                else
+                  _CheckTile(
+                    ok: readyCount == modern.length,
+                    title: 'TV 이미지 준비 $readyCount/${modern.length}대 완료',
+                    subtitle: readyCount == modern.length
+                        ? '선택한 TV에서 수업을 시작할 수 있어요.'
+                        : '아래 TV 상태를 확인해 주세요.',
                   ),
-                _CheckTile(
-                  ok:
-                      matchingRequest != null &&
-                      modern.every(
-                        (d) => statusOf(d) == DisplayPreparationStatus.ready,
-                      ),
-                  title:
-                      'TV ${modern.length}대 중 ${modern.where((d) => statusOf(d) == DisplayPreparationStatus.ready).length}대 준비 완료',
-                  subtitle:
-                      '${preparation.error ?? '선택한 수업의 이미지와 소리를 각 TV에서 확인해요.'}\n'
-                      '준비되지 않은 TV는 체크를 해제하면 제외하고 수업을 시작할 수 있어요.',
-                ),
-                TextButton(
-                  onPressed: preparation.loading ? null : () => retry.value++,
-                  child: const Text('TV 준비 다시 확인'),
-                ),
+                if (blockedTVs.isNotEmpty)
+                  Text(
+                    blockedTVs
+                        .map(
+                          (d) => '${d.name}: ${_preparationLabel(statusOf(d))}',
+                        )
+                        .join('\n'),
+                    style: TextStyle(color: colors.error),
+                  ),
+                if (!allPrepared &&
+                    !preparation.loading &&
+                    preparation.error == null)
+                  TextButton(
+                    onPressed: () => retry.value++,
+                    child: const Text('TV 준비 다시 확인'),
+                  ),
               ],
+              if (selected.length > modern.length)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    '이미지 사전 확인 미지원 ${selected.length - modern.length}대',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
               if (onlineDevices.isNotEmpty) ...[
-                Row(
+                if (remote && !allPrepared)
+                  Text(
+                    '준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                const Divider(height: 24),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
-                      child: Text(
-                        '재생 디스플레이',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
+                    Text(
+                      '재생 TV · ${selected.length}대 선택',
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                     TextButton(
-                      onPressed: () {
-                        selectedDeviceIds.value =
-                            selectedDeviceIds.value.length ==
-                                onlineDevices.length
-                            ? <String>{}
-                            : onlineDeviceIds;
-                      },
+                      onPressed: () => selectedDeviceIds.value =
+                          selectedDeviceIds.value.length == onlineDevices.length
+                          ? <String>{}
+                          : onlineDeviceIds,
                       child: Text(
                         selectedDeviceIds.value.length == onlineDevices.length
                             ? '전체 해제'
@@ -547,38 +560,48 @@ class _WorkoutReadinessDialog extends HookConsumerWidget {
                     ),
                   ],
                 ),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 190),
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: onlineDevices
-                        .map(
-                          (device) => CheckboxListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            value: selectedDeviceIds.value.contains(device.id),
-                            title: Text(device.name),
-                            subtitle: Text(
-                              '${device.zoneName} · ${device.installedVersion}\n${_preparationLabel(statusOf(device))}',
-                            ),
-                            onChanged: (checked) {
-                              final next = Set<String>.from(
-                                selectedDeviceIds.value,
-                              );
-                              if (checked == true) {
-                                next.add(device.id);
-                              } else {
-                                next.remove(device.id);
-                              }
-                              selectedDeviceIds.value = next;
-                            },
-                          ),
-                        )
-                        .toList(),
+                for (final device in onlineDevices)
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: selectedDeviceIds.value.contains(device.id),
+                    title: Text(
+                      device.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      selectedDeviceIds.value.contains(device.id)
+                          ? _preparationLabel(statusOf(device))
+                          : '선택 안 함',
+                    ),
+                    onChanged: (checked) {
+                      final next = Set<String>.from(selectedDeviceIds.value);
+                      if (checked == true) {
+                        next.add(device.id);
+                      } else {
+                        next.remove(device.id);
+                      }
+                      selectedDeviceIds.value = next;
+                    },
                   ),
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('연결 정보', style: TextStyle(fontSize: 13)),
+                  children: [
+                    for (final device in onlineDevices)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(device.name),
+                        subtitle: Text(
+                          '${device.zoneName} · ${device.installedVersion}',
+                        ),
+                      ),
+                  ],
                 ),
               ],
-              if (remote) ...previewSection,
             ],
           ),
         ),
@@ -590,6 +613,10 @@ class _WorkoutReadinessDialog extends HookConsumerWidget {
         ),
         FilledButton.icon(
           onPressed: canStart ? start : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: colors.primary,
+            foregroundColor: colors.onPrimary,
+          ),
           icon: const Icon(Icons.play_arrow_rounded),
           label: const Text('수업 시작'),
         ),
@@ -615,16 +642,36 @@ class _CheckTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     liveRegion: true,
-    child: ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: ok == null
-          ? const CircularProgressIndicator()
-          : Icon(
-              ok! ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-              color: ok! ? Colors.green : Colors.orange,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            ok == true
+                ? Icons.check_circle_outline_rounded
+                : Icons.error_outline_rounded,
+            size: 20,
+            color: ok == true
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 3),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              ],
             ),
-      title: Text(title),
-      subtitle: Text(subtitle),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -632,9 +679,9 @@ class _CheckTile extends StatelessWidget {
 String _preparationLabel(DisplayPreparationStatus status) => switch (status) {
   DisplayPreparationStatus.offline => '최근 응답 없음 · 연결 확인 또는 제외',
   DisplayPreparationStatus.updateRequired => '이 수업은 TV 업데이트가 필요해요',
-  DisplayPreparationStatus.legacy => '연결 및 재생 호환성 확인됨 · 이미지 준비 상태 미지원',
-  DisplayPreparationStatus.waiting => '이 수업의 이미지·소리 준비 중',
+  DisplayPreparationStatus.legacy => '연결·재생 호환 · 이미지 확인 미지원',
+  DisplayPreparationStatus.waiting => '이미지·소리 준비 중',
   DisplayPreparationStatus.failed => '자료 준비 실패 · 재시도 또는 제외',
-  DisplayPreparationStatus.ready => '이 수업의 이미지·소리 준비 완료',
+  DisplayPreparationStatus.ready => '준비 완료',
   DisplayPreparationStatus.expired => '준비 확인 만료 · 다시 확인해 주세요',
 };

@@ -32,6 +32,88 @@ final _workout =
 
 void main() {
   testWidgets(
+    'remote preview mounts only after explicit opening and resets by scope',
+    (tester) async {
+      var builds = 0;
+      var next = 0;
+      var selected = -1;
+      var scope = 'session-a/owner-a/tv-a';
+      var current = 0;
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return WorkoutControlPanel(
+                title: '수업',
+                moduleCount: 3,
+                currentModule: current,
+                paused: false,
+                busy: false,
+                previewOnDemand: true,
+                previewScope: scope,
+                moduleNames: const ['스쿼트', '런지', '버피'],
+                onPrevious: () {},
+                onNext: () {
+                  next++;
+                },
+                onToggle: () {},
+                onExit: () {},
+                onSelectModule: (index) async {
+                  selected = index;
+                  setState(() => current = index);
+                },
+                previewBuilder: (_, index) {
+                  builds++;
+                  return Text('image body $index');
+                },
+                timeline: const Text('00:30 · 운동 중'),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(builds, 0);
+      expect(find.byType(PageView), findsNothing);
+      await tester.tap(find.byTooltip('다음 운동'));
+      expect(next, 1);
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2. 런지').last);
+      await tester.pumpAndSettle();
+      expect(selected, 1);
+      expect(builds, 0);
+      await tester.tap(find.text('미리보기 보기'));
+      await tester.pumpAndSettle();
+      expect(builds, greaterThan(0));
+      expect(find.byType(PageView), findsOneWidget);
+      await tester.tap(find.text('미리보기 닫기'));
+      await tester.pumpAndSettle();
+      final closedBuilds = builds;
+      rebuild(() => current = 2);
+      await tester.pumpAndSettle();
+      expect(builds, closedBuilds);
+      expect(find.byType(PageView), findsNothing);
+      await tester.tap(find.text('미리보기 보기'));
+      await tester.pumpAndSettle();
+      for (final changed in [
+        'session-b/owner-a/tv-a',
+        'session-b/owner-b/tv-a',
+        'session-b/owner-b/tv-b',
+        'session-a/owner-a/tv-a',
+      ]) {
+        rebuild(() => scope = changed);
+        await tester.pumpAndSettle();
+        expect(find.byType(PageView), findsNothing);
+        expect(find.text('미리보기 보기'), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'slide selection skips all remaining sets and rejects invalid targets',
     (tester) async {
       final container = ProviderContainer(
