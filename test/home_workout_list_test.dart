@@ -1,3 +1,9 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_search_screen.dart';
+import 'package:cloud_board/src/app/feature/entitlement/data/models/store_entitlement_model.dart';
+import 'package:cloud_board/src/app/feature/entitlement/domain/plan_usage.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/plan_usage_controller.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -88,7 +94,7 @@ void main() {
     'home thumbnail requests are visible-only, deduplicated and never load workout details',
     (tester) async {
       final requests = <String>[];
-      final cache = HomeThumbnailCache((source) async {
+      final cache = HomeThumbnailCache((source, {workoutId, updatedAt}) async {
         requests.add(source);
         return _homeEvidenceBytes();
       });
@@ -262,7 +268,7 @@ void main() {
             tester.widget<shadcn.ShadInput>(search).controller!.text,
             isEmpty,
           );
-          await tester.tap(find.byTooltip('검색 닫기'));
+          await tester.tap(find.byTooltip('뒤로'));
           await tester.pumpAndSettle();
           noUsage();
         } finally {
@@ -296,9 +302,10 @@ void main() {
     'v5 home keeps row actions accessible and the create action singular',
     (tester) async {
       await _mount(tester, _CatalogRepository(_catalog(1)));
-      expect(find.text('수업 만들기'), findsOneWidget);
+      expect(find.text('수업 만들기'), findsNothing);
+      expect(find.byTooltip('수업 만들기'), findsOneWidget);
       expect(find.text('내 수업 1개'), findsOneWidget);
-      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
       for (final control in [
         find.byKey(const ValueKey('create-workout')),
         find.byTooltip('재생'),
@@ -418,7 +425,14 @@ void main() {
       'paged browsing restores search, resets filters, clamps deleted pages and refreshes at $size',
       (tester) async {
         final repository = _CatalogRepository(_catalog(25));
-        final container = await _mount(tester, repository, size: size);
+        final container = await _mount(
+          tester,
+          repository,
+          size: size,
+          layout: size.width < 600
+              ? HomeWorkoutLayout.list
+              : HomeWorkoutLayout.grid,
+        );
         container
             .read(workoutListModeControllerProvider.notifier)
             .select(WorkoutListMode.paged);
@@ -443,7 +457,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('1 / 1'), findsOneWidget);
         expect(_title('수업 25'), findsOneWidget);
-        await tester.tap(find.byTooltip('검색 닫기'));
+        await tester.tap(find.byTooltip('뒤로'));
         await tester.pumpAndSettle();
         expect(find.text('2 / 3'), findsOneWidget);
         expect(_title('수업 13').hitTestable(), findsOneWidget);
@@ -491,7 +505,43 @@ void main() {
     );
   }
 
-  testWidgets('header create opens the workout editor and returns to home', (
+  testWidgets('FAB double tap opens once and preserves plan denial', (
+    tester,
+  ) async {
+    var opened = 0;
+    await _mount(
+      tester,
+      _CatalogRepository(_catalog(1)),
+      testCreateRoute: true,
+      onCreate: () => opened++,
+    );
+    final fab = find.byKey(const ValueKey('create-workout'));
+    await tester.tap(fab);
+    await tester.tap(fab);
+    await tester.pumpAndSettle();
+    expect(opened, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _mount(
+      tester,
+      _CatalogRepository(_catalog(1)),
+      testCreateRoute: true,
+      planDenied: true,
+      onCreate: () => opened++,
+    );
+    await tester.tap(fab);
+    await tester.pumpAndSettle();
+    expect(find.text('수업 저장 한도에 도달했어요'), findsOneWidget);
+    expect(opened, 1);
+    await tester.tap(find.text('계속 편집'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('create-workout')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('floating create opens the workout editor and returns to home', (
     tester,
   ) async {
     await _mount(
@@ -500,7 +550,7 @@ void main() {
       testCreateRoute: true,
     );
     expect(find.byTooltip('메뉴'), findsNothing);
-    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('create-workout')));
     await tester.pumpAndSettle();
     expect(find.text('워크아웃 만들기 목적지'), findsOneWidget);
@@ -530,7 +580,7 @@ void main() {
     await tester.enterText(find.byType(shadcn.ShadInput), '수업 01');
     await tester.pumpAndSettle();
     expect(_title('수업 01'), findsOneWidget);
-    await tester.tap(find.byTooltip('검색 닫기'));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
     expect(find.byType(shadcn.ShadInput), findsNothing);
     expect(
@@ -555,19 +605,20 @@ void main() {
     for (final (width, columns) in [
       (320.0, 1),
       (390.0, 1),
-      (640.0, 1),
-      (768.0, 1),
-      (834.0, 1),
-      (960.0, 1),
-      (1600.0, 1),
+      (640.0, 2),
+      (768.0, 2),
+      (834.0, 2),
+      (960.0, 3),
+      (1600.0, 3),
     ]) {
       await _mount(
         tester,
         _CatalogRepository(_catalog(1)),
         size: Size(width, 1000),
         textScale: 2,
+        layout: HomeWorkoutLayout.grid,
       );
-      if (width >= 600) {
+      {
         final grid = tester.widget<SliverGrid>(
           find.byKey(const ValueKey('workout-grid')),
         );
@@ -576,14 +627,12 @@ void main() {
               .crossAxisCount,
           columns,
         );
-      } else {
-        expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
       }
       final thumbnail = tester.getSize(
         find.byKey(const ValueKey('workout-thumbnail-w1')),
       );
-      expect(thumbnail.width, lessThanOrEqualTo(72));
-      expect(thumbnail.width / thumbnail.height, closeTo(1, .001));
+      expect(thumbnail.width, lessThan(width));
+      expect(thumbnail.width / thumbnail.height, closeTo(16 / 9, .001));
       await tester.ensureVisible(find.byTooltip('재생'));
       await tester.pumpAndSettle();
       expect(find.byTooltip('재생').hitTestable(), findsOneWidget);
@@ -688,14 +737,21 @@ void main() {
 
   for (final (size, columns) in [
     (const Size(390, 844), 1),
-    (const Size(834, 1194), 2),
-    (const Size(1194, 834), 2),
+    (const Size(834, 1194), 3),
+    (const Size(1194, 834), 3),
   ]) {
     testWidgets(
       'continuous lazy scrolling reaches every item and retains filters at $size',
       (tester) async {
         final repository = _CatalogRepository(_catalog(60));
-        final container = await _mount(tester, repository, size: size);
+        final container = await _mount(
+          tester,
+          repository,
+          size: size,
+          layout: size.width < 600
+              ? HomeWorkoutLayout.list
+              : HomeWorkoutLayout.grid,
+        );
         final mobile = size.width < 600;
         expect(find.byTooltip('다음 페이지'), findsNothing);
         expect(
@@ -724,7 +780,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(_title('수업 60').hitTestable(), findsOneWidget);
-        expect(find.byType(FloatingActionButton), findsNothing);
+        expect(find.byType(FloatingActionButton), findsOneWidget);
         container.read(workoutControllerProvider.notifier).remove('w60');
         await tester.pumpAndSettle();
         expect(_title('수업 60'), findsNothing);
@@ -856,7 +912,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(repository.loads, 2);
-        expect(find.byType(FloatingActionButton), findsNothing);
+        expect(
+          find.byType(FloatingActionButton),
+          emptyCatalog ? findsOneWidget : findsNothing,
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -918,26 +977,57 @@ Future<ProviderContainer> _mount(
   double textScale = 1,
   List<String> folders = const [],
   HomeThumbnailCache? thumbnails,
+  bool planDenied = false,
+  VoidCallback? onCreate,
+  HomeWorkoutLayout layout = HomeWorkoutLayout.list,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  final router = testCreateRoute
-      ? GoRouter(
-          routes: [
-            GoRoute(path: '/', builder: (_, _) => const WorkoutListScreen()),
-            GoRoute(
-              path: '/editor/new',
-              builder: (_, _) => const Scaffold(body: Text('워크아웃 만들기 목적지')),
-            ),
-          ],
-        )
-      : null;
-  if (router != null) addTearDown(router.dispose);
+  final router = GoRouter(
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => const WorkoutListScreen()),
+      GoRoute(path: '/search', builder: (_, _) => const WorkoutSearchScreen()),
+      GoRoute(
+        path: '/editor/new',
+        builder: (_, _) {
+          onCreate?.call();
+          return const Scaffold(body: Text('워크아웃 만들기 목적지'));
+        },
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        homeWorkoutLayoutProvider.overrideWith(() => _FixtureLayout(layout)),
+        if (planDenied) ...[
+          planAccessProvider.overrideWith(
+            (_) => Stream.value(
+              StoreEntitlementModel.fromJson({
+                'policyVersion': 'plan-entitlements-v2',
+                'status': 'trialing',
+                'plan': 'free',
+                'validUntilMs': 32503647600000,
+                'maxWorkouts': 7,
+                'workoutsUnlimited': false,
+                'maxSavedSlides': 3,
+                'savedSlidesUnlimited': false,
+              }).toEntity('u', true, 1000),
+            ),
+          ),
+          planUsageProvider.overrideWith(
+            (_) => Stream.value(
+              const PlanUsage(
+                workoutCount: 7,
+                savedSlideCount: 0,
+                serverConfirmed: true,
+              ),
+            ),
+          ),
+        ],
         if (thumbnails != null)
           homeThumbnailCacheProvider('u').overrideWithValue(thumbnails),
         libraryFoldersProvider.overrideWith((ref) => Stream.value(folders)),
@@ -965,26 +1055,32 @@ Future<ProviderContainer> _mount(
           (ref) async => LoadWorkouts(repository),
         ),
       ],
-      child: router == null
-          ? MaterialApp(
-              theme: XonTheme.light,
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.linear(textScale)),
-                child: RepaintBoundary(
-                  key: const ValueKey('layout-evidence'),
-                  child: XonTheme.responsiveBuilder(context, child),
-                ),
-              ),
-              home: const WorkoutListScreen(),
-            )
-          : MaterialApp.router(theme: XonTheme.light, routerConfig: router),
+      child: MaterialApp.router(
+        theme: XonTheme.light,
+        routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: RepaintBoundary(
+            key: const ValueKey('layout-evidence'),
+            child: XonTheme.responsiveBuilder(context, child),
+          ),
+        ),
+      ),
     ),
   );
   await tester.pumpAndSettle();
-  return ProviderScope.containerOf(
+  final container = ProviderScope.containerOf(
     tester.element(find.byType(WorkoutListScreen)),
   );
+  if (planDenied) {
+    final access = container.listen(planAccessProvider, (_, _) {});
+    final usage = container.listen(planUsageProvider, (_, _) {});
+    addTearDown(access.close);
+    addTearDown(usage.close);
+    await tester.pumpAndSettle();
+  }
+  return container;
 }
 
 List<Workout> _catalog(int count) => List.generate(
@@ -1103,3 +1199,10 @@ List<Workout> _homeEvidenceCatalog() => _catalog(6)
       ),
     )
     .toList();
+
+class _FixtureLayout extends HomeWorkoutLayoutController {
+  _FixtureLayout(this.initial);
+  final HomeWorkoutLayout initial;
+  @override
+  HomeWorkoutLayout build() => initial;
+}
