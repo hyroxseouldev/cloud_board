@@ -21,7 +21,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 
-import 'preparation_lesson_content.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/preparation_lesson_content.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/domain/workout_readiness.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
@@ -595,19 +595,22 @@ class _PreparationLayout extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.selected,
-                                  borderRadius: BorderRadius.circular(16),
+                              if (MediaQuery.textScalerOf(context).scale(14) <=
+                                  20) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.selected,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(
+                                    shadcn.LucideIcons.sparkles,
+                                    color: AppColors.accent,
+                                    size: 24,
+                                  ),
                                 ),
-                                child: const Icon(
-                                  shadcn.LucideIcons.sparkles,
-                                  color: AppColors.accent,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
+                                const SizedBox(width: 12),
+                              ],
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

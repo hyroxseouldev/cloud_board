@@ -30,9 +30,9 @@ List<String> preparationModuleDetails(WorkoutModule module) {
   if (isContinuousTimer(module)) {
     return [
       if (isOpenEndedTimer(module))
-        '완료할 때 다음 슬라이드로 이동해 주세요.'
+        '경과 시간을 표시해요.'
       else if (module.timerMode == WorkoutTimerMode.forTime)
-        '완료하면 다음으로 이동 · 제한시간 ${durationLabel(module.workSeconds)}'
+        '제한시간 ${durationLabel(module.workSeconds)} · ${timerCountsUp(module) ? '경과' : '남은'} 시간 표시'
       else
         '연속 운동 ${durationLabel(module.workSeconds)}',
     ];
@@ -46,7 +46,7 @@ List<String> preparationModuleDetails(WorkoutModule module) {
             blockHasRest(module, blocks.first, blocks.first.sets),
   );
   String describe(WorkoutIntervalBlock block, int sets) => [
-    '${sets}${module.timerMode == WorkoutTimerMode.emom ? '구간' : '세트'}',
+    '$sets${module.timerMode == WorkoutTimerMode.emom ? '구간' : '세트'}',
     if (block.workSeconds > 0)
       '${module.timerMode == WorkoutTimerMode.emom ? '구간' : '운동'} ${durationLabel(block.workSeconds)}',
     if (block.restSeconds > 0) '휴식 ${durationLabel(block.restSeconds)}',

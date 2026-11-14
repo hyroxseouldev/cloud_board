@@ -34,7 +34,7 @@ void main() {
       preparationDurationText(workout.copyWith(modules: [base, capped, open])),
       '최대 8:00 + 제한시간 없음',
     );
-    expect(preparationModuleDetails(open), ['완료할 때 다음 슬라이드로 이동해 주세요.']);
+    expect(preparationModuleDetails(open), ['경과 시간을 표시해요.']);
     expect(
       preparationTimerKinds(workout.copyWith(modules: [base, capped, open])),
       '사용자 지정 · For Time',
