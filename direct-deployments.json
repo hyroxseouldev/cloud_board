@@ -1656,8 +1656,10 @@
         },
         {
           "id": "readback",
-          "status": "running",
-          "startedAt": "2026-11-14T12:35:11.108Z"
+          "status": "success",
+          "startedAt": "2026-11-14T12:35:11.108Z",
+          "completedAt": "2026-11-14T12:35:16.840Z",
+          "durationMs": 5732
         }
       ],
       "targets": [
@@ -1680,6 +1682,19 @@
         ],
         "outputSha256": "64e17bfc7013309fe1f0e61503497bdb449ada22a30e2b59eeb396f3a18f184e",
         "deployComplete": true
+      },
+      "serverObservation": {
+        "status": "active",
+        "functions": [
+          {
+            "name": "cloudboardClassAdmission",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          }
+        ],
+        "sourceVerification": "successful-selected-deploy-command",
+        "appQa": "not-run"
       }
     }
   ]
