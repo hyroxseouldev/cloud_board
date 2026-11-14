@@ -191,4 +191,18 @@ class _Player extends PlayerController {
     isPaused: false,
     countdownMs: countdown ? 5000 : 0,
   );
+  @override
+  Future<void> selectModule(int moduleIndex) async {
+    state = state.copyWith(
+      index: state.steps.indexWhere((step) => step.moduleIndex == moduleIndex),
+      remainingMs: 60000,
+    );
+  }
+
+  @override
+  Future<void> next() =>
+      selectModule((state.steps[state.index].moduleIndex + 1).clamp(0, 5));
+  @override
+  Future<void> previous() =>
+      selectModule((state.steps[state.index].moduleIndex - 1).clamp(0, 5));
 }

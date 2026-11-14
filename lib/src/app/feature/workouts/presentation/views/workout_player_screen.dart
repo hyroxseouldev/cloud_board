@@ -27,7 +27,8 @@ import 'package:cloud_board/src/app/core/services/workout_media_controller.dart'
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_control_panel.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preview_frame.dart';
+import 'package:cloud_board/src/app/feature/workouts/domain/workout_timeline.dart';
 
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_session_controller.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/display_playback_session.dart';
@@ -635,14 +636,15 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
               progress: timelineSection(WorkoutTimelineSection.progress),
               timeline: timelineSection(WorkoutTimelineSection.detail),
               previewBuilder: (context, index) {
-                if (index != step.moduleIndex) {
-                  return WorkoutSlidePreview(
-                    module: workout.modules[index],
-                    isRest: false,
-                    brandL: workout.brandL,
-                    brandR: workout.brandR,
-                  );
-                }
+                // Keep the same canvas/image ancestry and provider strategy when
+                // a visible thumbnail becomes current (or stops being current).
+                final current = index == step.moduleIndex;
+                final previewModule = workout.modules[index];
+                final phases = workoutModuleTimeline(previewModule);
+                final phase =
+                    phases.where((p) => !p.isRest).firstOrNull ??
+                    phases.firstOrNull;
+                final duration = (phase?.seconds ?? 0) * 1000;
                 return LayoutBuilder(
                   builder: (context, constraints) {
                     final scale = math.min(
@@ -650,26 +652,38 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
                       constraints.maxHeight / 720,
                     );
                     return WorkoutSlideCanvas(
-                      module: module,
-                      isRest: step.isRest,
-                      secondsLeft: state.secondsLeft,
-                      remainingMs: state.remainingMs,
-                      durationMs: step.duration * 1000,
-                      set: step.set,
-                      totalSets: step.totalSets,
-                      positionLabel: step.positionLabel,
-                      isPaused: state.isPaused,
+                      module: previewModule,
+                      preview: true,
+                      webHtmlElementStrategy:
+                          WorkoutPreviewFrame.webImageStrategy,
+                      isRest: current ? step.isRest : phase?.isRest ?? false,
+                      secondsLeft: current
+                          ? state.secondsLeft
+                          : duration ~/ 1000,
+                      remainingMs: current ? state.remainingMs : duration,
+                      durationMs: current ? step.duration * 1000 : duration,
+                      set: current ? step.set : phase?.set ?? 1,
+                      totalSets: current
+                          ? step.totalSets
+                          : phase?.totalSets ?? 1,
+                      positionLabel: current
+                          ? step.positionLabel
+                          : phase == null
+                          ? null
+                          : workoutPhaseLabel(previewModule, phase),
+                      isPaused: current ? state.isPaused : true,
                       brandL: workout.brandL,
                       brandR: workout.brandR,
                       scale: scale,
-                      showLoadingIndicator: true,
-                      timer: _PlayerTimer(
-                        workout: workout,
-                        startModule: startModule,
-                        sessionId: sessionId,
-                        displayMode: false,
-                        scale: scale,
-                      ),
+                      timer: current
+                          ? _PlayerTimer(
+                              workout: workout,
+                              startModule: startModule,
+                              sessionId: sessionId,
+                              displayMode: false,
+                              scale: scale,
+                            )
+                          : null,
                     );
                   },
                 );

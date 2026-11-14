@@ -89,6 +89,7 @@ class WorkoutPreparationPage extends HookConsumerWidget {
     }
     return _PreparationLayout(
       workout: workout,
+      composition: _WorkoutComposition(workout: workout),
       children: [
         if (resolved.hasError) ...[
           _CheckTile(
@@ -108,7 +109,6 @@ class WorkoutPreparationPage extends HookConsumerWidget {
             key: ValueKey(loading),
             label: '최신 수업 설정 확인 중',
           ),
-        _WorkoutComposition(workout: workout),
       ],
     );
   }
@@ -147,6 +147,7 @@ class _PreparedWorkoutPreparationPage extends ConsumerWidget {
     }
     return _PreparationLayout(
       workout: workout,
+      composition: _WorkoutComposition(workout: workout),
       children: [
         _CheckTile(
           ok: false,
@@ -156,7 +157,6 @@ class _PreparedWorkoutPreparationPage extends ConsumerWidget {
             fallback: '계정 연결을 확인하지 못했어요. 현재 계정을 확인한 뒤 수업 준비를 다시 열어 주세요.',
           ),
         ),
-        _WorkoutComposition(workout: workout),
       ],
     );
   }
@@ -164,6 +164,14 @@ class _PreparedWorkoutPreparationPage extends ConsumerWidget {
 
 class _PreviewWork {
   bool cancelled = false;
+}
+
+class _AppliedPlayback {
+  _AppliedPlayback(this.remote, Iterable<String> targets)
+    : targets = Set.unmodifiable(targets);
+  final bool remote;
+  final Set<String> targets;
+  bool get canPrepare => !remote || targets.isNotEmpty;
 }
 
 class _WorkoutReadinessPage extends HookConsumerWidget {
@@ -197,17 +205,26 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
           .map((device) => device.id)
           .toSet(),
     );
+    final applied = useState(_AppliedPlayback(true, selectedDeviceIds.value));
+    final draftDirty = useState(false);
+    final userEdited = useRef(false);
+    final applying = useRef(false);
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
     final selectingInitialTargets =
         !initializedDeviceSelection.value && onlineDevices.isNotEmpty;
     final targets = remote ? selectedDeviceIds.value : <String>{};
     final canPrepare = !remote || targets.isNotEmpty;
+    final selectionApplied =
+        !draftDirty.value &&
+        remote == applied.value.remote &&
+        _sameIds(targets, applied.value.targets);
     final fingerprint = preparationFingerprint(workout, targets);
     final approvalExpired =
         preparation.admission != null &&
         (preparation.admission!.status != 'preparing' ||
             preparation.admission!.prepareExpiresAtMs <= nowMs);
     final currentApproval =
+        selectionApplied &&
         canPrepare &&
         !deviceState.isLoading &&
         !deviceState.hasError &&
@@ -276,8 +293,10 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     final onlineDeviceIds = onlineDevices.map((device) => device.id).toSet();
     final onlineDeviceSignature = onlineDeviceIds.toList()..sort();
     useEffect(() {
+      final initialSelection =
+          !initializedDeviceSelection.value && !userEdited.value;
       final retained = selectedDeviceIds.value.intersection(onlineDeviceIds);
-      final next = !initializedDeviceSelection.value && retained.isEmpty
+      final next = initialSelection && retained.isEmpty
           ? onlineDevices
                 .where((device) => device.recentlySeen(nowMs))
                 .map((device) => device.id)
@@ -286,7 +305,14 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
       if (onlineDeviceIds.isNotEmpty) initializedDeviceSelection.value = true;
       if (!_sameIds(next, selectedDeviceIds.value)) {
         Future.microtask(() {
-          if (context.mounted) selectedDeviceIds.value = next;
+          if (context.mounted) {
+            selectedDeviceIds.value = next;
+            if (initialSelection) {
+              applied.value = _AppliedPlayback(true, next);
+            } else {
+              draftDirty.value = true;
+            }
+          }
         });
       }
       return null;
@@ -297,7 +323,6 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         .toList();
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
     final retry = useState(0);
-    final signature = (targets.toList()..sort()).join('|');
     useEffect(
       () {
         if (deviceState.isLoading ||
@@ -305,16 +330,12 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             selectingInitialTargets) {
           return null;
         }
+        applying.value = false;
+        if (!applied.value.canPrepare) return null;
         var cancelled = false;
-        final requestedTargets = targets.toList();
+        final requestedTargets = applied.value.targets.toList();
         Future.microtask(() {
           if (!cancelled && context.mounted) {
-            if (!canPrepare) {
-              // Discard any pending/accepted prior target result, without
-              // publishing an empty-target admission or TV request.
-              ref.invalidate(displayPreparationControllerProvider);
-              return;
-            }
             unawaited(
               ref
                   .read(displayPreparationControllerProvider.notifier)
@@ -327,9 +348,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
       [
         accountScope,
         workout,
-        signature,
-        remote,
-        canPrepare,
+        applied.value,
         retry.value,
         deviceState.isLoading,
         deviceState.hasError,
@@ -413,6 +432,22 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     return _PreparationLayout(
       workout: workout,
       onStart: canStart ? start : null,
+      composition: _WorkoutComposition(
+        workout: workout,
+        allowImages:
+            currentApproval &&
+            !accessError &&
+            !preparation.loading &&
+            preparation.error == null,
+        scope: (
+          fingerprint,
+          remote,
+          preparation.admission,
+          preparation.request?.sessionId,
+          preparation.request?.revision,
+          preparation.request?.manifestHash,
+        ),
+      ),
       children: [
         Wrap(
           spacing: 8,
@@ -431,15 +466,110 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                 selected: localPlayback.value == local,
                 onSelected: (_) {
                   if (localPlayback.value == local) return;
-                  // Mode transitions need fresh approval even if both target
-                  // lists are empty; never reuse an earlier solo success.
-                  ref.invalidate(displayPreparationControllerProvider);
+                  userEdited.value = true;
+                  draftDirty.value = true;
                   localPlayback.value = local;
                 },
               ),
           ],
         ),
         const SizedBox(height: 12),
+        if (remote && onlineDevices.isNotEmpty) ...[
+          if (!allPrepared)
+            Text(
+              '준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          const Divider(height: 24),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '재생 TV · ${selected.length}대 선택',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              TextButton(
+                onPressed: () {
+                  userEdited.value = true;
+                  draftDirty.value = true;
+                  selectedDeviceIds.value =
+                      selectedDeviceIds.value.length == onlineDevices.length
+                      ? <String>{}
+                      : onlineDeviceIds;
+                },
+                child: Text(
+                  selectedDeviceIds.value.length == onlineDevices.length
+                      ? '전체 해제'
+                      : '전체 선택',
+                ),
+              ),
+            ],
+          ),
+          for (final device in onlineDevices)
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: selectedDeviceIds.value.contains(device.id),
+              title: Text(
+                device.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                selectedDeviceIds.value.contains(device.id)
+                    ? selectionApplied
+                          ? _preparationLabel(statusOf(device))
+                          : '선택 적용 대기'
+                    : '선택 안 함',
+              ),
+              onChanged: (checked) {
+                final next = Set<String>.from(selectedDeviceIds.value);
+                if (checked == true) {
+                  next.add(device.id);
+                } else {
+                  next.remove(device.id);
+                }
+                userEdited.value = true;
+                draftDirty.value = true;
+                selectedDeviceIds.value = next;
+              },
+            ),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('연결 정보', style: TextStyle(fontSize: 13)),
+            children: [
+              for (final device in onlineDevices)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(device.name),
+                  subtitle: Text(
+                    '${device.zoneName} · ${device.installedVersion}',
+                  ),
+                ),
+            ],
+          ),
+        ],
+        if (!selectionApplied) ...[
+          const Text('선택을 적용하면 준비를 시작해요.'),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonal(
+              onPressed: !canPrepare
+                  ? null
+                  : () {
+                      if (applying.value) return;
+                      applying.value = true;
+                      ref.invalidate(displayPreparationControllerProvider);
+                      applied.value = _AppliedPlayback(remote, targets);
+                      draftDirty.value = false;
+                    },
+              child: const Text('선택 적용'),
+            ),
+          ),
+        ],
         if (remote && targets.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
@@ -468,7 +598,9 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
                       )),
           ),
           TextButton(
-            onPressed: preparation.loading ? null : () => retry.value++,
+            onPressed: preparation.loading || !selectionApplied
+                ? null
+                : () => retry.value++,
             child: const Text('수업 상태 다시 확인'),
           ),
         ] else if (deviceState.hasError) ...[
@@ -481,7 +613,9 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             onPressed: () => ref.invalidate(displayDevicesProvider),
             child: const Text('TV 목록 다시 확인'),
           ),
-        ] else if (canPrepare && (!currentApproval || preparation.loading))
+        ] else if (selectionApplied &&
+            canPrepare &&
+            (!currentApproval || preparation.loading))
           PreparationStageStatus(
             key: ValueKey('$fingerprint-${retry.value}'),
             label: '최신 수업 설정·이용 상태 확인 중',
@@ -519,7 +653,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
               label: '시작 이미지 준비 중',
             ),
         ],
-        if (remote && modern.isNotEmpty) ...[
+        if (remote && selectionApplied && modern.isNotEmpty) ...[
           if (waiting)
             PreparationStageStatus(
               key: ValueKey(matchingRequest?.sessionId),
@@ -531,7 +665,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
               title: 'TV 이미지 준비 $readyCount/${modern.length}대 완료',
               subtitle: readyCount == modern.length
                   ? '선택한 TV에서 수업을 시작할 수 있어요.'
-                  : '아래 TV 상태를 확인해 주세요.',
+                  : '위 TV 상태를 확인해 주세요.',
             ),
           if (blockedTVs.isNotEmpty)
             Text(
@@ -554,108 +688,23 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-        _WorkoutComposition(
-          workout: workout,
-          allowImages:
-              currentApproval &&
-              !accessError &&
-              !preparation.loading &&
-              preparation.error == null,
-          scope: (
-            fingerprint,
-            remote,
-            preparation.admission,
-            preparation.request?.sessionId,
-            preparation.request?.revision,
-            preparation.request?.manifestHash,
-          ),
-        ),
-        if (remote && onlineDevices.isNotEmpty) ...[
-          if (remote && !allPrepared)
-            Text(
-              '준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          const Divider(height: 24),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '재생 TV · ${selected.length}대 선택',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              TextButton(
-                onPressed: () => selectedDeviceIds.value =
-                    selectedDeviceIds.value.length == onlineDevices.length
-                    ? <String>{}
-                    : onlineDeviceIds,
-                child: Text(
-                  selectedDeviceIds.value.length == onlineDevices.length
-                      ? '전체 해제'
-                      : '전체 선택',
-                ),
-              ),
-            ],
-          ),
-          for (final device in onlineDevices)
-            CheckboxListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              value: selectedDeviceIds.value.contains(device.id),
-              title: Text(
-                device.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                selectedDeviceIds.value.contains(device.id)
-                    ? _preparationLabel(statusOf(device))
-                    : '선택 안 함',
-              ),
-              onChanged: (checked) {
-                final next = Set<String>.from(selectedDeviceIds.value);
-                if (checked == true) {
-                  next.add(device.id);
-                } else {
-                  next.remove(device.id);
-                }
-                selectedDeviceIds.value = next;
-              },
-            ),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('연결 정보', style: TextStyle(fontSize: 13)),
-            children: [
-              for (final device in onlineDevices)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(device.name),
-                  subtitle: Text(
-                    '${device.zoneName} · ${device.installedVersion}',
-                  ),
-                ),
-            ],
-          ),
-        ],
       ],
     );
   }
 }
 
-/// The same local preparation state now lives on a page, with its action fixed
-/// outside the scrolling summary. No router/auth or start protocol is replaced.
+/// The start action scrolls with the body, before the optional composition. No router/auth or start protocol is replaced.
 class _PreparationLayout extends StatelessWidget {
   const _PreparationLayout({
     required this.workout,
     required this.children,
     this.onStart,
+    this.composition,
   });
   final Workout workout;
   final List<Widget> children;
   final VoidCallback? onStart;
+  final Widget? composition;
 
   @override
   Widget build(BuildContext context) {
@@ -745,41 +794,28 @@ class _PreparationLayout extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   ...children,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: Material(
-        color: AppColors.dialog,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-            child: Center(
-              heightFactor: 1,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
-                child: Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      child: const Text('취소'),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: onStart,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 52),
-                        ),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: const Text('수업 시작'),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        child: const Text('취소'),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: onStart,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 52),
+                          ),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('수업 시작'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  ?composition,
+                ],
               ),
             ),
           ),

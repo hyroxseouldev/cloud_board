@@ -43,6 +43,73 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'TV edits stay local until one guarded apply and reuse the device subscription',
+    (tester) async {
+      final repository = _PreparationRepository()..allReady = true;
+      final source = _LegacySource();
+      final scope = ValueNotifier<ImageUsageDataSource>(source);
+      addTearDown(scope.dispose);
+      var subscriptions = 0;
+      var images = 0;
+      await _previewHarness(
+        tester,
+        repository,
+        (context, sources, {isCancelled}) async {
+          images++;
+          return 1;
+        },
+        scope: scope,
+        deviceCount: 3,
+        onDeviceWatch: () => subscriptions++,
+      );
+      expect(repository.requests, 1);
+      expect(source.checks, 1);
+      expect(subscriptions, 1);
+      final first = repository.value;
+      for (final index in [0, 1, 0, 1]) {
+        await tester.tap(find.byType(CheckboxListTile).at(index));
+        await tester.pumpAndSettle();
+        expect(repository.value, same(first));
+        expect(repository.requests, 1);
+        expect(source.checks, 1);
+        expect(_startEnabled(tester), isFalse);
+      }
+      await tester.tap(find.text('전체 해제'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '선택 적용'))
+            .onPressed,
+        isNull,
+      );
+      expect(_startEnabled(tester), isFalse);
+      await tester.tap(find.text('전체 선택'));
+      await tester.pumpAndSettle();
+      expect(repository.requests, 1);
+      final apply = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '선택 적용'))
+          .onPressed!;
+      apply();
+      apply();
+      await tester.pumpAndSettle();
+      expect(repository.requests, 2);
+      expect(source.checks, 2);
+      expect(repository.value!.targetDeviceIds.toSet(), {'a', 'b', 'c'});
+      expect(subscriptions, 1);
+      expect(images, 0);
+      expect(_startEnabled(tester), isTrue);
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold).last).bottomNavigationBar,
+        isNull,
+      );
+      expect(
+        tester.getTopLeft(find.text('수업 시작')).dy,
+        lessThan(tester.getTopLeft(find.text('수업 구성')).dy),
+      );
+    },
+  );
+
   for (final noDevices in [true, false]) {
     testWidgets(
       'explicit solo preserves empty-target routing contract, noDevices=$noDevices',
@@ -56,8 +123,10 @@ void main() {
           onSelection: (value) => selection = value,
         );
         await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+        await _applySelection(tester);
         await tester.pumpAndSettle();
         expect(_startEnabled(tester), isTrue);
+        await tester.ensureVisible(find.widgetWithText(FilledButton, '수업 시작'));
         await tester.tap(find.widgetWithText(FilledButton, '수업 시작'));
         await tester.pumpAndSettle();
         expect(selection, isNotNull);
@@ -138,6 +207,7 @@ void main() {
       );
       expect(attempts, isEmpty);
       await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(attempts, hasLength(1));
       expect(source.checks, 1);
@@ -150,6 +220,7 @@ void main() {
       expect(_startEnabled(tester), isFalse);
       expect(source.checks, 1);
       await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(source.checks, 2);
       expect(attempts, hasLength(2));
@@ -179,6 +250,7 @@ void main() {
       );
       expect(source.prepares, 0);
       await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(source.prepares, 1);
       expect(source.targets, isEmpty);
@@ -269,6 +341,7 @@ void main() {
       expect(find.text('수업 구성'), findsOneWidget);
       expect(find.byType(WorkoutSlidePreview), findsNothing);
       expect(calls, 0);
+      await tester.ensureVisible(find.text('이미지 보기'));
       await tester.tap(find.text('이미지 보기'));
       await tester.pumpAndSettle();
       expect(find.byType(WorkoutSlidePreview), findsOneWidget);
@@ -290,6 +363,10 @@ void main() {
       );
       await tester.ensureVisible(find.text('전체 선택'));
       await tester.tap(find.text('전체 선택'));
+      await tester.pumpAndSettle();
+      expect(repository.requests, 1);
+      expect(_startEnabled(tester), isFalse);
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(find.byType(WorkoutSlidePreview), findsNothing);
       expect(repository.requests, 2);
@@ -341,10 +418,12 @@ void main() {
       ),
     );
     await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+    await _applySelection(tester);
     await tester.pumpAndSettle();
     expect(loaded, hasLength(1));
     expect(loaded.single, contains('countdown'));
     await tester.tap(find.byKey(const ValueKey('playback-mode-tv')));
+    await _applySelection(tester);
     await tester.pumpAndSettle();
     first.complete();
     await tester.pumpAndSettle();
@@ -427,15 +506,18 @@ void main() {
       });
       expect(attempts, isEmpty);
       await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(attempts, hasLength(1));
       expect(_startEnabled(tester), isFalse);
       await tester.tap(find.byKey(const ValueKey('playback-mode-tv')));
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(cancelled.first!(), isTrue);
       expect(attempts, hasLength(1));
       expect(_startEnabled(tester), isTrue);
       await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(attempts, hasLength(2));
       attempts.first.complete(1);
@@ -504,7 +586,7 @@ void main() {
   });
 
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
-    testWidgets('narrow scaled critical error and footer reachable $size', (
+    testWidgets('narrow scaled critical error and body CTA reachable $size', (
       tester,
     ) async {
       await _previewHarness(
@@ -519,6 +601,11 @@ void main() {
       expect(find.text('이용 상태를 다시 확인해 주세요'), findsOneWidget);
       await tester.ensureVisible(find.text('수업 상태 다시 확인'));
       expect(find.text('수업 상태 다시 확인').hitTestable(), findsOneWidget);
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold).last).bottomNavigationBar,
+        isNull,
+      );
+      await tester.ensureVisible(find.widgetWithText(FilledButton, '수업 시작'));
       expect(
         find.widgetWithText(FilledButton, '수업 시작').hitTestable(),
         findsOneWidget,
@@ -978,6 +1065,9 @@ void main() {
       await tester.ensureVisible(second);
       await tester.tap(second);
       await tester.pump();
+      expect(repository.value!.targetDeviceIds, ['a', 'b']);
+      expect(_startEnabled(tester), isFalse);
+      await _applySelection(tester);
       await tester.pumpAndSettle();
       expect(repository.value!.targetDeviceIds, ['a']);
       expect(repository.value!.manifestHash, isNot(both));
@@ -988,6 +1078,7 @@ void main() {
             .onPressed,
         isNotNull,
       );
+      await tester.ensureVisible(find.widgetWithText(FilledButton, '수업 시작'));
       await tester.tap(find.widgetWithText(FilledButton, '수업 시작'));
       await tester.pumpAndSettle();
       expect(selected!.targetDeviceIds, ['a']);
@@ -1038,6 +1129,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+    await _applySelection(tester);
     await tester.pumpAndSettle();
     expect(find.text('이미지 준비 실패'), findsOneWidget);
     expect(find.textContaining('연결을 확인해 주세요'), findsOneWidget);
@@ -1097,6 +1189,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+    await _applySelection(tester);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.runAsync(
@@ -1216,6 +1309,7 @@ class _PreparationRepository implements DisplayPreparationRepository {
   DisplayPreparation? value;
   bool failRequest = false;
   bool pendingReceipts = false;
+  bool allReady = false;
   int requests = 0;
   Completer<void>? receiptGate;
   @override
@@ -1242,11 +1336,11 @@ class _PreparationRepository implements DisplayPreparationRepository {
           revision: value!.revision,
           manifestHash: value!.manifestHash,
           checkedAtMs: DateTime.now().millisecondsSinceEpoch,
-          status: id == 'a'
+          status: allReady || id == 'a'
               ? (pendingReceipts ? 'preparing' : 'ready')
               : 'failed',
           imageCount: value!.images.length,
-          audioReady: id == 'a',
+          audioReady: allReady || id == 'a',
         ),
     };
   }
@@ -1302,6 +1396,14 @@ class _Devices extends Fake implements DevicePairingRepository {
   Stream<List<DisplayDevice>> watchDevices() => Stream.value(devices);
 }
 
+Future<void> _applySelection(WidgetTester tester) async {
+  await tester.pump();
+  final apply = find.widgetWithText(FilledButton, '선택 적용');
+  await tester.ensureVisible(apply);
+  await tester.tap(apply);
+  await tester.pump();
+}
+
 bool _startEnabled(WidgetTester tester) =>
     tester
         .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
@@ -1315,6 +1417,8 @@ Future<void> _previewHarness(
   bool legacy = false,
   bool noDevices = false,
   bool offline = false,
+  int deviceCount = 1,
+  VoidCallback? onDeviceWatch,
   void Function(WorkoutPreflightSelection?)? onSelection,
   Size size = const Size(600, 1300),
   double scale = 1,
@@ -1327,7 +1431,12 @@ Future<void> _previewHarness(
   addTearDown(tester.view.resetDevicePixelRatio);
   final devices = [
     if (!noDevices)
-      for (final id in ['a', if (legacy) 'old'])
+      for (final id in [
+        'a',
+        if (deviceCount > 1) 'b',
+        if (deviceCount > 2) 'c',
+        if (legacy) 'old',
+      ])
         DisplayDevice(
           id: id,
           name: 'TV $id',
@@ -1375,7 +1484,10 @@ Future<void> _previewHarness(
         workoutPreferencesRepositoryProvider.overrideWith(
           (_) => _Preferences(),
         ),
-        displayDevicesProvider.overrideWith((_) => Stream.value(devices)),
+        displayDevicesProvider.overrideWith((_) {
+          onDeviceWatch?.call();
+          return Stream.value(devices);
+        }),
         serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
         deviceIdProvider.overrideWith((_) async => 'local-test-controller'),
         displayPreparationRepositoryProvider.overrideWithValue(repository),
