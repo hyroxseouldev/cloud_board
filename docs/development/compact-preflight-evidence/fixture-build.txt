@@ -1,0 +1,5 @@
+Compiling tool/fixtures/compact_preflight.dart for the Web...     
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 11356 bytes (99.3% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 1472 bytes (99.4% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Compiling tool/fixtures/compact_preflight.dart for the Web...        33.7s
+✓ Built build/web

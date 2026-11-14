@@ -148,6 +148,14 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     return _WorkoutPlayerBody(
       key: ValueKey(sessionId ?? workout.id),
       workout: workout,
+      remoteController:
+          !displayMode && remoteSession?.targetDeviceIds.isNotEmpty == true,
+      remotePreviewScope: (
+        remoteSession?.ownerId,
+        sessionId,
+        (remoteSession?.targetDeviceIds.toList()?..sort())?.join('|'),
+        workout,
+      ),
       startModule: startModule,
       sessionId: sessionId,
       displayMode: displayMode,
@@ -161,6 +169,8 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
   const _WorkoutPlayerBody({
     super.key,
     required this.workout,
+    required this.remotePreviewScope,
+    required this.remoteController,
     required this.startModule,
     required this.sessionId,
     required this.displayMode,
@@ -169,6 +179,8 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
   });
 
   final Workout workout;
+  final Object remotePreviewScope;
+  final bool remoteController;
   final int startModule;
   final String? sessionId;
   final bool displayMode;
@@ -338,12 +350,14 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     final isPreparing = state.briefing || state.countdownMs > 0;
     final imageSize = playbackImageSize(context);
     useEffect(() {
+      // Remote controllers load only their visible preview, never a warmup window.
+      if (remoteController) return null;
       var cancelled = false;
       final moduleIndex = currentMediaStep?.moduleIndex;
       if (moduleIndex == null) return null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (cancelled || !context.mounted) return;
-        // Keep a small rolling window decoded on both controller and TV.
+        // Keep the rolling window for local playback and TV displays.
         unawaited(
           precacheWorkoutImages(
             context,
@@ -356,7 +370,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
         );
       });
       return () => cancelled = true;
-    }, [workout, currentMediaStep?.moduleIndex, imageSize]);
+    }, [workout, currentMediaStep?.moduleIndex, imageSize, remoteController]);
     final exiting = useState(false);
     final exitFailed = useState(false);
     Future<void> finish() async {
@@ -484,6 +498,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             preferences: displayPreferences,
             child: WorkoutCountdown(
               workout: workout,
+              showBackgroundImage: !remoteController,
               seconds: (state.countdownMs / 1000).ceil(),
               slideName: currentMediaStep?.module.name,
               slide: currentMediaStep?.module,
@@ -583,6 +598,12 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             autofocus: true,
             child: WorkoutControlPanel(
               title: workout.name,
+              previewOnDemand: remoteController,
+              previewScope: remotePreviewScope,
+              // Timed workouts already expose a picker in their timeline.
+              moduleNames: workout.modules.any(isOpenEndedTimer)
+                  ? workout.modules.map((module) => module.name).toList()
+                  : const [],
               moduleCount: workout.modules.length,
               currentModule: step.moduleIndex,
               paused: state.isPaused,

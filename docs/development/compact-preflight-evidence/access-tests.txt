@@ -1,0 +1,8 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/compact-preflight/test/workout_preflight_dialog_test.dart
+00:00 +0: page image preview is explicit, resets with targets and never repeats TV preparation
+00:01 +1: remote access refusal remains blocking without images: 이미지 전송 한도에 도달해 새 수업을 시작할 수 없어요. 진행 중인 수업은 계속할 수 있어요. 사용량과 다음 이용 가능 시각을 확인해 주세요.
+00:01 +2: remote access refusal remains blocking without images: 이용 권한을 확인하지 못했어요. 프로필의 이용 상태를 확인해 주세요.
+00:01 +3: remote access refusal remains blocking without images: 수업 준비 시간이 만료됐어요. 수업 준비를 다시 확인해 주세요.
+00:01 +4: remote access refusal remains blocking without images: 사용량 확인 실패. 연결을 확인하고 다시 시도해 주세요. 선택한 파일과 초안은 유지됩니다.
+00:01 +5: remote access refusal remains blocking without images: [auth/permission-denied] null
+00:02 +6: All tests passed!

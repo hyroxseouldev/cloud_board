@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_countdown.dart';
@@ -15,6 +16,26 @@ final workout = Workout.empty(
 );
 
 void main() {
+  testWidgets(
+    'remote countdown never mounts background image, local still does',
+    (tester) async {
+      final withImage = workout.copyWith(countdownImageSource: 'AQID');
+      for (final show in [false, true]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: WorkoutCountdown(
+              workout: withImage,
+              seconds: 5,
+              showBackgroundImage: show,
+            ),
+          ),
+        );
+        expect(find.byType(WorkoutImage), show ? findsOneWidget : findsNothing);
+        expect(find.text('5'), findsOneWidget);
+      }
+    },
+  );
+
   for (final seconds in [0, 17, 60]) {
     test(
       'new session bypasses briefing and starts with $seconds second countdown',

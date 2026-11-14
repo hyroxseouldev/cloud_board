@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/core/platform/device_form_factor.dart';
 import 'package:cloud_board/src/app/feature/playback/data/models/playback_session_model.dart';
@@ -11,6 +12,89 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  for (final targets in [
+    <String>[],
+    ['tv'],
+  ]) {
+    testWidgets(
+      'player image policy follows actual targets $targets, not server session id',
+      (tester) async {
+        final workout =
+            Workout.empty(
+              'w',
+              const WorkoutAuthor(
+                id: 'u',
+                displayName: 'Coach',
+                photoUrl: null,
+              ),
+            ).copyWith(
+              modules: [
+                WorkoutModule.empty('m').copyWith(name: 'Squat', beep: false),
+              ],
+            );
+        final session = PlaybackSessionModel.fromWorkout(
+          id: 's',
+          ownerId: 'u',
+          zoneId: 'main',
+          targetDeviceIds: targets,
+          workout: workout,
+          stepIndex: 0,
+          durationMs: 60000,
+          deviceId: 'd',
+        ).toEntity();
+        final provider = playerControllerProvider(
+          workout,
+          startModule: 0,
+          sessionId: 's',
+          canControl: true,
+        );
+        final container = ProviderContainer(
+          overrides: [
+            accountOwnerIdProvider.overrideWith((_) => Stream.value('u')),
+            activePlaybackSessionProvider.overrideWith(
+              (_) => Stream.value(session),
+            ),
+            serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+            playbackConnectionProvider.overrideWith((_) => Stream.value(true)),
+            androidTvProvider.overrideWith((_) async => true),
+            provider.overrideWith(_ControlledPlayer.new),
+          ],
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              home: WorkoutPlayerScreen(
+                workoutId: 'w',
+                startModule: 0,
+                sessionId: 's',
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text('미리보기 보기'),
+          targets.isEmpty ? findsNothing : findsOneWidget,
+        );
+        expect(
+          find.byType(WorkoutSlideCanvas),
+          targets.isEmpty ? findsOneWidget : findsNothing,
+        );
+        expect(find.byType(WorkoutImage), findsNothing);
+        if (targets.isNotEmpty) {
+          await tester.tap(find.text('미리보기 보기'));
+          await tester.pumpAndSettle();
+          expect(find.byType(WorkoutSlideCanvas), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        container.dispose();
+        await tester.pump();
+      },
+    );
+  }
+
   testWidgets(
     'millisecond ticks reuse the slide and timer text while gauge updates',
     (tester) async {

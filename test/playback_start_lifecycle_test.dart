@@ -1,4 +1,4 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 import 'package:cloud_board/src/app/feature/playback/presentation/controllers/playback_progress.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
@@ -241,11 +241,14 @@ void main() {
     );
   }
   testWidgets(
-    'start commits while preview is pending and late failure cannot stop or restart it',
+    'remote start commits without any preview loader and keeps active session',
     (tester) async {
-      final preview = Completer<int>();
+      var previewCalls = 0;
       final h = await _Harness.create(
-        previewLoader: (context, sources, {isCancelled}) => preview.future,
+        previewLoader: (context, sources, {isCancelled}) async {
+          previewCalls++;
+          throw StateError("unexpected remote preview");
+        },
       );
       addTearDown(h.dispose);
       final router = GoRouter(
@@ -276,7 +279,7 @@ void main() {
       await tester.pumpAndSettle();
       final start = find.widgetWithText(FilledButton, '수업 시작');
       expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
-      expect(preview.isCompleted, isFalse);
+      expect(previewCalls, 0);
       h.preferences.gate = Completer<void>();
       await tester.tap(start);
       await tester.pump();
@@ -291,7 +294,7 @@ void main() {
       final active = h.repository.session;
       expect(active?.status, PlaybackStatus.playing);
       expect(find.text('진행 중 수업'), findsOneWidget);
-      preview.completeError(StateError('late preview decode failure'));
+      expect(previewCalls, 0);
       await tester.pumpAndSettle();
       expect(h.repository.starts, 1);
       expect(h.repository.session, same(active));

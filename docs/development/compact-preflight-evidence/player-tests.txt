@@ -1,0 +1,5 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/compact-preflight/test/player_rebuild_performance_test.dart
+00:00 +0: player image policy follows actual targets [], not server session id
+00:03 +1: player image policy follows actual targets [tv], not server session id
+00:03 +2: millisecond ticks reuse the slide and timer text while gauge updates
+00:04 +3: All tests passed!

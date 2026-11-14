@@ -10,6 +10,10 @@ import 'support/legacy_image_usage_fixture.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/display_heartbeat_policy.dart';
 
 import 'dart:async';
+import 'dart:io';
+
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_slide_preview.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/data/repositories/workout_preferences_repository_impl.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout_preferences.dart';
@@ -31,67 +35,239 @@ import 'package:cloud_board/src/app/core/diagnostics/error_reporter.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/device/presentation/controllers/device_pairing_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/entities/workout.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preflight_dialog.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
   testWidgets(
-    'slow remote preview is auxiliary; retry never prepares TVs or starts a class',
+    'preparation pushes a page, shows metadata during settings load and back cancels',
     (tester) async {
+      final preferences = _Preferences()..pending = Completer<void>();
       final repository = _PreparationRepository();
-      final attempts = <Completer<int>>[];
-      await _previewHarness(tester, repository, (
-        context,
-        sources, {
-        isCancelled,
-      }) {
-        final next = Completer<int>();
-        attempts.add(next);
-        return next.future;
-      });
-      expect(attempts, hasLength(1));
-      expect(_startEnabled(tester), isTrue);
-      final candidate = repository.value!;
-      await tester.pump(const Duration(seconds: 5));
-      expect(find.textContaining('컨트롤러 미리보기 불러오는 중 · 5초 이상'), findsOneWidget);
-      expect(_startEnabled(tester), isTrue);
-      await captureLayout(
-        tester,
-        find.byKey(const ValueKey('preflight-evidence')),
-        'remote-preview-slow',
+      final workout =
+          Workout.empty(
+            'page',
+            const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
+          ).copyWith(
+            name: '페이지 수업',
+            modules: [WorkoutModule.empty('m').copyWith(name: '첫 운동')],
+          );
+      Future<WorkoutPreflightSelection?>? result;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            legacyImageUsageFixture,
+            workoutPreferencesRepositoryProvider.overrideWithValue(preferences),
+            displayPreparationRepositoryProvider.overrideWithValue(repository),
+            displayDevicesProvider.overrideWith((ref) => Stream.value([])),
+          ],
+          child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!,
+            ),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () {
+                    result = showWorkoutPreflight(context, workout);
+                  },
+                  child: const Text('준비 열기'),
+                ),
+              ),
+            ),
+          ),
+        ),
       );
-      attempts.single.completeError(StateError('PRIVATE_IMAGE_FAILURE'));
+      await tester.tap(find.text('준비 열기'));
       await tester.pumpAndSettle();
-      expect(find.text('미리보기를 불러오지 못했어요'), findsOneWidget);
-      expect(find.textContaining('PRIVATE_IMAGE_FAILURE'), findsNothing);
-      await captureLayout(
-        tester,
-        find.byKey(const ValueKey('preflight-evidence')),
-        'remote-preview-error',
+      expect(find.byType(WorkoutPreparationPage), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        ModalRoute.of(tester.element(find.byType(WorkoutPreparationPage)))!
+            .settings
+            .name,
+        '/workouts/page/prepare',
       );
-      expect(_startEnabled(tester), isTrue);
-      await tester.ensureVisible(find.text('미리보기 다시 불러오기'));
-      await tester.tap(find.text('미리보기 다시 불러오기'));
+      expect(find.text('페이지 수업'), findsOneWidget);
+      expect(find.text('첫 운동'), findsOneWidget);
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(_startEnabled(tester), isFalse);
+      await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(attempts, hasLength(2));
-      expect(repository.requests, 1);
-      expect(repository.value, same(candidate));
-      expect(_startEnabled(tester), isTrue);
-      attempts.last.complete(1);
+      expect(await result, isNull);
+      preferences.pending!.complete();
       await tester.pumpAndSettle();
-      expect(find.text('컨트롤러 미리보기 준비됨'), findsOneWidget);
-      expect(repository.requests, 1);
+      expect(find.byType(WorkoutPreparationPage), findsNothing);
+      expect(repository.requests, 0);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'zero targets use solo gate and stale remote preview cannot release it',
+    'page image preview is explicit, resets with targets and never repeats TV preparation',
     (tester) async {
       final repository = _PreparationRepository();
+      var calls = 0;
+      await _previewHarness(tester, repository, (
+        context,
+        sources, {
+        isCancelled,
+      }) async {
+        calls++;
+        return 1;
+      });
+      expect(find.text('수업 구성'), findsOneWidget);
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(calls, 0);
+      await tester.tap(find.text('이미지 보기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSlidePreview), findsOneWidget);
+      expect(
+        _startEnabled(tester),
+        isTrue,
+        reason: 'optional display failure cannot gate remote start',
+      );
+      expect(repository.requests, 1);
+      expect(calls, 0);
+      await tester.ensureVisible(find.text('전체 해제'));
+      await tester.tap(find.text('전체 해제'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(
+        calls,
+        1,
+        reason: 'new solo mode requires its initial image window',
+      );
+      await tester.ensureVisible(find.text('전체 선택'));
+      await tester.tap(find.text('전체 선택'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSlidePreview), findsNothing);
+      expect(repository.requests, 2);
+      expect(_startEnabled(tester), isTrue);
+    },
+  );
+
+  testWidgets(
+    'cold cache real preflight loader never reaches HTTP for remote mode',
+    (tester) async {
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      var clients = 0;
+      await HttpOverrides.runZoned(
+        () async {
+          await _previewHarness(tester, _PreparationRepository(), null);
+          await tester.pump(const Duration(seconds: 6));
+          expect(_startEnabled(tester), isTrue);
+          expect(find.text('시작 이미지 준비 중'), findsNothing);
+          expect(find.textContaining('미리보기'), findsNothing);
+        },
+        createHttpClient: (context) {
+          clients++;
+          throw StateError('unexpected HTTP');
+        },
+      );
+      expect(clients, 0);
+      expect(PaintingBinding.instance.imageCache.pendingImageCount, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('cancelled solo loader cannot schedule remaining image window', (
+    tester,
+  ) async {
+    final first = Completer<void>();
+    final loaded = <String>[];
+    await _previewHarness(
+      tester,
+      _PreparationRepository(),
+      (context, sources, {isCancelled}) => warmWorkoutImages(
+        sources,
+        concurrency: 1,
+        isCancelled: isCancelled,
+        load: (source) async {
+          loaded.add(source);
+          await first.future;
+        },
+      ),
+    );
+    await tester.tap(find.text('전체 해제'));
+    await tester.pumpAndSettle();
+    expect(loaded, hasLength(1));
+    expect(loaded.single, contains('countdown'));
+    await tester.tap(find.text('전체 선택'));
+    await tester.pumpAndSettle();
+    first.complete();
+    await tester.pumpAndSettle();
+    expect(loaded, hasLength(1));
+    expect(_startEnabled(tester), isTrue);
+  });
+
+  testWidgets(
+    'remote never calls image loader while waiting, ready, failed or retrying',
+    (tester) async {
+      final repository = _PreparationRepository()..pendingReceipts = true;
+      var calls = 0;
+      await _previewHarness(tester, repository, (
+        context,
+        sources, {
+        isCancelled,
+      }) async {
+        calls++;
+        throw StateError('remote must never load');
+      }, legacy: true);
+      expect(calls, 0);
+      expect(_startEnabled(tester), isFalse);
+      expect(find.textContaining('이미지 사전 확인 미지원 1대'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.textContaining('5초 이상'), findsOneWidget);
+      await captureLayout(
+        tester,
+        find.byKey(const ValueKey('preflight-evidence')),
+        'remote-waiting',
+      );
+      repository.failRequest = true;
+      await tester.tap(find.text('TV 준비 다시 확인'));
+      await tester.pumpAndSettle();
+      expect(calls, 0);
+      expect(_startEnabled(tester), isFalse);
+      expect(find.text('이용 상태를 다시 확인해 주세요'), findsOneWidget);
+      await captureLayout(
+        tester,
+        find.byKey(const ValueKey('preflight-evidence')),
+        'remote-error',
+      );
+      repository.failRequest = false;
+      repository.pendingReceipts = false;
+      await tester.tap(find.text('수업 상태 다시 확인'));
+      await tester.pumpAndSettle();
+      expect(calls, 0);
+      expect(repository.requests, 3);
+      expect(_startEnabled(tester), isTrue);
+      expect(find.textContaining('미리보기'), findsNothing);
+      expect(find.textContaining('5초 이상'), findsNothing);
+      await tester.pump(const Duration(seconds: 10));
+      expect(
+        repository.requests,
+        3,
+        reason: 'status rebuild must not reprepare TVs',
+      );
+      await captureLayout(
+        tester,
+        find.byKey(const ValueKey('preflight-evidence')),
+        'remote-ready',
+      );
+    },
+  );
+
+  testWidgets(
+    'remote to solo to remote cancels queued images and late success cannot unlock new solo',
+    (tester) async {
       final attempts = <Completer<int>>[];
+      final cancelled = <bool Function()?>[];
+      final repository = _PreparationRepository();
       await _previewHarness(tester, repository, (
         context,
         sources, {
@@ -99,14 +275,22 @@ void main() {
       }) {
         final next = Completer<int>();
         attempts.add(next);
+        cancelled.add(isCancelled);
         return next.future;
       });
+      expect(attempts, isEmpty);
+      await tester.tap(find.text('전체 해제'));
+      await tester.pumpAndSettle();
+      expect(attempts, hasLength(1));
+      expect(_startEnabled(tester), isFalse);
+      await tester.tap(find.text('전체 선택'));
+      await tester.pumpAndSettle();
+      expect(cancelled.first!(), isTrue);
+      expect(attempts, hasLength(1));
       expect(_startEnabled(tester), isTrue);
-      await tester.ensureVisible(find.text('전체 해제'));
       await tester.tap(find.text('전체 해제'));
       await tester.pumpAndSettle();
       expect(attempts, hasLength(2));
-      expect(_startEnabled(tester), isFalse);
       attempts.first.complete(1);
       await tester.pumpAndSettle();
       expect(_startEnabled(tester), isFalse);
@@ -114,7 +298,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('이미지 준비 실패'), findsOneWidget);
       expect(_startEnabled(tester), isFalse);
-      await tester.ensureVisible(find.text('시작 이미지 다시 불러오기'));
       await tester.tap(find.text('시작 이미지 다시 불러오기'));
       await tester.pumpAndSettle();
       attempts.last.complete(1);
@@ -122,111 +305,85 @@ void main() {
       expect(_startEnabled(tester), isTrue);
       expect(
         repository.requests,
-        1,
-        reason: 'solo/preview retries do not publish a TV candidate',
+        2,
+        reason: 'solo image retry does not publish TV preparation',
       );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'pending TV still blocks with ready preview; legacy is not counted ready',
-    (tester) async {
-      final repository = _PreparationRepository()..pendingReceipts = true;
-      await _previewHarness(
+      await captureLayout(
         tester,
-        repository,
-        (context, sources, {isCancelled}) async => 1,
-        legacy: true,
+        find.byKey(const ValueKey('preflight-evidence')),
+        'solo-ready',
       );
-      expect(_startEnabled(tester), isFalse);
-      expect(find.text('TV 1대 중 0대 준비 완료'), findsOneWidget);
-      expect(find.textContaining('이미지 준비 상태 미지원 1대'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 5));
-      expect(
-        find.textContaining('대상 TV의 실제 준비 상태 확인 중 · 5초 이상'),
-        findsOneWidget,
-      );
-      repository.pendingReceipts = false;
-      await tester.ensureVisible(find.text('TV 준비 다시 확인'));
-      await tester.tap(find.text('TV 준비 다시 확인'));
-      await tester.pumpAndSettle();
-      expect(_startEnabled(tester), isTrue);
-      expect(find.text('TV 1대 중 1대 준비 완료'), findsOneWidget);
     },
   );
 
-  for (final previewLast in [true, false]) {
-    testWidgets('matched fake critical path: previewLast=$previewLast', (
-      tester,
-    ) async {
-      final images = Completer<int>();
+  for (final ready in [false, true]) {
+    testWidgets('TV gate uses receipt only, ready=$ready', (tester) async {
       final tv = Completer<void>();
-      final repository = _PreparationRepository()..receiptGate = tv;
-      await _previewHarness(
-        tester,
-        repository,
-        (context, sources, {isCancelled}) => images.future,
-      );
+      final repository = _PreparationRepository()
+        ..receiptGate = tv
+        ..pendingReceipts = !ready;
+      var calls = 0;
+      await _previewHarness(tester, repository, (
+        context,
+        sources, {
+        isCancelled,
+      }) async {
+        calls++;
+        return 1;
+      });
       expect(_startEnabled(tester), isFalse);
-      await tester.pump(const Duration(seconds: 3));
-      if (previewLast) {
-        tv.complete();
-      } else {
-        images.complete(1);
-      }
+      tv.complete();
       await tester.pumpAndSettle();
-      expect(_startEnabled(tester), previewLast);
-      await tester.pump(const Duration(seconds: 5));
-      if (previewLast) {
-        images.complete(1);
-      } else {
-        tv.complete();
-      }
-      await tester.pumpAndSettle();
-      expect(_startEnabled(tester), isTrue);
-      // Controlled fake milestones: C=8,V=3 removes 5s of required wait;
-      // C=3,V=8 removes 0s. Neither is a field measurement or throughput claim.
+      expect(_startEnabled(tester), ready);
+      expect(calls, 0);
     });
   }
 
-  testWidgets('managed preview transport failure stays auxiliary', (
+  testWidgets('remote never enters managed preview transport path', (
     tester,
   ) async {
-    await _previewHarness(
-      tester,
-      _PreparationRepository(),
-      (context, sources, {isCancelled}) async =>
-          throw const ImageUsageFailure('service_unavailable'),
-    );
+    var calls = 0;
+    await _previewHarness(tester, _PreparationRepository(), (
+      context,
+      sources, {
+      isCancelled,
+    }) async {
+      calls++;
+      throw const ImageUsageFailure('service_unavailable');
+    });
+    expect(calls, 0);
     expect(_startEnabled(tester), isTrue);
-    expect(find.text('미리보기 다시 불러오기'), findsOneWidget);
+    expect(find.textContaining('미리보기'), findsNothing);
   });
 
-  testWidgets('narrow scaled preview keeps start and retry reachable', (
-    tester,
-  ) async {
-    await _previewHarness(
+  for (final size in [const Size(320, 568), const Size(390, 844)]) {
+    testWidgets('narrow scaled critical error and footer reachable $size', (
       tester,
-      _PreparationRepository(),
-      (context, sources, {isCancelled}) async => throw StateError('decode'),
-      size: const Size(320, 568),
-      scale: 1.3,
-    );
-    expect(_startEnabled(tester), isTrue);
-    await tester.ensureVisible(find.text('미리보기 다시 불러오기'));
-    expect(find.text('미리보기 다시 불러오기').hitTestable(), findsOneWidget);
-    expect(
-      find.widgetWithText(FilledButton, '수업 시작').hitTestable(),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-    await captureLayout(
-      tester,
-      find.byKey(const ValueKey('preflight-evidence')),
-      'remote-narrow-scaled',
-    );
-  });
+    ) async {
+      await _previewHarness(
+        tester,
+        _PreparationRepository()..failRequest = true,
+        (context, sources, {isCancelled}) async =>
+            throw StateError('no remote loader'),
+        size: size,
+        scale: 2.0,
+      );
+      expect(_startEnabled(tester), isFalse);
+      expect(find.text('이용 상태를 다시 확인해 주세요'), findsOneWidget);
+      await tester.ensureVisible(find.text('수업 상태 다시 확인'));
+      expect(find.text('수업 상태 다시 확인').hitTestable(), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, '수업 시작').hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await captureLayout(
+        tester,
+        find.byKey(const ValueKey('preflight-evidence')),
+        'remote-error-${size.width.toInt()}-scaled',
+      );
+    });
+  }
 
   for (final failure in <Object>[
     const ImageUsageFailure('daily_transfer_limit'),
@@ -236,78 +393,83 @@ void main() {
     FirebaseException(plugin: 'auth', code: 'permission-denied'),
   ]) {
     testWidgets(
-      'approval/lease refusal is not downgraded to preview error: $failure',
+      'remote access refusal remains blocking without images: $failure',
       (tester) async {
-        await _previewHarness(
-          tester,
-          _PreparationRepository(),
-          (context, sources, {isCancelled}) async => throw failure,
+        var calls = 0;
+        final scope = ValueNotifier<ImageUsageDataSource>(
+          _DeniedSource(failure),
         );
+        addTearDown(scope.dispose);
+        await _previewHarness(tester, _PreparationRepository(), (
+          context,
+          sources, {
+          isCancelled,
+        }) async {
+          calls++;
+          return 1;
+        }, scope: scope);
+        expect(calls, 0);
         expect(_startEnabled(tester), isFalse);
         expect(find.text('이용 상태를 다시 확인해 주세요'), findsOneWidget);
-        expect(find.text('미리보기 다시 불러오기'), findsNothing);
+        expect(
+          tester
+              .widget<TextButton>(find.widgetWithText(TextButton, '이미지 보기'))
+              .onPressed,
+          isNull,
+        );
+        expect(find.textContaining('미리보기'), findsNothing);
       },
     );
   }
 
   testWidgets(
-    'account scope change invalidates prior preview and preparation',
+    'account scope change invalidates preparation without starting images',
     (tester) async {
       final repository = _PreparationRepository();
-      final attempts = <Completer<int>>[];
+      var calls = 0;
       final scope = ValueNotifier<ImageUsageDataSource>(_LegacySource());
       addTearDown(scope.dispose);
       await _previewHarness(tester, repository, (
         context,
         sources, {
         isCancelled,
-      }) {
-        final next = Completer<int>();
-        attempts.add(next);
-        return next.future;
+      }) async {
+        calls++;
+        return 1;
       }, scope: scope);
       final previous = repository.value!.sessionId;
+      repository.pendingReceipts = true;
       scope.value = _LegacySource();
       await tester.pumpAndSettle();
       expect(repository.requests, 2);
       expect(repository.value!.sessionId, isNot(previous));
-      expect(attempts, hasLength(2));
-      attempts.first.completeError(
-        const ImageUsageFailure('entitlement_unverified'),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('이용 상태를 다시 확인해 주세요'), findsNothing);
-      expect(_startEnabled(tester), isTrue);
-      attempts.last.complete(1);
-      await tester.pumpAndSettle();
-      expect(find.text('컨트롤러 미리보기 준비됨'), findsOneWidget);
+      expect(_startEnabled(tester), isFalse);
+      expect(calls, 0);
     },
   );
 
-  testWidgets(
-    'unresolved account hides old readiness and late preview result',
-    (tester) async {
-      final image = Completer<int>();
-      final scope = ValueNotifier<ImageUsageDataSource>(_LegacySource());
-      addTearDown(scope.dispose);
-      await _previewHarness(
-        tester,
-        _PreparationRepository(),
-        (context, sources, {isCancelled}) => image.future,
-        scope: scope,
-      );
-      expect(_startEnabled(tester), isTrue);
-      scope.value = _UnavailableSource();
-      await tester.pumpAndSettle();
-      expect(find.textContaining('계정 연결을 확인하지 못했어요'), findsOneWidget);
-      expect(find.textContaining('PRIVATE_ACCOUNT'), findsNothing);
-      expect(find.text('수업 시작'), findsNothing);
-      image.complete(1);
-      await tester.pumpAndSettle();
-      expect(find.text('수업 시작'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('unresolved account hides old readiness without images', (
+    tester,
+  ) async {
+    var calls = 0;
+    final scope = ValueNotifier<ImageUsageDataSource>(_LegacySource());
+    addTearDown(scope.dispose);
+    await _previewHarness(tester, _PreparationRepository(), (
+      context,
+      sources, {
+      isCancelled,
+    }) async {
+      calls++;
+      return 1;
+    }, scope: scope);
+    expect(_startEnabled(tester), isTrue);
+    scope.value = _UnavailableSource();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('계정 연결을 확인하지 못했어요'), findsOneWidget);
+    expect(find.textContaining('PRIVATE_ACCOUNT'), findsNothing);
+    expect(_startEnabled(tester), isFalse);
+    expect(calls, 0);
+  });
 
   for (final modern in [false, true]) {
     testWidgets(
@@ -445,13 +607,13 @@ void main() {
             errorReporterProvider.overrideWithValue(ErrorReporter(sink)),
             displayDevicesProvider.overrideWith((_) => Stream.value([])),
           ],
-          child: MaterialApp(home: WorkoutPreflightDialog(workout: raw)),
+          child: MaterialApp(home: WorkoutPreparationPage(workout: raw)),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('수업 설정을 불러오지 못했어요'), findsOneWidget);
+      expect(find.text('수업 설정을 확인하지 못했어요'), findsOneWidget);
       expect(find.textContaining('PRIVATE_SETTINGS_ERROR'), findsNothing);
-      expect(find.text('수업 시작'), findsNothing);
+      expect(_startEnabled(tester), isFalse);
       expect(
         sink.events.single.context['action'],
         'workout.preflight.preferences',
@@ -484,7 +646,7 @@ void main() {
               (_) => preferences,
             ),
           ],
-          child: MaterialApp(home: WorkoutPreflightDialog(workout: raw)),
+          child: MaterialApp(home: WorkoutPreparationPage(workout: raw)),
         ),
       );
       await tester.pump();
@@ -539,14 +701,14 @@ void main() {
         ],
         child: MaterialApp(
           theme: XonTheme.light,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('TV 준비 요청을 보내지 못했어요.'), findsOneWidget);
     expect(
-      find.textContaining('준비되지 않은 TV는 체크를 해제하면 제외하고 수업을 시작할 수 있어요.'),
+      find.textContaining('준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.'),
       findsOneWidget,
     );
     expect(find.textContaining('PRIVATE_REQUEST_ERROR'), findsNothing);
@@ -565,9 +727,9 @@ void main() {
       isTrue,
     );
     repository.failRequest = false;
-    await tester.tap(find.text('TV 준비 다시 확인'));
+    await tester.tap(find.text('수업 상태 다시 확인'));
     await tester.pumpAndSettle();
-    expect(find.text('TV 1대 중 1대 준비 완료'), findsOneWidget);
+    expect(find.text('TV 이미지 준비 1/1대 완료'), findsOneWidget);
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
@@ -640,7 +802,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('준비 열기'));
       await tester.pumpAndSettle();
-      expect(find.text('TV 2대 중 1대 준비 완료'), findsOneWidget);
+      expect(find.text('TV 이미지 준비 1/2대 완료'), findsOneWidget);
       expect(
         tester
             .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
@@ -672,7 +834,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.value!.targetDeviceIds, ['a']);
       expect(repository.value!.manifestHash, isNot(both));
-      expect(find.text('TV 1대 중 1대 준비 완료'), findsOneWidget);
+      expect(find.text('TV 이미지 준비 1/1대 완료'), findsOneWidget);
       expect(
         tester
             .widget<FilledButton>(find.widgetWithText(FilledButton, '수업 시작'))
@@ -723,13 +885,13 @@ void main() {
         child: MaterialApp(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('이미지 준비 실패'), findsOneWidget);
-    expect(find.textContaining('인터넷 연결과 슬라이드 이미지'), findsOneWidget);
+    expect(find.textContaining('연결을 확인해 주세요'), findsOneWidget);
     expect(find.textContaining('TECHNICAL_PRIVATE'), findsNothing);
     expect(find.textContaining('FormatException'), findsNothing);
     expect(
@@ -777,7 +939,7 @@ void main() {
         child: MaterialApp(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
@@ -842,7 +1004,7 @@ void main() {
         child: MaterialApp(
           theme: XonTheme.light,
           builder: XonTheme.responsiveBuilder,
-          home: WorkoutPreflightDialog(workout: workout),
+          home: WorkoutPreparationPage(workout: workout),
         ),
       ),
     );
@@ -858,7 +1020,7 @@ void main() {
     );
     expect(checkboxes.length, 2);
     expect(checkboxes.every((tile) => tile.value == true), isTrue);
-    expect(find.text('2대를 선택했습니다.'), findsOneWidget);
+    expect(find.text('재생 TV · 2대 선택'), findsOneWidget);
 
     await tester.ensureVisible(find.byType(CheckboxListTile).last);
     await tester.pumpAndSettle();
@@ -866,7 +1028,7 @@ void main() {
     await tester.pump();
     expect(find.text('브리핑 미리보기'), findsNothing);
     expect(find.text('소리 테스트'), findsNothing);
-    expect(find.text('1대를 선택했습니다.'), findsOneWidget);
+    expect(find.text('재생 TV · 1대 선택'), findsOneWidget);
     expect(
       tester
           .widgetList<CheckboxListTile>(
@@ -992,7 +1154,7 @@ bool _startEnabled(WidgetTester tester) =>
 Future<void> _previewHarness(
   WidgetTester tester,
   _PreparationRepository repository,
-  PreflightImageLoader loader, {
+  PreflightImageLoader? loader, {
   bool legacy = false,
   Size size = const Size(600, 1300),
   double scale = 1,
@@ -1025,7 +1187,14 @@ Future<void> _previewHarness(
         const WorkoutAuthor(id: 'u', displayName: '', photoUrl: null),
       ).copyWith(
         name: '로컬 준비 테스트',
-        modules: [WorkoutModule.empty('m').copyWith(name: '스쿼트')],
+        countdownImageSource: 'http://127.0.0.1:8796/countdown-test.png',
+        modules: [
+          for (var i = 0; i < 4; i++)
+            WorkoutModule.empty('m$i').copyWith(
+              name: '스쿼트',
+              imageSource: 'http://127.0.0.1:8796/slide-$i.png',
+            ),
+        ],
       );
   await tester.pumpWidget(
     ProviderScope(
@@ -1048,7 +1217,8 @@ Future<void> _previewHarness(
         displayDevicesProvider.overrideWith((_) => Stream.value(devices)),
         serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
         displayPreparationRepositoryProvider.overrideWithValue(repository),
-        preflightImageLoaderProvider.overrideWithValue(loader),
+        if (loader != null)
+          preflightImageLoaderProvider.overrideWithValue(loader),
       ],
       child: MaterialApp(
         theme: XonTheme.light,
@@ -1061,7 +1231,7 @@ Future<void> _previewHarness(
         ),
         home: RepaintBoundary(
           key: const ValueKey('preflight-evidence'),
-          child: WorkoutPreflightDialog(workout: workout),
+          child: WorkoutPreparationPage(workout: workout),
         ),
       ),
     ),
@@ -1075,3 +1245,10 @@ class _LegacySource extends Fake implements ImageUsageDataSource {
 }
 
 class _UnavailableSource extends Fake implements ImageUsageDataSource {}
+
+class _DeniedSource extends _LegacySource {
+  _DeniedSource(this.failure);
+  final Object failure;
+  @override
+  Future<bool> enrolled() async => throw failure;
+}
