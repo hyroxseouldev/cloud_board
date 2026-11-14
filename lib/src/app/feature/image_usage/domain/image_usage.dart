@@ -199,7 +199,10 @@ class ClassAdmission {
       policyRevision = usageString(json['policyRevision']),
       status = usageString(json['status']),
       prepareExpiresAtMs = usageInt(json['prepareExpiresAtMs']),
-      targetDeviceIds = List<String>.from(json['targetDeviceIds'] as List),
+      targetDeviceIds = List<String>.unmodifiable(
+        json['targetDeviceIds'] as List,
+      ),
+      supportsTargetSubset = json['supportsTargetSubset'] == true,
       reservedDownloadBytes = usageInt(json['reservedDownloadBytes']),
       usage = ImageUsage.fromJson(usageMap(json['usage'])),
       session = json['session'] == null ? null : usageMap(json['session']) {
@@ -213,6 +216,7 @@ class ClassAdmission {
       status;
   final int epoch, prepareExpiresAtMs, reservedDownloadBytes;
   final List<String> targetDeviceIds;
+  final bool supportsTargetSubset;
   final ImageUsage usage;
   final Map<String, dynamic>? session;
   bool get pending => status == 'committing';

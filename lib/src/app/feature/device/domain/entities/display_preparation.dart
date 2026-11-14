@@ -103,13 +103,20 @@ class DisplayPreparationReceipt {
 }
 
 class DisplayPreparationProof {
-  const DisplayPreparationProof({
+  DisplayPreparationProof({
     required this.manifestHash,
     this.sessionId,
     this.revision,
     this.clientFingerprint,
-  });
+    Iterable<String>? preparedTargetDeviceIds,
+  }) : preparedTargetDeviceIds = preparedTargetDeviceIds == null
+           ? null
+           : List.unmodifiable(preparedTargetDeviceIds);
   final String manifestHash;
+
+  /// Explicit immutable preparation cohort. Start targets remain separate.
+  /// Absent on old proofs, which retain exact-target validation.
+  final List<String>? preparedTargetDeviceIds;
   final String? clientFingerprint;
   final String? sessionId;
   final int? revision;

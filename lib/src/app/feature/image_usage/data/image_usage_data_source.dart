@@ -396,6 +396,36 @@ class ImageUsageDataSource {
     return result;
   }
 
+  /// A distinct action prevents old servers silently ignoring the subset and
+  /// publishing the whole cohort. Never downgrade this call after a failure.
+  Future<ClassAdmission> commitSelected(
+    ClassAdmission value,
+    Map<String, dynamic> start,
+    List<String> selectedTargetDeviceIds,
+  ) async {
+    if (!value.supportsTargetSubset) {
+      throw const ImageUsageFailure('policy_or_client_upgrade_required');
+    }
+    final selected = selectedTargetDeviceIds.toSet();
+    if (selected.isEmpty ||
+        selected.length != selectedTargetDeviceIds.length ||
+        !value.targetDeviceIds.toSet().containsAll(selected)) {
+      throw const ImageUsageFailure('session_changed');
+    }
+    return ClassAdmission.fromJson(
+      await invoke('cloudboardClassAdmission', {
+        'action': 'commitSelected',
+        'requestId': 'commit_${value.admissionId}',
+        'admissionId': value.admissionId,
+        'sessionId': value.sessionId,
+        'manifestHash': value.manifestHash,
+        'epoch': value.epoch,
+        'selectedTargetDeviceIds': selected.toList()..sort(),
+        'start': start,
+      }),
+    );
+  }
+
   Uri _validatedUrl(String value, String endpoint) {
     final uri = Uri.tryParse(value);
     final local =

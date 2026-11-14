@@ -1,3 +1,4 @@
+import 'package:hooks_riverpod/misc.dart' show Override;
 import 'package:cloud_board/src/app/feature/onboarding/domain/repositories/onboarding_repository.dart';
 import 'package:cloud_board/src/app/feature/onboarding/data/repositories/onboarding_repository.dart';
 
@@ -95,6 +96,7 @@ class NavigationPreviewData {
     String imageSource = '',
     OnboardingRepository? onboarding,
     Stream<bool>? existingAccess,
+    List<Override> preparationOverrides = const [],
   }) {
     repository = NavigationWorkoutRepository(
       navigationWorkouts(count: count, imageSource: imageSource),
@@ -105,60 +107,64 @@ class NavigationPreviewData {
     commands = NavigationCommands(this);
     container = ProviderContainer(
       retry: (_, _) => null,
-      overrides: [
-        memoryWorkoutRecovery,
-        existingMemberAccessProvider.overrideWith(
-          (ref) => existingAccess ?? Stream.value(false),
-        ),
-        authStateProvider.overrideWith((ref) async* {
-          yield onboarding == null
-              ? previewUser
-              : previewUser.copyWith(needsOnboarding: true);
-          yield* users.stream;
-        }),
-        accountOwnerIdProvider.overrideWith((ref) => Stream.value(null)),
-        if (onboarding == null)
-          onboardingRequiredProvider.overrideWith((ref) async => false)
-        else
-          onboardingRepositoryProvider.overrideWith((ref) => onboarding),
-        firstClassControllerProvider.overrideWith(_NoFirstClass.new),
-        deviceModeControllerProvider.overrideWith(NavigationMode.new),
-        androidTvProvider.overrideWith((ref) async => false),
-        displayDevicesProvider.overrideWith(
-          (ref) => Stream.value(const [
-            DisplayDevice(
-              id: 'preview-tv',
-              name: '메인 디스플레이',
-              zoneId: 'main',
-              zoneName: '메인',
-              online: true,
-              lastSeenAtMs: 0,
-              currentSessionId: 'preview-session',
-              acknowledgedRevision: 1,
-              paired: true,
-            ),
-          ]),
-        ),
-        activePlaybackSessionProvider.overrideWith((ref) async* {
-          yield session;
-          yield* sessions.stream;
-        }),
-        playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),
-        serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
-        playbackActionControllerProvider.overrideWith(() => commands),
-        workoutMediaControllerProvider.overrideWith((ref) => _PreviewMedia()),
-        workoutRepositoryProvider.overrideWith((ref) async => repository),
-        libraryFoldersProvider.overrideWith(
-          (ref) => Stream.value(['Stationd', '팀 수업']),
-        ),
-        fixtureSavedSlideOrder,
-        slideTemplatesControllerProvider.overrideWith2(
-          (scope) => _PreviewSlides(repository.items),
-        ),
-        accountWorkoutPreferencesProvider.overrideWith(
-          (ref, owner) async => const WorkoutPreferences(),
-        ),
-      ],
+      overrides: {
+        for (final override in <Override>[
+          memoryWorkoutRecovery,
+          existingMemberAccessProvider.overrideWith(
+            (ref) => existingAccess ?? Stream.value(false),
+          ),
+          authStateProvider.overrideWith((ref) async* {
+            yield onboarding == null
+                ? previewUser
+                : previewUser.copyWith(needsOnboarding: true);
+            yield* users.stream;
+          }),
+          accountOwnerIdProvider.overrideWith((ref) => Stream.value(null)),
+          if (onboarding == null)
+            onboardingRequiredProvider.overrideWith((ref) async => false)
+          else
+            onboardingRepositoryProvider.overrideWith((ref) => onboarding),
+          firstClassControllerProvider.overrideWith(_NoFirstClass.new),
+          deviceModeControllerProvider.overrideWith(NavigationMode.new),
+          androidTvProvider.overrideWith((ref) async => false),
+          displayDevicesProvider.overrideWith(
+            (ref) => Stream.value(const [
+              DisplayDevice(
+                id: 'preview-tv',
+                name: '메인 디스플레이',
+                zoneId: 'main',
+                zoneName: '메인',
+                online: true,
+                lastSeenAtMs: 0,
+                currentSessionId: 'preview-session',
+                acknowledgedRevision: 1,
+                paired: true,
+              ),
+            ]),
+          ),
+          activePlaybackSessionProvider.overrideWith((ref) async* {
+            yield session;
+            yield* sessions.stream;
+          }),
+          playbackConnectionProvider.overrideWith((ref) => Stream.value(true)),
+          serverTimeOffsetProvider.overrideWith((ref) => Stream.value(0)),
+          playbackActionControllerProvider.overrideWith(() => commands),
+          workoutMediaControllerProvider.overrideWith((ref) => _PreviewMedia()),
+          workoutRepositoryProvider.overrideWith((ref) async => repository),
+          libraryFoldersProvider.overrideWith(
+            (ref) => Stream.value(['Stationd', '팀 수업']),
+          ),
+          fixtureSavedSlideOrder,
+          slideTemplatesControllerProvider.overrideWith2(
+            (scope) => _PreviewSlides(repository.items),
+          ),
+          accountWorkoutPreferencesProvider.overrideWith(
+            (ref, owner) async => const WorkoutPreferences(),
+          ),
+          ...preparationOverrides,
+        ])
+          override.origin: override,
+      }.values.toList(),
     );
   }
   final users = StreamController<AuthUser?>.broadcast();
