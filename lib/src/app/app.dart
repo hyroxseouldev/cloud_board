@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/workout_error_message.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failure.dart';
@@ -28,12 +29,12 @@ class XonBoardApp extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authNotice =
-        useRef<ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?>(
-          null,
-        );
+    final toastController = useMemoized(AppErrorToastController.new);
+    useEffect(() => toastController.dispose, [toastController]);
+    final authNotice = useRef<VoidCallback?>(null);
+    final actionScopes = useRef(<String, int>{});
     void clearAuthNotice() {
-      authNotice.value?.close();
+      authNotice.value?.call();
       authNotice.value = null;
     }
 
@@ -61,13 +62,17 @@ class XonBoardApp extends HookConsumerWidget {
       storeEntitlementProvider,
       (_, _) => ref.invalidate(userProfileControllerProvider),
     );
-    ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? showActionResult(
+    VoidCallback? showActionResult(
       AsyncValue<String?>? previous,
       AsyncValue<String?> next,
       String errorPrefix, {
       String Function(Object?)? errorMessage,
     }) {
-      if (next.isLoading || previous?.isLoading != true) return null;
+      if (next.isLoading) {
+        actionScopes.value[errorPrefix] = toastController.scopeRevision;
+        return null;
+      }
+      if (previous?.isLoading != true) return null;
       final isError = next.hasError;
       final message = isError
           ? errorMessage?.call(next.error) ?? '$errorPrefix. 잠시 후 다시 시도해 주세요.'
@@ -84,12 +89,19 @@ class XonBoardApp extends HookConsumerWidget {
               action: 'ui.action',
             );
       }
+      if (isError &&
+          actionScopes.value[errorPrefix] != toastController.scopeRevision) {
+        return null;
+      }
       clearAuthNotice();
       final messenger = _scaffoldMessengerKey.currentState;
       messenger
         ?..clearSnackBars()
         ..removeCurrentSnackBar();
-      return messenger?.showSnackBar(SnackBar(content: Text(message)));
+      if (isError) return toastController.show(message);
+      toastController.clear();
+      final notice = messenger?.showSnackBar(SnackBar(content: Text(message)));
+      return notice == null ? null : () => notice.close();
     }
 
     ref.listen(iosClassControlsProvider, (previous, next) {
@@ -110,6 +122,9 @@ class XonBoardApp extends HookConsumerWidget {
     });
     ref.listen(authStateProvider, (previous, next) {
       if (previous?.value?.id != next.value?.id) {
+        toastController.resetScope();
+        clearAuthNotice();
+        _scaffoldMessengerKey.currentState?.clearSnackBars();
         ref.invalidate(userProfileControllerProvider);
       }
       if (next.value != null && previous?.value?.id != next.value?.id) {
@@ -125,7 +140,10 @@ class XonBoardApp extends HookConsumerWidget {
       );
     });
     ref.listen(authControllerProvider, (previous, next) {
-      if (next.isLoading) clearAuthNotice();
+      if (next.isLoading) {
+        clearAuthNotice();
+        toastController.clear();
+      }
       final notice = showActionResult(
         previous,
         next,
@@ -134,9 +152,6 @@ class XonBoardApp extends HookConsumerWidget {
       );
       if (notice != null) {
         authNotice.value = notice;
-        notice.closed.then((_) {
-          if (authNotice.value == notice) authNotice.value = null;
-        });
       }
     });
     ref.listen(workoutActionControllerProvider, (previous, next) {
@@ -157,8 +172,13 @@ class XonBoardApp extends HookConsumerWidget {
       theme: XonTheme.light,
       builder: (context, child) => XonTheme.responsiveBuilder(
         context,
-        AppUpdateGate(
-          child: KeyboardDismissRegion(child: child ?? const SizedBox.shrink()),
+        AppErrorToastHost(
+          controller: toastController,
+          child: AppUpdateGate(
+            child: KeyboardDismissRegion(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         ),
       ),
       routerConfig: ref.watch(appRouterProvider),

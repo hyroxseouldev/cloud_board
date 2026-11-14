@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:cloud_board/src/app/core/router/auth_entry_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -33,12 +34,10 @@ class EmailLoginScreen extends HookConsumerWidget {
     final formKey = useMemoized(() => GlobalKey<FormState>(), [mode.value]);
     final action = ref.watch(emailAuthControllerProvider);
     final controller = ref.read(emailAuthControllerProvider.notifier);
-    final notice =
-        useRef<ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?>(
-          null,
-        );
+    final notice = useRef<VoidCallback?>(null);
+    final actionScope = useRef<int?>(null);
     void clearNotice() {
-      notice.value?.close();
+      notice.value?.call();
       notice.value = null;
     }
 
@@ -52,25 +51,20 @@ class EmailLoginScreen extends HookConsumerWidget {
         : '이메일로 로그인';
 
     ref.listen(emailAuthControllerProvider, (previous, next) {
+      if (next.isLoading) {
+        actionScope.value = AppErrorToast.of(context).scopeRevision;
+      }
       if (next.isLoading || !next.hasError) clearNotice();
-      if (previous?.isLoading == true && !next.isLoading && next.hasError) {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger
-          ..clearSnackBars()
-          ..removeCurrentSnackBar();
-        final shown = messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              next.error is EmailAuthFailure
-                  ? (next.error! as EmailAuthFailure).message
-                  : emailAuthErrorMessage(next.error!),
-            ),
-          ),
+      if (previous?.isLoading == true &&
+          !next.isLoading &&
+          next.hasError &&
+          actionScope.value == AppErrorToast.of(context).scopeRevision) {
+        notice.value = AppErrorToast.show(
+          context,
+          next.error is EmailAuthFailure
+              ? (next.error! as EmailAuthFailure).message
+              : emailAuthErrorMessage(next.error!),
         );
-        notice.value = shown;
-        shown.closed.then((_) {
-          if (notice.value == shown) notice.value = null;
-        });
       }
       if (previous?.isLoading == true &&
           next.hasValue &&

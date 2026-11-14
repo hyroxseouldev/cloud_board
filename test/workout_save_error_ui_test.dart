@@ -1,3 +1,4 @@
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:cloud_board/src/app/app.dart';
 import 'package:cloud_board/src/app/core/diagnostics/diagnostics_provider.dart';
 import 'package:cloud_board/src/app/core/diagnostics/error_details.dart';
@@ -274,11 +275,12 @@ void main() {
 }
 
 void _expectSingleNotice(WidgetTester tester) {
-  expect(find.byType(SnackBar), findsOneWidget);
+  expect(find.byType(SnackBar), findsNothing);
+  expect(find.byType(ShadToast), findsOneWidget);
   expect(find.text(_networkMessage), findsOneWidget);
   expect(
     find.descendant(
-      of: find.byType(SnackBar),
+      of: find.byType(ShadToast),
       matching: find.text(_networkMessage),
     ),
     findsOneWidget,
@@ -293,6 +295,7 @@ Future<void> _expectNoReplay(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 5));
   await tester.pumpAndSettle();
   expect(find.byType(SnackBar), findsNothing);
+  expect(find.byType(ShadToast), findsNothing);
 }
 
 Future<void> _rename(

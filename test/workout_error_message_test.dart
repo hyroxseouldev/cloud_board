@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
@@ -161,16 +164,17 @@ void main() {
       );
       fixture.commands.reportActionFailure(failure);
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(ShadToast), findsOneWidget);
       expect(find.textContaining('인터넷 연결'), findsOneWidget);
       expect(find.textContaining('TECHNICAL_PRIVATE'), findsNothing);
       fixture.commands.reportActionFailure(failure);
       await tester.pumpAndSettle();
-      final context = tester.element(find.byType(SnackBar));
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final context = tester.element(find.byType(ShadToast));
+      AppErrorToast.of(context).clear();
       await tester.pumpAndSettle();
       expect(
-        find.byType(SnackBar),
+        find.byType(ShadToast),
         findsNothing,
         reason: 'No second listener may queue the same failure',
       );
