@@ -42,15 +42,17 @@ void main() {
         ],
       );
   final devices = [
-    if (scene != 'solo')
+    if (scene != 'solo' && scene != 'empty')
       for (var i = 0; i < 3; i++)
         DisplayDevice(
           id: '$i',
           name: ['메인 스튜디오 TV', '창가 트레이닝존의 긴 이름 디스플레이', '보조 TV'][i],
           zoneId: 'main',
           zoneName: '스튜디오',
-          online: true,
-          lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
+          online: scene != 'offline',
+          lastSeenAtMs: scene == 'offline'
+              ? 0
+              : DateTime.now().millisecondsSinceEpoch,
           currentSessionId: null,
           acknowledgedRevision: 0,
           paired: true,
@@ -189,4 +191,18 @@ class _Player extends PlayerController {
     isPaused: false,
     countdownMs: countdown ? 5000 : 0,
   );
+  @override
+  Future<void> selectModule(int moduleIndex) async {
+    state = state.copyWith(
+      index: state.steps.indexWhere((step) => step.moduleIndex == moduleIndex),
+      remainingMs: 60000,
+    );
+  }
+
+  @override
+  Future<void> next() =>
+      selectModule((state.steps[state.index].moduleIndex + 1).clamp(0, 5));
+  @override
+  Future<void> previous() =>
+      selectModule((state.steps[state.index].moduleIndex - 1).clamp(0, 5));
 }

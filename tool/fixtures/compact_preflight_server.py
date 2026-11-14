@@ -1,7 +1,7 @@
 # Run from build/web after building compact_preflight.dart; local-only HTTP evidence.
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
-import json, base64
+import json, base64, sys
 requests=[]
 class Handler(SimpleHTTPRequestHandler):
  def do_GET(self):
@@ -15,4 +15,4 @@ class Handler(SimpleHTTPRequestHandler):
   super().do_GET()
  def end_headers(self):
   self.send_header('Cache-Control','no-store'); super().end_headers()
-ThreadingHTTPServer(('127.0.0.1',8796),Handler).serve_forever()
+ThreadingHTTPServer(('127.0.0.1',int(sys.argv[1]) if len(sys.argv) > 1 else 8796),Handler).serve_forever()
