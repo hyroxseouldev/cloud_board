@@ -1635,15 +1635,23 @@
         },
         {
           "id": "function-targets",
-          "status": "running",
-          "startedAt": "2026-11-14T12:33:51.224Z"
+          "status": "success",
+          "startedAt": "2026-11-14T12:33:51.224Z",
+          "completedAt": "2026-11-14T12:33:57.004Z",
+          "durationMs": 5780
         }
       ],
-      "targets": [],
+      "targets": [
+        "functions:account-deletion:cloudboardClassAdmission"
+      ],
       "storeReview": "not-submitted",
       "toolchain": {
         "node": "22.21.1"
-      }
+      },
+      "dependencyCache": {
+        "functions": "reused"
+      },
+      "runtimeConfigurationHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f"
     }
   ]
 }
