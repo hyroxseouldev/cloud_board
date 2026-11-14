@@ -1,3 +1,5 @@
+import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
+
 import 'dart:async';
 
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
@@ -55,7 +57,7 @@ void main() {
         await tester.tap(find.byTooltip('폴더 선택'));
         await tester.pump(const Duration(milliseconds: 200));
         expect(repository.requests, hasLength(1));
-        expect(find.byType(CheckedPopupMenuItem<String>), findsNothing);
+        expect(find.byType(shadcn.ShadOption<String>), findsNothing);
         await tester.pump(const Duration(seconds: 5));
         expect(find.bySemanticsLabel('연결이 조금 지연되고 있어요'), findsOneWidget);
         expect(find.bySemanticsLabel('워크아웃을 불러오는 중'), findsNothing);
@@ -206,6 +208,13 @@ void main() {
         expect(brandBounds.left, greaterThanOrEqualTo(0));
         expect(brandBounds.right, lessThanOrEqualTo(size.width));
         expect(brandBounds.height, lessThanOrEqualTo(kToolbarHeight));
+        // Let the shadcn overlay finish its one-time mount transition; the
+        // skeleton must then remain static with no recurring animation ticks.
+        await tester.pumpAndSettle(
+          const Duration(milliseconds: 100),
+          EnginePhase.sendSemanticsUpdate,
+          const Duration(seconds: 1),
+        );
         expect(tester.binding.hasScheduledFrame, isFalse);
         expect(tester.takeException(), isNull);
         // STA-190 removes the usage entry in every responsive home/search layout.

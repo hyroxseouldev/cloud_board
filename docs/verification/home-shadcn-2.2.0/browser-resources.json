@@ -1,0 +1,187 @@
+[
+  {
+    "url": "http://127.0.0.1:8894/development_auth_origin.js",
+    "transferSize": 746,
+    "responseEnd": 19.59999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/startup_loading.css",
+    "transferSize": 1741,
+    "responseEnd": 20.300000190734863
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/branding/soft_rhythm_mark.png",
+    "transferSize": 936043,
+    "responseEnd": 21.40000009536743
+  },
+  {
+    "url": "http://127.0.0.1:8894/startup_loading.js",
+    "transferSize": 2094,
+    "responseEnd": 22.09999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/flutter_bootstrap.js",
+    "transferSize": 13526,
+    "responseEnd": 23.90000009536743
+  },
+  {
+    "url": "http://127.0.0.1:8894/canvaskit/chromium/canvaskit.wasm",
+    "transferSize": 0,
+    "responseEnd": 39.30000019073486
+  },
+  {
+    "url": "http://127.0.0.1:8894/canvaskit/chromium/canvaskit.js",
+    "transferSize": 0,
+    "responseEnd": 32.5
+  },
+  {
+    "url": "http://127.0.0.1:8894/main.dart.js",
+    "transferSize": 6596361,
+    "responseEnd": 95.09999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/FontManifest.json",
+    "transferSize": 2762,
+    "responseEnd": 402.59999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/fonts/MaterialIcons-Regular.otf",
+    "transferSize": 27324,
+    "responseEnd": 428.09999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/racing_sans_one/RacingSansOne-Regular.ttf",
+    "transferSize": 146096,
+    "responseEnd": 429.09999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/noto_serif_kr/NotoSerifKR-Variable.ttf",
+    "transferSize": 23795720,
+    "responseEnd": 466.69999980926514
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-Thin.otf",
+    "transferSize": 1487784,
+    "responseEnd": 433.5
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-ExtraLight.otf",
+    "transferSize": 1544480,
+    "responseEnd": 442.69999980926514
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-Light.otf",
+    "transferSize": 1600268,
+    "responseEnd": 443.69999980926514
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-Regular.otf",
+    "transferSize": 1574652,
+    "responseEnd": 444.30000019073486
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-Medium.otf",
+    "transferSize": 1584368,
+    "responseEnd": 444.90000009536743
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-SemiBold.otf",
+    "transferSize": 1584004,
+    "responseEnd": 445.30000019073486
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-Bold.otf",
+    "transferSize": 1576960,
+    "responseEnd": 449.30000019073486
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-ExtraBold.otf",
+    "transferSize": 1568812,
+    "responseEnd": 452
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/fonts/pretendard/Pretendard-Black.otf",
+    "transferSize": 1559852,
+    "responseEnd": 452.5
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/shadcn_ui/fonts/Geist%255Bwght%255D.ttf",
+    "transferSize": 300,
+    "responseEnd": 453.5
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/shadcn_ui/fonts/GeistMono%255Bwght%255D.ttf",
+    "transferSize": 300,
+    "responseEnd": 454.59999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/lucide_icons_flutter/assets/lucide.ttf",
+    "transferSize": 5108,
+    "responseEnd": 447.69999980926514
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/lucide_icons_flutter/assets/build_font/LucideVariable-w100.ttf",
+    "transferSize": 300,
+    "responseEnd": 457.40000009536743
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/lucide_icons_flutter/assets/build_font/LucideVariable-w200.ttf",
+    "transferSize": 300,
+    "responseEnd": 457.59999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/lucide_icons_flutter/assets/build_font/LucideVariable-w300.ttf",
+    "transferSize": 300,
+    "responseEnd": 458.30000019073486
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/lucide_icons_flutter/assets/build_font/LucideVariable-w400.ttf",
+    "transferSize": 300,
+    "responseEnd": 458.5
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/lucide_icons_flutter/assets/build_font/LucideVariable-w500.ttf",
+    "transferSize": 300,
+    "responseEnd": 458.80000019073486
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+    "transferSize": 1772,
+    "responseEnd": 448.5
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/packages/lucide_icons_flutter/assets/build_font/LucideVariable-w600.ttf",
+    "transferSize": 300,
+    "responseEnd": 459.09999990463257
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/fonts/fallback/Roboto-Regular.ttf",
+    "transferSize": 0,
+    "responseEnd": 429.80000019073486
+  },
+  {
+    "url": "https://accounts.google.com/gsi/client",
+    "transferSize": 0,
+    "responseEnd": 489
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/AssetManifest.bin.json",
+    "transferSize": 6130,
+    "responseEnd": 520.9000000953674
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/branding/soft_rhythm_mark.png",
+    "transferSize": 936043,
+    "responseEnd": 659.8000001907349
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/branding/soft_rhythm_mark.png",
+    "transferSize": 936043,
+    "responseEnd": 661
+  },
+  {
+    "url": "http://127.0.0.1:8894/assets/assets/branding/soft_rhythm_mark.png",
+    "transferSize": 936043,
+    "responseEnd": 1604.5999999046326
+  }
+]
