@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_icon_tile.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
 
 import 'support/ui_layout_evidence.dart';
@@ -31,6 +33,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  for (final width in [390.0, 1200.0]) {
+    testWidgets(
+      'home uses local artwork even for remote class media at $width',
+      (tester) async {
+        final workout = _catalog(1).single.copyWith(
+          modules: [
+            WorkoutModule.empty('slide').copyWith(
+              imageSource: 'https://example.invalid/private-class-media.png',
+            ),
+          ],
+        );
+        await _mount(
+          tester,
+          _CatalogRepository([workout]),
+          size: Size(width, 844),
+        );
+        expect(find.byType(WorkoutIconTile), findsOneWidget);
+        expect(find.byType(WorkoutImage), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('workout-scroll')),
+            matching: find.byType(Image),
+          ),
+          findsNothing,
+        );
+        expect(find.textContaining('1개 슬라이드'), findsOneWidget);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byWidgetPredicate(
+                  (widget) => widget is IconButton && widget.tooltip == '재생',
+                ),
+              )
+              .onPressed,
+          isNotNull,
+        );
+        await tester.tap(find.byTooltip('워크아웃 메뉴'));
+        await tester.pumpAndSettle();
+        for (final label in ['편집', '복사', '삭제']) {
+          expect(find.text(label), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('STA-190 evidence class search', (tester) async {
     await loadLayoutFonts(tester);
     await _mount(

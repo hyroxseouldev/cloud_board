@@ -39,7 +39,7 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/pl
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_icon_tile.dart';
 
 class WorkoutListScreen extends StatelessWidget {
   const WorkoutListScreen({super.key});
@@ -835,24 +835,11 @@ class _WorkoutRow extends ConsumerWidget {
                     },
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox.square(
-                      key: ValueKey('workout-thumbnail-${workout.id}'),
-                      dimension: framed ? 72 : 60,
-                      child: workout.imageSource.isEmpty
-                          ? const ColoredBox(
-                              color: AppColors.surface,
-                              child: Icon(
-                                Icons.view_carousel_outlined,
-                                color: AppColors.muted,
-                              ),
-                            )
-                          : WorkoutImage(
-                              source: workout.imageSource,
-                              fit: BoxFit.cover,
-                            ),
-                    ),
+                  WorkoutIconTile(
+                    key: ValueKey('workout-thumbnail-${workout.id}'),
+                    workoutId: workout.id,
+                    moduleCount: workout.moduleCount,
+                    size: framed ? 72 : 60,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -873,7 +860,7 @@ class _WorkoutRow extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${workout.folder.isEmpty ? '폴더 없음' : workout.folder} · ${workout.moduleCount}개 슬라이드',
+                          '${workout.moduleCount}개 슬라이드 · ${workout.folder.isEmpty ? '폴더 없음' : workout.folder}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -1100,7 +1087,10 @@ class _WorkoutActions extends ConsumerWidget {
   final bool isBusy;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Row(
+  Widget build(BuildContext context, WidgetRef ref) => Flex(
+    direction: compact && MediaQuery.sizeOf(context).width < 360
+        ? Axis.vertical
+        : Axis.horizontal,
     mainAxisSize: MainAxisSize.min,
     children: [
       IconButton(
@@ -1122,7 +1112,7 @@ class _WorkoutActions extends ConsumerWidget {
             : () => _play(context, ref),
         icon: const Icon(Icons.play_arrow_rounded, size: 28),
       ),
-      if (compact) const SizedBox(width: 6),
+      if (compact) const SizedBox(width: 6, height: 6),
       PopupMenuButton<_WorkoutAction>(
         tooltip: '워크아웃 메뉴',
         style: compact
