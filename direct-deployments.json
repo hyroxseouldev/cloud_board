@@ -1538,8 +1538,10 @@
         },
         {
           "id": "deploy",
-          "status": "running",
-          "startedAt": "2026-11-14T12:29:19.211Z"
+          "status": "success",
+          "startedAt": "2026-11-14T12:29:19.211Z",
+          "completedAt": "2026-11-14T12:30:21.938Z",
+          "durationMs": 62727
         }
       ],
       "targets": [
@@ -1552,7 +1554,17 @@
       "dependencyCache": {
         "functions": "reused"
       },
-      "runtimeConfigurationHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f"
+      "runtimeConfigurationHash": "bac758bbc6913844e7b89e576d36449358f04288737f43b55b2b497c0b4eb69f",
+      "deployCommand": {
+        "exitCode": 0,
+        "completedAt": "2026-11-14T12:30:21.936Z",
+        "project": "cloud-board-development",
+        "targets": [
+          "functions:account-deletion:retryImageUsageOutbox"
+        ],
+        "outputSha256": "88079f534812f28789bc91c3d9782d412a238747d464434c5987bb63e95792ec",
+        "deployComplete": true
+      }
     }
   ]
 }
