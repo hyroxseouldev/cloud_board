@@ -1,0 +1,38 @@
+00:00 +0: loading /Users/sunmkim/orca/workspaces/cloudboardapp/compact-preflight/test/workout_preflight_dialog_test.dart
+00:00 +0: shadcn scope stays on the preparation route and cancel is removed
+00:04 +1: TV edits stay local until one guarded apply and reuse the device subscription
+00:06 +2: explicit solo preserves empty-target routing contract, noDevices=true
+00:07 +3: explicit solo preserves empty-target routing contract, noDevices=false
+00:08 +4: cold TV intent with no devices never requests images or empty approval
+00:09 +5: cold TV intent with all offline never requests images or empty approval
+00:09 +6: cold TV intent with clear selection never requests images or empty approval
+00:10 +7: explicit solo to TV zero cancels old images and requires new approval on return
+00:10 +8: explicit solo still requires enrolled admission before image preparation
+00:11 +9: preparation pushes a page, shows metadata during settings load and back cancels
+00:11 +10: page image preview is explicit, resets with targets and never repeats TV preparation
+00:12 +11: cold cache real preflight loader never reaches HTTP for remote mode
+00:13 +12: cancelled solo loader cannot schedule remaining image window
+00:14 +13: remote never calls image loader while waiting, ready, failed or retrying
+00:15 +14: remote to solo to remote cancels queued images and late success cannot unlock new solo
+00:16 +15: TV gate uses receipt only, ready=false
+00:17 +16: TV gate uses receipt only, ready=true
+00:17 +17: remote never enters managed preview transport path
+00:18 +18: narrow scaled critical error and body CTA reachable Size(320.0, 568.0)
+00:18 +19: narrow scaled critical error and body CTA reachable Size(390.0, 844.0)
+00:18 +20: remote access refusal remains blocking without images: 이미지 전송 한도에 도달해 새 수업을 시작할 수 없어요. 진행 중인 수업은 계속할 수 있어요. 사용량과 다음 이용 가능 시각을 확인해 주세요.
+00:19 +21: remote access refusal remains blocking without images: 이용 권한을 확인하지 못했어요. 프로필의 이용 상태를 확인해 주세요.
+00:19 +22: remote access refusal remains blocking without images: 수업 준비 시간이 만료됐어요. 수업 준비를 다시 확인해 주세요.
+00:20 +23: remote access refusal remains blocking without images: 사용량 확인 실패. 연결을 확인하고 다시 시도해 주세요. 선택한 파일과 초안은 유지됩니다.
+00:20 +24: remote access refusal remains blocking without images: [auth/permission-denied] null
+00:20 +25: account scope change invalidates preparation without starting images
+00:21 +26: unresolved account hides old readiness without images
+00:21 +27: account countdown preferences prepare and verify without a manual TV check (modern=false)
+00:22 +28: account countdown preferences prepare and verify without a manual TV check (modern=true)
+00:22 +29: settings failure blocks preparation and retries with readable feedback
+00:22 +30: closing while preferences load cannot access a disposed provider
+00:23 +31: TV request error retains manual exclusion guidance and retry
+00:23 +32: one failed TV blocks start until explicitly excluded and new candidate acknowledged
+00:24 +33: 이미지 준비 오류는 원문을 숨기고 진단 정보와 복구 안내를 유지한다
+00:24 +34: 이미지 프리로드는 첫 프레임 이후 안전하게 시작한다
+00:25 +35: 온라인 디스플레이 여러 대를 기본으로 모두 선택한다
+00:25 +36: All tests passed!
