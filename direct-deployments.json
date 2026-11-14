@@ -2215,6 +2215,27 @@
         "appQa": "not-run"
       },
       "completedAt": "2026-11-14T18:37:05.025Z"
+    },
+    {
+      "schemaVersion": 1,
+      "kind": "direct-deployment",
+      "id": "1794681636220689",
+      "sourceSha": "a6ea313cab1bdce029acf61432cb6ef5befac1c9",
+      "environment": "development",
+      "project": "cloud-board-development",
+      "scope": "ios",
+      "tag": "",
+      "version": "2.2.1",
+      "actor": "hyroxseouldev",
+      "status": "running",
+      "startedAt": "2026-11-14T18:40:36.268Z",
+      "validation": {
+        "status": "not-run",
+        "reason": "Direct CLI: no GitHub Actions integration CI is requested"
+      },
+      "steps": [],
+      "targets": [],
+      "storeReview": "not-submitted"
     }
   ]
 }
