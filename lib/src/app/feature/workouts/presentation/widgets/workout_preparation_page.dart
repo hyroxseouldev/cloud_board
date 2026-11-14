@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
 import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
@@ -218,7 +219,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         !approvalExpired;
     final readiness = evaluateWorkoutReadiness(workout);
     useEffect(() {
-      if (requestedTargets.isEmpty) return null;
+      if (cohort.value == null) return null;
       var cancelled = false;
       Future.microtask(() {
         if (!cancelled && context.mounted) {
@@ -253,14 +254,27 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         _ => false,
       },
     );
+    final localOnly = targets.isEmpty;
+    final entitlement = localOnly ? ref.watch(storeEntitlementProvider) : null;
+    final localAccessAllowed =
+        entitlement != null &&
+        !entitlement.isLoading &&
+        !entitlement.hasError &&
+        entitlement.value?.allowsNewClass(workout.ownerId, nowMs) == true;
+    final accessChecked =
+        cohort.value != null &&
+        preparation.accessChecked &&
+        preparation.clientFingerprint == fingerprint;
+    final starting = useState(false);
+    final startError = useState<Object?>(null);
     final canStart =
         readiness.isReady &&
-        currentApproval &&
+        (localOnly ? accessChecked && localAccessAllowed : currentApproval) &&
         preparation.error == null &&
         !preparation.loading &&
         !deviceState.isLoading &&
         !deviceState.hasError &&
-        targets.isNotEmpty &&
+        !starting.value &&
         preparedTargets.toSet().containsAll(targets) &&
         selected.length == targets.length &&
         allPrepared;
@@ -269,19 +283,38 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     Future<void> start() async {
       if (submitted.value || !canStart) return;
       submitted.value = true;
-      if (context.mounted) {
+      starting.value = true;
+      startError.value = null;
+      try {
+        if (localOnly) {
+          await ref
+              .read(displayPreparationControllerProvider.notifier)
+              .releaseForLocalPlayback(workout);
+        }
+        if (!context.mounted) return;
         Navigator.of(context).pop(
           WorkoutPreflightSelection(
             targetDeviceIds: targets,
-            preparation: DisplayPreparationProof(
-              manifestHash: matchingRequest?.manifestHash ?? fingerprint,
-              clientFingerprint: fingerprint,
-              preparedTargetDeviceIds: preparedTargets,
-              sessionId: matchingRequest?.sessionId,
-              revision: matchingRequest?.revision,
-            ),
+            localOnly: localOnly,
+            preparation: localOnly
+                ? null
+                : DisplayPreparationProof(
+                    manifestHash: matchingRequest?.manifestHash ?? fingerprint,
+                    clientFingerprint: fingerprint,
+                    preparedTargetDeviceIds: preparedTargets,
+                    sessionId: matchingRequest?.sessionId,
+                    revision: matchingRequest?.revision,
+                  ),
           ),
         );
+      } catch (error, stack) {
+        if (!context.mounted) return;
+        ref
+            .read(errorReporterProvider)
+            .capture(error, stack, action: 'workout.preflight.local_start');
+        startError.value = error;
+        submitted.value = false;
+        starting.value = false;
       }
     }
 
@@ -387,7 +420,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         if (targets.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('재생할 TV를 선택해 주세요.'),
+            child: Text('TV 없이 수업을 시작할 수 있어요.'),
           ),
         if (!readiness.isReady)
           _CheckTile(
@@ -395,8 +428,23 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             title: '수업 내용을 확인해 주세요',
             subtitle: readiness.issues.join('\n'),
           ),
-        if (preparedTargets.isNotEmpty &&
-            (preparation.error != null || approvalExpired)) ...[
+        if (localOnly && !localAccessAllowed)
+          _CheckTile(
+            ok: false,
+            title: entitlement?.isLoading == true
+                ? '수업 이용 상태 확인 중'
+                : '수업 이용 상태를 확인해 주세요',
+            subtitle: entitlement?.isLoading == true
+                ? '계정의 이용 권한을 확인하고 있어요.'
+                : '계정 연결과 수업 이용 권한을 확인한 뒤 다시 시도해 주세요.',
+          ),
+        if (startError.value != null)
+          _CheckTile(
+            ok: false,
+            title: '수업을 시작하지 못했어요',
+            subtitle: workoutErrorMessage(startError.value),
+          ),
+        if (preparation.error != null || (!localOnly && approvalExpired)) ...[
           _CheckTile(
             ok: false,
             title: approvalExpired
@@ -423,8 +471,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             onPressed: () => ref.invalidate(displayDevicesProvider),
             child: const Text('TV 목록 다시 확인'),
           ),
-        ] else if (preparedTargets.isNotEmpty &&
-            (!currentApproval || preparation.loading))
+        ] else if (!accessChecked || preparation.loading || starting.value)
           PreparationShadcnStage(
             key: ValueKey('$fingerprint-${retry.value}'),
             label: '최신 수업 설정·이용 상태 확인 중',

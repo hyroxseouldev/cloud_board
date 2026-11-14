@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
+import 'package:cloud_board/src/app/core/services/firebase_account_scope.dart';
 import 'package:cloud_board/src/app/feature/device/domain/entities/device_pairing.dart';
 import 'package:cloud_board/src/app/feature/playback/domain/playback_position.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/admission_workout_wire.dart';
@@ -56,6 +58,56 @@ class DisplayPreparationController extends _$DisplayPreparationController {
     return const DisplayPreparationState();
   }
 
+  /// Release only this page's candidate before entering the existing local
+  /// player. Never finish/replace an active remote class or send empty targets.
+  Future<void> releaseForLocalPlayback(Workout workout) async {
+    final epoch = _epoch;
+    void ensureAccess() {
+      if (!ref.mounted || epoch != _epoch) {
+        throw const ImageUsageFailure('entitlement_unverified');
+      }
+      final access = ref.read(storeEntitlementProvider);
+      if (ref.read(accountOwnerIdProvider).value != workout.ownerId ||
+          access.isLoading ||
+          access.hasError ||
+          access.value?.allowsNewClass(
+                workout.ownerId,
+                preparationServerNow(
+                  ref.read(serverTimeOffsetProvider).value ?? 0,
+                ),
+              ) !=
+              true) {
+        throw const ImageUsageFailure('entitlement_unverified');
+      }
+    }
+
+    ensureAccess();
+    final candidate = state;
+    if (candidate.loading ||
+        !candidate.accessChecked ||
+        candidate.error != null) {
+      throw const ImageUsageFailure('entitlement_unverified');
+    }
+    final usage = ref.read(imageUsageSourceProvider);
+    final repository = ref.read(displayPreparationRepositoryProvider);
+    // Refresh the authenticated access read at the final start boundary.
+    await usage.enrolled();
+    ensureAccess();
+    if (candidate.admission case final admission?) {
+      final cancelled = await usage.cancelAdmission(admission.admissionId);
+      if (cancelled.admissionId != admission.admissionId ||
+          cancelled.sessionId != admission.sessionId ||
+          cancelled.epoch != admission.epoch ||
+          cancelled.pending ||
+          !const {'cancelled', 'expired'}.contains(cancelled.status)) {
+        throw const ImageUsageFailure('session_changed');
+      }
+    } else if (candidate.request case final request?) {
+      await repository.cancel(request.sessionId);
+    }
+    ensureAccess();
+  }
+
   Future<void> prepare(
     Workout workout,
     List<String> targets, {
@@ -111,19 +163,20 @@ class DisplayPreparationController extends _$DisplayPreparationController {
           loading: true,
           incompatibleDeviceIds: incompatible,
         );
-        if (targets.isEmpty) {
-          // Empty targets mean broadcast/controller-only in older contracts.
-          // Here they mean no compatible TV, so never make that admission call.
-          state = DisplayPreparationState(
-            accessChecked: true,
-            incompatibleDeviceIds: incompatible,
-          );
-          attempt.success();
-          return;
-        }
+      }
+      final fingerprint = preparationFingerprint(workout, targets);
+      if (targets.isEmpty) {
+        // An empty selection uses the existing session-less player. In remote
+        // admission [] means all displays, so only read access; never prepare it.
+        state = DisplayPreparationState(
+          accessChecked: true,
+          incompatibleDeviceIds: incompatible,
+          clientFingerprint: fingerprint,
+        );
+        attempt.success();
+        return;
       }
       ClassAdmission? admission;
-      final fingerprint = preparationFingerprint(workout, targets);
       DisplayPreparation? request;
       if (enrolled) {
         admission = await usage.prepare(

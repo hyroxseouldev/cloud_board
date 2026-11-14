@@ -1,3 +1,6 @@
+import 'package:cloud_board/src/app/feature/entitlement/domain/entities/store_entitlement.dart';
+import 'package:cloud_board/src/app/feature/entitlement/presentation/controllers/entitlement_controller.dart';
+
 // Local-only preparation fixture shared by widget tests and the real web preview.
 // Uses the production controller/router; no Firebase initialization or remote I/O.
 import 'dart:async';
@@ -49,6 +52,17 @@ class PreparationFixture {
   final health = StreamController<int>.broadcast();
   final deviceChanges = StreamController<List<DisplayDevice>>.broadcast();
   List<Override> get overrides => [
+    storeEntitlementProvider.overrideWith((ref) {
+      ref.watch(accountOwnerIdProvider);
+      return Stream.value(
+        StoreEntitlement(
+          ownerId: 'navigation-preview',
+          serverConfirmed: true,
+          canStartClass: true,
+          validUntilMs: now + 600000,
+        ),
+      );
+    }),
     accountOwnerIdProvider.overrideWith(
       (ref) => Stream.value('navigation-preview'),
     ),
@@ -86,9 +100,11 @@ class PreparationFixture {
 class FixtureUsageSource implements ImageUsageDataSource {
   int checks = 0;
   Object? error;
+  Completer<void>? accessGate;
   @override
   Future<bool> enrolled() async {
     checks++;
+    await accessGate?.future;
     if (error != null) throw error!;
     return false;
   }
@@ -111,6 +127,9 @@ class FixturePreparationPreferences implements WorkoutPreferencesRepository {
   }
 
   @override
+  Future<WorkoutPreferences> loadForEditing(String ownerId) async =>
+      value ?? const WorkoutPreferences();
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -119,6 +138,9 @@ class FixturePreparationRepository implements DisplayPreparationRepository {
   String scene;
   final int now;
   int requests = 0;
+  final cancelled = <String>[];
+  Object? cancelError;
+  Completer<void>? cancelGate;
   bool failRequest = false;
   Completer<void>? gate;
   DisplayPreparation? value;
@@ -156,7 +178,13 @@ class FixturePreparationRepository implements DisplayPreparationRepository {
   Future<Map<String, DisplayPreparationReceipt>> receipts() =>
       watchReceipts().first;
   @override
-  Future<void> cancel(String sessionId) async {}
+  Future<void> cancel(String sessionId) async {
+    cancelled.add(sessionId);
+    await cancelGate?.future;
+    if (cancelError != null) throw cancelError!;
+    if (value?.sessionId == sessionId) value = null;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

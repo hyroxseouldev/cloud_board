@@ -88,8 +88,8 @@ void main() {
         await tester.ensureVisible(find.text('전체 해제'));
         await tester.tap(find.text('전체 해제'));
         await tester.pumpAndSettle();
-        expect(enabled(tester), isFalse);
-        expect(find.text('재생할 TV를 선택해 주세요.'), findsOneWidget);
+        expect(enabled(tester), isTrue);
+        expect(find.text('TV 없이 수업을 시작할 수 있어요.'), findsOneWidget);
         await tester.tap(find.text('전체 선택'));
         await tester.pumpAndSettle();
         expect(enabled(tester), isTrue);
@@ -176,12 +176,12 @@ void main() {
             expect(find.text('수업 구성'), findsOneWidget);
             expect(find.byType(WorkoutSlidePreview), findsNothing);
             expect(find.text('이미지 보기'), findsNothing);
-            expect(enabled(tester), scene == 'ready');
+            expect(enabled(tester), scene != 'error');
             if (scene == 'ready') {
               await tester.ensureVisible(find.text('전체 해제'));
               await tester.tap(find.text('전체 해제'));
               await tester.pumpAndSettle();
-              expect(enabled(tester), isFalse);
+              expect(enabled(tester), isTrue);
             }
             expect(fixture.repository.requests, scene == 'empty' ? 0 : 1);
           },
