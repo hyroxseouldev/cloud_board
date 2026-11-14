@@ -1,3 +1,4 @@
+import {HOME_RENDITION, ensureHomeThumbnail, homeThumbnailRef, readHomeThumbnail, validHomeThumbnail} from './home-image-thumbnail.js';
 import {randomUUID} from 'node:crypto';
 import {accountPath, authenticateRequest, cors, hashBytes, httpFailure, ledgerFor,
   managedMetadata, publicAsset, readManagedAsset, usageFailure, validId, validRequestId} from './managed-image-assets.js';
@@ -80,7 +81,8 @@ export async function handleMedia(ctx, req, res) {
     if (!['GET','HEAD'].includes(req.method)) { res.statusCode = 405; res.end(); return; }
     if (req.headers?.range) { res.statusCode = 416; res.end(); return; }
     const actorUid = await authenticateRequest(ctx, req), query = req.query ?? {};
-    if (Object.keys(query).some(k=>!['assetId','v'].includes(k)) || !validId(query.assetId) || !/^[0-9]+$/.test(query.v ?? '')) throw usageFailure('media_lease_invalid','invalid-argument');
+    if (Object.keys(query).some(k=>!['assetId','v','rendition'].includes(k)) || !validId(query.assetId) || !/^[0-9]+$/.test(query.v ?? '')) throw usageFailure('media_lease_invalid','invalid-argument');
+    if (query.rendition !== undefined && query.rendition !== HOME_RENDITION) throw usageFailure('media_lease_invalid','invalid-argument');
     const leaseId = req.get?.('X-CloudBoard-Media-Lease') ?? req.headers?.['x-cloudboard-media-lease'];
     if (!validId(leaseId)) throw usageFailure('media_lease_invalid','permission-denied');
     const lease = (await leaseRef(ctx, leaseId).get()).data();
@@ -92,24 +94,36 @@ export async function handleMedia(ctx, req, res) {
     const asset = await readManagedAsset(ctx, ownerId, query.assetId, query.v);
     if (!allowedAsset(admission,asset,access)) throw usageFailure('media_lease_invalid','permission-denied');
     const {file} = await managedMetadata(ctx, asset);
+    let rendition=null;
+    if (query.rendition === HOME_RENDITION) {
+      // Home never borrows class preparation/playback reservations or TV access.
+      if (lease.purpose !== 'preview' || ownerId !== actorUid || access.deviceId) throw usageFailure('media_lease_invalid','permission-denied');
+      rendition=req.method==='HEAD' ? (await homeThumbnailRef(ctx,asset).get()).data() : await ensureHomeThumbnail(ctx,asset);
+      if (!validHomeThumbnail(rendition,asset)) {
+        res.statusCode=404; res.setHeader('Cache-Control','private,no-store'); res.end(); return;
+      }
+    }
+    const served=rendition ?? asset;
     if (req.method === 'GET') {
       attempt = {...await ledger.reserveTransfer(ctx, {ownerId,actorUid,deviceId:access.deviceId,leaseId,
-        assetId:asset.assetId,generation:asset.generation,sizeBytes:asset.sizeBytes,
-        admissionId:lease.admissionId,sessionId:lease.sessionId,purpose:lease.purpose}),sizeBytes:asset.sizeBytes};
+        assetId:asset.assetId,generation:asset.generation,sizeBytes:served.sizeBytes,
+        ...(rendition ? {rendition:HOME_RENDITION} : {}),
+        admissionId:lease.admissionId,sessionId:lease.sessionId,purpose:lease.purpose}),sizeBytes:served.sizeBytes};
     }
     let bytes;
     if (req.method === 'GET') {
-      [bytes] = await file.download({decompress:false});
-      if (!Buffer.isBuffer(bytes) || bytes.length !== asset.sizeBytes || hashBytes(bytes) !== asset.sha256) throw usageFailure('media_lease_invalid','permission-denied');
+      if (rendition) bytes=await readHomeThumbnail(ctx,asset,rendition);
+      else [bytes] = await file.download({decompress:false});
+      if (!Buffer.isBuffer(bytes) || bytes.length !== served.sizeBytes || hashBytes(bytes) !== served.sha256) throw usageFailure('media_lease_invalid','permission-denied');
       // Recheck revocation and session after Storage I/O, before handing body off.
       const fresh = await binding(ctx,ledger,actorUid,lease);
       if (!allowedAsset(fresh.admission,asset,fresh.access)) throw usageFailure('media_lease_invalid','permission-denied');
     }
     if (res.destroyed) { if (attempt) await settle('not_sent'); return; }
     res.statusCode = 200;
-    res.setHeader('Cache-Control','private,no-store'); res.setHeader('Content-Type',asset.contentType);
-    res.setHeader('Content-Length',String(asset.sizeBytes)); res.setHeader('X-Content-Type-Options','nosniff');
-    res.setHeader('ETag',`"${asset.generation}"`);
+    res.setHeader('Cache-Control','private,no-store'); res.setHeader('Content-Type',served.contentType);
+    res.setHeader('Content-Length',String(served.sizeBytes)); res.setHeader('X-Content-Type-Options','nosniff');
+    res.setHeader('ETag',`"${rendition ? `${HOME_RENDITION}-${served.sha256}` : asset.generation}"`);
     if (req.method === 'HEAD') { res.end(); return; }
     await new Promise(resolve => {
       const done = outcome => { settle(outcome).finally(resolve).catch(()=>{}); };

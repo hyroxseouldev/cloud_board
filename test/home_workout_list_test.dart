@@ -1,5 +1,11 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
+
+import 'package:image/image.dart' as img;
+import 'package:cloud_board/src/app/feature/workouts/presentation/services/home_thumbnail_loader.dart';
 import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_icon_tile.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/home_workout_thumbnail.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
 
@@ -34,9 +40,94 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  for (final scene in [
+    (name: 'home-390', size: const Size(390, 844), scale: 1.0),
+    (name: 'home-320', size: const Size(320, 568), scale: 1.0),
+    (name: 'home-320-large', size: const Size(320, 568), scale: 2.0),
+  ]) {
+    testWidgets('home layout evidence ${scene.name}', (tester) async {
+      await loadLayoutFonts(tester);
+      await tester.runAsync(
+        () =>
+            (FontLoader('packages/lucide_icons_flutter/Lucide')..addFont(
+                  rootBundle.load(
+                    'packages/lucide_icons_flutter/assets/lucide.ttf',
+                  ),
+                ))
+                .load(),
+      );
+      await _mount(
+        tester,
+        _CatalogRepository(_homeEvidenceCatalog()),
+        size: scene.size,
+        textScale: scene.scale,
+        folders: ['Stationd'],
+      );
+      await captureLayout(
+        tester,
+        find.byKey(const ValueKey('layout-evidence')),
+        scene.name,
+      );
+      if (scene.scale > 1) {
+        await tester.drag(
+          find.byKey(const ValueKey('workout-scroll')),
+          const Offset(0, -550),
+        );
+        await tester.pumpAndSettle();
+        await captureLayout(
+          tester,
+          find.byKey(const ValueKey('layout-evidence')),
+          '${scene.name}-scrolled',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    }, skip: layoutEvidenceDirectory.isEmpty);
+  }
+
+  testWidgets(
+    'home thumbnail requests are visible-only, deduplicated and never load workout details',
+    (tester) async {
+      final requests = <String>[];
+      final cache = HomeThumbnailCache((source) async {
+        requests.add(source);
+        return _homeEvidenceBytes();
+      });
+      addTearDown(cache.dispose);
+      final items = _catalog(40)
+          .asMap()
+          .entries
+          .map(
+            (entry) => entry.value.copyWith(
+              modules: [
+                WorkoutModule.empty('slide')
+                    .copyWith(imageSource: 'fixture-${entry.key}'),
+              ],
+            ),
+          )
+          .toList();
+      final repository = _CatalogRepository(items);
+      await _mount(tester, repository, thumbnails: cache);
+      expect(requests.length, inInclusiveRange(1, 5));
+      expect(repository.detailLoads, 0);
+      final firstCount = requests.length;
+      await tester.pump();
+      expect(requests.length, firstCount);
+      await tester.drag(
+        find.byKey(const ValueKey('workout-scroll')),
+        const Offset(0, -450),
+      );
+      await tester.pumpAndSettle();
+      expect(requests.length, greaterThan(firstCount));
+      expect(requests.length, lessThan(15));
+      expect(requests.toSet().length, requests.length);
+      expect(repository.detailLoads, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final width in [390.0, 1200.0]) {
     testWidgets(
-      'home uses local artwork even for remote class media at $width',
+      'home uses safe thumbnail placeholder for unsupported remote media at $width',
       (tester) async {
         final workout = _catalog(1).single.copyWith(
           modules: [
@@ -50,7 +141,7 @@ void main() {
           _CatalogRepository([workout]),
           size: Size(width, 844),
         );
-        expect(find.byType(WorkoutIconTile), findsOneWidget);
+        expect(find.byType(HomeWorkoutThumbnail), findsOneWidget);
         expect(find.byType(WorkoutImage), findsNothing);
         expect(
           find.descendant(
@@ -93,8 +184,8 @@ void main() {
     expect(shadcn.ShadTheme.maybeOf(createContext), isNotNull);
     expect(Theme.of(createContext), same(Theme.of(homeContext)));
     expect(Navigator.of(createContext), same(Navigator.of(homeContext)));
-    expect(find.byType(shadcn.ShadCard), findsNWidgets(2));
-    expect(find.byType(shadcn.ShadBadge), findsOneWidget);
+    expect(find.byType(shadcn.ShadCard), findsOneWidget);
+    expect(find.byType(HomeWorkoutThumbnail), findsOneWidget);
     expect(find.byType(shadcn.ShadSelect<String>), findsOneWidget);
   });
 
@@ -826,6 +917,7 @@ Future<ProviderContainer> _mount(
   bool? showModeSelector,
   double textScale = 1,
   List<String> folders = const [],
+  HomeThumbnailCache? thumbnails,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -846,6 +938,8 @@ Future<ProviderContainer> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (thumbnails != null)
+          homeThumbnailCacheProvider('u').overrideWithValue(thumbnails),
         libraryFoldersProvider.overrideWith((ref) => Stream.value(folders)),
         if (showModeSelector != null)
           workoutListModeSelectorEnabledProvider.overrideWithValue(
@@ -913,12 +1007,15 @@ class _CatalogRepository implements WorkoutRepository {
   Completer<void>? gate;
   bool fail = false;
   int loads = 0;
+  int detailLoads = 0;
   @override
   Stream<List<WorkoutSummary>> watchSummaries({bool requireServer = false}) =>
       watch().map((items) => items.map(summarizeWorkout).toList());
   @override
-  Future<Workout?> loadOne(String id) async =>
-      (server ?? cached).where((w) => w.id == id).firstOrNull;
+  Future<Workout?> loadOne(String id) async {
+    detailLoads++;
+    return (server ?? cached).where((w) => w.id == id).firstOrNull;
+  }
 
   @override
   Stream<List<Workout>> watch() async* {
@@ -965,3 +1062,44 @@ Future<void> _openSearch(WidgetTester tester) async {
 
 Finder _title(String text) =>
     find.byWidgetPredicate((widget) => widget is Text && widget.data == text);
+
+Uint8List _homeEvidenceBytes() {
+  final picture = img.Image(width: 192, height: 108)
+    ..clear(img.ColorRgb8(42, 77, 65));
+  img.fillRect(
+    picture,
+    x1: 130,
+    y1: 0,
+    x2: 191,
+    y2: 107,
+    color: img.ColorRgb8(160, 184, 148),
+  );
+  img.drawString(
+    picture,
+    'MOVE',
+    font: img.arial24,
+    x: 12,
+    y: 30,
+    color: img.ColorRgb8(255, 253, 248),
+  );
+  return img.encodePng(picture);
+}
+
+List<Workout> _homeEvidenceCatalog() => _catalog(6)
+    .asMap()
+    .entries
+    .map(
+      (entry) => entry.value.copyWith(
+        name: ['HYROX 기초 체력', '토요일 팀 워크아웃', '함께하는 서킷'][entry.key % 3],
+        modules: [
+          WorkoutModule.empty('slide').copyWith(
+            workSeconds: 900,
+            sets: 1,
+            imageSource: entry.key == 1
+                ? ''
+                : 'data:image/png;base64,${base64Encode(_homeEvidenceBytes())}',
+          ),
+        ],
+      ),
+    )
+    .toList();

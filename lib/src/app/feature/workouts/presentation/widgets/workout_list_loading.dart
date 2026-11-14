@@ -98,13 +98,18 @@ SliverGridDelegateWithFixedCrossAxisCount workoutListGridDelegate(
   double width,
 ) {
   final scaler = MediaQuery.textScalerOf(context);
-  // Home cards keep their artwork/title above the folder and 48px actions.
-  // Larger type uses one column before it can crowd the title or controls.
+  // Match the thumbnail/details row and move actions below enlarged text.
   final minWidth = 350 + math.max(0, scaler.scale(16) - 16) * 20;
-  final textHeight = scaler.scale(17) * 2.6 + 5 + scaler.scale(13) * 2.8;
+  final textHeight =
+      scaler.scale(17) * 2.6 +
+      scaler.scale(12) * 2.8 +
+      scaler.scale(13) * 1.4 +
+      10;
+  final stacked = scaler.scale(17) > 23;
+
   return SliverGridDelegateWithFixedCrossAxisCount(
     crossAxisCount: (width / minWidth).floor().clamp(1, 2),
-    mainAxisExtent: 92 + math.max(52, textHeight),
+    mainAxisExtent: 36 + math.max(56, textHeight) + (stacked ? 60 : 0),
     crossAxisSpacing: 16,
     mainAxisSpacing: 16,
   );
@@ -143,9 +148,7 @@ class WorkoutListSkeleton extends HookWidget {
     if (mobile) {
       return SliverList.list(
         key: const ValueKey('workout-list-skeleton'),
-        children: [
-          for (var i = 0; i < 2; i++) ...[row(), const Divider(height: 1)],
-        ],
+        children: [for (var i = 0; i < 2; i++) row()],
       );
     }
     return SliverLayoutBuilder(
@@ -178,31 +181,56 @@ class _SkeletonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
-    final contents = Padding(
-      padding: EdgeInsets.symmetric(horizontal: framed ? 16 : 0, vertical: 16),
-      child: Row(
-        children: [
-          _block(width: framed ? 72 : 60, height: framed ? 72 : 60, radius: 12),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _bar(0.70, scaler.scale(17) * 1.3),
-                const SizedBox(height: 4),
-                _bar(0.46, scaler.scale(14) * 1.3),
-                const SizedBox(height: 4),
-                _bar(0.23, scaler.scale(14) * 1.3),
-              ],
+    final contents = LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked = constraints.maxWidth < 330 || scaler.scale(17) > 23;
+        final details = Row(
+          children: [
+            _block(width: 56, height: 56, radius: 12),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _bar(.85, scaler.scale(17) * 1.3),
+                  const SizedBox(height: 6),
+                  _bar(.80, scaler.scale(12) * 1.4),
+                  const SizedBox(height: 4),
+                  _bar(.35, scaler.scale(13) * 1.4),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          _block(width: 48, height: 48, radius: 12),
-          const SizedBox(width: 6),
-          _block(width: 48, height: 48, radius: 12),
-        ],
-      ),
+          ],
+        );
+        final actions = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _block(width: 48, height: 48, radius: 12),
+            const SizedBox(width: 6),
+            _block(width: 48, height: 48, radius: 12),
+          ],
+        );
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          child: stacked
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    details,
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerRight, child: actions),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: details),
+                    const SizedBox(width: 8),
+                    actions,
+                  ],
+                ),
+        );
+      },
     );
     final animated = reducedMotion
         ? contents
@@ -219,15 +247,12 @@ class _SkeletonRow extends StatelessWidget {
               child: child,
             ),
           );
-    return framed
-        ? DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.line),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: animated,
-          )
-        : animated;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.line)),
+      ),
+      child: animated,
+    );
   }
 
   Widget _bar(double fraction, double height) => SizedBox(

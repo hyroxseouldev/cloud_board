@@ -1,3 +1,4 @@
+import {ensureHomeThumbnail} from './home-image-thumbnail.js';
 import {accountPath, assetSource, authenticateRequest, cors, hashBytes, httpFailure, IMAGE_MAX_BYTES,
   ledgerFor, mediaBaseUrl, PROFILE_MAX_BYTES, publicAsset, readManagedAsset, usageFailure, validId, validRequestId,
   validSha, validateImage} from './managed-image-assets.js';
@@ -130,6 +131,7 @@ export async function handleImageUploadBody(ctx,req,res) {
         record = await ledger.settleUpload(ctx,{ownerId:actorUid,uploadId,outcome:'stored',asset});
       }
     }
+    if (record.asset && record.purpose==='workout') await ensureHomeThumbnail(ctx,record.asset,bytes).catch(()=>null);
     res.statusCode=201;res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','private,no-store');
     res.end(JSON.stringify({schemaVersion:1,upload:uploadPermit(ctx,record)}));
   } catch (error) { httpFailure(res,error); }
@@ -171,6 +173,7 @@ export async function storeGeneratedImage(reservation,bytes) {
   reservation.record = record;
   const asset = await savePrivate(ctx,record,bytes,provenance);
   const settled = await ledger.settleUpload(ctx,{ownerId:record.ownerId,uploadId:record.uploadId,outcome:'stored',asset});
+  await ensureHomeThumbnail(ctx,settled.asset,bytes).catch(()=>null);
   return {...settled.asset};
 }
 export async function enrolledAssetResponse({db,uid,usageContext},artifact) {

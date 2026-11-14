@@ -40,3 +40,45 @@ class HomeShadcnScope extends StatelessWidget {
     ),
   );
 }
+
+/// The welcome stays in the page scroll, including at accessibility text sizes.
+class HomeWelcome extends StatelessWidget {
+  const HomeWelcome({super.key, required this.displayName});
+  final String? displayName;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = displayName?.trim() ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            name.isEmpty ? '안녕하세요' : '$name님, 안녕하세요',
+            key: const ValueKey('home-greeting'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 16,
+              height: 1.4,
+              color: AppColors.muted,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '좋은 수업을 위한\n모든 준비.',
+            key: ValueKey('home-welcome'),
+            style: TextStyle(
+              fontSize: 30,
+              height: 1.3,
+              letterSpacing: -.8,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
