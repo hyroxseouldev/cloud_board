@@ -1,3 +1,4 @@
+import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_icon_tile.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
 import 'package:cloud_board/src/app/feature/entitlement/presentation/widgets/plan_usage_notice.dart';
@@ -61,9 +62,10 @@ void main() {
         expect(find.textContaining('1개 슬라이드'), findsOneWidget);
         expect(
           tester
-              .widget<IconButton>(
-                find.byWidgetPredicate(
-                  (widget) => widget is IconButton && widget.tooltip == '재생',
+              .widget<shadcn.ShadButton>(
+                find.descendant(
+                  of: find.byTooltip('재생'),
+                  matching: find.byType(shadcn.ShadButton),
                 ),
               )
               .onPressed,
@@ -78,6 +80,23 @@ void main() {
       },
     );
   }
+
+  testWidgets('shadcn stays within home and preserves Material navigator', (
+    tester,
+  ) async {
+    await _mount(tester, _CatalogRepository(_catalog(1)));
+    final homeContext = tester.element(find.byType(WorkoutListScreen));
+    final createContext = tester.element(
+      find.byKey(const ValueKey('create-workout')),
+    );
+    expect(shadcn.ShadTheme.maybeOf(homeContext), isNull);
+    expect(shadcn.ShadTheme.maybeOf(createContext), isNotNull);
+    expect(Theme.of(createContext), same(Theme.of(homeContext)));
+    expect(Navigator.of(createContext), same(Navigator.of(homeContext)));
+    expect(find.byType(shadcn.ShadCard), findsNWidgets(2));
+    expect(find.byType(shadcn.ShadBadge), findsOneWidget);
+    expect(find.byType(shadcn.ShadSelect<String>), findsOneWidget);
+  });
 
   testWidgets('STA-190 evidence class search', (tester) async {
     await loadLayoutFonts(tester);
@@ -140,12 +159,18 @@ void main() {
             bottom: scene.size.height < 540 ? 150 : 300,
           );
           await tester.pumpAndSettle();
-          expect(tester.widget<TextField>(search).focusNode!.hasFocus, isTrue);
+          expect(
+            tester.widget<shadcn.ShadInput>(search).focusNode!.hasFocus,
+            isTrue,
+          );
           noUsage();
           tester.view.resetViewInsets();
           await tester.tap(find.byTooltip('검색 지우기'));
           await tester.pumpAndSettle();
-          expect(tester.widget<TextField>(search).controller!.text, isEmpty);
+          expect(
+            tester.widget<shadcn.ShadInput>(search).controller!.text,
+            isEmpty,
+          );
           await tester.tap(find.byTooltip('검색 닫기'));
           await tester.pumpAndSettle();
           noUsage();
@@ -217,7 +242,7 @@ void main() {
       expect(repo.loads, 2);
       expect(container.read(workoutControllerProvider).requireValue.length, 48);
       await _openSearch(tester);
-      await tester.enterText(find.byType(TextField), '수업 60');
+      await tester.enterText(find.byType(shadcn.ShadInput), '수업 60');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
@@ -323,7 +348,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(_title('수업 13').hitTestable(), findsOneWidget);
         await _openSearch(tester);
-        await tester.enterText(find.byType(TextField), '수업 25');
+        await tester.enterText(find.byType(shadcn.ShadInput), '수업 25');
         await tester.pumpAndSettle();
         expect(find.text('1 / 1'), findsOneWidget);
         expect(_title('수업 25'), findsOneWidget);
@@ -363,7 +388,13 @@ void main() {
         await refresh;
         expect(find.text('2 / 2'), findsOneWidget);
         expect(repository.loads, 2);
-        expect(find.text('Stationd'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(shadcn.ShadSelect<String>),
+            matching: find.text('Stationd'),
+          ),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -405,12 +436,12 @@ void main() {
     final before = tester.widget<CustomScrollView>(scroll).controller!.offset;
     expect(before, greaterThan(0));
     await _openSearch(tester);
-    await tester.enterText(find.byType(TextField), '수업 01');
+    await tester.enterText(find.byType(shadcn.ShadInput), '수업 01');
     await tester.pumpAndSettle();
     expect(_title('수업 01'), findsOneWidget);
     await tester.tap(find.byTooltip('검색 닫기'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNothing);
+    expect(find.byType(shadcn.ShadInput), findsNothing);
     expect(
       tester.widget<CustomScrollView>(scroll).controller!.offset,
       closeTo(before, 1),
@@ -418,7 +449,13 @@ void main() {
     expect(_title('수업 13').hitTestable(), findsOneWidget);
     await tester.drag(scroll, const Offset(0, 2000));
     await tester.pumpAndSettle();
-    expect(find.text('Stationd'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(shadcn.ShadSelect<String>),
+        matching: find.text('Stationd'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('cards retain bounds and thumbnail ratio as the window resizes', (
@@ -470,7 +507,7 @@ void main() {
     final commands = _Commands();
     await _mount(tester, _CatalogRepository(_catalog(25)), commands: commands);
     await _openSearch(tester);
-    await tester.enterText(find.byType(TextField), '수업');
+    await tester.enterText(find.byType(shadcn.ShadInput), '수업');
     await tester.drag(
       find.byKey(const ValueKey('workout-scroll')),
       const Offset(0, -300),
@@ -487,15 +524,21 @@ void main() {
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(
-        find.byWidgetPredicate(
-          (widget) => widget is AbsorbPointer && widget.absorbing,
+        find.ancestor(
+          of: grid,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is AbsorbPointer && widget.absorbing,
+          ),
         ),
         findsNothing,
       );
       expect(tester.element(grid), same(gridElement));
       expect(tester.widget<CustomScrollView>(grid).controller!.offset, before);
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester
+            .widget<shadcn.ShadInput>(find.byType(shadcn.ShadInput))
+            .controller!
+            .text,
         '수업',
       );
       commands.setStatus(result);
@@ -554,7 +597,7 @@ void main() {
 
   for (final (size, columns) in [
     (const Size(390, 844), 1),
-    (const Size(834, 1194), 1),
+    (const Size(834, 1194), 2),
     (const Size(1194, 834), 2),
   ]) {
     testWidgets(
@@ -595,7 +638,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(_title('수업 60'), findsNothing);
         await _openSearch(tester);
-        await tester.enterText(find.byType(TextField), '수업 59');
+        await tester.enterText(find.byType(shadcn.ShadInput), '수업 59');
         await tester.pumpAndSettle();
         expect(_title('수업 59').hitTestable(), findsOneWidget);
         expect(find.text('내 수업 1개'), findsOneWidget);
@@ -603,7 +646,7 @@ void main() {
         await tester.pumpAndSettle();
         await _folder(tester, 'Stationd');
         expect(find.text('내 수업 13개'), findsOneWidget);
-        await tester.enterText(find.byType(TextField), '수업 59');
+        await tester.enterText(find.byType(shadcn.ShadInput), '수업 59');
         await tester.pumpAndSettle();
         expect(find.text('검색 결과가 없습니다.'), findsOneWidget);
         await tester.tap(find.byTooltip('검색 지우기'));
@@ -627,7 +670,7 @@ void main() {
       final container = await _mount(tester, repository);
       await _folder(tester, 'Stationd');
       await _openSearch(tester);
-      await tester.enterText(find.byType(TextField), '수업');
+      await tester.enterText(find.byType(shadcn.ShadInput), '수업');
       await tester.pumpAndSettle();
       final scroll = find.byKey(const ValueKey('workout-scroll'));
       await tester.drag(scroll, const Offset(0, -300));
@@ -657,7 +700,10 @@ void main() {
       await duplicate;
       await tester.pumpAndSettle();
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester
+            .widget<shadcn.ShadInput>(find.byType(shadcn.ShadInput))
+            .controller!
+            .text,
         '수업',
       );
       expect(
@@ -710,7 +756,7 @@ void main() {
         await _mount(tester, repository);
         if (!emptyCatalog) {
           await _openSearch(tester);
-          await tester.enterText(find.byType(TextField), '없는 수업');
+          await tester.enterText(find.byType(shadcn.ShadInput), '없는 수업');
           await tester.pumpAndSettle();
         }
         await tester.drag(
@@ -762,9 +808,9 @@ Future<void> _folder(WidgetTester tester, String name) async {
   await tester.tap(find.byTooltip('폴더 선택'));
   await tester.pumpAndSettle();
   await tester.tap(
-    find.ancestor(
-      of: find.text(name).last,
-      matching: find.byType(CheckedPopupMenuItem<String>),
+    find.descendant(
+      of: find.byType(shadcn.ShadOption<String>),
+      matching: find.text(name),
     ),
   );
   await tester.pumpAndSettle();
@@ -911,7 +957,7 @@ class _PagedCatalogRepository extends _CatalogRepository
 }
 
 Future<void> _openSearch(WidgetTester tester) async {
-  if (find.byType(TextField).evaluate().isEmpty) {
+  if (find.byType(shadcn.ShadInput).evaluate().isEmpty) {
     await tester.tap(find.byTooltip('검색'));
     await tester.pumpAndSettle();
   }

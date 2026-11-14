@@ -5,7 +5,6 @@ import 'package:cloud_board/src/app/feature/entitlement/domain/plan_limit_failur
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/library_folder_controller.dart';
 import 'package:cloud_board/src/app/core/config/app_brand.dart';
 import 'package:cloud_board/src/app/core/widgets/motion/app_animated_sliver_list.dart';
-import 'package:cloud_board/src/app/core/widgets/motion/app_press_feedback.dart';
 import 'package:cloud_board/src/app/core/widgets/soft_rhythm_mark.dart';
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 import 'package:cloud_board/src/app/feature/onboarding/presentation/views/first_class_screen.dart';
@@ -26,7 +25,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:cloud_board/src/app/core/theme/app_theme.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/slide_editor_style.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/home_shadcn.dart';
+import 'package:shadcn_ui/shadcn_ui.dart' as shadcn;
 import 'package:cloud_board/src/app/core/widgets/async_action_overlay.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_list_loading.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
@@ -45,10 +45,8 @@ class WorkoutListScreen extends StatelessWidget {
   const WorkoutListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Theme(
-    data: SlideEditorStyle.theme(Theme.of(context)),
-    child: const _WorkoutListBody(),
-  );
+  Widget build(BuildContext context) =>
+      const HomeShadcnScope(child: _WorkoutListBody());
 }
 
 class _WorkoutListBody extends HookConsumerWidget {
@@ -239,7 +237,7 @@ class _WorkoutListBody extends HookConsumerWidget {
                   )
                 : null,
             title: searchOpen.value
-                ? TextField(
+                ? shadcn.ShadInput(
                     key: const ValueKey('workout-search'),
                     controller: search,
                     focusNode: searchFocus,
@@ -247,13 +245,10 @@ class _WorkoutListBody extends HookConsumerWidget {
                     onSubmitted: (_) => searchFocus.unfocus(),
                     onChanged: (_) => changePage(0),
                     style: const TextStyle(fontSize: 16),
-                    decoration: const InputDecoration(
-                      hintText: '워크아웃 또는 폴더 검색',
-                      filled: false,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
+                    placeholder: const Text('워크아웃 또는 폴더 검색'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
                   )
                 : const _Logo(),
@@ -378,20 +373,21 @@ class _WorkoutListBody extends HookConsumerWidget {
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontSize: 26,
-                                        letterSpacing: -.26,
+                                        fontSize: 16,
+                                        color: AppColors.muted,
+                                        letterSpacing: -.16,
                                         fontWeight: FontWeight.w600,
                                         height: 1.3,
                                       ),
                                     ),
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 12),
                                   ],
                                   _DisplayStatus(
                                     onPressed: isBusy
                                         ? null
                                         : () => context.go('/displays'),
                                   ),
-                                  const SizedBox(height: 28),
+                                  const SizedBox(height: 24),
                                 ],
                                 if (!searchOpen.value)
                                   const FirstClassHomeCard(),
@@ -422,7 +418,6 @@ class _WorkoutListBody extends HookConsumerWidget {
                                           enabled: workouts.hasValue,
                                           folders: folders,
                                           selected: folder,
-                                          loadFolders: () async => folders,
                                           onChanged: (value) {
                                             selectedFolder.value = value;
                                             changePage(0);
@@ -622,106 +617,41 @@ class _WorkoutListBody extends HookConsumerWidget {
   }
 }
 
-class _FolderMenu extends HookWidget {
+class _FolderMenu extends StatelessWidget {
   const _FolderMenu({
     required this.folders,
     required this.selected,
     required this.onChanged,
-    required this.loadFolders,
     this.enabled = true,
   });
-  final Future<List<String>> Function() loadFolders;
   final List<String> folders;
   final String? selected;
   final bool enabled;
   final ValueChanged<String?> onChanged;
+
   @override
-  Widget build(BuildContext context) {
-    final menuKey = useMemoized(
-      () => GlobalKey<PopupMenuButtonState<String>>(),
-    );
-    final resolved = useState(folders);
-    final loading = useState(false);
-    return Tooltip(
-      message: '폴더 선택',
-      child: InkWell(
-        onTap: !enabled || loading.value
-            ? null
-            : () async {
-                loading.value = true;
-                try {
-                  final names = await loadFolders();
-                  if (!context.mounted) return;
-                  resolved.value = names;
-                  await WidgetsBinding.instance.endOfFrame;
-                  if (context.mounted) menuKey.currentState?.showButtonMenu();
-                } catch (_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('폴더를 불러오지 못했어요. 다시 시도해 주세요.'),
-                      ),
-                    );
-                  }
-                } finally {
-                  if (context.mounted) loading.value = false;
-                }
-              },
-        child: ExcludeFocus(
-          child: IgnorePointer(
-            child: PopupMenuButton<String>(
-              key: menuKey,
-              tooltip: '',
-              initialValue: selected ?? '',
-              onSelected: (value) => onChanged(value.isEmpty ? null : value),
-              itemBuilder: (_) => [
-                CheckedPopupMenuItem(
-                  value: '',
-                  checked: selected == null,
-                  child: const Text('모든 폴더'),
-                ),
-                for (final folder in resolved.value)
-                  CheckedPopupMenuItem(
-                    value: folder,
-                    checked: selected == folder,
-                    child: Text(folder),
-                  ),
-              ],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 14,
-                  horizontal: 4,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        loading.value ? '불러오는 중…' : selected ?? '모든 폴더',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.secondaryText,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 20,
-                      color: AppColors.secondaryText,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+  Widget build(BuildContext context) => Tooltip(
+    message: '폴더 선택',
+    child: shadcn.ShadSelect<String>(
+      // Reconcile reset/deleted folders with the controlled home filter.
+      key: ValueKey(selected),
+      enabled: enabled,
+      initialValue: selected ?? '',
+      maxWidth: MediaQuery.sizeOf(context).width - 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      selectedOptionBuilder: (_, value) => Text(
+        value.isEmpty ? '모든 폴더' : value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
-    );
-  }
+      onChanged: (value) => onChanged(value == '' ? null : value),
+      options: [
+        const shadcn.ShadOption(value: '', child: Text('모든 폴더')),
+        for (final folder in folders)
+          shadcn.ShadOption(value: folder, child: Text(folder)),
+      ],
+    ),
+  );
 }
 
 class _DisplayStatus extends ConsumerWidget {
@@ -744,34 +674,45 @@ class _DisplayStatus extends ConsumerWidget {
               ? '디스플레이 연결하기'
               : '등록된 디스플레이 오프라인 · TV 확인'
         : '디스플레이 $count대 온라인 · 연결 관리';
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton.icon(
+    return shadcn.ShadCard(
+      padding: EdgeInsets.zero,
+      backgroundColor: AppColors.surfaceAccent,
+      child: shadcn.ShadButton.ghost(
         key: const ValueKey('home-display-status'),
         onPressed: onPressed,
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          minimumSize: const Size(48, 52),
-          alignment: Alignment.centerLeft,
-          foregroundColor: AppColors.accent,
-          backgroundColor: AppColors.surfaceAccent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: const TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 14,
-            height: 1.4,
-            fontWeight: FontWeight.w500,
-          ),
+        width: double.infinity,
+        expands: true,
+        enabled: onPressed != null,
+        height: math.max(
+          56,
+          MediaQuery.textScalerOf(context).scale(13) * 2.8 + 28,
         ),
-        icon: Icon(
-          devices.hasError
-              ? Icons.warning_amber_rounded
-              : Icons.desktop_windows_outlined,
-          size: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Icon(
+              devices.hasError
+                  ? Icons.warning_amber_rounded
+                  : Icons.desktop_windows_outlined,
+              size: 21,
+              color: AppColors.accent,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                textAlign: TextAlign.start,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right_rounded, size: 20),
+          ],
         ),
-        label: Text(label),
       ),
     );
   }
@@ -792,104 +733,111 @@ class _WorkoutList extends StatelessWidget {
     items: items,
     idOf: (item) => item.id,
     scope: scope,
-    itemBuilder: (_, item) => Column(
-      children: [
-        _WorkoutRow(workout: item, isBusy: isBusy),
-        const Divider(height: 1),
-      ],
+    itemBuilder: (_, item) => Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _WorkoutRow(workout: item, isBusy: isBusy),
     ),
   );
 }
 
 class _WorkoutRow extends ConsumerWidget {
-  const _WorkoutRow({
-    required this.workout,
-    required this.isBusy,
-    this.framed = false,
-  });
+  const _WorkoutRow({required this.workout, required this.isBusy});
   final WorkoutSummary workout;
   final bool isBusy;
-  final bool framed;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editBlocked = workoutEditBlockReason(
       ref.watch(activePlaybackSessionProvider),
       workout.id,
     );
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: framed ? 16 : 0, vertical: 16),
-      child: Row(
+    return shadcn.ShadCard(
+      padding: const EdgeInsets.all(14),
+      radius: BorderRadius.circular(16),
+      shadows: const [],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: isBusy
-                  ? null
-                  : () {
-                      if (editBlocked != null) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(editBlocked)));
-                      } else {
-                        context.push('/editor/${workout.id}');
-                      }
-                    },
-              child: Row(
-                children: [
-                  WorkoutIconTile(
-                    key: ValueKey('workout-thumbnail-${workout.id}'),
-                    workoutId: workout.id,
-                    moduleCount: workout.moduleCount,
-                    size: framed ? 72 : 60,
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: isBusy
+                ? null
+                : () {
+                    if (editBlocked != null) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(content: Text(editBlocked)));
+                    } else {
+                      context.push('/editor/${workout.id}');
+                    }
+                  },
+            child: Row(
+              children: [
+                WorkoutIconTile(
+                  key: ValueKey('workout-thumbnail-${workout.id}'),
+                  workoutId: workout.id,
+                  moduleCount: workout.moduleCount,
+                  size: 52,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        workout.name.isEmpty ? '이름 없음' : workout.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          letterSpacing: -.17,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${workout.moduleCount}개 슬라이드 · ${timingDurationLabel(workout.durationSeconds, workout.durationKind)}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.muted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          workout.name.isEmpty ? '이름 없음' : workout.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            letterSpacing: -.17,
-                            fontWeight: FontWeight.w600,
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${workout.moduleCount}개 슬라이드 · ${workout.folder.isEmpty ? '폴더 없음' : workout.folder}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.secondaryText,
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          timingDurationLabel(
-                            workout.durationSeconds,
-                            workout.durationKind,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          _WorkoutActions(workout: workout, isBusy: isBusy, compact: true),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: shadcn.ShadBadge.secondary(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    child: Text(
+                      workout.folder.isEmpty ? '폴더 없음' : workout.folder,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _WorkoutActions(workout: workout, isBusy: isBusy, compact: true),
+            ],
+          ),
         ],
       ),
     );
@@ -917,7 +865,7 @@ class _WorkoutGrid extends StatelessWidget {
         },
         itemBuilder: (_, index) => KeyedSubtree(
           key: ValueKey(items[index].id),
-          child: _WorkoutCard(workout: items[index], isBusy: isBusy),
+          child: _WorkoutRow(workout: items[index], isBusy: isBusy),
         ),
       );
     },
@@ -978,23 +926,14 @@ class _WorkoutHeader extends StatelessWidget {
         fontWeight: FontWeight.w600,
       ),
     );
-    final create = AppPressFeedback(
+    final create = shadcn.ShadButton(
+      key: const ValueKey('create-workout'),
+      onPressed: onCreate,
       enabled: onCreate != null,
-      child: FilledButton.icon(
-        key: const ValueKey('create-workout'),
-        onPressed: onCreate,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          textStyle: const TextStyle(
-            fontFamily: 'Pretendard',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        icon: const Icon(Icons.add_rounded, size: 22),
-        label: const Text('수업 만들기'),
-      ),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      leading: const Icon(Icons.add_rounded, size: 20),
+      child: const Text('수업 만들기'),
     );
     if (MediaQuery.textScalerOf(context).scale(20) > 26) {
       return Column(
@@ -1055,25 +994,6 @@ class _EmptyWorkouts extends StatelessWidget {
 
 enum _WorkoutAction { edit, duplicate, delete }
 
-/// Tablet cards share the phone row so both layouts keep the same controls.
-class _WorkoutCard extends StatelessWidget {
-  const _WorkoutCard({required this.workout, required this.isBusy});
-
-  final WorkoutSummary workout;
-  final bool isBusy;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.surface,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: const BorderSide(color: AppColors.line),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: _WorkoutRow(workout: workout, isBusy: isBusy, framed: true),
-  );
-}
-
 class _WorkoutActions extends ConsumerWidget {
   const _WorkoutActions({
     required this.workout,
@@ -1087,32 +1007,28 @@ class _WorkoutActions extends ConsumerWidget {
   final bool isBusy;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Flex(
-    direction: compact && MediaQuery.sizeOf(context).width < 360
-        ? Axis.vertical
-        : Axis.horizontal,
+  Widget build(BuildContext context, WidgetRef ref) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      IconButton(
-        tooltip: '재생',
-        style: compact
-            ? IconButton.styleFrom(
-                backgroundColor: AppColors.surfaceAccent,
-                foregroundColor: AppColors.accent,
-                disabledBackgroundColor: AppColors.surface,
-                minimumSize: const Size(48, 48),
-                maximumSize: const Size(48, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              )
-            : null,
-        onPressed: workout.moduleCount == 0 || isBusy
-            ? null
-            : () => _play(context, ref),
-        icon: const Icon(Icons.play_arrow_rounded, size: 28),
+      Tooltip(
+        message: '재생',
+        excludeFromSemantics: true,
+        child: shadcn.ShadButton.secondary(
+          width: 48,
+          height: 48,
+          padding: EdgeInsets.zero,
+          enabled: workout.moduleCount > 0 && !isBusy,
+          onPressed: workout.moduleCount == 0 || isBusy
+              ? null
+              : () => _play(context, ref),
+          child: const Icon(
+            Icons.play_arrow_rounded,
+            size: 26,
+            semanticLabel: '재생',
+          ),
+        ),
       ),
-      if (compact) const SizedBox(width: 6, height: 6),
+      const SizedBox(width: 6),
       PopupMenuButton<_WorkoutAction>(
         tooltip: '워크아웃 메뉴',
         style: compact

@@ -198,6 +198,13 @@ export function checkOperation(snapshot, payloadHash) {
   assertUsage(snapshot.data().payloadHash === payloadHash, 'idempotency_conflict', 'already-exists');
   return snapshot.data().result;
 }
+// Preparation authorizes the cohort; after commit acceptance only the frozen
+// playback selection may use its media budget/protected session. Old records
+// have no selection field and retain their existing whole-cohort behavior.
+function admissionIncludesDevice(a, deviceId) {
+  const targets = a?.status === 'preparing' ? a.targetDeviceIds : a?.selectedTargetDeviceIds ?? a?.targetDeviceIds;
+  return deviceId == null || targets?.includes(deviceId) === true;
+}
 
 export async function requireUsageContext(ctx, input) {
   const {actorUid, purpose, sessionId = null, admissionId = null} = input;
@@ -229,7 +236,7 @@ export async function requireUsageContext(ctx, input) {
   let protectedSession = false;
   if (admissionId || sessionId) {
     assertUsage(a && a.sessionId === sessionId && ['preparing', 'committing', 'active'].includes(a.status) &&
-      (deviceId === null || a.targetDeviceIds.includes(deviceId)), 'media_lease_invalid', 'permission-denied');
+      admissionIncludesDevice(a, deviceId), 'media_lease_invalid', 'permission-denied');
     if (deviceId !== null) {
       const frozen = a.targetBindings?.[deviceId], currentDevice = owner.val()?.devices?.[deviceId];
       assertUsage(frozen?.displayUid === actorUid && frozen.pairingCode === access.pairingCode &&
@@ -364,6 +371,9 @@ export async function reserveTransfer(ctx, input) {
   return ctx.db.runTransaction(async tx => {
     const ar = admissionId ? await tx.get(usageChildRef(ctx.db, ownerId, 'admissions', admissionId)) : null;
     const admission = ar?.data(), oldIds = admission?.preparationAllocations?.map(a => a.periodId) ?? [];
+    // Recheck after the context read: commit may have frozen a smaller selection
+    // while this transfer was waiting for its Firestore transaction.
+    if (admissionId) assertUsage(admissionIncludesDevice(admission, deviceId), 'media_lease_invalid', 'permission-denied');
     const l = await loadUsageLedger(ctx, tx, ownerId, oldIds);
     const asset = (await tx.get(l.base.collection('assets').doc(assetId))).data();
     assertUsage(asset?.ownerId === ownerId && asset.tokenFree === true && asset.generation === generation &&
