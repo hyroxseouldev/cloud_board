@@ -77,7 +77,7 @@
       "tag": "",
       "version": "2.1.6",
       "actor": "hyroxseouldev",
-      "status": "running",
+      "status": "failed",
       "startedAt": "2026-11-14T05:06:52.433Z",
       "validation": {
         "status": "not-run",
@@ -128,8 +128,10 @@
         },
         {
           "id": "deploy",
-          "status": "running",
-          "startedAt": "2026-11-14T05:07:26.587Z"
+          "status": "failed",
+          "startedAt": "2026-11-14T05:07:26.587Z",
+          "completedAt": "2026-11-14T05:10:03.512Z",
+          "durationMs": 156925
         }
       ],
       "targets": [
@@ -183,7 +185,8 @@
         "functions": "reused",
         "functions-legacy": "installed"
       },
-      "runtimeConfigurationHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500"
+      "runtimeConfigurationHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "completedAt": "2026-11-14T05:10:03.512Z"
     }
   ]
 }
