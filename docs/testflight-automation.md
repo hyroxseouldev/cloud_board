@@ -24,10 +24,14 @@ app ID, Google client ID 및 reverse client ID 일치를 확인했다. 개발 Au
 Google 제공자도 활성화되어 있다. 이 설정 검증은 실기기의 Google 본인인증
 완료를 의미하지 않는다.
 
-**준비와 업로드 상태는 별개다.** 이 기록 시점에는 ASC의 개발 앱 레코드 생성이
-내부 브라우저 로그인 대기 중이며, 최종 통합 2.1.6 소스의 archive·IPA 검증·업로드·
-Apple processing 및 내부 TestFlight 접근 확인은 미실행이다.
-`MOBILE_DEVELOPMENT_READY`도 아직 설정하지 않았다. 기존 개발 Firebase 계정과
+**준비와 업로드 상태는 별개다.** 내부 브라우저에서 ASC 개발 앱
+[`6834676780`](https://appstoreconnect.apple.com/apps/6834676780/testflight/ios)을
+생성하고 공식 API로 이름·bundle·SKU·한국어 기본 언어를 다시 확인했다. 새 앱에
+기존 그룹이 없어 `CloudBoard Dev Internal` 내부 그룹을 만들었다. 이 시점의 빌드 수는
+0이며 테스터 추가·외부 초대·심사 제출은 하지 않았다. 최종 통합 2.1.6 소스의
+archive·IPA 검증·업로드·Apple processing 및 내부 TestFlight 접근 확인은 미실행이다.
+등록·프로필·인증서·제출 API 접근 준비 확인 뒤 `testflight` Environment의
+`MOBILE_DEVELOPMENT_READY=true`를 설정했다. 이는 실제 업로드 성공 기록이 아니다. 기존 개발 Firebase 계정과
 수업은 보존한다. StationD의 명시적 `시뮬레이션` 수업 1개(5모듈, PNG 4개,
 591,573바이트)는 읽기와 메타데이터 확인만 마쳤고, 개발 서버의 새 이미지 API
 배포 후 별도 개발 소유 수업·객체·manifest로 복사하고 다시 읽어 검증해야 한다.
