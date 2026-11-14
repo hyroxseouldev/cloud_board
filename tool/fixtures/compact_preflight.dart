@@ -42,15 +42,17 @@ void main() {
         ],
       );
   final devices = [
-    if (scene != 'solo')
+    if (scene != 'solo' && scene != 'empty')
       for (var i = 0; i < 3; i++)
         DisplayDevice(
           id: '$i',
           name: ['메인 스튜디오 TV', '창가 트레이닝존의 긴 이름 디스플레이', '보조 TV'][i],
           zoneId: 'main',
           zoneName: '스튜디오',
-          online: true,
-          lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
+          online: scene != 'offline',
+          lastSeenAtMs: scene == 'offline'
+              ? 0
+              : DateTime.now().millisecondsSinceEpoch,
           currentSessionId: null,
           acknowledgedRevision: 0,
           paired: true,

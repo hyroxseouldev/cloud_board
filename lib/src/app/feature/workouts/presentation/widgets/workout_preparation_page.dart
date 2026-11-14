@@ -179,6 +179,10 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Playback intent is explicit: an empty TV selection must never opt into
+    // local playback or its automatic image preparation.
+    final localPlayback = useState(false);
+    final remote = !localPlayback.value;
     final deviceState = ref.watch(displayDevicesProvider);
     final devices = deviceState.value ?? const [];
     final nowMs =
@@ -196,15 +200,15 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     final initializedDeviceSelection = useRef(onlineDevices.isNotEmpty);
     final selectingInitialTargets =
         !initializedDeviceSelection.value && onlineDevices.isNotEmpty;
-    final fingerprint = preparationFingerprint(
-      workout,
-      selectedDeviceIds.value,
-    );
+    final targets = remote ? selectedDeviceIds.value : <String>{};
+    final canPrepare = !remote || targets.isNotEmpty;
+    final fingerprint = preparationFingerprint(workout, targets);
     final approvalExpired =
         preparation.admission != null &&
         (preparation.admission!.status != 'preparing' ||
             preparation.admission!.prepareExpiresAtMs <= nowMs);
     final currentApproval =
+        canPrepare &&
         !deviceState.isLoading &&
         !deviceState.hasError &&
         !selectingInitialTargets &&
@@ -213,7 +217,6 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         (preparation.admission == null ||
             (preparation.admission!.status == 'preparing' &&
                 preparation.admission!.prepareExpiresAtMs > nowMs));
-    final remote = selectedDeviceIds.value.isNotEmpty;
     final previewRetry = useState(0);
     final loader = ref.watch(preflightImageLoaderProvider);
     final readiness = evaluateWorkoutReadiness(workout);
@@ -290,11 +293,11 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
     }, [onlineDeviceSignature.join('|')]);
 
     final selected = onlineDevices
-        .where((d) => selectedDeviceIds.value.contains(d.id))
+        .where((d) => targets.contains(d.id))
         .toList();
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
     final retry = useState(0);
-    final signature = (selectedDeviceIds.value.toList()..sort()).join('|');
+    final signature = (targets.toList()..sort()).join('|');
     useEffect(
       () {
         if (deviceState.isLoading ||
@@ -303,13 +306,19 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
           return null;
         }
         var cancelled = false;
-        final targets = selectedDeviceIds.value.toList();
+        final requestedTargets = targets.toList();
         Future.microtask(() {
           if (!cancelled && context.mounted) {
+            if (!canPrepare) {
+              // Discard any pending/accepted prior target result, without
+              // publishing an empty-target admission or TV request.
+              ref.invalidate(displayPreparationControllerProvider);
+              return;
+            }
             unawaited(
               ref
                   .read(displayPreparationControllerProvider.notifier)
-                  .prepare(workout, targets),
+                  .prepare(workout, requestedTargets),
             );
           }
         });
@@ -319,6 +328,8 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         accountScope,
         workout,
         signature,
+        remote,
+        canPrepare,
         retry.value,
         deviceState.isLoading,
         deviceState.hasError,
@@ -352,7 +363,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
         !deviceState.hasError &&
         !accessError &&
         (remote || imageReady) &&
-        selected.length == selectedDeviceIds.value.length &&
+        selected.length == targets.length &&
         allPrepared;
 
     final submitted = useRef(false);
@@ -362,7 +373,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pop(
           WorkoutPreflightSelection(
-            targetDeviceIds: selectedDeviceIds.value,
+            targetDeviceIds: targets,
             // Preserve the existing local-route vs empty-target server-session
             // contract. Both zero-target cases still require controller images.
             localOnly: !remote && devices.isNotEmpty,
@@ -403,13 +414,45 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
       workout: workout,
       onStart: canStart ? start : null,
       children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final local in [false, true])
+              ChoiceChip(
+                key: ValueKey(
+                  local ? 'playback-mode-solo' : 'playback-mode-tv',
+                ),
+                avatar: Icon(
+                  local ? Icons.phone_android_rounded : Icons.tv_rounded,
+                  size: 18,
+                ),
+                label: Text(local ? '이 기기에서 재생' : 'TV에서 재생'),
+                selected: localPlayback.value == local,
+                onSelected: (_) {
+                  if (localPlayback.value == local) return;
+                  // Mode transitions need fresh approval even if both target
+                  // lists are empty; never reuse an earlier solo success.
+                  ref.invalidate(displayPreparationControllerProvider);
+                  localPlayback.value = local;
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (remote && targets.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('재생할 TV를 선택해 주세요. 이 기기에서 재생하려면 위에서 직접 선택해 주세요.'),
+          ),
         if (!readiness.isReady)
           _CheckTile(
             ok: false,
             title: '수업 내용을 확인해 주세요',
             subtitle: readiness.issues.join('\n'),
           ),
-        if (preparation.error != null || accessError || approvalExpired) ...[
+        if (canPrepare &&
+            (preparation.error != null || accessError || approvalExpired)) ...[
           _CheckTile(
             ok: false,
             title: approvalExpired
@@ -438,7 +481,7 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
             onPressed: () => ref.invalidate(displayDevicesProvider),
             child: const Text('TV 목록 다시 확인'),
           ),
-        ] else if (!currentApproval || preparation.loading)
+        ] else if (canPrepare && (!currentApproval || preparation.loading))
           PreparationStageStatus(
             key: ValueKey('$fingerprint-${retry.value}'),
             label: '최신 수업 설정·이용 상태 확인 중',
@@ -520,13 +563,14 @@ class _WorkoutReadinessPage extends HookConsumerWidget {
               preparation.error == null,
           scope: (
             fingerprint,
+            remote,
             preparation.admission,
             preparation.request?.sessionId,
             preparation.request?.revision,
             preparation.request?.manifestHash,
           ),
         ),
-        if (onlineDevices.isNotEmpty) ...[
+        if (remote && onlineDevices.isNotEmpty) ...[
           if (remote && !allPrepared)
             Text(
               '준비되지 않은 TV는 선택을 해제해 제외할 수 있어요.',

@@ -1,5 +1,7 @@
 import 'support/ui_layout_evidence.dart';
 
+import 'package:cloud_board/src/app/feature/device/data/repositories/device_mode_repository_impl.dart';
+
 import 'package:cloud_board/src/app/feature/image_usage/domain/image_usage.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_repository.dart';
 import 'package:cloud_board/src/app/feature/image_usage/data/image_usage_data_source.dart';
@@ -41,6 +43,151 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
+  for (final noDevices in [true, false]) {
+    testWidgets(
+      'explicit solo preserves empty-target routing contract, noDevices=$noDevices',
+      (tester) async {
+        WorkoutPreflightSelection? selection;
+        await _previewHarness(
+          tester,
+          _PreparationRepository(),
+          (context, sources, {isCancelled}) async => 3,
+          noDevices: noDevices,
+          onSelection: (value) => selection = value,
+        );
+        await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+        await tester.pumpAndSettle();
+        expect(_startEnabled(tester), isTrue);
+        await tester.tap(find.widgetWithText(FilledButton, '수업 시작'));
+        await tester.pumpAndSettle();
+        expect(selection, isNotNull);
+        expect(selection!.targetDeviceIds, isEmpty);
+        expect(selection!.localOnly, !noDevices);
+        expect(selection!.preparation, isNull);
+      },
+    );
+  }
+
+  for (final scenario in ['no devices', 'all offline', 'clear selection']) {
+    testWidgets(
+      'cold TV intent with $scenario never requests images or empty approval',
+      (tester) async {
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+        var clients = 0;
+        final source = _LegacySource();
+        final scope = ValueNotifier<ImageUsageDataSource>(source);
+        addTearDown(scope.dispose);
+        final repository = _PreparationRepository();
+        await HttpOverrides.runZoned(
+          () async {
+            await _previewHarness(
+              tester,
+              repository,
+              null,
+              scope: scope,
+              noDevices: scenario == 'no devices',
+              offline: scenario == 'all offline',
+            );
+            if (scenario == 'clear selection') {
+              await tester.tap(find.text('전체 해제'));
+              await tester.pumpAndSettle();
+            }
+            final checks = source.checks;
+            final requests = repository.requests;
+            await tester.pump(const Duration(seconds: 10));
+            await tester.pumpAndSettle();
+            expect(source.checks, checks);
+            expect(checks, scenario == 'clear selection' ? 1 : 0);
+            expect(repository.requests, requests);
+            expect(_startEnabled(tester), isFalse);
+            expect(find.textContaining('재생할 TV를 선택해 주세요'), findsOneWidget);
+            expect(find.text('시작 이미지 준비 중'), findsNothing);
+            expect(find.byType(WorkoutSlidePreview), findsNothing);
+          },
+          createHttpClient: (_) {
+            clients++;
+            throw StateError('unexpected automatic HTTP');
+          },
+        );
+        expect(clients, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'explicit solo to TV zero cancels old images and requires new approval on return',
+    (tester) async {
+      final attempts = <Completer<int>>[];
+      final cancelled = <bool Function()?>[];
+      final source = _LegacySource();
+      final scope = ValueNotifier<ImageUsageDataSource>(source);
+      addTearDown(scope.dispose);
+      await _previewHarness(
+        tester,
+        _PreparationRepository(),
+        (context, sources, {isCancelled}) {
+          cancelled.add(isCancelled);
+          final next = Completer<int>();
+          attempts.add(next);
+          return next.future;
+        },
+        noDevices: true,
+        scope: scope,
+      );
+      expect(attempts, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await tester.pumpAndSettle();
+      expect(attempts, hasLength(1));
+      expect(source.checks, 1);
+      expect(_startEnabled(tester), isFalse);
+      await tester.tap(find.byKey(const ValueKey('playback-mode-tv')));
+      await tester.pumpAndSettle();
+      expect(cancelled.first!(), isTrue);
+      attempts.first.complete(3);
+      await tester.pumpAndSettle();
+      expect(_startEnabled(tester), isFalse);
+      expect(source.checks, 1);
+      await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await tester.pumpAndSettle();
+      expect(source.checks, 2);
+      expect(attempts, hasLength(2));
+      expect(_startEnabled(tester), isFalse);
+      attempts.last.complete(3);
+      await tester.pumpAndSettle();
+      expect(_startEnabled(tester), isTrue);
+    },
+  );
+
+  testWidgets(
+    'explicit solo still requires enrolled admission before image preparation',
+    (tester) async {
+      final source = _AdmissionDeniedSource();
+      final scope = ValueNotifier<ImageUsageDataSource>(source);
+      addTearDown(scope.dispose);
+      var calls = 0;
+      await _previewHarness(
+        tester,
+        _PreparationRepository(),
+        (context, sources, {isCancelled}) async {
+          calls++;
+          return 1;
+        },
+        noDevices: true,
+        scope: scope,
+      );
+      expect(source.prepares, 0);
+      await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+      await tester.pumpAndSettle();
+      expect(source.prepares, 1);
+      expect(source.targets, isEmpty);
+      expect(calls, 0);
+      expect(_startEnabled(tester), isFalse);
+      expect(find.text('이용 상태를 다시 확인해 주세요'), findsOneWidget);
+    },
+  );
+
   testWidgets(
     'preparation pushes a page, shows metadata during settings load and back cancels',
     (tester) async {
@@ -138,8 +285,8 @@ void main() {
       expect(find.byType(WorkoutSlidePreview), findsNothing);
       expect(
         calls,
-        1,
-        reason: 'new solo mode requires its initial image window',
+        0,
+        reason: 'clearing TVs must not opt into solo image preparation',
       );
       await tester.ensureVisible(find.text('전체 선택'));
       await tester.tap(find.text('전체 선택'));
@@ -193,11 +340,11 @@ void main() {
         },
       ),
     );
-    await tester.tap(find.text('전체 해제'));
+    await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
     await tester.pumpAndSettle();
     expect(loaded, hasLength(1));
     expect(loaded.single, contains('countdown'));
-    await tester.tap(find.text('전체 선택'));
+    await tester.tap(find.byKey(const ValueKey('playback-mode-tv')));
     await tester.pumpAndSettle();
     first.complete();
     await tester.pumpAndSettle();
@@ -279,16 +426,16 @@ void main() {
         return next.future;
       });
       expect(attempts, isEmpty);
-      await tester.tap(find.text('전체 해제'));
+      await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
       await tester.pumpAndSettle();
       expect(attempts, hasLength(1));
       expect(_startEnabled(tester), isFalse);
-      await tester.tap(find.text('전체 선택'));
+      await tester.tap(find.byKey(const ValueKey('playback-mode-tv')));
       await tester.pumpAndSettle();
       expect(cancelled.first!(), isTrue);
       expect(attempts, hasLength(1));
       expect(_startEnabled(tester), isTrue);
-      await tester.tap(find.text('전체 해제'));
+      await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
       await tester.pumpAndSettle();
       expect(attempts, hasLength(2));
       attempts.first.complete(1);
@@ -890,6 +1037,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+    await tester.pumpAndSettle();
     expect(find.text('이미지 준비 실패'), findsOneWidget);
     expect(find.textContaining('연결을 확인해 주세요'), findsOneWidget);
     expect(find.textContaining('TECHNICAL_PRIVATE'), findsNothing);
@@ -947,6 +1096,14 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.byKey(const ValueKey('playback-mode-solo')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('이미지 준비 완료'), findsOneWidget);
 
     expect(tester.takeException(), isNull);
   });
@@ -1156,6 +1313,9 @@ Future<void> _previewHarness(
   _PreparationRepository repository,
   PreflightImageLoader? loader, {
   bool legacy = false,
+  bool noDevices = false,
+  bool offline = false,
+  void Function(WorkoutPreflightSelection?)? onSelection,
   Size size = const Size(600, 1300),
   double scale = 1,
   ValueNotifier<ImageUsageDataSource>? scope,
@@ -1166,20 +1326,21 @@ Future<void> _previewHarness(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final devices = [
-    for (final id in ['a', if (legacy) 'old'])
-      DisplayDevice(
-        id: id,
-        name: 'TV $id',
-        zoneId: 'main',
-        zoneName: '',
-        online: true,
-        lastSeenAtMs: DateTime.now().millisecondsSinceEpoch,
-        currentSessionId: null,
-        acknowledgedRevision: 0,
-        paired: true,
-        playbackProtocol: 5,
-        preparationProtocol: id == 'old' ? 0 : 1,
-      ),
+    if (!noDevices)
+      for (final id in ['a', if (legacy) 'old'])
+        DisplayDevice(
+          id: id,
+          name: 'TV $id',
+          zoneId: 'main',
+          zoneName: '',
+          online: !offline,
+          lastSeenAtMs: offline ? 0 : DateTime.now().millisecondsSinceEpoch,
+          currentSessionId: null,
+          acknowledgedRevision: 0,
+          paired: true,
+          playbackProtocol: 5,
+          preparationProtocol: id == 'old' ? 0 : 1,
+        ),
   ];
   final workout =
       Workout.empty(
@@ -1216,6 +1377,7 @@ Future<void> _previewHarness(
         ),
         displayDevicesProvider.overrideWith((_) => Stream.value(devices)),
         serverTimeOffsetProvider.overrideWith((_) => Stream.value(0)),
+        deviceIdProvider.overrideWith((_) async => 'local-test-controller'),
         displayPreparationRepositoryProvider.overrideWithValue(repository),
         if (loader != null)
           preflightImageLoaderProvider.overrideWithValue(loader),
@@ -1229,19 +1391,38 @@ Future<void> _previewHarness(
           ),
           child: child!,
         ),
-        home: RepaintBoundary(
-          key: const ValueKey('preflight-evidence'),
-          child: WorkoutPreparationPage(workout: workout),
-        ),
+        home: onSelection == null
+            ? RepaintBoundary(
+                key: const ValueKey('preflight-evidence'),
+                child: WorkoutPreparationPage(workout: workout),
+              )
+            : Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () async => onSelection(
+                      await showWorkoutPreflight(context, workout),
+                    ),
+                    child: const Text('준비 열기'),
+                  ),
+                ),
+              ),
       ),
     ),
   );
   await tester.pumpAndSettle();
+  if (onSelection != null) {
+    await tester.tap(find.text('준비 열기'));
+    await tester.pumpAndSettle();
+  }
 }
 
 class _LegacySource extends Fake implements ImageUsageDataSource {
+  int checks = 0;
   @override
-  Future<bool> enrolled() async => false;
+  Future<bool> enrolled() async {
+    checks++;
+    return false;
+  }
 }
 
 class _UnavailableSource extends Fake implements ImageUsageDataSource {}
@@ -1251,4 +1432,22 @@ class _DeniedSource extends _LegacySource {
   final Object failure;
   @override
   Future<bool> enrolled() async => throw failure;
+}
+
+class _AdmissionDeniedSource extends _LegacySource {
+  int prepares = 0;
+  List<String>? targets;
+  @override
+  Future<bool> enrolled() async => true;
+  @override
+  Future<ClassAdmission> prepare({
+    required Map<String, dynamic> workout,
+    required List<String> targets,
+    required String controllerDeviceId,
+    required String clientFingerprint,
+  }) async {
+    prepares++;
+    this.targets = targets;
+    throw const ImageUsageFailure('daily_transfer_limit');
+  }
 }
