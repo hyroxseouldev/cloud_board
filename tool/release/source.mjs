@@ -99,7 +99,7 @@ export function resolveSource({sourceRef, mode, workflowRef, workflowSha, eventN
 }
 
 export function validateMobileReceipt(receipt, {run, platform} = {}) {
-  assert([1, 2, 3, 4].includes(receipt?.schemaVersion) && receipt.kind === 'mobile-source', 'Invalid mobile source receipt');
+  assert([1, 2, 3, 4, 5].includes(receipt?.schemaVersion) && receipt.kind === 'mobile-source', 'Invalid mobile source receipt');
   for (const key of ['sourceSha', 'workflowSha']) assert.match(receipt[key] || '', shaPattern, `Invalid ${key}`);
   assert(['qa', 'release'].includes(receipt.releaseMode), 'Invalid release mode');
   assert(['ios', 'android-tv'].includes(receipt.platform), 'Invalid mobile platform');
@@ -116,7 +116,19 @@ export function validateMobileReceipt(receipt, {run, platform} = {}) {
     if (development) assert.equal(receipt.releaseMode, 'qa', 'Development artifacts cannot authorize release');
     if (receipt.releaseMode === 'release') assert.equal(receipt.releaseTag, `v${receipt.version}`, 'Release receipt needs its versioned release tag');
   }
-  if (receipt.schemaVersion >= 4) {
+  if (receipt.schemaVersion === 5) {
+    assert.equal(receipt.origin, 'direct-cli');
+    assert.match(receipt.controlSha || '', shaPattern);
+    if (receipt.releaseMode === 'qa') {
+      assert.equal(receipt.sourceRef, receipt.sourceSha, 'Direct development source must be a fixed commit');
+      assert.equal(receipt.releaseTag, undefined);
+      assert.equal(receipt.deploymentTag, undefined);
+    } else {
+      assert.equal(receipt.sourceRef, receipt.releaseTag);
+      assert.equal(receipt.deploymentTag, receipt.releaseTag);
+    }
+  }
+  if (receipt.schemaVersion === 4) {
     assert.equal(deploymentTagVersion(receipt.deploymentTag, receipt.releaseMode), receipt.version, 'Receipt deployment tag/version mismatch');
     assert.equal(receipt.sourceRef, receipt.deploymentTag, 'Receipt source must identify its deployment tag');
     assert.match(receipt.controlSha || '', shaPattern, 'Missing trusted control tools SHA');

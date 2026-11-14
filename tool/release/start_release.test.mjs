@@ -1,3 +1,4 @@
+// Historical workflow fixtures retain legacy release/receipt contract coverage.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -114,7 +115,7 @@ test('non-ancestor sources and uncertain preflight reads fail closed', async () 
 });
 
 test('workflow pins source and uses GITHUB_TOKEN so tag creation does not start duplicate push CI', () => {
-  const yaml = readFileSync(new URL('../../.github/workflows/start-production-release.yml', import.meta.url), 'utf8');
+  const yaml = readFileSync(new URL('../../tool/release/fixtures/retired-workflows/start-production-release.yml', import.meta.url), 'utf8');
   assert.match(yaml, /workflow_dispatch:/);
   assert.doesNotMatch(yaml, /^  (push|workflow_run):/m);
   assert.match(yaml, /ref: \$\{\{ github\.sha \}\}/);

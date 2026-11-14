@@ -1,8 +1,9 @@
+// Historical workflow fixtures retain legacy release/receipt contract coverage.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
-const load = name => readFileSync(new URL(`../../.github/workflows/${name}-main.yml`, import.meta.url), 'utf8');
+const load = name => readFileSync(new URL(`./fixtures/retired-workflows/${name}-main.yml`, import.meta.url), 'utf8');
 const step = (source, name) => source.slice(source.indexOf(`      - name: ${name}`)).split('\n      - name:')[0];
 const condition = block => block.match(/        if: (?:>-\n)?([\s\S]*?)\n        (?:uses|env|run):/)?.[1].trim();
 const evaluate = (expression, {upload = true, mode = 'qa'} = {}) =>

@@ -3,6 +3,7 @@ import {readFileSync, appendFileSync, writeFileSync, rmSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {validateNews, newsForDeployment} from './news.mjs';
 import {readReleaseArtifact} from '../firebase/github-artifact.mjs';
+import {readLedger, directUploads, validateLedger} from '../release/direct-receipts.mjs';
 import {mobileRunReceipt} from '../release/source.mjs';
 
 export const pipelines = [
@@ -89,6 +90,26 @@ export function sourceRunId(event, eventName, ref, repository) {
   return event.workflow_run.id;
 }
 
+export function directNewsForAttempt(ledger, id, news) {
+  validateLedger(ledger);
+  const trigger = ledger.attempts.find(a => a.id === String(id));
+  if (!trigger || trigger.environment !== 'production') throw new Error('Select a recorded production direct deployment');
+  const uploads = directUploads(ledger).filter(a => a.sourceSha === trigger.sourceSha);
+  if (!uploads.some(a => a.id === trigger.id)) throw new Error('Trigger has no successful deploy/upload stage');
+  const builds = {};
+  for (const attempt of uploads) {
+    if (attempt.scope === 'web') {
+      if (!attempt.release || attempt.release.scope !== 'web') throw new Error('Web deployment lacks a verified release receipt');
+      builds.web = attempt.buildNumber;
+    } else if (['ios', 'android'].includes(attempt.scope)) {
+      if (!attempt.mobile || attempt.mobile.releaseMode !== 'release') throw new Error('Upload lacks an inspected production artifact');
+      builds[attempt.scope] = attempt.mobile.build;
+    }
+  }
+  if (news.version !== trigger.version) throw new Error('Update news version differs from deployed source');
+  return validateNews({...news, builds}, {withBuilds: true});
+}
+
 // Prepare only the app feed payload. This process never writes to Linear or Firebase.
 export async function publish(env = process.env, fetchImpl = fetch, readArtifact = artifact =>
   readReleaseArtifact(artifact, env.GITHUB_REPOSITORY, env.GITHUB_TOKEN)) {
@@ -101,6 +122,24 @@ export async function publish(env = process.env, fetchImpl = fetch, readArtifact
   const repository = env.GITHUB_REPOSITORY;
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error('Invalid repository.');
   const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
+  if (event.inputs?.direct_deployment_id) {
+    if (event.inputs.deployment_run_id) throw new Error('Choose one direct deployment ID or historical workflow run ID');
+    if (env.GITHUB_EVENT_NAME !== 'workflow_dispatch' || env.GITHUB_REF !== 'refs/heads/main') throw new Error('Direct receipt publishing requires the trusted main publisher');
+    const request = (path, options = {}) => requestJson(`https://api.github.com${path}`, {...options,
+      headers: {Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json'}}, fetchImpl);
+    const state = await readLedger(request, repository);
+    if (!state) throw new Error('Direct receipt ledger is unavailable');
+    const attempt = state.ledger.attempts.find(a => a.id === String(event.inputs.direct_deployment_id));
+    if (!attempt) throw new Error('Direct deployment ID not found');
+    const compare = await request(`/repos/${repository}/compare/${attempt.sourceSha}...main`);
+    if (!['ahead', 'identical'].includes(compare.status) || compare.merge_base_commit?.sha !== attempt.sourceSha) throw new Error('Direct production source is not included in main');
+    const note = validateNews(JSON.parse(git('show', `${attempt.sourceSha}:release-notes/current.json`)));
+    const version = git('show', `${attempt.sourceSha}:pubspec.yaml`).match(/^version:\s*([^\s+#]+)/m)?.[1];
+    if (version !== attempt.version) throw new Error('Direct receipt version differs from source');
+    const news = directNewsForAttempt(state.ledger, attempt.id, note);
+    if (!dryRun) writeFileSync(env.UPDATE_NEWS_OUTPUT_PATH, JSON.stringify(news));
+    return {operation: dryRun ? 'dry-run' : 'prepared', news};
+  }
   const runId = sourceRunId(event, env.GITHUB_EVENT_NAME, env.GITHUB_REF, repository);
   const gh = path => requestJson(`https://api.github.com/repos/${repository}${path}`, {
     headers: {Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},

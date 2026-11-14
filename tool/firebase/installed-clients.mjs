@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {readReleaseArtifact} from './github-artifact.mjs';
+import {readLedger, directUploads} from '../release/direct-receipts.mjs';
 import {mobileRunReceipt} from '../release/source.mjs';
 
 export const installedWorkflows = [
@@ -13,15 +14,23 @@ export function requireRegisteredUpload(clients, upload, platforms) {
   const sourceSha = upload.sourceSha ?? upload.head_sha;
   for (const platform of platforms) assert(clients.some(client => client.sourceCommit === sourceSha &&
     client.platforms.includes(platform) && client.releases?.some(release => release.platform === platform &&
-      String(release.workflowRunId) === String(upload.id) &&
+      String(release.directDeploymentId ?? release.workflowRunId) === String(upload.id) &&
       (!upload.artifactSha256 || release.artifactSha256 === upload.artifactSha256))),
   `Latest installed ${platform} source/run has no frozen contract: ${sourceSha} / ${upload.id}. Register the installed client (including production-connected QA) before changing its server contract.`);
 }
-export async function verifyInstalledClients({clients, repository, request, currentRunId, readArtifact}) {
+export async function verifyInstalledClients({clients, repository, request, currentRunId, readArtifact, direct = repository === 'hyroxseouldev/cloud_board' || process.env.CLOUDBOARD_DIRECT_RECEIPTS === 'true'}) {
   assert.match(repository || '', /^[\w.-]+\/[\w.-]+$/);
   const result = [];
+  const state = direct ? await readLedger(request, repository) : null;
   for (const workflow of installedWorkflows) {
+    const platform = workflow.platforms[0];
+    const latest = state && directUploads(state.ledger).filter(a => a.scope === platform && a.id !== String(currentRunId)).at(-1);
     let found;
+    if (latest) {
+      assert(latest.scope === 'web' ? latest.release : latest.mobile, 'Direct upload lacks verified artifact evidence');
+      found = {id: latest.id, sourceSha: latest.sourceSha, head_sha: latest.sourceSha,
+        artifactSha256: latest.mobile?.artifactSha256, releaseMode: 'release'};
+    }
     for (let page = 1; page <= 10 && !found; page++) {
       const {workflow_runs: runs} = await request(`/repos/${repository}/actions/workflows/${workflow.file}/runs?per_page=100&page=${page}`);
       for (const run of runs ?? []) {
