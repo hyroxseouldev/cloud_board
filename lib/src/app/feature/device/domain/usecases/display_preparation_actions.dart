@@ -44,16 +44,24 @@ class DisplayPreparationActions {
     final modern = selected.where((d) => d.preparationProtocol >= 1).toList();
     if ((modern.isNotEmpty && proof == null) ||
         (proof != null &&
-            (proof.clientFingerprint ?? proof.manifestHash) != preparationFingerprint(workout, targets))) {
+            (proof.clientFingerprint ?? proof.manifestHash) !=
+                preparationFingerprint(workout, targets))) {
       throw StateError('수업 내용이나 설정이 바뀌었어요. 수업 준비를 다시 확인해 주세요.');
     }
     // Resolve optional modern evidence before reading the server clock, so
     // both legacy connections and media receipts use the same final
     // freshness check immediately before starting.
-    final request = modern.isEmpty ? null : await repository.current();
-    final receipts = modern.isEmpty
+    // Install both error handlers immediately and preserve the original error.
+    final evidence = modern.isEmpty
+        ? null
+        : await Future.wait<Object?>([
+            repository.current(),
+            repository.receipts(),
+          ]);
+    final request = evidence?[0] as DisplayPreparation?;
+    final receipts = evidence == null
         ? const <String, DisplayPreparationReceipt>{}
-        : await repository.receipts();
+        : evidence[1] as Map<String, DisplayPreparationReceipt>;
     final now =
         nowMs ??
         await serverNow?.call() ??

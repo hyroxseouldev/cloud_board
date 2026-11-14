@@ -1,3 +1,5 @@
+import 'package:cloud_board/src/app/core/widgets/preparation_stage_status.dart';
+
 import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -124,13 +126,23 @@ class DisplayRecoveryDialog extends ConsumerWidget {
               ],
               if (state.isLoading) ...[
                 const SizedBox(height: 20),
-                const LinearProgressIndicator(),
-                const SizedBox(height: 8),
-                const Text('연결 정보 확인 및 복구 요청 중…'),
+                const PreparationStageStatus(label: '연결 정보 확인 및 복구 요청 중…'),
               ],
               if (request != null) ...[
                 const SizedBox(height: 20),
                 _RecoveryProgress(status: request.status),
+                if (request.pending)
+                  PreparationStageStatus(
+                    key: ValueKey(
+                      '${request.operationId}-${request.status.name}',
+                    ),
+                    label: switch (request.status) {
+                      DisplayRecoveryStatus.requested =>
+                        '서버 접수 완료 · TV 요청 수신 대기 중',
+                      DisplayRecoveryStatus.received => 'TV 수신 완료 · 복구 시작 대기 중',
+                      _ => 'TV가 최신 수업 상태를 다시 확인 중',
+                    },
+                  ),
                 if (request.pending) ...[
                   const SizedBox(height: 8),
                   const Text('최대 1분 동안 TV 응답을 확인합니다. 요청 접수는 복구 완료가 아닙니다.'),

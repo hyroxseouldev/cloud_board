@@ -13,12 +13,14 @@ class PlaybackRecoveryView extends HookWidget {
   const PlaybackRecoveryView({
     super.key,
     this.displayMode = false,
+    this.stage,
     this.error,
     this.stackTrace,
     required this.onRetry,
   });
 
   final bool displayMode;
+  final String? stage;
   final Object? error;
   final StackTrace? stackTrace;
   final VoidCallback onRetry;
@@ -42,7 +44,7 @@ class PlaybackRecoveryView extends HookWidget {
         reveal.cancel();
         hint.cancel();
       };
-    }, [error]);
+    }, [error, stage]);
 
     final reduceMotion = AppMotion.reduced(context);
     final rotation = useAnimationController(duration: AppMotion.recovery);
@@ -209,14 +211,14 @@ class PlaybackRecoveryView extends HookWidget {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              const Text(
-                                '수업 동기화 중',
+                              Text(
+                                stage ?? '서버 연결·현재 수업 확인 중',
                                 textAlign: TextAlign.center,
                               ),
                               if (slow.value) ...[
                                 const SizedBox(height: 8),
                                 Text(
-                                  '연결을 확인하고 있어요. 잠시만 기다려 주세요.',
+                                  '${stage ?? '서버 연결·현재 수업 확인 중'} · 5초 이상 기다리고 있어요.',
                                   textAlign: TextAlign.center,
                                   style: style.copyWith(
                                     fontSize: displayMode ? 16 : 12,
