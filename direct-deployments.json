@@ -360,6 +360,11 @@
           "startedAt": "2026-11-14T05:35:52.338Z",
           "completedAt": "2026-11-14T05:35:54.326Z",
           "durationMs": 1988
+        },
+        {
+          "id": "build",
+          "status": "running",
+          "startedAt": "2026-11-14T05:35:55.420Z"
         }
       ],
       "targets": [],
