@@ -48,7 +48,10 @@ export function validateFixtures(registry, files, read, baseline = {}, baselineR
       assert(client.platforms.includes(release.platform));
       assert.match(release.version, /^\d+\.\d+\.\d+$/);
       assert.match(release.build, /^\d+(\.\d+)?$/);
-      assert.match(release.workflowRunId, /^\d+$/);
+      const hasWorkflow = Object.hasOwn(release, 'workflowRunId');
+      const hasDirect = Object.hasOwn(release, 'directDeploymentId');
+      assert.notEqual(hasWorkflow, hasDirect, 'Release evidence must identify exactly one workflow run or direct deployment');
+      assert.match(hasDirect ? release.directDeploymentId : release.workflowRunId, /^\d+$/);
       assert(['testflight', 'internal', 'closed', 'production'].includes(release.channel));
       const key = `${release.platform}/${release.version}/${release.build}`;
       assert(!releasedBuilds.has(key), `Duplicate released build: ${key}`);

@@ -17,6 +17,7 @@ import {readReleaseArtifact} from '../firebase/github-artifact.mjs';
 import {validateMobileReceipt, recheckSource} from './source.mjs';
 import {validateMobileCompatibilityReport} from './mobile_backend_compatibility.mjs';
 import {prepareSmokeInputs} from '../firebase/smoke-inputs.mjs';
+import {verifyInstalledClients} from '../firebase/installed-clients.mjs';
 import {writeJson, root} from '../firebase/common.mjs';
 
 const git = (...args) => execFileSync('git', args, {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim();
@@ -181,6 +182,11 @@ export async function executePlan(plan) {
         }
         case 'no-rollback': await requireNoRollback({repository, sha: plan.sourceSha, ref: env.GITHUB_REF,
           tag: plan.tag, request: github, scope: plan.scope === 'functions' ? 'backend' : plan.scope, ignoreRunId: id}); break;
+        case 'installed-clients':
+          attempt.installedClients = await verifyInstalledClients({clients: json('tool/firebase/supported-clients.json').clients,
+            repository, request: github, currentRunId: id,
+            readArtifact: a => readReleaseArtifact(a, repository, env.GITHUB_TOKEN)});
+          break;
         case 'backend-compatibility': await compatibility(); break;
         case 'recheck-backend': backend = await backendGate(plan, directory, id); break;
         case 'function-targets': {
