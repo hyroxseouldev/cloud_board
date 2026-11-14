@@ -1423,6 +1423,11 @@
           "startedAt": "2026-11-14T12:26:53.867Z",
           "completedAt": "2026-11-14T12:28:12.851Z",
           "durationMs": 78984
+        },
+        {
+          "id": "readback",
+          "status": "running",
+          "startedAt": "2026-11-14T12:28:14.988Z"
         }
       ],
       "targets": [
