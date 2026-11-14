@@ -1545,8 +1545,10 @@
         },
         {
           "id": "readback",
-          "status": "running",
-          "startedAt": "2026-11-14T12:30:23.419Z"
+          "status": "success",
+          "startedAt": "2026-11-14T12:30:23.419Z",
+          "completedAt": "2026-11-14T12:30:29.100Z",
+          "durationMs": 5681
         }
       ],
       "targets": [
@@ -1569,6 +1571,19 @@
         ],
         "outputSha256": "88079f534812f28789bc91c3d9782d412a238747d464434c5987bb63e95792ec",
         "deployComplete": true
+      },
+      "serverObservation": {
+        "status": "active",
+        "functions": [
+          {
+            "name": "retryImageUsageOutbox",
+            "codebase": "account-deletion",
+            "region": "asia-northeast3",
+            "state": "ACTIVE"
+          }
+        ],
+        "sourceVerification": "successful-selected-deploy-command",
+        "appQa": "not-run"
       }
     }
   ]
