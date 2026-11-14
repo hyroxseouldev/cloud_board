@@ -40,6 +40,11 @@
           "startedAt": "2026-11-14T04:57:17.301Z",
           "completedAt": "2026-11-14T04:57:18.103Z",
           "durationMs": 802
+        },
+        {
+          "id": "firebase-access",
+          "status": "running",
+          "startedAt": "2026-11-14T04:57:18.899Z"
         }
       ],
       "targets": [],
