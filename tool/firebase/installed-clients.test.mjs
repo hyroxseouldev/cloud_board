@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {repository, ledgerBranch} from '../release/direct-receipts.mjs';
+import {receiptFor} from './test-fixtures.mjs';
+import {manifestHash} from './release.mjs';
 import {installedWorkflows, requireRegisteredUpload, verifyInstalledClients} from './installed-clients.mjs';
 const sha = 'a'.repeat(40);
 const clients = [{sourceCommit: sha, platforms: ['ios','android','tv','web'], releases:
@@ -66,4 +69,53 @@ test('verified development uploads do not replace the latest production client c
     version: '1.2.2', build: '1', artifactSha256: 'd'.repeat(64), runId: '2', runAttempt: '1',
   })});
   assert(result.every(row => row.runId === '1' && row.sha === sha));
+});
+
+
+test('direct production uploads require exact frozen identities and exclude newer QA', async () => {
+  const artifactSha256 = 'c'.repeat(64);
+  const attempt = (scope, id, environment = 'production') => {
+    const production = environment === 'production';
+    const value = {schemaVersion: 1, kind: 'direct-deployment', id, sourceSha: sha, environment,
+      project: production ? 'cloud-board-stationd' : 'cloud-board-development', scope, version: '2.1.0',
+      ...(production ? {tag: 'v2.1.0'} : {}), status: 'success', startedAt: '2026-11-14T00:00:00Z',
+      completedAt: '2026-11-14T00:01:00Z', steps: []};
+    if (scope === 'web') {
+      const release = receiptFor({sha, runId: id, attempt: '1'});
+      release.scope = release.manifest.scope = 'web'; release.manifest.releaseTag = 'v2.1.0';
+      release.backend = {runId: '100', fingerprint: release.manifest.backendFingerprint};
+      release.manifestHash = manifestHash(release.manifest);
+      value.release = release; value.steps = ['deploy', 'verify-receipt'].map(id => ({id, status: 'success'}));
+    } else {
+      value.mobile = {schemaVersion: 5, kind: 'mobile-source', origin: 'direct-cli', sourceSha: sha,
+        workflowSha: sha, controlSha: sha, sourceRef: production ? 'v2.1.0' : sha,
+        ...(production ? {deploymentTag: 'v2.1.0', releaseTag: 'v2.1.0'} : {}),
+        releaseMode: production ? 'release' : 'qa', platform: scope === 'ios' ? 'ios' : 'android-tv',
+        environment, firebaseProject: value.project, package: `com.sunmkim.cloudboard${production ? '' : '.dev'}`,
+        environmentBindingVerified: true, version: value.version, build: '1', artifactSha256, runId: id, runAttempt: '1'};
+      value.steps = ['inspect-artifact', 'upload'].map(id => ({id, status: 'success'}));
+    }
+    return value;
+  };
+  const ledger = {schemaVersion: 1, kind: 'direct-deployment-ledger', attempts: [
+    attempt('ios', '11'), attempt('android', '12'), attempt('web', '13'), attempt('ios', '14', 'development')]};
+  const request = async path => {
+    assert(!path.includes('/actions/'), 'Direct history must not fall back to an older workflow upload');
+    return path.includes('matching-refs') ? [{ref: `refs/heads/${ledgerBranch}`}] :
+      {encoding: 'base64', sha: 'ledger-revision', content: Buffer.from(JSON.stringify(ledger)).toString('base64')};
+  };
+  const registered = [{sourceCommit: sha, platforms: ['ios', 'android', 'tv', 'web'], releases:
+    [['ios', '11'], ['android', '12'], ['tv', '12'], ['web', '13']].map(([platform, directDeploymentId]) =>
+      ({platform, directDeploymentId, ...(platform !== 'web' ? {artifactSha256} : {})}))}];
+  const result = await verifyInstalledClients({clients: registered, repository, request});
+  assert.deepEqual(result.map(row => row.runId), ['11', '12', '13']);
+  for (const change of [
+    rows => rows[0].releases[0].directDeploymentId = '14',
+    rows => rows[0].releases[0].artifactSha256 = 'd'.repeat(64),
+    rows => rows[0].sourceCommit = 'b'.repeat(40),
+    rows => rows[0].platforms = ['ios', 'android', 'web'],
+  ]) {
+    const changed = structuredClone(registered); change(changed);
+    await assert.rejects(verifyInstalledClients({clients: changed, repository, request}), /no frozen contract/);
+  }
 });

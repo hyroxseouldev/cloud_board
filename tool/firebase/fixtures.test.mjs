@@ -94,3 +94,20 @@ test('current fixed-timer scenario cannot disappear behind historical capability
   const historicalOnly = {...registry, clients: registry.clients.filter(c => c.capabilities)};
   assert.throws(() => validateCurrentContracts(historicalOnly, readCandidate(workout)), /Released wire field removed/);
 });
+
+
+test('direct release evidence is accepted without rewriting historical registrations', () => {
+  const changed = structuredClone(registry);
+  const release = changed.clients[1].releases[0];
+  release.directDeploymentId = release.workflowRunId;
+  delete release.workflowRunId;
+  validateFixtures(changed, files, read, baseline);
+  assert.throws(() => validateFixtures(changed, files, read, baseline, registry), /registration changed/);
+  release.workflowRunId = release.directDeploymentId;
+  assert.throws(() => validateFixtures(changed, files, read), /exactly one/);
+  delete release.workflowRunId;
+  release.directDeploymentId = 'not-an-id';
+  assert.throws(() => validateFixtures(changed, files, read));
+  delete release.directDeploymentId;
+  assert.throws(() => validateFixtures(changed, files, read), /exactly one/);
+});
