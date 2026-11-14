@@ -32,13 +32,11 @@ final _workout =
 
 void main() {
   testWidgets(
-    'remote preview mounts only after explicit opening and resets by scope',
+    'carousel is immediate, lazy, and remains visible after jump and lock',
     (tester) async {
-      var builds = 0;
-      var next = 0;
-      var selected = -1;
-      var scope = 'session-a/owner-a/tv-a';
+      final built = <int>{};
       var current = 0;
+      var locked = false;
       late StateSetter rebuild;
       await tester.pumpWidget(
         MaterialApp(
@@ -47,25 +45,20 @@ void main() {
               rebuild = setState;
               return WorkoutControlPanel(
                 title: '수업',
-                moduleCount: 3,
+                moduleCount: 30,
                 currentModule: current,
                 paused: false,
                 busy: false,
-                previewOnDemand: true,
-                previewScope: scope,
-                moduleNames: const ['스쿼트', '런지', '버피'],
-                onPrevious: () {},
-                onNext: () {
-                  next++;
-                },
+                locked: locked,
+                onPrevious: () => setState(() => current--),
+                onNext: () => setState(() => current++),
                 onToggle: () {},
                 onExit: () {},
-                onSelectModule: (index) async {
-                  selected = index;
-                  setState(() => current = index);
-                },
+                onLockChanged: (value) => setState(() => locked = value),
+                onSelectModule: (index) async =>
+                    setState(() => current = index),
                 previewBuilder: (_, index) {
-                  builds++;
+                  built.add(index);
                   return Text('image body $index');
                 },
                 timeline: const Text('00:30 · 운동 중'),
@@ -75,40 +68,32 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(builds, 0);
-      expect(find.byType(PageView), findsNothing);
-      await tester.tap(find.byTooltip('다음 운동'));
-      expect(next, 1);
-      await tester.tap(find.byType(DropdownButtonFormField<int>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('2. 런지').last);
-      await tester.pumpAndSettle();
-      expect(selected, 1);
-      expect(builds, 0);
-      await tester.tap(find.text('미리보기 보기'));
-      await tester.pumpAndSettle();
-      expect(builds, greaterThan(0));
       expect(find.byType(PageView), findsOneWidget);
-      await tester.tap(find.text('미리보기 닫기'));
+      expect(find.text('미리보기 보기'), findsNothing);
+      expect(find.text('미리보기 닫기'), findsNothing);
+      expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+      expect(built, contains(0));
+      expect(built.every((index) => index <= 1), isTrue);
+      await tester.tap(find.byTooltip('다음 운동'));
       await tester.pumpAndSettle();
-      final closedBuilds = builds;
-      rebuild(() => current = 2);
+      expect(current, 1);
+      rebuild(() => current = 12);
       await tester.pumpAndSettle();
-      expect(builds, closedBuilds);
-      expect(find.byType(PageView), findsNothing);
-      await tester.tap(find.text('미리보기 보기'));
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller!.page,
+        12,
+      );
+      expect(built, contains(12));
+      expect(built.length, lessThan(8));
+      await tester.tap(find.text('터치 잠금'));
       await tester.pumpAndSettle();
-      for (final changed in [
-        'session-b/owner-a/tv-a',
-        'session-b/owner-b/tv-a',
-        'session-b/owner-b/tv-b',
-        'session-a/owner-a/tv-a',
-      ]) {
-        rebuild(() => scope = changed);
-        await tester.pumpAndSettle();
-        expect(find.byType(PageView), findsNothing);
-        expect(find.text('미리보기 보기'), findsOneWidget);
-      }
+      await tester.drag(find.byType(PageView), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      expect(current, 12);
+      expect(find.byType(PageView), findsOneWidget);
+      await tester.longPress(find.byKey(const ValueKey('unlock-controls')));
+      await tester.pumpAndSettle();
+      expect(locked, isFalse);
       expect(tester.takeException(), isNull);
     },
   );

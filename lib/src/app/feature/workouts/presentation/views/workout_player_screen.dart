@@ -149,18 +149,12 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     return _WorkoutPlayerBody(
       key: ValueKey(sessionId ?? workout.id),
       workout: workout,
-      // Session-less and selected-TV controllers load images on demand.
+      // Session-less and selected-TV controllers render visible carousel images.
       // Keep audience displays and legacy empty-target sessions unchanged.
       remoteController:
           !displayMode &&
           (sessionId == null ||
               remoteSession?.targetDeviceIds.isNotEmpty == true),
-      remotePreviewScope: (
-        remoteSession?.ownerId,
-        sessionId,
-        (remoteSession?.targetDeviceIds.toList()?..sort())?.join('|'),
-        workout,
-      ),
       startModule: startModule,
       sessionId: sessionId,
       displayMode: displayMode,
@@ -174,7 +168,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
   const _WorkoutPlayerBody({
     super.key,
     required this.workout,
-    required this.remotePreviewScope,
     required this.remoteController,
     required this.startModule,
     required this.sessionId,
@@ -184,7 +177,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
   });
 
   final Workout workout;
-  final Object remotePreviewScope;
   final bool remoteController;
   final int startModule;
   final String? sessionId;
@@ -355,7 +347,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
     final isPreparing = state.briefing || state.countdownMs > 0;
     final imageSize = playbackImageSize(context);
     useEffect(() {
-      // Remote controllers load only their visible preview, never a warmup window.
+      // Controllers render visible/adjacent pages without a separate warmup.
       if (remoteController) return null;
       var cancelled = false;
       final moduleIndex = currentMediaStep?.moduleIndex;
@@ -503,7 +495,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             preferences: displayPreferences,
             child: WorkoutCountdown(
               workout: workout,
-              showBackgroundImage: !remoteController,
               seconds: (state.countdownMs / 1000).ceil(),
               slideName: currentMediaStep?.module.name,
               slide: currentMediaStep?.module,
@@ -603,12 +594,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
             autofocus: true,
             child: WorkoutControlPanel(
               title: workout.name,
-              previewOnDemand: remoteController,
-              previewScope: remotePreviewScope,
-              // Timed workouts already expose a picker in their timeline.
-              moduleNames: workout.modules.any(isOpenEndedTimer)
-                  ? workout.modules.map((module) => module.name).toList()
-                  : const [],
               moduleCount: workout.modules.length,
               currentModule: step.moduleIndex,
               paused: state.isPaused,

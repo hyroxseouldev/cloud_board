@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:cloud_board/src/app/feature/workouts/domain/usecases/prepare_workout_image.dart';
 
 import 'dart:async';
@@ -30,7 +31,6 @@ class WorkoutCountdown extends StatelessWidget {
     this.isPaused = false,
     this.actionsEnabled = true,
     this.preview = false,
-    this.showBackgroundImage = true,
   });
   final Workout workout;
   final int seconds;
@@ -43,14 +43,11 @@ class WorkoutCountdown extends StatelessWidget {
   /// Only settings previews opt out of the playback letterbox.
   final bool preview;
 
-  /// Remote controllers keep the countdown controls without fetching artwork.
-  final bool showBackgroundImage;
-
   @override
   Widget build(BuildContext context) {
     final appearance = workout.countdownAppearance;
     final module = slide ?? workout.modules.firstOrNull;
-    final customImage = showBackgroundImage ? workout.countdownImageSource : '';
+    final customImage = workout.countdownImageSource;
     final image = customImage.isNotEmpty
         ? customImage
         : module?.imageSource ?? '';
@@ -78,7 +75,7 @@ class WorkoutCountdown extends StatelessWidget {
         builder: (context, box) => Stack(
           fit: StackFit.expand,
           children: [
-            if (showBackgroundImage && image.isNotEmpty)
+            if (image.isNotEmpty)
               WorkoutImage(
                 source: image,
                 preview: preview,
@@ -239,11 +236,7 @@ class CountdownSettings extends HookConsumerWidget {
     final defaults = ref.watch(defaultsProvider);
     ref.listen(defaultsProvider, (previous, next) {
       if (next.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('기본값 작업을 완료하지 못했습니다. 연결과 로그인 상태를 확인해 주세요.'),
-          ),
-        );
+        AppErrorToast.show(context, '기본값 작업을 완료하지 못했습니다. 연결과 로그인 상태를 확인해 주세요.');
       } else if (next.value != null && next.value != previous?.value) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(next.value!)));

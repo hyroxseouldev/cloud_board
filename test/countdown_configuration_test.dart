@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/domain/entities/countdown_preferences.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_board/src/app/feature/auth/presentation/controllers/auth_controller.dart';
 import 'package:flutter/material.dart';
@@ -16,23 +17,118 @@ final workout = Workout.empty(
 );
 
 void main() {
-  testWidgets(
-    'remote countdown never mounts background image, local still does',
-    (tester) async {
-      final withImage = workout.copyWith(countdownImageSource: 'AQID');
-      for (final show in [false, true]) {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: WorkoutCountdown(
-              workout: withImage,
-              seconds: 5,
-              showBackgroundImage: show,
+  const png =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==';
+  for (final customImage in [false, true]) {
+    testWidgets(
+      'countdown preserves authored image/color and overlay: image=$customImage',
+      (tester) async {
+        final configured = workout.copyWith(
+          countdownImageSource: customImage ? png : '',
+          countdownBackgroundColor: 0xFF3F245C,
+        );
+        Future<void> mount(Workout value) async {
+          await tester.pumpWidget(
+            MaterialApp(home: WorkoutCountdown(workout: value, seconds: 5)),
+          );
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        Color overlay() => tester
+            .widget<ColoredBox>(find.byKey(const ValueKey('countdown-overlay')))
+            .color;
+        await mount(configured);
+        expect(
+          find.byType(WorkoutImage),
+          customImage ? findsOneWidget : findsNothing,
+        );
+        expect(
+          overlay(),
+          customImage
+              ? Colors.black.withValues(alpha: .54)
+              : const Color(0xFF3F245C),
+        );
+        if (customImage) {
+          expect(
+            tester.widget<WorkoutImage>(find.byType(WorkoutImage)).source,
+            png,
+          );
+          expect(
+            tester.widget<RawImage>(find.byType(RawImage)).image,
+            isNotNull,
+          );
+        }
+        await mount(
+          configured.copyWith(
+            countdownAppearance: const CountdownAppearance(
+              overlayColor: 0xFF114422,
+              overlayOpacity: .3,
+              numberColor: 0xFFFFDD00,
+              numberFormat: CountdownNumberFormat.clock,
+              numberScale: 1.4,
+              numberShadow: true,
+              showReady: false,
+              showTitle: false,
             ),
           ),
         );
-        expect(find.byType(WorkoutImage), show ? findsOneWidget : findsNothing);
-        expect(find.text('5'), findsOneWidget);
-      }
+        expect(overlay(), const Color(0xFF114422).withValues(alpha: .3));
+        expect(find.text('00:05'), findsOneWidget);
+        expect(find.text('준비하세요'), findsNothing);
+        final text = tester.element(find.text('00:05'));
+        expect(DefaultTextStyle.of(text).style.color, const Color(0xFFFFDD00));
+        expect(DefaultTextStyle.of(text).style.shadows, isNotEmpty);
+        await mount(
+          configured.copyWith(
+            countdownAppearance: const CountdownAppearance(
+              overlayEnabled: false,
+            ),
+          ),
+        );
+        expect(find.byKey(const ValueKey('countdown-overlay')), findsNothing);
+        expect(
+          find.byType(WorkoutImage),
+          customImage ? findsOneWidget : findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'countdown retains the legacy slide-image fallback and color overlay',
+    (tester) async {
+      final configured = workout.copyWith(
+        countdownBackgroundColor: 0xFFEFEFEF,
+        modules: [
+          WorkoutModule.empty('m')
+              .copyWith(imageSource: png, coverImage: false),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: WorkoutCountdown(workout: configured, seconds: 3)),
+      );
+      expect(
+        tester.widget<WorkoutImage>(find.byType(WorkoutImage)).source,
+        png,
+      );
+      expect(
+        tester.widget<WorkoutImage>(find.byType(WorkoutImage)).fit,
+        BoxFit.contain,
+      );
+      expect(
+        tester
+            .widget<ColoredBox>(find.byKey(const ValueKey('countdown-overlay')))
+            .color,
+        const Color(0xFFEFEFEF),
+      );
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('3'))).style.color,
+        Colors.black,
+      );
     },
   );
 

@@ -1,3 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_image.dart';
+
+import 'support/playback_image_cache_fixture.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/widgets/workout_preparation_page.dart';
 import 'package:cloud_board/src/app/core/services/beep_player.dart';
 import 'package:go_router/go_router.dart';
@@ -79,6 +84,14 @@ void main() {
 
         addTearDown(disposeData);
         addTearDown(fixture.dispose);
+        final media = PlaybackImageCacheFixture();
+        CachedNetworkImageProvider.defaultCacheManager = media;
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+        addTearDown(() {
+          PaintingBinding.instance.imageCache.clear();
+          PaintingBinding.instance.imageCache.clearLiveImages();
+        });
         var httpClients = 0;
         await HttpOverrides.runZoned(
           () async {
@@ -95,6 +108,9 @@ void main() {
             await tester.pumpAndSettle();
             httpClients =
                 0; // Count preparation/player only; home is unchanged.
+            media.requests.clear();
+            PaintingBinding.instance.imageCache.clear();
+            PaintingBinding.instance.imageCache.clearLiveImages();
             await tester.tap(find.byTooltip('재생').first);
             await tester.pumpAndSettle();
             expect(find.byType(MainNavigationDock), findsNothing);
@@ -109,6 +125,7 @@ void main() {
             }
             expect(enabled(tester), isTrue);
             expect(httpClients, 0);
+            expect(media.requests, isEmpty); // Preparation remains text-only.
             await captureLayout(
               tester,
               find.byKey(const ValueKey('evidence')),
@@ -143,13 +160,39 @@ void main() {
             final countdown = tester.widget<WorkoutCountdown>(
               find.byType(WorkoutCountdown),
             );
-            expect(countdown.showBackgroundImage, isFalse);
-            expect(httpClients, 0);
+            expect(
+              countdown.workout.countdownImageSource,
+              'http://127.0.0.1:8798/no-countdown-image.png',
+            );
+            expect(find.byType(WorkoutImage), findsOneWidget);
+            expect(media.requests, [
+              'http://127.0.0.1:8798/no-countdown-image.png',
+            ]);
+            expect(httpClients, 0); // Fake cache delivery, no external HTTP.
             now = now.add(const Duration(seconds: 4));
             await tester.pump(const Duration(seconds: 4));
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 100)),
+            );
             await tester.pumpAndSettle();
-            expect(find.text('미리보기 보기'), findsOneWidget);
-            expect(find.byType(WorkoutSlideCanvas), findsNothing);
+            expect(find.text('미리보기 보기'), findsNothing);
+            expect(find.text('미리보기 닫기'), findsNothing);
+            expect(find.byType(PageView), findsOneWidget);
+            expect(find.byType(WorkoutSlideCanvas), findsWidgets);
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 100)),
+            );
+            await tester.pumpAndSettle();
+            expect(media.requests.toSet(), {
+              'http://127.0.0.1:8798/no-countdown-image.png',
+              'http://127.0.0.1:8798/no-eager-image.png',
+            });
+            expect(
+              tester
+                  .widgetList<RawImage>(find.byType(RawImage))
+                  .any((image) => image.image != null),
+              isTrue,
+            );
             final provider = playerControllerProvider(
               data.repository.items.first,
             );
@@ -182,7 +225,7 @@ void main() {
             expect(tester.takeException(), isNull);
             // ignore: avoid_print
             print(
-              'zero-target counters registered=$count prepare=${fixture.repository.requests} access=${fixture.source.checks} cancel=${fixture.repository.cancelled.length} remoteWrites=${playback.calls.length} mediaHTTP=$httpClients activeUnchanged=true',
+              'zero-target counters registered=$count prepare=${fixture.repository.requests} access=${fixture.source.checks} cancel=${fixture.repository.cancelled.length} remoteWrites=${playback.calls.length} externalHTTP=$httpClients fakeMediaLoads=${media.requests.length} activeUnchanged=true',
             );
             await tester.pumpWidget(const SizedBox());
             disposeData();
