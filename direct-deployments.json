@@ -1290,6 +1290,11 @@
           "startedAt": "2026-11-14T11:10:54.651Z",
           "completedAt": "2026-11-14T11:14:22.420Z",
           "durationMs": 207769
+        },
+        {
+          "id": "inspect-artifact",
+          "status": "running",
+          "startedAt": "2026-11-14T11:14:23.519Z"
         }
       ],
       "targets": [],
