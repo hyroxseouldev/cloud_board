@@ -1,0 +1,106 @@
+{
+  "role": "controller and solo local Flutter fixture; TV receipts are fake, no TV browser or Firebase connection",
+  "server": "http://127.0.0.1:8796",
+  "cache": "no-store HTTP response; each navigation starts a fresh Flutter app; widget tests additionally clear ImageCache",
+  "widget_source_commit": "6218652fb43ce564a43923e8076272379e41dc9f",
+  "scenes": [
+    {
+      "scene": "waiting",
+      "width": 390,
+      "scale": 1,
+      "newImageGETs": 0,
+      "requests": [],
+      "png": "waiting-390.png"
+    },
+    {
+      "scene": "error",
+      "width": 390,
+      "scale": 1,
+      "newImageGETs": 0,
+      "requests": [],
+      "png": "error-390.png"
+    },
+    {
+      "scene": "permission",
+      "width": 390,
+      "scale": 1,
+      "newImageGETs": 0,
+      "requests": [],
+      "png": "permission-390.png"
+    },
+    {
+      "scene": "ready",
+      "width": 320,
+      "scale": 1.3,
+      "newImageGETs": 0,
+      "requests": [],
+      "png": "ready-320-130pct.png"
+    },
+    {
+      "scene": "error",
+      "width": 320,
+      "scale": 2,
+      "newImageGETs": 0,
+      "requests": [],
+      "png": "error-320-200pct.png"
+    },
+    {
+      "scene": "solo",
+      "width": 390,
+      "scale": 1,
+      "newImageGETs": 3,
+      "requests": [
+        "/fixture-image.png?scene=solo&slide=0",
+        "/fixture-image.png?scene=solo&slide=1",
+        "/fixture-image.png?scene=solo"
+      ],
+      "png": "solo-390.png"
+    },
+    {
+      "scene": "countdown",
+      "width": 390,
+      "scale": 1,
+      "newImageGETs": 0,
+      "requests": [],
+      "png": "remote-countdown-390.png"
+    },
+    {
+      "scene": "controller",
+      "width": 390,
+      "scale": 1,
+      "newImageGETs": 0,
+      "requests": [],
+      "png": "controller-closed-390.png"
+    },
+    {
+      "scene": "ready-390-before-explicit-open",
+      "newImageGETs": 0,
+      "requests": []
+    },
+    {
+      "scene": "controller-explicit-open",
+      "newImageGETs": 2,
+      "requests": [
+        "/fixture-image.png?scene=controller&slide=1",
+        "/fixture-image.png?scene=controller&slide=0"
+      ]
+    },
+    {
+      "scene": "page-explicit-open",
+      "newImageGETs": 1,
+      "requests": [
+        "/fixture-image.png?scene=ready&slide=0"
+      ]
+    }
+  ],
+  "all_server_image_requests": [
+    "/fixture-image.png?scene=controller&slide=1",
+    "/fixture-image.png?scene=controller&slide=0",
+    "/fixture-image.png?scene=solo&slide=0",
+    "/fixture-image.png?scene=solo&slide=1",
+    "/fixture-image.png?scene=solo",
+    "/fixture-image.png?scene=controller&slide=1",
+    "/fixture-image.png?scene=controller&slide=0",
+    "/fixture-image.png?scene=ready&slide=0"
+  ]
+}
