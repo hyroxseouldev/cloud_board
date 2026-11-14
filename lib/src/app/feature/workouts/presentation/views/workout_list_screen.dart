@@ -15,6 +15,7 @@ import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
+import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/gestures.dart';
@@ -299,7 +300,7 @@ class WorkoutListBody extends HookConsumerWidget {
                   try {
                     await context.push('/search');
                   } finally {
-                    openingSearch.value = false;
+                    if (context.mounted) openingSearch.value = false;
                   }
                   if (!context.mounted) return;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -938,12 +939,9 @@ class _LayoutToggle extends ConsumerWidget {
                   if (!saved &&
                       context.mounted &&
                       ref.read(authStateProvider).value?.id == owner) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          '보기 설정을 기기에 저장하지 못했어요. 이번 방문에는 선택한 보기를 유지해요.',
-                        ),
-                      ),
+                    AppErrorToast.show(
+                      context,
+                      '보기 설정을 기기에 저장하지 못했어요. 이번 방문에는 선택한 보기를 유지해요.',
                     );
                   }
                 },

@@ -1,4 +1,6 @@
 import 'package:go_router/go_router.dart';
+import 'package:cloud_board/src/app/core/router/app_router.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_search_screen.dart';
 import 'package:image/image.dart' as img;
@@ -20,6 +22,97 @@ import 'support/ui_layout_evidence.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'search completion after logout disposes home without an exception',
+    (tester) async {
+      final data = NavigationPreviewData(active: false);
+      addTearDown(data.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: data.container,
+          child: const MainNavigationPreview(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final home = tester.element(find.byType(WorkoutListBody));
+      final search = tester.widget<IconButton>(
+        find.byWidgetPredicate(
+          (widget) => widget is IconButton && widget.tooltip == '검색',
+        ),
+      );
+      // Observe the actual async callback and production router push future.
+      final completion = (search.onPressed! as dynamic)() as Future<void>;
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkoutSearchScreen), findsOneWidget);
+      final searchMatch =
+          data.container
+                  .read(appRouterProvider)
+                  .routerDelegate
+                  .currentConfiguration
+                  .matches
+                  .last
+              as ImperativeRouteMatch;
+      data.users.add(null);
+      await tester.pumpAndSettle();
+      expect(
+        data.container
+            .read(appRouterProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .path,
+        '/login',
+      );
+      expect(home.mounted, isFalse);
+      // Redirect removes the route without completing its push future in the
+      // current router. Deliver that result late, after actual home disposal.
+      if (!searchMatch.completer.isCompleted) searchMatch.complete(null);
+      await completion;
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'layout save failure uses root Sonner and retains selected view',
+    (tester) async {
+      final data = NavigationPreviewData(
+        active: false,
+        preparationOverrides: [
+          homeWorkoutLayoutStoreProvider.overrideWithValue(
+            _FailingLayoutStore(),
+          ),
+        ],
+      );
+      addTearDown(data.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: data.container,
+          child: const MainNavigationPreview(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('home-layout-list')));
+      await tester.pumpAndSettle();
+      expect(
+        data.container.read(homeWorkoutLayoutProvider),
+        HomeWorkoutLayout.list,
+      );
+      expect(find.byType(shadcn.ShadToast), findsOneWidget);
+      expect(
+        find.text('보기 설정을 기기에 저장하지 못했어요. 이번 방문에는 선택한 보기를 유지해요.'),
+        findsOneWidget,
+      );
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('error-toast-close')));
+      await tester.pumpAndSettle();
+      expect(find.byType(shadcn.ShadToast), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   for (final scene in [
     (name: '390', size: const Size(390, 844), scale: 1.0),
     (name: '320', size: const Size(320, 568), scale: 1.0),
@@ -283,4 +376,11 @@ void main() {
       debugDisableShadows = previousShadows;
     });
   }
+}
+
+class _FailingLayoutStore extends HomeWorkoutLayoutStore {
+  @override
+  Future<HomeWorkoutLayout?> read(String ownerId) async => null;
+  @override
+  Future<bool> write(String ownerId, HomeWorkoutLayout layout) async => false;
 }
