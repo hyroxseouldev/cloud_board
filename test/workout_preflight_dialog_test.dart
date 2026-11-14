@@ -375,7 +375,7 @@ void main() {
           expect(find.byType(MainNavigationDock), findsOneWidget);
           await tester.tap(find.byTooltip('검색'));
           await tester.pumpAndSettle();
-          await tester.enterText(find.byType(TextField), 'HYROX');
+          await tester.enterText(find.byType(EditableText), 'HYROX');
           FocusManager.instance.primaryFocus?.unfocus();
           await tester.pumpAndSettle();
           final list = tester.element(
@@ -418,7 +418,10 @@ void main() {
             same(list),
           );
           expect(
-            tester.widget<TextField>(find.byType(TextField)).controller!.text,
+            tester
+                .widget<EditableText>(find.byType(EditableText))
+                .controller!
+                .text,
             'HYROX',
           );
           expect(scroll.offset, offset);
