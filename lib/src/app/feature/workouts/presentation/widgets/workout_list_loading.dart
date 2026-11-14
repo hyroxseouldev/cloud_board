@@ -1,7 +1,6 @@
 import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -98,20 +97,25 @@ SliverGridDelegateWithFixedCrossAxisCount workoutListGridDelegate(
   double width,
 ) {
   final scaler = MediaQuery.textScalerOf(context);
-  // Match the thumbnail/details row and move actions below enlarged text.
-  final minWidth = 350 + math.max(0, scaler.scale(16) - 16) * 20;
-  final textHeight =
-      scaler.scale(17) * 2.6 +
-      scaler.scale(12) * 2.8 +
-      scaler.scale(13) * 1.4 +
-      10;
-  final stacked = scaler.scale(17) > 23;
-
+  final minWidth = scaler.scale(17) > 22 ? 280.0 : 164.0;
+  final columns = ((width + 12) / (minWidth + 12)).floor().clamp(1, 3);
+  final innerWidth = (width - (columns - 1) * 12) / columns - 20;
+  final stackedFooter = innerWidth < 110 + scaler.scale(13) * 3.5;
   return SliverGridDelegateWithFixedCrossAxisCount(
-    crossAxisCount: (width / minWidth).floor().clamp(1, 2),
-    mainAxisExtent: 36 + math.max(56, textHeight) + (stacked ? 60 : 0),
-    crossAxisSpacing: 16,
-    mainAxisSpacing: 16,
+    crossAxisCount: columns,
+    mainAxisExtent:
+        (innerWidth * 9 / 16 +
+                12 +
+                scaler.scale(17) * 2.6 +
+                6 +
+                scaler.scale(12) * 2.8 +
+                12 +
+                48 +
+                20 +
+                (stackedFooter ? scaler.scale(13) * 1.4 + 6 : 0))
+            .ceilToDouble(),
+    crossAxisSpacing: 12,
+    mainAxisSpacing: 12,
   );
 }
 
@@ -184,9 +188,36 @@ class _SkeletonRow extends StatelessWidget {
     final contents = LayoutBuilder(
       builder: (context, constraints) {
         final stacked = constraints.maxWidth < 330 || scaler.scale(17) > 23;
+        if (framed) {
+          return Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _block(height: double.infinity, radius: 12),
+                ),
+                const SizedBox(height: 12),
+                _bar(.85, scaler.scale(17) * 1.3),
+                const SizedBox(height: 6),
+                _bar(.8, scaler.scale(12) * 1.4),
+                const Spacer(),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _block(width: 102, height: 48, radius: 12),
+                ),
+              ],
+            ),
+          );
+        }
         final details = Row(
           children: [
-            _block(width: 56, height: 56, radius: 12),
+            _block(
+              width: constraints.maxWidth < 330 ? 96 : 108,
+              height: (constraints.maxWidth < 330 ? 96 : 108) * 9 / 16,
+              radius: 12,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -248,8 +279,11 @@ class _SkeletonRow extends StatelessWidget {
             ),
           );
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        border: framed
+            ? Border.all(color: AppColors.line)
+            : const Border(bottom: BorderSide(color: AppColors.line)),
+        borderRadius: framed ? BorderRadius.circular(14) : null,
       ),
       child: animated,
     );

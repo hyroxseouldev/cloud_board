@@ -1,3 +1,4 @@
+import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_search_screen.dart';
 import 'package:cloud_board/src/app/feature/support/presentation/views/support_screen.dart';
 import 'package:cloud_board/src/app/core/router/main_tab_page.dart';
 import 'package:cloud_board/src/app/core/widgets/main_navigation_dock.dart';
@@ -310,6 +311,10 @@ GoRouter appRouter(Ref ref) {
                 ],
               ),
             ],
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (_, _) => const WorkoutSearchScreen(),
           ),
           GoRoute(
             path: '/support',

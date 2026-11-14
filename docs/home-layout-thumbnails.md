@@ -2,9 +2,9 @@
 
 ## 범위
 
-기준은 `origin/develop`의 `c39617c9e6ce031b96ef9db973ed5423142140d7`(Dev TestFlight 2.2.1(6))이며 소스 버전 `2.2.1+13`은 유지한다. 홈의 실제 프로필 인사, 두 줄 환영 문구, 연결 상태, 내 수업 목록을 정리한다. 브랜드·전역 내비게이션·경로·검색·폴더·페이지 전환·첫 수업 안내·활성 수업 편집 잠금은 기존 흐름을 사용한다. 좁은 화면과 큰 글꼴에서는 행의 동작 버튼을 아래로 옮기고 전체 콘텐츠를 스크롤한다.
+이번 FAB/legacy 후속 작업의 기준은 `origin/develop`의 `a6ea313cab1bdce029acf61432cb6ef5befac1c9`(Dev TestFlight 2.2.1(7))이며 소스 버전 `2.2.1+13`은 유지한다. 홈의 실제 프로필 인사, 두 줄 환영 문구, 연결 상태, 내 수업 목록을 정리한다. 브랜드·전역 내비게이션·경로·검색·폴더·페이지 전환·첫 수업 안내·활성 수업 편집 잠금은 기존 흐름을 사용한다. 좁은 화면과 큰 글꼴에서는 행의 동작 버튼을 아래로 옮기고 전체 콘텐츠를 스크롤한다.
 
-홈 이미지는 56×56 고정 슬롯 안에 원본 비율을 보존하는 image-only 표시다. `WorkoutImage`, `SlideCanvas`, timer, player/preparation, 공용 이미지 loader/cache는 수정하지 않는다. 이미지가 없거나 실패하면 중립 이미지 아이콘을 표시하며 셀별 토스트는 만들지 않는다.
+카드 리디자인은 사용자 3안 선택을 기다리며 기존 구조를 유지한다. 홈 이미지는 56×56 고정 슬롯 안에 원본 비율을 보존하는 image-only 표시다. `WorkoutImage`, `SlideCanvas`, timer, player/preparation, 공용 이미지 loader/cache는 수정하지 않는다. 이미지가 없거나 실패하면 중립 이미지 아이콘을 표시하며 셀별 토스트는 만들지 않는다.
 
 ## 조사 결과와 확장 계약
 
@@ -13,7 +13,7 @@
 코디네이터가 승인한 확장은 기존 `cloudboardMedia`의 선택적 `rendition=home-v1` 본문 경로다. `imageSource`, summary/entity 필드, 원본 URL, lease 계약, 구버전 원본 GET은 유지한다. 홈은 기존 summary source에서 자산 ID·generation을 얻으며 workout detail N+1 읽기는 하지 않는다.
 
 - managed source: 정확한 development 프로젝트 또는 명시적인 demo loopback 주소만 사용한다. 기존 callable에서 **owner preview** lease 1회, rendition GET 1회가 최초 표시된 고유 source에 필요하다. 수업 gate/admission/start는 호출하지 않는다. 다른 계정/TV의 preview나 playback/preparation lease로 홈 rendition을 받을 수 없다.
-- legacy source: 현재 계정 Storage namespace의 유효한 native disk cache에 **이미** 64KiB 이하 PNG/JPEG가 있을 때만 재사용한다. web legacy, 임의 외부 URL, 없는 캐시는 placeholder다. 캐시 미스에서 원본 GET을 시작하지 않는다.
+- legacy source: 이전 클라이언트의 native small disk-cache-only 경로를 인증된 `home-v1` GET으로 대체한다. 보이는 셀의 summary `id`, 정확한 `imageSource` UTF-8 SHA-256, `updatedAt.millisecondsSinceEpoch`를 사용한다. 원본 URL/Storage token은 요청 주소·헤더에 보내지 않고 hash 계산에만 사용한다. endpoint는 개발 프로젝트의 고정 Functions origin 또는 명시적으로 주입한 demo loopback이다. 임의 origin·다른 계정·다른 bucket·운영 프로젝트는 거부한다. 원본 GET/상세 문서 N+1/legacy callable·lease·admission은 없다.
 - embedded source: base64 길이와 실제 64KiB 한도를 확인하고 정적 PNG/JPEG만 표시한다. 잘못된 입력은 placeholder다.
 - 이전 서버/미지원 원본/인증 실패: 작은 이미지 경로 실패만 처리하며 원본 GET으로 fallback하지 않는다. 네트워크 썸네일 복원은 새 서버 계약이 개발 환경에 반영된 후 사용 가능하다.
 
@@ -28,7 +28,7 @@
 - **파생 저장공간은 시스템 캐시 비용**으로 source revision당 최대 64KiB + 작은 manifest 1개다. 원본 사용자 storage/upload quota를 증가시키지 않는다. 다운로드는 기존 ledger에서 manifest의 실제 rendition 크기를 transaction 검증하고 그 바이트만 예약/정산한다. 원본 크기 검증·기존 원본 quota 의미는 그대로다.
 - 공유 이미지의 수업 복사/개별 수업 삭제는 기존 원본 자산 수명과 동일하다. 개별 수업 삭제에서 공유 파생본을 지우지 않으며 별도 TTL/자산 GC를 추가하지 않았다. 기존 계정 삭제의 `users/{uid}/` Storage prefix와 Firestore recursive delete가 파생 파일과 manifest도 삭제한다. 계정 삭제 후 미디어 권한은 기존 계정 잠금/세션 취소로 차단한다.
 
-홈 캐시는 계정/로그인 상태별 auto-dispose, source의 immutable generation과 `home-v1`에 묶인다. legacy/embedded 셀의 변경에는 summary `updatedAt`도 사용한다. 최대 32항목×64KiB compressed bytes, 한 요청씩 실행하며 총 대기 8개를 넘기지 않는다. 뷰포트 밖 셀은 만들지 않고, 스크롤로 사라진 셀의 아직 시작하지 않은 요청은 취소한다. 같은 계정/source를 공유하는 셀은 한 요청을 재사용한다. 실패는 현재 방문에서 placeholder로 유지하고 반복 retry/toast를 만들지 않는다. 화면/계정 scope 폐기 시 전용 bytes와 해당 decoded image key만 해제한다. 전체 앱 이미지 캐시는 지우지 않는다.
+홈 캐시는 계정/로그인 상태별 auto-dispose, source의 immutable generation과 `home-v1`에 묶인다. legacy/embedded 셀의 변경에는 summary `id`와 `updatedAt`도 사용한다. 같은 legacy source라도 다른 수업은 서버가 각 summary를 검증하므로 별도 요청 identity이며 managed 복사본은 동일 generation을 공유한다. 최대 32항목×64KiB compressed bytes, 한 요청씩 실행하며 총 대기 8개를 넘기지 않는다. 뷰포트 밖 셀은 만들지 않고, 스크롤로 사라진 셀의 아직 시작하지 않은 요청은 취소한다. 같은 계정/source를 공유하는 셀은 한 요청을 재사용한다. 실패는 현재 방문에서 placeholder로 유지하고 반복 retry/toast를 만들지 않는다. 화면/계정 scope 폐기 시 전용 bytes와 해당 decoded image key만 해제한다. 전체 앱 이미지 캐시는 지우지 않는다.
 
 ## 검증과 한계
 
@@ -40,3 +40,16 @@
 - `home-thumbnail-emulator.mjs`: 실제 로컬 Firestore·Realtime Database·Storage와 HTTP gateway, 주입한 로컬 auth identity. 원본 12,452B → rendition 2,088B; 두 요청의 4,176B만 day/month 사용량에 정산, 예약 잔여·admission·원본 client GET 0. 위조한 크기/원본 계약 혼용/버전 변경 거부 및 기존 계정 삭제 절차의 파생파일·manifest 정리를 확인한다. 에뮬레이터 rules는 demo 기본 설정으로 보안 규칙 배포 검증은 아니다.
 - 개발/운영 서비스 연결, 실제 계정 로그인·저장·클래스 쓰기, 서버 배포, TestFlight 업로드, 전체 Flutter suite, native archive는 **미실행**. 알려진 baseline remote partial-seek 실패 테스트는 수정/삭제/skip하지 않는다.
 - 실제 설치 기기에서의 인증된 rendition 로딩과 TestFlight 검수는 **미확인**이며 root의 개발 서버 배포/통합 검증 단계다. legacy/cold oversize/미지원 원본은 의도적으로 placeholder다.
+
+
+## 2.2.1(7) 후속: FAB와 기존 이미지 전송
+
+- 헤더의 수업 만들기 버튼을 제거하고 `Scaffold`의 하단 우측 56×56 플러스 FAB 하나로 옮겼다. tooltip/접근성 이름은 `수업 만들기`이며 기존 `allowPlanAddition` 검사를 유지한다. 비동기 검사·편집 화면 진입 중 중복 탭을 막는다.
+- 검색/키보드 중 FAB는 숨긴다. 마지막 행 뒤 80px의 스크롤 여유가 있어 행 메뉴가 FAB에 가려진 채 고정되지 않는다. 기존 `ActiveClassShell`의 Column이 dock·safe area를 확보하므로 dock 높이를 하드코딩하지 않는다. navbar/router/환영 문구와 카드 스타일은 변경하지 않는다.
+- 승인 legacy 요청: `GET cloudboardMedia?rendition=home-v1&workoutId=<summary.id>&sourceHash=<sha256 exact source>&updatedAtMs=<decimal ms>`, `Authorization: Bearer <Firebase ID token>`. legacy에는 Media-Lease 헤더가 없다. managed의 assetId/v 및 owner-preview lease 계약은 그대로다.
+- 응답은 `200 image/jpeg`, 실제/선언 body 길이 일치, ≤64KiB, 정적 JPEG 각 변 ≤192px일 때만 표시한다. 401/404/409/503, redirect, malformed, 초과 body, 오래된 summary는 중립 placeholder로 끝난다. 원본 다운로드 fallback이나 끝없는 loading/retry를 추가하지 않는다.
+- 서버 담당자가 제공한 legacy 계약은 같은 owner의 현재 canonical workout+summary source/revision, configured bucket, Storage generation, 삭제/등록/인증 fence를 검증한다. cold legacy 원본 한도는 <10MiB, ≤16Mi pixels, 각 변 ≤8192의 정적 PNG/JPEG이며 managed 기존 ≤2MiB/4MP 계약과 구분한다. 서버 코드/배포는 별도 PR의 책임이며 이 프런트엔드 PR만으로 가용성을 보장하지 않는다.
+- 클라이언트 검증은 관련 홈 widget/unit/transport 테스트와 파일별 analyze이다. real loopback HTTP + injected local auth session 테스트는 실제 client stream 경로를 확인하지만 Firebase 인증·서버 quota/Storage 통합 검사는 아니다.
+- 외부 증거: `/Users/sunmkim/CloudBoard-release-artifacts/2026-11-15-home-nav/home/`. `before`는 기준 소스의 embedded-image widget, `after`의 shell 이미지는 현재 production home/router/dock에 legacy HTTP fixture를 주입한 390/320/2x widget이다. `reference/library-current-390.png`는 사용자 시안 선택용 현재 실제 라이브러리 위젯·번들 이미지 참조다. 실기기·TestFlight 검증으로 주장하지 않는다.
+- 기존 `static reduced-motion skeleton fits Size(320.0, 568.0) at text scale 2.0`의 첫 viewport skeleton assertion은 기준 a6ea313에서도 재현된다(큰 환영 영역 아래 lazy skeleton이 화면 밖). `baseline-exact-loading.log`에 보관했고 테스트를 삭제/skip하지 않았다. 기존 remote partial-seek 실패 2개는 이번 범위에서 수정/실행하지 않았다.
+- 실제 검사 SHA/명령/결과는 PR 및 외부 `report.md`에 기록한다. 개발/운영 연결·실계정/수업 쓰기·서버 배포·native build·TestFlight·전체 suite는 미실행이며 root의 최종 source 통합/개발 backend 검증이 남는다.
