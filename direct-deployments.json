@@ -2012,8 +2012,10 @@
         },
         {
           "id": "signing-preflight",
-          "status": "running",
-          "startedAt": "2026-11-14T14:44:28.377Z"
+          "status": "success",
+          "startedAt": "2026-11-14T14:44:28.377Z",
+          "completedAt": "2026-11-14T14:44:29.844Z",
+          "durationMs": 1467
         }
       ],
       "targets": [],
