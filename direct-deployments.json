@@ -2558,12 +2558,14 @@
         },
         {
           "id": "upload",
-          "status": "running",
-          "startedAt": "2026-11-14T20:11:20.093Z"
+          "status": "success",
+          "startedAt": "2026-11-14T20:11:20.093Z",
+          "completedAt": "2026-11-14T20:12:58.175Z",
+          "durationMs": 98082
         }
       ],
       "targets": [],
-      "storeReview": "not-submitted",
+      "storeReview": "processing-or-review-unverified",
       "toolchain": {
         "node": "22.21.1",
         "flutter": "3.47.8",
@@ -2595,7 +2597,8 @@
         "runAttempt": "1",
         "origin": "direct-cli",
         "validationMode": "not_requested"
-      }
+      },
+      "uploadStatus": "uploaded"
     }
   ]
 }
