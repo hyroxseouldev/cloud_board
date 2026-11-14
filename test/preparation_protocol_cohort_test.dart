@@ -29,8 +29,8 @@ void main() {
       expect(source.checks, 1);
       expect(source.prepared, isEmpty);
       expect(fixture.repository.requests, 0);
-      expect(enabled(tester), isFalse);
-      expect(find.text('재생할 TV를 선택해 주세요.'), findsOneWidget);
+      expect(enabled(tester), isTrue);
+      expect(find.text('TV 없이 수업을 시작할 수 있어요.'), findsOneWidget);
       final tile = tester.widget<PreparationDeviceTile>(
         find.byKey(const ValueKey('preparation-device-tv-0')),
       );
@@ -39,9 +39,63 @@ void main() {
       await tester.tap(find.text('전체 해제'));
       await tester.pumpAndSettle();
       expect(source.prepared, isEmpty);
-      expect(enabled(tester), isFalse);
+      expect(enabled(tester), isTrue);
     },
   );
+  for (final registered in [false, true]) {
+    testWidgets(
+      'enrolled zero selection cancels only own admission: registered=$registered',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final fixture = PreparationFixture(count: 0);
+        final source = _EnrolledSource(fixture);
+        fixture.source = source;
+        if (registered) {
+          fixture.devices.add(
+            decodeDisplayDevice('ready', {
+              'id': 'ready',
+              'name': 'Ready TV',
+              'paired': true,
+              'online': true,
+              'lastSeenAtMs': fixture.now,
+              'playbackProtocol': 5,
+              'preparationProtocol': 2,
+              'imageUsageProtocol': 1,
+            }),
+          );
+        }
+        WorkoutPreflightSelection? result;
+        await mount(tester, fixture, onResult: (value) => result = value);
+        if (registered) {
+          await tester.tap(find.text('전체 해제'));
+          await tester.pumpAndSettle();
+        }
+        expect(enabled(tester), isTrue);
+        expect(source.cancels, isEmpty);
+        await tester.tap(startButton);
+        await tester.pumpAndSettle();
+        expect(result?.localOnly, isTrue);
+        expect(result?.targetDeviceIds, isEmpty);
+        expect(result?.preparation, isNull);
+        expect(
+          source.prepared,
+          registered
+              ? [
+                  ['ready'],
+                ]
+              : isEmpty,
+        );
+        expect(
+          source.cancels,
+          registered ? [source.response['admissionId']] : isEmpty,
+        );
+        expect(fixture.repository.cancelled, isEmpty);
+        expect(fixture.repository.requests, 0);
+        expect(source.checks, 2);
+      },
+    );
+  }
+
   testWidgets(
     'enrolled mixed protocols prepare once and start compatible TV only',
     (tester) async {
@@ -85,12 +139,12 @@ void main() {
         final ready = find.byKey(const ValueKey('preparation-device-ready'));
         await tester.tap(ready);
         await tester.pumpAndSettle();
-        expect(enabled(tester), isFalse);
+        expect(enabled(tester), isTrue);
         await tester.tap(ready);
         await tester.pumpAndSettle();
         await tester.tap(find.text('전체 해제'));
         await tester.pumpAndSettle();
-        expect(enabled(tester), isFalse);
+        expect(enabled(tester), isTrue);
         await tester.tap(find.text('전체 선택'));
         await tester.pumpAndSettle();
         expect(enabled(tester), isTrue);
@@ -150,6 +204,14 @@ class _EnrolledSource extends FixtureUsageSource {
   final PreparationFixture fixture;
   final prepared = <List<String>>[];
   late Map<String, dynamic> response;
+  final cancels = <String>[];
+  @override
+  Future<ClassAdmission> cancelAdmission(String id) async {
+    cancels.add(id);
+    fixture.repository.value = null;
+    return ClassAdmission.fromJson({...response, 'status': 'cancelled'});
+  }
+
   @override
   Future<bool> enrolled() async {
     checks++;

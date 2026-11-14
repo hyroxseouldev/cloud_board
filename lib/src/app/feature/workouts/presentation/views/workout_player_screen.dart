@@ -149,8 +149,12 @@ class WorkoutPlayerScreen extends HookConsumerWidget {
     return _WorkoutPlayerBody(
       key: ValueKey(sessionId ?? workout.id),
       workout: workout,
+      // Session-less and selected-TV controllers load images on demand.
+      // Keep audience displays and legacy empty-target sessions unchanged.
       remoteController:
-          !displayMode && remoteSession?.targetDeviceIds.isNotEmpty == true,
+          !displayMode &&
+          (sessionId == null ||
+              remoteSession?.targetDeviceIds.isNotEmpty == true),
       remotePreviewScope: (
         remoteSession?.ownerId,
         sessionId,
@@ -358,7 +362,7 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
       if (moduleIndex == null) return null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (cancelled || !context.mounted) return;
-        // Keep the rolling window for local playback and TV displays.
+        // Keep the rolling window for audience/legacy broadcast playback.
         unawaited(
           precacheWorkoutImages(
             context,
