@@ -2408,6 +2408,11 @@
           "startedAt": "2026-11-14T20:00:55.624Z",
           "completedAt": "2026-11-14T20:00:57.446Z",
           "durationMs": 1822
+        },
+        {
+          "id": "deploy",
+          "status": "running",
+          "startedAt": "2026-11-14T20:00:58.998Z"
         }
       ],
       "targets": [
