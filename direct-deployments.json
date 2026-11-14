@@ -884,8 +884,10 @@
         },
         {
           "id": "verify-environment",
-          "status": "running",
-          "startedAt": "2026-11-14T09:33:45.493Z"
+          "status": "success",
+          "startedAt": "2026-11-14T09:33:45.493Z",
+          "completedAt": "2026-11-14T09:33:46.595Z",
+          "durationMs": 1102
         }
       ],
       "targets": [],
