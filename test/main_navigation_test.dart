@@ -7,6 +7,9 @@ import 'package:cloud_board/src/app/feature/device/presentation/controllers/devi
 import 'package:cloud_board/src/app/feature/playback/domain/entities/playback_session.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/player_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 
 import 'dart:ui' show Tristate;
 
@@ -18,6 +21,7 @@ import 'package:shadcn_ui/shadcn_ui.dart' as shad;
 import 'support/main_navigation_fixture.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test('dock destinations match exact roots only', () {
     for (final destination in MainDestination.values) {
       expect(MainDestination.forPath(destination.path), destination);
@@ -121,13 +125,20 @@ void main() {
   }
 
   navigationTest(
-    'tab switches preserve both searches, category and home scroll',
+    'search page returns to home state and tab switches preserve library search and category',
     (tester) async {
       final data = await mountNavigation(tester, active: false, count: 30);
-      await tester.tap(find.byTooltip('검색'));
+      await tester.tap(find.byKey(const ValueKey('home-layout-list')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(EditableText), 'HYROX');
-      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.tap(find.byTooltip('폴더 선택'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(shad.ShadOption<String>),
+          matching: find.text('Stationd'),
+        ),
+      );
+      await tester.pumpAndSettle();
       await tester.drag(
         find.byKey(const ValueKey('workout-scroll')),
         const Offset(0, -250),
@@ -139,9 +150,73 @@ void main() {
           )
           .controller!;
       final offset = scroll.offset;
+      expect(offset, greaterThan(0));
       final homeElement = tester.element(
         find.byKey(const ValueKey('workout-scroll')),
       );
+
+      await tester.tap(find.byTooltip('검색'));
+      await tester.pumpAndSettle();
+      expect(
+        GoRouterState.of(tester.element(find.byType(EditableText))).uri.path,
+        '/search',
+      );
+      expect(find.byType(MainNavigationDock), findsNothing);
+      expect(find.byKey(const ValueKey('create-workout')), findsNothing);
+      expect(find.text('모든 폴더'), findsOneWidget);
+      await tester.enterText(find.byType(EditableText), 'HYROX');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+        'HYROX',
+      );
+      expect(find.text('내 수업 10개'), findsOneWidget);
+      final searchScroll = tester
+          .widget<CustomScrollView>(
+            find.byKey(const ValueKey('workout-scroll')),
+          )
+          .controller!;
+      expect(searchScroll, isNot(same(scroll)));
+      await tester.drag(
+        find.byKey(const ValueKey('workout-scroll')),
+        const Offset(0, -400),
+      );
+      await tester.pumpAndSettle();
+      expect(searchScroll.offset, greaterThan(0));
+      expect(scroll.offset, closeTo(offset, 1));
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+
+      Future<void> expectHomeState() async {
+        expect(
+          tester.element(find.byKey(const ValueKey('workout-scroll'))),
+          same(homeElement),
+        );
+        expect(find.byType(EditableText), findsNothing);
+        expect(scroll.offset, closeTo(offset, 1));
+        expect(
+          data.container.read(homeWorkoutLayoutProvider),
+          HomeWorkoutLayout.list,
+        );
+        // Reveal the lazy header to assert its retained folder, then return to
+        // the original offset before the next navigation transition.
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byType(shad.ShadSelect<String>),
+            matching: find.text('Stationd'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('내 수업 15개'), findsOneWidget);
+        scroll.jumpTo(offset);
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.byType(MainNavigationDock), findsOneWidget);
+      await expectHomeState();
       await selectTab(tester, 'library');
       expect(
         find.byKey(const ValueKey('library-category-tabs')),
@@ -154,15 +229,7 @@ void main() {
       await selectTab(tester, 'displays');
       await selectTab(tester, 'more');
       await selectTab(tester, 'home');
-      expect(
-        tester.element(find.byKey(const ValueKey('workout-scroll'))),
-        same(homeElement),
-      );
-      expect(
-        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-        'HYROX',
-      );
-      expect(scroll.offset, closeTo(offset, 1));
+      await expectHomeState();
       await selectTab(tester, 'home');
       expect(scroll.offset, closeTo(offset, 1));
       await selectTab(tester, 'library');
@@ -173,6 +240,7 @@ void main() {
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
       expect(data.repository.loads, 1);
       expect(data.commands.transports, 0);
+      expect(tester.takeException(), isNull);
     },
   );
 
