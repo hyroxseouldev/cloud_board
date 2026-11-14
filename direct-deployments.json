@@ -2009,6 +2009,11 @@
           "startedAt": "2026-11-14T14:44:25.670Z",
           "completedAt": "2026-11-14T14:44:27.272Z",
           "durationMs": 1602
+        },
+        {
+          "id": "signing-preflight",
+          "status": "running",
+          "startedAt": "2026-11-14T14:44:28.377Z"
         }
       ],
       "targets": [],
