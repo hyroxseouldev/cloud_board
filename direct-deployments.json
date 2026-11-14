@@ -2369,8 +2369,10 @@
       "steps": [
         {
           "id": "verify-source",
-          "status": "running",
-          "startedAt": "2026-11-14T20:00:24.626Z"
+          "status": "success",
+          "startedAt": "2026-11-14T20:00:24.626Z",
+          "completedAt": "2026-11-14T20:00:26.858Z",
+          "durationMs": 2232
         }
       ],
       "targets": [],
