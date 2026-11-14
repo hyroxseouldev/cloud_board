@@ -23,7 +23,9 @@ class _SlideDesignArtwork extends HookWidget {
     required this.webHtmlElementStrategy,
     required this.creationTypography,
     required this.preview,
+    this.presentationBuilder,
   });
+  final WorkoutImagePresentationBuilder? presentationBuilder;
   final bool creationTypography;
   final bool preview;
   final WorkoutModule module;
@@ -70,19 +72,26 @@ class _SlideDesignArtwork extends HookWidget {
         }
       };
     }, [originalId, targetWidth, attempt.value]);
+    Widget present(Widget artwork, {bool ready = true}) =>
+        presentationBuilder?.call(context, artwork, ready) ?? artwork;
+
     if (originalId != null && image.value == null) {
       if (module.imageSource.isNotEmpty) {
         return WorkoutImage(
           source: module.imageSource,
           fit: BoxFit.contain,
           preview: preview,
+          presentationBuilder: presentationBuilder,
           webHtmlElementStrategy: webHtmlElementStrategy,
         );
       }
       if (preview) {
-        return failure.value == null
-            ? const WorkoutImageSkeleton()
-            : WorkoutImageFailure(onRetry: () => attempt.value++);
+        return present(
+          failure.value == null
+              ? const WorkoutImageSkeleton()
+              : WorkoutImageFailure(onRetry: () => attempt.value++),
+          ready: false,
+        );
       }
       return ColoredBox(
         color: Colors.black,
@@ -104,29 +113,33 @@ class _SlideDesignArtwork extends HookWidget {
       );
     }
     if (layoutWarning != null) {
-      return ColoredBox(
-        color: const Color(0xfff6f3ea),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(80),
-            child: Text(
-              '선택한 글자 크기와 배치에 내용이 넘쳐요. 문구를 줄이거나 슬라이드를 나눠 주세요.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xff26382f), fontSize: 44),
+      return present(
+        ColoredBox(
+          color: const Color(0xfff6f3ea),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(80),
+              child: Text(
+                '선택한 글자 크기와 배치에 내용이 넘쳐요. 문구를 줄이거나 슬라이드를 나눠 주세요.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xff26382f), fontSize: 44),
+              ),
             ),
           ),
         ),
       );
     }
-    return Semantics(
-      label: isIllustratedStarterDesign(module)
-          ? '${module.name}. ${module.text.replaceAll('\n', ', ')}. ${module.designSubtitle}'
-          : null,
-      child: CustomPaint(
-        painter: SlideDesignPainter(
-          module,
-          originalImage: image.value,
-          creationTypography: creationTypography,
+    return present(
+      Semantics(
+        label: isIllustratedStarterDesign(module)
+            ? '${module.name}. ${module.text.replaceAll('\n', ', ')}. ${module.designSubtitle}'
+            : null,
+        child: CustomPaint(
+          painter: SlideDesignPainter(
+            module,
+            originalImage: image.value,
+            creationTypography: creationTypography,
+          ),
         ),
       ),
     );
@@ -195,206 +208,236 @@ class WorkoutSlideCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => Stack(
-      fit: StackFit.expand,
-      children: [
-        if (hasSlideDesign(module) || module.imageSource.isNotEmpty)
-          RepaintBoundary(
-            child: ClipRect(
-              child: Transform.translate(
-                offset: Offset(
-                  constraints.maxWidth * preferences.offsetX,
-                  constraints.maxHeight * preferences.offsetY,
-                ),
-                child: Transform.scale(
-                  scale: preferences.zoom,
-                  child: hasSlideDesign(module)
-                      ? FittedBox(
-                          fit:
-                              (preferences.enabled
-                                  ? preferences.cover
-                                  : module.coverImage)
-                              ? BoxFit.cover
-                              : BoxFit.contain,
-                          child: SizedBox(
-                            width: 1920,
-                            height: 1080,
-                            child: _SlideDesignArtwork(
-                              module: module,
-                              creationTypography: creationTypography,
-                              preview: preview,
-                              webHtmlElementStrategy: webHtmlElementStrategy,
-                              targetWidth: _artworkPixelWidth(
-                                constraints,
-                                MediaQuery.devicePixelRatioOf(context),
-                                preferences.zoom,
-                                preferences.enabled
-                                    ? preferences.cover
-                                    : module.coverImage,
-                              ),
-                            ),
-                          ),
-                        )
-                      : WorkoutImage(
-                          source: module.imageSource,
-                          preview: preview,
-                          webHtmlElementStrategy: webHtmlElementStrategy,
-                          fit:
-                              (preferences.enabled
-                                  ? preferences.cover
-                                  : module.coverImage)
-                              ? BoxFit.cover
-                              : BoxFit.contain,
-                          resolutionScale: preferences.zoom,
-                          showLoadingIndicator: showLoadingIndicator,
-                        ),
-                ),
-              ),
+    builder: (context, constraints) {
+      if (preview &&
+          (hasSlideDesign(module) || module.imageSource.isNotEmpty)) {
+        return _buildArtwork(context, constraints);
+      }
+      return _buildSlide(
+        context,
+        constraints,
+        _buildArtwork(context, constraints),
+      );
+    },
+  );
+
+  Widget _positionArtwork(BoxConstraints constraints, Widget artwork) =>
+      RepaintBoundary(
+        child: ClipRect(
+          child: Transform.translate(
+            offset: Offset(
+              constraints.maxWidth * preferences.offsetX,
+              constraints.maxHeight * preferences.offsetY,
+            ),
+            child: Transform.scale(
+              scale: preferences.zoom,
+              child: hasSlideDesign(module)
+                  ? FittedBox(
+                      fit:
+                          (preferences.enabled
+                              ? preferences.cover
+                              : module.coverImage)
+                          ? BoxFit.cover
+                          : BoxFit.contain,
+                      child: SizedBox(
+                        width: 1920,
+                        height: 1080,
+                        child: artwork,
+                      ),
+                    )
+                  : artwork,
+            ),
+          ),
+        ),
+      );
+
+  Widget _buildArtwork(BuildContext context, BoxConstraints constraints) {
+    if (!hasSlideDesign(module) && module.imageSource.isEmpty) {
+      return const ColoredBox(color: Colors.black);
+    }
+    // Compose from Image.frameBuilder itself: no second listener, delayed
+    // readiness callback, or branch that unmounts the Image while it loads.
+    Widget present(BuildContext context, Widget artwork, bool ready) => ready
+        ? _buildSlide(
+            context,
+            constraints,
+            _positionArtwork(constraints, artwork),
+          )
+        : SizedBox.expand(child: artwork);
+    final artwork = hasSlideDesign(module)
+        ? _SlideDesignArtwork(
+            module: module,
+            creationTypography: creationTypography,
+            preview: preview,
+            presentationBuilder: preview ? present : null,
+            webHtmlElementStrategy: webHtmlElementStrategy,
+            targetWidth: _artworkPixelWidth(
+              constraints,
+              MediaQuery.devicePixelRatioOf(context),
+              preferences.zoom,
+              preferences.enabled ? preferences.cover : module.coverImage,
             ),
           )
-        else
-          const ColoredBox(color: Colors.black),
-        SafeArea(
-          minimum: EdgeInsets.symmetric(
-            horizontal:
-                20 * scale + constraints.maxWidth * preferences.safeInset,
-            vertical:
-                20 * scale + constraints.maxHeight * preferences.safeInset,
+        : WorkoutImage(
+            source: module.imageSource,
+            preview: preview,
+            presentationBuilder: preview ? present : null,
+            webHtmlElementStrategy: webHtmlElementStrategy,
+            fit: (preferences.enabled ? preferences.cover : module.coverImage)
+                ? BoxFit.cover
+                : BoxFit.contain,
+            resolutionScale: preferences.zoom,
+            showLoadingIndicator: showLoadingIndicator,
+          );
+    return preview ? artwork : _positionArtwork(constraints, artwork);
+  }
+
+  Widget _buildSlide(
+    BuildContext context,
+    BoxConstraints constraints,
+    Widget artwork,
+  ) => Stack(
+    fit: StackFit.expand,
+    children: [
+      artwork,
+      SafeArea(
+        minimum: EdgeInsets.symmetric(
+          horizontal: 20 * scale + constraints.maxWidth * preferences.safeInset,
+          vertical: 20 * scale + constraints.maxHeight * preferences.safeInset,
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            28 * scale,
+            28 * scale,
+            28 * scale,
+            20 * scale,
           ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              28 * scale,
-              28 * scale,
-              28 * scale,
-              20 * scale,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!hasSlideDesign(module) && module.appearance.showTitle)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          isRest ? '휴식' : module.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(module.appearance.titleColor),
-                            fontSize: 36 * scale,
-                            fontWeight: FontWeight.w900,
-                            shadows: const [Shadow(blurRadius: 12)],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                const Spacer(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!hasSlideDesign(module) && module.appearance.showTitle)
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      flex: 3,
                       child: Text(
-                        hasSlideDesign(module) || !module.appearance.showBody
-                            ? ''
-                            : isRest
-                            ? (module.showSets
-                                  ? '다음: ${set + 1}세트'
-                                  : '다음 운동을 준비하세요')
-                            : module.text,
-                        maxLines: 8,
+                        isRest ? '휴식' : module.name,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Color(module.appearance.bodyColor),
-                          fontSize: 40 * scale,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
+                          color: Color(module.appearance.titleColor),
+                          fontSize: 36 * scale,
+                          fontWeight: FontWeight.w900,
                           shadows: const [Shadow(blurRadius: 12)],
                         ),
                       ),
                     ),
-                    if (module.showTimer)
-                      Expanded(flex: 2, child: SizedBox(height: 260 * scale)),
                   ],
                 ),
-                const Spacer(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        module.appearance.showBrand ? brandL : '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Color(module.appearance.brandColor),
-                          fontSize: 20 * scale,
-                          fontWeight: FontWeight.w900,
-                        ),
+              const Spacer(),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      hasSlideDesign(module) || !module.appearance.showBody
+                          ? ''
+                          : isRest
+                          ? (module.showSets
+                                ? '다음: ${set + 1}세트'
+                                : '다음 운동을 준비하세요')
+                          : module.text,
+                      maxLines: 8,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Color(module.appearance.bodyColor),
+                        fontSize: 40 * scale,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                        shadows: const [Shadow(blurRadius: 12)],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        module.appearance.showBrand ? brandR : '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          color: Color(module.appearance.brandColor),
-                          fontSize: 20 * scale,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  ),
+                  if (module.showTimer)
+                    Expanded(flex: 2, child: SizedBox(height: 260 * scale)),
+                ],
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      module.appearance.showBrand ? brandL : '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Color(module.appearance.brandColor),
+                        fontSize: 20 * scale,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      module.appearance.showBrand ? brandR : '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: Color(module.appearance.brandColor),
+                        fontSize: 20 * scale,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        if (module.showTimer || module.showSets)
-          _TimerGroup(
-            module: module,
-            scale: scale,
-            preferences: preferences,
-            constraints: constraints,
-            timer: module.showTimer
-                ? RepaintBoundary(
-                    child:
-                        timer ??
-                        WorkoutSlideTimer(
-                          module: module,
-                          isRest: isRest,
-                          secondsLeft: secondsLeft,
-                          remainingMs: remainingMs,
-                          durationMs: durationMs,
-                          isPaused: isPaused,
-                          scale: scale,
-                        ),
-                  )
-                : null,
-            sets: module.showSets
-                ? Text(
-                    positionLabel ??
-                        '${isIllustratedStarterDesign(module) && isRest ? '휴식 · ' : ''}${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
-                    key: const ValueKey('slide-sets'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(module.appearance.setsColor),
-                      fontSize:
-                          28 *
-                          scale *
-                          module.appearance.timerSize *
-                          module.appearance.setsSize,
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )
-                : null,
-          ),
-      ],
-    ),
+      ),
+      if (module.showTimer || module.showSets)
+        _TimerGroup(
+          module: module,
+          scale: scale,
+          preferences: preferences,
+          constraints: constraints,
+          timer: module.showTimer
+              ? RepaintBoundary(
+                  child:
+                      timer ??
+                      WorkoutSlideTimer(
+                        module: module,
+                        isRest: isRest,
+                        secondsLeft: secondsLeft,
+                        remainingMs: remainingMs,
+                        durationMs: durationMs,
+                        isPaused: isPaused,
+                        scale: scale,
+                      ),
+                )
+              : null,
+          sets: module.showSets
+              ? Text(
+                  positionLabel ??
+                      '${isIllustratedStarterDesign(module) && isRest ? '휴식 · ' : ''}${remainingSets(set: set, total: totalSets, isRest: isRest)}/$totalSets세트',
+                  key: const ValueKey('slide-sets'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(module.appearance.setsColor),
+                    fontSize:
+                        28 *
+                        scale *
+                        module.appearance.timerSize *
+                        module.appearance.setsSize,
+                    height: 1.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                )
+              : null,
+        ),
+    ],
   );
 }
 

@@ -5,6 +5,15 @@ import 'package:cloud_board/src/app/core/theme/app_motion.dart';
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/services/workout_image_loader.dart';
 
+/// Composes a preview from the same Image frame that supplies its artwork.
+/// [ready] is false for both the loading placeholder and inline retry content.
+/// The builder must include [artwork]; it must not resolve another provider.
+typedef WorkoutImagePresentationBuilder = Widget Function(
+  BuildContext context,
+  Widget artwork,
+  bool ready,
+);
+
 class WorkoutImage extends StatelessWidget {
   const WorkoutImage({
     super.key,
@@ -13,6 +22,7 @@ class WorkoutImage extends StatelessWidget {
     this.showLoadingIndicator = false,
     this.preview = false,
     this.onError,
+    this.presentationBuilder,
     this.resolutionScale = 1,
     this.webHtmlElementStrategy = WebHtmlElementStrategy.prefer,
   });
@@ -24,6 +34,9 @@ class WorkoutImage extends StatelessWidget {
   final bool showLoadingIndicator;
   final bool preview;
   final VoidCallback? onError;
+
+  /// Optional whole-preview composition, used only when [preview] is true.
+  final WorkoutImagePresentationBuilder? presentationBuilder;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -41,6 +54,7 @@ class WorkoutImage extends StatelessWidget {
         size: size,
         showLoadingIndicator: showLoadingIndicator,
         onError: onError,
+        presentationBuilder: presentationBuilder,
         webHtmlElementStrategy: webHtmlElementStrategy,
       );
     },
@@ -56,6 +70,7 @@ class _SizedWorkoutImage extends HookWidget {
     required this.size,
     required this.showLoadingIndicator,
     required this.onError,
+    required this.presentationBuilder,
     required this.webHtmlElementStrategy,
   });
   final bool preview;
@@ -64,6 +79,7 @@ class _SizedWorkoutImage extends HookWidget {
   final WorkoutImageSize size;
   final bool showLoadingIndicator;
   final VoidCallback? onError;
+  final WorkoutImagePresentationBuilder? presentationBuilder;
   final WebHtmlElementStrategy webHtmlElementStrategy;
 
   @override
@@ -98,10 +114,16 @@ class _SizedWorkoutImage extends HookWidget {
       }
     }
 
+    Widget present(Widget artwork, bool ready) =>
+        presentationBuilder?.call(context, artwork, ready) ?? artwork;
+
     Widget error() {
       onError?.call();
       if (preview) {
-        return WorkoutImageFailure(onRetry: retrying.value ? null : retry);
+        return present(
+          WorkoutImageFailure(onRetry: retrying.value ? null : retry),
+          false,
+        );
       }
       return const Center(
         child: Icon(
@@ -119,9 +141,13 @@ class _SizedWorkoutImage extends HookWidget {
       // A synchronous ImageCache hit paints immediately. Wait only for a first
       // decoded frame (including HTML fallback); never re-fade cached images.
       frameBuilder: preview
-          ? (context, child, frame, synchronous) => synchronous || frame != null
-                ? child
-                : const WorkoutImageSkeleton()
+          ? (context, child, frame, synchronous) {
+              final ready = synchronous || frame != null;
+              return present(
+                ready ? child : const WorkoutImageSkeleton(),
+                ready,
+              );
+            }
           : null,
       fit: fit,
       loadingBuilder: !preview && showLoadingIndicator
