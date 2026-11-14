@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync, readdirSync} from 'node:fs';
+import {readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {directPlan} from './direct-plan.mjs';
 import {assertCleanSource, parseArgs, runRecordedStage} from './direct.mjs';
 import {functionTargets, developmentOnly} from './direct-targets.mjs';
@@ -207,4 +209,68 @@ test('runtime comparison follows selected development targets and preserves excl
   assert.throws(() => runtimeConfiguration(inventory, {environment: 'production'}), /Per-function runtime configuration differs/);
   inventory.result[0].environmentVariables.API_KEY = 'never-copy';
   assert.throws(() => runtimeConfiguration(inventory, {environment: 'development', selected: ['account-deletion:saveWorkout']}), /Unrecognized runtime configuration/);
+});
+
+test('successful external operation survives a later receipt failure without replay', async () => {
+  const a = attempt(); let saves = 0, work = 0;
+  await assert.rejects(runRecordedStage({id: 'deploy', attempt: a, log: () => {},
+    save: async () => {if (++saves === 2) throw Error('lost response');}, work: async () => {work++;}}), /lost response/);
+  assert.equal(work, 1); assert.equal(a.steps[0].status, 'success');
+  assert.equal(a.steps[0].receiptPersistence, 'unconfirmed');
+  assert(a.steps[0].completedAt);
+});
+
+test('ambiguous receipt PUT reads exact applied content once and never replays CAS', async () => {
+  const state = {sha: 'old', ledger: ledger([attempt()])};
+  let puts = 0, applied;
+  const request = async (path, options) => {
+    if (options?.method === 'PUT') {puts++; applied = JSON.parse(Buffer.from(options.body.content, 'base64')); throw Error('response lost');}
+    if (path.includes('matching-refs')) return [{ref: `refs/heads/${ledgerBranch}`}];
+    return {sha: 'new', encoding: 'base64', content: Buffer.from(JSON.stringify(applied)).toString('base64')};
+  };
+  const result = await updateAttempt(request, state, success());
+  assert.equal(result.sha, 'new'); assert.equal(puts, 1);
+  assert.equal(state.ledger.attempts[0].status, 'running');
+  await assert.rejects(updateAttempt(request, result, attempt()), /terminal history/);
+});
+
+test('receipt conflict preserves concurrent attempts and immutable terminal history', async () => {
+  const state = {sha: 'old', ledger: ledger([attempt()])};
+  let puts = 0;
+  const concurrent = ledger([success(), attempt({id: '456'})]);
+  const request = async (path, options) => {
+    if (options?.method === 'PUT') {puts++; throw Error('conflict');}
+    return path.includes('matching-refs') ? [{ref: `refs/heads/${ledgerBranch}`}] :
+      {sha: 'new', encoding: 'base64', content: Buffer.from(JSON.stringify(concurrent)).toString('base64')};
+  };
+  await assert.rejects(updateAttempt(request, state, success()), /unconfirmed or conflicted/);
+  assert.equal(puts, 1); assert.equal(concurrent.attempts[1].status, 'running');
+  await assert.rejects(updateAttempt(request, {sha: 'new', ledger: concurrent}, success()), /pending owner/);
+});
+
+
+test('direct GitHub receipt transport survives parent fetch failure and preserves CAS body', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'direct-gh-'));
+  try {
+    writeFileSync(join(directory, 'gh'), `#!${process.execPath}
+const fs=require('node:fs');const body=JSON.parse(fs.readFileSync(0,'utf8'));if(body.sha!=='expected-revision'||process.argv[5]!=='PUT')process.exit(2);console.log(JSON.stringify({content:{sha:'saved'}}));
+`, {mode: 0o700});
+    const code = `import {github} from './tool/firebase/release.mjs';globalThis.fetch=()=>{throw Error('stale connection')};console.log(JSON.stringify(await github('/repos/fixture/contents/receipt',{method:'PUT',body:{sha:'expected-revision',content:'fixture'}})));`;
+    const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', code], {encoding: 'utf8',
+      env: {...process.env, PATH: directory + ':' + process.env.PATH, GITHUB_TOKEN: 'fixture-only', CLOUDBOARD_DIRECT_RELEASE: 'true'}}));
+    assert.equal(result.content.sha, 'saved');
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('existing Firebase login refresh uses granted Firebase scope for rules readback', async () => {
+  const {firebaseLoginToken} = await import('../firebase/direct-readback.mjs');
+  const token = await firebaseLoginToken({getProjectDefaultAccount: cwd => {
+    assert.equal(cwd, '/fixture'); return {tokens: {refresh_token: 'fixture-refresh'}};
+  }, getAccessToken: async (refresh, scopes) => {
+    assert.equal(refresh, 'fixture-refresh');
+    if (scopes.includes('https://www.googleapis.com/auth/firebase.database')) throw Error('invalid_scope');
+    assert(scopes.includes('https://www.googleapis.com/auth/firebase'));
+    return {access_token: 'fixture-access'};
+  }}, '/fixture');
+  assert.equal(token, 'fixture-access');
 });

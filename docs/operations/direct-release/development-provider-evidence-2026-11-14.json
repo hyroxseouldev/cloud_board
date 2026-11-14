@@ -1,0 +1,1400 @@
+{
+  "checkedAt": "2026-11-14T05:21:16.961Z",
+  "sourceSha": "d7c707b5efbd5b3ec187e82fdce4ab360ad2a4d6",
+  "receiptId": "1794632812372450",
+  "functions": [
+    {
+      "name": "auditDisplayAccessBinding",
+      "codebase": "account-deletion",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-southeast1/functions/auditDisplayAccessBinding",
+      "revision": "auditdisplayaccessbinding-00009-qug",
+      "updateTime": "2026-11-14T05:09:00.482593908Z",
+      "build": "projects/1339501332/locations/asia-southeast1/builds/76fd1b4b-1616-4a55-a015-1ce58434227a",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-southeast1",
+        "object": "auditDisplayAccessBinding/function-source.zip",
+        "generation": "1794632929547614"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.firebase.database.ref.v1.written",
+        "triggerRegion": "asia-southeast1"
+      }
+    },
+    {
+      "name": "auditDisplayDeviceBinding",
+      "codebase": "account-deletion",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-southeast1/functions/auditDisplayDeviceBinding",
+      "revision": "auditdisplaydevicebinding-00009-zej",
+      "updateTime": "2026-11-14T05:09:01.908091591Z",
+      "build": "projects/1339501332/locations/asia-southeast1/builds/76fd1b4b-1616-4a55-a015-1ce58434227a",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-southeast1",
+        "object": "auditDisplayDeviceBinding/function-source.zip",
+        "generation": "1794632930621525"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.firebase.database.ref.v1.written",
+        "triggerRegion": "asia-southeast1"
+      }
+    },
+    {
+      "name": "cleanupDailyMaintenance",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cleanupDailyMaintenance",
+      "revision": "cleanupdailymaintenance-00004-hok",
+      "updateTime": "2026-11-14T05:09:00.573937863Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cleanupDailyMaintenance/function-source.zip",
+        "generation": "1794632933461591"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardAppOnboarding",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardAppOnboarding",
+      "revision": "cloudboardapponboarding-00024-sur",
+      "updateTime": "2026-11-14T05:08:50.548642070Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardAppOnboarding/function-source.zip",
+        "generation": "1794632923285306"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [
+        {
+          "key": "CLOUDBOARD_DEVELOPMENT_ONBOARDING_SECRET",
+          "projectId": "cloud-board-development",
+          "secret": "CLOUDBOARD_DEVELOPMENT_ONBOARDING_SECRET",
+          "version": "2"
+        }
+      ]
+    },
+    {
+      "name": "cloudboardClassAdmission",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardClassAdmission",
+      "revision": "cloudboardclassadmission-00001-bat",
+      "updateTime": "2026-11-14T05:08:53.388927483Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardClassAdmission/function-source.zip",
+        "generation": "1794632873221218"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardImageUpload",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardImageUpload",
+      "revision": "cloudboardimageupload-00001-qal",
+      "updateTime": "2026-11-14T05:09:00.574341521Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardImageUpload/function-source.zip",
+        "generation": "1794632932680228"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardImageUploadBody",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardImageUploadBody",
+      "revision": "cloudboardimageuploadbody-00001-taf",
+      "updateTime": "2026-11-14T05:09:00.099393859Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardImageUploadBody/function-source.zip",
+        "generation": "1794632932696488"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardImageUsage",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardImageUsage",
+      "revision": "cloudboardimageusage-00001-hih",
+      "updateTime": "2026-11-14T05:08:59.935795900Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardImageUsage/function-source.zip",
+        "generation": "1794632932502473"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardMedia",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardMedia",
+      "revision": "cloudboardmedia-00001-jam",
+      "updateTime": "2026-11-14T05:09:00.284608995Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardMedia/function-source.zip",
+        "generation": "1794632932510727"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardMediaLease",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardMediaLease",
+      "revision": "cloudboardmedialease-00001-jam",
+      "updateTime": "2026-11-14T05:09:00.270552663Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardMediaLease/function-source.zip",
+        "generation": "1794632932700339"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardPrepareSupportAttachment",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardPrepareSupportAttachment",
+      "revision": "cloudboardpreparesupportattachment-00011-rih",
+      "updateTime": "2026-11-14T05:08:50.344619215Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardPrepareSupportAttachment/function-source.zip",
+        "generation": "1794632923278524"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardSaveBrandConfig",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardSaveBrandConfig",
+      "revision": "cloudboardsavebrandconfig-00019-mat",
+      "updateTime": "2026-11-14T05:08:50.351983922Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardSaveBrandConfig/function-source.zip",
+        "generation": "1794632923140262"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardSubmitSupportTicket",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardSubmitSupportTicket",
+      "revision": "cloudboardsubmitsupportticket-00011-low",
+      "updateTime": "2026-11-14T05:08:51.021731859Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/80edb1ee-021c-44e5-bbc2-3539d9167baf",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardSubmitSupportTicket/function-source.zip",
+        "generation": "1794632874050069"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardUsageGrant",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/cloudboardUsageGrant",
+      "revision": "cloudboardusagegrant-00001-dup",
+      "updateTime": "2026-11-14T05:09:00.690808895Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "cloudboardUsageGrant/function-source.zip",
+        "generation": "1794632932679262"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "deleteMyAccount",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/deleteMyAccount",
+      "revision": "deletemyaccount-00024-ses",
+      "updateTime": "2026-11-14T05:09:00.996699756Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "deleteMyAccount/function-source.zip",
+        "generation": "1794632933463321"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "getPlanUsage",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/getPlanUsage",
+      "revision": "getplanusage-00019-wan",
+      "updateTime": "2026-11-14T05:08:50.564997971Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "getPlanUsage/function-source.zip",
+        "generation": "1794632923066409"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "listLibraryFolders",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/listLibraryFolders",
+      "revision": "listlibraryfolders-00023-hir",
+      "updateTime": "2026-11-14T05:08:50.594037927Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "listLibraryFolders/function-source.zip",
+        "generation": "1794632923261397"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "manageLibraryFolder",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/manageLibraryFolder",
+      "revision": "managelibraryfolder-00023-zoh",
+      "updateTime": "2026-11-14T05:08:50.531556658Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "manageLibraryFolder/function-source.zip",
+        "generation": "1794632923272676"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "notifySupportTicket",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/notifySupportTicket",
+      "revision": "notifysupportticket-00011-lov",
+      "updateTime": "2026-11-14T05:08:50.697828769Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "notifySupportTicket/function-source.zip",
+        "generation": "1794632924071687"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.created",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "pairDisplayConnection",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/pairDisplayConnection",
+      "revision": "pairdisplayconnection-00009-viv",
+      "updateTime": "2026-11-14T05:09:00.450980325Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "pairDisplayConnection/function-source.zip",
+        "generation": "1794632933204780"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "reconcileImageUsageSession",
+      "codebase": "account-deletion",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-southeast1/functions/reconcileImageUsageSession",
+      "revision": "reconcileimageusagesession-00001-pow",
+      "updateTime": "2026-11-14T05:09:14.946481274Z",
+      "build": "projects/1339501332/locations/asia-southeast1/builds/76fd1b4b-1616-4a55-a015-1ce58434227a",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-southeast1",
+        "object": "reconcileImageUsageSession/function-source.zip",
+        "generation": "1794632875832027"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.firebase.database.ref.v1.written",
+        "triggerRegion": "asia-southeast1"
+      }
+    },
+    {
+      "name": "recordOperationTelemetry",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/recordOperationTelemetry",
+      "revision": "recordoperationtelemetry-00023-xef",
+      "updateTime": "2026-11-14T05:08:50.352395720Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "recordOperationTelemetry/function-source.zip",
+        "generation": "1794632923085657"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "reportClientDiagnostic",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/reportClientDiagnostic",
+      "revision": "reportclientdiagnostic-00023-gul",
+      "updateTime": "2026-11-14T05:08:50.550247777Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "reportClientDiagnostic/function-source.zip",
+        "generation": "1794632923284336"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "reportDisplayRecovery",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/reportDisplayRecovery",
+      "revision": "reportdisplayrecovery-00009-vuy",
+      "updateTime": "2026-11-14T05:09:01.578879553Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "reportDisplayRecovery/function-source.zip",
+        "generation": "1794632933502845"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "requestDisplayRecovery",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/requestDisplayRecovery",
+      "revision": "requestdisplayrecovery-00009-weh",
+      "updateTime": "2026-11-14T05:09:01.362887196Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "requestDisplayRecovery/function-source.zip",
+        "generation": "1794632933344866"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "retryAccountDeletions",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/retryAccountDeletions",
+      "revision": "retryaccountdeletions-00023-vof",
+      "updateTime": "2026-11-14T05:09:01.561638497Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "retryAccountDeletions/function-source.zip",
+        "generation": "1794632933493791"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "retryImageUsageEnrollment",
+      "codebase": "account-deletion",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-southeast1/functions/retryImageUsageEnrollment",
+      "revision": "retryimageusageenrollment-00001-qup",
+      "updateTime": "2026-11-14T05:09:24.251113018Z",
+      "build": "projects/1339501332/locations/asia-southeast1/builds/76fd1b4b-1616-4a55-a015-1ce58434227a",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-southeast1",
+        "object": "retryImageUsageEnrollment/function-source.zip",
+        "generation": "1794632928375950"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.firebase.database.ref.v1.written",
+        "triggerRegion": "asia-southeast1"
+      }
+    },
+    {
+      "name": "retryImageUsageOutbox",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/retryImageUsageOutbox",
+      "revision": "retryimageusageoutbox-00001-laf",
+      "updateTime": "2026-11-14T05:09:07.844058498Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "retryImageUsageOutbox/function-source.zip",
+        "generation": "1794632873086576"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "saveWorkout",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/saveWorkout",
+      "revision": "saveworkout-00020-rah",
+      "updateTime": "2026-11-14T05:08:50.691507833Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "saveWorkout/function-source.zip",
+        "generation": "1794632923286221"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "syncAppTrialAccess",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncAppTrialAccess",
+      "revision": "syncapptrialaccess-00023-bim",
+      "updateTime": "2026-11-14T05:08:51.642717525Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncAppTrialAccess/function-source.zip",
+        "generation": "1794632923394527"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "syncLegacyWorkoutSettings",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncLegacyWorkoutSettings",
+      "revision": "synclegacyworkoutsettings-00023-vem",
+      "updateTime": "2026-11-14T05:08:50.704505437Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncLegacyWorkoutSettings/function-source.zip",
+        "generation": "1794632923382998"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "syncSlideLibraryPlan",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncSlideLibraryPlan",
+      "revision": "syncslidelibraryplan-00023-ber",
+      "updateTime": "2026-11-14T05:08:50.836288147Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncSlideLibraryPlan/function-source.zip",
+        "generation": "1794632923273354"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "syncSlidePlanUsage",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncSlidePlanUsage",
+      "revision": "syncslideplanusage-00019-jud",
+      "updateTime": "2026-11-14T05:08:50.729057973Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncSlidePlanUsage/function-source.zip",
+        "generation": "1794632923565774"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "syncStandbyBranding",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncStandbyBranding",
+      "revision": "syncstandbybranding-00019-hoq",
+      "updateTime": "2026-11-14T05:08:54.317938074Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncStandbyBranding/function-source.zip",
+        "generation": "1794632923402595"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "syncVerifiedFreeAccess",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncVerifiedFreeAccess",
+      "revision": "syncverifiedfreeaccess-00018-qah",
+      "updateTime": "2026-11-14T05:08:51.008148020Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncVerifiedFreeAccess/function-source.zip",
+        "generation": "1794632923269512"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "syncWorkoutCatalog",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncWorkoutCatalog",
+      "revision": "syncworkoutcatalog-00023-rid",
+      "updateTime": "2026-11-14T05:08:50.858378083Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncWorkoutCatalog/function-source.zip",
+        "generation": "1794632923372802"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "syncWorkoutPlanUsage",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/syncWorkoutPlanUsage",
+      "revision": "syncworkoutplanusage-00019-juy",
+      "updateTime": "2026-11-14T05:08:50.767003967Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "syncWorkoutPlanUsage/function-source.zip",
+        "generation": "1794632923391005"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": [],
+      "trigger": {
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "triggerRegion": "asia-northeast3"
+      }
+    },
+    {
+      "name": "unpairDisplayConnection",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/unpairDisplayConnection",
+      "revision": "unpairdisplayconnection-00009-waj",
+      "updateTime": "2026-11-14T05:09:00.899023972Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "unpairDisplayConnection/function-source.zip",
+        "generation": "1794632933479295"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "updateSlideLibrary",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/updateSlideLibrary",
+      "revision": "updateslidelibrary-00023-gaf",
+      "updateTime": "2026-11-14T05:08:50.425080602Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/2f55e6f4-0f73-4762-95d2-e56e7c9838ac",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "updateSlideLibrary/function-source.zip",
+        "generation": "1794632923275291"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "verifyDisplayConnection",
+      "codebase": "account-deletion",
+      "region": "asia-northeast3",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-northeast3/functions/verifyDisplayConnection",
+      "revision": "verifydisplayconnection-00009-zod",
+      "updateTime": "2026-11-14T05:09:01.020281281Z",
+      "build": "projects/1339501332/locations/asia-northeast3/builds/a77a9d63-469e-4b69-b153-2d5f6f605027",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-northeast3",
+        "object": "verifyDisplayConnection/function-source.zip",
+        "generation": "1794632933348583"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [
+        "AI_TIMER_SECRETS_ENABLED",
+        "APPLE_IAP_SECRETS_ENABLED"
+      ],
+      "runtimeHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
+      "secrets": []
+    },
+    {
+      "name": "cloudboardSetDisplayState",
+      "codebase": "cloudboard-auth",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "resource": "projects/cloud-board-development/locations/asia-southeast1/functions/cloudboardSetDisplayState",
+      "revision": "cloudboardsetdisplaystate-00004-tux",
+      "updateTime": "2026-11-14T05:10:02.575874521Z",
+      "build": "projects/1339501332/locations/asia-southeast1/builds/0c633a1a-1add-466f-808f-5fb3afcb8f77",
+      "sourceStorage": {
+        "bucket": "gcf-v2-sources-1339501332-asia-southeast1",
+        "object": "cloudboardSetDisplayState/function-source.zip",
+        "generation": "1794632933193700"
+      },
+      "runtime": "nodejs22",
+      "serviceAccount": "development-runtime@cloud-board-development.iam.gserviceaccount.com",
+      "runtimeKeys": [],
+      "runtimeHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "secrets": []
+    }
+  ],
+  "archives": [
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-southeast1\",\"object\":\"auditDisplayAccessBinding/function-source.zip\",\"generation\":\"1794632929547614\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-southeast1\",\"object\":\"auditDisplayDeviceBinding/function-source.zip\",\"generation\":\"1794632930621525\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cleanupDailyMaintenance/function-source.zip\",\"generation\":\"1794632933461591\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardAppOnboarding/function-source.zip\",\"generation\":\"1794632923285306\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardClassAdmission/function-source.zip\",\"generation\":\"1794632873221218\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardImageUpload/function-source.zip\",\"generation\":\"1794632932680228\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardImageUploadBody/function-source.zip\",\"generation\":\"1794632932696488\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardImageUsage/function-source.zip\",\"generation\":\"1794632932502473\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardMedia/function-source.zip\",\"generation\":\"1794632932510727\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardMediaLease/function-source.zip\",\"generation\":\"1794632932700339\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardPrepareSupportAttachment/function-source.zip\",\"generation\":\"1794632923278524\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardSaveBrandConfig/function-source.zip\",\"generation\":\"1794632923140262\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardSubmitSupportTicket/function-source.zip\",\"generation\":\"1794632874050069\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"cloudboardUsageGrant/function-source.zip\",\"generation\":\"1794632932679262\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"deleteMyAccount/function-source.zip\",\"generation\":\"1794632933463321\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"getPlanUsage/function-source.zip\",\"generation\":\"1794632923066409\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"listLibraryFolders/function-source.zip\",\"generation\":\"1794632923261397\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"manageLibraryFolder/function-source.zip\",\"generation\":\"1794632923272676\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"notifySupportTicket/function-source.zip\",\"generation\":\"1794632924071687\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"pairDisplayConnection/function-source.zip\",\"generation\":\"1794632933204780\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-southeast1\",\"object\":\"reconcileImageUsageSession/function-source.zip\",\"generation\":\"1794632875832027\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"recordOperationTelemetry/function-source.zip\",\"generation\":\"1794632923085657\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"reportClientDiagnostic/function-source.zip\",\"generation\":\"1794632923284336\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"reportDisplayRecovery/function-source.zip\",\"generation\":\"1794632933502845\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"requestDisplayRecovery/function-source.zip\",\"generation\":\"1794632933344866\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"retryAccountDeletions/function-source.zip\",\"generation\":\"1794632933493791\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-southeast1\",\"object\":\"retryImageUsageEnrollment/function-source.zip\",\"generation\":\"1794632928375950\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"retryImageUsageOutbox/function-source.zip\",\"generation\":\"1794632873086576\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"saveWorkout/function-source.zip\",\"generation\":\"1794632923286221\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncAppTrialAccess/function-source.zip\",\"generation\":\"1794632923394527\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncLegacyWorkoutSettings/function-source.zip\",\"generation\":\"1794632923382998\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncSlideLibraryPlan/function-source.zip\",\"generation\":\"1794632923273354\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncSlidePlanUsage/function-source.zip\",\"generation\":\"1794632923565774\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncStandbyBranding/function-source.zip\",\"generation\":\"1794632923402595\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncVerifiedFreeAccess/function-source.zip\",\"generation\":\"1794632923269512\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncWorkoutCatalog/function-source.zip\",\"generation\":\"1794632923372802\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"syncWorkoutPlanUsage/function-source.zip\",\"generation\":\"1794632923391005\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"unpairDisplayConnection/function-source.zip\",\"generation\":\"1794632933479295\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"updateSlideLibrary/function-source.zip\",\"generation\":\"1794632923275291\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-northeast3\",\"object\":\"verifyDisplayConnection/function-source.zip\",\"generation\":\"1794632933348583\"}",
+      "zipSha256": "7feebc8b08b14c37b5a4b6772f56845eb779dc68284cb9db0147c6b277e6dbc0",
+      "comparison": "git-source",
+      "matched": true,
+      "comparedFileCount": 62,
+      "comparisonManifestSha256": "9997683a0190733cfdedca156efc167bfda9aa3b19ce8dd75f41303f192711bf",
+      "mismatches": []
+    },
+    {
+      "key": "{\"bucket\":\"gcf-v2-sources-1339501332-asia-southeast1\",\"object\":\"cloudboardSetDisplayState/function-source.zip\",\"generation\":\"1794632933193700\"}",
+      "zipSha256": "76a91f34d41751dde841b495ac85a556eb4dd78b8ed3fc6a36faa3376e7696c8",
+      "comparison": "generated-legacy-package",
+      "matched": true,
+      "comparedFileCount": 26,
+      "comparisonManifestSha256": "95d482961d88ed4a9d78b789bd1c078c42ff13379a457ba97a0636cd0a7cdac3",
+      "mismatches": []
+    }
+  ],
+  "databaseAuth": "HTTP 200",
+  "schemaVersion": 1,
+  "kind": "direct-deployment-reconciliation-evidence",
+  "originalStatus": "failed",
+  "status": "provider-source-verified",
+  "originalAttemptUnmodified": true,
+  "commandExitCode": "not-retained",
+  "rulesDeployed": false,
+  "policyActivated": false,
+  "timing": {
+    "sourceSha": "d7c707b5efbd5b3ec187e82fdce4ab360ad2a4d6",
+    "scope": "backend",
+    "project": "cloud-board-development",
+    "startedAt": "2026-11-14T05:06:50.942085+00:00",
+    "completedAt": "2026-11-14T05:10:04.497671+00:00",
+    "wholeCliElapsedSeconds": 193.554,
+    "exitCode": 1
+  },
+  "verificationLimit": "Core archives: all 62 tracked src/certificates/package files match git source; legacy: all 26 archived lib/package files match the package generated for the fixed-source attempt; unrelated archive entries are not attested. Original child stdout/stderr/exit code was discarded. No authenticated app flow or policy activation is claimed."
+}
