@@ -187,6 +187,27 @@
       },
       "runtimeConfigurationHash": "8d7ddb6dd31ed6499f0f970525fa811da41cd7cb0089b80f53c684b834071500",
       "completedAt": "2026-11-14T05:10:03.512Z"
+    },
+    {
+      "schemaVersion": 1,
+      "kind": "direct-deployment",
+      "id": "1794634099135363",
+      "sourceSha": "ff1eb303332c9f532ccf84124d8e28223565033e",
+      "environment": "development",
+      "project": "cloud-board-development",
+      "scope": "rules",
+      "tag": "",
+      "version": "2.1.6",
+      "actor": "hyroxseouldev",
+      "status": "running",
+      "startedAt": "2026-11-14T05:28:19.214Z",
+      "validation": {
+        "status": "not-run",
+        "reason": "Direct CLI: no GitHub Actions integration CI is requested"
+      },
+      "steps": [],
+      "targets": [],
+      "storeReview": "not-submitted"
     }
   ]
 }
