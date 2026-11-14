@@ -2348,6 +2348,27 @@
       },
       "uploadStatus": "uploaded",
       "completedAt": "2026-11-14T18:46:34.061Z"
+    },
+    {
+      "schemaVersion": 1,
+      "kind": "direct-deployment",
+      "id": "1794686422156536",
+      "sourceSha": "e28673390d31108684c7c467f4ddc354e067670c",
+      "environment": "development",
+      "project": "cloud-board-development",
+      "scope": "functions",
+      "tag": "",
+      "version": "2.2.1",
+      "actor": "hyroxseouldev",
+      "status": "running",
+      "startedAt": "2026-11-14T20:00:22.247Z",
+      "validation": {
+        "status": "not-run",
+        "reason": "Direct CLI: no GitHub Actions integration CI is requested"
+      },
+      "steps": [],
+      "targets": [],
+      "storeReview": "not-submitted"
     }
   ]
 }
