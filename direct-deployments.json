@@ -1886,8 +1886,10 @@
         },
         {
           "id": "allocate-build",
-          "status": "running",
-          "startedAt": "2026-11-14T13:55:11.442Z"
+          "status": "success",
+          "startedAt": "2026-11-14T13:55:11.442Z",
+          "completedAt": "2026-11-14T13:55:13.597Z",
+          "durationMs": 2155
         }
       ],
       "targets": [],
@@ -1896,7 +1898,8 @@
         "node": "22.21.1",
         "flutter": "3.47.8",
         "xcode": "Xcode 26.2\nBuild version 17C52"
-      }
+      },
+      "buildNumber": "5"
     }
   ]
 }
