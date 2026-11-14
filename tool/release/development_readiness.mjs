@@ -25,7 +25,10 @@ export async function inspectDevelopmentIos(token, request = fetch, now = Date.n
   const apps = await list(`apps?filter%5BbundleId%5D=${bundle}&fields%5Bapps%5D=bundleId&limit=2`);
   const bundles = [];
   for (const identifier of [bundle, `${bundle}.ClassActivity`]) {
-    const ids = await list(`bundleIds?filter%5Bidentifier%5D=${identifier}&limit=2`);
+    // Apple's identifier filter also returns prefixed extension identifiers.
+    // Inspect profiles/capabilities only for the unique exact bundle match.
+    const ids = (await list(`bundleIds?filter%5Bidentifier%5D=${identifier}&limit=2`))
+      .filter(entry => entry.attributes?.identifier === identifier);
     const entry = {identifier, registered: ids.length === 1};
     if (entry.registered) {
       assert(/^[A-Za-z0-9-]+$/.test(ids[0].id), 'Invalid Apple bundle identity');
@@ -33,7 +36,7 @@ export async function inspectDevelopmentIos(token, request = fetch, now = Date.n
       entry.activeAppStoreProfileCount = profiles.filter(profile => profile.attributes?.profileType === 'IOS_APP_STORE' &&
         profile.attributes.profileState === 'ACTIVE' && Date.parse(profile.attributes.expirationDate) > now).length;
       if (identifier === bundle) {
-        const capabilities = await list(`bundleIds/${ids[0].id}/bundleIdCapabilities?limit=200`);
+        const capabilities = await list(`bundleIds/${ids[0].id}/bundleIdCapabilities`);
         entry.appleSignInCapability = capabilities.some(capability => capability.attributes?.capabilityType === 'APPLE_ID_AUTH');
       }
     }
