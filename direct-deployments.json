@@ -243,14 +243,34 @@
         },
         {
           "id": "deploy",
-          "status": "running",
-          "startedAt": "2026-11-14T05:28:37.102Z"
+          "status": "success",
+          "startedAt": "2026-11-14T05:28:37.102Z",
+          "completedAt": "2026-11-14T05:28:58.930Z",
+          "durationMs": 21828
         }
       ],
-      "targets": [],
+      "targets": [
+        "firestore:rules",
+        "firestore:indexes",
+        "database",
+        "storage"
+      ],
       "storeReview": "not-submitted",
       "toolchain": {
         "node": "22.21.1"
+      },
+      "deployCommand": {
+        "exitCode": 0,
+        "completedAt": "2026-11-14T05:28:58.928Z",
+        "project": "cloud-board-development",
+        "targets": [
+          "firestore:rules",
+          "firestore:indexes",
+          "database",
+          "storage"
+        ],
+        "outputSha256": "449796f43af2a23433212a98ee6db0bfc37d15fcbce88d6c8ba9ff8232adb63e",
+        "deployComplete": true
       }
     }
   ]
