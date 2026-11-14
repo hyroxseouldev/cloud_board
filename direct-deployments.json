@@ -325,6 +325,11 @@
           "startedAt": "2026-11-14T05:35:35.842Z",
           "completedAt": "2026-11-14T05:35:37.697Z",
           "durationMs": 1855
+        },
+        {
+          "id": "verify-environment",
+          "status": "running",
+          "startedAt": "2026-11-14T05:35:38.727Z"
         }
       ],
       "targets": [],
