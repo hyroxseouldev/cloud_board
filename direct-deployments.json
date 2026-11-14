@@ -339,6 +339,11 @@
           "startedAt": "2026-11-14T05:35:40.826Z",
           "completedAt": "2026-11-14T05:35:44.391Z",
           "durationMs": 3565
+        },
+        {
+          "id": "toolchain",
+          "status": "running",
+          "startedAt": "2026-11-14T05:35:45.681Z"
         }
       ],
       "targets": [],
