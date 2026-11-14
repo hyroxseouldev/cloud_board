@@ -19,6 +19,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_ui/shadcn_ui.dart' as shad;
 
 import 'support/main_navigation_fixture.dart';
+import 'support/ui_layout_evidence.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -367,11 +368,39 @@ void main() {
     navigationTest(
       'dock, mini player, safe area and keyboard at $size text $scale',
       (tester) async {
-        await mountNavigation(tester, size: size, textScale: scale);
+        await loadLayoutFonts(tester);
+        await tester.runAsync(
+          () =>
+              (FontLoader('packages/lucide_icons_flutter/Lucide')..addFont(
+                    rootBundle.load(
+                      'packages/lucide_icons_flutter/assets/lucide.ttf',
+                    ),
+                  ))
+                  .load(),
+        );
+        final previousShadows = debugDisableShadows;
+        debugDisableShadows = false;
+        addTearDown(() => debugDisableShadows = previousShadows);
+        final captureKey = GlobalKey();
+        await mountNavigation(
+          tester,
+          size: size,
+          textScale: scale,
+          captureKey: captureKey,
+        );
         tester.view.padding = const FakeViewPadding(bottom: 24);
         await tester.pumpAndSettle();
         final dock = find.byKey(const ValueKey('main-navigation-dock'));
         final mini = find.byKey(const ValueKey('mini-class-bar'));
+        await captureLayout(
+          tester,
+          find.byKey(captureKey),
+          'active-home-${size.width.toInt()}x${size.height.toInt()}-text$scale',
+        );
+        final fab = find.byKey(const ValueKey('create-workout'));
+        expect(fab.hitTestable(), findsOneWidget);
+        expect(tester.getSize(fab), const Size(56, 56));
+        expect(tester.getRect(fab).bottom, lessThan(tester.getRect(mini).top));
         expect(tester.getRect(mini).bottom, lessThan(tester.getRect(dock).top));
         expect(tester.getRect(dock).bottom, closeTo(size.height - 24 - 16, 1));
         expect(
@@ -396,6 +425,28 @@ void main() {
           expect(find.byTooltip('수업 재개').hitTestable(), findsOneWidget);
           expect(find.byTooltip('수업으로 돌아가기').hitTestable(), findsOneWidget);
         }
+        final scroll = tester
+            .widget<CustomScrollView>(
+              find.byKey(const ValueKey('workout-scroll')),
+            )
+            .controller!;
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        for (final action in ['재생', '워크아웃 메뉴']) {
+          final last = find.byTooltip(action).last;
+          expect(last.hitTestable(), findsOneWidget);
+          expect(
+            tester.getRect(last).bottom,
+            lessThan(tester.getRect(fab).top),
+          );
+        }
+        await captureLayout(
+          tester,
+          find.byKey(captureKey),
+          'active-home-${size.width.toInt()}x${size.height.toInt()}-text$scale-scrolled',
+        );
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
         final semantics = tester.ensureSemantics();
         for (final destination in MainDestination.values) {
           final tab = find.byKey(ValueKey('main-tab-${destination.name}'));
@@ -421,9 +472,54 @@ void main() {
         await selectTab(tester, 'library');
         await selectTab(tester, 'more');
         expect(tester.takeException(), isNull);
+        debugDisableShadows = previousShadows;
       },
     );
   }
+
+  navigationTest(
+    'single class actions remain reachable above FAB in both layouts',
+    (tester) async {
+      for (final scene in [
+        (const Size(390, 844), 1.0),
+        (const Size(844, 390), 1.0),
+        (const Size(320, 568), 2.0),
+      ]) {
+        await mountNavigation(
+          tester,
+          active: false,
+          count: 1,
+          size: scene.$1,
+          textScale: scene.$2,
+        );
+        final scroll = tester
+            .widget<CustomScrollView>(
+              find.byKey(const ValueKey('workout-scroll')),
+            )
+            .controller!;
+        for (final layout in ['grid', 'list']) {
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(ValueKey('home-layout-$layout')));
+          await tester.pumpAndSettle();
+          scroll.jumpTo(scroll.position.maxScrollExtent);
+          await tester.pumpAndSettle();
+          final fab = find.byKey(const ValueKey('create-workout'));
+          expect(fab.hitTestable(), findsOneWidget);
+          for (final action in ['재생', '워크아웃 메뉴']) {
+            final button = find.byTooltip(action);
+            expect(button.hitTestable(), findsOneWidget);
+            expect(
+              tester.getRect(button).bottom,
+              lessThan(tester.getRect(fab).top),
+            );
+          }
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
 
   navigationTest(
     'controller navigation hides when the device switches to display mode',
