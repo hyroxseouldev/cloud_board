@@ -2383,12 +2383,17 @@
         },
         {
           "id": "toolchain",
-          "status": "running",
-          "startedAt": "2026-11-14T20:00:30.992Z"
+          "status": "success",
+          "startedAt": "2026-11-14T20:00:30.992Z",
+          "completedAt": "2026-11-14T20:00:32.455Z",
+          "durationMs": 1463
         }
       ],
       "targets": [],
-      "storeReview": "not-submitted"
+      "storeReview": "not-submitted",
+      "toolchain": {
+        "node": "22.21.1"
+      }
     }
   ]
 }
