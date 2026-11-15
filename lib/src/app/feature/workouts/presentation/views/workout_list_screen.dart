@@ -15,7 +15,6 @@ import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
-import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/gestures.dart';
