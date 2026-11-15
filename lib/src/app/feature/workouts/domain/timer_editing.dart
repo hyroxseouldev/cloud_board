@@ -164,7 +164,7 @@ WorkoutModule timerModeCandidate(WorkoutModule source, WorkoutTimerMode mode) {
 
 String timerComposition(WorkoutModule module) {
   if (isContinuousTimer(module)) {
-    if (isOpenEndedTimer(module)) return '운동 완료를 누를 때까지 진행';
+    if (isOpenEndedTimer(module)) return '제한시간 없이 진행';
     return '${formatSlideTime(module.workSeconds)} 동안 연속 운동';
   }
   final blocks = effectiveIntervalBlocks(module);

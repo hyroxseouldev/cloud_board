@@ -215,7 +215,7 @@ class TimerCompactFields extends StatelessWidget {
                   actions.setDirection(values.single),
             ),
           ] else
-            const Text('00:00부터 경과 시간을 표시해요. 운동 완료를 누르면 시간이 멈춥니다.'),
+            const Text('00:00부터 경과 시간을 표시해요. 일시정지로 시간을 멈출 수 있어요.'),
           const SizedBox(height: 16),
           Text(
             timerRepeatDescription(m),
