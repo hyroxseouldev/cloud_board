@@ -2642,12 +2642,19 @@
         },
         {
           "id": "toolchain",
-          "status": "running",
-          "startedAt": "2026-11-15T06:46:15.684Z"
+          "status": "success",
+          "startedAt": "2026-11-15T06:46:15.684Z",
+          "completedAt": "2026-11-15T06:46:17.751Z",
+          "durationMs": 2067
         }
       ],
       "targets": [],
-      "storeReview": "not-submitted"
+      "storeReview": "not-submitted",
+      "toolchain": {
+        "node": "22.21.1",
+        "flutter": "3.47.8",
+        "xcode": "Xcode 26.2\nBuild version 17C52"
+      }
     }
   ]
 }
