@@ -2649,8 +2649,10 @@
         },
         {
           "id": "signing-preflight",
-          "status": "running",
-          "startedAt": "2026-11-15T06:46:19.378Z"
+          "status": "success",
+          "startedAt": "2026-11-15T06:46:19.378Z",
+          "completedAt": "2026-11-15T06:46:20.483Z",
+          "durationMs": 1105
         }
       ],
       "targets": [],
