@@ -1,3 +1,5 @@
+import 'support/home_thumbnail_pump.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:cloud_board/src/app/core/router/app_router.dart';
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_list_screen.dart';
@@ -189,7 +191,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(requests, isNotEmpty);
       expect(requests.length, lessThan(6));
       expect(
@@ -216,32 +218,7 @@ void main() {
         lessThanOrEqualTo(scene.size.height - 34),
       );
       Future<void> resolveThumbnails() async {
-        // Mock HTTP completion and native image codecs use separate event-loop
-        // turns. Wait for bytes, then for decoded frames before screenshotting.
-        for (
-          var frame = 0;
-          frame < 8 && find.byIcon(Icons.image_outlined).evaluate().isNotEmpty;
-          frame++
-        ) {
-          await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 100)),
-          );
-          await tester.pumpAndSettle();
-          final images = find.descendant(
-            of: find.byType(HomeWorkoutThumbnail),
-            matching: find.byType(Image),
-          );
-          for (final image in tester.widgetList<Image>(images)) {
-            await tester.runAsync(
-              () => precacheImage(
-                image.image,
-                tester.element(fab),
-                onError: (error, stack) => fail('Thumbnail codec: $error'),
-              ),
-            );
-          }
-          await tester.pumpAndSettle();
-        }
+        await pumpHomeThumbnails(tester);
         expect(find.byIcon(Icons.image_outlined), findsNothing);
       }
 
@@ -266,7 +243,7 @@ void main() {
           .controller!;
       scrolling.jumpTo(256);
 
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(tester.getRect(fab), initialFab);
       expect(find.byType(HomeWorkoutThumbnail), findsWidgets);
       await resolveThumbnails();
@@ -278,13 +255,13 @@ void main() {
       // The same account cache survives the subtree swap; only newly visible
       // workout identities may request a rendition.
       scrolling.jumpTo(0);
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       await tester.tap(find.byKey(const ValueKey('home-layout-list')));
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       scrolling.jumpTo(
         256.clamp(0, scrolling.position.maxScrollExtent).toDouble(),
       );
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       await resolveThumbnails();
       expect(
         data.container.read(homeWorkoutLayoutProvider),
@@ -305,9 +282,9 @@ void main() {
       );
       // A tab revisit uses the same account preference and mounted home state.
       await tester.tap(find.byKey(const ValueKey('main-tab-more')));
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       await tester.tap(find.byKey(const ValueKey('main-tab-home')));
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(
         data.container.read(homeWorkoutLayoutProvider),
         HomeWorkoutLayout.list,
@@ -317,14 +294,14 @@ void main() {
         find.byKey(const ValueKey('workout-scroll')),
         const Offset(0, -5000),
       );
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(
         tester.getRect(find.byTooltip('워크아웃 메뉴').last).bottom,
         lessThan(tester.getRect(fab).top),
       );
       final homeOffset = scrolling.offset;
       await tester.tap(find.byTooltip('검색'));
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(fab, findsNothing);
       expect(find.byType(WorkoutSearchScreen), findsOneWidget);
       expect(
@@ -342,10 +319,10 @@ void main() {
         isTrue,
       );
       await tester.enterText(find.byType(shadcn.ShadInput), '토요일');
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(find.text('토요일 팀 워크아웃'), findsWidgets);
       tester.view.viewInsets = const FakeViewPadding(bottom: 240);
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(fab, findsNothing);
       expect(dock, findsNothing);
       await captureLayout(
@@ -355,7 +332,7 @@ void main() {
       );
       await tester.tap(find.byTooltip('뒤로'));
       tester.view.viewInsets = const FakeViewPadding();
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(fab.hitTestable(), findsOneWidget);
       expect(GoRouterState.of(tester.element(fab)).uri.path, '/');
       expect(scrolling.offset, closeTo(homeOffset, 1));

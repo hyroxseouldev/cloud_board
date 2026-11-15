@@ -1,3 +1,5 @@
+import 'support/home_thumbnail_pump.dart';
+
 import 'package:cloud_board/src/app/feature/workouts/presentation/views/workout_search_screen.dart';
 import 'package:cloud_board/src/app/feature/entitlement/data/models/store_entitlement_model.dart';
 import 'package:cloud_board/src/app/feature/entitlement/domain/plan_usage.dart';
@@ -79,7 +81,7 @@ void main() {
           find.byKey(const ValueKey('workout-scroll')),
           const Offset(0, -550),
         );
-        await tester.pumpAndSettle();
+        await pumpHomeThumbnails(tester);
         await captureLayout(
           tester,
           find.byKey(const ValueKey('layout-evidence')),
@@ -122,7 +124,7 @@ void main() {
         find.byKey(const ValueKey('workout-scroll')),
         const Offset(0, -450),
       );
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(requests.length, greaterThan(firstCount));
       expect(requests.length, lessThan(15));
       expect(requests.toSet().length, requests.length);
@@ -1069,7 +1071,7 @@ Future<ProviderContainer> _mount(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await pumpHomeThumbnails(tester);
   final container = ProviderScope.containerOf(
     tester.element(find.byType(WorkoutListScreen)),
   );

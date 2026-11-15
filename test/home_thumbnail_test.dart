@@ -1,3 +1,5 @@
+import 'support/home_thumbnail_pump.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -209,10 +211,10 @@ void main() {
       await tester.pump();
       blocker.complete(tinyImage());
       await first;
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(calls, ['blocker']);
       await mount(true);
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(calls, ['blocker', 'queued']);
       expect(tester.takeException(), isNull);
     },
@@ -250,11 +252,11 @@ void main() {
         ),
       );
       await mount('good');
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(
         tester.getSize(find.byType(HomeWorkoutThumbnail)),
         const Size(108, 60.75),
@@ -262,11 +264,11 @@ void main() {
       expect(find.byType(Image), findsOneWidget);
       expect(find.text('30'), findsNothing);
       await mount('bad');
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
-      await tester.pumpAndSettle();
+      await pumpHomeThumbnails(tester);
       expect(find.byIcon(Icons.image_outlined), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

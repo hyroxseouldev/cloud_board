@@ -356,12 +356,9 @@ class WorkoutListBody extends HookConsumerWidget {
             final compactViewport = bodyConstraints.maxHeight < 380;
             return SafeArea(
               top: false,
-              // Normal home keeps its approved card/FAB separation. Short bodies
-              // need this space to reveal a card; their trailing scroll padding
-              // lets the final action move fully above the floating control.
-              minimum: EdgeInsets.only(
-                bottom: showCreate && !compactViewport ? 80 : 0,
-              ),
+              // The shell owns the dock and bottom safe area. Keep the viewport
+              // open behind the FAB; only the end of the content needs clearance.
+              bottom: searching,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final listLayout = layout == HomeWorkoutLayout.list;
@@ -635,7 +632,7 @@ class WorkoutListBody extends HookConsumerWidget {
                                 ),
                               ),
                             ),
-                          if (showCreate && compactViewport)
+                          if (showCreate)
                             const SliverToBoxAdapter(
                               child: SizedBox(height: 80),
                             ),
@@ -889,11 +886,6 @@ class _WorkoutRow extends ConsumerWidget {
           return Container(
             key: ValueKey('workout-grid-card-${workout.id}'),
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border.all(color: AppColors.line),
-              borderRadius: BorderRadius.circular(14),
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -60,15 +60,18 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
     final home = tester.getSemantics(find.bySemanticsLabel('홈'));
-    expect(home.getSemanticsData().flagsCollection.isFocused, Tristate.isTrue);
-    expect(home.getSemanticsData().flagsCollection.isButton, isTrue);
-    final focusedDecorators = tester.widgetList<shad.ShadDecorator>(
-      find.descendant(
-        of: find.byKey(const ValueKey('main-tab-home')),
-        matching: find.byType(shad.ShadDecorator),
-      ),
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<InkWell>()
+          ?.key,
+      const ValueKey('main-tab-home'),
     );
-    expect(focusedDecorators.any((widget) => widget.focused), isTrue);
+    expect(home.getSemanticsData().flagsCollection.isButton, isTrue);
+    // The restored Material dock uses InkWell's native focus/activation.
+    expect(
+      tester.widget(find.byKey(const ValueKey('main-tab-home'))),
+      isA<InkWell>(),
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     expect(selections, [MainDestination.home]);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
