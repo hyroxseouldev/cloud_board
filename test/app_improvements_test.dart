@@ -123,7 +123,7 @@ void main() {
       // The signed-in shell owns the one safe error notice. This isolated
       // page must not enqueue a duplicate; the shell has its own UI regression.
       expect(find.byType(SnackBar), findsNothing);
-      expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
+      expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
       await tester.tap(find.byTooltip('재생'));
       await tester.pumpAndSettle();
       expect(find.text('수업 준비'), findsOneWidget);
@@ -652,7 +652,7 @@ void main() {
     expect(nextSlideName([module, module.copyWith(name: '새 운동 2')]), '새 운동 3');
   });
   testWidgets(
-    'home grid keeps search and add available without layout controls',
+    'home list keeps search and add available without layout controls',
     (tester) async {
       tester.view.physicalSize = const Size(800, 1000);
       tester.view.devicePixelRatio = 1;
@@ -704,8 +704,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('workout-grid')), findsOneWidget);
-      expect(find.byKey(const ValueKey('workout-list')), findsNothing);
+      expect(find.byKey(const ValueKey('workout-grid')), findsNothing);
+      expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
       expect(find.byKey(const ValueKey('create-workout')), findsOneWidget);
       expect(find.text('수업'), findsOneWidget);
       expect(

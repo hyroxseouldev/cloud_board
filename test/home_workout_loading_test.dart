@@ -115,13 +115,13 @@ void main() {
   );
 
   testWidgets(
-    'refresh preserves the default grid, scroll position and filter control',
+    'refresh preserves the list, scroll position and filter control',
     (tester) async {
       final repository = ControlledHomeCatalog();
       await mountLoadingHome(tester, repository);
       repository.respond(0, homeCatalog(24));
       await tester.pumpAndSettle();
-      final list = find.byKey(const ValueKey('workout-grid'));
+      final list = find.byKey(const ValueKey('workout-list'));
       final before = tester.element(list);
       final scroll = tester
           .widget<CustomScrollView>(

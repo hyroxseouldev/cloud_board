@@ -15,7 +15,6 @@ import 'dart:math' as math;
 
 import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_edit_access.dart';
 import 'package:cloud_board/src/app/core/widgets/app_alert_dialog.dart';
-import 'package:cloud_board/src/app/core/widgets/app_error_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/gestures.dart';
@@ -101,7 +100,6 @@ class WorkoutListBody extends HookConsumerWidget {
         ? selectedFolder.value
         : null;
     final query = search?.text.trim().toLowerCase() ?? '';
-    final layout = ref.watch(homeWorkoutLayoutProvider);
     final filtered = useMemoized(
       () => items.where((item) {
         final matchesQuery =
@@ -169,7 +167,7 @@ class WorkoutListBody extends HookConsumerWidget {
       return null;
     }, [currentPage, page.value]);
     final user = ref.watch(authStateProvider).value;
-    // Keep one account cache alive across list/grid rebuilds and search pushes.
+    // Keep one account cache alive across list rebuilds and search pushes.
     ref.watch(homeThumbnailCacheProvider(user?.id ?? ''));
     final authAction = ref.watch(authControllerProvider);
     final workoutAction = ref.watch(workoutActionControllerProvider);
@@ -356,15 +354,11 @@ class WorkoutListBody extends HookConsumerWidget {
             final compactViewport = bodyConstraints.maxHeight < 380;
             return SafeArea(
               top: false,
-              // Normal home keeps its approved card/FAB separation. Short bodies
-              // need this space to reveal a card; their trailing scroll padding
-              // lets the final action move fully above the floating control.
-              minimum: EdgeInsets.only(
-                bottom: showCreate && !compactViewport ? 80 : 0,
-              ),
+              // The shell owns the dock and bottom safe area. Keep the viewport
+              // open behind the FAB; only the end of the content needs clearance.
+              bottom: searching,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final listLayout = layout == HomeWorkoutLayout.list;
                   final compactHeight = compactViewport;
                   final maxWidth = kIsWeb
                       ? AppStyle.webPageMaxWidth
@@ -413,19 +407,11 @@ class WorkoutListBody extends HookConsumerWidget {
                                     const SizedBox(height: 28),
                                   ],
                                   if (!searching) const FirstClassHomeCard(),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _WorkoutHeader(
-                                          compact: compactHeight,
-                                          count: workouts.hasValue
-                                              ? '${filtered.length}개${catalog.hasMore ? ' 이상' : ''}'
-                                              : null,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const _LayoutToggle(),
-                                    ],
+                                  _WorkoutHeader(
+                                    compact: compactHeight,
+                                    count: workouts.hasValue
+                                        ? '${filtered.length}개${catalog.hasMore ? ' 이상' : ''}'
+                                        : null,
                                   ),
                                   SizedBox(height: compactHeight ? 0 : 8),
                                   Row(
@@ -509,14 +495,9 @@ class WorkoutListBody extends HookConsumerWidget {
                           ),
                           if (initialLoading)
                             SliverPadding(
-                              padding: EdgeInsets.fromLTRB(
-                                inset,
-                                listLayout || compactHeight ? 8 : 24,
-                                inset,
-                                24,
-                              ),
+                              padding: EdgeInsets.fromLTRB(inset, 8, inset, 24),
                               sliver: loading.visible
-                                  ? WorkoutListSkeleton(mobile: listLayout)
+                                  ? WorkoutListSkeleton(mobile: true)
                                   : const SliverToBoxAdapter(
                                       child: SizedBox.shrink(),
                                     ),
@@ -562,25 +543,15 @@ class WorkoutListBody extends HookConsumerWidget {
                               sliver: SliverPadding(
                                 padding: EdgeInsets.fromLTRB(
                                   inset,
-                                  listLayout || compactHeight ? 8 : 24,
+                                  8,
                                   inset,
                                   24,
                                 ),
-                                sliver: listLayout
-                                    ? _WorkoutList(
-                                        items: visibleItems,
-                                        isBusy: isBusy,
-                                        scope: (
-                                          query,
-                                          folder,
-                                          mode,
-                                          page.value,
-                                        ),
-                                      )
-                                    : _WorkoutGrid(
-                                        items: visibleItems,
-                                        isBusy: isBusy,
-                                      ),
+                                sliver: _WorkoutList(
+                                  items: visibleItems,
+                                  isBusy: isBusy,
+                                  scope: (query, folder, mode, page.value),
+                                ),
                               ),
                             ),
                           if (workouts.hasValue &&
@@ -635,7 +606,7 @@ class WorkoutListBody extends HookConsumerWidget {
                                 ),
                               ),
                             ),
-                          if (showCreate && compactViewport)
+                          if (showCreate)
                             const SliverToBoxAdapter(
                               child: SizedBox(height: 80),
                             ),
@@ -781,14 +752,9 @@ class _WorkoutList extends StatelessWidget {
 }
 
 class _WorkoutRow extends ConsumerWidget {
-  const _WorkoutRow({
-    required this.workout,
-    required this.isBusy,
-    this.grid = false,
-  });
+  const _WorkoutRow({required this.workout, required this.isBusy});
   final WorkoutSummary workout;
   final bool isBusy;
-  final bool grid;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editBlocked = workoutEditBlockReason(
@@ -802,7 +768,7 @@ class _WorkoutRow extends ConsumerWidget {
         final stacked = constraints.maxWidth < 330 || scaler.scale(17) > 23;
         final title = Text(
           workout.name.isEmpty ? '이름 없음' : workout.name,
-          maxLines: grid && scaler.scale(16) <= 22 ? 1 : 2,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 16,
@@ -813,7 +779,7 @@ class _WorkoutRow extends ConsumerWidget {
         );
         final metadata = Text(
           '${workout.folder.isEmpty ? '폴더 없음' : workout.folder} · ${workout.moduleCount}개 슬라이드',
-          maxLines: grid && scaler.scale(16) <= 22 ? 1 : 2,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 12,
@@ -833,7 +799,7 @@ class _WorkoutRow extends ConsumerWidget {
           key: ValueKey('workout-thumbnail-${workout.id}'),
           ownerId: ownerId,
           workout: workout,
-          width: grid ? null : 96,
+          width: 96,
         );
         final details = InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -847,74 +813,30 @@ class _WorkoutRow extends ConsumerWidget {
                     context.push('/editor/${workout.id}');
                   }
                 },
-          child: grid
-              ? Column(
+          child: Row(
+            children: [
+              thumbnail,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    thumbnail,
-                    const SizedBox(height: 12),
                     title,
                     const SizedBox(height: 6),
                     metadata,
-                  ],
-                )
-              : Row(
-                  children: [
-                    thumbnail,
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          title,
-                          const SizedBox(height: 6),
-                          metadata,
-                          const SizedBox(height: 4),
-                          duration,
-                        ],
-                      ),
-                    ),
+                    const SizedBox(height: 4),
+                    duration,
                   ],
                 ),
+              ),
+            ],
+          ),
         );
         final actions = _WorkoutActions(
           workout: workout,
           isBusy: isBusy,
           compact: true,
         );
-        if (grid) {
-          final footerStacked =
-              constraints.maxWidth - 20 < 106 + scaler.scale(13) * 3;
-          return Container(
-            key: ValueKey('workout-grid-card-${workout.id}'),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border.all(color: AppColors.line),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                details,
-                const Spacer(),
-                if (footerStacked) ...[
-                  duration,
-                  const SizedBox(height: 6),
-                  Align(alignment: Alignment.centerRight, child: actions),
-                ] else
-                  Row(
-                    children: [
-                      Expanded(child: duration),
-                      const SizedBox(width: 4),
-                      actions,
-                    ],
-                  ),
-              ],
-            ),
-          );
-        }
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: const BoxDecoration(
@@ -940,87 +862,6 @@ class _WorkoutRow extends ConsumerWidget {
       },
     );
   }
-}
-
-class _LayoutToggle extends ConsumerWidget {
-  const _LayoutToggle();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(homeWorkoutLayoutProvider);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final layout in HomeWorkoutLayout.values)
-          Semantics(
-            selected: selected == layout,
-            child: Tooltip(
-              message: layout == HomeWorkoutLayout.list ? '목록 보기' : '그리드 보기',
-              child: shadcn.ShadButton.ghost(
-                key: ValueKey('home-layout-${layout.name}'),
-                width: 48,
-                height: 48,
-                padding: EdgeInsets.zero,
-                backgroundColor: selected == layout
-                    ? AppColors.selected
-                    : Colors.transparent,
-                onPressed: () async {
-                  if (selected == layout) return;
-                  final owner = ref.read(authStateProvider).value?.id;
-                  final saved = await ref
-                      .read(homeWorkoutLayoutProvider.notifier)
-                      .select(layout);
-                  if (!saved &&
-                      context.mounted &&
-                      ref.read(authStateProvider).value?.id == owner) {
-                    AppErrorToast.show(
-                      context,
-                      '보기 설정을 기기에 저장하지 못했어요. 이번 방문에는 선택한 보기를 유지해요.',
-                    );
-                  }
-                },
-                child: Icon(
-                  layout == HomeWorkoutLayout.list
-                      ? Icons.view_list_rounded
-                      : Icons.grid_view_rounded,
-                  size: 21,
-                  color: selected == layout
-                      ? AppColors.accent
-                      : AppColors.muted,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _WorkoutGrid extends StatelessWidget {
-  const _WorkoutGrid({required this.items, required this.isBusy});
-  final List<WorkoutSummary> items;
-  final bool isBusy;
-
-  @override
-  Widget build(BuildContext context) => SliverLayoutBuilder(
-    builder: (context, constraints) {
-      return SliverGrid.builder(
-        key: const ValueKey('workout-grid'),
-        gridDelegate: workoutListGridDelegate(
-          context,
-          constraints.crossAxisExtent,
-        ),
-        itemCount: items.length,
-        findChildIndexCallback: (key) {
-          final index = items.indexWhere((item) => ValueKey(item.id) == key);
-          return index < 0 ? null : index;
-        },
-        itemBuilder: (_, index) => KeyedSubtree(
-          key: ValueKey(items[index].id),
-          child: _WorkoutRow(workout: items[index], isBusy: isBusy, grid: true),
-        ),
-      );
-    },
-  );
 }
 
 class _Logo extends StatelessWidget {
