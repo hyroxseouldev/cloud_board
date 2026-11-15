@@ -82,8 +82,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       if (!baseline) expect(find.byType(WorkoutImageSkeleton), findsOneWidget);
       await capture('pending');
-      if (!baseline)
+      if (!baseline) {
         expect(tester.binding.transientCallbackCount, greaterThan(0));
+      }
       await mount('pending', active: false);
       await tester.pump(const Duration(milliseconds: 1500));
       expect(tester.binding.transientCallbackCount, 0);
