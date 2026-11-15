@@ -2688,6 +2688,11 @@
           "startedAt": "2026-11-15T06:50:29.962Z",
           "completedAt": "2026-11-15T06:50:32.310Z",
           "durationMs": 2348
+        },
+        {
+          "id": "upload",
+          "status": "running",
+          "startedAt": "2026-11-15T06:50:33.636Z"
         }
       ],
       "targets": [],
