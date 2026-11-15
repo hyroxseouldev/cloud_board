@@ -598,11 +598,6 @@ class _WorkoutPlayerBody extends HookConsumerWidget {
               currentModule: step.moduleIndex,
               paused: state.isPaused,
               timerFinished: actions.forTimeEnded,
-              onFinishTimer:
-                  module.timerMode == WorkoutTimerMode.forTime &&
-                      !actions.forTimeEnded
-                  ? () => unawaited(actions.finishTimer())
-                  : null,
               timerResult: actions.forTimeEnded
                   ? "${state.timerCompleted ? '운동 완료' : '제한시간 도달'} · ${durationLabel(timerElapsedMs(module, step.duration * 1000, state.remainingMs) ~/ 1000)}"
                   : null,

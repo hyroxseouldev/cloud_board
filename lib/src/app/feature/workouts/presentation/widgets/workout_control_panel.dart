@@ -30,7 +30,6 @@ class WorkoutControlPanel extends HookWidget {
     this.progress,
     this.message,
     this.onMinimize,
-    this.onFinishTimer,
     this.timerResult,
     this.timerFinished = false,
     this.locked = false,
@@ -46,7 +45,7 @@ class WorkoutControlPanel extends HookWidget {
   final Widget timeline;
   final Widget? progress;
   final String? message;
-  final VoidCallback? onMinimize, onFinishTimer;
+  final VoidCallback? onMinimize;
   final String? timerResult;
   final bool timerFinished;
   final bool locked;
@@ -257,13 +256,6 @@ class WorkoutControlPanel extends HookWidget {
                                   ),
                                 ],
                               ),
-                              if (onFinishTimer != null)
-                                FilledButton.icon(
-                                  key: const ValueKey('finish-for-time'),
-                                  onPressed: disabled ? null : onFinishTimer,
-                                  icon: const Icon(Icons.check),
-                                  label: const Text('운동 완료'),
-                                ),
                               if (timerResult != null)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
