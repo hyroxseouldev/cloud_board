@@ -1,4 +1,3 @@
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,8 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/main_navigation_fixture.dart';
 import 'support/ui_layout_evidence.dart';
-
-const baseline = bool.fromEnvironment('HOME_NAV_BASELINE');
 
 void main() {
   for (final scene in [
@@ -26,7 +23,9 @@ void main() {
       testWidgets(
         'home content and final controls ${scene.name} count=$count',
         (tester) async {
-          SharedPreferences.setMockInitialValues({});
+          SharedPreferences.setMockInitialValues({
+            'home.workoutLayout.v1.${previewUser.id}': 'grid',
+          });
           await loadLayoutFonts(tester);
           final shadows = debugDisableShadows;
           debugDisableShadows = false;
@@ -61,21 +60,16 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(
-            data.container.read(homeWorkoutLayoutProvider),
-            HomeWorkoutLayout.grid,
-          );
-          for (final mode in ['grid', 'list']) {
+          expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
+          expect(find.byKey(const ValueKey('workout-grid')), findsNothing);
+          expect(find.byTooltip('그리드 보기'), findsNothing);
+          expect(find.byTooltip('목록 보기'), findsNothing);
+          {
+            const mode = 'list';
             final scrollFinder = find.byKey(const ValueKey('workout-scroll'));
             final scroll = tester
                 .widget<CustomScrollView>(scrollFinder)
                 .controller!;
-            if (mode == 'list') {
-              scroll.jumpTo(0);
-              await tester.pumpAndSettle();
-              await tester.tap(find.byKey(const ValueKey('home-layout-list')));
-              await tester.pumpAndSettle();
-            }
             final fab = find.byKey(const ValueKey('create-workout'));
             final dock = find.byKey(const ValueKey('main-navigation-dock'));
             expect(fab.hitTestable(), findsOneWidget);
@@ -84,7 +78,7 @@ void main() {
               tester.getRect(fab).bottom,
               lessThan(tester.getRect(dock).top),
             );
-            if (!baseline) {
+            {
               final homeScaffold = find
                   .ancestor(of: scrollFinder, matching: find.byType(Scaffold))
                   .first;
@@ -93,18 +87,6 @@ void main() {
                 closeTo(tester.getRect(homeScaffold).bottom, .01),
                 reason: 'No opaque bottom viewport reservation',
               );
-              if (mode == 'grid') {
-                for (final item in tester.widgetList<Container>(
-                  find.byWidgetPredicate(
-                    (widget) =>
-                        widget is Container &&
-                        widget.key.toString().contains('workout-grid-card-'),
-                  ),
-                )) {
-                  expect(item.decoration, isNull);
-                  expect(item.color, isNull);
-                }
-              }
             }
             await captureLayout(
               tester,
@@ -113,7 +95,7 @@ void main() {
             );
             scroll.jumpTo(scroll.position.maxScrollExtent);
             await tester.pumpAndSettle();
-            if (!baseline) {
+            {
               final play = find.byTooltip('재생').last;
               expect(play.hitTestable(), findsOneWidget);
               expect(

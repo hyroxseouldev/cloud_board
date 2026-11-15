@@ -9,7 +9,6 @@ import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/pl
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cloud_board/src/app/feature/workouts/presentation/controllers/workout_list_mode_controller.dart';
 
 import 'dart:ui' show Tristate;
 
@@ -132,8 +131,6 @@ void main() {
     'search page returns to home state and tab switches preserve library search and category',
     (tester) async {
       final data = await mountNavigation(tester, active: false, count: 30);
-      await tester.tap(find.byKey(const ValueKey('home-layout-list')));
-      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('폴더 선택'));
       await tester.pumpAndSettle();
       await tester.tap(
@@ -199,10 +196,7 @@ void main() {
         );
         expect(find.byType(EditableText), findsNothing);
         expect(scroll.offset, closeTo(offset, 1));
-        expect(
-          data.container.read(homeWorkoutLayoutProvider),
-          HomeWorkoutLayout.list,
-        );
+        expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
         // Reveal the lazy header to assert its retained folder, then return to
         // the original offset before the next navigation transition.
         scroll.jumpTo(0);
@@ -482,49 +476,44 @@ void main() {
     );
   }
 
-  navigationTest(
-    'single class actions remain reachable above FAB in both layouts',
-    (tester) async {
-      for (final scene in [
-        (const Size(390, 844), 1.0),
-        (const Size(844, 390), 1.0),
-        (const Size(320, 568), 2.0),
-      ]) {
-        await mountNavigation(
-          tester,
-          active: false,
-          count: 1,
-          size: scene.$1,
-          textScale: scene.$2,
-        );
-        final scroll = tester
-            .widget<CustomScrollView>(
-              find.byKey(const ValueKey('workout-scroll')),
-            )
-            .controller!;
-        for (final layout in ['grid', 'list']) {
-          scroll.jumpTo(0);
-          await tester.pumpAndSettle();
-          await tester.tap(find.byKey(ValueKey('home-layout-$layout')));
-          await tester.pumpAndSettle();
-          scroll.jumpTo(scroll.position.maxScrollExtent);
-          await tester.pumpAndSettle();
-          final fab = find.byKey(const ValueKey('create-workout'));
-          expect(fab.hitTestable(), findsOneWidget);
-          for (final action in ['재생', '워크아웃 메뉴']) {
-            final button = find.byTooltip(action);
-            expect(button.hitTestable(), findsOneWidget);
-            expect(
-              tester.getRect(button).bottom,
-              lessThan(tester.getRect(fab).top),
-            );
-          }
+  navigationTest('single class list actions remain reachable above FAB', (
+    tester,
+  ) async {
+    for (final scene in [
+      (const Size(390, 844), 1.0),
+      (const Size(844, 390), 1.0),
+      (const Size(320, 568), 2.0),
+    ]) {
+      await mountNavigation(
+        tester,
+        active: false,
+        count: 1,
+        size: scene.$1,
+        textScale: scene.$2,
+      );
+      final scroll = tester
+          .widget<CustomScrollView>(
+            find.byKey(const ValueKey('workout-scroll')),
+          )
+          .controller!;
+      {
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        final fab = find.byKey(const ValueKey('create-workout'));
+        expect(fab.hitTestable(), findsOneWidget);
+        for (final action in ['재생', '워크아웃 메뉴']) {
+          final button = find.byTooltip(action);
+          expect(button.hitTestable(), findsOneWidget);
+          expect(
+            tester.getRect(button).bottom,
+            lessThan(tester.getRect(fab).top),
+          );
         }
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox.shrink());
       }
-    },
-  );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 
   navigationTest(
     'controller navigation hides when the device switches to display mode',

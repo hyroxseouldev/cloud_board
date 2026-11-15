@@ -601,47 +601,32 @@ void main() {
     );
   });
 
-  testWidgets('cards retain bounds and thumbnail ratio as the window resizes', (
-    tester,
-  ) async {
-    for (final (width, columns) in [
-      (320.0, 1),
-      (390.0, 1),
-      (640.0, 2),
-      (768.0, 2),
-      (834.0, 2),
-      (960.0, 3),
-      (1600.0, 3),
-    ]) {
-      await _mount(
-        tester,
-        _CatalogRepository(_catalog(1)),
-        size: Size(width, 1000),
-        textScale: 2,
-        layout: HomeWorkoutLayout.grid,
-      );
-      {
-        final grid = tester.widget<SliverGrid>(
-          find.byKey(const ValueKey('workout-grid')),
+  testWidgets(
+    'list tiles ignore legacy grid and retain thumbnail ratio as the window resizes',
+    (tester) async {
+      for (final width in [320.0, 390.0, 640.0, 768.0, 834.0, 960.0, 1600.0]) {
+        await _mount(
+          tester,
+          _CatalogRepository(_catalog(1)),
+          size: Size(width, 1000),
+          textScale: 2,
+          layout: HomeWorkoutLayout.grid,
         );
-        expect(
-          (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
-              .crossAxisCount,
-          columns,
+        expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
+        expect(find.byKey(const ValueKey('workout-grid')), findsNothing);
+        final thumbnail = tester.getSize(
+          find.byKey(const ValueKey('workout-thumbnail-w1')),
         );
+        expect(thumbnail.width, lessThan(width));
+        expect(thumbnail.width / thumbnail.height, closeTo(16 / 9, .001));
+        await tester.ensureVisible(find.byTooltip('재생'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('재생').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
       }
-      final thumbnail = tester.getSize(
-        find.byKey(const ValueKey('workout-thumbnail-w1')),
-      );
-      expect(thumbnail.width, lessThan(width));
-      expect(thumbnail.width / thumbnail.height, closeTo(16 / 9, .001));
-      await tester.ensureVisible(find.byTooltip('재생'));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('재생').hitTestable(), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    }
-  });
+    },
+  );
 
   testWidgets('class commands do not flash a page overlay or reset browsing', (
     tester,
@@ -737,10 +722,10 @@ void main() {
     },
   );
 
-  for (final (size, columns) in [
-    (const Size(390, 844), 1),
-    (const Size(834, 1194), 3),
-    (const Size(1194, 834), 3),
+  for (final size in [
+    const Size(390, 844),
+    const Size(834, 1194),
+    const Size(1194, 834),
   ]) {
     testWidgets(
       'continuous lazy scrolling reaches every item and retains filters at $size',
@@ -754,7 +739,6 @@ void main() {
               ? HomeWorkoutLayout.list
               : HomeWorkoutLayout.grid,
         );
-        final mobile = size.width < 600;
         expect(find.byTooltip('다음 페이지'), findsNothing);
         expect(
           find.byKey(const ValueKey('workout-page-indicator')),
@@ -764,16 +748,8 @@ void main() {
           _title('수업 60'),
           findsNothing,
         ); // Offscreen rows are not built eagerly.
-        if (!mobile) {
-          final grid = tester.widget<SliverGrid>(
-            find.byKey(const ValueKey('workout-grid')),
-          );
-          expect(
-            (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
-                .crossAxisCount,
-            columns,
-          );
-        }
+        expect(find.byKey(const ValueKey('workout-list')), findsOneWidget);
+        expect(find.byKey(const ValueKey('workout-grid')), findsNothing);
         await tester.scrollUntilVisible(
           _title('수업 60'),
           600,
